@@ -18,7 +18,10 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+
 #include <R_ext/Riconv.h>
+
+#include <arrow/buffer_builder.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/io/transform.h>
@@ -227,12 +230,16 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
   arrow::Result<std::shared_ptr<arrow::Buffer>> operator()(
       const std::shared_ptr<arrow::Buffer>& src) {
-    int64_t initial_size = std::max<int64_t>((src->size() + 8) * 1.2, 32);
-    ARROW_ASSIGN_OR_RAISE(auto dest, arrow::AllocateResizableBuffer(initial_size));
+    // A pre-allocation factor to account for possible data growth when
+    // converting to UTF-8.
+    constexpr double kOversizeFactor = 1.2;
 
-    int64_t out_bytes_left = dest->size();
-    uint8_t* out_buf = dest->mutable_data();
-    int64_t out_bytes_used = 0;
+    arrow::BufferBuilder builder;
+    const int64_t initial_size = static_cast<int64_t>(src->size() * kOversizeFactor);
+    RETURN_NOT_OK(builder.Reserve(initial_size));
+
+    int64_t out_bytes_left = builder.capacity();
+    uint8_t* out_buf = builder.mutable_data();
 
     int64_t in_bytes_left;
     const uint8_t* in_buf;
@@ -260,8 +267,8 @@ struct ReencodeUTF8TransformFunctionWrapper {
         return StatusInvalidInput();
       }
 
-      int64_t bytes_read_out = out_buf - dest->data();
-      out_bytes_used += bytes_read_out;
+      int64_t bytes_read_out = out_buf - builder.mutable_data();
+      builder.UnsafeAdvance(bytes_read_out);
 
       int64_t chars_read_in = n_pending_ + n_src_bytes_in_pending - in_bytes_left;
       in_buf = src->data() + chars_read_in - n_pending_;
@@ -273,17 +280,16 @@ struct ReencodeUTF8TransformFunctionWrapper {
 
     // Try to call iconv() as many times as we need, potentially enlarging
     // the output buffer as needed. When zero bytes are appended, the loop
-    // with either error (if there are more than 4 bytes left) or copy the
+    // will either error (if there are more than 4 bytes left) or copy the
     // bytes to pending_ and wait for more input. We use 4 bytes because
     // this is the maximum number of bytes per complete character in UTF-8,
     // UTF-16, and UTF-32.
     while (in_bytes_left > 0) {
-      // When this is true, we will (almost) always need a new buffer
-      if (out_bytes_left < in_bytes_left) {
-        RETURN_NOT_OK(dest->Resize(dest->size() * 1.2));
-        out_buf = dest->mutable_data() + out_bytes_used;
-        out_bytes_left = dest->size() - out_bytes_used;
-      }
+      // Make enough place in the output to hopefully consume all of the input.
+      RETURN_NOT_OK(
+          builder.Reserve(std::max<int64_t>(in_bytes_left * kOversizeFactor, 4)));
+      out_buf = builder.mutable_data() + builder.length();
+      out_bytes_left = builder.capacity() - builder.length();
 
       // iconv() can return an error code ((size_t) -1) but it's not
       // useful as it can occur because of invalid input, because
@@ -296,19 +302,20 @@ struct ReencodeUTF8TransformFunctionWrapper {
       iconv_->iconv(&in_buf, &in_bytes_left, &out_buf, &out_bytes_left);
 
       int64_t bytes_read_out = out_buf - out_buf_before;
+      builder.UnsafeAdvance(bytes_read_out);
 
       // If no bytes were written out, we either have a partial valid
       // character or invalid input. If there are only a few bytes
       // left in the buffer it's likely that we have a partial character
       // that can be handled in the next call when there is more input
       // (which will error if the input is invalid).
-      if (bytes_read_out == 0 && in_bytes_left <= 4) {
-        break;
-      } else if (bytes_read_out == 0) {
-        return StatusInvalidInput();
+      if (bytes_read_out == 0) {
+        if (in_bytes_left <= 4) {
+          break;
+        } else {
+          return StatusInvalidInput();
+        }
       }
-
-      out_bytes_used += bytes_read_out;
     }
 
     // Keep the leftover characters until the next call to the function
@@ -318,8 +325,7 @@ struct ReencodeUTF8TransformFunctionWrapper {
     }
 
     // Shrink the output buffer to only the size used
-    RETURN_NOT_OK(dest->Resize(out_bytes_used, false));
-    return std::move(dest);
+    return builder.Finish();
   }
 
  protected:
