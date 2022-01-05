@@ -115,7 +115,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
 remove_attributes <- function(x) {
   removed_attributes <- character()
   if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
-    removed_attributes <- c("class", "row.names", "names", "groups")
+    removed_attributes <- c("class", "row.names", "names")
   } else if (inherits(x, "data.frame")) {
     removed_attributes <- c("row.names", "names")
   } else if (inherits(x, "factor")) {
@@ -135,6 +135,7 @@ remove_attributes <- function(x) {
 arrow_attributes <- function(x, only_top_level = FALSE) {
 
   att <- attributes(x)
+  removed_attributes <- remove_attributes(x)
 
   if (inherits(x, "grouped_df")) {
     # Keep only the group var names, not the rest of the cached data that dplyr
@@ -144,10 +145,9 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
       x <- dplyr::ungroup(x)
       # ungroup() first, then set attribute, bc ungroup() would erase it
       att[[".group_vars"]] <- gv
+      removed_attributes <- c(removed_attributes, "groups", "class")
     }
   }
-
-  removed_attributes <- remove_attributes(x)
 
   att <- att[setdiff(names(att), removed_attributes)]
 
