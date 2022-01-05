@@ -28,8 +28,8 @@
 
   <ItemGroup>
     <PackageReference Include="Grpc.AspNetCore" Version="2.40.0" />
-    <PackageReference Include="Apache.Arrow.Flight" Version="6.0.1" />
-    <PackageReference Include="Apache.Arrow.Flight.AspNetCore" Version="6.0.1" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Flight\Apache.Arrow.Flight.csproj" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Flight.AspNetCore\Apache.Arrow.Flight.AspNetCore.csproj" />
   </ItemGroup>
 
 </Project>
