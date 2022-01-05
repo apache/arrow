@@ -26,15 +26,27 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v8/arrow"
-	"github.com/apache/arrow/go/v8/arrow/array"
-	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/parquet"
 
 	"github.com/zeebo/xxh3"
 )
 
-//go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
+//go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
+
+type TypeTraits interface {
+	BytesRequired(n int) int
+}
+
+type MemoTable interface {
+	TypeTraits() TypeTraits
+	Reset()
+	Size() int
+	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	GetOrInsertNull() (idx int, existed bool)
+	GetNull() (idx int, exists bool)
+	WriteOut(out []byte)
+	WriteOutSubset(offset int, out []byte)
+}
 
 func hashInt(val uint64, alg uint64) uint64 {
 	// Two of xxhash's prime multipliers (which are chosen for their
@@ -125,13 +137,27 @@ var isNan32Cmp = func(v float32) bool { return math.IsNaN(float64(v)) }
 // KeyNotFound is the constant returned by memo table functions when a key isn't found in the table
 const KeyNotFound = -1
 
+type BinaryBuilderIFace interface {
+	Reserve(int)
+	ReserveData(int)
+	Retain()
+	Resize(int)
+	Release()
+	DataLen() int
+	Value(int) []byte
+	Len() int
+	AppendNull()
+	AppendString(string)
+	Append([]byte)
+}
+
 // BinaryMemoTable is our hashtable for binary data using the BinaryBuilder
 // to construct the actual data in an easy to pass around way with minimal copies
 // while using a hash table to keep track of the indexes into the dictionary that
 // is created as we go.
 type BinaryMemoTable struct {
 	tbl     *Int32HashTable
-	builder *array.BinaryBuilder
+	builder BinaryBuilderIFace
 	nullIdx int
 }
 
@@ -140,11 +166,7 @@ type BinaryMemoTable struct {
 // initial and valuesize can be used to pre-allocate the table to reduce allocations. With
 // initial being the initial number of entries to allocate for and valuesize being the starting
 // amount of space allocated for writing the actual binary data.
-func NewBinaryMemoTable(mem memory.Allocator, initial, valuesize int) *BinaryMemoTable {
-	if mem == nil {
-		mem = memory.DefaultAllocator
-	}
-	bldr := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+func NewBinaryMemoTable(initial, valuesize int, bldr BinaryBuilderIFace) *BinaryMemoTable {
 	bldr.Reserve(int(initial))
 	datasize := valuesize
 	if datasize <= 0 {
@@ -154,10 +176,18 @@ func NewBinaryMemoTable(mem memory.Allocator, initial, valuesize int) *BinaryMem
 	return &BinaryMemoTable{tbl: NewInt32HashTable(uint64(initial)), builder: bldr, nullIdx: KeyNotFound}
 }
 
+type unimplementedtraits struct{}
+
+func (unimplementedtraits) BytesRequired(int) int { panic("unimplemented") }
+
+func (BinaryMemoTable) TypeTraits() TypeTraits {
+	return unimplementedtraits{}
+}
+
 // Reset dumps all of the data in the table allowing it to be reutilized.
 func (s *BinaryMemoTable) Reset() {
 	s.tbl.Reset(32)
-	s.builder.NewArray().Release()
+	s.builder.Resize(0)
 	s.builder.Reserve(int(32))
 	s.builder.ReserveData(int(32) * 4)
 	s.nullIdx = KeyNotFound
@@ -299,13 +329,13 @@ func (b *BinaryMemoTable) findOffset(idx int) uintptr {
 // CopyOffsets copies the list of offsets into the passed in slice, the offsets
 // being the start and end values of the underlying allocated bytes in the builder
 // for the individual values of the table. out should be at least sized to Size()+1
-func (b *BinaryMemoTable) CopyOffsets(out []int8) {
+func (b *BinaryMemoTable) CopyOffsets(out []int32) {
 	b.CopyOffsetsSubset(0, out)
 }
 
 // CopyOffsetsSubset is like CopyOffsets but instead of copying all of the offsets,
 // it gets a subset of the offsets in the table starting at the index provided by "start".
-func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int8) {
+func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 	if b.builder.Len() <= start {
 		return
 	}
@@ -313,11 +343,11 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int8) {
 	first := b.findOffset(0)
 	delta := b.findOffset(start)
 	for i := start; i < b.Size(); i++ {
-		offset := int8(b.findOffset(i) - delta)
+		offset := int32(b.findOffset(i) - delta)
 		out[i-start] = offset
 	}
 
-	out[b.Size()-start] = int8(b.builder.DataLen() - int(delta) - int(first))
+	out[b.Size()-start] = int32(b.builder.DataLen() - int(delta) - int(first))
 }
 
 // CopyValues copies the raw binary data bytes out, out should be a []byte

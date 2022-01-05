@@ -23,8 +23,8 @@ import (
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/array"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/internal/hashing"
 	"github.com/apache/arrow/go/v8/parquet"
-	"github.com/apache/arrow/go/v8/parquet/internal/hashing"
 )
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata memo_table_types.gen.go.tmpl
@@ -115,7 +115,7 @@ func NewFloat64Dictionary() MemoTable {
 // NewBinaryDictionary returns a memotable interface for use with strings, byte slices,
 // parquet.ByteArray and parquet.FixedLengthByteArray only.
 func NewBinaryDictionary(mem memory.Allocator) BinaryMemoTable {
-	return hashing.NewBinaryMemoTable(mem, 0, -1)
+	return hashing.NewBinaryMemoTable(0, -1, array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 }
 
 const keyNotFound = hashing.KeyNotFound

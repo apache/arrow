@@ -29,13 +29,14 @@ import (
 
 // Data represents the memory and metadata of an Arrow array.
 type Data struct {
-	refCount  int64
-	dtype     arrow.DataType
-	nulls     int
-	offset    int
-	length    int
-	buffers   []*memory.Buffer  // TODO(sgc): should this be an interface?
-	childData []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
+	refCount   int64
+	dtype      arrow.DataType
+	nulls      int
+	offset     int
+	length     int
+	buffers    []*memory.Buffer  // TODO(sgc): should this be an interface?
+	childData  []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
+	dictionary *Data
 }
 
 // NewData creates a new Data.
@@ -121,7 +122,11 @@ func (d *Data) Release() {
 		for _, b := range d.childData {
 			b.Release()
 		}
-		d.buffers, d.childData = nil, nil
+
+		if d.dictionary != nil {
+			d.dictionary.Release()
+		}
+		d.dictionary, d.buffers, d.childData = nil, nil, nil
 	}
 }
 
@@ -166,14 +171,19 @@ func NewSliceData(data arrow.ArrayData, i, j int64) arrow.ArrayData {
 		}
 	}
 
+	if data.(*Data).dictionary != nil {
+		data.(*Data).dictionary.Retain()
+	}
+
 	o := &Data{
-		refCount:  1,
-		dtype:     data.DataType(),
-		nulls:     UnknownNullCount,
-		length:    int(j - i),
-		offset:    data.Offset() + int(i),
-		buffers:   data.Buffers(),
-		childData: data.Children(),
+		refCount:   1,
+		dtype:      data.DataType(),
+		nulls:      UnknownNullCount,
+		length:     int(j - i),
+		offset:     data.Offset() + int(i),
+		buffers:    data.Buffers(),
+		childData:  data.Children(),
+		dictionary: data.(*Data).dictionary,
 	}
 
 	if data.NullN() == 0 {
