@@ -421,6 +421,19 @@ def test_scanner(dataset, dataset_reader):
     assert table.num_rows == scanner.count_rows()
 
 
+def test_scanner_async_deprecated(dataset):
+    with pytest.warns(FutureWarning):
+        dataset.scanner(use_async=False)
+    with pytest.warns(FutureWarning):
+        dataset.to_table(use_async=False)
+    with pytest.warns(FutureWarning):
+        dataset.head(1, use_async=False)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_dataset(dataset, use_async=False)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_fragment(next(dataset.get_fragments()), use_async=False)
+
+
 @pytest.mark.parquet
 def test_head(dataset, dataset_reader):
     result = dataset_reader.head(dataset, 0)

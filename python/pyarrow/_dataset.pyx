@@ -446,7 +446,10 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2233,6 +2236,9 @@ cdef class Scanner(_Weakrefable):
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
+    use_async : bool, default True
+        This flag is deprecated and is being kept for this release for
+        backwards compatibility.  It will be removed in the next release.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -2260,7 +2266,8 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, MemoryPool memory_pool=None,
+                     bint use_threads=True, bint use_async=True,
+                     MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
@@ -2281,6 +2288,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2291,6 +2302,11 @@ cdef class Scanner(_Weakrefable):
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
+
+        if not use_async:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
 
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
@@ -2303,7 +2319,8 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, MemoryPool memory_pool=None,
+                      bint use_threads=True, bint use_async=True,
+                      MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
@@ -2326,6 +2343,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2339,6 +2360,11 @@ cdef class Scanner(_Weakrefable):
 
         schema = schema or fragment.physical_schema
 
+        if not use_async:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
+
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
@@ -2351,8 +2377,8 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_batches(source, Schema schema=None, bint use_threads=True,
-                     MemoryPool memory_pool=None, object columns=None,
-                     Expression filter=None,
+                     bint use_async=True, MemoryPool memory_pool=None,
+                     object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
         """
@@ -2378,6 +2404,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2404,6 +2434,12 @@ cdef class Scanner(_Weakrefable):
                             'batches instead of the given type: ' +
                             type(source).__name__)
         builder = CScannerBuilder.FromRecordBatchReader(reader.reader)
+
+        if not use_async:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
+
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
                           memory_pool=memory_pool,
