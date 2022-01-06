@@ -24,20 +24,10 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-// Defined in scalar_string_utf8.cc.
-void EnsureUtf8LookupTablesFilled();
-
-FunctionDoc StringPredicateDoc(std::string summary, std::string description);
-
-FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
-                              bool non_empty);
-
-namespace {
-
 // ----------------------------------------------------------------------
 // String transformation base classes
 
-constexpr int64_t kTransformError = -1;
+constexpr int64_t kStringTransformError = -1;
 
 struct StringTransformBase {
   virtual ~StringTransformBase() = default;
@@ -214,6 +204,14 @@ void MakeUnaryStringBatchKernelWithState(
 // ----------------------------------------------------------------------
 // Predicates and classification
 
+// Defined in scalar_string_utf8.cc.
+void EnsureUtf8LookupTablesFilled();
+
+FunctionDoc StringPredicateDoc(std::string summary, std::string description);
+
+FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
+                              bool non_empty);
+
 template <typename Type, typename Predicate>
 struct StringPredicateFunctor {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -259,7 +257,7 @@ void AddUnaryStringPredicate(std::string name, FunctionRegistry* registry,
 // ----------------------------------------------------------------------
 // Slicing
 
-struct SliceTransformBase : public StringTransformBase {
+struct StringSliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<SliceOptions>;
 
   const SliceOptions* options;
@@ -273,12 +271,12 @@ struct SliceTransformBase : public StringTransformBase {
   }
 };
 
-struct ReplaceSliceTransformBase : public StringTransformBase {
+struct ReplaceStringSliceTransformBase : public StringTransformBase {
   using State = OptionsWrapper<ReplaceSliceOptions>;
 
   const ReplaceSliceOptions* options;
 
-  explicit ReplaceSliceTransformBase(const ReplaceSliceOptions& options)
+  explicit ReplaceStringSliceTransformBase(const ReplaceSliceOptions& options)
       : options{&options} {}
 
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
@@ -290,8 +288,8 @@ struct ReplaceSliceTransformBase : public StringTransformBase {
 // Splitting
 
 template <typename Options>
-struct SplitFinderBase {
-  virtual ~SplitFinderBase() = default;
+struct StringSplitFinderBase {
+  virtual ~StringSplitFinderBase() = default;
   virtual Status PreExec(const Options& options) { return Status::OK(); }
 
   // Derived classes should also define these methods:
@@ -308,7 +306,7 @@ struct SplitFinderBase {
 
 template <typename Type, typename ListType, typename SplitFinder,
           typename Options = typename SplitFinder::Options>
-struct SplitExec {
+struct StringSplitExec {
   using string_offset_type = typename Type::offset_type;
   using list_offset_type = typename ListType::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
@@ -323,10 +321,10 @@ struct SplitExec {
   std::vector<util::string_view> parts;
   Options options;
 
-  explicit SplitExec(const Options& options) : options(options) {}
+  explicit StringSplitExec(const Options& options) : options(options) {}
 
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return SplitExec{State::Get(ctx)}.Execute(ctx, batch, out);
+    return StringSplitExec{State::Get(ctx)}.Execute(ctx, batch, out);
   }
 
   Status Execute(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -443,9 +441,7 @@ struct SplitExec {
   }
 };
 
-using SplitState = OptionsWrapper<SplitOptions>;
-
-}  // namespace
+using StringSplitState = OptionsWrapper<SplitOptions>;
 
 }  // namespace internal
 }  // namespace compute

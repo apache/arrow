@@ -1014,7 +1014,7 @@ struct AsciiReverseTransform : public StringTransformBase {
       utf8_char_found |= input[i] & 0x80;
       output[input_string_ncodeunits - i - 1] = input[i];
     }
-    return utf8_char_found ? kTransformError : input_string_ncodeunits;
+    return utf8_char_found ? kStringTransformError : input_string_ncodeunits;
   }
 
   Status InvalidInputSequence() override {
@@ -2465,8 +2465,8 @@ void AddAsciiStringExtractRegex(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Replace slice
 
-struct BinaryReplaceSliceTransform : ReplaceSliceTransformBase {
-  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+struct BinaryReplaceSliceTransform : ReplaceStringSliceTransformBase {
+  using ReplaceStringSliceTransformBase::ReplaceStringSliceTransformBase;
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     const auto& opts = *options;
@@ -2538,13 +2538,13 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
   for (const auto& ty : BaseBinaryTypes()) {
     DCHECK_OK(func->AddKernel({ty}, ty,
                               GenerateTypeAgnosticVarBinaryBase<BinaryReplaceSlice>(ty),
-                              ReplaceSliceTransformBase::State::Init));
+                              ReplaceStringSliceTransformBase::State::Init));
   }
   using TransformExec =
       FixedSizeBinaryTransformExecWithState<BinaryReplaceSliceTransform>;
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
                             OutputType(TransformExec::OutputType), TransformExec::Exec,
-                            ReplaceSliceTransformBase::State::Init));
+                            ReplaceStringSliceTransformBase::State::Init));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -2553,7 +2553,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 
 using SplitPatternState = OptionsWrapper<SplitPatternOptions>;
 
-struct SplitPatternFinder : public SplitFinderBase<SplitPatternOptions> {
+struct SplitPatternFinder : public StringSplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
   Status PreExec(const SplitPatternOptions& options) override {
@@ -2606,7 +2606,7 @@ struct SplitPatternFinder : public SplitFinderBase<SplitPatternOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitPatternExec = SplitExec<Type, ListType, SplitPatternFinder>;
+using SplitPatternExec = StringSplitExec<Type, ListType, SplitPatternFinder>;
 
 const FunctionDoc split_pattern_doc(
     "Split string according to separator",
@@ -2632,7 +2632,7 @@ void AddAsciiStringSplitPattern(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Split by whitespace
 
-struct SplitWhitespaceAsciiFinder : public SplitFinderBase<SplitOptions> {
+struct SplitWhitespaceAsciiFinder : public StringSplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
 
   static bool Find(const uint8_t* begin, const uint8_t* end,
@@ -2673,7 +2673,7 @@ struct SplitWhitespaceAsciiFinder : public SplitFinderBase<SplitOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitWhitespaceAsciiExec = SplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
+using SplitWhitespaceAsciiExec = StringSplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
 
 const FunctionDoc ascii_split_whitespace_doc(
     "Split string according to any ASCII whitespace",
@@ -2693,7 +2693,7 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
 
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceAsciiExec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -2703,7 +2703,7 @@ void AddAsciiStringSplitWhitespace(FunctionRegistry* registry) {
 
 #ifdef ARROW_WITH_RE2
 template <typename Type>
-struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
+struct SplitRegexFinder : public StringSplitFinderBase<SplitPatternOptions> {
   using Options = SplitPatternOptions;
 
   std::unique_ptr<RE2> regex_split;
@@ -2745,7 +2745,7 @@ struct SplitRegexFinder : public SplitFinderBase<SplitPatternOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitRegexExec = SplitExec<Type, ListType, SplitRegexFinder<Type>>;
+using SplitRegexExec = StringSplitExec<Type, ListType, SplitRegexFinder<Type>>;
 
 const FunctionDoc split_pattern_regex_doc(
     "Split string according to regex pattern",

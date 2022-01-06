@@ -366,7 +366,7 @@ struct StringTransformCodepoint : public FunctionalCaseMappingTransform {
     if (ARROW_PREDICT_FALSE(
             !arrow::util::UTF8Transform(input, input + input_string_ncodeunits, &output,
                                         CodepointTransform::TransformCodepoint))) {
-      return kTransformError;
+      return kStringTransformError;
     }
     return output - output_start;
   }
@@ -420,15 +420,15 @@ struct Utf8CapitalizeTransform : public FunctionalCaseMappingTransform {
     const uint8_t* next = input;
     if (input_string_ncodeunits > 0) {
       if (ARROW_PREDICT_FALSE(!util::UTF8AdvanceCodepoints(input, end, &next, 1))) {
-        return kTransformError;
+        return kStringTransformError;
       }
       if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
               input, next, &output, UTF8UpperTransform::TransformCodepoint))) {
-        return kTransformError;
+        return kStringTransformError;
       }
       if (ARROW_PREDICT_FALSE(!util::UTF8Transform(
               next, end, &output, UTF8LowerTransform::TransformCodepoint))) {
-        return kTransformError;
+        return kStringTransformError;
       }
     }
     return output - output_start;
@@ -448,7 +448,7 @@ struct Utf8TitleTransform : public FunctionalCaseMappingTransform {
     while ((input = next) < end) {
       uint32_t codepoint;
       if (ARROW_PREDICT_FALSE(!util::UTF8Decode(&next, &codepoint))) {
-        return kTransformError;
+        return kStringTransformError;
       }
       if (IsCasedCharacterUnicode(codepoint)) {
         // Lower/uppercase current codepoint and
@@ -781,12 +781,12 @@ struct UTF8TrimTransform : public StringTransformBase {
     auto predicate = [&](uint32_t c) { return c >= codepoints.size() || !codepoints[c]; };
     if (TrimLeft && !ARROW_PREDICT_TRUE(
                         arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return kTransformError;
+      return kStringTransformError;
     }
     if (TrimRight && begin_trimmed < end) {
       if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
                                                              predicate, &end_trimmed))) {
-        return kTransformError;
+        return kStringTransformError;
       }
     }
     std::copy(begin_trimmed, end_trimmed, output);
@@ -822,12 +822,12 @@ struct UTF8TrimWhitespaceTransform : public StringTransformBase {
     auto predicate = [](uint32_t c) { return !IsSpaceCharacterUnicode(c); };
     if (TrimLeft && !ARROW_PREDICT_TRUE(
                         arrow::util::UTF8FindIf(begin, end, predicate, &begin_trimmed))) {
-      return kTransformError;
+      return kStringTransformError;
     }
     if (TrimRight && begin_trimmed < end) {
       if (!ARROW_PREDICT_TRUE(arrow::util::UTF8FindIfReverse(begin_trimmed, end,
                                                              predicate, &end_trimmed))) {
-        return kTransformError;
+        return kStringTransformError;
       }
     }
     std::copy(begin_trimmed, end_trimmed, output);
@@ -1011,8 +1011,8 @@ void AddUtf8StringPad(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Replace slice
 
-struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
-  using ReplaceSliceTransformBase::ReplaceSliceTransformBase;
+struct Utf8ReplaceSliceTransform : ReplaceStringSliceTransformBase {
+  using ReplaceStringSliceTransformBase::ReplaceStringSliceTransformBase;
   int64_t Transform(const uint8_t* input, int64_t input_string_ncodeunits,
                     uint8_t* output) {
     const auto& opts = *options;
@@ -1025,19 +1025,19 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
     if (opts.start >= 0) {
       // Count from left
       if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &begin_sliced, opts.start)) {
-        return kTransformError;
+        return kStringTransformError;
       }
       if (opts.stop > options->start) {
         // Continue counting from left
         const int64_t length = opts.stop - options->start;
         if (!arrow::util::UTF8AdvanceCodepoints(begin_sliced, end, &end_sliced, length)) {
-          return kTransformError;
+          return kStringTransformError;
         }
       } else if (opts.stop < 0) {
         // Count from right
         if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
                                                        -opts.stop)) {
-          return kTransformError;
+          return kStringTransformError;
         }
       } else {
         // Zero-length slice
@@ -1047,12 +1047,12 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
       // Count from right
       if (!arrow::util::UTF8AdvanceCodepointsReverse(begin, end, &begin_sliced,
                                                      -opts.start)) {
-        return kTransformError;
+        return kStringTransformError;
       }
       if (opts.stop >= 0) {
         // Restart counting from left
         if (!arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opts.stop)) {
-          return kTransformError;
+          return kStringTransformError;
         }
         if (end_sliced <= begin_sliced) {
           // Zero-length slice
@@ -1062,7 +1062,7 @@ struct Utf8ReplaceSliceTransform : ReplaceSliceTransformBase {
         // Count from right
         if (!arrow::util::UTF8AdvanceCodepointsReverse(begin_sliced, end, &end_sliced,
                                                        -opts.stop)) {
-          return kTransformError;
+          return kStringTransformError;
         }
       } else {
         // Zero-length slice
@@ -1094,7 +1094,7 @@ void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<Utf8ReplaceSlice>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, std::move(exec),
-                              ReplaceSliceTransformBase::State::Init));
+                              ReplaceStringSliceTransformBase::State::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
@@ -1102,7 +1102,7 @@ void AddUtf8StringReplaceSlice(FunctionRegistry* registry) {
 // ----------------------------------------------------------------------
 // Slicing
 
-struct SliceCodeunitsTransform : SliceTransformBase {
+struct SliceCodeunitsTransform : StringSliceTransformBase {
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_ncodeunits) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
@@ -1127,7 +1127,7 @@ struct SliceCodeunitsTransform : SliceTransformBase {
 #define RETURN_IF_UTF8_ERROR(expr)    \
   do {                                \
     if (ARROW_PREDICT_FALSE(!expr)) { \
-      return kTransformError;         \
+      return kStringTransformError;   \
     }                                 \
   } while (0)
 
@@ -1292,7 +1292,7 @@ void AddUtf8StringSlice(FunctionRegistry* registry) {
 
 #ifdef ARROW_WITH_UTF8PROC
 
-struct SplitWhitespaceUtf8Finder : public SplitFinderBase<SplitOptions> {
+struct SplitWhitespaceUtf8Finder : public StringSplitFinderBase<SplitOptions> {
   using Options = SplitOptions;
 
   Status PreExec(const SplitOptions& options) override {
@@ -1347,7 +1347,7 @@ struct SplitWhitespaceUtf8Finder : public SplitFinderBase<SplitOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitWhitespaceUtf8Exec = SplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
+using SplitWhitespaceUtf8Exec = StringSplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 const FunctionDoc utf8_split_whitespace_doc(
     "Split string according to any Unicode whitespace",
@@ -1366,7 +1366,7 @@ void AddUtf8StringSplitWhitespace(FunctionRegistry* registry) {
                                        &utf8_split_whitespace_doc, &default_options);
   for (const auto& ty : StringTypes()) {
     auto exec = GenerateVarBinaryToVarBinary<SplitWhitespaceUtf8Exec, ListType>(ty);
-    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), SplitState::Init));
+    DCHECK_OK(func->AddKernel({ty}, {list(ty)}, std::move(exec), StringSplitState::Init));
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
