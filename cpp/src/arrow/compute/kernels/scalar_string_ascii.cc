@@ -25,7 +25,7 @@
 #endif
 
 #include "arrow/array/builder_nested.h"
-#include "arrow/compute/kernels/scalar_string_common.h"
+#include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {

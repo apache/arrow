@@ -422,7 +422,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_random.cc
        compute/kernels/scalar_set_lookup.cc
-       compute/kernels/scalar_string_common.cc
+       compute/kernels/scalar_string_internal.cc
        compute/kernels/scalar_string_ascii.cc
        compute/kernels/scalar_string_utf8.cc
        compute/kernels/scalar_temporal_binary.cc

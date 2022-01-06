@@ -17,7 +17,7 @@
 
 #include <sstream>
 
-#include "arrow/compute/kernels/scalar_string_common.h"
+#include "arrow/compute/kernels/scalar_string_internal.h"
 
 namespace arrow {
 namespace compute {

@@ -23,7 +23,7 @@
 #include <utf8proc.h>
 #endif
 
-#include "arrow/compute/kernels/scalar_string_common.h"
+#include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow {
