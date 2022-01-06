@@ -92,7 +92,30 @@ def show_versions():
     print_entry("Arrow C++ git description", cpp_build_info.git_description)
 
 
-def arrow_info():
+def _module_is_available(module):
+    try:
+        importlib.import_module(f'pyarrow.{module}')
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+def _filesystem_is_available(fs):
+    try:
+        import pyarrow.fs
+    except ImportError:
+        return False
+
+    try:
+        getattr(pyarrow.fs, fs)
+    except (ImportError, AttributeError):
+        return False
+    else:
+        return True
+
+
+def show_info():
     """
     Print detailed version and platform information, for error reporting
     """
@@ -117,28 +140,14 @@ def arrow_info():
     modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
                "orc", "parquet", "plasma"]
     for module in modules:
-        try:
-            importlib.import_module(f'pyarrow.{module}')
-        except ImportError:
-            print(f"  {module: <20}: -")
-        else:
-            print(f"  {module: <20}: Enabled")
+        status = "Enabled" if _module_is_available(module) else "-"
+        print(f"  {module: <20}: {status: <8}")
 
     print("\nFilesystems:")
     filesystems = ["HadoopFileSystem", "S3FileSystem", "GcsFileSystem"]
-    try:
-        import pyarrow.fs
-    except ImportError:
-        for filesystem in filesystems:
-            print(f"  {filesystem: <20}: -")
-    else:
-        for filesystem in filesystems:
-            try:
-                getattr(pyarrow.fs, filesystem)
-                status = 'Enabled'
-            except (ImportError, AttributeError):
-                status = '-'
-            print(f"  {filesystem: <20}: {status: <8}")
+    for fs in filesystems:
+        status = "Enabled" if _filesystem_is_available(fs) else "-"
+        print(f"  {fs: <20}: {status: <8}")
 
     print("\nCompression Codecs:")
     codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
