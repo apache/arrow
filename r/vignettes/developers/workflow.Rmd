@@ -4,6 +4,22 @@
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 ```
 
+The Arrow R package uses several additional development tools:
+
+* `lintr` for code analysis
+  - for the time being, the R package uses a custom version of lintr - `jonkeane/lintr@arrow-branch`
+* `styler` for code styling
+* `pkgdown` for building the website
+* `roxygen2` for documenting the package
+  - the R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.2
+
+You can install all these additional dependencies by running:
+
+```{r, eval=FALSE}
+remotes::install_deps(".", dependencies = c("Config/Needs/dev", "Config/Needs/website"))
+```
+
+
 The `arrow/r` directory contains a `Makefile` to help with some common tasks from the command line (e.g. `make test`, `make doc`, `make clean`, etc.).
 
 ## Loading arrow
