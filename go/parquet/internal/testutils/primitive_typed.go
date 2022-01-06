@@ -275,7 +275,7 @@ func Min(v1, v2 interface{}) interface{} {
 		}
 		return v2
 	}
-	panic("wtf")
+	panic("min utility only implemented for int32, int64, float32, float64")
 }
 
 func Max(v1, v2 interface{}) interface{} {
@@ -301,5 +301,5 @@ func Max(v1, v2 interface{}) interface{} {
 		}
 		return n1
 	}
-	panic("wtf")
+	panic("max utility only implemented for int32, int64, float32, float64")
 }
