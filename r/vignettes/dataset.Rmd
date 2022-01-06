@@ -296,6 +296,8 @@ Sometimes you want to run R code on the entire dataset, but that dataset is much
 larger than memory. You can use `map_batches` on a dataset query to process
 it batch-by-batch.
 
+**Note**: `map_batches` is experimental and not recommended for production use.
+
 As an example, to randomly sample a dataset, use `map_batches` to sample a 
 percentage of rows from each batch:
 

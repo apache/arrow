@@ -174,6 +174,8 @@ ScanTask <- R6Class("ScanTask",
 #' a `data.frame` for further aggregation, even if you couldn't fit the whole
 #' `Dataset` result in memory.
 #'
+#' This is experimental and not recommended for production use.
+#'
 #' @param X A `Dataset` or `arrow_dplyr_query` object, as returned by the
 #' `dplyr` methods on `Dataset`.
 #' @param FUN A function or `purrr`-style lambda expression to apply to each
@@ -183,7 +185,7 @@ ScanTask <- R6Class("ScanTask",
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  # TODO: possibly refactor do_exec_plan to return a RecordBatchReader
+  # TODO(ARROW-15271): possibly refactor do_exec_plan to return a RecordBatchReader
   plan <- ExecPlan$create()
   final_node <- plan$Build(X)
   reader <- plan$Run(final_node)

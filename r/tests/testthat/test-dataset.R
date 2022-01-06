@@ -455,7 +455,7 @@ test_that("Creating UnionDataset", {
 test_that("map_batches", {
   ds <- open_dataset(dataset_dir, partitioning = "part")
 
-  # summarize returns arrow_dplyr_query
+  # summarize returns arrow_dplyr_query, which gets collected into a tibble
   expect_equal(
     ds %>%
       filter(int > 5) %>%
@@ -471,12 +471,12 @@ test_that("map_batches", {
       filter(int > 5) %>%
       select(int, lgl) %>%
       map_batches(~ .$num_rows, .data.frame = FALSE) %>%
-      as.numeric() %>%
+      unlist() %>% # Returns list because .data.frame is FALSE
       sort(),
     c(5, 10)
   )
 
-  # $Take returns RecordBatch
+  # $Take returns RecordBatch, which gets binded into a tibble
   expect_equal(
     ds %>%
       filter(int > 5) %>%
