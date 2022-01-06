@@ -733,7 +733,7 @@ Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
 }
 
 Result<Datum> Misbehave(const Datum& cond, const Datum& if_true, const Datum& if_false,
-                     ExecContext* ctx) {
+                        ExecContext* ctx) {
   return CallFunction("misbehave", {}, ctx);
 }
 

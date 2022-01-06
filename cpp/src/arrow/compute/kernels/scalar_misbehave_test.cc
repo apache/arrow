@@ -16,13 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/cast.h"
-#include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
@@ -33,10 +29,10 @@ public:
     Status Execute(const std::vector<Datum>& args, ExecListener* listener) override {
 */
 TEST(Misbehave, MisbehavingScalarKernel) {
-//      ASSERT_RAISES_WITH_MESSAGE(ExecutionError,
-//      "Unauthorized memory allocations in function kernel",
-//                                 CallFunction("misbehave", {}));
-      ASSERT_NOT_OK(CallFunction("misbehave", {}));
+  // ASSERT_RAISES_WITH_MESSAGE(ExecutionError,
+  // "Unauthorized memory allocations in function kernel",
+  //                            CallFunction("misbehave", {}));
+  ASSERT_NOT_OK(CallFunction("scalar_misbehave", {}));
 }
 
 }  // namespace compute
