@@ -187,8 +187,30 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
-  vec_to_Array(x, type)
+
+  if (is.null(type)) {
+    return(vec_to_Array(x, type))
+  }
+
+  # when a type is given, try to create a vector of the desired type. If that
+  # fails, attempt to cast and if casting is successful, suggest to the user
+  # to try casting manually. If the casting fails, return the original error
+  # message.
+  tryCatch(
+    vec_to_Array(x, type),
+    error = function(cnd) {
+      attempt <- try(vec_to_Array(x, NULL)$cast(type), silent = TRUE)
+      abort(
+        c(conditionMessage(cnd),
+          i = if (!inherits(attempt, "try-error")) {
+            "You might want to try casting manually with `Array$create(...)$cast(...)`."
+          }
+        )
+      )
+    }
+  )
 }
+
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
 

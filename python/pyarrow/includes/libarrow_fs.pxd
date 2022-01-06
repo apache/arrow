@@ -197,6 +197,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CS3GlobalOptions& options)
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
 
+    cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
+
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config
         int32_t buffer_size

@@ -105,7 +105,8 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/variant.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
+
 #include "parquet/properties.h"
 
 namespace parquet {

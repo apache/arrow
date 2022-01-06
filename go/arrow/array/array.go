@@ -17,6 +17,7 @@
 package array
 
 import (
+	"encoding/json"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
@@ -26,6 +27,8 @@ import (
 
 // A type which satisfies array.Interface represents an immutable sequence of values.
 type Interface interface {
+	json.Marshaler
+
 	// DataType returns the type metadata for this instance.
 	DataType() arrow.DataType
 
@@ -56,6 +59,8 @@ type Interface interface {
 	// Release may be called simultaneously from multiple goroutines.
 	// When the reference count goes to zero, the memory is freed.
 	Release()
+
+	getOneForMarshal(i int) interface{}
 }
 
 const (

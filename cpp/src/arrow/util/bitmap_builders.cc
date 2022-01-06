@@ -36,7 +36,7 @@ namespace {
 void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
   for (size_t i = 0; i < bytes.size(); ++i) {
     if (bytes[i] > 0) {
-      BitUtil::SetBit(bits, i);
+      bit_util::SetBit(bits, i);
     }
   }
 }
@@ -45,7 +45,7 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
                                             MemoryPool* pool) {
-  int64_t bit_length = BitUtil::BytesForBits(bytes.size());
+  int64_t bit_length = bit_util::BytesForBits(bytes.size());
 
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(bit_length, pool));
   uint8_t* out_buf = buffer->mutable_data();
@@ -60,11 +60,12 @@ Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length
     return Status::Invalid("invalid straggler_pos ", straggler_pos);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(BitUtil::BytesForBits(length), pool));
+  ARROW_ASSIGN_OR_RAISE(auto buffer,
+                        AllocateBuffer(bit_util::BytesForBits(length), pool));
 
   auto bitmap_data = buffer->mutable_data();
-  BitUtil::SetBitsTo(bitmap_data, 0, length, value);
-  BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
+  bit_util::SetBitsTo(bitmap_data, 0, length, value);
+  bit_util::SetBitTo(bitmap_data, straggler_pos, !value);
   return std::move(buffer);
 }
 

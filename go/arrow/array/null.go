@@ -17,12 +17,16 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // Null represents an immutable, degenerate array with no physical storage.
@@ -71,6 +75,14 @@ func (a *Null) setData(data *Data) {
 	a.array.setData(data)
 	a.array.nullBitmapBytes = nil
 	a.array.data.nulls = a.array.data.length
+}
+
+func (a *Null) getOneForMarshal(i int) interface{} {
+	return nil
+}
+
+func (a *Null) MarshalJSON() ([]byte, error) {
+	return json.Marshal(make([]interface{}, a.Len()))
 }
 
 type NullBuilder struct {
@@ -132,6 +144,48 @@ func (b *NullBuilder) newData() (data *Data) {
 	b.reset()
 
 	return
+}
+
+func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t.(type) {
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(nil),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *NullBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *NullBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("null builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

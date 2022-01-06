@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/io/memory.h"
@@ -113,9 +114,10 @@ class FileBuilder {
     auto typed_writer =
         checked_cast<TypedColumnWriter<PhysicalType<TYPE>>*>(column_writer);
 
-    const int64_t num_values = static_cast<int64_t>(
-        (max_def_level > 0) ? def_levels.size()
-                            : (max_rep_level > 0) ? rep_levels.size() : values.size());
+    const int64_t num_values =
+        static_cast<int64_t>((max_def_level > 0)   ? def_levels.size()
+                             : (max_rep_level > 0) ? rep_levels.size()
+                                                   : values.size());
     const int64_t values_written = typed_writer->WriteBatch(
         num_values, LevelPointerOrNull(def_levels, max_def_level),
         LevelPointerOrNull(rep_levels, max_rep_level), values.data());

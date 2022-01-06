@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
@@ -159,6 +160,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
+#ifdef ARROW_WITH_ZSTD
 #define GENERATE_COMPRESSED_DATA_IN_MEMORY()                                      \
   constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
   constexpr int64_t kBatches = 16;                                                \
@@ -176,6 +178,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
     ABORT_NOT_OK(writer->Close());                                                \
     ABORT_NOT_OK(stream.Close());                                                 \
   }
+#endif
 
 #define GENERATE_DATA_IN_MEMORY()                                                 \
   constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
@@ -251,8 +254,10 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 READ_BENCHMARK(ReadFile, GENERATE_DATA_IN_MEMORY, READ_DATA_IN_MEMORY);
 READ_BENCHMARK(ReadTempFile, GENERATE_DATA_TEMP_FILE, READ_DATA_TEMP_FILE);
 READ_BENCHMARK(ReadMmapFile, GENERATE_DATA_TEMP_FILE, READ_DATA_MMAP_FILE);
+#ifdef ARROW_WITH_ZSTD
 READ_BENCHMARK(ReadCompressedFile, GENERATE_COMPRESSED_DATA_IN_MEMORY,
                READ_DATA_IN_MEMORY);
+#endif
 
 BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();

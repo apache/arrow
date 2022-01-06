@@ -170,6 +170,20 @@ struct ARROW_EXPORT ReadOptions {
   Status Validate() const;
 };
 
+/// \brief Quoting style for CSV writing
+enum class ARROW_EXPORT QuotingStyle {
+  /// Only enclose values in quotes which need them, because their CSV rendering can
+  /// contain quotes itself (e.g. strings or binary values)
+  Needed,
+  /// Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+  /// interpret all values as strings if schema is inferred.
+  AllValid,
+  /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
+  /// cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
+  /// contain these characters, an error is caused when attempting to write.
+  None
+};
+
 struct ARROW_EXPORT WriteOptions {
   /// Whether to write an initial header line with column names
   bool include_header = true;
@@ -180,8 +194,17 @@ struct ARROW_EXPORT WriteOptions {
   /// This number can impact performance.
   int32_t batch_size = 1024;
 
+  /// \brief The string to write for null values. Quotes are not allowed in this string.
+  std::string null_string;
+
   /// \brief IO context for writing.
   io::IOContext io_context;
+
+  /// \brief The end of line character to use for ending rows
+  std::string eol = "\n";
+
+  /// \brief Quoting style
+  QuotingStyle quoting_style = QuotingStyle::Needed;
 
   /// Create write options with default values
   static WriteOptions Defaults();

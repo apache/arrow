@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
+
 import atexit
 from collections.abc import Mapping
 import re
@@ -80,6 +82,32 @@ cdef bytes _datatype_to_pep3118(CDataType* type):
             return b'=' + char
         else:
             return char
+
+
+cdef void* _as_c_pointer(v, allow_null=False) except *:
+    """
+    Convert a Python object to a raw C pointer.
+
+    Used mainly for the C data interface.
+    Integers are accepted as well as capsule objects with a NULL name.
+    (the latter for compatibility with raw pointers exported by reticulate)
+    """
+    cdef void* c_ptr
+    if isinstance(v, int):
+        c_ptr = <void*> <uintptr_t > v
+    elif isinstance(v, float):
+        warnings.warn(
+            "Passing a pointer value as a float is unsafe and only "
+            "supported for compatibility with older versions of the R "
+            "Arrow library", UserWarning, stacklevel=2)
+        c_ptr = <void*> <uintptr_t > v
+    elif PyCapsule_CheckExact(v):
+        c_ptr = PyCapsule_GetPointer(v, NULL)
+    else:
+        raise TypeError(f"Expected a pointer value, got {type(v)!r}")
+    if not allow_null and c_ptr == NULL:
+        raise ValueError(f"Null pointer (value before cast = {v!r})")
+    return c_ptr
 
 
 def _is_primitive(Type type):
@@ -199,7 +227,7 @@ cdef class DataType(_Weakrefable):
         else:
             raise NotImplementedError(str(self))
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -207,16 +235,18 @@ cdef class DataType(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportType(deref(self.type), <ArrowSchema*> out_ptr))
+        check_status(ExportType(deref(self.type),
+                                <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import DataType from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
-        result = GetResultValue(ImportType(<ArrowSchema*> in_ptr))
+        result = GetResultValue(ImportType(<ArrowSchema*>
+                                           _as_c_pointer(in_ptr)))
         return pyarrow_wrap_data_type(result)
 
 
@@ -1276,7 +1306,7 @@ cdef class Field(_Weakrefable):
             flattened = self.field.Flatten()
         return [pyarrow_wrap_field(f) for f in flattened]
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1284,17 +1314,19 @@ cdef class Field(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportField(deref(self.field), <ArrowSchema*> out_ptr))
+        check_status(ExportField(deref(self.field),
+                                 <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Field from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportField(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportField(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_field(result)
 
 
@@ -1721,7 +1753,7 @@ cdef class Schema(_Weakrefable):
 
         return frombytes(result, safe=True)
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1729,17 +1761,19 @@ cdef class Schema(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportSchema(deref(self.schema), <ArrowSchema*> out_ptr))
+        check_status(ExportSchema(deref(self.schema),
+                                  <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Schema from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportSchema(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportSchema(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_schema(result)
 
     def __str__(self):

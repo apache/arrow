@@ -43,7 +43,7 @@
 #include "arrow/util/bitmap_writer.h"
 
 namespace arrow {
-namespace BitUtil {
+namespace bit_util {
 
 constexpr int64_t kBufferSize = 1024 * 8;
 
@@ -57,7 +57,7 @@ class NaiveBitmapReader {
   NaiveBitmapReader(const uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0) {}
 
-  bool IsSet() const { return BitUtil::GetBit(bitmap_, position_); }
+  bool IsSet() const { return bit_util::GetBit(bitmap_, position_); }
 
   bool IsNotSet() const { return !IsSet(); }
 
@@ -440,7 +440,7 @@ static void SetBitsTo(benchmark::State& state) {
   std::shared_ptr<Buffer> buffer = CreateRandomBuffer(nbytes);
 
   for (auto _ : state) {
-    BitUtil::SetBitsTo(buffer->mutable_data(), /*offset=*/0, nbytes * 8, true);
+    bit_util::SetBitsTo(buffer->mutable_data(), /*offset=*/0, nbytes * 8, true);
   }
   state.SetBytesProcessed(state.iterations() * nbytes);
 }
@@ -556,5 +556,5 @@ BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);
 BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);
 
-}  // namespace BitUtil
+}  // namespace bit_util
 }  // namespace arrow

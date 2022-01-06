@@ -76,10 +76,6 @@ func releaseStream(s *CArrowArrayStream) {
 	C.ArrowArrayStreamRelease(s)
 }
 
-func releaseSchema(s *CArrowSchema) {
-	C.ArrowSchemaRelease(s)
-}
-
 func schemaIsReleased(s *CArrowSchema) bool {
 	return C.ArrowSchemaIsReleased(s) == 1
 }

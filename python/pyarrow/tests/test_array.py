@@ -108,6 +108,22 @@ def test_long_array_format():
     assert result == expected
 
 
+def test_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(indent=1)
+    expected = '[\n "",\n null,\n "foo"\n]'
+
+    assert result == expected
+
+
+def test_top_level_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(top_level_indent=1)
+    expected = ' [\n   "",\n   null,\n   "foo"\n ]'
+
+    assert result == expected
+
+
 def test_binary_format():
     arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
     result = arr.to_string()
@@ -889,6 +905,15 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     result = list_array_type.from_arrays(offsets, values)
     with pytest.raises(ValueError):
         result.validate(full=True)
+
+
+def test_map_labelled():
+    #  ARROW-13735
+    t = pa.map_(pa.field("name", "string", nullable=False), "int64")
+    arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=t)
+    assert arr.type.key_field == pa.field("name", pa.utf8(), nullable=False)
+    assert arr.type.item_field == pa.field("value", pa.int64())
+    assert len(arr) == 2
 
 
 def test_map_from_arrays():

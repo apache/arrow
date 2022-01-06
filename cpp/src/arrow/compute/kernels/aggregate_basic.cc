@@ -259,7 +259,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  SumLikeInit<MeanImplDefault> visitor(
+  MeanKernelInit<MeanImplDefault> visitor(
       ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -874,29 +874,28 @@ const FunctionDoc min_or_max_doc{
     {"array"},
     "ScalarAggregateOptions"};
 
-const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneOr for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc any_doc{
+    "Test whether any element in a boolean array evaluates to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_or\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
-const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
-                          ("Null values are ignored by default.\n"
-                           "If null values are taken into account by setting "
-                           "ScalarAggregateOptions parameter skip_nulls = false then "
-                           "Kleene logic is used.\n"
-                           "See KleeneAnd for more details on Kleene logic."),
-                          {"array"},
-                          "ScalarAggregateOptions"};
+const FunctionDoc all_doc{
+    "Test whether all elements in a boolean array evaluate to true",
+    ("Null values are ignored by default.\n"
+     "If the `skip_nulls` option is set to false, then Kleene logic is used.\n"
+     "See \"kleene_and\" for more details on Kleene logic."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc index_doc{"Find the index of the first occurrence of a given value",
-                            ("The result is always computed as an int64_t, regardless\n"
-                             "of the offset type of the input array."),
+                            ("-1 is returned if the value is not found in the array.\n"
+                             "The search value is specified in IndexOptions."),
                             {"array"},
-                            "IndexOptions"};
+                            "IndexOptions",
+                            /*options_required=*/true};
 
 }  // namespace
 
@@ -931,6 +930,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {null()}, int64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
@@ -957,6 +957,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       MeanInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {

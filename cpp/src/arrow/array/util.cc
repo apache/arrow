@@ -27,9 +27,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array/array_base.h"
-#include "arrow/array/array_dict.h"
-#include "arrow/array/array_primitive.h"
+#include "arrow/array.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -44,7 +43,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -119,7 +118,7 @@ class ArrayDataEndianSwapper {
     // NOTE: data_->length not trusted (see warning above)
     int64_t length = in_buffer->size() / sizeof(T);
     for (int64_t i = 0; i < length; i++) {
-      out_data[i] = BitUtil::ByteSwap(in_data[i]);
+      out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
     return std::move(out_buffer);
   }
@@ -158,12 +157,12 @@ class ArrayDataEndianSwapper {
       uint64_t tmp;
       auto idx = i * 2;
 #if ARROW_LITTLE_ENDIAN
-      tmp = BitUtil::FromBigEndian(data[idx]);
-      new_data[idx] = BitUtil::FromBigEndian(data[idx + 1]);
+      tmp = bit_util::FromBigEndian(data[idx]);
+      new_data[idx] = bit_util::FromBigEndian(data[idx + 1]);
       new_data[idx + 1] = tmp;
 #else
-      tmp = BitUtil::FromLittleEndian(data[idx]);
-      new_data[idx] = BitUtil::FromLittleEndian(data[idx + 1]);
+      tmp = bit_util::FromLittleEndian(data[idx]);
+      new_data[idx] = bit_util::FromLittleEndian(data[idx + 1]);
       new_data[idx + 1] = tmp;
 #endif
     }
@@ -181,18 +180,18 @@ class ArrayDataEndianSwapper {
       uint64_t tmp0, tmp1, tmp2;
       auto idx = i * 4;
 #if ARROW_LITTLE_ENDIAN
-      tmp0 = BitUtil::FromBigEndian(data[idx]);
-      tmp1 = BitUtil::FromBigEndian(data[idx + 1]);
-      tmp2 = BitUtil::FromBigEndian(data[idx + 2]);
-      new_data[idx] = BitUtil::FromBigEndian(data[idx + 3]);
+      tmp0 = bit_util::FromBigEndian(data[idx]);
+      tmp1 = bit_util::FromBigEndian(data[idx + 1]);
+      tmp2 = bit_util::FromBigEndian(data[idx + 2]);
+      new_data[idx] = bit_util::FromBigEndian(data[idx + 3]);
       new_data[idx + 1] = tmp2;
       new_data[idx + 2] = tmp1;
       new_data[idx + 3] = tmp0;
 #else
-      tmp0 = BitUtil::FromLittleEndian(data[idx]);
-      tmp1 = BitUtil::FromLittleEndian(data[idx + 1]);
-      tmp2 = BitUtil::FromLittleEndian(data[idx + 2]);
-      new_data[idx] = BitUtil::FromLittleEndian(data[idx + 3]);
+      tmp0 = bit_util::FromLittleEndian(data[idx]);
+      tmp1 = bit_util::FromLittleEndian(data[idx + 1]);
+      tmp2 = bit_util::FromLittleEndian(data[idx + 2]);
+      new_data[idx] = bit_util::FromLittleEndian(data[idx + 3]);
       new_data[idx + 1] = tmp2;
       new_data[idx + 2] = tmp1;
       new_data[idx + 3] = tmp0;
@@ -217,13 +216,13 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       MonthDayNanos tmp = data[i];
 #if ARROW_LITTLE_ENDIAN
-      tmp.months = BitUtil::FromBigEndian(tmp.months);
-      tmp.days = BitUtil::FromBigEndian(tmp.days);
-      tmp.nanoseconds = BitUtil::FromBigEndian(tmp.nanoseconds);
+      tmp.months = bit_util::FromBigEndian(tmp.months);
+      tmp.days = bit_util::FromBigEndian(tmp.days);
+      tmp.nanoseconds = bit_util::FromBigEndian(tmp.nanoseconds);
 #else
-      tmp.months = BitUtil::FromLittleEndian(tmp.months);
-      tmp.days = BitUtil::FromLittleEndian(tmp.days);
-      tmp.nanoseconds = BitUtil::FromLittleEndian(tmp.nanoseconds);
+      tmp.months = bit_util::FromLittleEndian(tmp.months);
+      tmp.days = bit_util::FromLittleEndian(tmp.days);
+      tmp.nanoseconds = bit_util::FromLittleEndian(tmp.nanoseconds);
 #endif
       new_data[i] = tmp;
     }
@@ -324,7 +323,7 @@ class NullArrayFactory {
  public:
   struct GetBufferLength {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
-        : type_(*type), length_(length), buffer_length_(BitUtil::BytesForBits(length)) {}
+        : type_(*type), length_(length), buffer_length_(bit_util::BytesForBits(length)) {}
 
     Result<int64_t> Finish() && {
       RETURN_NOT_OK(VisitTypeInline(type_, this));
@@ -457,19 +456,19 @@ class NullArrayFactory {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     out_->buffers.resize(2, buffer_);
-    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(0, /*length=*/0));
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0],
-                          CreateChild(0, length_ * type.list_size()));
+                          CreateChild(type, 0, length_ * type.list_size()));
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();
   }
@@ -499,7 +498,7 @@ class NullArrayFactory {
       child_length = 1;
     }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, child_length));
     }
     return Status::OK();
   }
@@ -512,6 +511,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const ExtensionType& type) {
+    out_->child_data.resize(type.storage_type()->num_fields());
     RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
     return Status::OK();
   }
@@ -520,8 +520,9 @@ class NullArrayFactory {
     return Status::NotImplemented("construction of all-null ", type);
   }
 
-  Result<std::shared_ptr<ArrayData>> CreateChild(int i, int64_t length) {
-    NullArrayFactory child_factory(pool_, type_->field(i)->type(), length);
+  Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
+                                                 int64_t length) {
+    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
@@ -550,8 +551,8 @@ class RepeatedArrayFactory {
 
   Status Visit(const BooleanType&) {
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBitmap(length_, pool_));
-    BitUtil::SetBitsTo(buffer->mutable_data(), 0, length_,
-                       checked_cast<const BooleanScalar&>(scalar_).value);
+    bit_util::SetBitsTo(buffer->mutable_data(), 0, length_,
+                        checked_cast<const BooleanScalar&>(scalar_).value);
     out_ = std::make_shared<BooleanArray>(length_, buffer);
     return Status::OK();
   }
@@ -789,6 +790,14 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
     return MakeArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();
+}
+
+Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
+                                              MemoryPool* memory_pool) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  return builder->Finish();
 }
 
 namespace internal {

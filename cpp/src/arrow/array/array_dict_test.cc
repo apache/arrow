@@ -31,8 +31,8 @@
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -69,7 +69,7 @@ std::shared_ptr<Array> DictExtensionFromJSON(const std::shared_ptr<DataType>& ty
 // Dictionary tests
 
 template <typename Type>
-class TestDictionaryBuilder : public TestBuilder {};
+class TestDictionaryBuilder : public ::testing::Test {};
 
 typedef ::testing::Types<Int8Type, UInt8Type, Int16Type, UInt16Type, Int32Type,
                          UInt32Type, Int64Type, UInt64Type, FloatType, DoubleType>
@@ -1016,7 +1016,7 @@ void AssertIndexByteWidth(const std::shared_ptr<DataType>& value_type =
 typedef ::testing::Types<Int8Type, Int16Type, Int32Type, Int64Type> IndexTypes;
 
 template <typename Type>
-class TestDictionaryBuilderIndexByteWidth : public TestBuilder {};
+class TestDictionaryBuilderIndexByteWidth : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestDictionaryBuilderIndexByteWidth, IndexTypes);
 
@@ -1141,7 +1141,7 @@ TEST(TestDictionary, FromArrays) {
     if (checked_cast<const IntegerType&>(*index_ty).is_signed()) {
       // Invalid index is masked by null, so it's OK
       auto indices3 = ArrayFromJSON(index_ty, "[1, 2, -1, null, 2, 0]");
-      BitUtil::ClearBit(indices3->data()->buffers[0]->mutable_data(), 2);
+      bit_util::ClearBit(indices3->data()->buffers[0]->mutable_data(), 2);
       ASSERT_OK_AND_ASSIGN(auto arr3,
                            DictionaryArray::FromArrays(dict_type, indices3, dict));
     }

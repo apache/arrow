@@ -39,7 +39,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"
 #include "generated/Message_generated.h"
@@ -1303,15 +1303,15 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
 #ifndef NDEBUG
   for (size_t i = 0; i < dictionaries.size(); ++i) {
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].offset)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].metadata_length)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].body_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].offset)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].metadata_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].body_length)) << i;
   }
 
   for (size_t i = 0; i < record_batches.size(); ++i) {
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].offset)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].metadata_length)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].body_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].offset)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].metadata_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].body_length)) << i;
   }
 #endif
 

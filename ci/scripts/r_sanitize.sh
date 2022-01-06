@@ -21,6 +21,7 @@ set -ex
 : ${R_BIN:=RDsan}
 
 source_dir=${1}/r
+rhome=$(${R_BIN} RHOME)
 
 pushd ${source_dir}
 
@@ -28,7 +29,16 @@ pushd ${source_dir}
 export CMAKE_UNITY_BUILD=OFF
 # Make installation verbose so that the CI job doesn't time out due to silence
 export ARROW_R_DEV=TRUE
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
+# Get line numbers in sanitizer tracebacks
+export CMAKE_BUILD_TYPE=RelWithDebInfo
+
+ncores=$(${R_BIN} -s -e 'cat(parallel::detectCores())')
+echo "MAKEFLAGS=-j${ncores}" >> ${rhome}/etc/Renviron.site
+
+# build first so that any stray compiled files in r/src are ignored
+${R_BIN} CMD build .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
+
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
 

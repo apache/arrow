@@ -26,55 +26,6 @@ import (
 	"golang.org/x/xerrors"
 )
 
-type op int8
-
-const (
-	convDIVIDE = iota
-	convMULTIPLY
-)
-
-var timestampConversion = [...][4]struct {
-	op     op
-	factor int64
-}{
-	arrow.Nanosecond: {
-		arrow.Nanosecond:  {convMULTIPLY, int64(time.Nanosecond)},
-		arrow.Microsecond: {convDIVIDE, int64(time.Microsecond)},
-		arrow.Millisecond: {convDIVIDE, int64(time.Millisecond)},
-		arrow.Second:      {convDIVIDE, int64(time.Second)},
-	},
-	arrow.Microsecond: {
-		arrow.Nanosecond:  {convMULTIPLY, int64(time.Microsecond)},
-		arrow.Microsecond: {convMULTIPLY, 1},
-		arrow.Millisecond: {convDIVIDE, int64(time.Millisecond / time.Microsecond)},
-		arrow.Second:      {convDIVIDE, int64(time.Second / time.Microsecond)},
-	},
-	arrow.Millisecond: {
-		arrow.Nanosecond:  {convMULTIPLY, int64(time.Millisecond)},
-		arrow.Microsecond: {convMULTIPLY, int64(time.Millisecond / time.Microsecond)},
-		arrow.Millisecond: {convMULTIPLY, 1},
-		arrow.Second:      {convDIVIDE, int64(time.Second / time.Millisecond)},
-	},
-	arrow.Second: {
-		arrow.Nanosecond:  {convMULTIPLY, int64(time.Second)},
-		arrow.Microsecond: {convMULTIPLY, int64(time.Second / time.Microsecond)},
-		arrow.Millisecond: {convMULTIPLY, int64(time.Second / time.Millisecond)},
-		arrow.Second:      {convMULTIPLY, 1},
-	},
-}
-
-func ConvertTimestampValue(in, out arrow.TimeUnit, value int64) int64 {
-	conv := timestampConversion[int(in)][int(out)]
-	switch conv.op {
-	case convMULTIPLY:
-		return value * conv.factor
-	case convDIVIDE:
-		return value / conv.factor
-	}
-
-	return 0
-}
-
 func temporalToString(s TemporalScalar) string {
 	switch s := s.(type) {
 	case *Date32:
@@ -178,7 +129,7 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 			case *Date64:
 				newValue = int64(s.Value)
 			}
-			return NewTimestampScalar(arrow.Timestamp(ConvertTimestampValue(arrow.Millisecond, to.(*arrow.TimestampType).Unit, newValue)), to), nil
+			return NewTimestampScalar(arrow.Timestamp(arrow.ConvertTimestampValue(arrow.Millisecond, to.(*arrow.TimestampType).Unit, newValue)), to), nil
 		}
 
 		switch s := s.(type) {
@@ -194,20 +145,20 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 	case *Timestamp:
 		switch to := to.(type) {
 		case *arrow.TimestampType:
-			return NewTimestampScalar(arrow.Timestamp(ConvertTimestampValue(s.Unit(), to.Unit, int64(s.Value))), to), nil
+			return NewTimestampScalar(arrow.Timestamp(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.Value))), to), nil
 		case *arrow.Date32Type:
-			millis := ConvertTimestampValue(s.Unit(), arrow.Millisecond, int64(s.Value))
+			millis := arrow.ConvertTimestampValue(s.Unit(), arrow.Millisecond, int64(s.Value))
 			return NewDate32Scalar(arrow.Date32(millis / int64(millisecondsInDay))), nil
 		case *arrow.Date64Type:
-			millis := ConvertTimestampValue(s.Unit(), arrow.Millisecond, int64(s.Value))
+			millis := arrow.ConvertTimestampValue(s.Unit(), arrow.Millisecond, int64(s.Value))
 			return NewDate64Scalar(arrow.Date64(millis - millis%int64(millisecondsInDay))), nil
 		}
 	case TimeScalar:
 		switch to := to.(type) {
 		case *arrow.Time32Type:
-			return NewTime32Scalar(arrow.Time32(ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time64)))), to), nil
+			return NewTime32Scalar(arrow.Time32(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time64)))), to), nil
 		case *arrow.Time64Type:
-			return NewTime64Scalar(arrow.Time64(ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time32)))), to), nil
+			return NewTime64Scalar(arrow.Time64(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.value().(arrow.Time32)))), to), nil
 		}
 
 	case *Duration:
@@ -215,7 +166,7 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 		case *arrow.StringType:
 
 		case *arrow.DurationType:
-			return NewDurationScalar(arrow.Duration(ConvertTimestampValue(s.Unit(), to.Unit, int64(s.Value))), to), nil
+			return NewDurationScalar(arrow.Duration(arrow.ConvertTimestampValue(s.Unit(), to.Unit, int64(s.Value))), to), nil
 		}
 	}
 

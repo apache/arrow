@@ -87,9 +87,14 @@ update_versions() {
   git add autobrew/apache-arrow.rb
   sed -i.bak -E -e \
     "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
+    apache-arrow-glib.rb \
     apache-arrow.rb
-  rm -f apache-arrow.rb.bak
-  git add apache-arrow.rb
+  rm -f \
+    apache-arrow-glib.rb.bak \
+    apache-arrow.rb.bak
+  git add \
+    apache-arrow-glib.rb \
+    apache-arrow.rb
   popd
 
   pushd "${ARROW_DIR}/js"

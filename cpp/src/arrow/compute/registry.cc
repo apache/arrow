@@ -35,7 +35,11 @@ namespace compute {
 class FunctionRegistry::FunctionRegistryImpl {
  public:
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+#ifndef NDEBUG
+    // This validates docstrings extensively, so don't waste time on it
+    // in release builds.
     RETURN_NOT_OK(function->Validate());
+#endif
 
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
@@ -158,6 +162,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarComparison(registry.get());
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
+  RegisterScalarRandom(registry.get());  // Nullary
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
   RegisterScalarTemporalBinary(registry.get());

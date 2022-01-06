@@ -260,7 +260,7 @@ class CommentReport(Report):
         ),
         'travis': _markdown_badge.format(
             title='TravisCI',
-            url='https://travis-ci.com/{repo}/branches',
+            url='https://app.travis-ci.com/github/{repo}/branches',
             badge='https://img.shields.io/travis/{repo}/{branch}.svg'
         ),
         'circle': _markdown_badge.format(

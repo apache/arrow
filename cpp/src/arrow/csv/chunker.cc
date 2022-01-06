@@ -17,10 +17,12 @@
 
 #include "arrow/csv/chunker.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <utility>
 
+#include "arrow/csv/lexing_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -33,7 +35,7 @@ namespace {
 
 // NOTE: csvmonkey (https://github.com/dw/csvmonkey) has optimization ideas
 
-template <bool quoting, bool escaping>
+template <typename SpecializedOptions>
 class Lexer {
  public:
   enum State {
@@ -45,11 +47,34 @@ class Lexer {
     AT_QUOTED_ESCAPE
   };
 
-  explicit Lexer(const ParseOptions& options) : options_(options) {
-    DCHECK_EQ(quoting, options_.quoting);
-    DCHECK_EQ(escaping, options_.escaping);
+  explicit Lexer(const ParseOptions& options)
+      : options_(options), bulk_filter_(options_) {
+    DCHECK_EQ(SpecializedOptions::quoting, options_.quoting);
+    DCHECK_EQ(SpecializedOptions::escaping, options_.escaping);
   }
 
+  void Reset() { state_ = FIELD_START; }
+
+  // Decide whether it's worth using a bulk filter over the given data area
+  bool ShouldUseBulkFilter(const char* data, const char* data_end) {
+    constexpr int32_t kWordSize = static_cast<int32_t>(sizeof(BulkWordType));
+
+    // Only probe the 32 first words and assume they are representative of the rest
+    const int64_t n_words = std::min<int64_t>(32, (data_end - data) / kWordSize);
+    int64_t n_skips = 0;
+    const auto words = reinterpret_cast<const BulkWordType*>(data);
+    for (int64_t i = 0; i < n_words - 3; i += 4) {
+      const auto a = words[i + 0];
+      const auto b = words[i + 1];
+      const auto c = words[i + 2];
+      const auto d = words[i + 3];
+      n_skips += !bulk_filter_.Matches(a) + !bulk_filter_.Matches(b) +
+                 !bulk_filter_.Matches(c) + !bulk_filter_.Matches(d);
+    }
+    return (n_skips * 4 + 1 >= n_words);
+  }
+
+  template <bool UseBulkFilter = true>
   const char* ReadLine(const char* data, const char* data_end) {
     // The parsing state machine
     char c;
@@ -65,21 +90,21 @@ class Lexer {
       case AT_ESCAPE:
         // will never reach here if escaping = false
         // just to hint the compiler to remove dead code
-        if (!escaping) return nullptr;
+        if (!SpecializedOptions::escaping) return nullptr;
         goto AtEscape;
       case IN_QUOTED_FIELD:
-        if (!quoting) return nullptr;
+        if (!SpecializedOptions::quoting) return nullptr;
         goto InQuotedField;
       case AT_QUOTED_QUOTE:
-        if (!quoting) return nullptr;
+        if (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedQuote;
       case AT_QUOTED_ESCAPE:
-        if (!quoting) return nullptr;
+        if (!SpecializedOptions::quoting) return nullptr;
         goto AtQuotedEscape;
     }
 
   FieldStart:
-    if (!quoting) {
+    if (!SpecializedOptions::quoting) {
       goto InField;
     } else {
       // At the start of a field
@@ -98,12 +123,21 @@ class Lexer {
 
   InField:
     // Inside a non-quoted part of a field
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      state_ = IN_FIELD;
-      goto AbortLine;
+    if (UseBulkFilter) {
+      const char* bulk_end = RunBulkFilter(data, data_end);
+      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        state_ = IN_FIELD;
+        goto AbortLine;
+      }
+      data = bulk_end;
+    } else {
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        state_ = IN_FIELD;
+        goto AbortLine;
+      }
     }
     c = *data++;
-    if (escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+    if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         state_ = AT_ESCAPE;
         goto AbortLine;
@@ -121,7 +155,7 @@ class Lexer {
       goto LineEnd;
     }
     // treat delimiter as a normal token if quoting is disabled
-    if (ARROW_PREDICT_FALSE(quoting && c == options_.delimiter)) {
+    if (ARROW_PREDICT_FALSE(SpecializedOptions::quoting && c == options_.delimiter)) {
       goto FieldEnd;
     }
     goto InField;
@@ -133,12 +167,21 @@ class Lexer {
 
   InQuotedField:
     // Inside a quoted part of a field
-    if (ARROW_PREDICT_FALSE(data == data_end)) {
-      state_ = IN_QUOTED_FIELD;
-      goto AbortLine;
+    if (UseBulkFilter) {
+      const char* bulk_end = RunBulkFilter(data, data_end);
+      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+        state_ = IN_QUOTED_FIELD;
+        goto AbortLine;
+      }
+      data = bulk_end;
+    } else {
+      if (ARROW_PREDICT_FALSE(data == data_end)) {
+        state_ = IN_QUOTED_FIELD;
+        goto AbortLine;
+      }
     }
     c = *data++;
-    if (escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+    if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         state_ = AT_QUOTED_ESCAPE;
         goto AbortLine;
@@ -191,25 +234,59 @@ class Lexer {
   }
 
  protected:
+  using BulkFilterType = internal::PreferredBulkFilterType<SpecializedOptions>;
+  using BulkWordType = typename BulkFilterType::WordType;
+
+  const char* RunBulkFilter(const char* data, const char* data_end) {
+    while (true) {
+      if (ARROW_PREDICT_FALSE(static_cast<size_t>(data_end - data) <
+                              sizeof(BulkWordType))) {
+        if (ARROW_PREDICT_FALSE(data == data_end)) {
+          return nullptr;
+        }
+        return data;
+      }
+      BulkWordType word;
+      memcpy(&word, data, sizeof(BulkWordType));
+      if (bulk_filter_.Matches(word)) {
+        return data;
+      }
+      // No special chars
+      data += sizeof(BulkWordType);
+    }
+  }
+
   const ParseOptions& options_;
+  const BulkFilterType bulk_filter_;
   State state_ = FIELD_START;
 };
 
 // A BoundaryFinder implementation that assumes CSV cells can contain raw newlines,
 // and uses actual CSV lexing to delimit them.
-template <bool quoting, bool escaping>
+template <typename SpecializedOptions>
 class LexingBoundaryFinder : public BoundaryFinder {
  public:
-  explicit LexingBoundaryFinder(ParseOptions options) : options_(std::move(options)) {}
+  explicit LexingBoundaryFinder(ParseOptions options)
+      : options_(std::move(options)), lexer_(options_) {}
 
   Status FindFirst(util::string_view partial, util::string_view block,
                    int64_t* out_pos) override {
-    Lexer<quoting, escaping> lexer(options_);
+    lexer_.Reset();
+    if (lexer_.ShouldUseBulkFilter(block.data(), block.data() + block.size())) {
+      return FindFirstInternal<true>(partial, block, out_pos);
+    } else {
+      return FindFirstInternal<false>(partial, block, out_pos);
+    }
+  }
 
-    const char* line_end =
-        lexer.ReadLine(partial.data(), partial.data() + partial.size());
+  template <bool UseBulkFilter>
+  Status FindFirstInternal(util::string_view partial, util::string_view block,
+                           int64_t* out_pos) {
+    const char* line_end = lexer_.template ReadLine<UseBulkFilter>(
+        partial.data(), partial.data() + partial.size());
     DCHECK_EQ(line_end, nullptr);  // Otherwise `partial` is a whole CSV line
-    line_end = lexer.ReadLine(block.data(), block.data() + block.size());
+    line_end = lexer_.template ReadLine<UseBulkFilter>(block.data(),
+                                                       block.data() + block.size());
 
     if (line_end == nullptr) {
       // No complete CSV line
@@ -222,13 +299,21 @@ class LexingBoundaryFinder : public BoundaryFinder {
   }
 
   Status FindLast(util::string_view block, int64_t* out_pos) override {
-    Lexer<quoting, escaping> lexer(options_);
+    lexer_.Reset();
+    if (lexer_.ShouldUseBulkFilter(block.data(), block.data() + block.size())) {
+      return FindLastInternal<true>(block, out_pos);
+    } else {
+      return FindLastInternal<false>(block, out_pos);
+    }
+  }
 
+  template <bool UseBulkFilter>
+  Status FindLastInternal(util::string_view block, int64_t* out_pos) {
     const char* data = block.data();
     const char* const data_end = block.data() + block.size();
 
     while (data < data_end) {
-      const char* line_end = lexer.ReadLine(data, data_end);
+      const char* line_end = lexer_.template ReadLine<UseBulkFilter>(data, data_end);
       if (line_end == nullptr) {
         // Cannot read any further
         break;
@@ -248,19 +333,20 @@ class LexingBoundaryFinder : public BoundaryFinder {
 
   Status FindNth(util::string_view partial, util::string_view block, int64_t count,
                  int64_t* out_pos, int64_t* num_found) override {
-    Lexer<quoting, escaping> lexer(options_);
+    lexer_.Reset();
+
     int64_t found = 0;
     const char* data = block.data();
     const char* const data_end = block.data() + block.size();
 
     const char* line_end;
     if (partial.size()) {
-      line_end = lexer.ReadLine(partial.data(), partial.data() + partial.size());
+      line_end = lexer_.ReadLine(partial.data(), partial.data() + partial.size());
       DCHECK_EQ(line_end, nullptr);  // Otherwise `partial` is a whole CSV line
     }
 
     for (; data < data_end && found < count; ++found) {
-      line_end = lexer.ReadLine(data, data_end);
+      line_end = lexer_.ReadLine(data, data_end);
       if (line_end == nullptr) {
         // Cannot read any further
         break;
@@ -281,6 +367,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
 
  protected:
   ParseOptions options_;
+  Lexer<SpecializedOptions> lexer_;
 };
 
 }  // namespace
@@ -292,19 +379,23 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   } else {
     if (options.quoting) {
       if (options.escaping) {
-        delimiter = std::make_shared<LexingBoundaryFinder<true, true>>(options);
+        delimiter = std::make_shared<
+            LexingBoundaryFinder<internal::SpecializedOptions<true, true>>>(options);
       } else {
-        delimiter = std::make_shared<LexingBoundaryFinder<true, false>>(options);
+        delimiter = std::make_shared<
+            LexingBoundaryFinder<internal::SpecializedOptions<true, false>>>(options);
       }
     } else {
       if (options.escaping) {
-        delimiter = std::make_shared<LexingBoundaryFinder<false, true>>(options);
+        delimiter = std::make_shared<
+            LexingBoundaryFinder<internal::SpecializedOptions<false, true>>>(options);
       } else {
-        delimiter = std::make_shared<LexingBoundaryFinder<false, false>>(options);
+        delimiter = std::make_shared<
+            LexingBoundaryFinder<internal::SpecializedOptions<false, false>>>(options);
       }
     }
   }
-  return internal::make_unique<Chunker>(std::move(delimiter));
+  return ::arrow::internal::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace csv

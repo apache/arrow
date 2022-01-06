@@ -31,7 +31,7 @@ extern "C" {
 
 FORCE_INLINE
 bool bitMapGetBit(const uint8_t* bmap, int64_t position) {
-  return arrow::BitUtil::GetBit(bmap, position);
+  return arrow::bit_util::GetBit(bmap, position);
 }
 
 FORCE_INLINE
@@ -46,14 +46,14 @@ bool bitMapValidityGetBit(const uint8_t* bmap, int64_t position) {
 
 FORCE_INLINE
 void bitMapSetBit(uint8_t* bmap, int64_t position, bool value) {
-  arrow::BitUtil::SetBitTo(bmap, position, value);
+  arrow::bit_util::SetBitTo(bmap, position, value);
 }
 
 // Clear the bit if value = false. Does nothing if value = true.
 FORCE_INLINE
 void bitMapClearBitIfFalse(uint8_t* bmap, int64_t position, bool value) {
   if (!value) {
-    arrow::BitUtil::ClearBit(bmap, position);
+    arrow::bit_util::ClearBit(bmap, position);
   }
 }
 

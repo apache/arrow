@@ -127,7 +127,7 @@ class ARROW_EXPORT AsyncTaskGroup {
   ///
   /// Any attempt to add a task after the returned future has completed will fail.
   ///
-  /// The returned future that will finish when all running tasks have finsihed.
+  /// The returned future that will finish when all running tasks have finished.
   Future<> End();
   /// A future that will be finished after End is called and all tasks have completed
   ///
@@ -176,6 +176,13 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
   /// The returned future that will finish when all tasks have been consumed.
   Future<> End();
 
+  /// Abort a task group
+  ///
+  /// Tasks that have not been started will be discarded
+  ///
+  /// The returned future will finish when all running tasks have finished.
+  Future<> Abort(Status err);
+
   /// A future that finishes when all queued items have been delivered.
   ///
   /// This will return the same future returned by End but will not signal
@@ -185,6 +192,7 @@ class ARROW_EXPORT SerializedAsyncTaskGroup {
 
  private:
   void ConsumeAsMuchAsPossibleUnlocked(util::Mutex::Guard&& guard);
+  Future<> EndUnlocked(util::Mutex::Guard&& guard);
   bool TryDrainUnlocked();
 
   Future<> on_finished_;

@@ -50,7 +50,7 @@ test_that("if_else and ifelse", {
         y = if_else(int > 5, 1, FALSE)
       ) %>%
       collect(),
-    "NotImplemented: Function if_else has no kernel matching input types"
+    "NotImplemented: Function 'if_else' has no kernel matching input types"
   )
 
   compare_dplyr_binding(
@@ -116,18 +116,20 @@ test_that("if_else and ifelse", {
     tbl
   )
 
-  # TODO: remove the mutate + warning after ARROW-13358 is merged and Arrow
-  # supports factors in if(_)else
   compare_dplyr_binding(
     .input %>%
       mutate(
         y = if_else(int > 5, fct, factor("a"))
       ) %>%
       collect() %>%
-      # This is a no-op on the Arrow side, but necessary to make the results equal
-      mutate(y = as.character(y)),
-    tbl,
-    warning = "Dictionaries .* are currently converted to strings .* in if_else and ifelse"
+      # Arrow if_else() kernel does not preserve unused factor levels,
+      # so reset the levels of all the factor columns to make the test pass
+      # (ARROW-14649)
+      transmute(across(
+        where(is.factor),
+        ~ factor(.x, levels = c("a", "b", "c", "d", "g", "h", "i", "j"))
+      )),
+    tbl
   )
 
   # detecting NA and NaN works just fine
@@ -405,7 +407,7 @@ test_that("coalesce()", {
 
   # no arguments
   expect_error(
-    nse_funcs$coalesce(),
+    call_binding("coalesce"),
     "At least one argument must be supplied to coalesce()",
     fixed = TRUE
   )

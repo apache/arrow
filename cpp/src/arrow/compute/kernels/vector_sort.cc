@@ -35,7 +35,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 
@@ -1221,7 +1222,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = chunked_array.length();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     std::vector<std::shared_ptr<Buffer>> buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],
@@ -1251,7 +1252,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = batch.num_rows();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     BufferVector buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],
@@ -1291,7 +1292,7 @@ class SortIndicesMetaFunction : public MetaFunction {
 
     auto out_type = uint64();
     auto length = table.num_rows();
-    auto buffer_size = BitUtil::BytesForBits(
+    auto buffer_size = bit_util::BytesForBits(
         length * std::static_pointer_cast<UInt64Type>(out_type)->bit_width());
     std::vector<std::shared_ptr<Buffer>> buffers(2);
     ARROW_ASSIGN_OR_RAISE(buffers[1],
@@ -1317,15 +1318,14 @@ const SelectKOptions* GetDefaultSelectKOptions() {
 }
 
 const FunctionDoc select_k_unstable_doc(
-    "Selects the indices of the first `k` ordered elements from the input",
-    ("This function selects an array of indices of the first `k` ordered elements from\n"
-     "the input array, record batch or table specified in the column keys\n"
+    "Select the indices of the first `k` ordered elements from the input",
+    ("This function selects an array of indices of the first `k` ordered elements\n"
+     "from the `input` array, record batch or table specified in the column keys\n"
      "(`options.sort_keys`). Output is not guaranteed to be stable.\n"
-     "The columns that are not specified are returned as well, but not used for\n"
-     "ordering. Null values are considered  greater than any other value and are\n"
-     "therefore sorted at the end of the array. For floating-point types, ordering of\n"
-     "values is such that: Null > NaN > Inf > number."),
-    {"input"}, "SelectKOptions");
+     "Null values are considered greater than any other value and are\n"
+     "therefore ordered at the end. For floating-point types, NaNs are considered\n"
+     "greater than any other non-null value, but smaller than null values."),
+    {"input"}, "SelectKOptions", /*options_required=*/true);
 
 Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
@@ -1917,6 +1917,14 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 };
 
 }  // namespace
+
+Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                        const ChunkedArray& values, SortOrder sort_order,
+                        NullPlacement null_placement) {
+  ChunkedArraySorter sorter{ctx,    indices_begin, indices_end,
+                            values, sort_order,    null_placement};
+  return sorter.Sort();
+}
 
 void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));

@@ -20,16 +20,17 @@ FROM ${base}
 
 # Install the libaries required by the Gandiva to run
 RUN vcpkg install --clean-after-build \
-        llvm \
-        boost-system \
-        boost-date-time \
-        boost-regex \
-        boost-predef \
         boost-algorithm \
-        boost-locale \
+        boost-crc \
+        boost-date-time \
         boost-format \
+        boost-locale \
+        boost-multiprecision \
+        boost-predef \
+        boost-regex \
+        boost-system \
         boost-variant \
-        boost-multiprecision
+        llvm
 
 # Install Java
 ARG java=1.8.0

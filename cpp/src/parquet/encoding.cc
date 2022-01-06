@@ -30,6 +30,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/bit_util.h"
@@ -43,13 +44,13 @@
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
@@ -340,12 +341,12 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
 
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
     if (data.null_count() == 0) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(BitUtil::BytesForBits(data.length())));
+      PARQUET_THROW_NOT_OK(sink_.Reserve(bit_util::BytesForBits(data.length())));
       // no nulls, just dump the data
       ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
                                     data.length(), sink_.mutable_data(), sink_.length());
     } else {
-      auto n_valid = BitUtil::BytesForBits(data.length() - data.null_count());
+      auto n_valid = bit_util::BytesForBits(data.length() - data.null_count());
       PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
       ::arrow::internal::FirstTimeBitmapWriter writer(sink_.mutable_data(),
                                                       sink_.length(), n_valid);
@@ -369,7 +370,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
   int bits_available_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
-  ::arrow::BitUtil::BitWriter bit_writer_;
+  ::arrow::bit_util::BitWriter bit_writer_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -523,7 +524,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   int bit_width() const override {
     if (ARROW_PREDICT_FALSE(num_entries() == 0)) return 0;
     if (ARROW_PREDICT_FALSE(num_entries() == 1)) return 1;
-    return BitUtil::Log2(num_entries());
+    return bit_util::Log2(num_entries());
   }
 
   /// Encode value. Note that this does not actually write any data, just
@@ -1164,7 +1165,7 @@ class PlainBooleanDecoder : public DecoderImpl,
                   typename EncodingTraits<BooleanType>::DictAccumulator* out) override;
 
  private:
-  std::unique_ptr<::arrow::BitUtil::BitReader> bit_reader_;
+  std::unique_ptr<::arrow::bit_util::BitReader> bit_reader_;
 };
 
 PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
@@ -1172,7 +1173,7 @@ PlainBooleanDecoder::PlainBooleanDecoder(const ColumnDescriptor* descr)
 
 void PlainBooleanDecoder::SetData(int num_values, const uint8_t* data, int len) {
   num_values_ = num_values;
-  bit_reader_.reset(new BitUtil::BitReader(data, len));
+  bit_reader_.reset(new bit_util::BitReader(data, len));
 }
 
 int PlainBooleanDecoder::DecodeArrow(
@@ -1544,13 +1545,12 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       ParquetException::EofException();
     }
 
-    /// XXX(wesm): Cannot append "valid bits" directly to the builder
-    std::vector<uint8_t> valid_bytes(num_values);
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-    for (int64_t i = 0; i < num_values; ++i) {
-      valid_bytes[i] = static_cast<uint8_t>(bit_reader.IsSet());
-      bit_reader.Next();
-    }
+    // XXX(wesm): Cannot append "valid bits" directly to the builder
+    std::vector<uint8_t> valid_bytes(num_values, 0);
+    int64_t i = 0;
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });
 
     auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(
@@ -1889,56 +1889,62 @@ class DictByteArrayDecoderImpl : public DictDecoderImpl<ByteArrayType>,
 
     ArrowBinaryHelper helper(out);
 
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
-
     auto dict_values = reinterpret_cast<const ByteArray*>(dictionary_->data());
     int values_decoded = 0;
-    int num_appended = 0;
-    while (num_appended < num_values) {
-      bool is_valid = bit_reader.IsSet();
-      bit_reader.Next();
+    int num_indices = 0;
+    int pos_indices = 0;
 
-      if (is_valid) {
-        int32_t batch_size =
-            std::min<int32_t>(kBufferSize, num_values - num_appended - null_count);
-        int num_indices = idx_decoder_.GetBatch(indices, batch_size);
-
+    auto visit_valid = [&](int64_t position) -> Status {
+      if (num_indices == pos_indices) {
+        // Refill indices buffer
+        const auto batch_size =
+            std::min<int32_t>(kBufferSize, num_values - null_count - values_decoded);
+        num_indices = idx_decoder_.GetBatch(indices, batch_size);
         if (ARROW_PREDICT_FALSE(num_indices < 1)) {
-          return Status::Invalid("Invalid number of indices '", num_indices, "'");
+          return Status::Invalid("Invalid number of indices: ", num_indices);
         }
+        pos_indices = 0;
+      }
+      const auto index = indices[pos_indices++];
+      RETURN_NOT_OK(IndexInBounds(index));
+      const auto& val = dict_values[index];
+      if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+        RETURN_NOT_OK(helper.PushChunk());
+      }
+      RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
+      ++values_decoded;
+      return Status::OK();
+    };
 
-        int i = 0;
-        while (true) {
-          // Consume all indices
-          if (is_valid) {
-            auto idx = indices[i];
-            RETURN_NOT_OK(IndexInBounds(idx));
-            const auto& val = dict_values[idx];
-            if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-              RETURN_NOT_OK(helper.PushChunk());
-            }
-            RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-            ++i;
-            ++values_decoded;
-          } else {
-            RETURN_NOT_OK(helper.AppendNull());
-            --null_count;
-          }
-          ++num_appended;
-          if (i == num_indices) {
-            // Do not advance the bit_reader if we have fulfilled the decode
-            // request
-            break;
-          }
-          is_valid = bit_reader.IsSet();
-          bit_reader.Next();
+    auto visit_null = [&]() -> Status {
+      RETURN_NOT_OK(helper.AppendNull());
+      return Status::OK();
+    };
+
+    ::arrow::internal::BitBlockCounter bit_blocks(valid_bits, valid_bits_offset,
+                                                  num_values);
+    int64_t position = 0;
+    while (position < num_values) {
+      const auto block = bit_blocks.NextWord();
+      if (block.AllSet()) {
+        for (int64_t i = 0; i < block.length; ++i, ++position) {
+          ARROW_RETURN_NOT_OK(visit_valid(position));
+        }
+      } else if (block.NoneSet()) {
+        for (int64_t i = 0; i < block.length; ++i, ++position) {
+          ARROW_RETURN_NOT_OK(visit_null());
         }
       } else {
-        RETURN_NOT_OK(helper.AppendNull());
-        --null_count;
-        ++num_appended;
+        for (int64_t i = 0; i < block.length; ++i, ++position) {
+          if (bit_util::GetBit(valid_bits, valid_bits_offset + position)) {
+            ARROW_RETURN_NOT_OK(visit_valid(position));
+          } else {
+            ARROW_RETURN_NOT_OK(visit_null());
+          }
+        }
       }
     }
+
     *out_num_values = values_decoded;
     return Status::OK();
   }
@@ -2074,13 +2080,13 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   void SetData(int num_values, const uint8_t* data, int len) override {
     // num_values is equal to page's num_values, including null values in this page
     this->num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     InitHeader();
   }
 
   // Set BitReader which is already initialized by DeltaLengthByteArrayDecoder or
   // DeltaByteArrayDecoder
-  void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
+  void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     this->num_values_ = num_values;
     decoder_ = decoder;
     InitHeader();
@@ -2230,7 +2236,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   MemoryPool* pool_;
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   uint32_t values_per_block_;
   uint32_t mini_blocks_per_block_;
   uint32_t values_per_mini_block_;
@@ -2262,11 +2268,11 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
     if (len == 0) return;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     DecodeLengths();
   }
 
-  void SetDecoder(int num_values, std::shared_ptr<::arrow::BitUtil::BitReader> decoder) {
+  void SetDecoder(int num_values, std::shared_ptr<::arrow::bit_util::BitReader> decoder) {
     num_values_ = num_values;
     decoder_ = decoder;
     DecodeLengths();
@@ -2341,7 +2347,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
     num_valid_values_ = num_length;
   }
 
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_;
   uint32_t length_idx_;
@@ -2366,7 +2372,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::BitUtil::BitReader>(data, len);
+    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
     prefix_len_decoder_.SetDecoder(num_values, decoder_);
 
     // get the number of encoded prefix lengths
@@ -2424,8 +2430,11 @@ class DeltaByteArrayDecoder : public DecoderImpl,
         reinterpret_cast<const int32_t*>(buffered_prefix_length_->data()) +
         prefix_len_offset_;
     for (int i = 0; i < max_values; ++i) {
-      if (AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
-          AddWithOverflow(data_size, buffer[i].len, &data_size)) {
+      if (ARROW_PREDICT_FALSE(prefix_len_ptr[i] < 0)) {
+        throw ParquetException("negative prefix length in DELTA_BYTE_ARRAY");
+      }
+      if (ARROW_PREDICT_FALSE(AddWithOverflow(data_size, prefix_len_ptr[i], &data_size) ||
+                              AddWithOverflow(data_size, buffer[i].len, &data_size))) {
         throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
       }
     }
@@ -2435,7 +2444,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     uint8_t* data_ptr = buffered_data_->mutable_data();
     for (int i = 0; i < max_values; ++i) {
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
-        throw ParquetException("prefix length too large");
+        throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
       }
       memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
       // buffer[i] currently points to the string suffix
@@ -2461,37 +2470,37 @@ class DeltaByteArrayDecoder : public DecoderImpl,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_num_values) {
     ArrowBinaryHelper helper(out);
-    ::arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
 
     std::vector<ByteArray> values(num_values);
-    int num_valid_values = GetInternal(values.data(), num_values - null_count);
+    const int num_valid_values = GetInternal(values.data(), num_values - null_count);
     DCHECK_EQ(num_values - null_count, num_valid_values);
 
     auto values_ptr = reinterpret_cast<const ByteArray*>(values.data());
     int value_idx = 0;
 
-    for (int i = 0; i < num_values; ++i) {
-      bool is_valid = bit_reader.IsSet();
-      bit_reader.Next();
+    RETURN_NOT_OK(VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() {
+          const auto& val = values_ptr[value_idx];
+          if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
+            RETURN_NOT_OK(helper.PushChunk());
+          }
+          RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
+          ++value_idx;
+          return Status::OK();
+        },
+        [&]() {
+          RETURN_NOT_OK(helper.AppendNull());
+          --null_count;
+          return Status::OK();
+        }));
 
-      if (is_valid) {
-        const auto& val = values_ptr[value_idx];
-        if (ARROW_PREDICT_FALSE(!helper.CanFit(val.len))) {
-          RETURN_NOT_OK(helper.PushChunk());
-        }
-        RETURN_NOT_OK(helper.Append(val.ptr, static_cast<int32_t>(val.len)));
-        ++value_idx;
-      } else {
-        RETURN_NOT_OK(helper.AppendNull());
-        --null_count;
-      }
-    }
     DCHECK_EQ(null_count, 0);
     *out_num_values = num_valid_values;
     return Status::OK();
   }
 
-  std::shared_ptr<::arrow::BitUtil::BitReader> decoder_;
+  std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> prefix_len_decoder_;
   DeltaLengthByteArrayDecoder suffix_decoder_;
   std::string last_value_;

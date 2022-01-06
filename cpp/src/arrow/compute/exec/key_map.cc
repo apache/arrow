@@ -28,7 +28,7 @@
 
 namespace arrow {
 
-using BitUtil::CountLeadingZeros;
+using bit_util::CountLeadingZeros;
 
 namespace compute {
 
@@ -198,7 +198,7 @@ void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
   if (log_blocks_ == 0) {
     for (int i = 0; i < num_keys; ++i) {
       uint16_t id = selection[i];
-      uint32_t match = ::arrow::BitUtil::GetBit(match_bitvector, id) ? 1 : 0;
+      uint32_t match = ::arrow::bit_util::GetBit(match_bitvector, id) ? 1 : 0;
       uint32_t slot_id = local_slots[id] + match;
       out_slot_ids[id] = slot_id;
     }
@@ -207,7 +207,7 @@ void SwissTable::init_slot_ids(const int num_keys, const uint16_t* selection,
       uint16_t id = selection[i];
       uint32_t hash = hashes[id];
       uint32_t iblock = (hash >> (bits_hash_ - log_blocks_));
-      uint32_t match = ::arrow::BitUtil::GetBit(match_bitvector, id) ? 1 : 0;
+      uint32_t match = ::arrow::bit_util::GetBit(match_bitvector, id) ? 1 : 0;
       uint32_t slot_id = iblock * 8 + local_slots[id] + match;
       out_slot_ids[id] = slot_id;
     }
@@ -371,9 +371,9 @@ void SwissTable::run_comparisons(const int num_keys,
       equal_impl_(num_keys, nullptr, groupids, &out_num, out_not_equal_selection);
       *out_num_not_equal = static_cast<int>(out_num);
     } else {
-      util::BitUtil::bits_to_indexes(1, hardware_flags_, num_keys,
-                                     optional_selection_bitvector, out_num_not_equal,
-                                     out_not_equal_selection);
+      util::bit_util::bits_to_indexes(1, hardware_flags_, num_keys,
+                                      optional_selection_bitvector, out_num_not_equal,
+                                      out_not_equal_selection);
       uint32_t out_num;
       equal_impl_(*out_num_not_equal, out_not_equal_selection, groupids, &out_num,
                   out_not_equal_selection);
@@ -500,8 +500,8 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
     run_comparisons(num_keys, nullptr, inout_match_bitvector, out_group_ids, &num_ids,
                     ids);
   } else {
-    util::BitUtil::bits_to_indexes(1, hardware_flags_, num_keys, inout_match_bitvector,
-                                   &num_ids, ids);
+    util::bit_util::bits_to_indexes(1, hardware_flags_, num_keys, inout_match_bitvector,
+                                    &num_ids, ids);
     extract_group_ids(num_ids, ids, hashes, local_slots, out_group_ids);
     run_comparisons(num_ids, ids, nullptr, out_group_ids, &num_ids, ids);
   }
@@ -525,7 +525,7 @@ void SwissTable::find(const int num_keys, const uint32_t* hashes,
       slot_ids[id] = next_slot_id;
       // If next match was not found then clear match bit in a bit vector
       if (!match_found) {
-        ::arrow::BitUtil::ClearBit(inout_match_bitvector, id);
+        ::arrow::bit_util::ClearBit(inout_match_bitvector, id);
       } else {
         ids[num_ids++] = id;
       }
@@ -580,7 +580,7 @@ Status SwissTable::map_new_keys_helper(const uint32_t* hashes,
       //
       out_group_ids[id] = num_inserted_ + num_inserted_new;
       insert_into_empty_slot(inout_next_slot_ids[id], hashes[id], out_group_ids[id]);
-      ::arrow::BitUtil::ClearBit(match_bitvector, num_processed);
+      ::arrow::bit_util::ClearBit(match_bitvector, num_processed);
       ++num_inserted_new;
 
       // We need to break processing and have the caller of this function
@@ -600,15 +600,15 @@ Status SwissTable::map_new_keys_helper(const uint32_t* hashes,
 
   // Copy keys for newly inserted rows using callback
   //
-  util::BitUtil::bits_filter_indexes(0, hardware_flags_, num_processed, match_bitvector,
-                                     inout_selection, &num_temp_ids, temp_ids);
+  util::bit_util::bits_filter_indexes(0, hardware_flags_, num_processed, match_bitvector,
+                                      inout_selection, &num_temp_ids, temp_ids);
   ARROW_DCHECK(static_cast<int>(num_inserted_new) == num_temp_ids);
   RETURN_NOT_OK(append_impl_(num_inserted_new, temp_ids));
   num_inserted_ += num_inserted_new;
 
   // Evaluate comparisons and append ids of rows that failed it to the non-match set.
-  util::BitUtil::bits_filter_indexes(1, hardware_flags_, num_processed, match_bitvector,
-                                     inout_selection, &num_temp_ids, temp_ids);
+  util::bit_util::bits_filter_indexes(1, hardware_flags_, num_processed, match_bitvector,
+                                      inout_selection, &num_temp_ids, temp_ids);
   run_comparisons(num_temp_ids, temp_ids, nullptr, out_group_ids, &num_temp_ids,
                   temp_ids);
 

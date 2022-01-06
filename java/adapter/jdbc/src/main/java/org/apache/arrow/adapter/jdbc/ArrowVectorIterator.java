@@ -27,6 +27,7 @@ import java.util.Iterator;
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -140,7 +141,13 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   // Loads the next schema root or null if no more rows are available.
   private void load(VectorSchemaRoot root) throws SQLException {
     for (int i = 0; i < consumers.length; i++) {
-      consumers[i].resetValueVector(root.getVector(i));
+      FieldVector vec = root.getVector(i);
+      if (config.isReuseVectorSchemaRoot()) {
+        // if we are reusing the vector schema root,
+        // we must reset the vector before populating it with data.
+        vec.reset();
+      }
+      consumers[i].resetValueVector(vec);
     }
 
     consumeData(root);

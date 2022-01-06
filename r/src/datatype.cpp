@@ -79,9 +79,13 @@ const char* r6_class_name<arrow::DataType>::get(
       return "Time32";
     case Type::TIME64:
       return "Time64";
+    case Type::DURATION:
+      return "DurationType";
 
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
       return "Decimal128Type";
+    case Type::DECIMAL256:
+      return "Decimal256Type";
 
     case Type::LIST:
       return "ListType";
@@ -181,6 +185,13 @@ std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
+                                                            int32_t scale) {
+  // Use the builder that validates inputs
+  return ValueOrStop(arrow::Decimal256Type::Make(precision, scale));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
     cpp11::stop("'byte_width' cannot be NA");
@@ -205,6 +216,11 @@ std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit) 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) {
   return arrow::time64(unit);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> Duration__initialize(arrow::TimeUnit::type unit) {
+  return arrow::duration(unit);
 }
 
 // [[arrow::export]]
@@ -306,6 +322,12 @@ arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type) {
 
 // [[arrow::export]]
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type) {
+  return type->unit();
+}
+
+// [[arrow::export]]
+arrow::TimeUnit::type DurationType__unit(
+    const std::shared_ptr<arrow::DurationType>& type) {
   return type->unit();
 }
 

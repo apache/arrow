@@ -153,15 +153,13 @@ else
       fi
 
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "" ]; then
-        # TODO: BUNDLED is still default for now, but we plan to change it to AUTO
-        ARROW_DEPENDENCY_SOURCE=BUNDLED; export ARROW_DEPENDENCY_SOURCE
+        ARROW_DEPENDENCY_SOURCE=AUTO; export ARROW_DEPENDENCY_SOURCE
       fi
       if [ "${ARROW_DEPENDENCY_SOURCE}" = "AUTO" ]; then
         pkg-config --version >/dev/null 2>&1
         if [ $? -ne 0 ]; then
           export ARROW_DEPENDENCY_SOURCE=BUNDLED
-          echo "**** Warning: ARROW_DEPENDENCY_SOURCE set to 'AUTO' but pkg-config not installed"
-          echo "**** ARROW_DEPENDENCY_SOURCE has been set to 'BUNDLED'"
+          echo "**** pkg-config not installed, setting ARROW_DEPENDENCY_SOURCE=BUNDLED"
         fi
       fi
 
@@ -240,7 +238,7 @@ if [ $? -eq 0 ]; then
   LIB_DIR=`echo $PKG_DIRS | sed -e 's/^-L//'`
   ARROW_OPTS_CMAKE="$LIB_DIR/cmake/arrow/ArrowOptions.cmake"
   # Check for Parquet
-  grep 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_PARQUET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
     PKG_LIBS="-lparquet $PKG_LIBS"
@@ -248,7 +246,7 @@ if [ $? -eq 0 ]; then
     # so there is no need to add its location to PKG_DIRS
   fi
   # Check for Arrow Dataset subcomponent
-  grep 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_DATASET "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
     PKG_LIBS="-larrow_dataset $PKG_LIBS"
@@ -256,7 +254,7 @@ if [ $? -eq 0 ]; then
     # so there is no need to add its location to PKG_DIRS
   fi
   # Check for S3
-  grep 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_S3 "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
     if [ "$BUNDLED_LIBS" != "" ]; then
@@ -265,7 +263,7 @@ if [ $? -eq 0 ]; then
     fi
   fi
   # Check for JSON
-  grep 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
+  grep -i 'set(ARROW_JSON "ON")' $ARROW_OPTS_CMAKE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi

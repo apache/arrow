@@ -18,6 +18,13 @@
 class TestFunction < Test::Unit::TestCase
   include Helper::Buildable
 
+  def test_all
+    or_function = Arrow::Function.find("or")
+    assert do
+      Arrow::Function.all.include?(or_function)
+    end
+  end
+
   sub_test_case("#execute") do
     def test_array
       or_function = Arrow::Function.find("or")
@@ -79,5 +86,16 @@ class TestFunction < Test::Unit::TestCase
       assert_equal(build_int8_array([1, 2, -3]),
                    cast_function.execute(args, options).value)
     end
+  end
+
+  def test_name
+    or_function = Arrow::Function.find("or")
+    assert_equal("or", or_function.name)
+  end
+
+  def test_to_s
+    or_function = Arrow::Function.find("or")
+    assert_equal("or(x, y): Logical 'or' boolean values",
+                 or_function.to_s)
   end
 end

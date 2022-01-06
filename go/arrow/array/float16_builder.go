@@ -17,6 +17,10 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
@@ -24,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/float16"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 type Float16Builder struct {
@@ -162,4 +167,64 @@ func (b *Float16Builder) newData() (data *Data) {
 	}
 
 	return
+}
+
+func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case float64:
+		b.Append(float16.New(float32(v)))
+	case string:
+		f, err := strconv.ParseFloat(v, 32)
+		if err != nil {
+			return err
+		}
+		// this will currently silently truncate if it is too large
+		b.Append(float16.New(float32(f)))
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return err
+		}
+		b.Append(float16.New(float32(f)))
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(float16.Num{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *Float16Builder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON will add values to this builder from unmarshalling the
+// array of values. Currently values that are larger than a float16 will
+// be silently truncated.
+func (b *Float16Builder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("float16 builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }

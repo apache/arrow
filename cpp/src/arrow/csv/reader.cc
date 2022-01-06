@@ -53,10 +53,12 @@
 #include "arrow/util/vector.h"
 
 namespace arrow {
-namespace csv {
 
 using internal::Executor;
+using internal::TaskGroup;
+using internal::UnwrapOrRaise;
 
+namespace csv {
 namespace {
 
 struct ConversionSchema {
@@ -459,7 +461,7 @@ class BlockDecodingOperator {
             const std::vector<Result<std::shared_ptr<Array>>>& maybe_decoded_arrays)
             -> Result<DecodedBlock> {
           ARROW_ASSIGN_OR_RAISE(auto decoded_arrays,
-                                internal::UnwrapOrRaise(maybe_decoded_arrays));
+                                arrow::internal::UnwrapOrRaise(maybe_decoded_arrays));
 
           ARROW_ASSIGN_OR_RAISE(auto batch,
                                 state->DecodedArraysToBatch(std::move(decoded_arrays)));
@@ -758,7 +760,7 @@ class ReaderMixin {
   ConversionSchema conversion_schema_;
 
   std::shared_ptr<io::InputStream> input_;
-  std::shared_ptr<internal::TaskGroup> task_group_;
+  std::shared_ptr<TaskGroup> task_group_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -988,7 +990,7 @@ class SerialTableReader : public BaseTableReader {
   }
 
   Result<std::shared_ptr<Table>> Read() override {
-    task_group_ = internal::TaskGroup::MakeSerial(io_context_.stop_token());
+    task_group_ = TaskGroup::MakeSerial(io_context_.stop_token());
 
     // First block
     ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
@@ -1067,8 +1069,7 @@ class AsyncThreadedTableReader
   Result<std::shared_ptr<Table>> Read() override { return ReadAsync().result(); }
 
   Future<std::shared_ptr<Table>> ReadAsync() override {
-    task_group_ =
-        internal::TaskGroup::MakeThreaded(cpu_executor_, io_context_.stop_token());
+    task_group_ = TaskGroup::MakeThreaded(cpu_executor_, io_context_.stop_token());
 
     auto self = shared_from_this();
     return ProcessFirstBuffer().Then([self](const std::shared_ptr<Buffer>& first_buffer) {
@@ -1137,7 +1138,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
   RETURN_NOT_OK(convert_options.Validate());
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    auto cpu_executor = internal::GetCpuThreadPool();
+    auto cpu_executor = arrow::internal::GetCpuThreadPool();
     reader = std::make_shared<AsyncThreadedTableReader>(
         io_context, input, read_options, parse_options, convert_options, cpu_executor);
   } else {
@@ -1151,7 +1152,7 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
 
 Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());
@@ -1258,7 +1259,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   auto io_context = io::IOContext(pool);
-  auto cpu_executor = internal::GetCpuThreadPool();
+  auto cpu_executor = arrow::internal::GetCpuThreadPool();
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
@@ -1270,7 +1271,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
-  auto cpu_executor = internal::GetCpuThreadPool();
+  auto cpu_executor = arrow::internal::GetCpuThreadPool();
   auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
                                         read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
@@ -1280,7 +1281,7 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    Executor* cpu_executor, const ReadOptions& read_options,
     const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
                              parse_options, convert_options);
@@ -1288,8 +1289,7 @@ Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
 
 Future<int64_t> CountRowsAsync(io::IOContext io_context,
                                std::shared_ptr<io::InputStream> input,
-                               internal::Executor* cpu_executor,
-                               const ReadOptions& read_options,
+                               Executor* cpu_executor, const ReadOptions& read_options,
                                const ParseOptions& parse_options) {
   RETURN_NOT_OK(parse_options.Validate());
   RETURN_NOT_OK(read_options.Validate());

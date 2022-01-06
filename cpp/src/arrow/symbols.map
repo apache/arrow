@@ -24,6 +24,11 @@
       # (from e.g. STL or Flatbuffers) involving Arrow types.
       *arrow::*;
       *arrow_vendored::*;
+      # OpenTelemetry requires on shared global state for features
+      # like automatic span linking. If we hide its symbols, spans
+      # started in (say) libarrow_dataset don't link up with those
+      # started in libarrow and vice versa.
+      *opentelemetry::*;
     };
     # Also export C-level helpers
     arrow_*;

@@ -22,10 +22,6 @@
 
 namespace gandiva {
 
-static bool IsArrowStringLiteral(arrow::Type::type type) {
-  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
-}
-
 Status ReplaceHolder::Make(const FunctionNode& node,
                            std::shared_ptr<ReplaceHolder>* holder) {
   ARROW_RETURN_IF(node.children().size() != 3,

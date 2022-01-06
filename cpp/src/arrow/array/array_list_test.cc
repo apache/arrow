@@ -29,7 +29,7 @@
 #include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
@@ -47,7 +47,7 @@ using ListTypes = ::testing::Types<ListType, LargeListType>;
 // List tests
 
 template <typename T>
-class TestListArray : public TestBuilder {
+class TestListArray : public ::testing::Test {
  public:
   using TypeClass = T;
   using offset_type = typename TypeClass::offset_type;
@@ -58,8 +58,6 @@ class TestListArray : public TestBuilder {
   using OffsetBuilderType = typename TypeTraits<TypeClass>::OffsetBuilderType;
 
   void SetUp() {
-    TestBuilder::SetUp();
-
     value_type_ = int16();
     type_ = std::make_shared<T>(value_type_);
 
@@ -245,7 +243,7 @@ class TestListArray : public TestBuilder {
     AssertArraysEqual(expected3, *list3);
 
     // Check that the last offset bit is zero
-    ASSERT_FALSE(BitUtil::GetBit(list3->null_bitmap()->data(), length + 1));
+    ASSERT_FALSE(bit_util::GetBit(list3->null_bitmap()->data(), length + 1));
 
     ArrayType expected4(list_type, length, offsets2->data()->buffers[1], values,
                         offsets4->data()->buffers[0], 1);
@@ -425,9 +423,9 @@ class TestListArray : public TestBuilder {
     ASSERT_EQ(2, array_data->buffers.size());
     auto null_bitmap_buffer = array_data->buffers[0];
     ASSERT_NE(nullptr, null_bitmap_buffer);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 1);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 3);
-    BitUtil::ClearBit(null_bitmap_buffer->mutable_data(), 4);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 1);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 3);
+    bit_util::ClearBit(null_bitmap_buffer->mutable_data(), 4);
     array_data->null_count += 3;
     auto list_array = std::dynamic_pointer_cast<ArrayType>(MakeArray(array_data));
     ASSERT_OK(list_array->ValidateFull());
@@ -523,6 +521,8 @@ class TestListArray : public TestBuilder {
   }
 
  protected:
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_;
   std::shared_ptr<DataType> value_type_;
 
   std::shared_ptr<BuilderType> builder_;
@@ -572,14 +572,12 @@ TYPED_TEST(TestListArray, TestOverflowCheck) { this->TestOverflowCheck(); }
 // ----------------------------------------------------------------------
 // Map tests
 
-class TestMapArray : public TestBuilder {
+class TestMapArray : public ::testing::Test {
  public:
   using offset_type = typename MapType::offset_type;
   using OffsetType = typename TypeTraits<MapType>::OffsetType;
 
   void SetUp() {
-    TestBuilder::SetUp();
-
     key_type_ = utf8();
     value_type_ = int32();
     type_ = map(key_type_, value_type_);
@@ -596,7 +594,8 @@ class TestMapArray : public TestBuilder {
   }
 
  protected:
-  std::shared_ptr<DataType> value_type_, key_type_;
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_, value_type_, key_type_;
 
   std::shared_ptr<MapBuilder> builder_;
   std::shared_ptr<MapArray> result_;
@@ -717,6 +716,30 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
 
+TEST_F(TestMapArray, BuildingWithFieldNames) {
+  // Builder should preserve field names in output Array
+  ASSERT_OK_AND_ASSIGN(auto map_type,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", int16(), false),
+                                                    field("some_value", int16())}),
+                                           false)));
+
+  auto key_builder = std::make_shared<Int16Builder>();
+  auto item_builder = std::make_shared<Int16Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder, map_type);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(actual->ValidateFull());
+
+  ASSERT_EQ(actual->type()->ToString(), map_type->ToString());
+  ASSERT_EQ(map_builder.type()->ToString(), map_type->ToString());
+}
+
 TEST_F(TestMapArray, ValidateErrorNullStruct) {
   ASSERT_OK_AND_ASSIGN(
       auto values,
@@ -811,7 +834,7 @@ TEST_F(TestMapArray, FromArrays) {
   AssertArraysEqual(expected3, *map3);
 
   // Check that the last offset bit is zero
-  ASSERT_FALSE(BitUtil::GetBit(map3->null_bitmap()->data(), length + 1));
+  ASSERT_FALSE(bit_util::GetBit(map3->null_bitmap()->data(), length + 1));
 
   MapArray expected4(map_type, length, offsets2->data()->buffers[1], keys, items,
                      offsets4->data()->buffers[0], 1);
@@ -977,11 +1000,9 @@ TEST_F(TestMapArray, ValueBuilder) {
 // ----------------------------------------------------------------------
 // FixedSizeList tests
 
-class TestFixedSizeListArray : public TestBuilder {
+class TestFixedSizeListArray : public ::testing::Test {
  public:
   void SetUp() {
-    TestBuilder::SetUp();
-
     value_type_ = int32();
     type_ = fixed_size_list(value_type_, list_size());
 
@@ -998,7 +1019,9 @@ class TestFixedSizeListArray : public TestBuilder {
 
  protected:
   static constexpr int32_t list_size() { return 2; }
-  std::shared_ptr<DataType> value_type_;
+
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_, value_type_;
 
   std::shared_ptr<FixedSizeListBuilder> builder_;
   std::shared_ptr<FixedSizeListArray> result_;

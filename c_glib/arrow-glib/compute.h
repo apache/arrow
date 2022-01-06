@@ -91,6 +91,9 @@ struct _GArrowFunctionClass
 GARROW_AVAILABLE_IN_1_0
 GArrowFunction *garrow_function_find(const gchar *name);
 
+GARROW_AVAILABLE_IN_7_0
+GList *garrow_function_all(void);
+
 GARROW_AVAILABLE_IN_1_0
 GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GList *args,
@@ -98,9 +101,20 @@ GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GArrowExecuteContext *context,
                                      GError **error);
 
+GARROW_AVAILABLE_IN_7_0
+const gchar *
+garrow_function_get_name(GArrowFunction *function);
 GARROW_AVAILABLE_IN_6_0
 GArrowFunctionDoc *
 garrow_function_get_doc(GArrowFunction *function);
+
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_equal(GArrowFunction *function,
+                      GArrowFunction *other_function);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_to_string(GArrowFunction *function);
 
 
 #define GARROW_TYPE_EXECUTE_NODE_OPTIONS (garrow_execute_node_options_get_type())
@@ -426,7 +440,9 @@ struct _GArrowSortKeyClass
 
 GARROW_AVAILABLE_IN_3_0
 GArrowSortKey *
-garrow_sort_key_new(const gchar *name, GArrowSortOrder order);
+garrow_sort_key_new(const gchar *target,
+                    GArrowSortOrder order,
+                    GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean
@@ -495,6 +511,85 @@ struct _GArrowVarianceOptionsClass
 GARROW_AVAILABLE_IN_6_0
 GArrowVarianceOptions *
 garrow_variance_options_new(void);
+
+
+/**
+ * GArrowRoundMode:
+ * @GARROW_ROUND_MODE_DOWN:
+ *   Round to nearest integer less than or equal in magnitude (aka "floor").
+ * @GARROW_ROUND_MODE_UP:
+ *   Round to nearest integer greater than or equal in magnitude (aka "ceil").
+ * @GARROW_ROUND_TOWARDS_ZERO:
+ *   Get the integral part without fractional digits (aka "trunc")
+ * @GARROW_ROUND_TOWARDS_INFINITY,
+ *   Round negative values with @GARROW_ROUND_MODE_DOWN rule
+ *   and positive values with UP rule (aka "away from zero")
+ * @GARROW_ROUND_HALF_DOWN,
+ *   Round ties with @GARROW_ROUND_MODE_DOWN rule
+ *   (also called "round half towards negative infinity")
+ * @GARROW_ROUND_HALF_UP,
+ *   Round ties with @GARROW_ROUND_MODE_UP rule
+ *   (also called "round half towards positive infinity")
+ * @GARROW_ROUND_HALF_TOWARDS_ZERO,
+ *   Round ties with GARROW_ROUND_MODE_TOWARDS_ZERO rule
+ *   (also called "round half away from infinity")
+ * @GARROW_ROUND_HALF_TOWARDS_INFINITY,
+ *   Round ties with GARROW_ROUND_MODE_TOWARDS_INFINITY rule
+ *   (also called "round half away from zero")
+ * @GARROW_ROUND_HALF_TO_EVEN,
+ *   Round ties to nearest even integer
+ * @GARROW_ROUND_HALF_TO_ODD,
+ *   Round ties to nearest odd integer
+ *
+ * They correspond to the values of `arrow::compute::RoundMode`.
+ *
+ * Since: 7.0.0
+ */
+typedef enum {
+  GARROW_ROUND_DOWN,
+  GARROW_ROUND_UP,
+  GARROW_ROUND_TOWARDS_ZERO,
+  GARROW_ROUND_TOWARDS_INFINITY,
+  GARROW_ROUND_HALF_DOWN,
+  GARROW_ROUND_HALF_UP,
+  GARROW_ROUND_HALF_TOWARDS_ZERO,
+  GARROW_ROUND_HALF_TOWARDS_INFINITY,
+  GARROW_ROUND_HALF_TO_EVEN,
+  GARROW_ROUND_HALF_TO_ODD,
+} GArrowRoundMode;
+
+
+#define GARROW_TYPE_ROUND_OPTIONS (garrow_round_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundOptions,
+                         garrow_round_options,
+                         GARROW,
+                         ROUND_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundOptions *
+garrow_round_options_new(void);
+
+
+#define GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS   \
+  (garrow_round_to_multiple_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundToMultipleOptions,
+                         garrow_round_to_multiple_options,
+                         GARROW,
+                         ROUND_TO_MULTIPLE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundToMultipleOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,

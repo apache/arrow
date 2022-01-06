@@ -22,10 +22,10 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/macros.h"
-
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 #include "gandiva/configuration.h"
+#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_includes.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/visibility.h"
@@ -56,6 +56,11 @@ class GANDIVA_EXPORT Engine {
 
   /// Optimise and compile the module.
   Status FinalizeModule();
+
+  /// Set LLVM ObjectCache.
+  void SetLLVMObjectCache(GandivaObjectCache& object_cache) {
+    execution_engine_->setObjectCache(&object_cache);
+  }
 
   /// Get the compiled function corresponding to the irfunction.
   void* CompiledFunction(llvm::Function* irFunction);

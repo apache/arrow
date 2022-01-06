@@ -34,6 +34,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"

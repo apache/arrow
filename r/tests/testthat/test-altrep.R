@@ -348,3 +348,10 @@ test_that("R checks for bounds", {
   expect_error(v_dbl[[-1]])
   expect_error(v_str[[-1]])
 })
+
+test_that("Operations on altrep R vectors don't modify the original", {
+  a_int <- Array$create(c(1L, 2L, 3L))
+  b_int <- a_int$as_vector()
+  c_int <- -b_int
+  expect_false(isTRUE(all.equal(b_int, c_int)))
+})
