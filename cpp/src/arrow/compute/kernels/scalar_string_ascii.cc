@@ -2673,7 +2673,8 @@ struct SplitWhitespaceAsciiFinder : public StringSplitFinderBase<SplitOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitWhitespaceAsciiExec = StringSplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
+using SplitWhitespaceAsciiExec =
+    StringSplitExec<Type, ListType, SplitWhitespaceAsciiFinder>;
 
 const FunctionDoc ascii_split_whitespace_doc(
     "Split string according to any ASCII whitespace",

@@ -1347,7 +1347,8 @@ struct SplitWhitespaceUtf8Finder : public StringSplitFinderBase<SplitOptions> {
 };
 
 template <typename Type, typename ListType>
-using SplitWhitespaceUtf8Exec = StringSplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
+using SplitWhitespaceUtf8Exec =
+    StringSplitExec<Type, ListType, SplitWhitespaceUtf8Finder>;
 
 const FunctionDoc utf8_split_whitespace_doc(
     "Split string according to any Unicode whitespace",
