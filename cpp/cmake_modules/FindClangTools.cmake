@@ -64,7 +64,8 @@ function(FIND_CLANG_TOOL NAME OUTPUT VERSION_CHECK_PATTERN)
                       OUTPUT_VARIABLE CLANG_TOOL_VERSION_MESSAGE
                       OUTPUT_STRIP_TRAILING_WHITESPACE)
       if(NOT (${CLANG_TOOL_VERSION_MESSAGE} MATCHES ${VERSION_CHECK_PATTERN}))
-        message(STATUS "${NAME} found, but version did not match \"${VERSION_CHECK_PATTERN}\"")
+        message(STATUS "${NAME} found, but version did not match \"${VERSION_CHECK_PATTERN}\""
+        )
         set(CLANG_TOOL_BIN "CLANG_TOOL_BIN-NOTFOUND")
       endif()
     endif()
