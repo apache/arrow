@@ -340,7 +340,7 @@ func (r *Reader) parseBool(field array.Builder, str string) {
 	case "true", "True", "1":
 		v = true
 	default:
-		r.err = fmt.Errorf("Unrecognized boolean: %s", str)
+		r.err = fmt.Errorf("unrecognized boolean: %s", str)
 		field.AppendNull()
 		return
 	}

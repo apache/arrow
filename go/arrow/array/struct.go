@@ -215,11 +215,6 @@ func (b *StructBuilder) AppendValues(valids []bool) {
 
 func (b *StructBuilder) AppendNull() { b.Append(false) }
 
-func (b *StructBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
-}
-
 func (b *StructBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)

@@ -189,7 +189,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if "foobar" != string(info.Schema) {
+	if string(info.Schema) != "foobar" {
 		t.Fatal("should have received 'foobar'")
 	}
 
@@ -198,7 +198,7 @@ func TestBasicAuthHelpers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if "carebears" != string(sc.Schema) {
+	if string(sc.Schema) != "carebears" {
 		t.Fatal("should have received carebears")
 	}
 }
