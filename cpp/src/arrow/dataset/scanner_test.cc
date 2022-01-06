@@ -1127,7 +1127,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   auto opts = std::make_shared<ScanOptions>();
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
-    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::MakeFromNames(
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
                                               std::move(names), *opts->dataset_schema));
     SetProjection(opts.get(), std::move(projection));
   };
@@ -1153,7 +1153,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project i32 + i64, filter nothing = materialize i32 & i64
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(auto projection,
-                       ProjectionDescr::MakeFromExpressions(
+                       ProjectionDescr::FromExpressions(
                            {call("add", {field_ref("i32"), field_ref("i64")})},
                            {"i32 + i64"}, *opts->dataset_schema));
   SetProjection(opts.get(), std::move(projection));
