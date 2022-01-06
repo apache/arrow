@@ -72,10 +72,10 @@ type BinaryMemoTable interface {
 	ValuesSize() int
 	// CopyOffsets populates out with the start and end offsets of each value in the
 	// table data. Out should be sized to Size()+1 to accomodate all of the offsets.
-	CopyOffsets(out []int8)
+	CopyOffsets(out []int32)
 	// CopyOffsetsSubset is like CopyOffsets but only gets a subset of the offsets
 	// starting at the specified index.
-	CopyOffsetsSubset(start int, out []int8)
+	CopyOffsetsSubset(start int, out []int32)
 	// CopyFixedWidthValues exists to cope with the fact that the table doesn't track
 	// the fixed width when inserting the null value into the databuffer populating
 	// a zero length byte slice for the null value (if found).
@@ -246,7 +246,7 @@ func (m *binaryMemoTableImpl) CopyFixedWidthValues(start, width int, out []byte)
 
 }
 
-func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int8) {
+func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int32) {
 	if m.builder.Len() <= start {
 		return
 	}
@@ -254,14 +254,14 @@ func (m *binaryMemoTableImpl) CopyOffsetsSubset(start int, out []int8) {
 	first := m.findOffset(0)
 	delta := m.findOffset(start)
 	for i := start; i < m.Size(); i++ {
-		offset := int8(m.findOffset(i) - delta)
+		offset := int32(m.findOffset(i) - delta)
 		out[i-start] = offset
 	}
 
-	out[m.Size()-start] = int8(m.builder.DataLen() - int(delta) - int(first))
+	out[m.Size()-start] = int32(m.builder.DataLen() - int(delta) - int(first))
 }
 
-func (m *binaryMemoTableImpl) CopyOffsets(out []int8) {
+func (m *binaryMemoTableImpl) CopyOffsets(out []int32) {
 	m.CopyOffsetsSubset(0, out)
 }
 
