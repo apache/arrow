@@ -161,7 +161,8 @@ bool AddBuffersToSet(const Table& table,
 
 // Add all Buffers to a given set, return true if anything was actually added.
 // If all the buffers in the datum were already in the set, this will return false.
-bool AddBuffersToSet(Datum datum, std::unordered_set<std::shared_ptr<Buffer>>* seen_buffers) {
+bool AddBuffersToSet(Datum datum,
+                     std::unordered_set<std::shared_ptr<Buffer>>* seen_buffers) {
     switch (datum.kind()) {
         case Datum::ARRAY:
             return AddBuffersToSet(*util::get<std::shared_ptr<ArrayData>>(datum.value),
@@ -770,10 +771,11 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
 
-    // To check whether the kernel allocated new Buffers, insert all the preallocated ones into a set
+    // To check whether the kernel allocated new Buffers,
+    // insert all the preallocated ones into a set
     std::unordered_set<std::shared_ptr<Buffer>> pre_buffers;
     if (preallocate_contiguous_) {
-        for (auto dat: batch.values) {
+        for (auto dat : batch.values) {
             AddBuffersToSet(dat, &pre_buffers);
         }
         AddBuffersToSet(out, &pre_buffers);
@@ -790,13 +792,21 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
         << "Null bitmap deleted by kernel but can_write_into_slices = true";
       }
 
-      // Check whether the kernel allocated new Buffers (instead of using the preallocated ones)
+      // Check whether the kernel allocated new Buffers
+      // (instead of using the preallocated ones)
       bool insertion_occured = false;
       for (auto dat : batch.values) {
           insertion_occured |= AddBuffersToSet(dat, &pre_buffers);
       }
       insertion_occured |= AddBuffersToSet(out, &pre_buffers);
-      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations in function kernel";
+      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations "
+                                             "in function kernel";
+// TODO: instead of aborting (which is what DCHECK_EQ() above does),
+// throw an Error we can catch in a test
+//      if (insertion_occured) {
+//        return Status::ExecutionError("Unauthorized memory allocations "
+//                                      "in function kernel");
+//      }
     } else {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
@@ -969,10 +979,11 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       RETURN_NOT_OK(PropagateNulls(kernel_ctx_, batch, out.mutable_array()));
     }
 
-    // To check whether the kernel allocated new Buffers, insert all the preallocated ones into a set
+    // To check whether the kernel allocated new Buffers,
+    // insert all the preallocated ones into a set
     std::unordered_set<std::shared_ptr<Buffer>> pre_buffers;
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
-      for (auto dat: batch.values) {
+      for (auto dat : batch.values) {
         AddBuffersToSet(dat, &pre_buffers);
       }
       AddBuffersToSet(out, &pre_buffers);
@@ -981,14 +992,15 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
 
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
-
-      // Check whether the kernel allocated new Buffers (instead of using the preallocated ones)
+      // Check whether the kernel allocated new Buffers
+      // (instead of using the preallocated ones)
       bool insertion_occured = false;
-      for (auto dat: batch.values) {
+      for (auto dat : batch.values) {
         insertion_occured |= AddBuffersToSet(dat, &pre_buffers);
       }
       insertion_occured |= AddBuffersToSet(out, &pre_buffers);
-      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations in function kernel";
+      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations "
+                                             "in function kernel";
     }
 
     if (!kernel_->finalize) {

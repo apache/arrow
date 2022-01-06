@@ -732,6 +732,11 @@ Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
   return CallFunction("is_null", {arg}, &options, ctx);
 }
 
+Result<Datum> Misbehave(const Datum& cond, const Datum& if_true, const Datum& if_false,
+                     ExecContext* ctx) {
+  return CallFunction("misbehave", {}, ctx);
+}
+
 // ----------------------------------------------------------------------
 // Temporal functions
 
