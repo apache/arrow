@@ -721,10 +721,8 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  cp::ExecNode* sink;
-
   ARROW_ASSIGN_OR_RAISE(
-      sink,
+      std::ignore,
       cp::MakeExecNode("order_by_sink", plan.get(), {source},
                        cp::OrderBySinkNodeOptions{
                            cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}},
