@@ -91,7 +91,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       iterator.initialize();
     } catch (Throwable e) {
       if (iterator != null) {
-        iterator.close();
+        try {
+          iterator.close();
+        } catch (Throwable t) {
+          e.addSuppressed(t);
+        }
       }
       throw new RuntimeException("Error occurred while creating iterator.", e);
     }
