@@ -74,14 +74,14 @@ gadataset_scanner_set_property(GObject *object,
   auto priv = GADATASET_SCANNER_GET_PRIVATE(object);
 
   switch (prop_id) {
-    case PROP_SCANNER:
+  case PROP_SCANNER:
     priv->scanner =
       *static_cast<std::shared_ptr<arrow::dataset::Scanner> *>(
-          g_value_get_pointer(value));
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-      break;
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
   }
 }
 
@@ -167,14 +167,14 @@ gadataset_scanner_builder_set_property(GObject *object,
   auto priv = GADATASET_SCANNER_BUILDER_GET_PRIVATE(object);
 
   switch (prop_id) {
-    case PROP_SCANNER_BUILDER:
-      priv->scanner_builder =
+  case PROP_SCANNER_BUILDER:
+    priv->scanner_builder =
       *static_cast<std::shared_ptr<arrow::dataset::ScannerBuilder> *>(
-              g_value_get_pointer(value));
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-      break;
+        g_value_get_pointer(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
   }
 }
 
@@ -195,8 +195,8 @@ gadataset_scanner_builder_class_init(GADatasetScannerBuilderClass *klass)
   GParamSpec *spec;
   spec = g_param_spec_pointer("scanner-builder",
                               "Scanner builder",
-      "The raw "
-      "std::shared<arrow::dataset::ScannerBuilder> *",
+                              "The raw "
+                              "std::shared<arrow::dataset::ScannerBuilder> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCANNER_BUILDER, spec);
@@ -241,7 +241,7 @@ gadataset_scanner_builder_new_record_batch_reader(
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   auto arrow_scanner_builder =
-      arrow::dataset::ScannerBuilder::FromRecordBatchReader(arrow_reader);
+    arrow::dataset::ScannerBuilder::FromRecordBatchReader(arrow_reader);
   return gadataset_scanner_builder_new_raw(&arrow_scanner_builder);
 }
 
