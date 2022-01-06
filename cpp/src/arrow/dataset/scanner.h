@@ -160,7 +160,7 @@ ARROW_DS_EXPORT Result<ProjectionDescr> MakeDefaultProjection(
     const Schema& dataset_schema);
 
 /// \brief Utility method to set the projection expression and schema
-void SetProjection(ScanOptions* options, ProjectionDescr projection);
+ARROW_DS_EXPORT void SetProjection(ScanOptions* options, ProjectionDescr projection);
 
 /// \brief Combines a record batch with the fragment that the record batch originated
 /// from
