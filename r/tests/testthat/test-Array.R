@@ -574,12 +574,12 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
 
 test_that("Array$create() handles list of dataframes -> map arrays", {
   # Should be able to create an empty map with a type hint.
-  expect_r6_class(Array$create(list(), map_of(string(), boolean())), "MapArray")
+  expect_r6_class(Array$create(list(), type = map_of(string(), boolean())), "MapArray")
 
   # MapType is alias for List<Struct<keys, values>>
   data <- list(data.frame(key = c("a", "b"), value = c(1, 2)),
                data.frame(key = c("a", "c"), value = c(4, 7)))
-  arr <- Array$create(data, map_of(string(), int32()))
+  arr <- Array$create(data, type = map_of(string(), int32()))
 
   expect_r6_class(arr, "MapArray")
   expect_as_vector(arr, data, ignore_attr = TRUE)
@@ -587,12 +587,12 @@ test_that("Array$create() handles list of dataframes -> map arrays", {
   expect_equal(arr$keys()$type, string())
   expect_equal(arr$items()$type, int32())
   expect_equal(arr$keys(), Array$create(c("a", "b", "a", "c")))
-  expect_equal(arr$items(), Array$create(c(1, 2, 4, 7), int32()))
+  expect_equal(arr$items(), Array$create(c(1, 2, 4, 7), type = int32()))
 
   expect_equal(arr$keys_nested()$type, list_of(string()))
   expect_equal(arr$items_nested()$type, list_of(int32()))
-  expect_equal(arr$keys_nested(), Array$create(list(c("a", "b"), c("a", "c")), list_of(utf8())))
-  expect_equal(arr$items_nested(), Array$create(list(c(1, 2), c(4, 7)), list_of(int32())))
+  expect_equal(arr$keys_nested(), Array$create(list(c("a", "b"), c("a", "c")), type = list_of(utf8())))
+  expect_equal(arr$items_nested(), Array$create(list(c(1, 2), c(4, 7)), type = list_of(int32())))
 })
 
 test_that("Array$create() handles vector -> large list arrays", {
