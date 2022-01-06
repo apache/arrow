@@ -1,3 +1,7 @@
 import { makeTable } from 'apache-arrow';
 
-console.log(makeTable)
+const table = makeTable({
+    a: new Uint8Array([1, 2, 3])
+});
+
+console.log(table)

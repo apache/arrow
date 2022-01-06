@@ -1,3 +1,5 @@
 import { makeVector } from 'apache-arrow';
 
-console.log(makeVector)
+const vec = makeVector(new Uint8Array([1, 2, 3]));
+
+console.log(vec.toArray());
