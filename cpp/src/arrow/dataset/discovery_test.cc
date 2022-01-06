@@ -138,7 +138,7 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     }
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema;
-    ASSERT_OK_AND_ASSIGN(auto projection, MakeDefaultProjection(*schema));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::MakeDefault(*schema));
     SetProjection(options_.get(), std::move(projection));
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
     ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset_->GetFragments());

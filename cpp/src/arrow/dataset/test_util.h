@@ -286,8 +286,8 @@ class DatasetFixtureMixin : public ::testing::Test {
     schema_ = schema(std::move(fields));
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema_;
-    ASSERT_OK_AND_ASSIGN(auto projection,
-                         MakeProjectionFromNames(schema_->field_names(), *schema_));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::MakeFromNames(
+                                              schema_->field_names(), *schema_));
     SetProjection(options_.get(), std::move(projection));
     SetFilter(literal(true));
   }
@@ -297,9 +297,9 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetProjectedColumns(std::vector<std::string> column_names) {
-    ASSERT_OK_AND_ASSIGN(
-        auto projection,
-        MakeProjectionFromNames(std::move(column_names), *options_->dataset_schema));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::MakeFromNames(std::move(column_names),
+                                                        *options_->dataset_schema));
     SetProjection(options_.get(), std::move(projection));
   }
 
@@ -395,7 +395,8 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK_AND_ASSIGN(auto projection, MakeDefaultProjection(*opts_->dataset_schema));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::MakeDefault(*opts_->dataset_schema));
     SetProjection(opts_.get(), std::move(projection));
   }
 
@@ -404,7 +405,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   void Project(std::vector<std::string> names) {
-    ASSERT_OK_AND_ASSIGN(auto projection, MakeProjectionFromNames(
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::MakeFromNames(
                                               std::move(names), *opts_->dataset_schema));
     SetProjection(opts_.get(), std::move(projection));
   }
@@ -1061,9 +1062,9 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
     scan_options_ = std::make_shared<ScanOptions>();
     scan_options_->dataset_schema = dataset_->schema();
-    ASSERT_OK_AND_ASSIGN(
-        auto projection,
-        MakeProjectionFromNames(source_schema_->field_names(), *dataset_->schema()));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::MakeFromNames(source_schema_->field_names(),
+                                                        *dataset_->schema()));
     SetProjection(scan_options_.get(), std::move(projection));
   }
 

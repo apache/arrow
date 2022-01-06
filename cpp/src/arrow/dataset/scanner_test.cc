@@ -634,6 +634,27 @@ TEST_P(TestScanner, Head) {
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
+TEST_P(TestScanner, FromReader) {
+  auto batch_size = GetParam().items_per_batch;
+  auto num_batches = GetParam().num_batches;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema_);
+  auto source_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+  auto target_reader = ConstantArrayGenerator::Repeat(num_batches, batch);
+
+  auto builder = ScannerBuilder::FromRecordBatchReader(source_reader);
+  ARROW_EXPECT_OK(builder->UseThreads(GetParam().use_threads));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  AssertScannerEquals(target_reader.get(), scanner.get());
+
+  // Such datasets can only be scanned once (but you can get fragments multiple times)
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("OneShotFragment was already scanned"),
+      batch_it.Next());
+}
+
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
                          ::testing::ValuesIn(TestScannerParams::Values()),
                          [](const ::testing::TestParamInfo<TestScannerParams>& info) {
@@ -1106,8 +1127,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   auto opts = std::make_shared<ScanOptions>();
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
-    ASSERT_OK_AND_ASSIGN(auto projection, MakeProjectionFromNames(std::move(names),
-                                                                  *opts->dataset_schema));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::MakeFromNames(
+                                              std::move(names), *opts->dataset_schema));
     SetProjection(opts.get(), std::move(projection));
   };
 
@@ -1132,7 +1153,7 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project i32 + i64, filter nothing = materialize i32 & i64
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(auto projection,
-                       MakeProjectionFromFieldExpressions(
+                       ProjectionDescr::MakeFromExpressions(
                            {call("add", {field_ref("i32"), field_ref("i64")})},
                            {"i32 + i64"}, *opts->dataset_schema));
   SetProjection(opts.get(), std::move(projection));

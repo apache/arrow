@@ -533,8 +533,8 @@ Result<int64_t> AsyncScanner::CountRows() {
   // Drop projection since we only need to count rows
   const auto options = std::make_shared<ScanOptions>(*scan_options_);
   ARROW_ASSIGN_OR_RAISE(auto empty_projection,
-                        MakeProjectionFromNames(std::vector<std::string>(),
-                                                *scan_options_->dataset_schema));
+                        ProjectionDescr::MakeFromNames(std::vector<std::string>(),
+                                                       *scan_options_->dataset_schema));
   SetProjection(options.get(), empty_projection);
 
   std::atomic<int64_t> total{0};
@@ -600,7 +600,7 @@ Status NestedFieldRefsNotImplemented() {
 
 }  // namespace
 
-Result<ProjectionDescr> MakeProjectionFromExpression(
+Result<ProjectionDescr> ProjectionDescr::MakeFromStructExpression(
     const compute::Expression& projection, const Schema& dataset_schema) {
   ARROW_ASSIGN_OR_RAISE(compute::Expression bound_expression,
                         projection.Bind(dataset_schema));
@@ -616,7 +616,7 @@ Result<ProjectionDescr> MakeProjectionFromExpression(
   return ProjectionDescr{std::move(bound_expression), std::move(projection_schema)};
 }
 
-Result<ProjectionDescr> MakeProjectionFromFieldExpressions(
+Result<ProjectionDescr> ProjectionDescr::MakeFromExpressions(
     const std::vector<compute::Expression>& exprs, std::vector<std::string> names,
     const Schema& dataset_schema) {
   compute::MakeStructOptions project_options{std::move(names)};
@@ -632,22 +632,22 @@ Result<ProjectionDescr> MakeProjectionFromFieldExpressions(
     }
   }
 
-  return MakeProjectionFromExpression(
+  return ProjectionDescr::MakeFromStructExpression(
       call("make_struct", std::move(exprs), std::move(project_options)), dataset_schema);
 }
 
-Result<ProjectionDescr> MakeProjectionFromNames(std::vector<std::string> names,
-                                                const Schema& dataset_schema) {
+Result<ProjectionDescr> ProjectionDescr::MakeFromNames(std::vector<std::string> names,
+                                                       const Schema& dataset_schema) {
   std::vector<compute::Expression> exprs(names.size());
   for (size_t i = 0; i < exprs.size(); ++i) {
     exprs[i] = compute::field_ref(names[i]);
   }
-  return MakeProjectionFromFieldExpressions(std::move(exprs), std::move(names),
-                                            dataset_schema);
+  return ProjectionDescr::MakeFromExpressions(std::move(exprs), std::move(names),
+                                              dataset_schema);
 }
 
-Result<ProjectionDescr> MakeDefaultProjection(const Schema& dataset_schema) {
-  return MakeProjectionFromNames(dataset_schema.field_names(), dataset_schema);
+Result<ProjectionDescr> ProjectionDescr::MakeDefault(const Schema& dataset_schema) {
+  return ProjectionDescr::MakeFromNames(dataset_schema.field_names(), dataset_schema);
 }
 
 void SetProjection(ScanOptions* options, ProjectionDescr projection) {
@@ -692,14 +692,14 @@ const std::shared_ptr<Schema>& ScannerBuilder::projected_schema() const {
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
   ARROW_ASSIGN_OR_RAISE(
       auto projection,
-      MakeProjectionFromNames(std::move(columns), *scan_options_->dataset_schema));
+      ProjectionDescr::MakeFromNames(std::move(columns), *scan_options_->dataset_schema));
   SetProjection(scan_options_.get(), std::move(projection));
   return Status::OK();
 }
 
 Status ScannerBuilder::Project(std::vector<compute::Expression> exprs,
                                std::vector<std::string> names) {
-  ARROW_ASSIGN_OR_RAISE(auto projection, MakeProjectionFromFieldExpressions(
+  ARROW_ASSIGN_OR_RAISE(auto projection, ProjectionDescr::MakeFromExpressions(
                                              std::move(exprs), std::move(names),
                                              *scan_options_->dataset_schema));
   SetProjection(scan_options_.get(), std::move(projection));
