@@ -351,15 +351,8 @@ TEST_F(TestRecordBatch, MakeEmpty) {
 }
 
 class TestRecordBatchReader : public TestBase {
- protected:
-  void SetUp() override {
-    TestBase::SetUp();
-    MakeBatchesAndReader();
-  }
-
-  void MakeBatchesAndReader() {
-    const int length = 10;
-
+ public:
+  void MakeBatchesAndReader(int length) {
     auto field1 = field("f1", int32());
     auto field2 = field("f2", uint8());
     auto field3 = field("f3", int16());
@@ -387,11 +380,13 @@ class TestRecordBatchReader : public TestBase {
     ASSERT_OK_AND_ASSIGN(reader_, RecordBatchReader::Make(batches_));
   }
 
+ protected:
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::shared_ptr<RecordBatchReader> reader_;
 };
 
 TEST_F(TestRecordBatchReader, RangeForLoop) {
+  MakeBatchesAndReader(100);
   int64_t i = 0;
   ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
@@ -403,6 +398,7 @@ TEST_F(TestRecordBatchReader, RangeForLoop) {
 }
 
 TEST_F(TestRecordBatchReader, BeginEndForLoop) {
+  MakeBatchesAndReader(100);
   int64_t i = 0;
   ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
