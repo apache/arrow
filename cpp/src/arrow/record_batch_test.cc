@@ -350,8 +350,11 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
-class TestRecordBatchReader : public TestBase {
+class TestRecordBatchReader : public ::testing::Test {
  public:
+  void SetUp() override { MakeBatchesAndReader(100); }
+
+ protected:
   void MakeBatchesAndReader(int length) {
     auto field1 = field("f1", int32());
     auto field2 = field("f2", uint8());
@@ -359,17 +362,19 @@ class TestRecordBatchReader : public TestBase {
 
     auto schema = ::arrow::schema({field1, field2, field3});
 
-    auto array1_1 = MakeRandomArray<Int32Array>(length);
-    auto array1_2 = MakeRandomArray<Int32Array>(length);
-    auto array1_3 = MakeRandomArray<Int32Array>(length);
+    random::RandomArrayGenerator gen(42);
 
-    auto array2_1 = MakeRandomArray<UInt8Array>(length);
-    auto array2_2 = MakeRandomArray<UInt8Array>(length);
-    auto array2_3 = MakeRandomArray<UInt8Array>(length);
+    auto array1_1 = gen.ArrayOf(int32(), length);
+    auto array1_2 = gen.ArrayOf(int32(), length);
+    auto array1_3 = gen.ArrayOf(int32(), length);
 
-    auto array3_1 = MakeRandomArray<Int16Array>(length);
-    auto array3_2 = MakeRandomArray<Int16Array>(length);
-    auto array3_3 = MakeRandomArray<Int16Array>(length);
+    auto array2_1 = gen.ArrayOf(uint8(), length);
+    auto array2_2 = gen.ArrayOf(uint8(), length);
+    auto array2_3 = gen.ArrayOf(uint8(), length);
+
+    auto array3_1 = gen.ArrayOf(int16(), length);
+    auto array3_2 = gen.ArrayOf(int16(), length);
+    auto array3_3 = gen.ArrayOf(int16(), length);
 
     auto batch1 = RecordBatch::Make(schema, length, {array1_1, array2_1, array3_1});
     auto batch2 = RecordBatch::Make(schema, length, {array1_2, array2_2, array3_2});
@@ -379,14 +384,11 @@ class TestRecordBatchReader : public TestBase {
 
     ASSERT_OK_AND_ASSIGN(reader_, RecordBatchReader::Make(batches_));
   }
-
- protected:
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::shared_ptr<RecordBatchReader> reader_;
 };
 
 TEST_F(TestRecordBatchReader, RangeForLoop) {
-  MakeBatchesAndReader(100);
   int64_t i = 0;
   ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
@@ -398,7 +400,6 @@ TEST_F(TestRecordBatchReader, RangeForLoop) {
 }
 
 TEST_F(TestRecordBatchReader, BeginEndForLoop) {
-  MakeBatchesAndReader(100);
   int64_t i = 0;
   ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
