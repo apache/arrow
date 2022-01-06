@@ -112,7 +112,7 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   3,
   NA
 ])expected";
-  CheckPrimitive<Int32Type, int32_t>({0, 10, 2, "NA"}, is_valid, values, expected_na,
+  CheckPrimitive<Int32Type, int32_t>({0, 10, 2, 2, "NA"}, is_valid, values, expected_na,
                                      false);
 
   static const char* ex_in2 = R"expected(  [
@@ -740,6 +740,7 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
 
   options.window = 2;
+  options.child_window = 2;
   CheckArray(*empty_array, options, "[]", false);
   CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
 }
@@ -809,7 +810,7 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
     5
   ]
 ])expected");
-  CheckStream(*array, {0, 1}, R"expected([
+  CheckStream(*array, {0, 1, 1}, R"expected([
   [
     null,
     ...

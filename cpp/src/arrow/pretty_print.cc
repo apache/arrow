@@ -69,6 +69,7 @@ class PrettyPrinter {
   PrettyPrintOptions ChildOptions() const {
     PrettyPrintOptions child_options = options_;
     child_options.indent = indent_;
+    child_options.window = options_.child_window;
     return child_options;
   }
 
