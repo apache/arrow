@@ -2119,92 +2119,93 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
               ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
-// template <typename ArrowType>
-// static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
-//                             const Datum& rhs, const Datum& expected) {
-//   ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
-//   AssertArraysEqual(*expected.make_array(), *result.make_array(),
-//                     /*verbose=*/true);
-// }
-//
-// template <typename ArrowType>
-// void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
-//                      const Datum& rhs) {
-//   CompareOperator lhs_val;
-//   CompareOperator val_rhs;
-//   BetweenOptions::Inclusive inclusive = options.inclusive;
-//
-//   if (inclusive == BetweenOptions::Inclusive::NEITHER) {
-//     lhs_val = LESS;
-//     val_rhs = LESS;
-//   } else if (inclusive == BetweenOptions::Inclusive::LEFT) {
-//     lhs_val = LESS_EQUAL;
-//     val_rhs = LESS;
-//   } else if (inclusive == BetweenOptions::Inclusive::RIGHT) {
-//     lhs_val = LESS;
-//     val_rhs = LESS_EQUAL;
-//   } else {
-//     lhs_val = LESS_EQUAL;
-//     val_rhs = LESS_EQUAL;
-//   }
-//
-//   ASSERT_OK_AND_ASSIGN(Datum resultl,
-//                        CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs,
-//                        val}));
-//   ASSERT_OK_AND_ASSIGN(Datum resultr,
-//                        CallFunction(CompareOperatorToFunctionName(val_rhs), {val,
-//                        rhs}));
-//   ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
-//
-//   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
-// }
-//
-// template <typename ArrowType>
-// class TestNumericBetweenKernel : public ::testing::Test {};
-//
-// TYPED_TEST_SUITE(TestNumericBetweenKernel, NumericArrowTypes);
-// TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
-//   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-//   using CType = typename TypeTraits<TypeParam>::CType;
-//
-//   Datum zero(std::make_shared<ScalarType>(CType(0)));
-//   Datum four(std::make_shared<ScalarType>(CType(4)));
-//   Datum null(std::make_shared<ScalarType>());
-//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
-//       four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
-//       zero, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"),
-//       zero, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-//       zero, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"),
-//       zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-//       "[null,1,1,1]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-//       null, four,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-//                     "[null,null,null,null,null,null]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-//       zero, null,
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-//                     "[null,null,null,null,null,null]"));
-// }
-//
+ template <typename ArrowType>
+ static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
+                             const Datum& rhs, const Datum& expected) {
+   ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
+   AssertArraysEqual(*expected.make_array(), *result.make_array(),
+                     /*verbose=*/true);
+ }
+
+ template <typename ArrowType>
+ void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
+                      const Datum& rhs) {
+   CompareOperator lhs_val;
+   CompareOperator val_rhs;
+   BetweenOptions::Inclusive inclusive = options.inclusive;
+
+   if (inclusive == BetweenOptions::Inclusive::NEITHER) {
+     lhs_val = LESS;
+     val_rhs = LESS;
+   } else if (inclusive == BetweenOptions::Inclusive::LEFT) {
+     lhs_val = LESS_EQUAL;
+     val_rhs = LESS;
+   } else if (inclusive == BetweenOptions::Inclusive::RIGHT) {
+     lhs_val = LESS;
+     val_rhs = LESS_EQUAL;
+   } else {
+     lhs_val = LESS_EQUAL;
+     val_rhs = LESS_EQUAL;
+   }
+
+   ASSERT_OK_AND_ASSIGN(Datum resultl,
+                        CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs,
+                        val}));
+   ASSERT_OK_AND_ASSIGN(Datum resultr,
+                        CallFunction(CompareOperatorToFunctionName(val_rhs), {val,
+                        rhs}));
+   ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
+
+   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
+ }
+
+ template <typename ArrowType>
+ class TestNumericBetweenKernel : public ::testing::Test {};
+
+ TYPED_TEST_SUITE(TestNumericBetweenKernel, NumericArrowTypes);
+ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
+   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+   using CType = typename TypeTraits<TypeParam>::CType;
+
+   Datum zero(std::make_shared<ScalarType>(CType(0)));
+   Datum four(std::make_shared<ScalarType>(CType(4)));
+   Datum null(std::make_shared<ScalarType>());
+   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+ /*  ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
+       four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
+       zero, four,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"),
+       zero, four,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+       zero, four,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"),
+       zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+       "[null,1,1,1]"));
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+       null, four,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                     "[null,null,null,null,null,null]"));
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+       zero, null,
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                     "[null,null,null,null,null,null]"));*/
+ }
+
 // TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
 //   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
 //   ValidateBetween<TypeParam>(

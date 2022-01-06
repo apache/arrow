@@ -218,10 +218,10 @@ Status CheckCompareTimestamps(const ExecBatch& batch) {
     for (int i = 1; i < batch.num_values(); ++i) {
       const auto& ts = checked_cast<const TimestampType&>(*batch[i].type());
       invalid_state ^= ts.timezone().empty();
-    }
-    if (invalid_state) {
-      return Status::Invalid(
+      if (invalid_state) {
+        return Status::Invalid(
           "Cannot compare timestamp with timezone to timestamp without timezone");
+      }
     }
   }
   return Status::OK();
