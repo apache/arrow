@@ -107,15 +107,18 @@ following checks:
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
   this currently does not work on Windows).
 
-In order to account for variations in the behavior of ``clang-format``
-between major versions of LLVM, we pin the version of ``clang-format``
-used. You can confirm the current pinned version by finding the
-``CLANG_TOOLS`` variable value in `.env
-<https://github.com/apache/arrow/blob/master/.env>`_. Note that the version
-must match exactly; a newer version will not work. LLVM can be installed
-through a system package manager or a package manager like Conda or
-Homebrew, or binaries can be directly downloaded for various platforms from
-the `LLVM website <https://releases.llvm.org/>`_.
+On pull requests, the "Dev / Lint" pipeline will run these checks, and report
+what files/lines need to be fixed, if any.
+
+In order to account for variations in the behavior of ``clang-format`` between
+major versions of LLVM, we pin the version of ``clang-format`` used. You can
+confirm the current pinned version by finding the ``CLANG_TOOLS`` variable
+value in `.env <https://github.com/apache/arrow/blob/master/.env>`_. Note that
+the version must match exactly; a newer version (even a patch release) will
+not work. LLVM can be installed through a system package manager or a package
+manager like Conda or Homebrew, though note they may not offer the exact
+version needed. Alternatively, binaries can be directly downloaded from the
+`LLVM website <https://releases.llvm.org/>`_.
 
 For convenience, C++ style checks can run via a build, in addition to
 Archery. To do so, build one or more of the targets ``format`` (for
@@ -136,7 +139,18 @@ Or if the wrong version is installed::
 
 You can provide an explicit path to the directory containing the clang-format
 executable and others with the environment variable ``$CLANG_TOOLS_PATH``, or
-by passing ``-DClangTools_PATH=$PATH_TO_CLANG_TOOLS`` when invoking CMake.
+by passing ``-DClangTools_PATH=$PATH_TO_CLANG_TOOLS`` when invoking CMake. For
+example::
+
+  # We unpacked LLVM here:
+  $ ~/tools/bin/clang-format --version
+  clang-format version 12.0.0
+  # Pass the directory containing the tools to CMake
+  $ cmake ../cpp -DClangTools_PATH=~/tools/bin/
+  ...snip...
+  -- clang-tidy found at /home/user/tools/bin/clang-tidy
+  -- clang-format found at /home/user/tools/bin/clang-format
+  ...snip...
 
 To make linting more reproducible for everyone, we provide a ``docker-compose``
 target that is executable from the root of the repository:
