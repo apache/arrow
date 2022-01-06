@@ -210,7 +210,7 @@ func (w *columnWriter) reset() {
 	w.repEncoder.Reset(w.descr.MaxRepetitionLevel())
 }
 
-func (w *columnWriter) concatBuffers(defLevelsSize, repLevelsSize int64, values []byte, wr io.Writer) {
+func (w *columnWriter) concatBuffers(defLevelsSize, repLevelsSize int32, values []byte, wr io.Writer) {
 	wr.Write(w.repLevelSink.Bytes()[:repLevelsSize])
 	wr.Write(w.defLevelSink.Bytes()[:defLevelsSize])
 	wr.Write(values)
@@ -232,8 +232,8 @@ func (w *columnWriter) commitWriteAndCheckPageLimit(numLevels, numValues int64) 
 
 func (w *columnWriter) FlushCurrentPage() error {
 	var (
-		defLevelsRLESize int64 = 0
-		repLevelsRLESize int64 = 0
+		defLevelsRLESize int32 = 0
+		repLevelsRLESize int32 = 0
 	)
 
 	values, err := w.currentEncoder.FlushValues()
@@ -251,7 +251,7 @@ func (w *columnWriter) FlushCurrentPage() error {
 			sz += arrow.Uint32SizeBytes
 			binary.LittleEndian.PutUint32(w.defLevelSink.Bytes(), uint32(w.defEncoder.Len()))
 		}
-		defLevelsRLESize = int64(sz)
+		defLevelsRLESize = int32(sz)
 	}
 
 	if w.descr.MaxRepetitionLevel() > 0 {
@@ -260,10 +260,10 @@ func (w *columnWriter) FlushCurrentPage() error {
 		if isV1DataPage {
 			binary.LittleEndian.PutUint32(w.repLevelSink.Bytes(), uint32(w.repEncoder.Len()))
 		}
-		repLevelsRLESize = int64(w.repLevelSink.Len())
+		repLevelsRLESize = int32(w.repLevelSink.Len())
 	}
 
-	uncompressed := defLevelsRLESize + repLevelsRLESize + int64(values.Len())
+	uncompressed := defLevelsRLESize + repLevelsRLESize + int32(values.Len())
 	if isV1DataPage {
 		w.buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed, values.Bytes())
 	} else {
@@ -275,7 +275,7 @@ func (w *columnWriter) FlushCurrentPage() error {
 	return nil
 }
 
-func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed int64, values []byte) error {
+func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncompressed int32, values []byte) error {
 	w.uncompressedData.Reset()
 	w.uncompressedData.Grow(int(uncompressed))
 	w.concatBuffers(defLevelsRLESize, repLevelsRLESize, values, &w.uncompressedData)
@@ -312,7 +312,7 @@ func (w *columnWriter) buildDataPageV1(defLevelsRLESize, repLevelsRLESize, uncom
 	return nil
 }
 
-func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed int64, values []byte) error {
+func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncompressed int32, values []byte) error {
 	var data []byte
 	if w.pager.HasCompressor() {
 		w.compressedTemp.Reset()
@@ -324,7 +324,7 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 
 	// concatenate uncompressed levels and the possibly compressed values
 	var combined bytes.Buffer
-	combined.Grow(int(defLevelsRLESize + repLevelsRLESize + int64(len(data))))
+	combined.Grow(int(defLevelsRLESize + repLevelsRLESize + int32(len(data))))
 	w.concatBuffers(defLevelsRLESize, repLevelsRLESize, data, &combined)
 
 	pageStats, err := w.getPageStatistics()

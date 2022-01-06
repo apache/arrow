@@ -342,7 +342,7 @@ func (pw *serializedPageWriter) WriteDataPage(page DataPage) (int64, error) {
 
 	pageHdr := pageHeaderPool.Get().(*format.PageHeader)
 	defer pageHeaderPool.Put(pageHdr)
-	pageHdr.UncompressedPageSize = int32(uncompressed)
+	pageHdr.UncompressedPageSize = uncompressed
 	pageHdr.CompressedPageSize = int32(len(data))
 
 	switch dpage := page.(type) {
@@ -376,7 +376,7 @@ func (pw *serializedPageWriter) WriteDataPage(page DataPage) (int64, error) {
 	}
 	written += headerSize
 
-	pw.totalUncompressed += uncompressed + int64(headerSize)
+	pw.totalUncompressed += int64(uncompressed) + int64(headerSize)
 	pw.totalCompressed += int64(written)
 	pw.nvalues += int64(page.NumValues())
 	pw.dataEncodingStats[parquet.Encoding(page.Encoding())]++
