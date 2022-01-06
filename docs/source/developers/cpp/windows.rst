@@ -417,7 +417,7 @@ tests can be made with there individual make targets).
    SET USE_CLCACHE=false
    SET ARROW_BUILD_GANDIVA=OFF
    SET ARROW_LLVM_VERSION=8.0.*
-   SET PYTHON=3.6
+   SET PYTHON=3.9
    SET ARCH=64
    SET PATH=C:\Users\User\Anaconda3;C:\Users\User\Anaconda3\Scripts;C:\Users\User\Anaconda3\Library\bin;%PATH%
    SET BOOST_LIBRARYDIR=C:\Boost\lib

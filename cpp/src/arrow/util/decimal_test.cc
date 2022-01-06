@@ -1568,11 +1568,10 @@ TEST(Decimal256Test, TestComparators) {
   constexpr size_t num_values =
       sizeof(kSortedDecimal256Bits) / sizeof(kSortedDecimal256Bits[0]);
   for (size_t i = 0; i < num_values; ++i) {
-    Decimal256 left(
-        ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[i]));
+    Decimal256 left(::arrow::bit_util::little_endian::ToNative(kSortedDecimal256Bits[i]));
     for (size_t j = 0; j < num_values; ++j) {
       Decimal256 right(
-          ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[j]));
+          ::arrow::bit_util::little_endian::ToNative(kSortedDecimal256Bits[j]));
       EXPECT_EQ(i == j, left == right);
       EXPECT_EQ(i != j, left != right);
       EXPECT_EQ(i < j, left < right);
@@ -1585,7 +1584,7 @@ TEST(Decimal256Test, TestComparators) {
 
 TEST(Decimal256Test, TestToBytesRoundTrip) {
   for (const std::array<uint64_t, 4>& bits : kSortedDecimal256Bits) {
-    Decimal256 decimal(::arrow::BitUtil::LittleEndianArray::ToNative(bits));
+    Decimal256 decimal(::arrow::bit_util::little_endian::ToNative(bits));
     EXPECT_EQ(decimal, Decimal256(decimal.ToBytes().data()));
   }
 }
@@ -1608,20 +1607,20 @@ TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
   using UInt64Array = std::array<uint64_t, 4>;
   Decimal256 value(TypeParam{42});
   EXPECT_EQ(UInt64Array({42, 0, 0, 0}),
-            ::arrow::BitUtil::LittleEndianArray::FromNative(value.native_endian_array()));
+            ::arrow::bit_util::little_endian::FromNative(value.native_endian_array()));
 
   TypeParam max = std::numeric_limits<TypeParam>::max();
   Decimal256 max_value(max);
   EXPECT_EQ(
       UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
-      ::arrow::BitUtil::LittleEndianArray::FromNative(max_value.native_endian_array()));
+      ::arrow::bit_util::little_endian::FromNative(max_value.native_endian_array()));
 
   TypeParam min = std::numeric_limits<TypeParam>::min();
   Decimal256 min_value(min);
   uint64_t high_bits = std::is_signed<TypeParam>::value ? ~uint64_t{0} : uint64_t{0};
   EXPECT_EQ(
       UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
-      ::arrow::BitUtil::LittleEndianArray::FromNative(min_value.native_endian_array()));
+      ::arrow::bit_util::little_endian::FromNative(min_value.native_endian_array()));
 }
 
 TEST(Decimal256Test, ConstructibleFromBool) {

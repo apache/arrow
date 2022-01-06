@@ -36,7 +36,7 @@
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
@@ -234,7 +234,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                        bool enable_dictionary, bool enable_statistics,
                                        int64_t num_rows, int compression_level) {
     std::vector<uint8_t> valid_bits(
-        BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
     column_properties.set_compression_level(compression_level);
@@ -548,12 +548,12 @@ TYPED_TEST(TestPrimitiveWriter, OptionalSpaced) {
 
   this->GenerateData(SMALL_SIZE);
   std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
-  std::vector<uint8_t> valid_bits(::arrow::BitUtil::BytesForBits(SMALL_SIZE), 255);
+  std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(SMALL_SIZE), 255);
 
   definition_levels[SMALL_SIZE - 1] = 0;
-  ::arrow::BitUtil::ClearBit(valid_bits.data(), SMALL_SIZE - 1);
+  ::arrow::bit_util::ClearBit(valid_bits.data(), SMALL_SIZE - 1);
   definition_levels[1] = 0;
-  ::arrow::BitUtil::ClearBit(valid_bits.data(), 1);
+  ::arrow::bit_util::ClearBit(valid_bits.data(), 1);
 
   auto writer = this->BuildWriter();
   writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(), nullptr,

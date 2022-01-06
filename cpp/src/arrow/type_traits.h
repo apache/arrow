@@ -110,7 +110,7 @@ struct TypeTraits<BooleanType> {
   using CType = bool;
 
   static constexpr int64_t bytes_required(int64_t elements) {
-    return BitUtil::BytesForBits(elements);
+    return bit_util::BytesForBits(elements);
   }
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return boolean(); }

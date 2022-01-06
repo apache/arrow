@@ -285,7 +285,7 @@ struct StructFieldFunctor {
   static Status CheckIndex(int index, const DataType& type) {
     if (!ValidParentType(type)) {
       return Status::TypeError("struct_field: cannot subscript field of type ", type);
-    } else if (index < 0 || index > type.num_fields()) {
+    } else if (index < 0 || index >= type.num_fields()) {
       return Status::Invalid("struct_field: out-of-bounds field reference to field ",
                              index, " in type ", type, " with ", type.num_fields(),
                              " fields");
@@ -335,7 +335,7 @@ const FunctionDoc struct_field_doc(
      "child is always index 0.\n"
      "\n"
      "An empty list of indices returns the argument unchanged."),
-    {"values"}, "StructFieldOptions");
+    {"values"}, "StructFieldOptions", /*options_required=*/true);
 
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
                                      const std::vector<ValueDescr>& descrs) {

@@ -99,6 +99,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @Test
   public void testVectorSchemaRootReuse() throws SQLException, IOException {
+    String[] expectedColValues = {
+        "[101, 102, 103]",
+        "[104, null, null]",
+        "[107, 108, 109]",
+        "[110]"
+    };
 
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
@@ -111,6 +117,9 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     while (iterator.hasNext()) {
       VectorSchemaRoot cur = iterator.next();
       assertNotNull(cur);
+
+      // verify the first column, with may contain nulls.
+      assertEquals(expectedColValues[batchCount], cur.getVector(0).toString());
 
       if (prev != null) {
         // skip the first iteration
@@ -409,7 +418,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     int index = 0;
     for (IntVector vector : vectors) {
       for (int i = 0; i < vector.getValueCount(); i++) {
-        assertEquals(values[index++].intValue(), vector.get(i));
+        if (values[index] == null) {
+          assertTrue(vector.isNull(i));
+        } else {
+          assertEquals(values[index].longValue(), vector.get(i));
+        }
+        index++;
       }
     }
   }

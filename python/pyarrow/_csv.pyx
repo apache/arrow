@@ -22,6 +22,7 @@
 from cython.operator cimport dereference as deref
 
 import codecs
+from collections import namedtuple
 from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
@@ -44,6 +45,45 @@ cdef unsigned char _single_char(s) except 0:
     if val == 0 or val > 127:
         raise ValueError("Expecting an ASCII character")
     return <unsigned char> val
+
+
+_InvalidRow = namedtuple(
+    "_InvalidRow", ("expected_columns", "actual_columns", "number", "text"),
+    module=__name__)
+
+
+class InvalidRow(_InvalidRow):
+    """
+    Description of an invalid row in a CSV file.
+
+    Parameters
+    ----------
+    expected_columns : int
+        The expected number of columns in the row.
+    actual_columns : int
+        The actual number of columns in the row.
+    number : int or None
+        The physical row number if known, otherwise None.
+    text : str
+        The contents of the row.
+    """
+    __slots__ = ()
+
+
+cdef CInvalidRowResult _handle_invalid_row(
+        handler, const CCSVInvalidRow& c_row) except CInvalidRowResult_Error:
+    # A negative row number means undetermined (because of parallel reading)
+    row_number = c_row.number if c_row.number >= 0 else None
+    row = InvalidRow(c_row.expected_columns, c_row.actual_columns,
+                     row_number, frombytes(<c_string> c_row.text))
+    result = handler(row)
+    if result == 'error':
+        return CInvalidRowResult_Error
+    elif result == 'skip':
+        return CInvalidRowResult_Skip
+    else:
+        raise ValueError("Invalid return value for invalid row handler: "
+                         f"expected 'error' or 'skip', got {result!r}")
 
 
 cdef class ReadOptions(_Weakrefable):
@@ -254,15 +294,21 @@ cdef class ParseOptions(_Weakrefable):
         Whether empty lines are ignored in CSV input.
         If False, an empty line is interpreted as containing a single empty
         value (assuming a one-column CSV file).
+    invalid_row_handler : callable, optional (default None)
+        If not None, this object is called for each CSV row that fails
+        parsing (because of a mismatching number of columns).
+        It should accept a single InvalidRow argument and return either
+        "skip" or "error" depending on the desired outcome.
     """
     __slots__ = ()
 
     def __cinit__(self, *argw, **kwargs):
+        self._invalid_row_handler = None
         self.options.reset(new CCSVParseOptions(CCSVParseOptions.Defaults()))
 
     def __init__(self, *, delimiter=None, quote_char=None, double_quote=None,
                  escape_char=None, newlines_in_values=None,
-                 ignore_empty_lines=None):
+                 ignore_empty_lines=None, invalid_row_handler=None):
         if delimiter is not None:
             self.delimiter = delimiter
         if quote_char is not None:
@@ -275,6 +321,8 @@ cdef class ParseOptions(_Weakrefable):
             self.newlines_in_values = newlines_in_values
         if ignore_empty_lines is not None:
             self.ignore_empty_lines = ignore_empty_lines
+        if invalid_row_handler is not None:
+            self.invalid_row_handler = invalid_row_handler
 
     @property
     def delimiter(self):
@@ -359,6 +407,27 @@ cdef class ParseOptions(_Weakrefable):
         """
         return deref(self.options).ignore_empty_lines
 
+    @property
+    def invalid_row_handler(self):
+        """
+        Optional handler for invalid rows.
+
+        If not None, this object is called for each CSV row that fails
+        parsing (because of a mismatching number of columns).
+        It should accept a single InvalidRow argument and return either
+        "skip" or "error" depending on the desired outcome.
+        """
+        return self._invalid_row_handler
+
+    @invalid_row_handler.setter
+    def invalid_row_handler(self, value):
+        if value is not None and not callable(value):
+            raise TypeError("Expected callable or None, "
+                            f"got instance of {type(value)!r}")
+        self._invalid_row_handler = value
+        deref(self.options).invalid_row_handler = MakeInvalidRowHandler(
+            <function[PyInvalidRowCallback]> &_handle_invalid_row, value)
+
     @ignore_empty_lines.setter
     def ignore_empty_lines(self, value):
         deref(self.options).ignore_empty_lines = value
@@ -373,7 +442,8 @@ cdef class ParseOptions(_Weakrefable):
             self.double_quote == other.double_quote and
             self.escape_char == other.escape_char and
             self.newlines_in_values == other.newlines_in_values and
-            self.ignore_empty_lines == other.ignore_empty_lines
+            self.ignore_empty_lines == other.ignore_empty_lines and
+            self._invalid_row_handler == other._invalid_row_handler
         )
 
     @staticmethod
@@ -385,12 +455,12 @@ cdef class ParseOptions(_Weakrefable):
     def __getstate__(self):
         return (self.delimiter, self.quote_char, self.double_quote,
                 self.escape_char, self.newlines_in_values,
-                self.ignore_empty_lines)
+                self.ignore_empty_lines, self._invalid_row_handler)
 
     def __setstate__(self, state):
         (self.delimiter, self.quote_char, self.double_quote,
          self.escape_char, self.newlines_in_values,
-         self.ignore_empty_lines) = state
+         self.ignore_empty_lines, self._invalid_row_handler) = state
 
     def __eq__(self, other):
         try:

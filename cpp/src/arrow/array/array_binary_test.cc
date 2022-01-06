@@ -29,15 +29,16 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -104,6 +105,18 @@ class TestStringArray : public ::testing::Test {
     ASSERT_OK(strings_->ValidateFull());
     TestInitialized(*strings_);
     AssertZeroPadded(*strings_);
+  }
+
+  void TestArrayIndexOperator() {
+    const auto& arr = *strings_;
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (valid_bytes_[i]) {
+        ASSERT_TRUE(arr[i].has_value());
+        ASSERT_EQ(expected_[i], arr[i].value());
+      } else {
+        ASSERT_FALSE(arr[i].has_value());
+      }
+    }
   }
 
   void TestArrayCtors() {
@@ -328,6 +341,8 @@ TYPED_TEST_SUITE(TestStringArray, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestStringArray, TestArrayBasics) { this->TestArrayBasics(); }
 
+TYPED_TEST(TestStringArray, TestArrayIndexOperator) { this->TestArrayIndexOperator(); }
+
 TYPED_TEST(TestStringArray, TestArrayCtors) { this->TestArrayCtors(); }
 
 TYPED_TEST(TestStringArray, TestType) { this->TestType(); }
@@ -389,17 +404,14 @@ TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 // String builder tests
 
 template <typename T>
-class TestStringBuilder : public TestBuilder {
+class TestStringBuilder : public ::testing::Test {
  public:
   using TypeClass = T;
   using offset_type = typename TypeClass::offset_type;
   using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
 
-  void SetUp() {
-    TestBuilder::SetUp();
-    builder_.reset(new BuilderType(pool_));
-  }
+  void SetUp() { builder_.reset(new BuilderType(pool_)); }
 
   void Done() {
     std::shared_ptr<Array> out;
@@ -595,7 +607,7 @@ class TestStringBuilder : public TestBuilder {
     int reps = 15;
     int64_t length = 0;
     int64_t capacity = 1000;
-    int64_t expected_capacity = BitUtil::RoundUpToMultipleOf64(capacity);
+    int64_t expected_capacity = bit_util::RoundUpToMultipleOf64(capacity);
 
     ASSERT_OK(builder_->ReserveData(capacity));
 
@@ -613,7 +625,7 @@ class TestStringBuilder : public TestBuilder {
     }
 
     int extra_capacity = 500;
-    expected_capacity = BitUtil::RoundUpToMultipleOf64(length + extra_capacity);
+    expected_capacity = bit_util::RoundUpToMultipleOf64(length + extra_capacity);
 
     ASSERT_OK(builder_->ReserveData(extra_capacity));
 
@@ -657,6 +669,7 @@ class TestStringBuilder : public TestBuilder {
   }
 
  protected:
+  MemoryPool* pool_ = default_memory_pool();
   std::unique_ptr<BuilderType> builder_;
   std::shared_ptr<ArrayType> result_;
 };

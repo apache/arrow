@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/buffer.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
@@ -961,7 +962,9 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->OpenInputStream("def"));
 
   // Cannot open directory
-  ASSERT_RAISES(IOError, fs->OpenInputStream("AB"));
+  if (!allow_read_dir_as_file()) {
+    ASSERT_RAISES(IOError, fs->OpenInputStream("AB"));
+  }
 }
 
 void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
@@ -1029,7 +1032,9 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->OpenInputFile("def"));
 
   // Cannot open directory
-  ASSERT_RAISES(IOError, fs->OpenInputFile("AB"));
+  if (!allow_read_dir_as_file()) {
+    ASSERT_RAISES(IOError, fs->OpenInputFile("AB"));
+  }
 }
 
 void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {

@@ -220,17 +220,17 @@ func (t Time64) ToTime(unit TimeUnit) time.Time {
 }
 
 const (
-	Nanosecond TimeUnit = iota
-	Microsecond
+	Second TimeUnit = iota
 	Millisecond
-	Second
+	Microsecond
+	Nanosecond
 )
 
 func (u TimeUnit) Multiplier() time.Duration {
-	return [...]time.Duration{time.Nanosecond, time.Microsecond, time.Millisecond, time.Second}[uint(u)&3]
+	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }
 
-func (u TimeUnit) String() string { return [...]string{"ns", "us", "ms", "s"}[uint(u)&3] }
+func (u TimeUnit) String() string { return [...]string{"s", "ms", "us", "ns"}[uint(u)&3] }
 
 // TimestampType is encoded as a 64-bit signed integer since the UNIX epoch (2017-01-01T00:00:00Z).
 // The zero-value is a nanosecond and time zone neutral. Time zone neutral can be

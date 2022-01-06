@@ -108,3 +108,11 @@ garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options);
 
 arrow::compute::VarianceOptions *
 garrow_variance_options_get_raw(GArrowVarianceOptions *options);
+
+
+arrow::compute::RoundOptions *
+garrow_round_options_get_raw(GArrowRoundOptions *options);
+
+
+arrow::compute::RoundToMultipleOptions *
+garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options);

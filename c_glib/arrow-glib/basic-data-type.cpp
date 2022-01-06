@@ -78,6 +78,9 @@ G_BEGIN_DECLS
  * #GArrowLargeStringDataType is a class for the 64-bit offsets UTF-8
  * encoded string data type.
  *
+ * #GArrowTemporalDataType is an abstract class for temporal related data type
+ * such as #GArrowDate32DataType.
+ *
  * #GArrowDate32DataType is a class for the number of days since UNIX
  * epoch in the 32-bit signed integer data type.
  *
@@ -93,6 +96,18 @@ G_BEGIN_DECLS
  *
  * #GArrowTime64DataType is a class for the number of microseconds or
  * nanoseconds since midnight in the 64-bit signed integer data type.
+ *
+ * #GArrowIntervalDataType is an abstract class for interval related
+ * data type such as #GArrowMonthIntervalDataType.
+ *
+ * #GArrowMonthIntervalDataType is a class for the month intarval data
+ * type.
+ *
+ * #GArrowDayTimeIntervalDataType is a class for the day time intarval
+ * data type.
+ *
+ * #GArrowMonthDayNanoIntervalDataType is a class for the month day
+ * nano intarval data type.
  *
  * #GArrowDecimalDataType is a base class for the decimal data types.
  *
@@ -975,9 +990,24 @@ garrow_large_string_data_type_new(void)
 }
 
 
+G_DEFINE_ABSTRACT_TYPE(GArrowTemporalDataType,
+                       garrow_temporal_data_type,
+                       GARROW_TYPE_FIXED_WIDTH_DATA_TYPE)
+
+static void
+garrow_temporal_data_type_init(GArrowTemporalDataType *object)
+{
+}
+
+static void
+garrow_temporal_data_type_class_init(GArrowTemporalDataTypeClass *klass)
+{
+}
+
+
 G_DEFINE_TYPE(GArrowDate32DataType,
               garrow_date32_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_date32_data_type_init(GArrowDate32DataType *object)
@@ -1012,7 +1042,7 @@ garrow_date32_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowDate64DataType,
               garrow_date64_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_date64_data_type_init(GArrowDate64DataType *object)
@@ -1047,7 +1077,7 @@ garrow_date64_data_type_new(void)
 
 G_DEFINE_TYPE(GArrowTimestampDataType,
               garrow_timestamp_data_type,
-              GARROW_TYPE_DATA_TYPE)
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_timestamp_data_type_init(GArrowTimestampDataType *object)
@@ -1102,7 +1132,7 @@ garrow_timestamp_data_type_get_unit(GArrowTimestampDataType *timestamp_data_type
 
 G_DEFINE_ABSTRACT_TYPE(GArrowTimeDataType,
                        garrow_time_data_type,
-                       GARROW_TYPE_DATA_TYPE)
+                       GARROW_TYPE_TEMPORAL_DATA_TYPE)
 
 static void
 garrow_time_data_type_init(GArrowTimeDataType *object)
@@ -1266,6 +1296,140 @@ garrow_time64_data_type_new(GArrowTimeUnit unit, GError **error)
                                          "data-type", &arrow_data_type,
                                          NULL));
   return data_type;
+}
+
+
+G_DEFINE_ABSTRACT_TYPE(GArrowIntervalDataType,
+                       garrow_interval_data_type,
+                       GARROW_TYPE_TEMPORAL_DATA_TYPE)
+
+static void
+garrow_interval_data_type_init(GArrowIntervalDataType *object)
+{
+}
+
+static void
+garrow_interval_data_type_class_init(GArrowIntervalDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_interval_data_type_get_interval_type:
+ * @type: The #GArrowIntervalDataType.
+ *
+ * Returns: The interval type of the given @type.
+ *
+ * Since: 7.0.0
+ */
+GArrowIntervalType
+garrow_interval_data_type_get_interval_type(GArrowIntervalDataType *type)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(type));
+  const auto arrow_interval_type =
+    std::static_pointer_cast<arrow::IntervalType>(arrow_data_type);
+  return garrow_interval_type_from_raw(arrow_interval_type->interval_type());
+}
+
+
+G_DEFINE_TYPE(GArrowMonthIntervalDataType,
+              garrow_month_interval_data_type,
+              GARROW_TYPE_INTERVAL_DATA_TYPE)
+static void
+garrow_month_interval_data_type_init(GArrowMonthIntervalDataType *object)
+{
+}
+
+static void
+garrow_month_interval_data_type_class_init(
+  GArrowMonthIntervalDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_month_interval_data_type_new:
+ *
+ * Returns: The newly created month interval data type.
+ *
+ * Since: 7.0.0
+ */
+GArrowMonthIntervalDataType *
+garrow_month_interval_data_type_new(void)
+{
+  auto arrow_data_type = arrow::month_interval();
+
+  auto data_type = g_object_new(GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE,
+                                "data-type", &arrow_data_type,
+                                NULL);
+  return GARROW_MONTH_INTERVAL_DATA_TYPE(data_type);
+}
+
+
+G_DEFINE_TYPE(GArrowDayTimeIntervalDataType,
+              garrow_day_time_interval_data_type,
+              GARROW_TYPE_INTERVAL_DATA_TYPE)
+
+static void
+garrow_day_time_interval_data_type_init(GArrowDayTimeIntervalDataType *object)
+{
+}
+
+static void
+garrow_day_time_interval_data_type_class_init(
+  GArrowDayTimeIntervalDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_day_time_interval_data_type_new:
+ *
+ * Returns: The newly created day time interval data type.
+ *
+ * Since: 7.0.0
+ */
+GArrowDayTimeIntervalDataType *
+garrow_day_time_interval_data_type_new(void)
+{
+  auto arrow_data_type = arrow::day_time_interval();
+
+  auto data_type = g_object_new(GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE,
+                                "data-type", &arrow_data_type,
+                                NULL);
+  return GARROW_DAY_TIME_INTERVAL_DATA_TYPE(data_type);
+}
+
+
+G_DEFINE_TYPE(GArrowMonthDayNanoIntervalDataType,
+              garrow_month_day_nano_interval_data_type,
+              GARROW_TYPE_INTERVAL_DATA_TYPE)
+
+static void
+garrow_month_day_nano_interval_data_type_init(
+  GArrowMonthDayNanoIntervalDataType *object)
+{
+}
+
+static void
+garrow_month_day_nano_interval_data_type_class_init(
+  GArrowMonthDayNanoIntervalDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_month_day_nano_interval_data_type_new:
+ *
+ * Returns: The newly created month day nano interval data type.
+ *
+ * Since: 7.0.0
+ */
+GArrowMonthDayNanoIntervalDataType *
+garrow_month_day_nano_interval_data_type_new(void)
+{
+  auto arrow_data_type = arrow::month_day_nano_interval();
+
+  auto data_type = g_object_new(GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE,
+                                "data-type", &arrow_data_type,
+                                NULL);
+  return GARROW_MONTH_DAY_NANO_INTERVAL_DATA_TYPE(data_type);
 }
 
 

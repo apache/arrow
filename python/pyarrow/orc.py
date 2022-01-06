@@ -140,7 +140,7 @@ class ORCWriter:
 
         Parameters
         ----------
-        schema : pyarrow.lib.Table
+        table : pyarrow.lib.Table
             The table to be written into the ORC file
         """
         self.writer.write(table)

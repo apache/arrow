@@ -33,6 +33,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

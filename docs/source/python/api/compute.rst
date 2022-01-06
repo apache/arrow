@@ -45,28 +45,6 @@ Aggregations
    tdigest
    variance
 
-Grouped Aggregations
---------------------
-
-.. autosummary::
-   :toctree: ../generated/
-
-   hash_all
-   hash_any
-   hash_approximate_median
-   hash_count
-   hash_count_distinct
-   hash_distinct
-   hash_max
-   hash_mean
-   hash_min
-   hash_min_max
-   hash_product
-   hash_stddev
-   hash_sum
-   hash_tdigest
-   hash_variance
-
 Arithmetic Functions
 --------------------
 
@@ -269,6 +247,7 @@ String Transforms
    binary_length
    binary_repeat
    binary_replace_slice
+   binary_reverse
    replace_substring
    replace_substring_regex
    utf8_capitalize
@@ -365,6 +344,7 @@ Containment Tests
    match_substring
    match_substring_regex
    starts_with
+   indices_nonzero
 
 Categorizations
 ---------------
@@ -396,6 +376,9 @@ Conversions
    :toctree: ../generated/
 
    cast
+   ceil_temporal
+   floor_temporal
+   round_temporal
    strftime
    strptime
 
@@ -423,6 +406,7 @@ Temporal Component Extraction
    us_week
    week
    year
+   year_month_day
 
 Temporal Difference
 -------------------
@@ -491,6 +475,8 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null_backward
+   fill_null_forward
    list_element
    list_flatten
    list_parent_indices
@@ -498,3 +484,51 @@ Structural Transforms
    make_struct
    replace_with_mask
    struct_field
+
+Compute Options
+---------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ArraySortOptions
+   AssumeTimezoneOptions
+   CastOptions
+   CountOptions
+   CountOptions
+   DayOfWeekOptions
+   DictionaryEncodeOptions
+   ElementWiseAggregateOptions
+   ExtractRegexOptions
+   FilterOptions
+   IndexOptions
+   JoinOptions
+   MakeStructOptions
+   MatchSubstringOptions
+   ModeOptions
+   NullOptions
+   PadOptions
+   PartitionNthOptions
+   QuantileOptions
+   ReplaceSliceOptions
+   ReplaceSubstringOptions
+   RoundOptions
+   RoundTemporalOptions
+   RoundToMultipleOptions
+   ScalarAggregateOptions
+   ScalarAggregateOptions
+   SelectKOptions
+   SetLookupOptions
+   SliceOptions
+   SortOptions
+   SplitOptions
+   SplitPatternOptions
+   StrftimeOptions
+   StrptimeOptions
+   StructFieldOptions
+   TakeOptions
+   TDigestOptions
+   TDigestOptions
+   TrimOptions
+   VarianceOptions
+   WeekOptions

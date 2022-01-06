@@ -415,6 +415,16 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 }
 
+readr_to_csv_write_options <- function(include_header,
+                                       batch_size = 1024L) {
+  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+  assert_that(is.logical(include_header))
+  CsvWriteOptions$create(
+    include_header = include_header,
+    batch_size = as.integer(batch_size)
+  )
+}
+
 #' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
@@ -610,8 +620,13 @@ readr_to_csv_convert_options <- function(na,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
+#' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names
+#' @param col_names identical to `include_header`. Specify this or
+#'     `include_headers`, not both.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
+#' @param write_options see [file reader options][CsvWriteOptions]
+#' @param ... additional parameters
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
@@ -623,9 +638,54 @@ readr_to_csv_convert_options <- function(na,
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,
+                            file = NULL,
                             include_header = TRUE,
-                            batch_size = 1024L) {
-  write_options <- CsvWriteOptions$create(include_header, batch_size)
+                            col_names = NULL,
+                            batch_size = 1024L,
+                            write_options = NULL,
+                            ...) {
+  unsupported_passed_args <- names(list(...))
+
+  if (length(unsupported_passed_args)) {
+    stop(
+      "The following ",
+      ngettext(length(unsupported_passed_args), "argument is ", "arguments are "),
+      "not yet supported in Arrow: ",
+      oxford_paste(unsupported_passed_args),
+      call. = FALSE
+    )
+  }
+
+  if (!missing(file) && !missing(sink)) {
+    stop(
+      "You have supplied both \"file\" and \"sink\" arguments. Please ",
+      "supply only one of them.",
+      call. = FALSE
+    )
+  }
+
+  if (missing(sink) && !missing(file)) {
+    sink <- file
+  }
+
+  if (!missing(col_names) && !missing(include_header)) {
+    stop(
+      "You have supplied both \"col_names\" and \"include_header\" ",
+      "arguments. Please supply only one of them.",
+      call. = FALSE
+    )
+  }
+
+  # default values are considered missing by base R
+  if (missing(include_header) && !missing(col_names)) {
+    include_header <- col_names
+  }
+
+  if (is.null(write_options)) {
+    write_options <- readr_to_csv_write_options(
+      include_header = include_header,
+      batch_size = batch_size)
+  }
 
   x_out <- x
   if (is.data.frame(x)) {

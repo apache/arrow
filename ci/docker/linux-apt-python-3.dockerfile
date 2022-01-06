@@ -29,7 +29,7 @@ RUN apt-get update -y -q && \
 RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
     ln -s /usr/bin/pip3 /usr/local/bin/pip
 
-RUN pip install -U pip setuptools
+RUN pip install -U pip setuptools wheel
 
 COPY python/requirements-build.txt \
      python/requirements-test.txt \

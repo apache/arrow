@@ -43,7 +43,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -787,6 +787,30 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
   return result;
 }
 
+Result<std::shared_ptr<StructType>> StructType::AddField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i > this->num_fields()) {
+    return Status::Invalid("Invalid column index to add field.");
+  }
+  return std::make_shared<StructType>(internal::AddVectorElement(children_, i, field));
+}
+
+Result<std::shared_ptr<StructType>> StructType::RemoveField(int i) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to remove field.");
+  }
+  return std::make_shared<StructType>(internal::DeleteVectorElement(children_, i));
+}
+
+Result<std::shared_ptr<StructType>> StructType::SetField(
+    int i, const std::shared_ptr<Field>& field) const {
+  if (i < 0 || i >= this->num_fields()) {
+    return Status::Invalid("Invalid column index to set field.");
+  }
+  return std::make_shared<StructType>(
+      internal::ReplaceVectorElement(children_, i, field));
+}
+
 Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t precision,
                                                     int32_t scale) {
   if (type_id == Type::DECIMAL128) {
@@ -831,7 +855,8 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range: ", precision);
+    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
+                           ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal128Type>(precision, scale);
 }
@@ -847,7 +872,8 @@ Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range: ", precision);
+    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
+                           ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal256Type>(precision, scale);
 }
@@ -1518,7 +1544,7 @@ Result<std::shared_ptr<Schema>> Schema::AddField(
 Result<std::shared_ptr<Schema>> Schema::SetField(
     int i, const std::shared_ptr<Field>& field) const {
   if (i < 0 || i > this->num_fields()) {
-    return Status::Invalid("Invalid column index to add field.");
+    return Status::Invalid("Invalid column index to set field.");
   }
 
   return std::make_shared<Schema>(
@@ -2396,6 +2422,11 @@ void InitStaticData() {
 const std::vector<std::shared_ptr<DataType>>& BaseBinaryTypes() {
   std::call_once(static_data_initialized, InitStaticData);
   return g_base_binary_types;
+}
+
+const std::vector<std::shared_ptr<DataType>>& BinaryTypes() {
+  static DataTypeVector types = {binary(), large_binary()};
+  return types;
 }
 
 const std::vector<std::shared_ptr<DataType>>& StringTypes() {

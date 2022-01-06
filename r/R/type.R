@@ -133,6 +133,13 @@ TimeType <- R6Class("TimeType",
 Time32 <- R6Class("Time32", inherit = TimeType)
 Time64 <- R6Class("Time64", inherit = TimeType)
 
+DurationType <- R6Class("DurationType",
+  inherit = FixedWidthType,
+  public = list(
+    unit = function() DurationType__unit(self)
+  )
+)
+
 Null <- R6Class("Null", inherit = DataType)
 
 Timestamp <- R6Class("Timestamp",
@@ -150,7 +157,10 @@ DecimalType <- R6Class("DecimalType",
     scale = function() DecimalType__scale(self)
   )
 )
+
 Decimal128Type <- R6Class("Decimal128Type", inherit = DecimalType)
+
+Decimal256Type <- R6Class("Decimal256Type", inherit = DecimalType)
 
 NestedType <- R6Class("NestedType", inherit = DataType)
 
@@ -181,14 +191,46 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
 #' FALSE)`.
 #'
+#' `decimal128()` creates a `Decimal128Type`. Arrow decimals are fixed-point
+#' decimal numbers encoded as a scalar integer. The `precision` is the number of
+#' significant digits that the decimal type can represent; the `scale` is the
+#' number of digits after the decimal point. For example, the number 1234.567
+#' has a precision of 7 and a scale of 3. Note that `scale` can be negative.
+#'
+#' As an example, `decimal128(7, 3)` can exactly represent the numbers 1234.567 and
+#' -1234.567 (encoded internally as the 128-bit integers 1234567 and -1234567,
+#' respectively), but neither 12345.67 nor 123.4567.
+#'
+#' `decimal128(5, -3)` can exactly represent the number 12345000 (encoded
+#' internally as the 128-bit integer 12345), but neither 123450000 nor 1234500.
+#' The `scale` can be thought of as an argument that controls rounding. When
+#' negative, `scale` causes the number to be expressed using scientific notation
+#' and power of 10.
+#'
+#' `decimal256()` creates a `Decimal256Type`, which allows for higher maximum
+#' precision. For most use cases, the maximum precision offered by `Decimal128Type`
+#' is sufficient, and it will result in a more compact and more efficient encoding.
+#'
+#' #' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
+#' depending on the value for `precision`. If `precision` is greater than 38 a
+#' `Decimal256Type` is returned, otherwise a `Decimal128Type`.
+#'
+#' Use `decimal128()` or `decimal256()` as the names are more informative than
+#' `decimal()`.
+#'
 #' @param unit For time/timestamp types, the time unit. `time32()` can take
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
 #' take any of those four values.
 #' @param timezone For `timestamp()`, an optional time zone string.
 #' @param byte_width byte width for `FixedSizeBinary` type.
 #' @param list_size list size for `FixedSizeList` type.
-#' @param precision For `decimal()`, precision
-#' @param scale For `decimal()`, scale
+#' @param precision For `decimal()`, `decimal128()`, and `decimal256()` the
+#'    number of significant digits the arrow `decimal` type can represent. The
+#'    maximum precision for `decimal128()` is 38 significant digits, while for
+#'    `decimal256()` it is 76 digits. `decimal()` will use it to choose which
+#'    type of decimal to return.
+#' @param scale For `decimal()`, `decimal128()`, and `decimal256()` the number
+#'    of digits after the decimal point. It can be negative.
 #' @param type For `list_of()`, a data type to make a list-of-type
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
@@ -311,6 +353,13 @@ valid_time64_units <- c(
   "us" = TimeUnit$MICRO
 )
 
+valid_duration_units <- c(
+  "s" = TimeUnit$SECOND,
+  "ms" = TimeUnit$MILLI,
+  "us" = TimeUnit$MICRO,
+  "ns" = TimeUnit$NANO
+)
+
 make_valid_time_unit <- function(unit, valid_units) {
   if (is.character(unit)) {
     unit <- valid_units[match.arg(unit, choices = names(valid_units))]
@@ -339,6 +388,16 @@ time64 <- function(unit = c("ns", "us")) {
 
 #' @rdname data-type
 #' @export
+duration <- function(unit = c("s", "ms", "us", "ns")) {
+  if (is.character(unit)) {
+    unit <- match.arg(unit)
+  }
+  unit <- make_valid_time_unit(unit, valid_duration_units)
+  Duration__initialize(unit)
+}
+
+#' @rdname data-type
+#' @export
 null <- function() Null__initialize()
 
 #' @rdname data-type
@@ -355,17 +414,45 @@ timestamp <- function(unit = c("s", "ms", "us", "ns"), timezone = "") {
 #' @rdname data-type
 #' @export
 decimal <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+
+  if (args$precision > 38) {
+    decimal256(args$precision, args$scale)
+  } else {
+    decimal128(args$precision, args$scale)
+  }
+}
+
+#' @rdname data-type
+#' @export
+decimal128 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal128Type__initialize(args$precision, args$scale)
+}
+
+#' @rdname data-type
+#' @export
+decimal256 <- function(precision, scale) {
+  args <- check_decimal_args(precision, scale)
+  Decimal256Type__initialize(args$precision, args$scale)
+}
+
+check_decimal_args <- function(precision, scale) {
   if (is.numeric(precision)) {
-    precision <- as.integer(precision)
+    precision <- vec_cast(precision, to = integer())
+    vctrs::vec_assert(precision, size = 1L)
   } else {
-    stop('"precision" must be an integer', call. = FALSE)
+    stop("`precision` must be an integer", call. = FALSE)
   }
+
   if (is.numeric(scale)) {
-    scale <- as.integer(scale)
+    scale <- vec_cast(scale, to = integer())
+    vctrs::vec_assert(scale, size = 1L)
   } else {
-    stop('"scale" must be an integer', call. = FALSE)
+    stop("`scale` must be an integer", call. = FALSE)
   }
-  Decimal128Type__initialize(precision, scale)
+
+  list(precision = precision, scale = scale)
 }
 
 StructType <- R6Class("StructType",
@@ -468,7 +555,8 @@ canonical_type_str <- function(type_str) {
     time64 = "time64",
     null = "null",
     timestamp = "timestamp",
-    decimal = "decimal128",
+    decimal128 = "decimal128",
+    decimal256 = "decimal256",
     struct = "struct",
     list_of = "list",
     list = "list",
@@ -476,6 +564,7 @@ canonical_type_str <- function(type_str) {
     large_list = "large_list",
     fixed_size_list_of = "fixed_size_list",
     fixed_size_list = "fixed_size_list",
+    duration = "duration",
     stop("Unrecognized string representation of data type", call. = FALSE)
   )
 }

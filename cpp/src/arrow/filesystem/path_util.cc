@@ -22,6 +22,7 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
@@ -264,6 +265,26 @@ bool IsEmptyPath(util::string_view v) {
     }
   }
   return true;
+}
+
+bool IsLikelyUri(util::string_view v) {
+  if (v.empty() || v[0] == '/') {
+    return false;
+  }
+  const auto pos = v.find_first_of(':');
+  if (pos == v.npos) {
+    return false;
+  }
+  if (pos < 2) {
+    // One-letter URI schemes don't officially exist, perhaps a Windows drive letter?
+    return false;
+  }
+  if (pos > 36) {
+    // The largest IANA-registered URI scheme is "microsoft.windows.camera.multipicker"
+    // with 36 characters.
+    return false;
+  }
+  return ::arrow::internal::IsValidUriScheme(v.substr(0, pos));
 }
 
 }  // namespace internal

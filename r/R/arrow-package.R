@@ -56,21 +56,10 @@
     s3_register("reticulate::r_to_py", cl)
   }
 
-  # Create these once, at package build time
-  if (arrow_available()) {
-    # Also include all available Arrow Compute functions,
-    # namespaced as arrow_fun.
-    # We can't do this at install time because list_compute_functions() may error
-    all_arrow_funs <- list_compute_functions()
-    arrow_funcs <- set_names(
-      lapply(all_arrow_funs, function(fun) {
-        force(fun)
-        function(...) build_expr(fun, ...)
-      }),
-      paste0("arrow_", all_arrow_funs)
-    )
-    .cache$functions <- c(nse_funcs, arrow_funcs)
-  }
+  # Create the .cache$functions list at package load time.
+  # We can't do this at build time because list_compute_functions() may error
+  # if arrow_available() is FALSE
+  create_binding_cache()
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Disable multithreading on Windows
@@ -172,6 +161,13 @@ arrow_with_json <- function() {
   tryCatch(.Call(`_json_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+# True when the OS is linux + and the R version is development
+# helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran
+on_linux_dev <- function() {
+  identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
 }
 
 option_use_threads <- function() {

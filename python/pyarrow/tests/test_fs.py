@@ -31,7 +31,6 @@ import weakref
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
 from pyarrow.tests.util import _filesystem_uri, ProxyHandler
-from pyarrow.vendored.version import Version
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
@@ -409,10 +408,6 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if (sys.version_info < (3, 7) and
-            Version(s3fs.__version__) >= Version("0.5")):
-        pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
-
     host, port, access_key, secret_key = s3_server['connection']
     bucket = 'pyarrow-filesystem/'
 
@@ -1011,7 +1006,6 @@ def test_open_output_stream(fs, pathfn, compression, buffer_size,
         ('gzip', 256, gzip.compress, gzip.decompress),
     ]
 )
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
                             decompressor, allow_append_to_file):
     p = pathfn('open-append-stream')
@@ -1579,7 +1573,6 @@ def test_py_open_output_stream():
         f.write(b"data")
 
 
-@pytest.mark.filterwarnings("ignore::FutureWarning")
 def test_py_open_append_stream():
     fs = PyFileSystem(DummyHandler())
 
@@ -1630,6 +1623,18 @@ def test_s3_real_aws_region_selection():
     fs, path = FileSystem.from_uri(
         's3://x-arrow-non-existent-bucket?region=us-east-3')
     assert fs.region == 'us-east-3'
+
+
+@pytest.mark.s3
+def test_resolve_s3_region():
+    from pyarrow.fs import resolve_s3_region
+    assert resolve_s3_region('ursa-labs-taxi-data') == 'us-east-2'
+    assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
+
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('foo/bar')
+    with pytest.raises(ValueError, match="Not a valid bucket name"):
+        resolve_s3_region('s3:bucket')
 
 
 @pytest.mark.s3

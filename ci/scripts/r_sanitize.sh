@@ -35,7 +35,10 @@ export CMAKE_BUILD_TYPE=RelWithDebInfo
 ncores=$(${R_BIN} -s -e 'cat(parallel::detectCores())')
 echo "MAKEFLAGS=-j${ncores}" >> ${rhome}/etc/Renviron.site
 
-${R_BIN} CMD INSTALL ${INSTALL_ARGS} .
+# build first so that any stray compiled files in r/src are ignored
+${R_BIN} CMD build .
+${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
+
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
 

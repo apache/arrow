@@ -441,7 +441,7 @@ class GroupByNode : public ExecNode {
     state->grouper.reset();
 
     if (output_counter_.SetTotal(
-            static_cast<int>(BitUtil::CeilDiv(out_data.length, output_batch_size())))) {
+            static_cast<int>(bit_util::CeilDiv(out_data.length, output_batch_size())))) {
       // this will be hit if out_data.length == 0
       finished_.MarkFinished();
     }

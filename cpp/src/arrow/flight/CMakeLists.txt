@@ -25,7 +25,23 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
+set(ARROW_FLIGHT_TEST_LINKAGE
+    "${ARROW_TEST_LINKAGE}"
+    PARENT_SCOPE)
+if(Protobuf_USE_STATIC_LIBS)
+  message(STATUS "Linking Arrow Flight tests statically due to static Protobuf")
+  set(ARROW_FLIGHT_TEST_LINKAGE
+      "static"
+      PARENT_SCOPE)
+endif()
+if(NOT ARROW_GRPC_USE_SHARED)
+  message(STATUS "Linking Arrow Flight tests statically due to static gRPC")
+  set(ARROW_FLIGHT_TEST_LINKAGE
+      "static"
+      PARENT_SCOPE)
+endif()
+
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
@@ -186,7 +202,6 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
-                test_integration.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest
@@ -228,21 +243,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
-endif()
-
-if(ARROW_BUILD_INTEGRATION)
-  add_executable(flight-test-integration-server test_integration_server.cc)
-  target_link_libraries(flight-test-integration-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
-
-  add_executable(flight-test-integration-client test_integration_client.cc)
-  target_link_libraries(flight-test-integration-client ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                        ${GFLAGS_LIBRARIES} GTest::gtest)
-
-  add_dependencies(arrow_flight flight-test-integration-client
-                   flight-test-integration-server)
-  add_dependencies(arrow-integration flight-test-integration-client
-                   flight-test-integration-server)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

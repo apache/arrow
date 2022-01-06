@@ -30,6 +30,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

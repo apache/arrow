@@ -61,6 +61,10 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new RoundOptions());
   options.emplace_back(
       new RoundOptions(/*ndigits=*/2, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
+  options.emplace_back(new RoundTemporalOptions());
+  options.emplace_back(new RoundTemporalOptions(
+      /*multiple=*/2,
+      /*unit=*/CalendarUnit::WEEK));
   options.emplace_back(new RoundToMultipleOptions());
   options.emplace_back(new RoundToMultipleOptions(
       /*multiple=*/100, /*round_mode=*/RoundMode::TOWARDS_INFINITY));
@@ -125,6 +129,8 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new PartitionNthOptions(/*pivot=*/42));
   options.emplace_back(new SelectKOptions(0, {}));
   options.emplace_back(new SelectKOptions(5, {{SortKey("key", SortOrder::Ascending)}}));
+  options.emplace_back(new Utf8NormalizeOptions());
+  options.emplace_back(new Utf8NormalizeOptions(Utf8NormalizeOptions::NFD));
 
   for (size_t i = 0; i < options.size(); i++) {
     const size_t prev_i = i == 0 ? options.size() - 1 : i - 1;

@@ -80,6 +80,12 @@ navbar:
             href: articles/developers/workflow.html
           - text: Debugging
             href: articles/developers/debugging.html
+          - text: Package Installation Details
+            href: articles/developers/install_details.html
+          - text: Docker
+            href: articles/developers/docker.html
+          - text: Writing Bindings
+            href: articles/developers/bindings.html
 reference:
   - title: Multi-file datasets
     contents:

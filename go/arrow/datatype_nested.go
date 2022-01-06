@@ -21,6 +21,11 @@ import (
 	"strings"
 )
 
+type NestedType interface {
+	DataType
+	Fields() []Field
+}
+
 // ListType describes a nested type in which each array slot contains
 // a variable-size sequence of values, all having the same relative type.
 type ListType struct {
@@ -82,6 +87,8 @@ func (t *ListType) Elem() DataType { return t.elem.Type }
 func (t *ListType) ElemField() Field {
 	return t.elem
 }
+
+func (t *ListType) Fields() []Field { return []Field{t.ElemField()} }
 
 // FixedSizeListType describes a nested type in which each array slot contains
 // a fixed-size sequence of values, all having the same relative type.
@@ -154,6 +161,8 @@ func (t *FixedSizeListType) Fingerprint() string {
 	}
 	return ""
 }
+
+func (t *FixedSizeListType) Fields() []Field { return []Field{t.ElemField()} }
 
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
@@ -302,6 +311,8 @@ func (t *MapType) Fingerprint() string {
 	return fingerprint + "{" + keyFingerprint + itemFingerprint + "}"
 }
 
+func (t *MapType) Fields() []Field { return t.ValueType().Fields() }
+
 type Field struct {
 	Name     string   // Field name
 	Type     DataType // The field's data type
@@ -360,6 +371,7 @@ func (f Field) String() string {
 
 var (
 	_ DataType = (*ListType)(nil)
+	_ DataType = (*FixedSizeListType)(nil)
 	_ DataType = (*StructType)(nil)
 	_ DataType = (*MapType)(nil)
 )

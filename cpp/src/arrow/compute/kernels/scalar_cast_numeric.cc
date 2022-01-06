@@ -104,14 +104,14 @@ Status CheckFloatTruncation(const Datum& input, const Datum& output) {
       // Indices have nulls, must only boundscheck non-null values
       for (int64_t i = 0; i < block.length; ++i) {
         block_out_of_bounds |= WasTruncatedMaybeNull(
-            out_data[i], in_data[i], BitUtil::GetBit(bitmap, offset_position + i));
+            out_data[i], in_data[i], bit_util::GetBit(bitmap, offset_position + i));
       }
     }
     if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
       if (in_array.GetNullCount() > 0) {
         for (int64_t i = 0; i < block.length; ++i) {
           if (WasTruncatedMaybeNull(out_data[i], in_data[i],
-                                    BitUtil::GetBit(bitmap, offset_position + i))) {
+                                    bit_util::GetBit(bitmap, offset_position + i))) {
             return GetErrorMessage(in_data[i]);
           }
         }
@@ -456,7 +456,7 @@ struct DecimalConversions<Decimal128, Decimal256> {
   // Scale then truncate
   static Decimal256 ConvertInput(Decimal256&& val) { return val; }
   static Decimal128 ConvertOutput(Decimal256&& val) {
-    const auto array_le = BitUtil::LittleEndianArray::Make(val.native_endian_array());
+    const auto array_le = bit_util::little_endian::Make(val.native_endian_array());
     return Decimal128(array_le[1], array_le[0]);
   }
 };

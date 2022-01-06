@@ -115,6 +115,10 @@ func NewListScalar(val array.Interface) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val.Data())}
 }
 
+func NewListScalarData(val *array.Data) *List {
+	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val)}
+}
+
 func makeMapType(typ *arrow.StructType) *arrow.MapType {
 	debug.Assert(len(typ.Fields()) == 2, "must pass struct with only 2 fields for MapScalar")
 	return arrow.MapOf(typ.Field(0).Type, typ.Field(1).Type)
@@ -163,6 +167,14 @@ type Vector []Scalar
 type Struct struct {
 	scalar
 	Value Vector
+}
+
+func (s *Struct) Release() {
+	for _, v := range s.Value {
+		if v, ok := v.(Releasable); ok {
+			v.Release()
+		}
+	}
 }
 
 func (s *Struct) Field(name string) (Scalar, error) {

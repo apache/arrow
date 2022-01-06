@@ -105,8 +105,8 @@ class NumpyDoc:
     def __init__(self, symbols=None):
         if not have_numpydoc:
             raise RuntimeError(
-                'Numpydoc is not available, install the development version '
-                'with command: pip install numpydoc==1.1.0'
+                'Numpydoc is not available, install with command: '
+                'pip install numpydoc==1.1.0'
             )
         self.symbols = set(symbols or {'pyarrow'})
 

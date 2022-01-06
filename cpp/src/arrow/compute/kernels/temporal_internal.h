@@ -38,6 +38,7 @@ using arrow_vendored::date::sys_time;
 using arrow_vendored::date::time_zone;
 using arrow_vendored::date::year_month_day;
 using arrow_vendored::date::zoned_time;
+using std::chrono::duration_cast;
 
 inline int64_t GetQuarter(const year_month_day& ymd) {
   return static_cast<int64_t>((static_cast<uint32_t>(ymd.month()) - 1) / 3);
@@ -99,6 +100,11 @@ struct NonZonedLocalizer {
     return sys_time<Duration>(Duration{t});
   }
 
+  template <typename Duration>
+  Duration ConvertLocalToSys(Duration t, Status* st) const {
+    return t;
+  }
+
   sys_days ConvertDays(sys_days d) const { return d; }
 };
 
@@ -111,6 +117,21 @@ struct ZonedLocalizer {
   template <typename Duration>
   local_time<Duration> ConvertTimePoint(int64_t t) const {
     return tz->to_local(sys_time<Duration>(Duration{t}));
+  }
+
+  template <typename Duration>
+  Duration ConvertLocalToSys(Duration t, Status* st) const {
+    try {
+      return zoned_time<Duration>{tz, local_time<Duration>(t)}
+          .get_sys_time()
+          .time_since_epoch();
+    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
+      *st = Status::Invalid("Local time does not exist: ", e.what());
+      return Duration{0};
+    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
+      *st = Status::Invalid("Local time is ambiguous: ", e.what());
+      return Duration{0};
+    }
   }
 
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }

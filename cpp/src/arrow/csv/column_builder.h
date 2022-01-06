@@ -48,30 +48,30 @@ class ARROW_EXPORT ColumnBuilder {
   /// Return the final chunked array.  The TaskGroup _must_ have finished!
   virtual Result<std::shared_ptr<ChunkedArray>> Finish() = 0;
 
-  std::shared_ptr<internal::TaskGroup> task_group() { return task_group_; }
+  std::shared_ptr<arrow::internal::TaskGroup> task_group() { return task_group_; }
 
   /// Construct a strictly-typed ColumnBuilder.
   static Result<std::shared_ptr<ColumnBuilder>> Make(
       MemoryPool* pool, const std::shared_ptr<DataType>& type, int32_t col_index,
       const ConvertOptions& options,
-      const std::shared_ptr<internal::TaskGroup>& task_group);
+      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
 
   /// Construct a type-inferring ColumnBuilder.
   static Result<std::shared_ptr<ColumnBuilder>> Make(
       MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
-      const std::shared_ptr<internal::TaskGroup>& task_group);
+      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
 
   /// Construct a ColumnBuilder for a column of nulls
   /// (i.e. not present in the CSV file).
   static Result<std::shared_ptr<ColumnBuilder>> MakeNull(
       MemoryPool* pool, const std::shared_ptr<DataType>& type,
-      const std::shared_ptr<internal::TaskGroup>& task_group);
+      const std::shared_ptr<arrow::internal::TaskGroup>& task_group);
 
  protected:
-  explicit ColumnBuilder(std::shared_ptr<internal::TaskGroup> task_group)
+  explicit ColumnBuilder(std::shared_ptr<arrow::internal::TaskGroup> task_group)
       : task_group_(std::move(task_group)) {}
 
-  std::shared_ptr<internal::TaskGroup> task_group_;
+  std::shared_ptr<arrow::internal::TaskGroup> task_group_;
 };
 
 }  // namespace csv

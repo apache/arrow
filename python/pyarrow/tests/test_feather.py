@@ -638,6 +638,8 @@ def test_v2_compression_options():
         # compression, compression_level
         ('uncompressed', None),
         ('lz4', None),
+        ('lz4', 1),
+        ('lz4', 12),
         ('zstd', 1),
         ('zstd', 10)
     ]
@@ -647,11 +649,6 @@ def test_v2_compression_options():
                                 compression_level=compression_level)
 
     buf = io.BytesIO()
-
-    # LZ4 doesn't support compression_level
-    with pytest.raises(pa.ArrowInvalid,
-                       match="doesn't support setting a compression level"):
-        write_feather(df, buf, compression='lz4', compression_level=10)
 
     # Trying to compress with V1
     with pytest.raises(

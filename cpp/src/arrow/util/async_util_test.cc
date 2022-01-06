@@ -17,6 +17,8 @@
 
 #include "arrow/util/async_util.h"
 
+#include <thread>
+
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
@@ -156,6 +158,22 @@ TYPED_TEST(TypedTestAsyncTaskGroup, Error) {
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
 }
 
+TYPED_TEST(TypedTestAsyncTaskGroup, ErrorWhileNotEmpty) {
+  TypeParam task_group;
+  Future<> pending_task = Future<>::Make();
+  Future<> will_fail_task = Future<>::Make();
+  Future<> after_fail_task = Future<>::Make();
+  ASSERT_OK(task_group.AddTask([pending_task] { return pending_task; }));
+  ASSERT_OK(task_group.AddTask([will_fail_task] { return will_fail_task; }));
+  ASSERT_OK(task_group.AddTask([after_fail_task] { return after_fail_task; }));
+  Future<> end = task_group.End();
+  AssertNotFinished(end);
+  pending_task.MarkFinished();
+  will_fail_task.MarkFinished(Status::Invalid("XYZ"));
+  after_fail_task.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, end);
+}
+
 TYPED_TEST(TypedTestAsyncTaskGroup, TaskFactoryFails) {
   TypeParam task_group;
   ASSERT_RAISES(Invalid, task_group.AddTask([] { return Status::Invalid("XYZ"); }));
@@ -170,6 +188,23 @@ TYPED_TEST(TypedTestAsyncTaskGroup, AddAfterFailed) {
   }));
   ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
+}
+
+TYPED_TEST(TypedTestAsyncTaskGroup, Stress) {
+  constexpr int NTASKS = 100;
+  TypeParam task_group;
+  std::vector<std::thread> threads;
+  for (int i = 0; i < NTASKS; i++) {
+    ASSERT_OK(task_group.AddTask([&threads] {
+      Future<> fut = Future<>::Make();
+      threads.emplace_back([fut]() mutable { fut.MarkFinished(); });
+      return fut;
+    }));
+  }
+  ASSERT_FINISHES_OK(task_group.End());
+  for (auto& thread : threads) {
+    thread.join();
+  }
 }
 
 TEST(StandardAsyncTaskGroup, TaskFinishesAfterError) {
@@ -230,6 +265,33 @@ TEST(SerializedAsyncTaskGroup, FailAfterAdd) {
   ASSERT_RAISES(Invalid, task_group.AddTask([] { return Future<>::Make(); }));
   ASSERT_FINISHES_AND_RAISES(Invalid, task_group.End());
   ASSERT_FALSE(added_later_and_passes_created);
+}
+
+TEST(SerializedAsyncTaskGroup, Abort) {
+  SerializedAsyncTaskGroup task_group;
+  struct Task {
+    bool started = false;
+    Future<> finished = Future<>::Make();
+  };
+  auto task_factory = [](Task& task) -> std::function<Future<>()> {
+    return [&task] {
+      task.started = true;
+      return task.finished;
+    };
+  };
+  Task one, two;
+  ASSERT_OK(task_group.AddTask(task_factory(one)));
+  ASSERT_OK(task_group.AddTask(task_factory(two)));
+  Future<> group_done = task_group.OnFinished();
+  AssertNotFinished(group_done);
+  ASSERT_TRUE(one.started);
+  ASSERT_FALSE(two.started);
+  Future<> abort_done = task_group.Abort(Status::Invalid("XYZ"));
+  AssertNotFinished(abort_done);
+  one.finished.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, group_done);
+  ASSERT_FINISHES_AND_RAISES(Invalid, abort_done);
+  ASSERT_FALSE(two.started);
 }
 
 }  // namespace util

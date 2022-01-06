@@ -42,7 +42,6 @@
 #include "arrow/compute/registry.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -910,7 +909,11 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                              R"([
     ["-0.25", "-0.25", 2],
     ["0.75",  "0.75",  null],
-    [null,    null,    3]
+    [null,    null,    3],
+    ["1.01",  "1.01",  4],
+    ["1.01",  "1.01",  4],
+    ["1.01",  "1.01",  4],
+    ["1.02",  "1.02",  4]
   ])"});
 
       ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
@@ -945,10 +948,11 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                           field("key_0", int64()),
                                       }),
                                       R"([
-    ["4.25",  "4.25",  "2.12",  "2.12",  "3.25", "3.25", 1],
+    ["4.25",  "4.25",  "2.13",  "2.13",  "3.25", "3.25", 1],
     ["-0.13", "-0.13", "-0.04", "-0.04", "0.00", "0.00", 2],
     [null,    null,    null,    null,    null,   null,   3],
-    ["4.75",  "4.75",  "2.37",  "2.37",  "3.00", "3.00", null]
+    ["4.05",  "4.05",  "1.01",  "1.01",  "1.05", "1.05", 4],
+    ["4.75",  "4.75",  "2.38",  "2.38",  "3.00", "3.00", null]
   ])"),
                         aggregated_and_grouped,
                         /*verbose=*/true);
@@ -2480,7 +2484,7 @@ TEST(GroupBy, Product) {
                                         }),
                                         R"([
     [-3.25, 1,    null, 1],
-    [0.0,   8,    0.0,  2],
+    [-0.0,  8,    -0.0, 2],
     [null,  9,    null, 3],
     [3.0,   null, null, null]
   ])"),
@@ -2564,7 +2568,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                                         }),
                                         R"([
     [null,   null,   null,       null,       null, null, 1],
-    [-0.125, -0.125, -0.0416667, -0.0416667, 0.0,  0.0,  2],
+    [-0.125, -0.125, -0.0416667, -0.0416667, -0.0, -0.0, 2],
     [null,   null,   null,       null,       null, null, 3],
     [4.75,   null,   2.375,      null,       3.0,  null, null]
   ])"),
