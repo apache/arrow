@@ -179,11 +179,15 @@ Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
               ARROW_ASSIGN_OR_RAISE(state->curr_iter, task->Execute());
               state->first = false;
             }
-            while (state->curr_iter != IterationEnd<RecordBatchIterator>()) {
+            while (!IsIterationEnd(state->curr_iter)) {
               ARROW_ASSIGN_OR_RAISE(auto next_batch, state->curr_iter.Next());
               if (IsIterationEnd(next_batch)) {
                 ARROW_ASSIGN_OR_RAISE(auto task, state->iter.Next());
-                ARROW_ASSIGN_OR_RAISE(state->curr_iter, task->Execute());
+                if (IsIterationEnd(task)) {
+                  state->curr_iter = IterationEnd<RecordBatchIterator>();
+                } else {
+                  ARROW_ASSIGN_OR_RAISE(state->curr_iter, task->Execute());
+                }
               } else {
                 return next_batch;
               }
@@ -193,7 +197,7 @@ Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
     }
     std::shared_ptr<IterState> state_;
   } iter_to_gen{std::shared_ptr<IterState>(
-      new IterState{std::move(task_iter), {}, false, options->io_context.executor()})};
+      new IterState{std::move(task_iter), {}, true, options->io_context.executor()})};
   return iter_to_gen;
 }
 
