@@ -22,6 +22,7 @@ function(build_arrow)
   set(options BUILD_GTEST)
   set(one_value_args)
   set(multi_value_args)
+
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -31,6 +32,7 @@ function(build_arrow)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
+  # If Arrow needs to be built, the default location will be within the build tree.
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
 
   if(WIN32)
@@ -57,13 +59,13 @@ function(build_arrow)
                        "-DCMAKE_INSTALL_LIBDIR=lib" "-DARROW_BUILD_STATIC=OFF")
   set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
 
-  # On Windows, add the Arrow link library as a BUILD_BYPRODUCTS for arrow_ep.
-  # On Linux and macOS, add the Arrow shared library as a BUILD_BYPRODUCTS for arrow_ep.
-  # When building with Ninja, the link/shared libraries need to be guaranteed to be available for linking the test
+  # The output libraries need to be guaranteed to be available for linking the test
   # executables.
   if(WIN32)
+    # On Windows, add the Arrow link library as a BUILD_BYPRODUCTS for arrow_ep.
     set(ARROW_BUILD_BYPRODUCTS "${ARROW_LINK_LIB}")
   else()
+    # On Linux and macOS, add the Arrow shared library as a BUILD_BYPRODUCTS for arrow_ep.
     set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
   endif()
 
@@ -144,14 +146,14 @@ macro(enable_gtest)
 
   list(APPEND ARROW_CMAKE_ARGS "-DARROW_BUILD_TESTS=ON")
 
-  # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
-  # On Linux and macOS, add the gtest shared libraries as BUILD_BYPRODUCTS for arrow_ep.
-  # When building with Ninja, The link/shared libraries need to be guaranteed to be available for linking the test
+  # The appropriate libraries need to be guaranteed to be available for linking the test
   # executables.
   if(WIN32)
+    # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
     list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_LINK_LIB}"
          "${ARROW_GTEST_MAIN_LINK_LIB}")
   else()
+    # On Linux and macOS, add the gtest shared libraries as BUILD_BYPRODUCTS for arrow_ep.
     list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_SHARED_LIB}"
          "${ARROW_GTEST_MAIN_SHARED_LIB}")
   endif()
@@ -161,6 +163,7 @@ endmacro()
 macro(build_gtest)
   file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
 
+  # Create target GTest::gtest
   add_library(GTest::gtest SHARED IMPORTED)
   set_target_properties(GTest::gtest
                         PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
@@ -172,6 +175,7 @@ macro(build_gtest)
 
   add_dependencies(GTest::gtest arrow_ep)
 
+  # Create target GTest::gtest_main
   add_library(GTest::gtest_main SHARED IMPORTED)
   set_target_properties(GTest::gtest_main
                         PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB}
@@ -200,7 +204,7 @@ endif()
 
 option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
 
-# Grab CMAKE Modules from the CPP interface
+# Grab CMAKE Modules from the CPP interface.
 set(CPP_CMAKE_MODULES "${CMAKE_SOURCE_DIR}/../cpp/cmake_modules")
 if(EXISTS "${CPP_CMAKE_MODULES}")
   set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CPP_CMAKE_MODULES})
@@ -233,8 +237,8 @@ if(MATLAB_BUILD_TESTS)
     # C++ libraries that are built from source.
     build_arrow(BUILD_GTEST)
   else()
-    # GTest is found, on Windows, IMPORTED_LOCATION needs to be set to indicate where the shared
-    # libraries live
+    # On Windows, IMPORTED_LOCATION needs to be set to indicate where the shared
+    # libraries live when GTest is found.
     if(WIN32)
       set(GTEST_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
       set(GTEST_SHARED_LIBRARY_FILENAME
@@ -270,25 +274,8 @@ else()
   endif()
 endif()
 
-# On Windows: copy arrow.dll into the directory where the MATLAB C++ tests reside,
-# since Windows require runtime DLLs that are depended on by executables to be in
-# the same directory (or on the %PATH%).
-if(WIN32)
-  get_property(ARROW_SHARED_LIB
-               TARGET arrow_shared
-               PROPERTY IMPORTED_LOCATION)
-
-  add_custom_target(copy_arrow_to_build_output_dir ALL
-                    COMMAND ${CMAKE_COMMAND} -E make_directory ${MATLAB_BUILD_OUTPUT_DIR}
-                    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${ARROW_SHARED_LIB}
-                            ${MATLAB_BUILD_OUTPUT_DIR}
-                    COMMENT "Start copying arrow.dll from ${ARROW_SHARED_LIB} to ${MATLAB_BUILD_OUTPUT_DIR}"
-  )
-  add_dependencies(copy_arrow_to_build_output_dir arrow_shared)
-endif()
-
 # MATLAB is Required
-find_package(Matlab REQUIRED)
+find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
 
 message(STATUS "Mex Library: ${Matlab_MEX_LIBRARY}")
 message(STATUS "Mex Include Folder: ${Matlab_INCLUDE_DIRS}")
@@ -310,16 +297,6 @@ add_library(arrow_matlab SHARED ${arrow_matlab_sources})
 # Declare a dependency on arrow_shared (libarrow.so/dylib/dll).
 target_link_libraries(arrow_matlab arrow_shared)
 
-# On macOS, rpaths for linking imported targets are not automatically added to linked libraries
-if(APPLE)
-  get_property(ARROW_SHARED_IMPORTED_LOCATION
-               TARGET arrow_shared
-               PROPERTY IMPORTED_LOCATION)
-  get_filename_component(ARROW_SHARED_LIBRARY_DIR ${ARROW_SHARED_IMPORTED_LOCATION}
-                         DIRECTORY)
-  target_link_options(arrow_matlab PUBLIC -Wl,-rpath,${ARROW_SHARED_LIBRARY_DIR})
-endif()
-
 # Declare a dependency on the MEX shared library (libmex.so/dylib/dll).
 target_link_libraries(arrow_matlab ${Matlab_MX_LIBRARY})
 target_link_libraries(arrow_matlab ${Matlab_MEX_LIBRARY})
@@ -333,7 +310,7 @@ target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
 set(mexfcn_sources mex/mexfcn.cc)
 list(TRANSFORM mexfcn_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
-# Build mexfcn MEX binary
+# Build mexfcn MEX binary.
 matlab_add_mex(R2018a
                NAME mexfcn
                SRC ${mexfcn_sources}
@@ -367,27 +344,34 @@ if(MATLAB_BUILD_TESTS)
   # Include the C++ source headers.
   target_include_directories(mex_util_test PRIVATE ${CPP_SOURCE_DIR})
 
-  # Add a test target.
+  # Add test targets for C++ tests.
   add_test(PlaceholderTestTarget placeholder_test)
   add_test(CheckNumArgsTestTarget mex_util_test)
 
-  # For Windows:
+  # On macOS, add the directory of libarrow.dylib to the $DYLD_LIBRARY_PATH for
+  # running CheckNumArgsTestTarget.
+  if(APPLE)
+    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+    get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
+
+    set_tests_properties(CheckNumArgsTestTarget
+                         PROPERTIES ENVIRONMENT
+                                    "DYLD_LIBRARY_PATH=${ARROW_SHARED_LIB_DIR}")
+  endif()
+
+  # On Windows:
   # Add the directory of gtest.dll and gtest_main.dll to the %PATH% for running
   # all tests.
-  # Add the directory of libmx.dll and libmex.dll to the %PATH% for running
+  # Add the directory of libmx.dll, libmex.dll, and libarrow.dll to the %PATH% for running
   # CheckNumArgsTestTarget.
-  # Note: When appending to the path using set_test_properties' ENVIRONNENT property,
-  #       make sure that we escape ';' to avoid cmake from interpreting the input as
+  # Note: When appending to the path using set_test_properties' ENVIRONMENT property,
+  #       make sure that we escape ';' to prevent CMake from interpreting the input as
   #       a list of strings.
   if(WIN32)
-    get_property(GTEST_SHARED_LIB
-                 TARGET GTest::gtest
-                 PROPERTY IMPORTED_LOCATION)
+    get_target_property(GTEST_SHARED_LIB GTest::gtest IMPORTED_LOCATION)
     get_filename_component(GTEST_SHARED_LIB_DIR ${GTEST_SHARED_LIB} DIRECTORY)
 
-    get_property(GTEST_MAIN_SHARED_LIB
-                 TARGET GTest::gtest_main
-                 PROPERTY IMPORTED_LOCATION)
+    get_target_property(GTEST_MAIN_SHARED_LIB GTest::gtest_main IMPORTED_LOCATION)
     get_filename_component(GTEST_MAIN_SHARED_LIB_DIR ${GTEST_MAIN_SHARED_LIB} DIRECTORY)
 
     set_tests_properties(PlaceholderTestTarget
@@ -395,11 +379,133 @@ if(MATLAB_BUILD_TESTS)
                                     "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
     )
 
+    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+    get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
+
     set(MATLAB_DLL_DEPENDENCIES_DIR "${Matlab_ROOT_DIR}/bin/win64")
 
     set_tests_properties(CheckNumArgsTestTarget
                          PROPERTIES ENVIRONMENT
-                                    "PATH=${MATLAB_DLL_DEPENDENCIES_DIR}\;${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
+                                    "PATH=${ARROW_SHARED_LIB_DIR}\;${MATLAB_DLL_DEPENDENCIES_DIR}\;${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
     )
   endif()
 endif()
+
+# ##############################################################################
+# Install
+# ##############################################################################
+# Create a subdirectory at CMAKE_INSTALL_PREFIX to install the interface.
+set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
+
+# Install MATLAB source files.
+if(APPLE)
+  # On macOS, exclude '.DS_Store' files in the source tree from installation.
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
+          DESTINATION ${CMAKE_INSTALL_DIR}
+          PATTERN ".DS_Store" EXCLUDE)
+else()
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/" DESTINATION ${CMAKE_INSTALL_DIR})
+endif()
+
+# Install arrow_matlab and mexfcn.
+if(WIN32)
+  install(TARGETS arrow_matlab mexfcn RUNTIME DESTINATION ${CMAKE_INSTALL_DIR})
+else()
+  # On Linux install arrow_matlab.so and on macOS install arrow_matlab.dylib
+  # using the LIBRARY keyword.
+  install(TARGETS arrow_matlab mexfcn LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
+endif()
+
+get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
+get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
+get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
+
+if(WIN32)
+  # On Windows, arrow.dll must be installed to to CMAKE_INSTALL_DIR regardless of whether
+  # Arrow_FOUND is true or false.
+  install(FILES ${ARROW_SHARED_LIB} DESTINATION "${CMAKE_INSTALL_DIR}")
+endif()
+
+# On macOS, use the RPATH values below for runtime dependency resolution. This enables
+# relocation of the installation directory.
+if(APPLE)
+  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
+  # to the RPATH of arrow_matlab and mexfcn, including the MATLAB dependencies.
+  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
+  set_target_properties(arrow_matlab mexfcn PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+  # Add @loader_path to the RPATH of mexfcn so that libarrow_matlab.dylib can be found
+  # at runtime.
+  set_target_properties(mexfcn PROPERTIES INSTALL_RPATH "@loader_path")
+
+  if(NOT Arrow_FOUND)
+    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
+    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # install libarrow.dylib (symlink) and the real files it points to.
+    #
+    # The subfolders cmake and pkgconfig are excluded as they will be empty.
+    # Note: The following CMake Issue suggests enabling an option to exclude all
+    # folders that would be empty after installation:
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+            DESTINATION ${CMAKE_INSTALL_DIR}
+            FILES_MATCHING
+            REGEX "${ARROW_SHARED_LIB_FILENAME}\..*dylib"
+            PATTERN "cmake" EXCLUDE
+            PATTERN "pkgconfig" EXCLUDE)
+
+    # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
+    # at runtime.
+    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
+  endif()
+endif()
+
+# On Linux, use the RUNPATH values below for runtime dependency resolution. This enables
+# relocation of the installation directory.
+if(UNIX
+   AND NOT APPLE
+   AND NOT CYGWIN)
+  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
+  # to the RUNPATH of arrow_matlab and mexfcn, including the MATLAB dependencies.
+  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
+  set_target_properties(arrow_matlab mexfcn PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+  # Add $ORIGIN to the RUNPATH of mexfcn so that libarrow_matlab.so can be found
+  # at runtime.
+  set_target_properties(mexfcn PROPERTIES INSTALL_RPATH $ORIGIN)
+
+  if(NOT Arrow_FOUND)
+    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
+    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # install libarrow.so (symlink) and the real files it points to.
+    #
+    # The subfolders cmake and pkgconfig are excluded as they will be empty.
+    # Note: The following CMake Issue suggests enabling an option to exclude all
+    # folders that would be empty after installation:
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+            DESTINATION ${CMAKE_INSTALL_DIR}
+            FILES_MATCHING
+            REGEX "${ARROW_SHARED_LIB_FILENAME}\.so.*"
+            PATTERN "cmake" EXCLUDE
+            PATTERN "pkgconfig" EXCLUDE)
+
+    # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
+    # at runtime.
+    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
+  endif()
+endif()
+
+# As part of the installation process, add the installation directory to
+# the MATLAB Search Path.
+set(TOOLS_DIR "${CMAKE_SOURCE_DIR}/tools")
+
+# Pass Matlab_MAIN_PROGRAM, TOOLS_DIR, and INSTALL_DIR to the install step
+# code/script execution scope.
+install(CODE "set(Matlab_MAIN_PROGRAM \"${Matlab_MAIN_PROGRAM}\")")
+install(CODE "set(TOOLS_DIR \"${TOOLS_DIR}\")")
+install(CODE "set(INSTALL_DIR \"${CMAKE_INSTALL_DIR}\")")
+
+# Call the CMake script that runs the MATLAB function to add the install directory
+# to the MATLAB Search Path.
+install(SCRIPT "${TOOLS_DIR}/UpdateMatlabSearchPath.cmake")
