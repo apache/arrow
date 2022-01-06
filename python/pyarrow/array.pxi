@@ -988,12 +988,6 @@ cdef class Array(_PandasConvertible):
     @property
     def nbytes(self):
         """
-        Total number of bytes consumed by the elements of the array.
-        """
-        return self.get_referenced_buffer_size()
-
-    def get_referenced_buffer_size(self):
-        """
         Returns the sum of bytes from all buffer ranges referenced
 
         Unlike TotalBufferSize this method will account for array
