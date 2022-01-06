@@ -63,7 +63,7 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, *, int indent=0, int window=10,
+    def to_string(self, *, int indent=0, int window=2, int child_window=5,
                   c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
@@ -74,8 +74,12 @@ cdef class ChunkedArray(_PandasConvertible):
             How much to indent right the content of the array,
             by default ``0``.
         window : int
-            How many items to preview at the begin and end
+            How many chunks to preview at the begin and end
             of the array when the arrays is bigger than the window.
+            The other elements will be ellipsed.
+        child_window : int
+            How many items to preview within each chunk at the begin and end
+            of the chunk when the chunk is bigger than the window.
             The other elements will be ellipsed.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
@@ -86,7 +90,7 @@ cdef class ChunkedArray(_PandasConvertible):
             PrettyPrintOptions options
 
         with nogil:
-            options = PrettyPrintOptions(indent, window)
+            options = PrettyPrintOptions(indent, window, child_window)
             options.skip_new_lines = skip_new_lines
             check_status(
                 PrettyPrint(
