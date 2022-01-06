@@ -159,9 +159,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Notes
     -----
-    Timezone will be preserved in the returned array for timezone aware data,
-    else no timezone data will be returned for naive timestamps.
-    Internally, UTC values are stored for timezone aware data,
+    Timezone will be preserved in the returned array for timezone-aware data,
+    else no timezone will be returned for naive timestamps.
+    Internally, UTC values are stored for timezone-aware data,
     whereas timezone-naive data is implicitly interpreted as if in UTC.
 
     Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
