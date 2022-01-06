@@ -50,6 +50,14 @@ struct _GArrowFunctionOptionsClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_options_equal(GArrowFunctionOptions *options,
+                              GArrowFunctionOptions *other_options);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_options_to_string(GArrowFunctionOptions *options);
+
 
 #define GARROW_TYPE_FUNCTION_DOC (garrow_function_doc_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFunctionDoc,
@@ -107,6 +115,9 @@ garrow_function_get_name(GArrowFunction *function);
 GARROW_AVAILABLE_IN_6_0
 GArrowFunctionDoc *
 garrow_function_get_doc(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GArrowFunctionOptions *
+garrow_function_get_default_options(GArrowFunction *function);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
