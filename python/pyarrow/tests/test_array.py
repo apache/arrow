@@ -2479,6 +2479,9 @@ def test_total_buffer_size():
     a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
     assert a.get_total_buffer_size() == 1 + 4 * 4 + 1 + 6 * 8
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
+    a = pa.array([[[5, 6, 7]], [[9, 10]]], type=pa.list_(pa.list_(pa.int8())))
+    assert a.get_total_buffer_size() == (4 * 3) + (4 * 3) + (1 * 5)
+    assert a.nbytes == 21
 
 
 def test_nbytes_size():

@@ -994,7 +994,7 @@ cdef class Array(_PandasConvertible):
         offsets.
 
         If buffers are shared between arrays then the shared
-        portion will only be counted multiple times.
+        portion will be counted multiple times.
 
         Dictionary arrays will always be counted in their entirety
         even if the array only references a portion of the dictionary.
