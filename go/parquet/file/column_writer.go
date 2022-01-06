@@ -179,7 +179,7 @@ func (w *columnWriter) TotalBytesWritten() int64 {
 }
 
 func (w *columnWriter) RowsWritten() int {
-	return w.rowsWritten
+	return w.rowsWritten + w.numBufferedRows
 }
 
 func (w *columnWriter) WriteDataPage(page DataPage) error {

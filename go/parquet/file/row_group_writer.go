@@ -101,14 +101,18 @@ func newRowGroupWriter(sink utils.WriterTell, metadata *metadata.RowGroupMetaDat
 func (rg *rowGroupWriter) Buffered() bool { return rg.buffered }
 
 func (rg *rowGroupWriter) checkRowsWritten() error {
-	if !rg.buffered && len(rg.columnWriters) > 0 && rg.columnWriters[0] != nil {
+	if len(rg.columnWriters) == 0 {
+		return nil
+	}
+
+	if !rg.buffered && rg.columnWriters[0] != nil {
 		current := rg.columnWriters[0].RowsWritten()
 		if rg.nrows == 0 {
 			rg.nrows = current
 		} else if rg.nrows != current {
 			return xerrors.New("row mismatch")
 		}
-	} else if rg.buffered && len(rg.columnWriters) > 0 {
+	} else if rg.buffered {
 		current := rg.columnWriters[0].RowsWritten()
 		for _, wr := range rg.columnWriters[1:] {
 			if current != wr.RowsWritten() {
