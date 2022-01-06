@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
@@ -476,7 +477,8 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
-    auto column = record_batch->column(i);
+    // FIXME: Add comment
+    auto column = JniGetOrThrow(arrow::Concatenate({record_batch->column(i)}));
     auto dataArray = column->data();
     jobject field = env->NewObject(record_batch_handle_field_class,
                                    record_batch_handle_field_constructor,
