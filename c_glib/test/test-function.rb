@@ -159,4 +159,78 @@ class TestFunction < Test::Unit::TestCase
                    round_to_multiple_function.default_options)
     end
   end
+
+  sub_test_case("#options_type") do
+    def test_nonexistent
+      or_function = Arrow::Function.find("or")
+      assert_equal(GLib::Type::NONE,
+                   or_function.options_type)
+    end
+
+    def test_cast_options
+      cast_function = Arrow::Function.find("cast")
+      assert_equal(Arrow::CastOptions.gtype,
+                   cast_function.options_type)
+    end
+
+    def test_scalar_aggregate_options
+      sum_function = Arrow::Function.find("sum")
+      assert_equal(Arrow::ScalarAggregateOptions.gtype,
+                   sum_function.options_type)
+    end
+
+    def test_count_options
+      count_function = Arrow::Function.find("count")
+      assert_equal(Arrow::CountOptions.gtype,
+                   count_function.options_type)
+    end
+
+    def test_filter_options
+      filter_function = Arrow::Function.find("filter")
+      assert_equal(Arrow::FilterOptions.gtype,
+                   filter_function.options_type)
+    end
+
+    def test_take_options
+      take_function = Arrow::Function.find("take")
+      assert_equal(Arrow::TakeOptions.gtype,
+                   take_function.options_type)
+    end
+
+    def test_array_sort_options
+      array_sort_indices_function = Arrow::Function.find("array_sort_indices")
+      assert_equal(Arrow::ArraySortOptions.gtype,
+                   array_sort_indices_function.options_type)
+    end
+
+    def test_sort_options
+      sort_indices_function = Arrow::Function.find("sort_indices")
+      assert_equal(Arrow::SortOptions.gtype,
+                   sort_indices_function.options_type)
+    end
+
+    def test_set_lookup_options
+      is_in_function = Arrow::Function.find("is_in")
+      assert_equal(Arrow::SetLookupOptions.gtype,
+                   is_in_function.options_type)
+    end
+
+    def test_variance_options
+      stddev_function = Arrow::Function.find("stddev")
+      assert_equal(Arrow::VarianceOptions.gtype,
+                   stddev_function.options_type)
+    end
+
+    def test_round_options
+      round_function = Arrow::Function.find("round")
+      assert_equal(Arrow::RoundOptions.gtype,
+                   round_function.options_type)
+    end
+
+    def test_round_to_multiple_options
+      round_to_multiple_function = Arrow::Function.find("round_to_multiple")
+      assert_equal(Arrow::RoundToMultipleOptions.gtype,
+                   round_to_multiple_function.options_type)
+    end
+  end
 end

@@ -678,6 +678,29 @@ garrow_function_get_default_options(GArrowFunction *function)
 }
 
 /**
+ * garrow_function_get_options_type:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: %G_TYPE_NONE if this function doesn't have options, the
+ *   #GType of options of this function if it exists and Apache Arrow
+ *   GLib bindings of it also exist, %G_TYPE_INVALID if options of this
+ *   function exists but Apache Arrow GLib bindings of it don't exist.
+ *
+ * Since: 7.0.0
+ */
+GType
+garrow_function_get_options_type(GArrowFunction *function)
+{
+  auto arrow_function = garrow_function_get_raw(function);
+  const auto &arrow_doc = arrow_function->doc();
+  if (arrow_doc.options_class.empty()) {
+    return G_TYPE_NONE;
+  }
+  auto options_type_name = std::string("GArrow") + arrow_doc.options_class;
+  return g_type_from_name(options_type_name.c_str());
+}
+
+/**
  * garrow_function_equal:
  * @function: A #GArrowFunction.
  * @other_function: A #GArrowFunction to be compared.
