@@ -434,7 +434,7 @@ type batchWriteInfo struct {
 
 func (b batchWriteInfo) numSpaced() int64 { return b.batchNum + b.nullCount }
 
-// this will always update the three otuput params
+// this will always update the three output params
 // outValsToWrite, outSpacedValsToWrite, and NullCount. Additionally
 // it will update the validity bitmap if required (i.e. if at least one
 // level of nullable structs directly preceed the leaf node)
