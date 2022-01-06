@@ -431,7 +431,8 @@ def test_scanner_async_deprecated(dataset):
     with pytest.warns(FutureWarning):
         ds.Scanner.from_dataset(dataset, use_async=False)
     with pytest.warns(FutureWarning):
-        ds.Scanner.from_fragment(next(dataset.get_fragments()), use_async=False)
+        ds.Scanner.from_fragment(
+            next(dataset.get_fragments()), use_async=False)
 
 
 @pytest.mark.parquet
