@@ -350,72 +350,67 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
-class TestRecordBatchReader : public TestBase {};
+class TestRecordBatchReader : public TestBase {
+ protected:
+  void SetUp() override {
+    TestBase::SetUp();
+    MakeBatchesAndReader();
+  }
+
+  void MakeBatchesAndReader() {
+    const int length = 10;
+
+    auto field1 = field("f1", int32());
+    auto field2 = field("f2", uint8());
+    auto field3 = field("f3", int16());
+
+    auto schema = ::arrow::schema({field1, field2, field3});
+
+    auto array1_1 = MakeRandomArray<Int32Array>(length);
+    auto array1_2 = MakeRandomArray<Int32Array>(length);
+    auto array1_3 = MakeRandomArray<Int32Array>(length);
+
+    auto array2_1 = MakeRandomArray<UInt8Array>(length);
+    auto array2_2 = MakeRandomArray<UInt8Array>(length);
+    auto array2_3 = MakeRandomArray<UInt8Array>(length);
+
+    auto array3_1 = MakeRandomArray<Int16Array>(length);
+    auto array3_2 = MakeRandomArray<Int16Array>(length);
+    auto array3_3 = MakeRandomArray<Int16Array>(length);
+
+    auto batch1 = RecordBatch::Make(schema, length, {array1_1, array2_1, array3_1});
+    auto batch2 = RecordBatch::Make(schema, length, {array1_2, array2_2, array3_2});
+    auto batch3 = RecordBatch::Make(schema, length, {array1_3, array2_3, array3_3});
+
+    batches_ = {batch1, batch2, batch3};
+
+    ASSERT_OK_AND_ASSIGN(reader_, RecordBatchReader::Make(batches_));
+  }
+
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::shared_ptr<RecordBatchReader> reader_;
+};
 
 TEST_F(TestRecordBatchReader, RangeForLoop) {
-  const int length = 10;
-
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8());
-  auto f2 = field("f2", int16());
-
-  auto metadata = key_value_metadata({"foo"}, {"bar"});
-
-  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
-  auto schema = ::arrow::schema({f0, f1, f2});
-  auto schema2 = ::arrow::schema({f0, f1});
-  auto schema3 = ::arrow::schema({f0, f1, f2}, metadata);
-
-  auto a0 = MakeRandomArray<Int32Array>(length);
-  auto a1 = MakeRandomArray<UInt8Array>(length);
-  auto a2 = MakeRandomArray<Int16Array>(length);
-
-  auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
-  auto b2 = RecordBatch::Make(schema3, length, {a0, a1, a2});
-  auto b3 = RecordBatch::Make(schema2, length, {a0, a1});
-  auto b4 = RecordBatch::Make(schema, length, {a0, a1, a1});
-
-  std::vector<std::shared_ptr<RecordBatch>> batches = {b1, b2, b3, b4};
-
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches));
-
   int64_t i = 0;
-  for (auto maybe_batch : *reader) {
+  ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+
+  for (auto maybe_batch : *reader_) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    AssertBatchesEqual(*batch, *batches[i++]);
+    AssertBatchesEqual(*batch, *batches_[i++]);
   }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
 }
 
 TEST_F(TestRecordBatchReader, BeginEndForLoop) {
-  const int length = 10;
-
-  auto field1 = field("f1", int32());
-  auto field2 = field("f2", uint8());
-  auto field3 = field("f3", int16());
-
-  auto schema1 = ::arrow::schema({field1, field2, field3});
-  auto schema2 = ::arrow::schema({field2, field3});
-  auto schema3 = ::arrow::schema({field1, field3});
-  auto schema4 = ::arrow::schema({field1, field2});
-
-  auto array1 = MakeRandomArray<Int32Array>(length);
-  auto array2 = MakeRandomArray<UInt8Array>(length);
-  auto array3 = MakeRandomArray<Int16Array>(length);
-
-  auto batch1 = RecordBatch::Make(schema1, length, {array1, array2, array3});
-  auto batch2 = RecordBatch::Make(schema2, length, {array2, array3});
-  auto batch3 = RecordBatch::Make(schema3, length, {array1, array3});
-  auto batch4 = RecordBatch::Make(schema4, length, {array1, array2});
-
-  std::vector<std::shared_ptr<RecordBatch>> batches = {batch1, batch2, batch3, batch4};
-
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches));
-
   int64_t i = 0;
-  for (auto it = reader->begin(); it != reader->end(); ++it) {
+  ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+
+  for (auto it = reader_->begin(); it != reader_->end(); ++it) {
     ASSERT_OK_AND_ASSIGN(auto batch, *it);
-    AssertBatchesEqual(*batch, *batches[i++]);
+    AssertBatchesEqual(*batch, *batches_[i++]);
   }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
 }
 
 }  // namespace arrow

@@ -236,28 +236,42 @@ class ARROW_EXPORT RecordBatchReader {
 
   class RecordBatchReaderIterator {
    public:
-    RecordBatchReaderIterator() : batch_(RecordBatchEnd()) {}
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = std::shared_ptr<RecordBatch>;
+    using pointer = value_type const*;
+    using reference = value_type const&;
+
+    RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
 
     explicit RecordBatchReaderIterator(RecordBatchReader* reader)
         : batch_(RecordBatchEnd()), reader_(reader) {
       Next();
     }
 
+    bool operator==(const RecordBatchReaderIterator& other) const {
+      return batch_ == other.batch_;
+    }
+
     bool operator!=(const RecordBatchReaderIterator& other) const {
-      return batch_ != other.batch_;
+      return !(*this == other);
     }
 
     Result<std::shared_ptr<RecordBatch>> operator*() {
       ARROW_RETURN_NOT_OK(batch_.status());
 
-      auto batch = std::move(batch_);
-      batch_ = RecordBatchEnd();
-      return batch;
+      return batch_;
     }
 
     RecordBatchReaderIterator& operator++() {
       Next();
       return *this;
+    }
+
+    RecordBatchReaderIterator operator++(int) {
+      RecordBatchReaderIterator tmp(*this);
+      Next();
+      return tmp;
     }
 
    private:
@@ -266,7 +280,7 @@ class ARROW_EXPORT RecordBatchReader {
     }
 
     void Next() {
-      if (!batch_.ok()) {
+      if (reader_ == NULLPTR) {
         batch_ = RecordBatchEnd();
         return;
       }
