@@ -1013,11 +1013,11 @@ cdef class Array(_PandasConvertible):
         Parameters
         ----------
         indent : int, default 2
-            How much to indent the internal items in the string to 
+            How much to indent the internal items in the string to
             the right, by default ``2``.
         top_level_indent : int, default 0
             How much to indent right the entire content of the array,
-            by default ``0``. 
+            by default ``0``.
         window : int
             How many items to preview at the begin and end
             of the array when the arrays is bigger than the window.

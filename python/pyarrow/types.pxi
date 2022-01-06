@@ -1830,7 +1830,6 @@ def unify_schemas(schemas, *, options=None):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
-
     options : FieldMergeOptions, optional
         Options for merging duplicate fields.
 

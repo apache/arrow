@@ -2349,7 +2349,8 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
+def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
+                  FieldMergeOptions field_merge_options=None):
     """
     Concatenate pyarrow.Table objects.
 
@@ -2371,9 +2372,13 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     tables : iterable of pyarrow.Table objects
         Pyarrow tables to concatenate into a single Table.
     promote : bool, default False
-        If True, concatenate tables with null-filling and null type promotion.
+        If True, concatenate tables with null-filling and type promotion.
+        See field_merge_options for the type promotion behavior.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
+    field_merge_options : FieldMergeOptions, default None
+        The type promotion options; by default, null and only null can
+        be unified with another type.
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
@@ -2385,6 +2390,9 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
 
     for table in tables:
         c_tables.push_back(table.sp_table)
+
+    if field_merge_options:
+        options.field_merge_options = field_merge_options.c_options
 
     with nogil:
         options.unify_schemas = promote
