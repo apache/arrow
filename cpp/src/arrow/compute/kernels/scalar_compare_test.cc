@@ -2174,10 +2174,9 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
    ValidateBetween<TypeParam>(
        blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
        ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
- /*  ValidateBetween<TypeParam>(
+/*  ValidateBetween<TypeParam>(
        blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
        four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-
    ValidateBetween<TypeParam>(
        blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
        zero, four,
@@ -2206,13 +2205,13 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
                      "[null,null,null,null,null,null]"));*/
  }
 
-// TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-//   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
+   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
+   ValidateBetween<TypeParam>(
+       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
 //   ValidateBetween<TypeParam>(
 //       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
 //       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
@@ -2230,7 +2229,7 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 //       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
 //       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
 //                     "[true,true,true,null,false,false]"));
-// }
+ }
 //
 // template <typename Type>
 // struct BetweenRandomNumeric {
