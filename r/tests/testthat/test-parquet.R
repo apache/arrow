@@ -182,10 +182,10 @@ test_that("Lists are preserved when writing/reading from Parquet", {
 })
 
 test_that("Maps are preserved when writing/reading from Parquet", {
-  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE))),
+  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
                               type = map_of(utf8(), boolean()))
   int_struct <- Array$create(
-    list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b")))),
+    list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b"), stringsAsFactors = FALSE))),
     type = map_of(int64(), struct(x = int64(), y = utf8()))
   )
 
