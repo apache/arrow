@@ -98,6 +98,11 @@ type columnWriter struct {
 	// than levels, and this tells you how many encoded levels there are in that case
 	numBufferedValues int64
 
+	// total number of rows stored in the current data page. This may be larger
+	// than numBufferedValues when writing a column with repeated values. This is
+	// the number of rows written since the last time we flushed a page.
+	numBufferedRows int
+
 	// the total number of stored values in the current page. for repeated or optional
 	// values. this number may be lower than numBuffered
 	numDataValues int64
@@ -271,7 +276,8 @@ func (w *columnWriter) FlushCurrentPage() error {
 	}
 
 	w.reset()
-	w.numBufferedValues, w.numDataValues = 0, 0
+	w.rowsWritten += w.numBufferedRows
+	w.numBufferedValues, w.numDataValues, w.numBufferedRows = 0, 0, 0
 	return nil
 }
 
@@ -317,7 +323,6 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	if w.pager.HasCompressor() {
 		w.compressedTemp.Reset()
 		data = w.pager.Compress(w.compressedTemp, values)
-		// data = w.compressedTemp.Bytes()
 	} else {
 		data = values
 	}
@@ -336,11 +341,12 @@ func (w *columnWriter) buildDataPageV2(defLevelsRLESize, repLevelsRLESize, uncom
 	w.resetPageStatistics()
 
 	numValues := int32(w.numBufferedValues)
+	numRows := int32(w.numBufferedRows)
 	nullCount := int32(pageStats.NullCount)
 	defLevelsByteLen := int32(defLevelsRLESize)
 	repLevelsByteLen := int32(repLevelsRLESize)
 
-	page := NewDataPageV2WithStats(memory.NewBufferBytes(combined.Bytes()), numValues, nullCount, numValues, w.encoding,
+	page := NewDataPageV2WithStats(memory.NewBufferBytes(combined.Bytes()), numValues, nullCount, numRows, w.encoding,
 		defLevelsByteLen, repLevelsByteLen, uncompressed, w.pager.HasCompressor(), pageStats)
 	if w.hasDict && !w.fallbackToNonDict {
 		w.totalCompressedBytes += int64(page.buf.Len()) // + sizeof pageheader
@@ -385,14 +391,14 @@ func (w *columnWriter) writeLevels(numValues int64, defLevels, repLevels []int16
 		//count the occasions where we start a new row
 		for _, v := range repLevels {
 			if v == 0 {
-				w.rowsWritten++
+				w.numBufferedRows++
 			}
 		}
 
 		w.WriteRepetitionLevels(repLevels[:numValues])
 	} else {
 		// each value is exactly 1 row
-		w.rowsWritten += int(numValues)
+		w.numBufferedRows += int(numValues)
 	}
 	return toWrite
 }
@@ -405,12 +411,12 @@ func (w *columnWriter) writeLevelsSpaced(numLevels int64, defLevels, repLevels [
 	if w.descr.MaxRepetitionLevel() > 0 {
 		for _, v := range repLevels {
 			if v == 0 {
-				w.rowsWritten++
+				w.numBufferedRows++
 			}
 		}
 		w.WriteRepetitionLevels(repLevels[:numLevels])
 	} else {
-		w.rowsWritten += int(numLevels)
+		w.numBufferedRows += int(numLevels)
 	}
 }
 

@@ -28,10 +28,14 @@ import (
 	"github.com/apache/arrow/go/v7/parquet/compress"
 	"github.com/apache/arrow/go/v7/parquet/file"
 	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v7/parquet/internal/encryption"
 	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
 	"github.com/apache/arrow/go/v7/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v7/parquet/internal/utils"
 	"github.com/apache/arrow/go/v7/parquet/metadata"
 	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -45,6 +49,73 @@ const (
 	DictionaryPageSize = 1024 * 1024
 )
 
+type mockpagewriter struct {
+	mock.Mock
+}
+
+func (m *mockpagewriter) Close(hasDict, fallBack bool) error {
+	return m.Called(hasDict, fallBack).Error(0)
+}
+func (m *mockpagewriter) WriteDataPage(page file.DataPage) (int64, error) {
+	args := m.Called(page)
+	return int64(args.Int(0)), args.Error(1)
+}
+func (m *mockpagewriter) WriteDictionaryPage(page *file.DictionaryPage) (int64, error) {
+	args := m.Called(page)
+	return int64(args.Int(0)), args.Error(1)
+}
+func (m *mockpagewriter) HasCompressor() bool {
+	return m.Called().Bool(0)
+}
+func (m *mockpagewriter) Compress(buf *bytes.Buffer, src []byte) []byte {
+	return m.Called(buf, src).Get(0).([]byte)
+}
+func (m *mockpagewriter) Reset(sink utils.WriterTell, codec compress.Compression, compressionLevel int, metadata *metadata.ColumnChunkMetaDataBuilder, rgOrdinal, columnOrdinal int16, metaEncryptor, dataEncryptor encryption.Encryptor) error {
+	return m.Called().Error(0)
+}
+
+func TestWriteDataPageV2NumRows(t *testing.T) {
+	// test issue from PARQUET-2066
+	sc := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.ListOf(
+			schema.Must(schema.NewPrimitiveNode("column", parquet.Repetitions.Optional, parquet.Types.Int32, -1, -1)),
+			parquet.Repetitions.Optional, -1)),
+	}, -1)))
+	descr := sc.Column(0)
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V2_LATEST),
+		parquet.WithDataPageVersion(parquet.DataPageV2),
+		parquet.WithDictionaryDefault(false))
+
+	metadata := metadata.NewColumnChunkMetaDataBuilder(props, descr)
+	pager := new(mockpagewriter)
+	defer pager.AssertExpectations(t)
+	pager.On("HasCompressor").Return(false)
+	wr := file.NewColumnChunkWriter(metadata, pager, props).(*file.Int32ColumnChunkWriter)
+
+	// write a list "[[0, 1], null, [2, null, 3]]"
+	// should be 6 values, 2 nulls and 3 rows
+	wr.WriteBatch([]int32{0, 1, 2, 3},
+		[]int16{3, 3, 0, 3, 2, 3},
+		[]int16{0, 1, 0, 0, 1, 1})
+
+	pager.On("WriteDataPage", mock.MatchedBy(func(page file.DataPage) bool {
+		pagev2, ok := page.(*file.DataPageV2)
+		if !ok {
+			return false
+		}
+
+		// only match if the page being written has 2 nulls, 6 values and 3 rows
+		return !pagev2.IsCompressed() &&
+			pagev2.NumNulls() == 2 &&
+			pagev2.NumValues() == 6 &&
+			pagev2.NumRows() == 3
+	})).Return(10, nil)
+
+	wr.FlushBufferedDataPages()
+	assert.EqualValues(t, 3, wr.RowsWritten())
+}
+
 type PrimitiveWriterTestSuite struct {
 	testutils.PrimitiveTypedTest
 	suite.Suite
@@ -55,7 +126,6 @@ type PrimitiveWriterTestSuite struct {
 	metadata   *metadata.ColumnChunkMetaDataBuilder
 	sink       *encoding.BufferWriter
 	readbuffer *memory.Buffer
-	reader     file.ColumnChunkReader
 }
 
 func (p *PrimitiveWriterTestSuite) SetupTest() {

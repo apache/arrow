@@ -235,6 +235,9 @@ func (d *DataPageV2) Statistics() metadata.EncodedStatistics { return d.statisti
 // NumNulls is the reported number of nulls in this datapage
 func (d *DataPageV2) NumNulls() int32 { return d.nulls }
 
+// NumRows is the number of rows recorded in the page header
+func (d *DataPageV2) NumRows() int32 { return d.nrows }
+
 // DefinitionLevelByteLen is the number of bytes in the buffer that are used to represent the definition levels
 func (d *DataPageV2) DefinitionLevelByteLen() int32 { return d.defLvlByteLen }
 
