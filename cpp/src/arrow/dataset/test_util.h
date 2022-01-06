@@ -396,7 +396,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
     ASSERT_OK_AND_ASSIGN(auto projection,
-                         ProjectionDescr::MakeDefault(*opts_->dataset_schema));
+                         ProjectionDescr::Default(*opts_->dataset_schema));
     SetProjection(opts_.get(), std::move(projection));
   }
 
