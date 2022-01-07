@@ -185,17 +185,36 @@ ScanTask <- R6Class("ScanTask",
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  if (.data.frame) {
-    lapply <- map_dfr
-  }
-  scanner <- Scanner$create(ensure_group_vars(X))
+  # TODO: ARROW-15271 possibly refactor do_exec_plan to return a RecordBatchReader
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(X)
+  reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
-  lapply(scanner$ScanBatches(), function(batch) {
-    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
-    # X$temp_columns, and X$group_by_vars
-    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-    FUN(batch, ...)
-  })
+
+  # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+  # X$temp_columns, and X$group_by_vars
+  # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+  batch <- reader$read_next_batch()
+  res <- vector("list", 1024)
+  i <- 0L
+  while (!is.null(batch)) {
+    i <- i + 1L
+    res[[i]] <- FUN(batch, ...)
+    batch <- reader$read_next_batch()
+  }
+
+  # Trim list back
+  if (i < length(res)) {
+    res <- res[seq_len(i)]
+  }
+
+  if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
+    res <- dplyr::bind_rows(map(res, collect))
+  } else if (.data.frame) {
+     res <- dplyr::bind_rows(map(res, as.data.frame))
+  }
+
+  res
 }
 
 #' @usage NULL
