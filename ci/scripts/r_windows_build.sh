@@ -97,7 +97,7 @@ if [ -d mingw32/lib/ ]; then
   mkdir -p $DST_DIR/lib/i386
   mv mingw32/lib/*.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
   cp $MSYS_LIB_DIR/mingw32/lib/lib{thrift,snappy}.a $DST_DIR/${RWINLIB_LIB_DIR}/i386
-  cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,brotlicommon,brotlidec,brotlienc,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
+  cp $MSYS_LIB_DIR/mingw32/lib/lib{zstd,lz4,brotli*,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/i386
 fi
 
 # Do the same also for ucrt64
@@ -105,7 +105,7 @@ if [ -d ucrt64/lib/ ]; then
   ls $MSYS_LIB_DIR/ucrt64/lib/
   mkdir -p $DST_DIR/lib/x64-ucrt
   mv ucrt64/lib/*.a $DST_DIR/lib/x64-ucrt
-  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotlicommon,brotlidec,brotlienc,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
+  cp $MSYS_LIB_DIR/ucrt64/lib/lib{thrift,snappy,zstd,lz4,brotli*,crypto,utf8proc,re2,aws*}.a $DST_DIR/lib/x64-ucrt
 fi
 
 # Create build artifact
