@@ -937,6 +937,75 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
   ASSERT_OK_AND_ASSIGN(*output, TableFromExecBatches(output_schema, res));
 }
 
+TEST(HashJoin, Prefix) {
+  BatchesWithSchema input_left;
+  input_left.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 4, 7],
+                   [2, 5, 8],
+                   [3, 6, 9]
+                 ])")};
+  input_left.schema = schema(
+      {field("lkey", int32()), field("shared", int32()), field("ldistinct", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
+                   [1, 10, 13],
+                   [2, 11, 14],
+                   [3, 12, 15]
+                 ])")};
+  input_right.schema = schema(
+      {field("rkey", int32()), field("shared", int32()), field("rdistinct", int32())});
+
+  BatchesWithSchema expected;
+  expected.batches = {
+      ExecBatchFromJSON({int32(), int32(), int32(), int32(), int32(), int32()}, R"([
+    [1, 4, 7, 1, 10, 13],
+    [2, 5, 8, 2, 11, 14],
+    [3, 6, 9, 3, 12, 15]
+  ])")};
+  // This is the current behavior, not the desired behavior.  Ideally it should be
+  // lkey, ldistinct, rkey, and rdistinct and NOT l_lkey, l_ldistinct, r_rkey, and
+  // r_rdistinct.  The l_shared and r_shared is correct.
+  expected.schema = schema({field("l_lkey", int32()), field("l_shared", int32()),
+                            field("l_ldistinct", int32()), field("r_rkey", int32()),
+                            field("r_shared", int32()), field("r_rdistinct", int32())});
+
+  ExecContext exec_ctx;
+
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make(&exec_ctx));
+  AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+  ExecNode* left_source;
+  ExecNode* right_source;
+  ASSERT_OK_AND_ASSIGN(
+      left_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_left.schema,
+                                     input_left.gen(/*parallel=*/true, /*slow=*/false)}));
+
+  ASSERT_OK_AND_ASSIGN(
+      right_source,
+      MakeExecNode("source", plan.get(), {},
+                   SourceNodeOptions{input_right.schema,
+                                     input_right.gen(/*parallel=*/true, /*slow=*/false)}))
+
+  HashJoinNodeOptions join_opts{JoinType::INNER,
+                                /*left_keys=*/{"lkey"},
+                                /*right_keys=*/{"rkey"}, literal(true), "l_", "r_"};
+
+  ASSERT_OK_AND_ASSIGN(
+      auto hashjoin,
+      MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
+
+  ASSERT_OK_AND_ASSIGN(std::ignore, MakeExecNode("sink", plan.get(), {hashjoin},
+                                                 SinkNodeOptions{&sink_gen}));
+
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto result, StartAndCollect(plan.get(), sink_gen));
+
+  AssertExecBatchesEqual(expected.schema, expected.batches, result);
+  AssertSchemaEqual(expected.schema, hashjoin->output_schema());
+}
+
 TEST(HashJoin, Random) {
   Random64Bit rng(42);
 #if defined(THREAD_SANITIZER)

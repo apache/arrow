@@ -457,13 +457,13 @@ class HashJoinNode : public ExecNode {
       RETURN_NOT_OK(schema_mgr->Init(
           join_options.join_type, left_schema, join_options.left_keys, right_schema,
           join_options.right_keys, join_options.filter,
-          join_options.output_prefix_for_left, join_options.output_prefix_for_right));
+          join_options.output_suffix_for_left, join_options.output_suffix_for_right));
     } else {
       RETURN_NOT_OK(schema_mgr->Init(
           join_options.join_type, left_schema, join_options.left_keys,
           join_options.left_output, right_schema, join_options.right_keys,
           join_options.right_output, join_options.filter,
-          join_options.output_prefix_for_left, join_options.output_prefix_for_right));
+          join_options.output_suffix_for_left, join_options.output_suffix_for_right));
     }
 
     ARROW_ASSIGN_OR_RAISE(
@@ -472,7 +472,7 @@ class HashJoinNode : public ExecNode {
 
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
-        join_options.output_prefix_for_left, join_options.output_prefix_for_right);
+        join_options.output_suffix_for_left, join_options.output_suffix_for_right);
 
     // Create hash join implementation object
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<HashJoinImpl> impl, HashJoinImpl::MakeBasic());
