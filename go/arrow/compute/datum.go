@@ -317,7 +317,7 @@ func NewDatum(value interface{}) Datum {
 		return v
 	case array.Interface:
 		v.Data().Retain()
-		return &ArrayDatum{v.Data()}
+		return &ArrayDatum{v.Data().(*array.Data)}
 	case *array.Chunked:
 		v.Retain()
 		return &ChunkedDatum{v}

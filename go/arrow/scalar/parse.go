@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/apache/arrow/go/v7/arrow"
+	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/float16"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"golang.org/x/xerrors"
