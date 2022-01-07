@@ -209,8 +209,8 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
       std::shared_ptr<RecordBatch> batch;
     };
     // May want to prototype / measure someday pushing the async write down further
-    return DeferNotOk(
-        io::default_io_context().executor()->Submit(WriteTask{this, std::move(next)}));
+    return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
+        WriteTask{this, std::move(next)}));
   }
 
   Future<> DoFinish() {
@@ -218,16 +218,10 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
     }
-    // Finish() calls Close() on the file and some implementations
-    // (e.g. S3FS) use the IO thread pool in Close(), blocking until
-    // background work completes, so avoid blocking again here.
-    auto writer = writer_;
-    return DeferNotOk(io::default_io_context().executor()->Submit(
-                          [writer]() { return writer->Finish(); }))
-        .Then([this]() {
-          std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
-          return options_.writer_post_finish(writer_.get());
-        });
+    return writer_->Finish().Then([this]() {
+      std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
+      return options_.writer_post_finish(writer_.get());
+    });
   }
 
   const FileSystemDatasetWriteOptions& options_;

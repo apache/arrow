@@ -263,9 +263,8 @@ Status FileWriter::Write(RecordBatchReader* batches) {
   return Status::OK();
 }
 
-Status FileWriter::Finish() {
-  RETURN_NOT_OK(FinishInternal());
-  return destination_->Close();
+Future<> FileWriter::Finish() {
+  return FinishInternal().Then([this]() { return destination_->CloseAsync(); });
 }
 
 namespace {

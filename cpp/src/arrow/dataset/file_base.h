@@ -313,7 +313,7 @@ class ARROW_DS_EXPORT FileWriter {
   Status Write(RecordBatchReader* batches);
 
   /// \brief Indicate that writing is done.
-  virtual Status Finish();
+  virtual Future<> Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -329,7 +329,7 @@ class ARROW_DS_EXPORT FileWriter {
         destination_(std::move(destination)),
         destination_locator_(std::move(destination_locator)) {}
 
-  virtual Status FinishInternal() = 0;
+  virtual Future<> FinishInternal() = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<FileWriteOptions> options_;

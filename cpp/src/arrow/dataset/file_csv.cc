@@ -289,7 +289,10 @@ Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> CsvFileWriter::FinishInternal() {
+  return DeferNotOk(destination_locator_.filesystem->io_context().executor()->Submit(
+      [this]() { return batch_writer_->Close(); }));
+}
 
 }  // namespace dataset
 }  // namespace arrow

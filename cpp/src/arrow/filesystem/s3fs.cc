@@ -1243,6 +1243,48 @@ class ObjectOutputStream final : public io::OutputStream {
     return Status::OK();
   }
 
+  Future<> CloseAsync() override {
+    if (closed_) return Status::OK();
+
+    if (current_part_) {
+      // Upload last part
+      RETURN_NOT_OK(CommitCurrentPart());
+    }
+
+    // S3 mandates at least one part, upload an empty one if necessary
+    if (part_number_ == 1) {
+      RETURN_NOT_OK(UploadPart("", 0));
+    }
+
+    // Wait for in-progress uploads to finish (if async writes are enabled)
+    return FlushAsync().Then([this]() {
+      // At this point, all part uploads have finished successfully
+      DCHECK_GT(part_number_, 1);
+      DCHECK_EQ(upload_state_->completed_parts.size(),
+                static_cast<size_t>(part_number_ - 1));
+
+      S3Model::CompletedMultipartUpload completed_upload;
+      completed_upload.SetParts(upload_state_->completed_parts);
+      S3Model::CompleteMultipartUploadRequest req;
+      req.SetBucket(ToAwsString(path_.bucket));
+      req.SetKey(ToAwsString(path_.key));
+      req.SetUploadId(upload_id_);
+      req.SetMultipartUpload(std::move(completed_upload));
+
+      auto outcome = client_->CompleteMultipartUploadWithErrorFixup(std::move(req));
+      if (!outcome.IsSuccess()) {
+        return ErrorToStatus(
+            std::forward_as_tuple("When completing multiple part upload for key '",
+                                  path_.key, "' in bucket '", path_.bucket, "': "),
+            outcome.GetError());
+      }
+
+      client_ = nullptr;
+      closed_ = true;
+      return Status::OK();
+    });
+  }
+
   bool closed() const override { return closed_; }
 
   Result<int64_t> Tell() const override {
@@ -1297,10 +1339,17 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
     // Wait for background writes to finish
+    auto fut = FlushAsync();
+    return fut.status();
+  }
+
+  Future<> FlushAsync() {
+    if (closed_) {
+      return Status::Invalid("Operation on closed stream");
+    }
+    // Wait for background writes to finish
     std::unique_lock<std::mutex> lock(upload_state_->mutex);
-    upload_state_->cv.wait(lock,
-                           [this]() { return upload_state_->parts_in_progress == 0; });
-    return upload_state_->status;
+    return upload_state_->completed;
   }
 
   // Upload-related helpers
@@ -1347,7 +1396,9 @@ class ObjectOutputStream final : public io::OutputStream {
 
       {
         std::unique_lock<std::mutex> lock(upload_state_->mutex);
-        ++upload_state_->parts_in_progress;
+        if (upload_state_->parts_in_progress++ == 0) {
+          upload_state_->completed = Future<>::Make();
+        }
       }
       auto client = client_;
       ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
@@ -1398,7 +1449,7 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // Notify completion
     if (--state->parts_in_progress == 0) {
-      state->cv.notify_all();
+      state->completed.MarkFinished(state->status);
     }
   }
 
@@ -1445,10 +1496,10 @@ class ObjectOutputStream final : public io::OutputStream {
   // in the completion handler.
   struct UploadState {
     std::mutex mutex;
-    std::condition_variable cv;
     Aws::Vector<S3Model::CompletedPart> completed_parts;
     int64_t parts_in_progress = 0;
     Status status;
+    Future<> completed = Future<>::MakeFinished(Status::OK());
   };
   std::shared_ptr<UploadState> upload_state_;
 };
