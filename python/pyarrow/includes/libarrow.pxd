@@ -489,7 +489,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         PrettyPrintOptions()
         PrettyPrintOptions(int indent_arg)
         PrettyPrintOptions(int indent_arg, int window_arg)
-        PrettyPrintOptions(int indent_arg, int window_arg, int child_window_arg)
         int indent
         int indent_size
         int window

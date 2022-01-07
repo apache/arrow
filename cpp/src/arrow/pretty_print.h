@@ -36,9 +36,9 @@ struct PrettyPrintOptions {
   PrettyPrintOptions() = default;
 
   PrettyPrintOptions(int indent_arg,  // NOLINT runtime/explicit
-                     int window_arg = 10, int child_window_arg = 5, int indent_size_arg = 2,
-                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false,
-                     bool truncate_metadata_arg = true)
+                     int window_arg = 10, int child_window_arg = 5,
+                     int indent_size_arg = 2, std::string null_rep_arg = "null",
+                     bool skip_new_lines_arg = false, bool truncate_metadata_arg = true)
       : indent(indent_arg),
         indent_size(indent_size_arg),
         window(window_arg),

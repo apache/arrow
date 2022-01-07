@@ -63,7 +63,7 @@ cdef class ChunkedArray(_PandasConvertible):
         type_format = object.__repr__(self)
         return '{0}\n{1}'.format(type_format, str(self))
 
-    def to_string(self, *, int indent=0, int window=2, int child_window=5,
+    def to_string(self, *, int indent=0, int window=1, int child_window=3,
                   c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the ChunkedArray
@@ -90,8 +90,9 @@ cdef class ChunkedArray(_PandasConvertible):
             PrettyPrintOptions options
 
         with nogil:
-            options = PrettyPrintOptions(indent, window, child_window)
+            options = PrettyPrintOptions(indent, window)
             options.skip_new_lines = skip_new_lines
+            options.child_window = child_window
             check_status(
                 PrettyPrint(
                     deref(self.chunked_array),

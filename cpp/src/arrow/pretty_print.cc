@@ -450,6 +450,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       skip_comma = true;
     } else {
       PrettyPrintOptions chunk_options = options;
+      chunk_options.window = options.child_window;
       chunk_options.indent += options.indent_size;
       ArrayPrinter printer(chunk_options, sink);
       RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
