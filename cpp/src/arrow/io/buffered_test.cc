@@ -297,6 +297,19 @@ TEST_F(TestBufferedOutputStream, Tell) {
   AssertTell(0);
 }
 
+TEST_F(TestBufferedOutputStream, Tell2) {
+  OpenBuffered();
+  AssertTell(0);
+
+  const std::string datastr = GenerateRandomData(10000);
+  const char* d = datastr.data();
+
+  ASSERT_OK(buffered_->Write(d, 5000));
+  AssertTell(5000);
+
+  ASSERT_OK(buffered_->Close());
+}
+
 TEST_F(TestBufferedOutputStream, TruncatesFile) {
   OpenBuffered();
 
