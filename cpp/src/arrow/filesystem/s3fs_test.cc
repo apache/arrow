@@ -855,6 +855,40 @@ TEST_F(TestS3FS, DeleteDir) {
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
 }
 
+TEST_F(TestS3FS, DeleteDirContents) {
+  FileSelector select;
+  select.base_dir = "bucket";
+  std::vector<FileInfo> infos;
+
+  ASSERT_OK(fs_->DeleteDirContents("bucket/emptydir"));
+  ASSERT_OK(fs_->DeleteDirContents("bucket/somedir"));
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents("bucket/somefile"));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 4);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
+}
+
+TEST_F(TestS3FS, DeleteDirContentsAsync) {
+  FileSelector select;
+  select.base_dir = "bucket";
+  std::vector<FileInfo> infos;
+
+  ASSERT_FINISHES_OK(fs_->DeleteDirContentsAsync("bucket/emptydir"));
+  ASSERT_FINISHES_OK(fs_->DeleteDirContentsAsync("bucket/somedir"));
+  ASSERT_FINISHES_AND_RAISES(IOError, fs_->DeleteDirContentsAsync("bucket/somefile"));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 4);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
+}
+
 TEST_F(TestS3FS, CopyFile) {
   // "File"
   ASSERT_OK(fs_->CopyFile("bucket/somefile", "bucket/newfile"));
