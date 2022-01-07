@@ -30,8 +30,7 @@ jobs:
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
-          # rlang and vctrs depend on R >= 3.3
-          - "3.3"
+          # glue depends on R >= 3.4, and vctrs depends on glue
           - "3.4"
           - "3.5"
           - "3.6"
