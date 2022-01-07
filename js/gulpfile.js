@@ -27,7 +27,7 @@ const cleanTask = require('./gulp/clean-task');
 const compileTask = require('./gulp/compile-task');
 const packageTask = require('./gulp/package-task');
 const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
-const bundleTask = require('./gulp/bundle-task');
+const { esbuildTask, rollupTask, webpackTask } = require('./gulp/bundle-task');
 const {
     taskName, combinations,
     targetDir, knownTargets,
@@ -88,13 +88,13 @@ gulp.task(`compile`, gulpConcurrent(getTasks(`compile`)));
 gulp.task(`package`, gulpConcurrent(getTasks(`package`)));
 gulp.task(`default`, gulp.series(`clean`, `build`, `test`));
 
-gulp.task(`bundle:esbuild`, bundleTask(`esbuild`));
-gulp.task(`bundle:webpack`, bundleTask(`webpack`));
-gulp.task(`bundle:webpack:analyze`, bundleTask(`webpack`, `--env=analyze`));
-gulp.task(`bundle:rollup`, bundleTask(`rollup`));
+gulp.task(`bundle:esbuild`, esbuildTask());
+gulp.task(`bundle:rollup`, rollupTask());
+gulp.task(`bundle:webpack`, webpackTask());
+gulp.task(`bundle:webpack:analyze`, webpackTask(true));
 gulp.task(`bundle:clean`, () => del(`test/bundle/**/*-bundle.js`));
 
-gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:webpack`, `bundle:rollup`, `bundle:esbuild`));
+gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`));
 
 function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
     return () => ObservableFrom(tasks.map((task) => gulp.series(task)))

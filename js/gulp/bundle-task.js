@@ -15,23 +15,118 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const exec = require('child_process').exec;
+const gulp = require('gulp');
+const size = require('gulp-vinyl-size');
+const gulpRename = require('gulp-rename');
+const terser = require('gulp-terser');
+const source = require('vinyl-source-stream');
+const buffer = require('vinyl-buffer');
+const {
+    observableFromStreams
+} = require('./util');
+const {
+    forkJoin: ObservableForkJoin,
+} = require('rxjs');
+const { resolve, join } = require('path');
+const { readdirSync } = require('fs');
 
-const bundleTask = (bundler, args = "") => (cb) => {
-    if (bundler === 'esbuild') {
-        exec(`./test/bundle/esbuild/esbuild.js`, (err, stdout, stderr) => {
-            console.log(stdout);
-            console.log(stderr);
-            cb(err);
-        });
-    } else {
-        exec(`${bundler} --config test/bundle/${bundler}/${bundler}.config.js ${args}`, (err, stdout, stderr) => {
-            console.log(stdout);
-            console.log(stderr);
-            cb(err);
-        });
-    }
+const gulpEsbuild = require('gulp-esbuild');
+const esbuildAlias = require('esbuild-plugin-alias');
+
+const rollupStream = require('@rollup/stream');
+const nodeResolve = require('@rollup/plugin-node-resolve').default;
+const rollupAlias = require('@rollup/plugin-alias');
+
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+const webpack = require('webpack-stream');
+const named = require('vinyl-named');
+
+const bundleDir = resolve(__dirname, '../test/bundle');
+
+const fileNames = readdirSync(bundleDir)
+    .filter(fileName => fileName.endsWith('.js'))
+    .map(fileName => fileName.replace(/\.js$/, ''));
+
+
+function bundleWithEsbuild() {
+    return gulpEsbuild({
+        bundle: true,
+        minify: true,
+        treeShaking: true,
+        plugins: [
+            esbuildAlias({
+                'apache-arrow': resolve(__dirname, '../targets/apache-arrow/Arrow.dom.mjs'),
+            }),
+        ],
+    })
 }
 
-module.exports = bundleTask;
-module.exports.bundleTask = bundleTask;
+const bundlesGlob = join(bundleDir, '**.js');
+const esbuildDir = join(bundleDir, 'esbuild');
+const esbuildTask = () => () => observableFromStreams(
+    gulp.src(bundlesGlob),
+    bundleWithEsbuild(),
+    gulpRename((p) => { p.basename += '-bundle'; }),
+    gulp.dest(esbuildDir),
+    size({ gzip: true })
+);
+
+const rollupDir = join(bundleDir, 'rollup');
+const rollupTask = (minify = true) => () => ObservableForkJoin(
+    fileNames.map(fileName => observableFromStreams(
+        rollupStream({
+            input: join(bundleDir, `${fileName}.js`),
+            output: { format: 'cjs' },
+            plugins: [
+                rollupAlias({
+                    entries: { 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/') }
+                }),
+                nodeResolve({ browser: true })
+            ],
+            onwarn: (message) => {
+                if (message.code === 'CIRCULAR_DEPENDENCY') return
+                console.error(message);
+            }
+        }),
+        source(`${fileName}-bundle.js`),
+        buffer(),
+        ...(minify ? [terser()] : []),
+        gulp.dest(rollupDir),
+        size({ gzip: true })
+    ))
+)
+
+const webpackDir = join(bundleDir, 'webpack');
+const webpackTask = (analyze = false) => () => observableFromStreams(
+    gulp.src(bundlesGlob),
+    named(),
+    webpack({
+        mode: 'production',
+        optimization: {
+            usedExports: true
+        },
+        output: {
+            filename: '[name]-bundle.js'
+        },
+        module: {
+            rules: [
+                {
+                    resolve: {
+                        fullySpecified: false,
+                    }
+                }
+            ]
+        },
+        resolve: {
+            alias: { 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/') }
+        },
+        stats: 'errors-only',
+        plugins: analyze ? [new BundleAnalyzerPlugin()] : []
+    }),
+    gulp.dest(webpackDir),
+    size({ gzip: true })
+)
+
+module.exports.esbuildTask = esbuildTask;
+module.exports.rollupTask = rollupTask;
+module.exports.webpackTask = webpackTask;
