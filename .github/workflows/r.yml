@@ -324,7 +324,11 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
-      - name: Build cpp11 (on R 3.6)
+      - name: Install cpp11 (on R 3.6)
+      # Since we force installation of binary packages below, dependency versions
+      # are frozen for old versions of R. We need newer cpp11 than is available as
+      # "binary" (though it doesn't matter because the cpp11 R package is just a 
+      # vehicle for the header-only C++ code.
         if: ${{ matrix.rtools == 35 }}
         shell: Rscript {0}
         run: install.packages("cpp11", type = "source")
