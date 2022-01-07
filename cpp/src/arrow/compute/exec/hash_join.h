@@ -115,9 +115,7 @@ class HashJoinImpl {
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();
 
  protected:
-#ifdef ARROW_WITH_OPENTELEMETRY
-  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;
-#endif
+  util::tracing::Span span;
 };
 
 }  // namespace compute

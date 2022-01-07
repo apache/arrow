@@ -29,6 +29,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -89,23 +90,14 @@ class ProjectNode : public MapNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
-#endif
+    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      auto tracer = arrow::internal::tracing::GetTracer();
-      opentelemetry::trace::StartSpanOptions options;
-      options.parent = span->GetContext();
-      auto span = tracer->StartSpan("ProjectNode::DoProject", options);
-      auto scope = tracer->WithActiveSpan(span);
-#endif
+      util::tracing::Span inner_span;
+      START_SPAN_WITH_PARENT(inner_span, span, "ProjectNode::DoProject");
       auto result = DoProject(std::move(batch));
-#ifdef ARROW_WITH_OPENTELEMETRY
-      arrow::internal::tracing::MarkSpan(result.status(), span.get());
-      span->End();
-#endif
+      MARK_SPAN(inner_span, result.status());
+      END_SPAN(inner_span);
       return result;
     };
     this->SubmitTask(std::move(func), std::move(batch));

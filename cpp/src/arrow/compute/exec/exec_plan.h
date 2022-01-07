@@ -30,7 +30,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
-#include "arrow/util/tracing_internal.h"
+#include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -247,9 +247,7 @@ class ARROW_EXPORT ExecNode {
   int num_outputs_;
   NodeVector outputs_;
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;
-#endif
+  util::tracing::Span span;
 };
 
 /// \brief MapNode is an ExecNode type class which process a task like filter/project

@@ -79,11 +79,8 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    span = tracer->StartSpan("ExecPlan", {{"plan", ToString()}});
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    START_SPAN(span, "ExecPlan", {{"plan", ToString()}});
+
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
@@ -114,19 +111,16 @@ struct ExecPlanImpl : public ExecPlan {
     finished_ = AllFinished(futures);
 #ifdef ARROW_WITH_OPENTELEMETRY
     finished_.AddCallback([this](const Status& st) {
-      arrow::internal::tracing::MarkSpan(st, span.get());
-      span->End();
+      MARK_SPAN(span, st);
+      END_SPAN(span);
     });
 #endif
     return st;
   }
 
   void StopProducing() {
+    EVENT(span, "StopProducing");
     DCHECK(started_) << "stopped an ExecPlan which never started";
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // This segfaults when the ExecPlan never started.
-    span->AddEvent("StopProducing");
-#endif
     stopped_ = true;
 
     StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end());
@@ -188,9 +182,8 @@ struct ExecPlanImpl : public ExecPlan {
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
-#ifdef ARROW_WITH_OPENTELEMETRY
-  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;
-#endif
+
+  util::tracing::Span span;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -334,18 +327,14 @@ MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
 }
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
+  EVENT(span, "ErrorReceived", {{"error", error.message()}});
   DCHECK_EQ(input, inputs_[0]);
-#ifdef ARROW_WITH_OPENTELEMETRY
-  span->AddEvent("ErrorReceived", {{"error", error.message()}});
-#endif
   outputs_[0]->ErrorReceived(this, std::move(error));
 }
 
 void MapNode::InputFinished(ExecNode* input, int total_batches) {
+  EVENT(span, "InputFinished", {{"batches.length", total_batches}});
   DCHECK_EQ(input, inputs_[0]);
-#ifdef ARROW_WITH_OPENTELEMETRY
-  span->AddEvent("InputFinished", {{"batches.length", total_batches}});
-#endif
   outputs_[0]->InputFinished(this, total_batches);
   if (input_counter_.SetTotal(total_batches)) {
     this->Finish();
@@ -353,25 +342,13 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 }
 
 Status MapNode::StartProducing() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
-  auto scope = tracer->WithActiveSpan(span);
-#endif
+  START_SPAN(span, kind_name(), {{"node", ToString()}});
   return Status::OK();
 }
 
-void MapNode::PauseProducing(ExecNode* output) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  span->AddEvent("PauseProducing");
-#endif
-}
+void MapNode::PauseProducing(ExecNode* output) { EVENT(span, "PauseProducing"); }
 
-void MapNode::ResumeProducing(ExecNode* output) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  span->AddEvent("ResumeProducing");
-#endif
-}
+void MapNode::ResumeProducing(ExecNode* output) { EVENT(span, "ResumeProducing"); }
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);
@@ -379,9 +356,7 @@ void MapNode::StopProducing(ExecNode* output) {
 }
 
 void MapNode::StopProducing() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  span->AddEvent("StopProducing");
-#endif
+  EVENT(span, "StopProducing");
   if (executor_) {
     this->stop_source_.RequestStop();
   }
@@ -448,10 +423,8 @@ void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
   } else {
     this->finished_.MarkFinished(finish_st);
   }
-#ifdef ARROW_WITH_OPENTELEMETRY
-  arrow::internal::tracing::MarkSpan(finish_st, span.get());
-  span->End();
-#endif
+  MARK_SPAN(span, finish_st);
+  END_SPAN(span);
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(

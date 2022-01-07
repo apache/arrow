@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/tracing.h"
 
 #include <iostream>
 #include <sstream>
@@ -182,6 +183,15 @@ opentelemetry::trace::Tracer* GetTracer() {
       GetTracerProvider()->GetTracer("arrow");
   return tracer.get();
 }
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
+    const util::tracing::Span& parent_span) {
+  opentelemetry::trace::StartSpanOptions options;
+  options.parent = parent_span.impl().span->GetContext();
+  return options;
+}
+#endif
 
 }  // namespace tracing
 }  // namespace internal

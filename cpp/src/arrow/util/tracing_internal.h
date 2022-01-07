@@ -36,6 +36,8 @@
 
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/make_unique.h"
+#include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -98,6 +100,50 @@ AsyncGenerator<T> WrapAsyncGenerator(AsyncGenerator<T> wrapped,
     return fut;
   };
 }
+
+class SpanImpl {
+ public:
+  opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;
+};
+
+opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
+    const util::tracing::Span& parent_span);
+
+#define START_SPAN(target_span, ...)                                                \
+  auto opentelemetry_scope##__LINE__ =                                              \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                      \
+          target_span                                                               \
+              .set_impl(::arrow::util::tracing::Span::Impl{                         \
+                  ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)}) \
+              .span)
+
+#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)                           \
+  auto opentelemetry_scope##__LINE__ =                                                  \
+      ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                          \
+          target_span                                                                   \
+              .set_impl(::arrow::util::tracing::Span::Impl{                             \
+                  ::arrow::internal::tracing::GetTracer()->StartSpan(                   \
+                      __VA_ARGS__,                                                      \
+                      ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))}) \
+              .span)
+
+#define EVENT(target_span, ...) target_span.impl().span->AddEvent(__VA_ARGS__)
+
+#define MARK_SPAN(target_span, status) \
+  ::arrow::internal::tracing::MarkSpan(status, target_span.impl().span.get())
+
+#define END_SPAN(target_span) target_span.impl().span->End()
+
+#else
+
+class SpanImpl {};
+
+#define START_SPAN(target_span, ...)
+#define START_SPAN_WITH_PARENT(target_span, parent_span, ...)
+#define MARK_SPAN(target_span, status)
+#define EVENT(target_span, ...)
+#define END_SPAN(target_span)
+
 #endif
 
 }  // namespace tracing

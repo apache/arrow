@@ -166,14 +166,10 @@ class ScalarAggregateNode : public ExecNode {
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    opentelemetry::trace::StartSpanOptions options;
-    options.parent = span->GetContext();
-    auto span = tracer->StartSpan("ScalarAggregateNode::DoConsume",
-                                  {{"agg", ToStringExtra()}}, options);
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    util::tracing::Span inner_span;
+    START_SPAN_WITH_PARENT(inner_span, span, "ScalarAggregateNode::DoConsume",
+                           {{"agg", ToStringExtra()}});
+
     for (size_t i = 0; i < kernels_.size(); ++i) {
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
@@ -185,9 +181,7 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
-#endif
+    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = get_thread_index_();
@@ -200,17 +194,13 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    EVENT(span, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ErrorReceived", {{"error", error.message()}});
-#endif
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputFinished", {{"batches.length", total_batches}});
-#endif
+    EVENT(span, "InputFinished", {{"batches.length", total_batches}});
     DCHECK_EQ(input, inputs_[0]);
     if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(Finish());
@@ -218,28 +208,16 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   Status StartProducing() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    START_SPAN(span, kind_name(), {{"node", ToString()}});
     finished_ = Future<>::Make();
     // Scalar aggregates will only output a single batch
     outputs_[0]->InputFinished(this, 1);
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("PauseProducing");
-#endif
-  }
+  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ResumeProducing");
-#endif
-  }
+  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -247,13 +225,9 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void StopProducing() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("StopProducing");
-#endif
+    EVENT(span, "StopProducing");
     if (input_counter_.Cancel()) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      span->End();
-#endif
+      END_SPAN(span);
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);
@@ -282,9 +256,7 @@ class ScalarAggregateNode : public ExecNode {
     }
 
     outputs_[0]->InputReceived(this, std::move(batch));
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->End();
-#endif
+    END_SPAN(span);
     finished_.MarkFinished();
     return Status::OK();
   }
@@ -397,13 +369,8 @@ class GroupByNode : public ExecNode {
   const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecBatch batch) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    opentelemetry::trace::StartSpanOptions options;
-    options.parent = span->GetContext();
-    auto span = tracer->StartSpan("GroupByNode::Consume", options);
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    util::tracing::Span inner_span;
+    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Consume");
     size_t thread_index = get_thread_index_();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
@@ -425,10 +392,8 @@ class GroupByNode : public ExecNode {
 
     // Execute aggregate kernels
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-      // #ifdef ARROW_WITH_OPENTELEMETRY
-      //       auto span = tracer->StartSpan("Aggregate", {{"function",
-      //       aggs_[i].function}}); auto scope = tracer->WithActiveSpan(span);
-      // #endif
+      util::tracing::Span span;
+      START_SPAN(span, "Aggregate", {{"function", aggs_[i].function}});
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
@@ -444,13 +409,8 @@ class GroupByNode : public ExecNode {
   }
 
   Status Merge() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    opentelemetry::trace::StartSpanOptions options;
-    options.parent = span->GetContext();
-    auto span = tracer->StartSpan("GroupByNode::Merge", options);
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    util::tracing::Span inner_span;
+    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Merge");
     ThreadLocalState* state0 = &local_states_[0];
     for (size_t i = 1; i < local_states_.size(); ++i) {
       ThreadLocalState* state = &local_states_[i];
@@ -463,10 +423,8 @@ class GroupByNode : public ExecNode {
       state->grouper.reset();
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
-        // #ifdef ARROW_WITH_OPENTELEMETRY
-        //         auto span = tracer->StartSpan("MergeKernel", {{"function",
-        //         aggs_[i].function}}); auto scope = tracer->WithActiveSpan(span);
-        // #endif
+        util::tracing::Span span;
+        START_SPAN(span, "MergeKernel", {{"function", aggs_[i].function}});
         KernelContext batch_ctx{ctx_};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
@@ -481,13 +439,9 @@ class GroupByNode : public ExecNode {
   }
 
   Result<ExecBatch> Finalize() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    opentelemetry::trace::StartSpanOptions options;
-    options.parent = span->GetContext();
-    auto span = tracer->StartSpan("GroupByNode::Finalize", options);
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    util::tracing::Span inner_span;
+    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Finalize");
+
     ThreadLocalState* state = &local_states_[0];
     // If we never got any batches, then state won't have been initialized
     RETURN_NOT_OK(InitLocalStateIfNeeded(state));
@@ -548,17 +502,13 @@ class GroupByNode : public ExecNode {
       }
     }
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->End();
-#endif
+    END_SPAN(span);
 
     return Status::OK();
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
-#endif
+    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -573,19 +523,15 @@ class GroupByNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    DCHECK_EQ(input, inputs_[0]);
+    EVENT(span, "ErrorReceived", {{"error", error.message()}});
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ErrorReceived", {{"error", error.message()}});
-#endif
+    DCHECK_EQ(input, inputs_[0]);
 
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputFinished", {{"batches.length", total_batches}});
-#endif
+    EVENT(span, "InputFinished", {{"batches.length", total_batches}});
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -598,41 +544,26 @@ class GroupByNode : public ExecNode {
   }
 
   Status StartProducing() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    START_SPAN(span, kind_name(), {{"node", ToString()}});
+
     finished_ = Future<>::Make();
 
     local_states_.resize(ThreadIndexer::Capacity());
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("PauseProducing");
-#endif
-  }
+  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ResumeProducing");
-#endif
-  }
+  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("StopProducing");
-#endif
+    EVENT(span, "StopProducing");
 
     ARROW_UNUSED(input_counter_.Cancel());
     if (output_counter_.Cancel()) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      span->End();
-#endif
+      END_SPAN(span);
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);

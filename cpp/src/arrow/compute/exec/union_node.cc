@@ -27,6 +27,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -75,9 +76,7 @@ class UnionNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputReceived", {{"batch.length", batch.length}});
-#endif
+    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
@@ -85,17 +84,13 @@ class UnionNode : public ExecNode {
     }
     outputs_[0]->InputReceived(this, std::move(batch));
     if (batch_count_.Increment()) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      span->End();
-#endif
+      END_SPAN(span);
       finished_.MarkFinished();
     }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ErrorReceived", {{"error", error.message()}});
-#endif
+    EVENT(span, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
 
@@ -103,10 +98,8 @@ class UnionNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputFinished",
-                   {{"input", input_count_.count()}, {"batches.length", total_batches}});
-#endif
+    EVENT(span, "InputFinished",
+          {{"input", input_count_.count()}, {"batches.length", total_batches}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     total_batches_.fetch_add(total_batches);
@@ -114,45 +107,27 @@ class UnionNode : public ExecNode {
     if (input_count_.Increment()) {
       outputs_[0]->InputFinished(this, total_batches_.load());
       if (batch_count_.SetTotal(total_batches_.load())) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-        span->End();
-#endif
+        END_SPAN(span);
         finished_.MarkFinished();
       }
     }
   }
 
   Status StartProducing() override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    span = tracer->StartSpan(kind_name(), {{"node", ToString()}});
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    START_SPAN(span, kind_name(), {{"node", ToString()}});
     finished_ = Future<>::Make();
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("PauseProducing");
-#endif
-  }
+  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("ResumeProducing");
-#endif
-  }
+  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("StopProducing");
-#endif
+    EVENT(span, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      span->End();
-#endif
+      END_SPAN(span);
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {
@@ -162,9 +137,7 @@ class UnionNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      span->End();
-#endif
+      END_SPAN(span);
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {

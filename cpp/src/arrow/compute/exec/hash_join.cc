@@ -42,10 +42,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // Check parent span for details.
-    span->AddEvent("InputReceived");
-#endif
+    EVENT(span, "InputReceived");
+
     if (QueueBatchIfNeeded(side, batch)) {
       return Status::OK();
     } else {
@@ -58,9 +56,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("InputFinished", {{"side", side}});
-#endif
+    EVENT(span, "InputFinished", {{"side", side}});
     if (side == 0) {
       bool proceed;
       {
@@ -93,14 +89,10 @@ class HashJoinBasicImpl : public HashJoinImpl {
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto tracer = arrow::internal::tracing::GetTracer();
-    span = tracer->StartSpan("HashJoinBasicImpl",
-                             {{"join_type", ToString(join_type)},
-                              {"expression", filter.ToString()},
-                              {"num_threads", static_cast<uint32_t>(num_threads)}});
-    auto scope = tracer->WithActiveSpan(span);
-#endif
+    START_SPAN(span, "HashJoinBasicImpl",
+               {{"join_type", ToString(join_type)},
+                {"expression", filter.ToString()},
+                {"num_threads", static_cast<uint32_t>(num_threads)}});
 
     ctx_ = ctx;
     join_type_ = join_type;
@@ -137,10 +129,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) override {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->AddEvent("Abort");
-    span->End();
-#endif
+    EVENT(span, "Abort");
+    END_SPAN(span);
     cancelled_ = true;
     scheduler_->Abort(std::move(pos_abort_callback));
   }
@@ -794,9 +784,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
-#ifdef ARROW_WITH_OPENTELEMETRY
-    span->End();
-#endif
+    END_SPAN(span);
     finished_callback_(num_batches_produced_.load());
     return Status::OK();
   }
