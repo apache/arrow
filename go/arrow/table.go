@@ -22,7 +22,10 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
 
-// Table represents a logical sequence of chunked arrays.
+// Table represents a logical sequence of chunked arrays of equal length. It is
+// similar to a Record except that the columns are ChunkedArrays instead,
+// allowing for a Table to be built up by chunks progressively whereas the columns
+// in a single Record are always each a single contiguous array.
 type Table interface {
 	Schema() *Schema
 	NumRows() int64
@@ -35,6 +38,24 @@ type Table interface {
 
 // Column is an immutable column data structure consisting of
 // a field (type metadata) and a chunked data array.
+//
+// To get strongly typed data from a Column, you need to iterate the
+// chunks and type assert each individual Array. For example:
+//
+// 		switch column.DataType().ID {
+//		case arrow.INT32:
+//			for _, c := range column.Data().Chunks() {
+//				arr := c.(*array.Int32)
+//				// do something with arr
+//			}
+//		case arrow.INT64:
+//			for _, c := range column.Data().Chunks() {
+//				arr := c.(*array.Int64)
+//				// do something with arr
+//			}
+//		case ...
+//		}
+//
 type Column struct {
 	field Field
 	data  *Chunked

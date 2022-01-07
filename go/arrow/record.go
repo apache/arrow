@@ -18,8 +18,11 @@ package arrow
 
 import "encoding/json"
 
-// Record is a collection of equal-length arrays
-// matching a particular Schema.
+// Record is a collection of equal-length arrays matching a particular Schema.
+// Also known as a RecordBatch in the spec and in some implementations.
+//
+// It is also possible to construct a Table from a collection of Records that
+// all have the same schema.
 type Record interface {
 	json.Marshaler
 

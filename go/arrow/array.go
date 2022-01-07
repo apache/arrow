@@ -22,19 +22,64 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/memory"
 )
 
+// ArrayData is the underlying memory and metadata of an Arrow array, corresponding
+// to the same-named object in the C++ implementation.
+//
+// The Array interface and subsequent typed objects provide strongly typed
+// accessors which support marshalling and other patterns to the data.
+// This interface allows direct access to the underlying raw byte buffers
+// which allows for manipulating the internal data and casting. For example,
+// one could cast the raw bytes from int64 to float64 like so:
+//
+// 		arrdata := GetMyInt64Data().Data()
+//		newdata := array.NewData(arrow.PrimitiveTypes.Float64, arrdata.Len(),
+// 				arrdata.Buffers(), nil, arrdata.NullN(), arrdata.Offset())
+//		defer newdata.Release()
+//		float64arr := array.NewFloat64Data(newdata)
+//		defer float64arr.Release()
+//
+// This is also useful in an analytics setting where memory may be reused. For
+// example, if we had a group of operations all returning float64 such as:
+//
+//		Log(Sqrt(Expr(arr)))
+//
+// The low-level implementations could have signatures such as:
+//
+// 		func Log(values arrow.ArrayData) arrow.ArrayData
+//
+// Another example would be a function that consumes one or more memory buffers
+// in an input array and replaces them with newly-allocated data, changing the
+// output data type as well.
 type ArrayData interface {
+	// Retain increases the reference count by 1, it is safe to call
+	// in multiple goroutines simultaneously.
 	Retain()
+	// Release decreases the reference count by 1, it is safe to call
+	// in multiple goroutines simultaneously. Data is removed when reference
+	// count is 0.
 	Release()
+	// DataType returns the current datatype stored in the object.
 	DataType() DataType
+	// NullN returns the number of nulls for this data instance.
 	NullN() int
+	// Len returns the length of this data instance
 	Len() int
+	// Offset returns the offset into the raw buffers where this data begins
 	Offset() int
+	// Buffers returns the slice of raw data buffers for this data instance. Their
+	// meaning depends on the context of the data type.
 	Buffers() []*memory.Buffer
+	// Children returns the slice of children data instances, only relevant for
+	// nested data types. For instance, List data will have a single child containing
+	// elements of all the rows and Struct data will contain numfields children which
+	// are the arrays for each field of the struct.
 	Children() []ArrayData
-	Reset(DataType, int, []*memory.Buffer, []ArrayData, int, int)
+	// Reset allows reusing this ArrayData object by replacing the data in this ArrayData
+	// object without changing the reference count.
+	Reset(newtype DataType, newlength int, newbuffers []*memory.Buffer, newchildren []ArrayData, newnulls int, newoffset int)
 }
 
-// A type which satisfies arrow.Array represents an immutable sequence of values.
+// Array represents an immutable sequence of values using the Arrow in-memory format.
 type Array interface {
 	json.Marshaler
 

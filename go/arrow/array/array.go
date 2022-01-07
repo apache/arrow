@@ -36,43 +36,6 @@ type arraymarshal interface {
 	getOneForMarshal(i int) interface{}
 }
 
-// // A type which satisfies array.Interface represents an immutable sequence of values.
-// type Interface interface {
-// 	json.Marshaler
-
-// 	// DataType returns the type metadata for this instance.
-// 	DataType() arrow.DataType
-
-// 	// NullN returns the number of null values in the array.
-// 	NullN() int
-
-// 	// NullBitmapBytes returns a byte slice of the validity bitmap.
-// 	NullBitmapBytes() []byte
-
-// 	// IsNull returns true if value at index is null.
-// 	// NOTE: IsNull will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
-// 	IsNull(i int) bool
-
-// 	// IsValid returns true if value at index is not null.
-// 	// NOTE: IsValid will panic if NullBitmapBytes is not empty and 0 > i ≥ Len.
-// 	IsValid(i int) bool
-
-// 	Data() *Data
-
-// 	// Len returns the number of elements in the array.
-// 	Len() int
-
-// 	// Retain increases the reference count by 1.
-// 	// Retain may be called simultaneously from multiple goroutines.
-// 	Retain()
-
-// 	// Release decreases the reference count by 1.
-// 	// Release may be called simultaneously from multiple goroutines.
-// 	// When the reference count goes to zero, the memory is freed.
-// 	Release()
-
-// }
-
 const (
 	// UnknownNullCount specifies the NullN should be calculated from the null bitmap buffer.
 	UnknownNullCount = -1
