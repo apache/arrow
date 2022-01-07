@@ -118,6 +118,9 @@ garrow_function_get_doc(GArrowFunction *function);
 GARROW_AVAILABLE_IN_7_0
 GArrowFunctionOptions *
 garrow_function_get_default_options(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GType
+garrow_function_get_options_type(GArrowFunction *function);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
