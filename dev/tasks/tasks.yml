@@ -149,7 +149,6 @@ groups:
     # ARROW-14256
     - ~conda-linux-gcc-py310-arm64
     - ~conda-linux-gcc-py310-cuda
-    - ~conda-linux-gcc-py36-arm64
     - ~conda-linux-gcc-py37-arm64
     - ~conda-linux-gcc-py37-cpu-r41
     - ~conda-linux-gcc-py37-cuda
@@ -171,7 +170,7 @@ tasks:
   #   artifacts: list of regex patterns, each needs to match a single github
   #              release asset, version variable is replaced in the pattern
   #              e.g.:
-  #     - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0-linux-64.tar.bz2
+  #     - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0-linux-64.tar.bz2
 
 {############################## Conda Linux ##################################}
 
@@ -186,20 +185,20 @@ tasks:
   #   Python and the OS are the main dimension. The R package `r-arrow` is
   #   an independent feedstock as it doesn't have the Python but the
   #   R dimension. To limit the number of CI jobs, we are building `r-arrow`
-  #   for R 4.0 with the Python 3.6 jobs and for R 4.1 with the Python 3.7 jobs.
+  #   with the Python 3.7 jobs.
   # * The files in `dev/tasks/conda-recipes/.ci_support/` are automatically
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
 
-  conda-linux-gcc-py36-cpu-r40:
+  conda-linux-gcc-py37-cpu-r40:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.6.____cpython
+      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
       r_config: linux_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
   conda-linux-gcc-py37-cpu-r41:
     ci: azure
@@ -229,8 +228,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-{% for python_version, numpy_version in [("3.6", "1.17"),
-                                         ("3.7", "1.17"),
+{% for python_version, numpy_version in [("3.7", "1.17"),
                                          ("3.8", "1.17"),
                                          ("3.9", "1.19"),
                                          ("3.10", "1.21")] %}
@@ -258,15 +256,15 @@ tasks:
 
   ############################## Conda OSX ####################################
 
-  conda-osx-clang-py36-r40:
+  conda-osx-clang-py37-r40:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.6.____cpython
+      config: osx_64_numpy1.17python3.7.____cpython
       r_config: osx_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
   conda-osx-clang-py37-r41:
     ci: azure
@@ -316,15 +314,15 @@ tasks:
 
   ############################## Conda Windows ################################
 
-  conda-win-vs2017-py36-r40:
+  conda-win-vs2017-py37-r40:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.6.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
       r_config: win_64_r_base4.0
     artifacts:
-      - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
   conda-win-vs2017-py37-r41:
     ci: azure
@@ -355,8 +353,7 @@ tasks:
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
 
-{% for python_version, python_tag, abi_tag in [("3.6", "cp36", "cp36m"),
-                                               ("3.7", "cp37", "cp37m"),
+{% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310")] %}
@@ -1081,7 +1078,7 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-thread-sanitizer
 
-{% for python_version in ["3.6", "3.7", "3.8", "3.9", "3.10"] %}
+{% for python_version in ["3.7", "3.8", "3.9", "3.10"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1111,12 +1108,12 @@ tasks:
         DEBIAN: 11
       image: debian-python
 
-  test-ubuntu-18.04-python-3:
+  test-ubuntu-20.04-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: 18.04
+        UBUNTU: 20.04
       image: ubuntu-python
 
   test-fedora-33-python-3:
@@ -1321,8 +1318,7 @@ tasks:
 
   ############################## Integration tests ############################
 
-{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.6", "0.23", "1.16", True),
-                                                                     ("3.7", "0.24", "1.19", True),
+{% for python_version, pandas_version, numpy_version, cache_leaf in [("3.7", "0.24", "1.19", True),
                                                                      ("3.7", "latest", "latest", False),
                                                                      ("3.8", "latest", "latest", False),
                                                                      ("3.8", "nightly", "nightly", False),

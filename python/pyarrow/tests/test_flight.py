@@ -19,6 +19,7 @@ import ast
 import base64
 import itertools
 import os
+import pathlib
 import signal
 import struct
 import tempfile
@@ -32,7 +33,7 @@ import pytest
 import pyarrow as pa
 
 from pyarrow.lib import tobytes
-from pyarrow.util import pathlib, find_free_port
+from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
 try:

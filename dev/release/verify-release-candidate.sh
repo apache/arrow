@@ -622,7 +622,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local py_arches="3.7m 3.8 3.9 3.10"
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for py_arch in ${py_arches}; do
@@ -647,7 +647,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local py_arches="3.7m 3.8 3.9 3.10"
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 

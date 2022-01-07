@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+import os
 import pickle
 import pytest
 import random
@@ -91,6 +92,8 @@ def test_exported_functions():
             # message if we don't pass an options instance.
             continue
         arity = desc['arity']
+        if arity == 0:
+            continue
         if arity is Ellipsis:
             args = [object()] * 3
         else:
@@ -144,9 +147,11 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
+        pc.RandomOptions(10),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
+        pc.RoundTemporalOptions(1, "second"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -172,6 +177,7 @@ def test_option_class_equality():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
+
     for cls in exported_option_classes:
         # Timezone database is not available on Windows yet
         if cls not in classes and sys.platform != 'win32' and \
@@ -180,6 +186,7 @@ def test_option_class_equality():
                 options.append(cls())
             except TypeError:
                 pytest.fail(f"Options class is not tested: {cls}")
+
     for option in options:
         assert option == option
         assert repr(option).startswith(option.__class__.__name__)
@@ -274,8 +281,6 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        if func.arity is not Ellipsis:
-            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)
@@ -1895,6 +1900,73 @@ def test_assume_timezone():
     result.equals(pa.array(expected))
 
 
+def _check_temporal_rounding(ts, values, unit):
+    unit_shorthand = {
+        "nanosecond": "ns",
+        "microsecond": "us",
+        "millisecond": "L",
+        "second": "s",
+        "minute": "min",
+        "hour": "H",
+        "day": "D"
+    }
+    ta = pa.array(ts)
+
+    for value in values:
+        frequency = str(value) + unit_shorthand[unit]
+        options = pc.RoundTemporalOptions(value, unit)
+
+        result = pc.ceil_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.ceil(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.floor_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.floor(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.round_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.round(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
+                                  "second", "minute", "hour", "day"))
+@pytest.mark.pandas
+def test_round_temporal(unit):
+    from pyarrow.vendored.version import Version
+
+    if Version(pd.__version__) < Version('1.0.0') and \
+            unit in ("nanosecond", "microsecond"):
+        pytest.skip('Pandas < 1.0 rounds zoned small units differently.')
+
+    values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
+    timestamps = [
+        "1923-07-07 08:52:35.203790336",
+        "1931-03-17 10:45:00.641559040",
+        "1932-06-16 01:16:42.911994368",
+        "1941-05-27 11:46:43.822831872",
+        "1943-12-14 07:32:05.424766464",
+        "1954-04-12 04:31:50.699881472",
+        "1966-02-12 17:41:28.693282560",
+        "1967-02-26 05:56:46.922376960",
+        "1975-11-01 10:55:37.016146432",
+        "1982-01-21 18:43:44.517366784",
+        "1999-12-04 05:55:34.794991104",
+        "2026-10-26 08:39:00.316686848"]
+    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    _check_temporal_rounding(ts, values, unit)
+
+    timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
+                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+
+    for timezone in timezones:
+        ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
+        _check_temporal_rounding(ts_zoned, values, unit)
+
+
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
@@ -2370,3 +2442,30 @@ def test_utf8_normalize():
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
         pc.utf8_normalize(arr, form="NFZ")
+
+
+def test_random():
+    # (note negative integer initializers are accepted)
+    for initializer in ['system', 42, -42, b"abcdef"]:
+        assert pc.random(0, initializer=initializer) == \
+            pa.array([], type=pa.float64())
+
+    # System random initialization => outputs all distinct
+    arrays = [tuple(pc.random(100).to_pylist()) for i in range(10)]
+    assert len(set(arrays)) == len(arrays)
+
+    arrays = [tuple(pc.random(100, initializer=i % 7).to_pylist())
+              for i in range(0, 100)]
+    assert len(set(arrays)) == 7
+
+    # Arbitrary hashable objects can be given as initializer
+    initializers = [object(), (4, 5, 6), "foo"]
+    initializers.extend(os.urandom(10) for i in range(10))
+    arrays = [tuple(pc.random(100, initializer=i).to_pylist())
+              for i in initializers]
+    assert len(set(arrays)) == len(arrays)
+
+    with pytest.raises(TypeError,
+                       match=r"initializer should be 'system', an integer, "
+                             r"or a hashable object; got \[\]"):
+        pc.random(100, initializer=[])

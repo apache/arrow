@@ -20,7 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace compute {

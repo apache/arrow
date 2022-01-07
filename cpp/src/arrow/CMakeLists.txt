@@ -420,6 +420,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_compare.cc
        compute/kernels/scalar_if_else.cc
        compute/kernels/scalar_nested.cc
+       compute/kernels/scalar_random.cc
        compute/kernels/scalar_set_lookup.cc
        compute/kernels/scalar_string.cc
        compute/kernels/scalar_temporal_binary.cc

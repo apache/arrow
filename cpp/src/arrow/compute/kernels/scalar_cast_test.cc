@@ -32,7 +32,6 @@
 #include "arrow/extension_type.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"

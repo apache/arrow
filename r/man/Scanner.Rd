@@ -22,7 +22,7 @@ named list of expressions
 to keep all rows.
 \item \code{use_threads}: logical: should scanning use multithreading? Default \code{TRUE}
 \item \code{use_async}: logical: should the async scanner (performs better on
-high-latency/highly parallel filesystems like S3) be used? Default \code{FALSE}
+high-latency/highly parallel filesystems like S3) be used? Default \code{TRUE}
 \item \code{...}: Additional arguments, currently ignored
 }
 }

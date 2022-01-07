@@ -15,6 +15,149 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Aggregation functions
+# These all return a list of:
+# @param fun string function name
+# @param data Expression (these are all currently a single field)
+# @param options list of function options, as passed to call_function
+# For group-by aggregation, `hash_` gets prepended to the function name.
+# So to see a list of available hash aggregation functions,
+# you can use list_compute_functions("^hash_")
+
+
+ensure_one_arg <- function(args, fun) {
+  if (length(args) == 0) {
+    arrow_not_supported(paste0(fun, "() with 0 arguments"))
+  } else if (length(args) > 1) {
+    arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
+  }
+  args[[1]]
+}
+
+agg_fun_output_type <- function(fun, input_type, hash) {
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
+    float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
+  }
+}
+
+register_bindings_aggregate <- function() {
+  register_binding_agg("sum", function(..., na.rm = FALSE) {
+    list(
+      fun = "sum",
+      data = ensure_one_arg(list2(...), "sum"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("any", function(..., na.rm = FALSE) {
+    list(
+      fun = "any",
+      data = ensure_one_arg(list2(...), "any"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("all", function(..., na.rm = FALSE) {
+    list(
+      fun = "all",
+      data = ensure_one_arg(list2(...), "all"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("mean", function(x, na.rm = FALSE) {
+    list(
+      fun = "mean",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("sd", function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "stddev",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  })
+  register_binding_agg("var", function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "variance",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  })
+  register_binding_agg("quantile", function(x, probs, na.rm = FALSE) {
+    if (length(probs) != 1) {
+      arrow_not_supported("quantile() with length(probs) != 1")
+    }
+    # TODO: Bind to the Arrow function that returns an exact quantile and remove
+    # this warning (ARROW-14021)
+    warn(
+      "quantile() currently returns an approximate quantile in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.quantile.approximate"
+    )
+    list(
+      fun = "tdigest",
+      data = x,
+      options = list(skip_nulls = na.rm, q = probs)
+    )
+  })
+  register_binding_agg("median", function(x, na.rm = FALSE) {
+    # TODO: Bind to the Arrow function that returns an exact median and remove
+    # this warning (ARROW-14021)
+    warn(
+      "median() currently returns an approximate median in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.median.approximate"
+    )
+    list(
+      fun = "approximate_median",
+      data = x,
+      options = list(skip_nulls = na.rm)
+    )
+  })
+  register_binding_agg("n_distinct", function(..., na.rm = FALSE) {
+    list(
+      fun = "count_distinct",
+      data = ensure_one_arg(list2(...), "n_distinct"),
+      options = list(na.rm = na.rm)
+    )
+  })
+  register_binding_agg("n", function() {
+    list(
+      fun = "sum",
+      data = Expression$scalar(1L),
+      options = list()
+    )
+  })
+  register_binding_agg("min", function(..., na.rm = FALSE) {
+    list(
+      fun = "min",
+      data = ensure_one_arg(list2(...), "min"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("max", function(..., na.rm = FALSE) {
+    list(
+      fun = "max",
+      data = ensure_one_arg(list2(...), "max"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+}
 
 # The following S3 methods are registered on load if dplyr is present
 

@@ -139,11 +139,18 @@ C++ we must create the binding manually to use it in that implementation.
 
       This also holds true for adding a test for the issue you have solved.
 
-   .. tab:: R package
+      **New feature**
 
-      .. - **Philosophy behind R bindings**
-      .. TODO
+      If you are adding a new future in Python you can look at
+      the :ref:`tutorial <python_tutorial>` for ideas.
 
-      .. #. New feature
-      ..   If you are adding a new future in R or Python you can check out
-      ..   our tutorials (link!) where we are adding a simple feature to Python and R.
+   .. tab:: R
+
+      **Philosophy behind R bindings**
+
+      When writing bindings between C++ compute functions and R functions,
+      the aim is to expose the C++ functionality via the same interface as
+      existing R functions.
+
+      To read the full content on the topic of R bindings read through the
+      `Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.

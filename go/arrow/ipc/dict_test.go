@@ -109,11 +109,11 @@ func TestDictMemo(t *testing.T) {
 		t.Fatalf("expected fo find id=0 array")
 	}
 
-	v, ok = memo.Dict(2)
+	_, ok = memo.Dict(2)
 	if ok {
 		t.Fatalf("should not have found id=2")
 	}
-	v, ok = memo.Dict(-2)
+	_, ok = memo.Dict(-2)
 	if ok {
 		t.Fatalf("should not have found id=-2")
 	}

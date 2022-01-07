@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/compute/exec_internal.h"
@@ -64,9 +63,10 @@ void AggregatesToString(
     std::stringstream* ss, const Schema& input_schema,
     const std::vector<internal::Aggregate>& aggs,
     const std::vector<int>& target_field_ids,
-    const std::vector<std::unique_ptr<FunctionOptions>>& owned_options) {
+    const std::vector<std::unique_ptr<FunctionOptions>>& owned_options, int indent = 0) {
   *ss << "aggregates=[" << std::endl;
   for (size_t i = 0; i < aggs.size(); i++) {
+    for (int j = 0; j < indent; ++j) *ss << "  ";
     *ss << '\t' << aggs[i].function << '('
         << input_schema.field(target_field_ids[i])->name();
     if (owned_options[i]) {
@@ -74,6 +74,7 @@ void AggregatesToString(
     }
     *ss << ")," << std::endl;
   }
+  for (int j = 0; j < indent; ++j) *ss << "  ";
   *ss << ']';
 }
 
@@ -226,7 +227,7 @@ class ScalarAggregateNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
  protected:
-  std::string ToStringExtra() const override {
+  std::string ToStringExtra(int indent) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
     AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_, owned_options_);
@@ -539,7 +540,7 @@ class GroupByNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
  protected:
-  std::string ToStringExtra() const override {
+  std::string ToStringExtra(int indent) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
     ss << "keys=[";
@@ -548,7 +549,8 @@ class GroupByNode : public ExecNode {
       ss << '"' << input_schema->field(key_field_ids_[i])->name() << '"';
     }
     ss << "], ";
-    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, owned_options_);
+    AggregatesToString(&ss, *input_schema, aggs_, agg_src_field_ids_, owned_options_,
+                       indent);
     return ss.str();
   }
 
