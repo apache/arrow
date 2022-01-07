@@ -40,8 +40,15 @@ Additional information
 
 - GitHub Actions
 
+  GitHub Actions is a continuous integration and continuous delivery (CI/CD) platform.
+  In Apache Arrow we use GitHub actions to build and test every pull request that is
+  opened, merged etc. To do so there are workflows created and then run via GitHub actions.
+
   - `Apache Arrow Actions on GitHub <https://github.com/apache/arrow/actions>`_
+  - `Location of the workflows in Arrow: arrow/.github/workflows/ <https://github.com/apache/arrow/tree/master/.github/workflows>`_
   - `GitHub Documentation on GitHub Actions <https://docs.github.com/en/actions>`_
+  .. ARROW-13841: [Doc] Document the different subcomponents that make up the CI and how they fit together:
+  .. https://github.com/apache/arrow/pull/11821
 
 - Nightly builds
 
@@ -54,9 +61,10 @@ Other resources
 
 - :ref:`contributing`
 - `Arrow R Developer Guide <https://arrow.apache.org/docs/r/articles/developing.html>`_
+- `Writing Bindings article for R package <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
+
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
-.. - Blog post walking through writing an R binding (not yet written)
 
 Recommended books for learning languages
 ----------------------------------------
