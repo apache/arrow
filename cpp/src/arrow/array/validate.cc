@@ -179,7 +179,7 @@ struct ValidateArrayImpl {
             constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
             if (date % kFullDayMillis != 0) {
               return Status::Invalid(type, " ", date,
-                                     "ms does not represent a whole number of days");
+                                     " does not represent a whole number of days");
             }
             return Status::OK();
           },
@@ -201,12 +201,12 @@ struct ValidateArrayImpl {
             if (type.unit() == TimeUnit::SECOND &&
                 (time < 0 || time >= kFullDaySeconds)) {
               return Status::Invalid(type, " ", time,
-                                     "s is not within the acceptable range of ", "[0, ",
+                                     " is not within the acceptable range of ", "[0, ",
                                      kFullDaySeconds, ") s");
             }
             if (type.unit() == TimeUnit::MILLI && (time < 0 || time >= kFullDayMillis)) {
               return Status::Invalid(type, " ", time,
-                                     "ms is not within the acceptable range of ", "[0, ",
+                                     " is not within the acceptable range of ", "[0, ",
                                      kFullDayMillis, ") ms");
             }
             return Status::OK();
@@ -228,12 +228,12 @@ struct ValidateArrayImpl {
             constexpr c_type kFullDayNano = kFullDayMicro * 1000;
             if (type.unit() == TimeUnit::MICRO && (time < 0 || time >= kFullDayMicro)) {
               return Status::Invalid(type, " ", time,
-                                     "us is not within the acceptable range of ", "[0, ",
+                                     " is not within the acceptable range of ", "[0, ",
                                      kFullDayMicro, ") us");
             }
             if (type.unit() == TimeUnit::NANO && (time < 0 || time >= kFullDayNano)) {
               return Status::Invalid(type, " ", time,
-                                     "ns is not within the acceptable range of ", "[0, ",
+                                     " is not within the acceptable range of ", "[0, ",
                                      kFullDayNano, ") ns");
             }
             return Status::OK();
