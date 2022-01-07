@@ -167,7 +167,7 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 		return nil, xerrors.Errorf("createListScalar only works for slices, not %s", sliceval.Kind())
 	}
 
-	var arr array.Interface
+	var arr arrow.Array
 
 	switch sliceval.Type().Elem().Kind() {
 	case reflect.String:

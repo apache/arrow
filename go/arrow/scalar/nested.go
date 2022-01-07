@@ -115,7 +115,7 @@ func NewListScalar(val arrow.Array) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val.Data())}
 }
 
-func NewListScalarData(val *array.Data) *List {
+func NewListScalarData(val arrow.ArrayData) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val)}
 }
 
