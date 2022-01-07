@@ -776,6 +776,48 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
+cdef CCalendarUnit unwrap_round_unit(unit) except *:
+    if unit == "nanosecond":
+        return CCalendarUnit_NANOSECOND
+    elif unit == "microsecond":
+        return CCalendarUnit_MICROSECOND
+    elif unit == "millisecond":
+        return CCalendarUnit_MILLISECOND
+    elif unit == "second":
+        return CCalendarUnit_SECOND
+    elif unit == "minute":
+        return CCalendarUnit_MINUTE
+    elif unit == "hour":
+        return CCalendarUnit_HOUR
+    elif unit == "day":
+        return CCalendarUnit_DAY
+    elif unit == "week":
+        return CCalendarUnit_WEEK
+    elif unit == "month":
+        return CCalendarUnit_MONTH
+    elif unit == "quarter":
+        return CCalendarUnit_QUARTER
+    elif unit == "year":
+        return CCalendarUnit_YEAR
+    _raise_invalid_function_option(unit, "Calendar unit")
+
+
+cdef class _RoundTemporalOptions(FunctionOptions):
+
+    def _set_options(
+            self, multiple, unit):
+        self.wrapped.reset(
+            new CRoundTemporalOptions(
+                multiple, unwrap_round_unit(unit))
+        )
+
+
+class RoundTemporalOptions(_RoundTemporalOptions):
+    def __init__(
+            self, multiple=1, unit="second", *):
+        self._set_options(multiple, unit)
+
+
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
         self.wrapped.reset(

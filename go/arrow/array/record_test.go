@@ -24,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRecord(t *testing.T) {
@@ -32,8 +33,8 @@ func TestRecord(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -146,7 +147,7 @@ func TestRecord(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -157,8 +158,8 @@ func TestRecord(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -227,8 +228,8 @@ func TestRecordReader(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -315,8 +316,8 @@ func TestRecordReader(t *testing.T) {
 			name: "mismatch-name",
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-XXX", Type: arrow.PrimitiveTypes.Float64},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-XXX", Type: arrow.PrimitiveTypes.Float64},
 				},
 				nil,
 			),
@@ -326,8 +327,8 @@ func TestRecordReader(t *testing.T) {
 			name: "mismatch-type",
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int64},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int64},
 				},
 				nil,
 			),
@@ -342,7 +343,7 @@ func TestRecordReader(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected an error: %v", tc.err)
 			}
-			if !reflect.DeepEqual(tc.err, err) {
+			if !assert.Equal(t, tc.err, err) {
 				t.Fatalf("invalid error: got=%v, want=%v", err, tc.err)
 			}
 		})
@@ -355,8 +356,8 @@ func TestRecordBuilder(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
@@ -454,13 +455,13 @@ func (m *testMessageBar) GetD() []uint64 {
 
 var testMessageSchema = arrow.NewSchema(
 	[]arrow.Field{
-		arrow.Field{Name: "foo", Type: arrow.StructOf(
+		{Name: "foo", Type: arrow.StructOf(
 			arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32},
 			arrow.Field{Name: "b", Type: arrow.ListOf(
 				arrow.PrimitiveTypes.Uint32,
 			)},
 		)},
-		arrow.Field{Name: "bars", Type: arrow.ListOf(
+		{Name: "bars", Type: arrow.ListOf(
 			arrow.StructOf(
 				arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int64},
 				arrow.Field{Name: "d", Type: arrow.ListOf(
@@ -677,16 +678,16 @@ func TestRecordBuilderMessages(t *testing.T) {
 				B: []uint32{2, 3, 4, 5, 6, 7, 8, 9},
 			},
 			Bars: []*testMessageBar{
-				&testMessageBar{
+				{
 					C: 11,
 					D: []uint64{12, 13, 14},
 				},
-				&testMessageBar{
+				{
 					C: 15,
 					D: []uint64{16, 17, 18, 19},
 				},
 				nil,
-				&testMessageBar{
+				{
 					C: 20,
 					D: []uint64{21},
 				},

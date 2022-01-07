@@ -907,6 +907,15 @@ def test_list_from_arrays(list_array_type, list_type_factory):
         result.validate(full=True)
 
 
+def test_map_labelled():
+    #  ARROW-13735
+    t = pa.map_(pa.field("name", "string", nullable=False), "int64")
+    arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=t)
+    assert arr.type.key_field == pa.field("name", pa.utf8(), nullable=False)
+    assert arr.type.item_field == pa.field("value", pa.int64())
+    assert len(arr) == 2
+
+
 def test_map_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')

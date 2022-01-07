@@ -203,11 +203,6 @@ func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *ListBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
-}
-
 func (b *ListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)

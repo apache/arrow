@@ -18,8 +18,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
@@ -38,6 +40,8 @@ class TestReplaceKernel : public ::testing::Test {
   using ReplaceFunction = std::function<Result<Datum>(const Datum&, const Datum&,
                                                       const Datum&, ExecContext*)>;
 
+  using FillNullFunction = std::function<Result<Datum>(const Datum&, ExecContext*)>;
+
   Datum mask_scalar(bool value) { return Datum(std::make_shared<BooleanScalar>(value)); }
 
   Datum null_mask_scalar() {
@@ -50,6 +54,10 @@ class TestReplaceKernel : public ::testing::Test {
 
   std::shared_ptr<Array> array(const std::string& value) {
     return ArrayFromJSON(type(), value);
+  }
+
+  std::shared_ptr<ChunkedArray> chunked_array(const std::vector<std::string>& value) {
+    return ChunkedArrayFromJSON(type(), value);
   }
 
   std::shared_ptr<Array> mask(const std::string& value) {
@@ -78,6 +86,56 @@ class TestReplaceKernel : public ::testing::Test {
     ASSERT_OK(actual.make_array()->ValidateFull());
 
     AssertArraysApproxEqual(*expected, *actual.make_array(), /*verbose=*/true);
+  }
+
+  void AssertFillNullArray(FillNullFunction func, const std::shared_ptr<Array>& array,
+                           const std::shared_ptr<Array>& expected) {
+    SCOPED_TRACE("Array: " + array->ToString());
+
+    ASSERT_OK_AND_ASSIGN(auto actual, func(array, nullptr));
+    SCOPED_TRACE("Actual: " + actual.make_array()->ToString());
+
+    ASSERT_TRUE(actual.is_array());
+    ASSERT_OK(actual.make_array()->ValidateFull());
+
+    AssertArraysApproxEqual(*expected, *actual.make_array(), /*verbose=*/true);
+  }
+
+  void AssertFillNullArraySlices(FillNullFunction func,
+                                 const std::shared_ptr<Array>& first_input_array,
+                                 const std::shared_ptr<Array>& array_expected_2,
+                                 const std::shared_ptr<Array>& array_expected_3,
+                                 const std::shared_ptr<Array>& array_expected_4) {
+    uint8_t slice_length = 2;
+    for (int64_t slice = 0; slice < first_input_array->length() / slice_length; slice++) {
+      auto sliced_array = first_input_array->Slice(slice * slice_length, slice_length);
+      auto sliced_array_expected =
+          array_expected_2->Slice(slice * slice_length, slice_length);
+      this->AssertFillNullArray(func, sliced_array, sliced_array_expected);
+    }
+
+    slice_length = 3;
+    for (int64_t slice = 0; slice < first_input_array->length() / slice_length; slice++) {
+      auto sliced_array = first_input_array->Slice(slice * slice_length, slice_length);
+      auto sliced_array_expected =
+          array_expected_3->Slice(slice * slice_length, slice_length);
+      this->AssertFillNullArray(func, sliced_array, sliced_array_expected);
+    }
+
+    slice_length = 4;
+    for (int64_t slice = 0; slice < first_input_array->length() / slice_length; slice++) {
+      auto sliced_array = first_input_array->Slice(slice * slice_length, slice_length);
+      auto sliced_array_expected =
+          array_expected_4->Slice(slice * slice_length, slice_length);
+      this->AssertFillNullArray(func, sliced_array, sliced_array_expected);
+    }
+  }
+
+  void AssertFillNullChunkedArray(FillNullFunction func,
+                                  const std::shared_ptr<ChunkedArray> array,
+                                  const std::shared_ptr<ChunkedArray>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, func(Datum(*array), nullptr));
+    AssertChunkedEquivalent(*expected, *actual.chunked_array());
   }
 
   std::shared_ptr<Array> NaiveImpl(
@@ -792,5 +850,685 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {
   }
 }
 
+template <typename T>
+class TestFillNullNumeric : public TestReplaceKernel<T> {
+ protected:
+  std::shared_ptr<DataType> type() override { return default_type_instance<T>(); }
+};
+template <typename T>
+class TestFillNullDecimal : public TestReplaceKernel<T> {
+ protected:
+  std::shared_ptr<DataType> type() override { return default_type_instance<T>(); }
+};
+template <typename T>
+class TestFillNullBinary : public TestReplaceKernel<T> {
+ protected:
+  std::shared_ptr<DataType> type() override { return default_type_instance<T>(); }
+};
+
+class TestFillNullType : public TestReplaceKernel<NullType> {
+  std::shared_ptr<DataType> type() override { return default_type_instance<NullType>(); }
+};
+
+TYPED_TEST_SUITE(TestFillNullNumeric, NumericBasedTypes);
+TYPED_TEST_SUITE(TestFillNullDecimal, DecimalArrowTypes);
+TYPED_TEST_SUITE(TestFillNullBinary, BaseBinaryArrowTypes);
+
+TYPED_TEST(TestFillNullNumeric, FillNullValuesForward) {
+  this->AssertFillNullArray(FillNullForward, this->array("[]"), this->array("[]"));
+
+  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, null]"),
+                            this->array("[null, null, null, null]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4]"),
+                            this->array("[null, null, null, 4]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[null, 4, null]"),
+                            this->array("[null, 4, 4]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4, null]"),
+                            this->array("[null, null, 4, 4]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4, null]"),
+                            this->array("[null, null, null, 4, 4]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4,null, 5, null]"),
+                            this->array("[null, null, 4, 4, 5, 5]"));
+
+  this->AssertFillNullArray(FillNullForward, this->array("[1,4,null]"),
+                            this->array("[1,4,4]"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array("[1, 4, null, null, null, null]"),
+                            this->array("[1, 4 ,4, 4, 4, 4]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, null]"),
+                            this->array("[1, 4 ,4, 5, 5, 5]"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array("[1, 4, null, 5, null, null, 6]"),
+                            this->array("[1, 4 ,4, 5, 5, 5, 6]"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array("[1, 4, null, 5, null, null, 5]"),
+                            this->array("[1, 4 ,4, 5, 5, 5, 5]"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array("[1, 4, null, 5, null, 6, null]"),
+                            this->array("[1, 4 ,4, 5, 5, 6, 6]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, 6, 7]"),
+                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+  this->AssertFillNullArray(FillNullForward, this->array("[1, 4 ,4, 5, 5, 6, 7]"),
+                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+}
+
+TYPED_TEST(TestFillNullDecimal, FillNullValuesForward) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([])"), this->array(R"([])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"([null, null, null, "30.00"])"),
+                            this->array(R"([null, null, null, "30.00"])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, "30.00", null])"),
+                            this->array(R"([null, "30.00", "30.00"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"([null, null, "30.00", null])"),
+                            this->array(R"([null, null, "30.00", "30.00"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"([null, null, null, "30.00", null])"),
+                            this->array(R"([null, null, null, "30.00", "30.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"([null, null, "30.00",null, "5.00", null])"),
+      this->array(R"([null, null, "30.00", "30.00", "5.00", "5.00"])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"(["10.00","30.00",null])"),
+                            this->array(R"(["10.00","30.00","30.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["10.00", "30.00", null, null, null, null])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "30.00", "30.00", "30.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["10.00", "30.00", null, "5.00", null, null])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "5.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["10.00", "30.00", null, "5.00", null, null, "6.00"])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "5.00", "6.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["10.00", "30.00", null, "5.00", null, null, "5.00"])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "5.00", "5.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["10.00", "30.00", null, "5.00", null, "6.00", null])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "6.00", "6.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["10.00", "30.00", null, "5.00", null, "6.00", "7.00"])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "6.00", "7.00"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "6.00", "7.00"])"),
+      this->array(R"(["10.00", "30.00" ,"30.00", "5.00", "5.00", "6.00", "7.00"])"));
+}
+
+TYPED_TEST(TestFillNullBinary, FillNullValuesForward) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([])"), this->array(R"([])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, null, "ccc"])"),
+                            this->array(R"([null, null, null, "ccc"])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, "ccc", null])"),
+                            this->array(R"([null, "ccc", "ccc"])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, "ccc", null])"),
+                            this->array(R"([null, null, "ccc", "ccc"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"([null, null, null, "ccc", null])"),
+                            this->array(R"([null, null, null, "ccc", "ccc"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"([null, null, "ccc",null, "xyz", null])"),
+                            this->array(R"([null, null, "ccc", "ccc", "xyz", "xyz"])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"(["aaa","ccc",null])"),
+                            this->array(R"(["aaa","ccc","ccc"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"(["aaa", "ccc", null, null, null, null])"),
+                            this->array(R"(["aaa", "ccc" ,"ccc", "ccc", "ccc", "ccc"])"));
+  this->AssertFillNullArray(FillNullForward,
+                            this->array(R"(["aaa", "ccc", null, "xyz", null, null])"),
+                            this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "xyz"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["aaa", "ccc", null, "xyz", null, null, "qwert"])"),
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "xyz", "qwert"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["aaa", "ccc", null, "xyz", null, null, "xyz"])"),
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "xyz", "xyz"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["aaa", "ccc", null, "xyz", null, "qwert", null])"),
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "qwert", "qwert"])"));
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"(["aaa", "ccc", null, "xyz", null, "qwert", "uy"])"),
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "qwert", "uy"])"));
+  this->AssertFillNullArray(
+      FillNullForward,
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "qwert", "uy"])"),
+      this->array(R"(["aaa", "ccc" ,"ccc", "xyz", "xyz", "qwert", "uy"])"));
+}
+
+TYPED_TEST(TestFillNullNumeric, FillNullValuesBackward) {
+  this->AssertFillNullArray(FillNullBackward, this->array("[]"), this->array("[]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, null]"),
+                            this->array("[null, null, null, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null, null, null]"),
+                            this->array("[4, 4,null, null, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4]"),
+                            this->array("[4, 4, 4, 4]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null]"),
+                            this->array("[4, 4, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, 4, null]"),
+                            this->array("[4, 4, 4, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4, null]"),
+                            this->array("[4, 4, 4, 4, null]"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array("[null, null, 4,null, 5, null]"),
+                            this->array("[4, 4, 4, 5, 5, null]"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null]"),
+                            this->array("[1, 4, null]"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array("[1, 4, null, null, null, null]"),
+                            this->array("[1, 4 ,null, null, null, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, null]"),
+                            this->array("[1, 4 , 5, 5, null, null]"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array("[1, 4, null, 5, null, null, 6]"),
+                            this->array("[1, 4 ,5, 5, 6, 6, 6]"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array("[1, 4, null, 5, null, null, 5]"),
+                            this->array("[1, 4 ,5 , 5, 5, 5, 5]"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array("[1, 4, null, 5, null, 6, null]"),
+                            this->array("[1, 4 ,5 , 5, 6, 6, null]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, 6, 7]"),
+                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4 ,5, 5, 6, 6, 7]"),
+                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+}
+
+TYPED_TEST(TestFillNullDecimal, FillNullValuesBackward) {
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([])"), this->array(R"([])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, "40.00", null, null, null])"),
+                            this->array(R"(["40.00", "40.00",null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, null, null, "40.00"])"),
+                            this->array(R"(["40.00", "40.00", "40.00", "40.00"])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, "40.00", null])"),
+                            this->array(R"(["40.00", "40.00", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, null, "40.00", null])"),
+                            this->array(R"(["40.00", "40.00", "40.00", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, null, null, "40.00", null])"),
+                            this->array(R"(["40.00", "40.00", "40.00", "40.00", null])"));
+  this->AssertFillNullArray(
+      FillNullBackward, this->array(R"([null, null, "40.00",null, "50.00", null])"),
+      this->array(R"(["40.00", "40.00", "40.00", "50.00", "50.00", null])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"(["10.00", "40.00", null])"),
+                            this->array(R"(["10.00", "40.00", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"(["10.00", "40.00", null, null, null, null])"),
+                            this->array(R"(["10.00", "40.00" ,null, null, null, null])"));
+  this->AssertFillNullArray(
+      FillNullBackward, this->array(R"(["10.00", "40.00", null, "50.00", null, null])"),
+      this->array(R"(["10.00", "40.00" , "50.00", "50.00", null, null])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["10.00", "40.00", null, "50.00", null, null, "6.00"])"),
+      this->array(R"(["10.00", "40.00" ,"50.00", "50.00", "6.00", "6.00", "6.00"])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["10.00", "40.00", null, "50.00", null, null, "50.00"])"),
+      this->array(R"(["10.00", "40.00" ,"50.00" , "50.00", "50.00", "50.00", "50.00"])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["10.00", "40.00", null, "50.00", null, "6.00", null])"),
+      this->array(R"(["10.00", "40.00" ,"50.00" , "50.00", "6.00", "6.00", null])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["10.00", "40.00", null, "50.00", null, "6.00", "7.00"])"),
+      this->array(R"(["10.00", "40.00" ,"50.00", "50.00", "6.00", "6.00", "7.00"])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["10.00", "40.00" ,"50.00", "50.00", "6.00", "6.00", "7.00"])"),
+      this->array(R"(["10.00", "40.00" ,"50.00", "50.00", "6.00", "6.00", "7.00"])"));
+}
+
+TYPED_TEST(TestFillNullBinary, FillNullValuesBackward) {
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([])"), this->array(R"([])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, "afd", null, null, null])"),
+                            this->array(R"(["afd", "afd",null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null, null, "afd"])"),
+                            this->array(R"(["afd", "afd", "afd", "afd"])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, "afd", null])"),
+                            this->array(R"(["afd", "afd", null])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null, "afd", null])"),
+                            this->array(R"(["afd", "afd", "afd", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, null, null, "afd", null])"),
+                            this->array(R"(["afd", "afd", "afd", "afd", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"([null, null, "afd",null, "qwe", null])"),
+                            this->array(R"(["afd", "afd", "afd", "qwe", "qwe", null])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"(["tyu", "afd", null])"),
+                            this->array(R"(["tyu", "afd", null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"(["tyu", "afd", null, null, null, null])"),
+                            this->array(R"(["tyu", "afd" ,null, null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward,
+                            this->array(R"(["tyu", "afd", null, "qwe", null, null])"),
+                            this->array(R"(["tyu", "afd" , "qwe", "qwe", null, null])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["tyu", "afd", null, "qwe", null, null, "oiutyu"])"),
+      this->array(R"(["tyu", "afd" ,"qwe", "qwe", "oiutyu", "oiutyu", "oiutyu"])"));
+  this->AssertFillNullArray(
+      FillNullBackward, this->array(R"(["tyu", "afd", null, "qwe", null, null, "qwe"])"),
+      this->array(R"(["tyu", "afd" ,"qwe" , "qwe", "qwe", "qwe", "qwe"])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["tyu", "afd", null, "qwe", null, "oiutyu", null])"),
+      this->array(R"(["tyu", "afd" ,"qwe" , "qwe", "oiutyu", "oiutyu", null])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["tyu", "afd", null, "qwe", null, "oiutyu", "aaaagggbbb"])"),
+      this->array(R"(["tyu", "afd" ,"qwe", "qwe", "oiutyu", "oiutyu", "aaaagggbbb"])"));
+  this->AssertFillNullArray(
+      FillNullBackward,
+      this->array(R"(["tyu", "afd" ,"qwe", "qwe", "oiutyu", "oiutyu", "aaaagggbbb"])"),
+      this->array(R"(["tyu", "afd" ,"qwe", "qwe", "oiutyu", "oiutyu", "aaaagggbbb"])"));
+}
+
+// For Test Blocks
+TYPED_TEST(TestFillNullNumeric, FillNullForwardLargeInput) {
+  using CType = typename TypeTraits<TypeParam>::CType;
+  random::RandomArrayGenerator rand(/*seed=*/1000);
+  int64_t len_null = 500;
+  int64_t len_random = 1000;
+  std::shared_ptr<Array> array_random =
+      rand.ArrayOf(this->type(), len_random, /*nulls=*/0);
+  auto x_ptr = array_random->data()->template GetValues<CType>(1);
+  ASSERT_OK_AND_ASSIGN(auto array_null, MakeArrayOfNull(array_random->type(), len_null));
+  auto array_null_filled =
+      ConstantArrayGenerator::Numeric<TypeParam>(len_null, x_ptr[len_random - 1]);
+  {
+    ASSERT_OK_AND_ASSIGN(auto value_array,
+                         Concatenate({array_random, array_null, array_random}));
+    ASSERT_OK_AND_ASSIGN(auto result_array,
+                         Concatenate({array_random, array_null_filled, array_random}));
+    this->AssertFillNullArray(FillNullForward, value_array, result_array);
+  }
+}
+
+TYPED_TEST(TestFillNullNumeric, FillNullBackwardLargeInput) {
+  using CType = typename TypeTraits<TypeParam>::CType;
+  random::RandomArrayGenerator rand(/*seed=*/1000);
+  int64_t len_null = 500;
+  int64_t len_random = 1000;
+  std::shared_ptr<Array> array_random =
+      rand.ArrayOf(this->type(), len_random, /*nulls=*/0);
+  auto x_ptr = array_random->data()->template GetValues<CType>(1);
+  ASSERT_OK_AND_ASSIGN(auto array_null, MakeArrayOfNull(array_random->type(), len_null));
+  auto array_null_filled = ConstantArrayGenerator::Numeric<TypeParam>(len_null, x_ptr[0]);
+  {
+    ASSERT_OK_AND_ASSIGN(auto value_array,
+                         Concatenate({array_random, array_null, array_random}));
+    ASSERT_OK_AND_ASSIGN(auto result_array,
+                         Concatenate({array_random, array_null_filled, array_random}));
+    this->AssertFillNullArray(FillNullBackward, value_array, result_array);
+  }
+}
+
+TYPED_TEST(TestFillNullNumeric, FillNullForwardSliced) {
+  auto first_input_array =
+      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+  auto expected_slice_length_2 =
+      this->array("[1, 4, null, null, 7, 7, null, 8, 9, 5, null]");
+  auto expected_slice_length_3 = this->array("[1, 4, 4, null, 7, 7, null, 8, 9, 5, 5]");
+  auto expected_slice_length_4 = this->array("[1, 4, 4, 4, 7, 7, 7, 8, 9, 5, 5]");
+  this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                  expected_slice_length_2, expected_slice_length_3,
+                                  expected_slice_length_4);
+}
+
+TYPED_TEST(TestFillNullBinary, FillNullForwardSliced) {
+  auto first_input_array = this->array(
+      R"(["avb", "iyy", null, null, "mnh", null, null, "ttr", "gfd", "lkj", null])");
+  auto expected_slice_length_2 = this->array(
+      R"(["avb", "iyy", null, null, "mnh", "mnh", null, "ttr", "gfd", "lkj", null])");
+  auto expected_slice_length_3 = this->array(
+      R"(["avb", "iyy", "iyy", null, "mnh", "mnh", null, "ttr", "gfd", "lkj", "lkj"])");
+  auto expected_slice_length_4 = this->array(
+      R"(["avb", "iyy", "iyy", "iyy", "mnh", "mnh", "mnh", "ttr", "gfd", "lkj", "lkj"])");
+
+  this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                  expected_slice_length_2, expected_slice_length_3,
+                                  expected_slice_length_4);
+}
+
+TYPED_TEST(TestFillNullNumeric, FillNullBackwardSliced) {
+  auto first_input_array =
+      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+  auto expected_slice_length_2 =
+      this->array("[1, 4, null, null, 7, null, 8, 8, 9, 5, null]");
+  auto expected_slice_length_3 =
+      this->array("[1, 4, null, 7, 7, null, 8, 8, 9, 5, null]");
+  auto expected_slice_length_4 =
+      this->array("[1, 4, null, null, 7, 8, 8, 8, 9, 5, null]");
+
+  this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                  expected_slice_length_2, expected_slice_length_3,
+                                  expected_slice_length_4);
+}
+
+TYPED_TEST(TestFillNullBinary, FillNullBackwardSliced) {
+  auto first_input_array = this->array(
+      R"(["tre", "kjh", null, null, "mnb", null, null, "yhn", "ode", "qwe", null])");
+  auto expected_slice_length_2 = this->array(
+      R"(["tre", "kjh", null, null, "mnb", null, "yhn", "yhn", "ode", "qwe", null])");
+  auto expected_slice_length_3 = this->array(
+      R"(["tre", "kjh", null, "mnb", "mnb", null, "yhn", "yhn", "ode", "qwe", null])");
+  auto expected_slice_length_4 = this->array(
+      R"(["tre", "kjh", null, null, "mnb", "yhn", "yhn", "yhn", "ode", "qwe", null])");
+
+  this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                  expected_slice_length_2, expected_slice_length_3,
+                                  expected_slice_length_4);
+}
+
+TYPED_TEST(TestFillNullNumeric, FillNullForwardChunkedArray) {
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[7, null, null]", "[null, null, null]", "[]", "[null, null]"}),
+      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[null, null, null]", "[8, 8, 8]", "[8]", "[8, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+      this->chunked_array({"[1, 2, 3, 3, 3, 4]", "[5, 5, 5]", "[5, 7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array(
+          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+      this->chunked_array({"[1, 2, 3, 3, 3, 3]", "[3, 3, 3]", "[3, 7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[1, 2, 2]", "[2, 2, 2]", "[2]", "[2, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[null, 2, 2]", "[2, 2, 3]", "[3]", "[3, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[null, 2, 2]", "[4, 4, 3]", "[3]", "[3, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+      this->chunked_array({"[null, null, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({"[2, 4, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+      this->chunked_array({"[2, 4, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+}
+
+TYPED_TEST(TestFillNullBinary, FillNullForwardChunkedArray) {
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}),
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"(["utrmnbv", null, null])", R"([null, null, null])",
+                           R"([null])", R"([null, null])"}),
+      this->chunked_array({R"(["utrmnbv", "utrmnbv", "utrmnbv"])",
+                           R"(["utrmnbv", "utrmnbv", "utrmnbv"])", R"(["utrmnbv"])",
+                           R"(["utrmnbv", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, "utrmnbv"])"}),
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, null, null])", R"(["mnb", null, null])", R"([null])",
+                           R"([null, "utrmnbv"])"}),
+      this->chunked_array({R"([null, null, null])", R"(["mnb", "mnb", "mnb"])",
+                           R"(["mnb"])", R"(["mnb", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"(["aty", "yhh", "puy", null, null, "rwq"])",
+                           R"(["utr", null, null])", R"([null, "utrmnbv", null])"}),
+      this->chunked_array({R"(["aty", "yhh", "puy", "puy", "puy", "rwq"])",
+                           R"(["utr", "utr", "utr"])",
+                           R"(["utr", "utrmnbv", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"(["aty", "yhh", "puy", null, null, null])",
+                           R"([null, null, null])", R"([null, "utrmnbv", null])"}),
+      this->chunked_array({R"(["aty", "yhh", "puy", "puy", "puy", "puy"])",
+                           R"(["puy", "puy", "puy"])",
+                           R"(["puy", "utrmnbv", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"(["aty", "yhh", null])", R"([null, null, null])",
+                           R"([null])", R"([null, "utrmnbv"])"}),
+      this->chunked_array({R"(["aty", "yhh", "yhh"])", R"(["yhh", "yhh", "yhh"])",
+                           R"(["yhh"])", R"(["yhh", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, "yhh", null])", R"([null, null, "puy"])",
+                           R"([null])", R"([null, "utrmnbv"])"}),
+      this->chunked_array({R"([null, "yhh", "yhh"])", R"(["yhh", "yhh", "puy"])",
+                           R"(["puy"])", R"(["puy", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, "yhh", null])", R"(["rwq", null, "puy"])",
+                           R"([null])", R"([null, "utrmnbv"])"}),
+      this->chunked_array({R"([null, "yhh", "yhh"])", R"(["rwq", "rwq", "puy"])",
+                           R"(["puy"])", R"(["puy", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"(["utr"])",
+                           R"(["utr", "utrmnbv"])"}),
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"(["utr"])",
+                           R"(["utr", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"([null, null, "aty"])", R"([null, null, null])",
+                           R"(["utr"])", R"(["utr", "utrmnbv"])"}),
+      this->chunked_array({R"([null, null, "aty"])", R"(["aty", "aty", "aty"])",
+                           R"(["utr"])", R"(["utr", "utrmnbv"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullForward,
+      this->chunked_array({R"(["rt", "tr", "aty"])", R"([null, null, null])",
+                           R"(["utr"])", R"(["utr", "utrmnbv"])"}),
+      this->chunked_array({R"(["rt", "tr", "aty"])", R"(["aty", "aty", "aty"])",
+                           R"(["utr"])", R"(["utr", "utrmnbv"])"}));
+}
+
+TYPED_TEST(TestFillNullNumeric, FillBackwardChunkedArray) {
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+      this->chunked_array(
+          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[8, 8, 8]", "[8, 7, 7]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+      this->chunked_array({"[1, 2, 3, 4, 4, 4]", "[5, 7, 7]", "[7, 7, null]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array(
+          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+      this->chunked_array({"[1, 2, 3, 7, 7, 7]", "[7, 7, 7]", "[7, 7, null]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[1, 2, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[2, 2, 3]", "[3, 3, 3]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+      this->chunked_array({"[2, 2, 4]", "[4, 3, 3]", "[7]", "[7, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+      this->chunked_array({"[5, 5, 5]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+      this->chunked_array({"[1, 1, 1]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[9, 0]", "[5, 7]"}),
+      this->chunked_array({"[1, 1, 1]", "[9, 9, 9]", "[9, 0]", "[5, 7]"}));
+}
+
+TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}),
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"(["mnz", null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}),
+      this->chunked_array({R"(["mnz", null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, null])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"([null])",
+                           R"([null, "mnz"])"}),
+      this->chunked_array({R"(["mnz", "mnz", "mnz"])", R"(["mnz", "mnz", "mnz"])",
+                           R"(["mnz"])", R"(["mnz", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, null, null])", R"(["qwer", null, null])",
+                           R"([null])", R"([null, "mnz"])"}),
+      this->chunked_array({R"(["qwer", "qwer", "qwer"])", R"(["qwer", "mnz", "mnz"])",
+                           R"(["mnz"])", R"(["mnz", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"(["tre", "vda", "bvf", null, null, "poi"])",
+                           R"(["qup", null, null])", R"([null, "mnz", null])"}),
+      this->chunked_array({R"(["tre", "vda", "bvf", "poi", "poi", "poi"])",
+                           R"(["qup", "mnz", "mnz"])", R"(["mnz", "mnz", null])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"(["tre", "vda", "bvf", null, null, null])",
+                           R"([null, null, null])", R"([null, "mnz", null])"}),
+      this->chunked_array({R"(["tre", "vda", "bvf", "mnz", "mnz", "mnz"])",
+                           R"(["mnz", "mnz", "mnz"])", R"(["mnz", "mnz", null])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"(["tre", "vda", null])", R"([null, null, null])",
+                           R"([null])", R"([null, "mnz"])"}),
+      this->chunked_array({R"(["tre", "vda", "mnz"])", R"(["mnz", "mnz", "mnz"])",
+                           R"(["mnz"])", R"(["mnz", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, "vda", null])", R"([null, null, "bvf"])",
+                           R"([null])", R"([null, "mnz"])"}),
+      this->chunked_array({R"(["vda", "vda", "bvf"])", R"(["bvf", "bvf", "bvf"])",
+                           R"(["mnz"])", R"(["mnz", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, "vda", null])", R"(["poi", null, "bvf"])",
+                           R"([null])", R"([null, "mnz"])"}),
+      this->chunked_array({R"(["vda", "vda", "poi"])", R"(["poi", "bvf", "bvf"])",
+                           R"(["mnz"])", R"(["mnz", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, null, null])", R"([null, null, null])", R"(["qup"])",
+                           R"(["qup", "mnz"])"}),
+      this->chunked_array({R"(["qup", "qup", "qup"])", R"(["qup", "qup", "qup"])",
+                           R"(["qup"])", R"(["qup", "mnz"])"}));
+  this->AssertFillNullChunkedArray(
+      FillNullBackward,
+      this->chunked_array({R"([null, null, "tre"])", R"([null, null, null])",
+                           R"(["qup"])", R"(["qup", "mnz"])"}),
+      this->chunked_array({R"(["tre", "tre", "tre"])", R"(["qup", "qup", "qup"])",
+                           R"(["qup"])", R"(["qup", "mnz"])"}));
+}
+
+TEST_F(TestFillNullType, TestFillOnNullType) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null])"),
+                            this->array(R"([null])"));
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null])"),
+                            this->array(R"([null, null])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null, null, null])"),
+                            this->array(R"([null, null, null, null])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null])"),
+                            this->array(R"([null])"));
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null])"),
+                            this->array(R"([null, null])"));
+}
 }  // namespace compute
 }  // namespace arrow

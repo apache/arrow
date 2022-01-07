@@ -98,4 +98,65 @@ class TestFunction < Test::Unit::TestCase
     assert_equal("or(x, y): Logical 'or' boolean values",
                  or_function.to_s)
   end
+
+  sub_test_case("#default_options") do
+    def test_nonexistent
+      or_function = Arrow::Function.find("or")
+      assert_nil(or_function.default_options)
+    end
+
+    def test_scalar_aggregate_options
+      sum_function = Arrow::Function.find("sum")
+      assert_equal(Arrow::ScalarAggregateOptions.new,
+                   sum_function.default_options)
+    end
+
+    def test_count_options
+      count_function = Arrow::Function.find("count")
+      assert_equal(Arrow::CountOptions.new,
+                   count_function.default_options)
+    end
+
+    def test_filter_options
+      filter_function = Arrow::Function.find("filter")
+      assert_equal(Arrow::FilterOptions.new,
+                   filter_function.default_options)
+    end
+
+    def test_take_options
+      take_function = Arrow::Function.find("take")
+      assert_equal(Arrow::TakeOptions.new,
+                   take_function.default_options)
+    end
+
+    def test_array_sort_options
+      array_sort_indices_function = Arrow::Function.find("array_sort_indices")
+      assert_equal(Arrow::ArraySortOptions.new(:ascending),
+                   array_sort_indices_function.default_options)
+    end
+
+    def test_sort_options
+      sort_indices_function = Arrow::Function.find("sort_indices")
+      assert_equal(Arrow::SortOptions.new,
+                   sort_indices_function.default_options)
+    end
+
+    def test_variance_options
+      stddev_function = Arrow::Function.find("stddev")
+      assert_equal(Arrow::VarianceOptions.new,
+                   stddev_function.default_options)
+    end
+
+    def test_round_options
+      round_function = Arrow::Function.find("round")
+      assert_equal(Arrow::RoundOptions.new,
+                   round_function.default_options)
+    end
+
+    def test_round_to_multiple_options
+      round_to_multiple_function = Arrow::Function.find("round_to_multiple")
+      assert_equal(Arrow::RoundToMultipleOptions.new,
+                   round_to_multiple_function.default_options)
+    end
+  end
 end

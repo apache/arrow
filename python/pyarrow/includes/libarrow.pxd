@@ -1892,6 +1892,37 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t ndigits
         CRoundMode round_mode
 
+    ctypedef enum CCalendarUnit \
+            "arrow::compute::CalendarUnit":
+        CCalendarUnit_NANOSECOND \
+            "arrow::compute::CalendarUnit::NANOSECOND"
+        CCalendarUnit_MICROSECOND \
+            "arrow::compute::CalendarUnit::MICROSECOND"
+        CCalendarUnit_MILLISECOND \
+            "arrow::compute::CalendarUnit::MILLISECOND"
+        CCalendarUnit_SECOND \
+            "arrow::compute::CalendarUnit::SECOND"
+        CCalendarUnit_MINUTE \
+            "arrow::compute::CalendarUnit::MINUTE"
+        CCalendarUnit_HOUR \
+            "arrow::compute::CalendarUnit::HOUR"
+        CCalendarUnit_DAY \
+            "arrow::compute::CalendarUnit::DAY"
+        CCalendarUnit_WEEK \
+            "arrow::compute::CalendarUnit::WEEK"
+        CCalendarUnit_MONTH \
+            "arrow::compute::CalendarUnit::MONTH"
+        CCalendarUnit_QUARTER \
+            "arrow::compute::CalendarUnit::QUARTER"
+        CCalendarUnit_YEAR \
+            "arrow::compute::CalendarUnit::YEAR"
+
+    cdef cppclass CRoundTemporalOptions \
+            "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
+        CRoundTemporalOptions(int multiple, CCalendarUnit unit)
+        int multiple
+        CCalendarUnit unit
+
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
         CRoundToMultipleOptions(double multiple, CRoundMode round_mode)

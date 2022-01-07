@@ -716,6 +716,30 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_ARRAYS_EQUAL(*actual, expected);
 }
 
+TEST_F(TestMapArray, BuildingWithFieldNames) {
+  // Builder should preserve field names in output Array
+  ASSERT_OK_AND_ASSIGN(auto map_type,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", int16(), false),
+                                                    field("some_value", int16())}),
+                                           false)));
+
+  auto key_builder = std::make_shared<Int16Builder>();
+  auto item_builder = std::make_shared<Int16Builder>();
+  MapBuilder map_builder(default_memory_pool(), key_builder, item_builder, map_type);
+
+  std::shared_ptr<Array> actual;
+  ASSERT_OK(map_builder.Append());
+  ASSERT_OK(key_builder->AppendValues({0, 1, 2, 3, 4, 5}));
+  ASSERT_OK(item_builder->AppendValues({1, 1, 2, 3, 5, 8}));
+  ASSERT_OK(map_builder.AppendNull());
+  ASSERT_OK(map_builder.Finish(&actual));
+  ASSERT_OK(actual->ValidateFull());
+
+  ASSERT_EQ(actual->type()->ToString(), map_type->ToString());
+  ASSERT_EQ(map_builder.type()->ToString(), map_type->ToString());
+}
+
 TEST_F(TestMapArray, ValidateErrorNullStruct) {
   ASSERT_OK_AND_ASSIGN(
       auto values,
