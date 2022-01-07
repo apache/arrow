@@ -213,16 +213,21 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
         io::default_io_context().executor()->Submit(WriteTask{this, std::move(next)}));
   }
 
-  Status DoFinish() {
+  Future<> DoFinish() {
     {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
     }
-    RETURN_NOT_OK(writer_->Finish());
-    {
-      std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
-      return options_.writer_post_finish(writer_.get());
-    }
+    // Finish() calls Close() on the file and some implementations
+    // (e.g. S3FS) use the IO thread pool in Close(), blocking until
+    // background work completes, so avoid blocking again here.
+    auto writer = writer_;
+    return DeferNotOk(io::default_io_context().executor()->Submit(
+                          [writer]() { return writer->Finish(); }))
+        .Then([this]() {
+          std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
+          return options_.writer_post_finish(writer_.get());
+        });
   }
 
   const FileSystemDatasetWriteOptions& options_;
@@ -328,15 +333,14 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    init_future_ = DeferNotOk(
-        write_options_.filesystem->io_context().executor()->Submit([this]() -> Future<> {
-          RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
-          if (write_options_.existing_data_behavior ==
-              ExistingDataBehavior::kDeleteMatchingPartitions) {
-            return write_options_.filesystem->DeleteDirContentsAsync(directory_);
-          }
-          return Status::OK();
-        }));
+    init_future_ = DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+        [this]() { return write_options_.filesystem->CreateDir(directory_); }));
+    if (write_options_.existing_data_behavior ==
+        ExistingDataBehavior::kDeleteMatchingPartitions) {
+      init_future_ = init_future_.Then([this]() {
+        return write_options_.filesystem->DeleteDirContentsAsync(directory_);
+      });
+    }
   }
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue,
