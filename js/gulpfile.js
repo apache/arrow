@@ -91,7 +91,7 @@ gulp.task(`default`, gulp.series(`clean`, `build`, `test`));
 gulp.task(`bundle:esbuild`, esbuildTask());
 gulp.task(`bundle:rollup`, rollupTask());
 gulp.task(`bundle:webpack`, webpackTask());
-gulp.task(`bundle:webpack:analyze`, webpackTask(true));
+gulp.task(`bundle:webpack:analyze`, webpackTask({ analyze: true }));
 gulp.task(`bundle:clean`, () => del(`test/bundle/**/*-bundle.js`));
 
 gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`));

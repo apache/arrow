@@ -47,25 +47,20 @@ const fileNames = readdirSync(bundleDir)
     .filter(fileName => fileName.endsWith('.js'))
     .map(fileName => fileName.replace(/\.js$/, ''));
 
-
-function bundleWithEsbuild() {
-    return gulpEsbuild({
+const bundlesGlob = join(bundleDir, '**.js');
+const esbuildDir = join(bundleDir, 'esbuild');
+const esbuildTask = (minify = true) => () => observableFromStreams(
+    gulp.src(bundlesGlob),
+    gulpEsbuild({
         bundle: true,
-        minify: true,
+        minify,
         treeShaking: true,
         plugins: [
             esbuildAlias({
                 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/Arrow.dom.mjs'),
             }),
         ],
-    })
-}
-
-const bundlesGlob = join(bundleDir, '**.js');
-const esbuildDir = join(bundleDir, 'esbuild');
-const esbuildTask = () => () => observableFromStreams(
-    gulp.src(bundlesGlob),
-    bundleWithEsbuild(),
+    }),
     gulpRename((p) => { p.basename += '-bundle'; }),
     gulp.dest(esbuildDir),
     size({ gzip: true })
@@ -97,11 +92,11 @@ const rollupTask = (minify = true) => () => ObservableForkJoin(
 )
 
 const webpackDir = join(bundleDir, 'webpack');
-const webpackTask = (analyze = false) => () => observableFromStreams(
+const webpackTask = (opts = { minify: true, analyze: false }) => () => observableFromStreams(
     gulp.src(bundlesGlob),
     named(),
     webpack({
-        mode: 'production',
+        mode: opts?.minify == false ? 'development' : 'production',
         optimization: {
             usedExports: true
         },
@@ -121,7 +116,7 @@ const webpackTask = (analyze = false) => () => observableFromStreams(
             alias: { 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/') }
         },
         stats: 'errors-only',
-        plugins: analyze ? [new BundleAnalyzerPlugin()] : []
+        plugins: opts?.analyze ? [new BundleAnalyzerPlugin()] : []
     }),
     gulp.dest(webpackDir),
     size({ gzip: true })
