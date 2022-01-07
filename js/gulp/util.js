@@ -54,8 +54,8 @@ const packageJSONFields = [
 ];
 
 const metadataFiles = [`LICENSE.txt`, `NOTICE.txt`, `README.md`].map((filename) => {
-    let prefixes = [`./`, `../`];
-    let p = prefixes.find((prefix) => {
+    const prefixes = [`./`, `../`];
+    const p = prefixes.find((prefix) => {
         try {
             fs.statSync(path.resolve(path.join(prefix, filename)));
         } catch (e) { return false; }
