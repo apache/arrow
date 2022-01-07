@@ -153,9 +153,9 @@ struct ARROW_DS_EXPORT ProjectionDescr {
       const compute::Expression& expression, const Schema& dataset_schema);
 
   /// \brief Create a ProjectionDescr from expressions/names for each field
-  static Result<ProjectionDescr> FromExpressions(
-      const std::vector<compute::Expression>& exprs, std::vector<std::string> names,
-      const Schema& dataset_schema);
+  static Result<ProjectionDescr> FromExpressions(std::vector<compute::Expression> exprs,
+                                                 std::vector<std::string> names,
+                                                 const Schema& dataset_schema);
 
   /// \brief Create a default projection referencing fields in the dataset schema
   static Result<ProjectionDescr> FromNames(std::vector<std::string> names,

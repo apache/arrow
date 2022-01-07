@@ -2266,7 +2266,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, bint use_async=True,
+                     bint use_threads=True, object use_async=None,
                      MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2288,7 +2288,7 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default True
+        use_async : bool, default N/A
             This flag is deprecated and is being kept for this release for
             backwards compatibility.  It will be removed in the next
             release.
@@ -2303,7 +2303,7 @@ cdef class Scanner(_Weakrefable):
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
-        if not use_async:
+        if use_async is not None:
             warnings.warn('The use_async flag is deprecated and has no '
                           'effect.  It will be removed in the next release.',
                           FutureWarning)
@@ -2319,7 +2319,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, bint use_async=True,
+                      bint use_threads=True, object use_async=None,
                       MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2343,7 +2343,7 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default True
+        use_async : bool, default N/A
             This flag is deprecated and is being kept for this release for
             backwards compatibility.  It will be removed in the next
             release.
@@ -2360,7 +2360,7 @@ cdef class Scanner(_Weakrefable):
 
         schema = schema or fragment.physical_schema
 
-        if not use_async:
+        if use_async is not None:
             warnings.warn('The use_async flag is deprecated and has no '
                           'effect.  It will be removed in the next release.',
                           FutureWarning)
@@ -2377,7 +2377,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_batches(source, Schema schema=None, bint use_threads=True,
-                     bint use_async=True, MemoryPool memory_pool=None,
+                     object use_async=None, MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
@@ -2435,7 +2435,7 @@ cdef class Scanner(_Weakrefable):
                             type(source).__name__)
         builder = CScannerBuilder.FromRecordBatchReader(reader.reader)
 
-        if not use_async:
+        if use_async is not None:
             warnings.warn('The use_async flag is deprecated and has no '
                           'effect.  It will be removed in the next release.',
                           FutureWarning)

@@ -617,7 +617,7 @@ Result<ProjectionDescr> ProjectionDescr::FromStructExpression(
 }
 
 Result<ProjectionDescr> ProjectionDescr::FromExpressions(
-    const std::vector<compute::Expression>& exprs, std::vector<std::string> names,
+    std::vector<compute::Expression> exprs, std::vector<std::string> names,
     const Schema& dataset_schema) {
   compute::MakeStructOptions project_options{std::move(names)};
 
