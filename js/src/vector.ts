@@ -381,7 +381,7 @@ function inferType(value: readonly unknown[]): DataType {
                 }
                 continue;
         }
-        throw new TypeError('Unable to infer Series type from input values, explicit type declaration expected');
+        throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
     }
 
     if (numbersCount + nullsCount === value.length) {
@@ -397,7 +397,7 @@ function inferType(value: readonly unknown[]): DataType {
     }
     // TODO: add more types to infererence
 
-    throw new TypeError('Unable to infer Series type from input values, explicit type declaration expected');
+    throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
 }
 
 /**

@@ -217,163 +217,145 @@ import { Visitor } from './visitor.js';
 import { toArrayBufferView, toInt32Array, toUint8Array } from './util/buffer.js';
 
 class MakeDataVisitor extends Visitor {
-    visit<T extends DataType>(props: any): Data<T> {
+    public visit<T extends DataType>(props: any): Data<T> {
         return this.getVisitFn(props['type']).call(this, props);
     }
-}
-
-MakeDataVisitor.prototype.visitNull = function visitNull<T extends Null>(props: NullDataProps<T>) {
-    const {
-        ['type']: type,
-        ['offset']: offset = 0,
-        ['length']: length = 0,
-    } = props;
-    return new Data(type, offset, length, 0);
-};
-
-MakeDataVisitor.prototype.visitBool = function visitBool<T extends Bool>(props: BoolDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length >> 3, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitInt = function visitInt<T extends Int>(props: IntDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitFloat = function visitFloat<T extends Float>(props: FloatDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitUtf8 = function visitUtf8<T extends Utf8>(props: Utf8DataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const data = toUint8Array(props['data']);
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const valueOffsets = toInt32Array(props['valueOffsets']);
-    const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
-    return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitBinary = function visitBinary<T extends Binary>(props: BinaryDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const data = toUint8Array(props['data']);
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const valueOffsets = toInt32Array(props['valueOffsets']);
-    const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
-    return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitFixedSizeBinary = function visitFixedSizeBinary<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitDate = function visitDate<T extends Date_>(props: Date_DataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitTimestamp = function visitTimestamp<T extends Timestamp>(props: TimestampDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitTime = function visitTime<T extends Time>(props: TimeDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitDecimal = function visitDecimal<T extends Decimal>(props: DecimalDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitList = function visitList<T extends List>(props: ListDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['child']: child } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const valueOffsets = toInt32Array(props['valueOffsets']);
-    const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
-    return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
-};
-
-MakeDataVisitor.prototype.visitStruct = function visitStruct<T extends Struct>(props: StructDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const {
-        length = children.reduce((len, { length }) => Math.max(len, length), 0),
-        nullCount = props['nullBitmap'] ? -1 : 0
-    } = props;
-    return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], children);
-};
-
-MakeDataVisitor.prototype.visitUnion = function visitUnion<T extends Union>(props: UnionDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const typeIds = toArrayBufferView(type.ArrayType, props['typeIds']);
-    const { ['length']: length = typeIds.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    if (DataType.isSparseUnion(type)) {
-        return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap, typeIds], children);
+    public visitNull<T extends Null>(props: NullDataProps<T>) {
+        const {
+            ['type']: type,
+            ['offset']: offset = 0,
+            ['length']: length = 0,
+        } = props;
+        return new Data(type, offset, length, 0);
     }
-    const valueOffsets = toInt32Array(props['valueOffsets']);
-    return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap, typeIds], children);
-};
-
-MakeDataVisitor.prototype.visitDictionary = function visitDictionary<T extends Dictionary>(props: DictionaryDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.indices.ArrayType, props['data']);
-    const { ['dictionary']: dictionary = new Vector(makeData({ type: type.dictionary })) } = props;
-    const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap], [], dictionary);
-};
-
-MakeDataVisitor.prototype.visitInterval = function visitInterval<T extends Interval>(props: IntervalDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0 } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const data = toArrayBufferView(type.ArrayType, props['data']);
-    const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
-};
-
-MakeDataVisitor.prototype.visitFixedSizeList = function visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['child']: child = makeData({ type: type.valueType }) } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const { ['length']: length = child.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
-    return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], [child]);
-};
-
-MakeDataVisitor.prototype.visitMap = function visitMap<T extends Map_>(props: Map_DataProps<T>) {
-    const { ['type']: type, ['offset']: offset = 0, ['child']: child = makeData({ type: type.childType }) } = props;
-    const nullBitmap = toUint8Array(props['nullBitmap']);
-    const valueOffsets = toInt32Array(props['valueOffsets']);
-    const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
-    return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
-};
+    public visitBool<T extends Bool>(props: BoolDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length >> 3, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitInt<T extends Int>(props: IntDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitFloat<T extends Float>(props: FloatDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitUtf8<T extends Utf8>(props: Utf8DataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
+    public visitBinary<T extends Binary>(props: BinaryDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const data = toUint8Array(props['data']);
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, data, nullBitmap]);
+    }
+    public visitFixedSizeBinary<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitDate<T extends Date_>(props: Date_DataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitTimestamp<T extends Timestamp>(props: TimestampDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitTime<T extends Time>(props: TimeDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitDecimal<T extends Decimal>(props: DecimalDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitList<T extends List>(props: ListDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0, ['child']: child } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
+    }
+    public visitStruct<T extends Struct>(props: StructDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const {
+            length = children.reduce((len, { length }) => Math.max(len, length), 0),
+            nullCount = props['nullBitmap'] ? -1 : 0
+        } = props;
+        return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], children);
+    }
+    public visitUnion<T extends Union>(props: UnionDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0, ['children']: children = [] } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const typeIds = toArrayBufferView(type.ArrayType, props['typeIds']);
+        const { ['length']: length = typeIds.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        if (DataType.isSparseUnion(type)) {
+            return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap, typeIds], children);
+        }
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap, typeIds], children);
+    }
+    public visitDictionary<T extends Dictionary>(props: DictionaryDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.indices.ArrayType, props['data']);
+        const { ['dictionary']: dictionary = new Vector(new MakeDataVisitor().visit({ type: type.dictionary })) } = props;
+        const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap], [], dictionary);
+    }
+    public visitInterval<T extends Interval>(props: IntervalDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
+    public visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0, ['child']: child = new MakeDataVisitor().visit({ type: type.valueType }) } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const { ['length']: length = child.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
+        return new Data(type, offset, length, nullCount, [undefined, undefined, nullBitmap], [child]);
+    }
+    public visitMap<T extends Map_>(props: Map_DataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0, ['child']: child = new MakeDataVisitor().visit({ type: type.childType }) } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const valueOffsets = toInt32Array(props['valueOffsets']);
+        const { ['length']: length = valueOffsets.length - 1, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [valueOffsets, undefined, nullBitmap], [child]);
+    }
+}
 
 /** @ignore */
 interface DataProps_<T extends DataType> {
@@ -429,30 +411,27 @@ export type DataProps<T extends DataType> = (
  /*                                */ DataProps_<T>
 );
 
-export const makeData = ((makeDataVisitor) => {
-    function makeData<T extends Null>(props: NullDataProps<T>): Data<T>;
-    function makeData<T extends Int>(props: IntDataProps<T>): Data<T>;
-    function makeData<T extends Dictionary>(props: DictionaryDataProps<T>): Data<T>;
-    function makeData<T extends Float>(props: FloatDataProps<T>): Data<T>;
-    function makeData<T extends Bool>(props: BoolDataProps<T>): Data<T>;
-    function makeData<T extends Decimal>(props: DecimalDataProps<T>): Data<T>;
-    function makeData<T extends Date_>(props: Date_DataProps<T>): Data<T>;
-    function makeData<T extends Time>(props: TimeDataProps<T>): Data<T>;
-    function makeData<T extends Timestamp>(props: TimestampDataProps<T>): Data<T>;
-    function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<T>;
-    function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
-    function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
-    function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
-    function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
-    function makeData<T extends FixedSizeList>(props: FixedSizeListDataProps<T>): Data<T>;
-    function makeData<T extends Struct>(props: StructDataProps<T>): Data<T>;
-    function makeData<T extends Map_>(props: Map_DataProps<T>): Data<T>;
-    function makeData<T extends SparseUnion>(props: SparseUnionDataProps<T>): Data<T>;
-    function makeData<T extends DenseUnion>(props: DenseUnionDataProps<T>): Data<T>;
-    function makeData<T extends Union>(props: UnionDataProps<T>): Data<T>;
-    function makeData<T extends DataType>(props: DataProps_<T>): Data<T>;
-    function makeData(props: any) {
-        return makeDataVisitor.visit(props);
-    }
-    return makeData;
-})(new MakeDataVisitor());
+export function makeData<T extends Null>(props: NullDataProps<T>): Data<T>;
+export function makeData<T extends Int>(props: IntDataProps<T>): Data<T>;
+export function makeData<T extends Dictionary>(props: DictionaryDataProps<T>): Data<T>;
+export function makeData<T extends Float>(props: FloatDataProps<T>): Data<T>;
+export function makeData<T extends Bool>(props: BoolDataProps<T>): Data<T>;
+export function makeData<T extends Decimal>(props: DecimalDataProps<T>): Data<T>;
+export function makeData<T extends Date_>(props: Date_DataProps<T>): Data<T>;
+export function makeData<T extends Time>(props: TimeDataProps<T>): Data<T>;
+export function makeData<T extends Timestamp>(props: TimestampDataProps<T>): Data<T>;
+export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<T>;
+export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
+export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
+export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;
+export function makeData<T extends List>(props: ListDataProps<T>): Data<T>;
+export function makeData<T extends FixedSizeList>(props: FixedSizeListDataProps<T>): Data<T>;
+export function makeData<T extends Struct>(props: StructDataProps<T>): Data<T>;
+export function makeData<T extends Map_>(props: Map_DataProps<T>): Data<T>;
+export function makeData<T extends SparseUnion>(props: SparseUnionDataProps<T>): Data<T>;
+export function makeData<T extends DenseUnion>(props: DenseUnionDataProps<T>): Data<T>;
+export function makeData<T extends Union>(props: UnionDataProps<T>): Data<T>;
+export function makeData<T extends DataType>(props: DataProps_<T>): Data<T>;
+export function makeData(props: any) {
+    return new MakeDataVisitor().visit(props);
+}

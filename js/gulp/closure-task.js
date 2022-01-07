@@ -160,6 +160,16 @@ Symbol.iterator;
 Symbol.toPrimitive;
 /** @type {symbol} */
 Symbol.asyncIterator;
+
+var Encoding = function() {};
+/** @type {?} */
+Encoding[1] = function() {};
+/** @type {?} */
+Encoding[2] = function() {};
+/** @type {?} */
+Encoding.UTF8_BYTES = function() {};
+/** @type {?} */
+Encoding.UTF16_STRING = function() {};
 `);
 }
 

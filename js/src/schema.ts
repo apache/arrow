@@ -91,18 +91,13 @@ export class Schema<T extends TypeMap = any> {
             new Map([...this.dictionaries, ...newDictionaries])
         );
     }
-
-    // Initialize this static property via an IIFE so bundlers don't tree-shake
-    // out this logic, but also so we're still compliant with `"sideEffects": false`
-    protected static [Symbol.toStringTag] = ((proto: Schema) => {
-        // Add these here so they're picked up by the externs creator
-        // in the build, and closure-compiler doesn't minify them away
-        (proto as any).fields = null;
-        (proto as any).metadata = null;
-        (proto as any).dictionaries = null;
-        return 'Schema';
-    })(Schema.prototype);
 }
+
+// Add these here so they're picked up by the externs creator
+// in the build, and closure-compiler doesn't minify them away
+(Schema.prototype as any).fields = <any>null;
+(Schema.prototype as any).metadata = <any>null;
+(Schema.prototype as any).dictionaries = <any>null;
 
 export class Field<T extends DataType = any> {
 
@@ -144,19 +139,14 @@ export class Field<T extends DataType = any> {
             : ({ name = this.name, type = this.type, nullable = this.nullable, metadata = this.metadata } = args[0]);
         return Field.new<R>(name, type, nullable, metadata);
     }
-
-    // Initialize this static property via an IIFE so bundlers don't tree-shake
-    // out this logic, but also so we're still compliant with `"sideEffects": false`
-    protected static [Symbol.toStringTag] = ((proto: Field) => {
-        // Add these here so they're picked up by the externs creator
-        // in the build, and closure-compiler doesn't minify them away
-        (proto as any).type = null;
-        (proto as any).name = null;
-        (proto as any).nullable = null;
-        (proto as any).metadata = null;
-        return 'Field';
-    })(Field.prototype);
 }
+
+// Add these here so they're picked up by the externs creator
+// in the build, and closure-compiler doesn't minify them away
+(Field.prototype as any).type = null;
+(Field.prototype as any).name = null;
+(Field.prototype as any).nullable = null;
+(Field.prototype as any).metadata = null;
 
 /** @ignore */
 function mergeMaps<TKey, TVal>(m1?: Map<TKey, TVal> | null, m2?: Map<TKey, TVal> | null): Map<TKey, TVal> {

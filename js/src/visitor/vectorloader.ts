@@ -88,7 +88,7 @@ export class VectorLoader extends Visitor {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
     }
     public visitList<T extends type.List>(type: T, { length, nullCount } = this.nextFieldNode()) {
-        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), child: this.visit(type.children[0]) });
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), 'child': this.visit(type.children[0]) });
     }
     public visitStruct<T extends type.Struct>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), children: this.visitMany(type.children) });
@@ -109,10 +109,10 @@ export class VectorLoader extends Visitor {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
     }
     public visitFixedSizeList<T extends type.FixedSizeList>(type: T, { length, nullCount } = this.nextFieldNode()) {
-        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), child: this.visit(type.children[0]) });
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), 'child': this.visit(type.children[0]) });
     }
     public visitMap<T extends type.Map_>(type: T, { length, nullCount } = this.nextFieldNode()) {
-        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), child: this.visit(type.children[0]) });
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), 'child': this.visit(type.children[0]) });
     }
 
     protected nextFieldNode() { return this.nodes[++this.nodesIndex]; }

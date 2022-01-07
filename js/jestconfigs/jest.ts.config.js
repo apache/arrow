@@ -16,18 +16,18 @@
 // under the License.
 
 module.exports = {
-  ...require("../jest.config"),
-  rootDir: "../",
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
-      useESM: true,
+    ...require("../jest.config"),
+    rootDir: "../",
+    globals: {
+        "ts-jest": {
+            diagnostics: false,
+            tsconfig: "<rootDir>/test/tsconfig/tsconfig.ts.json",
+            useESM: true,
+        },
     },
-  },
-  moduleNameMapper: {
-    "^apache-arrow$": "<rootDir>/targets/ts/Arrow.node",
-    "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
-    "^(\\.{1,2}/.*)\\.js$": "$1",
-  },
+    moduleNameMapper: {
+        "^apache-arrow$": "<rootDir>/targets/ts/Arrow.node",
+        "^apache-arrow(.*)": "<rootDir>/targets/ts$1",
+        "^(\\.{1,2}/.*)\\.js$": "$1",
+    },
 };

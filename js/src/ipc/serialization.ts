@@ -17,25 +17,25 @@
 
 import { Table } from '../table.js';
 import { TypeMap } from '../type.js';
-import { RecordBatchStreamReader } from './reader.js';
-import { RecordBatchStreamWriter } from './writer.js';
+import { RecordBatchReader } from './reader.js';
+import { RecordBatchStreamWriter, RecordBatchFileWriter } from './writer.js';
 
 /**
  * Deserialize the IPC byte formast into a {@link Table}.
- * This function is a convenience wrapper for {@link RecordBatchStreamReader}.
+ * This function is a convenience wrapper for {@link RecordBatchReader}.
  */
 export function deserialize<T extends TypeMap = any>(bytes: Uint8Array): Table<T> {
     return new Table([
-        ...RecordBatchStreamReader.from<T>(bytes)
+        ...RecordBatchReader.from<T>(bytes)
     ]);
 }
 
 /**
  * Serialize a {@link Table} to the IPC format.
- * This function is a convenience wrapper for {@link RecordBatchStreamWriter}.
+ * This function is a convenience wrapper for {@link RecordBatchStreamWriter} or {@link RecordBatchFileWriter}.
  */
-export function serialize<T extends TypeMap = any>(table: Table): Uint8Array {
-    return RecordBatchStreamWriter
+export function serialize<T extends TypeMap = any>(table: Table, type: 'file' | 'stream' = 'stream'): Uint8Array {
+    return (type === 'stream' ? RecordBatchStreamWriter : RecordBatchFileWriter)
         .writeAll<T>(table)
         .toUint8Array(true);
 }

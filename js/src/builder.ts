@@ -386,7 +386,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
         return makeData(<any>{
             type, length, nullCount,
-            children, child: children[0],
+            children, 'child': children[0],
             data, typeIds, nullBitmap, valueOffsets,
         }) as Data<T>;
     }

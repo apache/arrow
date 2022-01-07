@@ -17,9 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from '../data.js';
+import { Data } from '../data.js';
 import { Visitor } from '../visitor.js';
-import { Schema, Field } from '../schema.js';
 import { TypeToDataType } from '../interfaces.js';
 import { Type, TimeUnit, UnionMode } from '../enum.js';
 import {
@@ -60,8 +59,6 @@ export class GetByteLengthVisitor extends Visitor {
     public visitFixedSizeBinary(data: Data<FixedSizeBinary>, _: number) { return data.type.byteWidth; }
     public visitMap(data: Data<Map_>, _: number) { return this.visitMany(data.children, data.children.map(() => _)).reduce(sum, 0); }
     public visitDictionary(data: Data<Dictionary>, _: number) { return (data.type.indices.bitWidth / 8) + (data.dictionary?.getByteLength(data.values[_]) || 0); }
-    public visitSchema(schema: Schema) { return this.visitFields(schema.fields).reduce(sum, 0); }
-    public visitFields(fields: Field[]) { return (fields || []).map((field) => this.visit(makeData({ type: field.type }), 0)); }
 }
 
 /** @ignore */

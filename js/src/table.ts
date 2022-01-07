@@ -119,7 +119,7 @@ export class Table<T extends TypeMap = any> {
 
         const batches = args.flatMap(unwrap);
 
-        schema ??= batches[0]?.schema ?? new Schema([]);
+        schema = schema ?? batches[0]?.schema ?? new Schema([]);
 
         if (!(schema instanceof Schema)) {
             throw new TypeError('Table constructor expects a [Schema, RecordBatch[]] pair.');
