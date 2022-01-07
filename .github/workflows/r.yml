@@ -324,6 +324,10 @@ jobs:
           cd r/tests
           sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
           rm -f testthat.R.bak
+      - name: Build cpp11 (on R 3.6)
+        if: ${{ matrix.rtools == 35 }}
+        shell: Rscript {0}
+        run: install.packages("cpp11", type = "source")
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
