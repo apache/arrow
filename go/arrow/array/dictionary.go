@@ -119,19 +119,16 @@ func (d *Dictionary) setData(data *Data) {
 }
 
 // Dictionary returns the values array that makes up the dictionary for this
-// array. The returned array needs to be explicitly released by calling Release.
+// array.
 func (d *Dictionary) Dictionary() Interface {
 	if d.dict == nil {
 		d.dict = MakeFromData(d.data.dictionary)
 	}
-	d.dict.Retain()
 	return d.dict
 }
 
-// Indices returns a reference to the underlying Array of indices as its own array which needs to be
-// manually released accordingly by calling Release on it.
+// Indices returns the underlying array of indices as it's own array
 func (d *Dictionary) Indices() Interface {
-	d.indices.Retain()
 	return d.indices
 }
 
@@ -170,19 +167,11 @@ func (d *Dictionary) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualDict(l, r *Dictionary) bool {
-	ldict, rdict := l.Dictionary(), r.Dictionary()
-	defer ldict.Release()
-	defer rdict.Release()
-
-	return ArrayEqual(ldict, rdict) && ArrayEqual(l.indices, r.indices)
+	return ArrayEqual(l.Dictionary(), r.Dictionary()) && ArrayEqual(l.indices, r.indices)
 }
 
 func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
-	ldict, rdict := l.Dictionary(), r.Dictionary()
-	defer ldict.Release()
-	defer rdict.Release()
-
-	return arrayApproxEqual(ldict, rdict, opt) && arrayApproxEqual(l.indices, r.indices, opt)
+	return arrayApproxEqual(l.Dictionary(), r.Dictionary(), opt) && arrayApproxEqual(l.indices, r.indices, opt)
 }
 
 type indexBuilder struct {
@@ -273,15 +262,29 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 	return
 }
 
-type DictionaryBuilder struct {
-	builder
+type DictionaryBuilder interface {
+	Builder
 
-	dt         *arrow.DictionaryType
-	memoTable  hashing.MemoTable
-	idxBuilder indexBuilder
+	NewDictionaryArray() *Dictionary
+	NewDelta() (indices, delta Interface, err error)
+	AppendArray(Interface) error
+	ResetFull()
 }
 
-func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Builder {
+type dictionaryBuilder struct {
+	builder
+
+	dt          *arrow.DictionaryType
+	deltaOffset int
+	memoTable   hashing.MemoTable
+	idxBuilder  indexBuilder
+}
+
+func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType, init Interface) DictionaryBuilder {
+	if init != nil && !arrow.TypeEqual(dt.ValueType, init.DataType()) {
+		panic(fmt.Errorf("arrow/array: cannot initialize dictionary type %T with array of type %T", dt.ValueType, init.DataType()))
+	}
+
 	idxbldr, err := createIndexBuilder(mem, dt.IndexType)
 	if err != nil {
 		panic(fmt.Errorf("arrow/array: unsupported builder for index type of %T", dt))
@@ -292,7 +295,7 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Builde
 		panic(fmt.Errorf("arrow/array: unsupported builder for value type of %T", dt))
 	}
 
-	bldr := DictionaryBuilder{
+	bldr := dictionaryBuilder{
 		builder:    builder{refCount: 1, mem: mem},
 		idxBuilder: idxbldr,
 		memoTable:  memo,
@@ -301,51 +304,183 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Builde
 
 	switch dt.ValueType.ID() {
 	case arrow.UINT8:
-		return &Uint8DictionaryBuilder{bldr}
+		ret := &Uint8DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Uint8)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INT8:
-		return &Int8DictionaryBuilder{bldr}
+		ret := &Int8DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Int8)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.UINT16:
-		return &Uint16DictionaryBuilder{bldr}
+		ret := &Uint16DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Uint16)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INT16:
-		return &Int16DictionaryBuilder{bldr}
+		ret := &Int16DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Int16)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.UINT32:
-		return &Uint32DictionaryBuilder{bldr}
+		ret := &Uint32DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Uint32)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INT32:
-		return &Int32DictionaryBuilder{bldr}
+		ret := &Int32DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Int32)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.UINT64:
-		return &Uint64DictionaryBuilder{bldr}
+		ret := &Uint64DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Uint64)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INT64:
-		return &Int64DictionaryBuilder{bldr}
+		ret := &Int64DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Int64)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.FLOAT16:
-		return &Float16DictionaryBuilder{bldr}
+		ret := &Float16DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Float16)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.FLOAT32:
-		return &Float32DictionaryBuilder{bldr}
+		ret := &Float32DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Float32)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.FLOAT64:
-		return &Float64DictionaryBuilder{bldr}
+		ret := &Float64DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Float64)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.STRING:
-		return &BinaryDictionaryBuilder{bldr}
+		ret := &BinaryDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertStringDictValues(init.(*String)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.BINARY:
-		return &BinaryDictionaryBuilder{bldr}
+		ret := &BinaryDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Binary)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.FIXED_SIZE_BINARY:
-		return &FixedSizeBinaryDictionaryBuilder{
+		ret := &FixedSizeBinaryDictionaryBuilder{
 			bldr, dt.ValueType.(*arrow.FixedSizeBinaryType).ByteWidth,
 		}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*FixedSizeBinary)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.DATE32:
-		return &Date32DictionaryBuilder{bldr}
+		ret := &Date32DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Date32)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.DATE64:
-		return &Date64DictionaryBuilder{bldr}
+		ret := &Date64DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Date64)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.TIMESTAMP:
-		return &TimestampDictionaryBuilder{bldr}
+		ret := &TimestampDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Timestamp)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.TIME32:
-		return &Time32DictionaryBuilder{bldr}
+		ret := &Time32DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Time32)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.TIME64:
-		return &Time64DictionaryBuilder{bldr}
+		ret := &Time64DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Time64)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INTERVAL_MONTHS:
-		return &MonthIntervalDictionaryBuilder{bldr}
+		ret := &MonthIntervalDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*MonthInterval)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.INTERVAL_DAY_TIME:
-		return &DayTimeDictionaryBuilder{bldr}
+		ret := &DayTimeDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*DayTimeInterval)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.DECIMAL128:
-		return &Decimal128DictionaryBuilder{bldr}
+		ret := &Decimal128DictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Decimal128)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.DECIMAL256:
 	case arrow.LIST:
 	case arrow.STRUCT:
@@ -356,51 +491,80 @@ func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) Builde
 	case arrow.EXTENSION:
 	case arrow.FIXED_SIZE_LIST:
 	case arrow.DURATION:
-		return &DurationDictionaryBuilder{bldr}
+		ret := &DurationDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*Duration)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	case arrow.LARGE_STRING:
 	case arrow.LARGE_BINARY:
 	case arrow.LARGE_LIST:
 	case arrow.INTERVAL_MONTH_DAY_NANO:
-		return &MonthDayNanoDictionaryBuilder{bldr}
+		ret := &MonthDayNanoDictionaryBuilder{bldr}
+		if init != nil {
+			if err = ret.InsertDictValues(init.(*MonthDayNanoInterval)); err != nil {
+				panic(err)
+			}
+		}
+		return ret
 	}
 
 	panic("arrow/array: unimplemented dictionary key type")
 }
 
-func (b *DictionaryBuilder) Release() {
+func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) DictionaryBuilder {
+	return NewDictionaryBuilderWithDict(mem, dt, nil)
+}
+
+func (b *dictionaryBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
 		b.idxBuilder.Release()
 		b.idxBuilder.Builder = nil
+		if binmemo, ok := b.memoTable.(*hashing.BinaryMemoTable); ok {
+			binmemo.Release()
+		}
 		b.memoTable = nil
 	}
 }
 
-func (b *DictionaryBuilder) AppendNull() {
+func (b *dictionaryBuilder) AppendNull() {
 	b.length += 1
 	b.nulls += 1
 	b.idxBuilder.AppendNull()
 }
 
-func (b *DictionaryBuilder) Reserve(n int) {
+func (b *dictionaryBuilder) Reserve(n int) {
 	b.idxBuilder.Reserve(n)
 }
 
-func (b *DictionaryBuilder) Resize(n int) {
+func (b *dictionaryBuilder) Resize(n int) {
 	b.idxBuilder.Resize(n)
 	b.length = b.idxBuilder.Len()
 }
 
-func (b *DictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
+func (b *dictionaryBuilder) ResetFull() {
+	b.builder.reset()
+	b.idxBuilder.NewArray().Release()
+	b.memoTable.Reset()
+}
 
-func (b *DictionaryBuilder) UnmarshalJSON([]byte) error { return nil }
+func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
-func (b *DictionaryBuilder) unmarshal(dec *json.Decoder) error { return nil }
+func (b *dictionaryBuilder) UnmarshalJSON([]byte) error { return nil }
 
-func (b *DictionaryBuilder) unmarshalOne(dec *json.Decoder) error { return nil }
+func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error { return nil }
 
-func (b *DictionaryBuilder) NewArray() Interface {
+func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error { return nil }
+
+func (b *dictionaryBuilder) NewArray() Interface {
+	return b.NewDictionaryArray()
+}
+
+func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
 	a := &Dictionary{dictType: b.dt}
 	a.refCount = 1
 
@@ -415,7 +579,7 @@ func (b *DictionaryBuilder) NewArray() Interface {
 	return a
 }
 
-func (b *DictionaryBuilder) NewWithDictOffset(offset int) (indices, dict *Data, err error) {
+func (b *dictionaryBuilder) NewWithDictOffset(offset int) (indices, dict *Data, err error) {
 	idxarr := b.idxBuilder.NewArray()
 	defer idxarr.Release()
 
@@ -463,16 +627,30 @@ func (b *DictionaryBuilder) NewWithDictOffset(offset int) (indices, dict *Data, 
 		bitutil.ClearBit(dictBuffers[0].Bytes(), idx)
 	}
 
+	b.deltaOffset = b.memoTable.Size()
 	dict = NewData(b.dt.ValueType, dictLength, dictBuffers, nil, nullcount, 0)
+	b.reset()
 	return
 }
 
-func (b *DictionaryBuilder) insertDictValue(val interface{}) error {
+func (b *dictionaryBuilder) NewDelta() (indices, delta Interface, err error) {
+	indicesData, deltaData, err := b.NewWithDictOffset(b.deltaOffset)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer indicesData.Release()
+	defer deltaData.Release()
+	indices, delta = MakeFromData(indicesData), MakeFromData(deltaData)
+	return
+}
+
+func (b *dictionaryBuilder) insertDictValue(val interface{}) error {
 	_, _, err := b.memoTable.GetOrInsert(val)
 	return err
 }
 
-func (b *DictionaryBuilder) appendValue(val interface{}) error {
+func (b *dictionaryBuilder) appendValue(val interface{}) error {
 	if val == nil {
 		b.memoTable.GetOrInsertNull()
 		b.AppendNull()
@@ -484,8 +662,88 @@ func (b *DictionaryBuilder) appendValue(val interface{}) error {
 	return err
 }
 
+func getvalFn(arr Interface) func(i int) interface{} {
+	switch typedarr := arr.(type) {
+	case *Int8:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Uint8:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Int16:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Uint16:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Int32:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Uint32:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Int64:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Uint64:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Float16:
+		return func(i int) interface{} { return typedarr.Value(i).Uint16() }
+	case *Float32:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Float64:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Duration:
+		return func(i int) interface{} { return int64(typedarr.Value(i)) }
+	case *Timestamp:
+		return func(i int) interface{} { return int64(typedarr.Value(i)) }
+	case *Date64:
+		return func(i int) interface{} { return int64(typedarr.Value(i)) }
+	case *Time64:
+		return func(i int) interface{} { return int64(typedarr.Value(i)) }
+	case *Time32:
+		return func(i int) interface{} { return int32(typedarr.Value(i)) }
+	case *Date32:
+		return func(i int) interface{} { return int32(typedarr.Value(i)) }
+	case *MonthInterval:
+		return func(i int) interface{} { return int32(typedarr.Value(i)) }
+	case *Binary:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *FixedSizeBinary:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *String:
+		return func(i int) interface{} { return typedarr.Value(i) }
+	case *Decimal128:
+		return func(i int) interface{} {
+			var data [16]byte
+			return typedarr.Value(i).BigInt().FillBytes(data[:])
+		}
+	case *DayTimeInterval:
+		return func(i int) interface{} {
+			val := typedarr.Value(i)
+			return (*(*[8]byte)(unsafe.Pointer(&val)))[:]
+		}
+	case *MonthDayNanoInterval:
+		return func(i int) interface{} {
+			val := typedarr.Value(i)
+			return (*(*[16]byte)(unsafe.Pointer(&val)))[:]
+		}
+	}
+
+	panic("arrow/array: invalid dictionary value type")
+}
+
+func (b *dictionaryBuilder) AppendArray(arr Interface) error {
+	debug.Assert(arrow.TypeEqual(b.dt.ValueType, arr.DataType()), "wrong value type of array to append to dict")
+
+	valfn := getvalFn(arr)
+	for i := 0; i < arr.Len(); i++ {
+		if arr.IsNull(i) {
+			b.AppendNull()
+		} else {
+			if err := b.appendValue(valfn(i)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 type Int8DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Int8DictionaryBuilder) Append(v int8) error { return b.appendValue(v) }
@@ -499,7 +757,7 @@ func (b *Int8DictionaryBuilder) InsertDictValues(arr *Int8) (err error) {
 }
 
 type Uint8DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Uint8DictionaryBuilder) Append(v uint8) error { return b.appendValue(v) }
@@ -513,7 +771,7 @@ func (b *Uint8DictionaryBuilder) InsertDictValues(arr *Uint8) (err error) {
 }
 
 type Int16DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Int16DictionaryBuilder) Append(v int16) error { return b.appendValue(v) }
@@ -527,7 +785,7 @@ func (b *Int16DictionaryBuilder) InsertDictValues(arr *Int16) (err error) {
 }
 
 type Uint16DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Uint16DictionaryBuilder) Append(v uint16) error { return b.appendValue(v) }
@@ -541,7 +799,7 @@ func (b *Uint16DictionaryBuilder) InsertDictValues(arr *Uint16) (err error) {
 }
 
 type Int32DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Int32DictionaryBuilder) Append(v int32) error { return b.appendValue(v) }
@@ -555,7 +813,7 @@ func (b *Int32DictionaryBuilder) InsertDictValues(arr *Int32) (err error) {
 }
 
 type Uint32DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Uint32DictionaryBuilder) Append(v uint32) error { return b.appendValue(v) }
@@ -569,7 +827,7 @@ func (b *Uint32DictionaryBuilder) InsertDictValues(arr *Uint32) (err error) {
 }
 
 type Int64DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Int64DictionaryBuilder) Append(v int64) error { return b.appendValue(v) }
@@ -583,7 +841,7 @@ func (b *Int64DictionaryBuilder) InsertDictValues(arr *Int64) (err error) {
 }
 
 type Uint64DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Uint64DictionaryBuilder) Append(v uint64) error { return b.appendValue(v) }
@@ -597,7 +855,7 @@ func (b *Uint64DictionaryBuilder) InsertDictValues(arr *Uint64) (err error) {
 }
 
 type DurationDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *DurationDictionaryBuilder) Append(v arrow.Duration) error { return b.appendValue(int64(v)) }
@@ -611,7 +869,7 @@ func (b *DurationDictionaryBuilder) InsertDictValues(arr *Duration) (err error) 
 }
 
 type TimestampDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *TimestampDictionaryBuilder) Append(v arrow.Timestamp) error { return b.appendValue(int64(v)) }
@@ -625,7 +883,7 @@ func (b *TimestampDictionaryBuilder) InsertDictValues(arr *Timestamp) (err error
 }
 
 type Time32DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Time32DictionaryBuilder) Append(v arrow.Time32) error { return b.appendValue(int32(v)) }
@@ -639,7 +897,7 @@ func (b *Time32DictionaryBuilder) InsertDictValues(arr *Time32) (err error) {
 }
 
 type Time64DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Time64DictionaryBuilder) Append(v arrow.Time64) error { return b.appendValue(int64(v)) }
@@ -653,7 +911,7 @@ func (b *Time64DictionaryBuilder) InsertDictValues(arr *Time64) (err error) {
 }
 
 type Date32DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Date32DictionaryBuilder) Append(v arrow.Date32) error { return b.appendValue(int32(v)) }
@@ -667,7 +925,7 @@ func (b *Date32DictionaryBuilder) InsertDictValues(arr *Date32) (err error) {
 }
 
 type Date64DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Date64DictionaryBuilder) Append(v arrow.Date64) error { return b.appendValue(int64(v)) }
@@ -681,7 +939,7 @@ func (b *Date64DictionaryBuilder) InsertDictValues(arr *Date64) (err error) {
 }
 
 type MonthIntervalDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *MonthIntervalDictionaryBuilder) Append(v arrow.MonthInterval) error {
@@ -697,7 +955,7 @@ func (b *MonthIntervalDictionaryBuilder) InsertDictValues(arr *MonthInterval) (e
 }
 
 type Float16DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Float16DictionaryBuilder) Append(v float16.Num) error { return b.appendValue(v.Uint16()) }
@@ -711,7 +969,7 @@ func (b *Float16DictionaryBuilder) InsertDictValues(arr *Float16) (err error) {
 }
 
 type Float32DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Float32DictionaryBuilder) Append(v float32) error { return b.appendValue(v) }
@@ -725,7 +983,7 @@ func (b *Float32DictionaryBuilder) InsertDictValues(arr *Float32) (err error) {
 }
 
 type Float64DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Float64DictionaryBuilder) Append(v float64) error { return b.appendValue(v) }
@@ -739,12 +997,16 @@ func (b *Float64DictionaryBuilder) InsertDictValues(arr *Float64) (err error) {
 }
 
 type BinaryDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *BinaryDictionaryBuilder) Append(v []byte) error       { return b.appendValue(v) }
 func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendValue(v) }
 func (b *BinaryDictionaryBuilder) InsertDictValues(arr *Binary) (err error) {
+	if !arrow.TypeEqual(arr.DataType(), b.dt.ValueType) {
+		return fmt.Errorf("dictionary insert type mismatch: cannot insert values of type %T to dictionary type %T", arr.DataType(), b.dt.ValueType)
+	}
+
 	for i := 0; i < arr.Len(); i++ {
 		if err = b.insertDictValue(arr.Value(i)); err != nil {
 			break
@@ -753,6 +1015,10 @@ func (b *BinaryDictionaryBuilder) InsertDictValues(arr *Binary) (err error) {
 	return
 }
 func (b *BinaryDictionaryBuilder) InsertStringDictValues(arr *String) (err error) {
+	if !arrow.TypeEqual(arr.DataType(), b.dt.ValueType) {
+		return fmt.Errorf("dictionary insert type mismatch: cannot insert values of type %T to dictionary type %T", arr.DataType(), b.dt.ValueType)
+	}
+
 	for i := 0; i < arr.Len(); i++ {
 		if err = b.insertDictValue(arr.Value(i)); err != nil {
 			break
@@ -762,7 +1028,7 @@ func (b *BinaryDictionaryBuilder) InsertStringDictValues(arr *String) (err error
 }
 
 type FixedSizeBinaryDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 	byteWidth int
 }
 
@@ -785,7 +1051,7 @@ func (b *FixedSizeBinaryDictionaryBuilder) InsertDictValues(arr *FixedSizeBinary
 }
 
 type Decimal128DictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *Decimal128DictionaryBuilder) Append(v decimal128.Num) error {
@@ -804,7 +1070,7 @@ func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err err
 }
 
 type MonthDayNanoDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *MonthDayNanoDictionaryBuilder) Append(v arrow.MonthDayNanoInterval) error {
@@ -822,7 +1088,7 @@ func (b *MonthDayNanoDictionaryBuilder) InsertDictValues(arr *MonthDayNanoInterv
 }
 
 type DayTimeDictionaryBuilder struct {
-	DictionaryBuilder
+	dictionaryBuilder
 }
 
 func (b *DayTimeDictionaryBuilder) Append(v arrow.DayTimeInterval) error {
@@ -841,5 +1107,5 @@ func (b *DayTimeDictionaryBuilder) InsertDictValues(arr *DayTimeInterval) (err e
 
 var (
 	_ Interface = (*Dictionary)(nil)
-	_ Builder   = (*DictionaryBuilder)(nil)
+	_ Builder   = (*dictionaryBuilder)(nil)
 )

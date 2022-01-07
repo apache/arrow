@@ -347,7 +347,7 @@ func (b *BinaryMemoTable) CopyOffsetsSubset(start int, out []int32) {
 		out[i-start] = offset
 	}
 
-	out[b.Size()-start] = int32(b.builder.DataLen() - int(delta) - int(first))
+	out[b.Size()-start] = int32(b.builder.DataLen() - (int(delta) - int(first)))
 }
 
 // CopyValues copies the raw binary data bytes out, out should be a []byte
@@ -359,6 +359,10 @@ func (b *BinaryMemoTable) CopyValues(out interface{}) {
 // CopyValuesSubset copies the raw binary data bytes out starting with the value
 // at the index start, out should be a []byte with at least ValuesSize bytes allocated
 func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
+	if b.builder.Len() <= start {
+		return
+	}
+
 	var (
 		first  = b.findOffset(0)
 		offset = b.findOffset(int(start))
