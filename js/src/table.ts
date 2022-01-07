@@ -427,7 +427,7 @@ export function makeTable<I extends Record<string | number | symbol, TypedArray>
  *
  *  @example
  * ```ts
- * const table = tableFrom({
+ * const table = tableFromArrays({
  *   a: [1, 2, 3],
  *   b: new Int8Array([1, 2, 3]),
  * })
@@ -436,7 +436,7 @@ export function makeTable<I extends Record<string | number | symbol, TypedArray>
  * @param Input an object of typed arrays or JavaScript arrays.
  * @returns A new Table.
  */
-export function tableFrom<I extends Record<string | number | symbol, TypedArray | BigIntArray | readonly unknown[]>>(input: I): Table<{ [P in keyof I]: ArrayDataType<I[P]> }> {
+export function tableFromArrays<I extends Record<string | number | symbol, TypedArray | BigIntArray | readonly unknown[]>>(input: I): Table<{ [P in keyof I]: ArrayDataType<I[P]> }> {
     type T = { [P in keyof I]: ArrayDataType<I[P]> };
     const vecs = {} as VectorsMap<T>;
     const inputs = Object.entries(input) as [keyof I, I[keyof I]][];

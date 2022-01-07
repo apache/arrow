@@ -55,7 +55,7 @@ export {
     Interval, IntervalDayTime, IntervalYearMonth,
     FixedSizeList,
     Map_, MapRow,
-    Table, makeTable, tableFrom,
+    Table, makeTable, tableFromArrays,
     Schema, Field,
     Visitor,
     Vector, makeVector, vectorFromArray,

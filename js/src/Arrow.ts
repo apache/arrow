@@ -51,7 +51,7 @@ export {
     Map_
 } from './type.js';
 
-export { Table, makeTable, tableFrom } from './table.js';
+export { Table, makeTable, tableFromArrays } from './table.js';
 export { Vector, makeVector, vectorFromArray } from './vector.js';
 export { Visitor } from './visitor.js';
 export { Schema, Field } from './schema.js';

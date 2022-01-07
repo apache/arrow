@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Int32, Float32, Float64, Int8, makeTable, tableFrom, Utf8 } from 'apache-arrow';
+import { Int32, Float32, Float64, Int8, makeTable, tableFromArrays, Utf8 } from 'apache-arrow';
 
 describe('makeTable()', () => {
     test(`creates a new Table from Typed Arrays`, () => {
@@ -38,9 +38,9 @@ describe('makeTable()', () => {
     });
 });
 
-describe('tableFrom()', () => {
+describe('tableFromArrays()', () => {
     test(`creates table from typed arrays and JavaScript arrays`, () => {
-        const table = tableFrom({
+        const table = tableFromArrays({
             a: new Float32Array([1, 2]),
             b: new Int8Array([1, 2]),
             c: [1, 2, 3],
