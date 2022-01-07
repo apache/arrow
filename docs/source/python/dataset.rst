@@ -636,7 +636,7 @@ into memory:
     # other method that yields record batches.  In addition, you can pass a dataset
     # into write_dataset directly but this method is useful if you want to customize
     # the scanner (e.g. to filter the input dataset or set a maximum batch size)
-    scanner = input_dataset.scanner(use_async=True)
+    scanner = input_dataset.scanner()
 
     ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
 
