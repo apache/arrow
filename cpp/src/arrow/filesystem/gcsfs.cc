@@ -366,7 +366,7 @@ class GcsFileSystem::Impl {
                                                                util::string_view name) {
     // Make the name canonical.
     const auto canonical = internal::RemoveTrailingSlash(name).to_string();
-    auto object = client_.InsertObject(
+    google::cloud::StatusOr<gcs::ObjectMetadata> object = client_.InsertObject(
         bucket, canonical, std::string(),
         gcs::WithObjectMetadata(
             gcs::ObjectMetadata().upsert_metadata("arrow/gcsfs", "directory")),
@@ -404,7 +404,7 @@ class GcsFileSystem::Impl {
     if (dir.empty()) {
       // We could not find any of the parent directories in the bucket, the last step is
       // to find out if the bucket exists, and if necessary, create it
-      auto b = client_.GetBucketMetadata(bucket);
+      google::cloud::StatusOr<gcs::BucketMetadata> b = client_.GetBucketMetadata(bucket);
       if (!b) {
         if (b.status().code() == GcsCode::kNotFound) {
           b = client_.CreateBucket(bucket, gcs::BucketMetadata());
@@ -421,7 +421,7 @@ class GcsFileSystem::Impl {
         return NotDirectoryError(*o);
       }
     }
-    return {};
+    return Status::OK();
   }
 
   Status CreateDir(const GcsPath& p) {
@@ -462,7 +462,7 @@ class GcsFileSystem::Impl {
         [&, this](const google::cloud::StatusOr<gcs::ObjectMetadata>& o) -> Status {
       if (!o) return internal::ToArrowStatus(o.status());
       // The list includes the directory, skip it. DeleteDir() takes care of it.
-      if (o->bucket() == p.bucket && o->name() == canonical) return {};
+      if (o->bucket() == p.bucket && o->name() == canonical) return Status::OK();
       return internal::ToArrowStatus(
           client_.DeleteObject(o->bucket(), o->name(), gcs::Generation(o->generation())));
     };
@@ -490,7 +490,7 @@ class GcsFileSystem::Impl {
   }
 
   Status Move(const GcsPath& src, const GcsPath& dest) {
-    if (src == dest) return {};
+    if (src == dest) return Status::OK();
     if (src.object.empty()) {
       return Status::IOError(
           "Moving directories or buckets cannot be implemented in GCS. You provided (",
@@ -498,7 +498,8 @@ class GcsFileSystem::Impl {
     }
     ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest));
     if (info.IsDirectory()) {
-      return Status::IOError("Attempting to Move() to an existing directory");
+      return Status::IOError("Attempting to Move() '", info.path(),
+                             "' to an existing directory");
     }
     ARROW_ASSIGN_OR_RAISE(auto src_info, GetFileInfo(src));
     if (!src_info.IsFile()) {
@@ -555,7 +556,7 @@ class GcsFileSystem::Impl {
   }
 
  private:
-  static bool IsDirectory(gcs::ObjectMetadata const& o) {
+  static bool IsDirectory(const gcs::ObjectMetadata& o) {
     return o.has_metadata("arrow/gcsfs") && o.metadata("arrow/gcsfs") == "directory";
   }
 
@@ -716,7 +717,8 @@ Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
 Result<std::shared_ptr<io::InputStream>> GcsFileSystem::OpenInputStream(
     const FileInfo& info) {
   if (info.IsDirectory()) {
-    return Status::IOError("Cannot open a directory as an input stream");
+    return Status::IOError("Cannot open directory '", info.path(),
+                           "' as an input stream");
   }
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   return impl_->OpenInputStream(p.bucket, p.object, gcs::Generation(),
@@ -745,7 +747,8 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
 Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const FileInfo& info) {
   if (info.IsDirectory()) {
-    return Status::IOError("Cannot open a directory as an input stream");
+    return Status::IOError("Cannot open directory '", info.path(),
+                           "' as an input stream");
   }
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
