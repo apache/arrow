@@ -65,13 +65,6 @@ func (m MessageType) String() string {
 	return fmt.Sprintf("MessageType(%d)", int(m))
 }
 
-const (
-	// maxNestingDepth is an arbitrary value to catch user mistakes.
-	// For deeply nested schemas, it is expected the user will indicate
-	// explicitly the maximum allowed recursion depth.
-	maxNestingDepth = 64
-)
-
 // Message is an IPC message, including metadata and body.
 type Message struct {
 	refCount int64

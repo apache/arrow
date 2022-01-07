@@ -137,6 +137,7 @@ func (f *FileReader) readSchema() error {
 		return xerrors.Errorf("arrow/ipc: could not load dictionary types from file: %w", err)
 	}
 
+	//lint:ignore SA4008 readDictionary always panics currently. ignore lint until DictionaryArray is implemented.
 	for i := 0; i < f.NumDictionaries(); i++ {
 		blk, err := f.dict(i)
 		if err != nil {

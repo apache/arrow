@@ -213,7 +213,7 @@ func (b *BinaryBuilder) newData() (data *Data) {
 
 func (b *BinaryBuilder) appendNextOffset() {
 	numBytes := b.values.Len()
-	// TODO(sgc): check binaryArrayMaximumCapacity?
+	debug.Assert(numBytes <= binaryArrayMaximumCapacity, "exceeded maximum capacity of binary array")
 	b.offsets.AppendValue(int32(numBytes))
 }
 

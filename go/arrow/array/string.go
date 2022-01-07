@@ -19,7 +19,6 @@ package array
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -27,10 +26,6 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/goccy/go-json"
-)
-
-const (
-	stringArrayMaximumCapacity = math.MaxInt32
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.

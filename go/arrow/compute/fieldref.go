@@ -164,7 +164,7 @@ func (f FieldPath) GetField(field arrow.Field) (*arrow.Field, error) {
 
 // GetColumn will return the correct child array by traversing the fieldpath
 // going to the nested arrays of the columns in the record batch.
-func (f FieldPath) GetColumn(batch array.Record) (arrow.Array, error) {
+func (f FieldPath) GetColumn(batch arrow.Record) (arrow.Array, error) {
 	return f.getArray(batch.Columns())
 }
 
@@ -530,7 +530,7 @@ func (f FieldRef) FindOneOrNone(schema *arrow.Schema) (FieldPath, error) {
 
 // FindOneOrNoneRecord is like FindOneOrNone but for the schema of a record,
 // returning an error only if there are multiple matches.
-func (f FieldRef) FindOneOrNoneRecord(root array.Record) (FieldPath, error) {
+func (f FieldRef) FindOneOrNoneRecord(root arrow.Record) (FieldPath, error) {
 	return f.FindOneOrNone(root.Schema())
 }
 
@@ -549,7 +549,7 @@ func (f FieldRef) FindOne(schema *arrow.Schema) (FieldPath, error) {
 
 // GetAllColumns gets all the matching column arrays from the given record that
 // this FieldRef references.
-func (f FieldRef) GetAllColumns(root array.Record) ([]arrow.Array, error) {
+func (f FieldRef) GetAllColumns(root arrow.Record) ([]arrow.Array, error) {
 	out := make([]arrow.Array, 0)
 	for _, m := range f.FindAll(root.Schema().Fields()) {
 		n, err := m.GetColumn(root)
@@ -587,7 +587,7 @@ func (f FieldRef) GetOneOrNone(schema *arrow.Schema) (*arrow.Field, error) {
 
 // GetOneColumnOrNone returns either a nil or the referenced array if it can be
 // found, erroring only if there is an ambiguous multiple matches.
-func (f FieldRef) GetOneColumnOrNone(root array.Record) (arrow.Array, error) {
+func (f FieldRef) GetOneColumnOrNone(root arrow.Record) (arrow.Array, error) {
 	match, err := f.FindOneOrNoneRecord(root)
 	if err != nil {
 		return nil, err

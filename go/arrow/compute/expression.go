@@ -250,6 +250,7 @@ const (
 	compGE comparisonType = compGT | compEQ
 )
 
+//lint:ignore U1000 ignore that this is unused for now
 func (c comparisonType) name() string {
 	switch c {
 	case compEQ:
