@@ -328,12 +328,12 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    init_future_ =
-        DeferNotOk(write_options_.filesystem->io_context().executor()->Submit([this] {
+    init_future_ = DeferNotOk(
+        write_options_.filesystem->io_context().executor()->Submit([this]() -> Future<> {
           RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
           if (write_options_.existing_data_behavior ==
               ExistingDataBehavior::kDeleteMatchingPartitions) {
-            return write_options_.filesystem->DeleteDirContents(directory_);
+            return write_options_.filesystem->DeleteDirContentsAsync(directory_);
           }
           return Status::OK();
         }));
