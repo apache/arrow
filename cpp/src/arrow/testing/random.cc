@@ -105,7 +105,7 @@ struct GenerateOptions {
   void GenerateFullDayNoNan(uint8_t* buffer, size_t n) {
     int64_t* data = reinterpret_cast<int64_t*>(buffer);
     constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
-    std::for_each(data, data + n, [&] (int64_t v) { return v * kFullDayMillis; });
+    std::for_each(data, data + n, [&](int64_t v) { return v * kFullDayMillis; });
   }
 
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
@@ -188,7 +188,7 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
 
   buffers[1] = *AllocateBuffer(sizeof(CType) * size);
   options.GenerateData(buffers[1]->mutable_data(), size);
-  if(std::is_same<ArrowType, Date64Type>::value) {
+  if (std::is_same<ArrowType, Date64Type>::value) {
     options.GenerateFullDayNoNan(buffers[1]->mutable_data(), size);
   }
 
@@ -201,7 +201,7 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
                                                     double probability) {               \
     using OptionType = GenerateOptions<CType, Distribution>;                            \
     OptionType options(seed(), min, max, probability);                                  \
-    return GenerateNumericArray<ArrowType, OptionType>(size, options);                         \
+    return GenerateNumericArray<ArrowType, OptionType>(size, options);                  \
   }
 
 #define PRIMITIVE_RAND_INTEGER_IMPL(Name, CType, ArrowType) \
@@ -221,9 +221,9 @@ PRIMITIVE_RAND_INTEGER_IMPL(Int64, int64_t, Int64Type)
 PRIMITIVE_RAND_INTEGER_IMPL(Float16, int16_t, HalfFloatType)
 
 std::shared_ptr<Array> RandomArrayGenerator::Date64(int64_t size, int64_t min,
-                                                    int64_t max, double null_probability) {
-  using OptionType =
-      GenerateOptions<int64_t, std::uniform_int_distribution<int64_t>>;
+                                                    int64_t max,
+                                                    double null_probability) {
+  using OptionType = GenerateOptions<int64_t, std::uniform_int_distribution<int64_t>>;
   OptionType options(seed(), min, max, null_probability);
   return GenerateNumericArray<Date64Type, OptionType>(size, options);
 }
