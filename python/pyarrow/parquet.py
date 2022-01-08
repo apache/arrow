@@ -2312,7 +2312,6 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     >>> write_metadata(
     ...     table.schema, root_path / '_metadata',
     ...     metadata_collector=metadata_collector, **writer_kwargs)
-    
     """
     writer = ParquetWriter(where, schema, **kwargs)
     writer.close()
