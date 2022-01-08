@@ -15,25 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const path = require(`path`);
-const pump = require(`stream`).pipeline;
-const child_process = require(`child_process`);
-const { targets, modules } = require('./argv');
-const {
-    ReplaySubject,
-    empty: ObservableEmpty,
-    throwError: ObservableThrow,
-    fromEvent: ObservableFromEvent
-} = require('rxjs');
-const {
-    share,
-    flatMap,
-    takeUntil,
-    defaultIfEmpty,
-    mergeWith,
-} = require('rxjs/operators');
-const asyncDone = require('util').promisify(require('async-done'));
+import fs from "fs";
+import path from "path";
+import child_process from "child_process";
+import stream from "stream";
+import util from "util";
+import asyncDoneSync from "async-done";
+const pump = stream.pipeline;
+import { targets, modules } from "./argv.js";
+import { ReplaySubject, empty as ObservableEmpty, throwError as ObservableThrow, fromEvent as ObservableFromEvent } from "rxjs";
+import { share, flatMap, takeUntil, defaultIfEmpty, mergeWith } from "rxjs/operators";
+const asyncDone = util.promisify(asyncDoneSync);
+import { createRequire } from "module";
+import esmRequire from "./esm-require.cjs"
+
+const require = createRequire(import.meta.url);
 
 const mainExport = `Arrow`;
 const npmPkgName = `apache-arrow`;
@@ -175,31 +171,13 @@ const publicModulePaths = (dir) => [
     `${dir}/util/int.js`,
 ];
 
-const esmRequire = require(`esm`)(module, {
-    mode: `auto`,
-    cjs: {
-        /* A boolean for storing ES modules in require.cache. */
-        cache: true,
-        /* A boolean for respecting require.extensions in ESM. */
-        extensions: true,
-        /* A boolean for __esModule interoperability. */
-        interop: true,
-        /* A boolean for importing named exports of CJS modules. */
-        namedExports: true,
-        /* A boolean for following CJS path rules in ESM. */
-        paths: true,
-        /* A boolean for __dirname, __filename, and require in ESM. */
-        vars: true,
-    }
-});
-
-module.exports = {
+export {
     mainExport, npmPkgName, npmOrgName, metadataFiles, packageJSONFields,
 
     knownTargets, knownModules, tasksToSkipPerTargetOrFormat, gCCLanguageNames,
 
     taskName, packageName, tsconfigName, targetDir, combinations, observableFromStreams,
     publicModulePaths, esmRequire, shouldRunInChildProcess, spawnGulpCommandInChildProcess,
-
-    targetAndModuleCombinations: [...combinations(targets, modules)]
 };
+
+export const targetAndModuleCombinations = [...combinations(targets, modules)];

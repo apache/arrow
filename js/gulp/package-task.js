@@ -15,25 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {
-    metadataFiles, packageJSONFields,
-    mainExport, npmPkgName, npmOrgName,
-    targetDir, packageName, observableFromStreams
-} = require('./util');
+import { metadataFiles, packageJSONFields, mainExport, npmPkgName, npmOrgName, targetDir, packageName, observableFromStreams } from "./util.js";
 
-const gulp = require('gulp');
-const { memoizeTask } = require('./memoize-task');
-const {
-    ReplaySubject,
-    EMPTY: ObservableEmpty,
-    forkJoin: ObservableForkJoin,
-} = require('rxjs');
-const {
-    share
-} = require('rxjs/operators');
-const gulpJsonTransform = require('gulp-json-transform');
+import gulp from "gulp";
+import { memoizeTask } from "./memoize-task.js";
+import { ReplaySubject, EMPTY as ObservableEmpty, forkJoin as ObservableForkJoin } from "rxjs";
+import { share } from "rxjs/operators";
+import gulpJsonTransform from "gulp-json-transform";
 
-const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
+export const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
     if (target === `src`) return ObservableEmpty();
     const out = targetDir(target, format);
     const jsonTransform = gulpJsonTransform(target === npmPkgName ? createMainPackageJson(target, format) :
@@ -41,13 +31,12 @@ const packageTask = ((cache) => memoizeTask(cache, function bundle(target, forma
                                                                   : createScopedPackageJSON(target, format),
                                             2);
     return ObservableForkJoin([
-      observableFromStreams(gulp.src(metadataFiles), gulp.dest(out)), // copy metadata files
-      observableFromStreams(gulp.src(`package.json`), jsonTransform, gulp.dest(out)) // write packageJSONs
+        observableFromStreams(gulp.src(metadataFiles), gulp.dest(out)), // copy metadata files
+        observableFromStreams(gulp.src(`package.json`), jsonTransform, gulp.dest(out)) // write packageJSONs
     ]).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
-module.exports = packageTask;
-module.exports.packageTask = packageTask;
+export default packageTask;
 
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),

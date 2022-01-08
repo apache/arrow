@@ -6,7 +6,8 @@
   },
   "compilerOptions": {
     "target": "esnext",
-    "module": "commonjs",
+    "module": "esnext",
+    "isolatedModules": true,
     "noEmit": true,
     "esModuleInterop": true,
     "baseUrl": "./",

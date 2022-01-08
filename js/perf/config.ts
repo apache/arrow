@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Arrow from '../src/Arrow.dom';
+import * as Arrow from '../src/Arrow.dom.js';
 
 // from https://stackoverflow.com/a/19303725/214950
 let seed = 1;
 function random() {
-    const x = Math.sin(seed++) * 10000;
+    const x = Math.sin(seed++) * 10_000;
     return x - Math.floor(x);
 }
 
 console.time('Prepare Data');
 
-const LENGTH = 100000;
+const LENGTH = 100_000;
 const NUM_BATCHES = 10;
 const cities = ['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC'];
 

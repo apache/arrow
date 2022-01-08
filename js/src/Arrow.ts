@@ -29,8 +29,9 @@ export {
 } from './enum.js';
 
 export { Data, makeData } from './data.js';
+export type { TypeMap } from './type.js';
 export {
-    DataType, TypeMap,
+    DataType,
     Null,
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
@@ -81,14 +82,15 @@ export {
     Utf8Builder,
 } from './builder/index.js';
 
-export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream.js';
+export { ByteStream, AsyncByteStream, AsyncByteQueue } from './io/stream.js';
+export type { ReadableSource, WritableSink } from './io/stream.js';
 export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader.js';
 export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer.js';
 export { serialize, deserialize } from './ipc/serialization.js';
 export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message.js';
 export { Message } from './ipc/metadata/message.js';
 export { RecordBatch } from './recordbatch.js';
-export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces.js';
+export type { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces.js';
 
 import * as util_bn_ from './util/bn.js';
 import * as util_int_ from './util/int.js';

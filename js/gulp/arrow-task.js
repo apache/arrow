@@ -15,26 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {
-    targetDir, observableFromStreams
-} = require('./util');
+import { targetDir, observableFromStreams } from "./util.js";
 
-const del = require('del');
-const gulp = require('gulp');
-const mkdirp = require('mkdirp');
-const gulpRename = require(`gulp-rename`);
-const gulpReplace = require('gulp-replace');
-const { memoizeTask } = require('./memoize-task');
-const {
-    ReplaySubject,
-    forkJoin: ObservableForkJoin,
-} = require('rxjs');
-const {
-    share
-} = require('rxjs/operators');
-const pipeline = require('util').promisify(require('stream').pipeline);
+import del from "del";
+import gulp from "gulp";
+import mkdirp from "mkdirp";
+import gulpRename from "gulp-rename";
+import gulpReplace from "gulp-replace";
+import { memoizeTask } from "./memoize-task.js";
+import { ReplaySubject, forkJoin as ObservableForkJoin } from "rxjs";
+import { share } from "rxjs/operators";
+import util from "util";
+import stream from "stream";
+const pipeline = util.promisify(stream.pipeline);
 
-const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
+export const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const out = targetDir(target);
     const dtsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.ts`;
     const cjsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.js`;
@@ -58,14 +53,10 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     ]).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
-const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
+export const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
     const out = targetDir(target, format);
     await mkdirp(out);
     await pipeline(gulp.src(`src/**/*`), gulp.dest(out));
     await del(`${out}/**/*.js`);
 }))({});
 
-
-module.exports = arrowTask;
-module.exports.arrowTask = arrowTask;
-module.exports.arrowTSTask = arrowTSTask;

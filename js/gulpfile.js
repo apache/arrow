@@ -15,25 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const del = require('del');
-const gulp = require('gulp');
-const { targets } = require('./gulp/argv');
-const {
-    from: ObservableFrom,
-    bindNodeCallback: ObservableBindNodeCallback
-} = require('rxjs');
-const { flatMap } = require('rxjs/operators');
-const cleanTask = require('./gulp/clean-task');
-const compileTask = require('./gulp/compile-task');
-const packageTask = require('./gulp/package-task');
-const { testTask, createTestData, cleanTestData } = require('./gulp/test-task');
-const { esbuildTask, rollupTask, webpackTask } = require('./gulp/bundle-task');
-const {
-    taskName, combinations,
-    targetDir, knownTargets,
-    npmPkgName, tasksToSkipPerTargetOrFormat,
-    targetAndModuleCombinations
-} = require('./gulp/util');
+import del from "del";
+import os from "os";
+import gulp from "gulp";
+import { targets } from "./gulp/argv.js";
+import { from as ObservableFrom, bindNodeCallback as ObservableBindNodeCallback } from "rxjs";
+import { mergeMap } from "rxjs/operators";
+import cleanTask from "./gulp/clean-task.js";
+import compileTask from "./gulp/compile-task.js";
+import packageTask from "./gulp/package-task.js";
+import { testTask, createTestData, cleanTestData } from "./gulp/test-task.js";
+import { esbuildTask, rollupTask, webpackTask } from "./gulp/bundle-task.js";
+import { taskName, combinations, targetDir, knownTargets, npmPkgName, tasksToSkipPerTargetOrFormat, targetAndModuleCombinations } from "./gulp/util.js";
 
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
@@ -96,9 +89,9 @@ gulp.task(`bundle:clean`, () => del(`test/bundle/**/*-bundle.js`));
 
 gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`));
 
-function gulpConcurrent(tasks, numCPUs = Math.max(1, require('os').cpus().length * 0.5) | 0) {
+function gulpConcurrent(tasks, numCPUs = Math.max(1, os.cpus().length * 0.5) | 0) {
     return () => ObservableFrom(tasks.map((task) => gulp.series(task)))
-        .pipe(flatMap((task) => ObservableBindNodeCallback(task)(), numCPUs || 1));
+        .pipe(mergeMap((task) => ObservableBindNodeCallback(task)(), numCPUs || 1));
 }
 
 function getTasks(name) {

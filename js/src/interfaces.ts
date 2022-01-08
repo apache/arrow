@@ -19,7 +19,7 @@ import { Type } from './enum.js';
 import * as type from './type.js';
 import { DataType } from './type.js';
 import * as builders from './builder/index.js';
-import { BuilderOptions } from './builder/index.js';
+import type { BuilderOptions } from './builder/index.js';
 
 /** @ignore */ type FloatArray = Float32Array | Float64Array;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;

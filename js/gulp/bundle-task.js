@@ -15,31 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const gulp = require('gulp');
-const size = require('gulp-vinyl-size');
-const gulpRename = require('gulp-rename');
-const terser = require('gulp-terser');
-const source = require('vinyl-source-stream');
-const buffer = require('vinyl-buffer');
-const {
-    observableFromStreams
-} = require('./util');
-const {
-    forkJoin: ObservableForkJoin,
-} = require('rxjs');
-const { resolve, join } = require('path');
-const { readdirSync } = require('fs');
+import gulp from "gulp";
+import size from "gulp-vinyl-size";
+import gulpRename from "gulp-rename";
+import terser from "gulp-terser";
+import source from "vinyl-source-stream";
+import buffer from "vinyl-buffer";
+import { observableFromStreams } from "./util.js";
+import { forkJoin as ObservableForkJoin } from "rxjs";
+import { resolve, join } from "path";
+import { readdirSync } from "fs";
 
-const gulpEsbuild = require('gulp-esbuild');
-const esbuildAlias = require('esbuild-plugin-alias');
+import gulpEsbuild from "gulp-esbuild";
+import esbuildAlias from "esbuild-plugin-alias";
 
-const rollupStream = require('@rollup/stream');
-const nodeResolve = require('@rollup/plugin-node-resolve').default;
-const rollupAlias = require('@rollup/plugin-alias');
+import rollupStream from "@rollup/stream";
+import { default as nodeResolve } from "@rollup/plugin-node-resolve";
+import rollupAlias from "@rollup/plugin-alias";
 
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-const webpack = require('webpack-stream');
-const named = require('vinyl-named');
+import { BundleAnalyzerPlugin as BundleAnalyzerPlugin } from "webpack-bundle-analyzer";
+import webpack from "webpack-stream";
+import named from "vinyl-named";
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const bundleDir = resolve(__dirname, '../test/bundle');
 
@@ -49,7 +50,7 @@ const fileNames = readdirSync(bundleDir)
 
 const bundlesGlob = join(bundleDir, '**.js');
 const esbuildDir = join(bundleDir, 'esbuild');
-const esbuildTask = (minify = true) => () => observableFromStreams(
+export const esbuildTask = (minify = true) => () => observableFromStreams(
     gulp.src(bundlesGlob),
     gulpEsbuild({
         bundle: true,
@@ -67,7 +68,7 @@ const esbuildTask = (minify = true) => () => observableFromStreams(
 );
 
 const rollupDir = join(bundleDir, 'rollup');
-const rollupTask = (minify = true) => () => ObservableForkJoin(
+export const rollupTask = (minify = true) => () => ObservableForkJoin(
     fileNames.map(fileName => observableFromStreams(
         rollupStream({
             input: join(bundleDir, `${fileName}.js`),
@@ -92,7 +93,7 @@ const rollupTask = (minify = true) => () => ObservableForkJoin(
 )
 
 const webpackDir = join(bundleDir, 'webpack');
-const webpackTask = (opts = { minify: true, analyze: false }) => () => observableFromStreams(
+export const webpackTask = (opts = { minify: true, analyze: false }) => () => observableFromStreams(
     gulp.src(bundlesGlob),
     named(),
     webpack({
@@ -121,7 +122,3 @@ const webpackTask = (opts = { minify: true, analyze: false }) => () => observabl
     gulp.dest(webpackDir),
     size({ gzip: true })
 )
-
-module.exports.esbuildTask = esbuildTask;
-module.exports.rollupTask = rollupTask;
-module.exports.webpackTask = webpackTask;

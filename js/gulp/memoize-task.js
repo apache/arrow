@@ -15,24 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const { taskName } = require('./util');
+import { taskName } from "./util.js";
 
-const createTask = ((taskFn) => ((target, format, ...args) => {
+export const createTask = ((taskFn) => ((target, format, ...args) => {
   // Give the memoized fn a displayName so gulp's output is easier to follow.
   const fn = () => taskFn(target, format, ...args);
   fn.displayName = `${taskFn.name || ``}:${taskName(target, format, ...args)}:task`;
   return fn;
 }));
 
-const memoizeTask = ((cache, taskFn) => ((target, format, ...args) => {
-    // Give the memoized fn a displayName so gulp's output is easier to follow.
-    const fn = () => (
-      cache[taskName(target, format)] || (
+export const memoizeTask = ((cache, taskFn) => ((target, format, ...args) => {
+  // Give the memoized fn a displayName so gulp's output is easier to follow.
+  const fn = () => (
+    cache[taskName(target, format)] || (
       cache[taskName(target, format)] = taskFn(target, format, ...args)));
-    fn.displayName = `${taskFn.name || ``}:${taskName(target, format, ...args)}:task`;
-    return fn;
+  fn.displayName = `${taskFn.name || ``}:${taskName(target, format, ...args)}:task`;
+  return fn;
 }));
 
-module.exports = memoizeTask;
-module.exports.createTask = createTask;
-module.exports.memoizeTask = memoizeTask;
+export default memoizeTask;

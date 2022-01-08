@@ -16,7 +16,8 @@
 // under the License.
 
 /** @ignore */
-export { Builder, BuilderOptions } from '../builder.js';
+export { Builder } from '../builder.js';
+export type { BuilderOptions } from '../builder.js';
 export { BoolBuilder } from './bool.js';
 export { NullBuilder } from './null.js';
 export { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './date.js';

@@ -16,10 +16,12 @@
 // under the License.
 
 // Alternatively, use bundles for performance tests
-// import * as Arrow from '../targets/es5/umd.js';
-// import * as Arrow from '../targets/es5/cjs.js';
-// import * as Arrow from '../targets/es2015/umd.js';
-// import * as Arrow from '../targets/es2015/cjs.js';
+// import * as Arrow from '../targets/es5/umd/Arrow.js';
+// import * as Arrow from '../targets/es5/esm/Arrow.js';
+// import * as Arrow from '../targets/es5/cjs/Arrow.js';
+// import * as Arrow from '../targets/es2015/umd/Arrow.js';
+// import * as Arrow from '../targets/es2015/esm/Arrow.js';
+// import * as Arrow from '../targets/es2015/cjs/Arrow.js';
 
 import * as Arrow from '../src/Arrow.js';
 

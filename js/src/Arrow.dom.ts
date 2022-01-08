@@ -33,10 +33,15 @@ RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 RecordBatchFileWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
+export type {
+    TypeMap,
+    ReadableSource, WritableSink,
+    ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
+} from './Arrow.js';
 export {
     DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data, makeData,
-    DataType, TypeMap,
+    DataType,
     Null,
     Bool,
     Int, Int8, Int16, Int32, Int64, Uint8, Uint16, Uint32, Uint64,
@@ -59,14 +64,13 @@ export {
     Schema, Field,
     Visitor,
     Vector, makeVector, vectorFromArray,
-    ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink,
+    ByteStream, AsyncByteStream, AsyncByteQueue,
     RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader,
     RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter,
     deserialize, serialize,
     MessageReader, AsyncMessageReader, JSONMessageReader,
     Message,
     RecordBatch,
-    ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
     util,
     Builder,
     BinaryBuilder,

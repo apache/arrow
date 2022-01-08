@@ -15,19 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const del = require('del');
-const path = require('path');
-const mkdirp = require('mkdirp');
-const { argv } = require('./argv');
-const { promisify } = require('util');
-const glob = promisify(require('glob'));
-const child_process = require(`child_process`);
-const { memoizeTask } = require('./memoize-task');
-const readFile = promisify(require('fs').readFile);
-const asyncDone = promisify(require('async-done'));
-const exec = promisify(require('child_process').exec);
-const parseXML = promisify(require('xml2js').parseString);
-const { targetAndModuleCombinations, npmPkgName } = require('./util');
+import del from "del";
+import path from "path";
+import mkdirp from "mkdirp";
+import { argv } from "./argv.js";
+import { promisify } from "util";
+import globSync from "glob";
+const glob = promisify(globSync);
+import child_process from "child_process";
+import { memoizeTask } from "./memoize-task.js";
+import fs from "fs";
+const readFile = promisify(fs.readFile);
+import asyncDoneSync from "async-done";
+const asyncDone = promisify(asyncDoneSync);
+const exec = promisify(child_process.exec);
+import xml2js from "xml2js";
+const parseXML = promisify(xml2js.parseString);
+import { targetAndModuleCombinations, npmPkgName } from "./util.js";
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
 const testFiles = [
@@ -61,7 +68,7 @@ const testOptions = {
     },
 };
 
-const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
+export const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
     const args = [...execArgv];
     if (format === 'esm' || target === 'ts' || target === 'src' || target === npmPkgName) {
@@ -84,11 +91,6 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
     return asyncDone(() => child_process.spawn(`node`, args, opts));
 }))({}, [jest, ...jestArgv], testOptions);
 
-module.exports = testTask;
-module.exports.testTask = testTask;
-module.exports.cleanTestData = cleanTestData;
-module.exports.createTestData = createTestData;
-
 // Pull C++ and Java paths from environment vars first, otherwise sane defaults
 const ARROW_HOME = process.env.ARROW_HOME || path.resolve('../');
 const ARROW_JAVA_DIR = process.env.ARROW_JAVA_DIR || path.join(ARROW_HOME, 'java');
@@ -103,7 +105,7 @@ const cppFilesDir = path.join(testFilesDir, 'cpp');
 const javaFilesDir = path.join(testFilesDir, 'java');
 const jsonFilesDir = path.join(testFilesDir, 'json');
 
-async function cleanTestData() {
+export async function cleanTestData() {
     return await del([
         `${cppFilesDir}/**`,
         `${javaFilesDir}/**`,
@@ -122,7 +124,7 @@ from archery.cli import integration\n\
 integration()'`);
 }
 
-async function createTestData() {
+export async function createTestData() {
 
     let JAVA_TOOLS_JAR = process.env.ARROW_JAVA_INTEGRATION_JAR;
     if (!JAVA_TOOLS_JAR) {

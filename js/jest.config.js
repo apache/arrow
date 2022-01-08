@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
+export default {
   verbose: false,
   testEnvironment: "node",
   globals: {

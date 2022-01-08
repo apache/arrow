@@ -32,7 +32,7 @@ const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`)
 
     let schema, recordBatchIndex = 0, dictionaryBatchIndex = 0;
 
-    for await (let message of reader) {
+    for await (const message of reader) {
 
         let bufferRegions = [];
 

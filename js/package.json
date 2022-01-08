@@ -4,13 +4,14 @@
   "bin": {
     "arrow2csv": "bin/arrow2csv.js"
   },
+  "type": "module",
   "scripts": {
     "lerna": "lerna",
     "test": "cross-env NODE_NO_WARNINGS=1 gulp test",
     "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
     "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
-    "perf": "ts-node-transpile-only ./perf/index.ts",
+    "perf": "node --loader ts-node/esm/transpile-only ./perf/index.ts",
     "test:integration": "node ./bin/integration.js --mode validate",
     "release": "./npm-release.sh",
     "clean:all": "yarn clean && yarn clean:testdata",
