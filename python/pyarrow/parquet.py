@@ -2305,10 +2305,14 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     ...     table.schema, root_path / '_common_metadata', **writer_kwargs)
 
     Write the `_metadata` parquet file with row groups statistics.
+    
+    Note: Partition columns should be removed from the table schema before
+    writing `_metadata` for partitioned datasets.
 
     >>> write_metadata(
     ...     table.schema, root_path / '_metadata',
     ...     metadata_collector=metadata_collector, **writer_kwargs)
+    
     """
     writer = ParquetWriter(where, schema, **kwargs)
     writer.close()
