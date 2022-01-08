@@ -25,7 +25,7 @@
 
 import * as Arrow from '../src/Arrow.js';
 
-import config, { arrays, typedArrays } from './config.js';
+import config, { arrays, typedArrays, vectors } from './config.js';
 import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';
@@ -66,6 +66,18 @@ b.suite(
     ...Object.entries(arrays).map(([name, array]) =>
         b.add(`make vector from ${name}`, () => {
             Arrow.vectorFromArray(array as any);
+        })),
+
+    ...Object.entries(vectors).map(([name, array]) =>
+        b.add(`[...vector] ${name}`, () => {
+            const vector = Arrow.makeVector(array);
+            [...vector];
+        })),
+
+    ...Object.entries(vectors).map(([name, array]) =>
+        b.add(`vector.toArray() ${name}`, () => {
+            const vector = Arrow.makeVector(array);
+            vector.toArray();
         })),
 
     b.cycle(cycle)
@@ -129,6 +141,14 @@ for (const { name, table, counts } of config) {
 
         b.add(`dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             for (const _value of table) { }
+        }),
+
+        b.add(`[...table] dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+            [...table];
+        }),
+
+        b.add(`table.toArray() dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+            table.toArray();
         }),
 
         b.cycle(cycle)

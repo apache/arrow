@@ -79,6 +79,11 @@ export const arrays = {
     strings: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
 };
 
+export const vectors = Object.fromEntries(
+    [...Object.entries(typedArrays), ...Object.entries(arrays)]
+        .map(([name, array]) => [name, Arrow.vectorFromArray(array)])
+);
+
 const tracks = new Arrow.Table(batches[0].schema, batches);
 
 console.timeEnd('Prepare Data');
