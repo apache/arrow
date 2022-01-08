@@ -79,10 +79,19 @@ export const arrays = {
     strings: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
 };
 
-export const vectors = Object.fromEntries(
-    [...Object.entries(typedArrays), ...Object.entries(arrays)]
-        .map(([name, array]) => [name, Arrow.vectorFromArray(array)])
-);
+const destinations = new Arrow.Vector(Arrow.makeData({
+    type: new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false),
+    length: LENGTH,
+    nullCount: 0,
+    data: Uint8Array.from({ length: LENGTH }, () => (random() * 6)),
+    dictionary: values
+}));
+
+export const vectors: { [k: string]: Arrow.Vector } = Object.fromEntries([
+    ...Object.entries(typedArrays).map(([name, array]) => [name, Arrow.makeVector(array)]),
+    ...Object.entries(arrays).map(([name, array]) => [name, Arrow.vectorFromArray(array)]),
+    ['dictionary', destinations]
+]);
 
 const tracks = new Arrow.Table(batches[0].schema, batches);
 

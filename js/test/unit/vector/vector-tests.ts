@@ -55,7 +55,7 @@ describe(`DictionaryVector`, () => {
     const dictionary_vec = vectorFromArray(dictionary);
 
     const indices = Array.from({ length: 50 }, () => Math.random() * 3 | 0);
-    const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2 ? true : false);
+    const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
 
     describe(`index with nullCount == 0`, () => {
 

@@ -68,16 +68,21 @@ b.suite(
             Arrow.vectorFromArray(array as any);
         })),
 
-    ...Object.entries(vectors).map(([name, array]) =>
+    ...Object.entries(vectors).map(([name, vector]) =>
         b.add(`[...vector] ${name}`, () => {
-            const vector = Arrow.makeVector(array);
             [...vector];
         })),
 
-    ...Object.entries(vectors).map(([name, array]) =>
+    ...Object.entries(vectors).map(([name, vector]) =>
         b.add(`vector.toArray() ${name}`, () => {
-            const vector = Arrow.makeVector(array);
             vector.toArray();
+        })),
+
+    ...Object.entries(vectors).map(([name, vector]) =>
+        b.add(`vector.get() ${name}`, () => {
+            for (let i = -1, n = vector.length; ++i < n;) {
+                vector.get(i);
+            }
         })),
 
     b.cycle(cycle)
