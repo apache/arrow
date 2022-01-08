@@ -1988,7 +1988,7 @@ TEST_F(TestArrayImport, Temporal) {
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, 5678, 9012]"));
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, 987654321, -123456789]"));
+  CheckImport(ArrayFromJSON(date64(), "[86400000, 172800000, -86400000]"));
 
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(time32(TimeUnit::SECOND), "[1234, 5678]"));
@@ -2027,7 +2027,7 @@ TEST_F(TestArrayImport, Temporal) {
   FillPrimitive(3, -1, 0, primitive_buffers_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, null, 9012]"));
   FillPrimitive(3, -1, 0, primitive_buffers_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, null, -123456789]"));
+  CheckImport(ArrayFromJSON(date64(), "[86400000, null, -86400000]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
   CheckImport(ArrayFromJSON(time64(TimeUnit::NANO), "[123456789, null]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
