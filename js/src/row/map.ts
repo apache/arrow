@@ -29,16 +29,21 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
 
     declare private [kKeys]: Vector<K>;
     declare private [kVals]: Vector<V>;
+
     constructor(slice: Data<Struct<{ key: K; value: V }>>) {
         this[kKeys] = new Vector([slice.children[0] as Data<K>]);
         this[kVals] = new Vector([slice.children[1] as Data<V>]);
         return new Proxy(this, new MapRowProxyHandler<K, V>());
     }
+
     [Symbol.iterator]() {
         return new MapRowIterator(this[kKeys], this[kVals]);
     }
+
     public get size() { return this[kKeys].length; }
+
     public toArray() { return Object.values(this.toJSON()); }
+
     public toJSON() {
         const keys = this[kKeys];
         const vals = this[kVals];
@@ -48,11 +53,16 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         }
         return json;
     }
-    public [Symbol.for('nodejs.util.inspect.custom')]() {
+
+    public toString() {
         return `{${[...this].map(([key, val]) =>
             `${valueToString(key)}: ${valueToString(val)}`
         ).join(', ')
             }}`;
+    }
+
+    public [Symbol.for('nodejs.util.inspect.custom')]() {
+        return this.toString();
     }
 }
 

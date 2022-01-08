@@ -37,7 +37,25 @@ function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: n
     return generate.table(chunkLengths, schema).table;
 }
 
-describe('Table#serialize()', () => {
+describe('serialize()', () => {
+
+    test(`to file format`, () => {
+        const source = new Table({
+            a: makeVector(new Uint8Array([1, 2, 3])),
+        });
+        const buffer = serialize(source, 'file');
+        const result = deserialize(buffer);
+        expect(source).toEqualTable(result);
+    });
+
+    test(`to stream format`, () => {
+        const source = new Table({
+            a: makeVector(new Uint8Array([1, 2, 3])),
+        });
+        const buffer = serialize(source, 'stream');
+        const result = deserialize(buffer);
+        expect(source).toEqualTable(result);
+    });
 
     test(`doesn't swap the order of buffers that share the same underlying ArrayBuffer but are in a different order`, () => {
         const values = new Int32Array([0, 1, 2, 3, 4, 5, 6, 7]);

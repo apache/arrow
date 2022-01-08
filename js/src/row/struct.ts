@@ -52,11 +52,15 @@ export class StructRow<T extends TypeMap = any> {
         return json;
     }
 
-    public [Symbol.for('nodejs.util.inspect.custom')]() {
+    public toString() {
         return `{${[...this].map(([key, val]) =>
             `${valueToString(key)}: ${valueToString(val)}`
         ).join(', ')
             }}`;
+    }
+
+    public [Symbol.for('nodejs.util.inspect.custom')]() {
+        return this.toString();
     }
 
     [Symbol.iterator](): IterableIterator<[

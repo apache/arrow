@@ -252,6 +252,15 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
+     * Returns a string representation of the Vector.
+     *
+     * @returns  A string representation of the Vector.
+     */
+    public toString() {
+        return [...this].join(',');
+    }
+
+    /**
      * Returns a child Vector by name, or null if this Vector has no child with the given name.
      * @param name The name of the child to retrieve.
      */

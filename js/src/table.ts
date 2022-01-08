@@ -242,6 +242,15 @@ export class Table<T extends TypeMap = any> {
     }
 
     /**
+     * Returns a string representation of the Table rows.
+     *
+     * @returns  A string representation of the Table rows.
+     */
+    public toString() {
+        return [...this].join('\n');
+    }
+
+    /**
      * Combines two or more Tables of the same schema.
      *
      * @param others Additional Tables to add to the end of this Tables.

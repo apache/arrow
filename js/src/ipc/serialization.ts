@@ -17,17 +17,23 @@
 
 import { Table } from '../table.js';
 import { TypeMap } from '../type.js';
-import { RecordBatchReader } from './reader.js';
-import { RecordBatchStreamWriter, RecordBatchFileWriter } from './writer.js';
+import { isPromise } from '../util/compat.js';
+import { FromArg0, FromArg1, FromArg2, FromArg3, FromArg4, FromArg5, RecordBatchReader } from './reader.js';
+import { RecordBatchFileWriter, RecordBatchStreamWriter } from './writer.js';
 
 /**
- * Deserialize the IPC byte formast into a {@link Table}.
+ * Deserialize the IPC byte format into a {@link Table}.
  * This function is a convenience wrapper for {@link RecordBatchReader}.
  */
-export function deserialize<T extends TypeMap = any>(bytes: Uint8Array): Table<T> {
-    return new Table([
-        ...RecordBatchReader.from<T>(bytes)
-    ]);
+export function deserialize<T extends TypeMap = any>(source: FromArg0 | FromArg2): Table<T>;
+export function deserialize<T extends TypeMap = any>(source: FromArg1): Promise<Table<T>>;
+export function deserialize<T extends TypeMap = any>(source: FromArg3 | FromArg4 | FromArg5): Promise<Table<T>> | Table<T>;
+export function deserialize<T extends TypeMap = any>(input: any): Table<T> | Promise<Table<T>> {
+    const reader = RecordBatchReader.from<T>(input);
+    if (isPromise(reader)) {
+        return (async () => new Table(await (await reader).readAll()))();
+    }
+    return new Table(reader.readAll());
 }
 
 /**
