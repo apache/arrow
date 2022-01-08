@@ -405,7 +405,8 @@ CsvReadOptions <- R6Class("CsvReadOptions",
     encoding = NULL
   ),
   active = list(
-    column_names = function() csv___ReadOptions__column_names(self)
+    column_names = function() csv___ReadOptions__column_names(self),
+    skip_rows = function() csv___ReadOptions__skip_rows(self)
   )
 )
 CsvReadOptions$create <- function(use_threads = option_use_threads(),
@@ -699,7 +700,8 @@ write_csv_arrow <- function(x,
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
       include_header = include_header,
-      batch_size = batch_size)
+      batch_size = batch_size
+    )
   }
 
   x_out <- x
