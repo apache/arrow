@@ -121,17 +121,8 @@ CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
-                                 read_options = csv_file_format_read_opts(...)) {
-
-  # If read_options contain no column_names, re-create them with column_names supplemented from schema
-  parameters <- list(...)
-
-  schema_is_set            <- !is.null(schema)
-  column_names_are_not_set <- length(read_options$column_names) == 0
-
-  if (column_names_are_not_set & schema_is_set) {
-    read_options <- csv_file_format_read_opts(...)
-  }
+                                 read_options = NULL) {
+  read_options <- csv_file_format_read_opts(..., read_options)
 
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
@@ -223,7 +214,7 @@ csv_file_format_convert_opts <- function(...) {
   do.call(CsvConvertOptions$create, opts)
 }
 
-csv_file_format_read_opts <- function(schema = NULL, ...) {
+csv_file_format_read_opts <- function(schema = NULL, read_options = NULL, ...) {
   opts <- list(...)
   # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
@@ -232,8 +223,29 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema)) {
-    opts[["column_names"]] <- names(schema)
+
+  # Set columns names from schema if they're not set in read_options or in a separate argument
+  schema_is_set <- !is.null(schema)
+  read_opts_is_set <- !is.null(read_options)
+  col_names_are_set_in_read_opts <- length(read_options$column_names) > 0
+
+  ## Separate argument is chosen over other schema & read_options
+  column_names <- opts[["column_names"]]
+
+  ## read_options is chosen over schema
+  if (is.null(column_names) & read_opts_is_set & col_names_are_set_in_read_opts) {
+    column_names <- read_options$column_names
+  }
+  ## names from schema if still NULL
+  if (is.null(column_names) & schema_is_set) {
+    column_names <- names(schema)
+  }
+
+  opts[["column_names"]] <- column_names
+
+  # Pull skip rows from read_options if necessary
+  if (is.null(opts[["skip_rows"]]) & read_opts_is_set) {
+    opts[["skip_rows"]] <- ifelse(is.null(read_options), 0, read_options$skip_rows)
   }
   do.call(CsvReadOptions$create, opts)
 }
