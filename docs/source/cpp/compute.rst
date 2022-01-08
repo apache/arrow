@@ -98,6 +98,8 @@ exact semantics of the function::
    min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
    max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
+However, stateful compute functions like `Grouped Aggregations <#grouped-aggregations-group-by>`_ are not invocable via ``CallFunction``
+
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
