@@ -31,10 +31,10 @@ type Float16 struct {
 	values []float16.Num
 }
 
-func NewFloat16Data(data *Data) *Float16 {
+func NewFloat16Data(data arrow.ArrayData) *Float16 {
 	a := &Float16{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 

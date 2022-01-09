@@ -42,7 +42,7 @@ func TestSliceAndWrite(t *testing.T) {
 	rec := b.NewRecord()
 	defer rec.Release()
 
-	sliceAndWrite := func(rec array.Record, schema *arrow.Schema) {
+	sliceAndWrite := func(rec arrow.Record, schema *arrow.Schema) {
 		slice := rec.NewSlice(1, 2)
 		defer slice.Release()
 

@@ -167,7 +167,7 @@ func createListScalar(sliceval reflect.Value, mem memory.Allocator) (Scalar, err
 		return nil, xerrors.Errorf("createListScalar only works for slices, not %s", sliceval.Kind())
 	}
 
-	var arr array.Interface
+	var arr arrow.Array
 
 	switch sliceval.Type().Elem().Kind() {
 	case reflect.String:
@@ -402,7 +402,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 		return NewTime64Scalar(v, dt), nil
 	case arrow.Timestamp:
 		return NewTimestampScalar(v, dt), nil
-	case array.Interface:
+	case arrow.Array:
 		switch dt.ID() {
 		case arrow.LIST:
 			if !arrow.TypeEqual(v.DataType(), dt.(*arrow.ListType).Elem()) {

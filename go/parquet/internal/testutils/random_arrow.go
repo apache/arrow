@@ -33,7 +33,7 @@ import (
 // binary will have each value between length 2 and 12 but random bytes that are not limited to ascii
 // fixed size binary will all be of length 10, random bytes are not limited to ascii
 // bool will be approximately half false and half true randomly.
-func RandomNonNull(dt arrow.DataType, size int) array.Interface {
+func RandomNonNull(dt arrow.DataType, size int) arrow.Array {
 	switch dt.ID() {
 	case arrow.FLOAT32:
 		bldr := array.NewFloat32Builder(memory.DefaultAllocator)
@@ -182,7 +182,7 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 // RandomNullable generates a random arrow array of length size with approximately numNulls,
 // at most there can be size/2 nulls. Other than there being nulls, the values follow the same rules
 // as described in the docs for RandomNonNull.
-func RandomNullable(dt arrow.DataType, size int, numNulls int) array.Interface {
+func RandomNullable(dt arrow.DataType, size int, numNulls int) arrow.Array {
 	switch dt.ID() {
 	case arrow.FLOAT32:
 		bldr := array.NewFloat32Builder(memory.DefaultAllocator)

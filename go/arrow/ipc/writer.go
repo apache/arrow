@@ -117,7 +117,7 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	if !w.started {
 		err := w.start()
 		if err != nil {
@@ -260,7 +260,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	return <-errch
 }
 
-func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
+func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 
 	// perform depth-first traversal of the row-batch
 	for i, col := range rec.Columns() {
@@ -307,7 +307,7 @@ func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
 	return w.encodeMetadata(p, rec.NumRows())
 }
 
-func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
+func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 	if w.depth <= 0 {
 		return errMaxRecursion
 	}
@@ -553,7 +553,7 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 	return nil
 }
 
-func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.Buffer, error) {
+func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
 	if data.Offset() != 0 {
