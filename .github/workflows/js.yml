@@ -75,7 +75,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -99,7 +99,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

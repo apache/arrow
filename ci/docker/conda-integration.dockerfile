@@ -21,7 +21,7 @@ FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
 ARG maven=3.5
-ARG node=14
+ARG node=16
 ARG jdk=8
 ARG go=1.15
 
