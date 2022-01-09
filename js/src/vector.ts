@@ -257,7 +257,7 @@ export class Vector<T extends DataType = any> {
      * @returns  A string representation of the Vector.
      */
     public toString() {
-        return [...this].join(',');
+        return `[${[...this].join(',')}]`;
     }
 
     /**
@@ -507,6 +507,7 @@ export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null |
 export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: readonly (null | undefined | number)[], type?: T): Vector<T>;
+export function vectorFromArray<T extends DataType>(values: readonly (unknown)[], type: T): Vector<T>;
 export function vectorFromArray<T extends readonly unknown[]>(values: T): Vector<JavaScriptArrayDataType<T>>;
 /** Creates a Vector from a typed array via {@link makeVector}. */
 export function vectorFromArray<T extends TypedArray | BigIntArray>(data: T): Vector<TypedArrayDataType<T>>;

@@ -16,8 +16,7 @@
 // under the License.
 
 import {
-    DataType,
-    DateDay, DateMillisecond, Dictionary, Int32, makeVector, Utf8, util, Vector, vectorFromArray
+    DateDay, DateMillisecond, Dictionary, Field, Int32, List, makeVector, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`DateVector`, () => {
@@ -116,6 +115,21 @@ describe(`Utf8Vector`, () => {
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
         basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
+    });
+});
+
+describe(`ListVector`, () => {
+    const values = [[1, 2], [1, 2, 3]];
+    const vector = vectorFromArray(values, new List(Field.new({ name: 'field', type: new Int32 })));
+
+    test(`has list type`, () => {
+        expect(vector.type).toBeInstanceOf(List);
+    });
+
+    test(`get value`, () => {
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.get(i)!.toJSON()).toEqual(values[i]);
+        }
     });
 });
 
