@@ -2119,158 +2119,158 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
               ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
- template <typename ArrowType>
- static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
-                             const Datum& rhs, const Datum& expected) {
-   ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
-   AssertArraysEqual(*expected.make_array(), *result.make_array(),
-                     /*verbose=*/true);
- }
+template <typename ArrowType>
+static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
+                            const Datum& rhs, const Datum& expected) {
+  ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
+  AssertArraysEqual(*expected.make_array(), *result.make_array(),
+                    /*verbose=*/true);
+}
 
- template <typename ArrowType>
- void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
-                      const Datum& rhs) {
-   CompareOperator lhs_val;
-   CompareOperator val_rhs;
-   BetweenOptions::Inclusive inclusive = options.inclusive;
+template <typename ArrowType>
+void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
+                     const Datum& rhs) {
+  CompareOperator lhs_val;
+  CompareOperator val_rhs;
+  BetweenOptions::Inclusive inclusive = options.inclusive;
 
-   if (inclusive == BetweenOptions::Inclusive::NEITHER) {
-     lhs_val = LESS;
-     val_rhs = LESS;
-   } else if (inclusive == BetweenOptions::Inclusive::LEFT) {
-     lhs_val = LESS_EQUAL;
-     val_rhs = LESS;
-   } else if (inclusive == BetweenOptions::Inclusive::RIGHT) {
-     lhs_val = LESS;
-     val_rhs = LESS_EQUAL;
-   } else {
-     lhs_val = LESS_EQUAL;
-     val_rhs = LESS_EQUAL;
-   }
+  if (inclusive == BetweenOptions::Inclusive::NEITHER) {
+    lhs_val = LESS;
+    val_rhs = LESS;
+  } else if (inclusive == BetweenOptions::Inclusive::LEFT) {
+    lhs_val = LESS_EQUAL;
+    val_rhs = LESS;
+  } else if (inclusive == BetweenOptions::Inclusive::RIGHT) {
+    lhs_val = LESS;
+    val_rhs = LESS_EQUAL;
+  } else {
+    lhs_val = LESS_EQUAL;
+    val_rhs = LESS_EQUAL;
+  }
 
-   ASSERT_OK_AND_ASSIGN(Datum resultl,
-                        CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs,
-                        val}));
-   ASSERT_OK_AND_ASSIGN(Datum resultr,
-                        CallFunction(CompareOperatorToFunctionName(val_rhs), {val,
-                        rhs}));
-   ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
+  ASSERT_OK_AND_ASSIGN(Datum resultl,
+                       CallFunction(CompareOperatorToFunctionName(lhs_val), {lhs,
+                       val}));
+  ASSERT_OK_AND_ASSIGN(Datum resultr,
+                       CallFunction(CompareOperatorToFunctionName(val_rhs), {val,
+                       rhs}));
+  ASSERT_OK_AND_ASSIGN(Datum expected, CallFunction("and", {resultl, resultr}));
 
-   ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
- }
+  ValidateBetween<ArrowType>(options, val, lhs, rhs, expected);
+}
 
- template <typename ArrowType>
- class TestNumericBetweenKernel : public ::testing::Test {};
+template <typename ArrowType>
+class TestNumericBetweenKernel : public ::testing::Test {};
 
- TYPED_TEST_SUITE(TestNumericBetweenKernel, NumericArrowTypes);
- TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
-   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-   using CType = typename TypeTraits<TypeParam>::CType;
+TYPED_TEST_SUITE(TestNumericBetweenKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
 
-   Datum zero(std::make_shared<ScalarType>(CType(0)));
-   Datum four(std::make_shared<ScalarType>(CType(4)));
-   Datum null(std::make_shared<ScalarType>());
-   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-/*  ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
-       four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
-       zero, four,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"),
-       zero, four,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-       zero, four,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"),
-       zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-       "[null,1,1,1]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-       null, four,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                     "[null,null,null,null,null,null]"));
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-       zero, null,
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                     "[null,null,null,null,null,null]"));*/
- }
+  Datum zero(std::make_shared<ScalarType>(CType(0)));
+  Datum four(std::make_shared<ScalarType>(CType(4)));
+  Datum null(std::make_shared<ScalarType>());
+  BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
+      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
+      zero, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"),
+      zero, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+      zero, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"),
+      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+      "[null,1,1,1]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+      null, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                    "[null,null,null,null,null,null]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
+      zero, null,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                    "[null,null,null,null,null,null]"));
+}
 
- TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-   BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
-   ValidateBetween<TypeParam>(
-       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-//                     "[true,true,true,false,false]"));
-//   ValidateBetween<TypeParam>(
-//       blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-//       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-//       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-//                     "[true,true,true,null,false,false]"));
- }
-//
-// template <typename Type>
-// struct BetweenRandomNumeric {
-//   static void Test(const std::shared_ptr<DataType>& type) {
-//     using ScalarType = typename TypeTraits<Type>::ScalarType;
-//     using CType = typename TypeTraits<Type>::CType;
-//     auto rand = random::RandomArrayGenerator(0x5416447);
-//     const int64_t length = 1000;
-//     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
-//       for (auto inclusive :
-//            {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
-//             BetweenOptions::Inclusive::RIGHT,
-//             BetweenOptions::Inclusive::NEITHER}) {
-//         auto data1 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
-//             null_probability);
-//         auto data2 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
-//             null_probability);
-//         auto data3 =
-//             rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
-//             null_probability);
-//
-//         // Create view of data as the type (e.g. timestamp)
-//         auto array1 = Datum(*data1->View(type));
-//         auto array2 = Datum(*data2->View(type));
-//         auto array3 = Datum(*data3->View(type));
-//         auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
-//         auto ten = Datum(std::make_shared<ScalarType>(CType(10), type));
-//         auto options = BetweenOptions(inclusive);
-//         ValidateBetween<Type>(options, array1, ten, fifty);
-//         ValidateBetween<Type>(options, array2, fifty, ten);
-//         ValidateBetween<Type>(options, array1, array2, array3);
-//       }
-//     }
-//   }
-// };
-//
-// TEST(TestNumericBetweenKernel, BetweenPrimitiveRandomTests) {
-//   TestRandomPrimitiveCTypes<BetweenRandomNumeric>();
-// }
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
+  BetweenOptions blele(BetweenOptions::Inclusive::BOTH);
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                    "[true,true,true,false,false]"));
+  ValidateBetween<TypeParam>(
+      blele, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                    "[true,true,true,null,false,false]"));
+}
+
+template <typename Type>
+struct BetweenRandomNumeric {
+  static void Test(const std::shared_ptr<DataType>& type) {
+    using ScalarType = typename TypeTraits<Type>::ScalarType;
+    using CType = typename TypeTraits<Type>::CType;
+    auto rand = random::RandomArrayGenerator(0x5416447);
+    const int64_t length = 1000;
+    for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+      for (auto inclusive :
+           {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+            BetweenOptions::Inclusive::RIGHT,
+            BetweenOptions::Inclusive::NEITHER}) {
+        auto data1 =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+            null_probability);
+        auto data2 =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+            null_probability);
+        auto data3 =
+            rand.Numeric<typename Type::PhysicalType>(length, 0, 100,
+            null_probability);
+
+        // Create view of data as the type (e.g. timestamp)
+        auto array1 = Datum(*data1->View(type));
+        auto array2 = Datum(*data2->View(type));
+        auto array3 = Datum(*data3->View(type));
+        auto fifty = Datum(std::make_shared<ScalarType>(CType(50), type));
+        auto ten = Datum(std::make_shared<ScalarType>(CType(10), type));
+        auto options = BetweenOptions(inclusive);
+        ValidateBetween<Type>(options, array1, ten, fifty);
+        ValidateBetween<Type>(options, array2, fifty, ten);
+        ValidateBetween<Type>(options, array1, array2, array3);
+      }
+    }
+  }
+};
+
+TEST(TestNumericBetweenKernel, BetweenPrimitiveRandomTests) {
+  TestRandomPrimitiveCTypes<BetweenRandomNumeric>();
+}
 //
 // class TestStringBetweenKernel : public ::testing::Test {};
 //
