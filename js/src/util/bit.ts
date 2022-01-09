@@ -28,8 +28,8 @@ export function getBit(_data: any, _index: number, byte: number, bit: number): 0
 /** @ignore */
 export function setBool(bytes: Uint8Array, index: number, value: any) {
     return value ?
-        !!(bytes[index >> 3] |=  (1 << (index % 8))) || true :
-        !(bytes[index >> 3] &= ~(1 << (index % 8))) && false ;
+        !!(bytes[index >> 3] |= (1 << (index % 8))) || true :
+        !(bytes[index >> 3] &= ~(1 << (index % 8))) && false;
 }
 
 /** @ignore */
@@ -136,7 +136,7 @@ export function popcnt_bit_range(data: Uint8Array, lhs: number, rhs: number): nu
 export function popcnt_array(arr: ArrayBufferView, byteOffset?: number, byteLength?: number) {
     let cnt = 0, pos = byteOffset! | 0;
     const view = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
-    const len =  byteLength === void 0 ? arr.byteLength : pos + byteLength;
+    const len = byteLength === void 0 ? arr.byteLength : pos + byteLength;
     while (len - pos >= 4) {
         cnt += popcnt_uint32(view.getUint32(pos));
         pos += 4;

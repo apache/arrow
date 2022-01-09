@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { TypeMap } from '../../type.js';
-import { Duplex, DuplexOptions } from 'stream';
-import { RecordBatch } from '../../recordbatch.js';
+import { Duplex, DuplexOptions } from 'node:stream';
 import { AsyncByteQueue } from '../../io/stream.js';
 import { RecordBatchReader } from '../../ipc/reader.js';
+import { RecordBatch } from '../../recordbatch.js';
+import { TypeMap } from '../../type.js';
 
 /** @ignore */
 export function recordBatchReaderThroughNodeStream<T extends TypeMap = any>(options?: DuplexOptions & { autoDestroy: boolean }) {

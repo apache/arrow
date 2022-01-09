@@ -627,7 +627,7 @@ export class Dictionary<T extends DataType = any, TKey extends TKeys = TKeys> ex
         this.indices = indices;
         this.dictionary = dictionary;
         this.isOrdered = isOrdered || false;
-        this.id = id == null ? getId() : typeof id === 'number' ? id : id.low;
+        this.id = id == null ? getId() : (typeof id === 'number' ? id : id.low);
     }
     public get typeId() { return Type.Dictionary as Type.Dictionary; }
     public get children() { return this.dictionary.children; }

@@ -189,6 +189,8 @@ export class Vector<T extends DataType = any> {
     // @ts-ignore
     public indexOf(element: T['TValue'], offset?: number): number { return -1; }
 
+    public includes(element: T['TValue'], offset?: number): boolean { return this.indexOf(element, offset) > 0; }
+
     /**
      * Get the size in bytes of an element by index.
      * @param index The index at which to get the byteLength.

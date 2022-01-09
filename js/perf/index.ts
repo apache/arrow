@@ -121,6 +121,9 @@ for (const { name, ipc, table } of config) {
     }, {
         suite_name: `Slice vectors`,
         fn(vector: Arrow.Vector<any>) { vector.slice(); }
+    }, {
+        suite_name: `Spread vectors`,
+        fn(vector: Arrow.Vector<any>) { [...vector]; }
     }];
 
     for (const { suite_name, fn } of suites) {
