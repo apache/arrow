@@ -146,7 +146,7 @@ for (let i = -1, n = vector.length; ++i < n;) {
 
 ### String vectors
 
-Strings can be encoded as UTF-8 or dictionary encoded UTF-8. Dictionary encoding means repeated values are encoded more efficiently. You can create a dictionary encoded string conveniently with `vectorFromArray` or efficiently with `makeVector`.
+Strings can be encoded as UTF-8 or dictionary encoded UTF-8. Dictionary encoding encodes repeated values more efficiently. You can create a dictionary encoded string conveniently with `vectorFromArray` or efficiently with `makeVector`.
 
 ```js
 import { makeVector, vectorFromArray, Dictionary, Uint8, Utf8 } from "apache-arrow";
