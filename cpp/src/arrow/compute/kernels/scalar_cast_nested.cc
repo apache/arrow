@@ -152,14 +152,14 @@ void AddListCast(CastFunction* func) {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    //const CastOptions& options = CastState::Get(ctx);
+    // const CastOptions& options = CastState::Get(ctx);
     if (out->kind() == Datum::SCALAR) {
       const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
       auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
 
       DCHECK(!out_scalar->is_valid);
       if (in_scalar.is_valid) {
-	auto in_type = in_scalar.type;
+        auto in_type = in_scalar.type;
       }
       return Status::OK();
     }
@@ -168,31 +168,34 @@ struct CastStruct {
     const auto out_size = checked_cast<const StructType&>(*out->type()).num_fields();
 
     if (in_size != out_size) {
-      ARROW_RETURN_NOT_OK(Status(StatusCode::TypeError, "struct field sizes do not match"));
+      ARROW_RETURN_NOT_OK(
+          Status(StatusCode::TypeError, "struct field sizes do not match"));
     }
 
     for (auto i{0}; i < in_size; i++) {
-      const auto in_field_name = checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
-      const auto out_field_name = checked_cast<const StructType&>(*out->type()).field(i)->name();
+      const auto in_field_name =
+          checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
+      const auto out_field_name =
+          checked_cast<const StructType&>(*out->type()).field(i)->name();
       if (in_field_name != out_field_name) {
-	ARROW_RETURN_NOT_OK(Status(StatusCode::TypeError, "struct field names do not match"));
+        ARROW_RETURN_NOT_OK(
+            Status(StatusCode::TypeError, "struct field names do not match"));
       }
     }
 
     return Status::OK();
   }
 };
-  
 
-  void AddStructToStructCast(CastFunction* func) {
-    ScalarKernel kernel;
-    kernel.exec = CastStruct::Exec;
-    kernel.signature =
-      // TODO: create a signature that checks element names / lengths?    
+void AddStructToStructCast(CastFunction* func) {
+  ScalarKernel kernel;
+  kernel.exec = CastStruct::Exec;
+  kernel.signature =
+      // TODO: create a signature that checks element names / lengths?
       KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
-  }
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
+}
 
 }  // namespace
 
