@@ -83,7 +83,7 @@ export function createElementComparator(search: any) {
         return (value: any) => value ? compareArrayLike(search, value) : false;
     }
     // Compare Maps and Rows
-    if (search instanceof Map) { return creatMapComparator(search); }
+    if (search instanceof Map) { return createMapComparator(search); }
     // Compare Array-likes
     if (Array.isArray(search)) { return createArrayLikeComparator(search); }
     // Compare Vectors
@@ -103,10 +103,10 @@ function createArrayLikeComparator(lhs: ArrayLike<any>) {
 }
 
 /** @ignore */
-function creatMapComparator(lhs: Map<any, any>) {
+function createMapComparator(lhs: Map<any, any>) {
     let i = -1;
     const comparators = [] as ((x: any) => boolean)[];
-    for (const v of lhs) comparators[++i] = createElementComparator(v);
+    for (const v of lhs.values()) comparators[++i] = createElementComparator(v);
     return createSubElementsComparator(comparators);
 }
 
