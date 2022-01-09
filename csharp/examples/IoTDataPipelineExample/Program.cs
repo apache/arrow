@@ -50,8 +50,6 @@ namespace IoTPipelineExample
 
             Console.WriteLine("Persisting data to disk...");
             var arrowDataPath = await sdp.PersistData();
-            //string currentPath = Directory.GetCurrentDirectory();
-            //string arrowDataPath = Path.Combine(currentPath, "arrow");
             Console.WriteLine("Loading arrow data file into memory...");
             string[] fileEntries = Directory.GetFiles(arrowDataPath);
 
