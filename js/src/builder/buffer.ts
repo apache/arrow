@@ -48,7 +48,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
         this.stride = stride;
         this.BYTES_PER_ELEMENT = buffer.BYTES_PER_ELEMENT;
         this.ArrayType = buffer.constructor as ArrayCtor<T>;
-        this._resize(this.length = buffer.length / stride | 0);
+        this._resize(this.length = Math.trunc(buffer.length / stride));
     }
 
     public buffer: T;
@@ -57,7 +57,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public readonly ArrayType: ArrayCtor<T>;
     public readonly BYTES_PER_ELEMENT: number;
 
-    public get byteLength() { return this.length * this.stride * this.BYTES_PER_ELEMENT | 0; }
+    public get byteLength() { return Math.trunc(this.length * this.stride * this.BYTES_PER_ELEMENT); }
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 

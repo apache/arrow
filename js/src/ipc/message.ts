@@ -234,8 +234,8 @@ export const MAGIC_STR = 'ARROW1';
 /** @ignore */
 export const MAGIC = new Uint8Array(MAGIC_STR.length);
 
-for (let i = 0; i < MAGIC_STR.length; i += 1 | 0) {
-    MAGIC[i] = MAGIC_STR.charCodeAt(i);
+for (let i = 0; i < MAGIC_STR.length; i += 1) {
+    MAGIC[i] = MAGIC_STR.codePointAt(i)!;
 }
 
 /** @ignore */

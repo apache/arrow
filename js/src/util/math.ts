@@ -30,7 +30,7 @@ export function uint16ToFloat64(h: number) {
     const sigf = (h & 0x03FF) / 1024;
     const sign = (-1) ** ((h & 0x8000) >> 15);
     switch (expo) {
-        case 0x1F: return sign * (sigf ? NaN : 1 / 0);
+        case 0x1F: return sign * (sigf ? Number.NaN : 1 / 0);
         case 0x00: return sign * (sigf ? 6.103515625e-5 * sigf : 0);
     }
     return sign * (2 ** (expo - 15)) * (1 + sigf);
@@ -55,9 +55,9 @@ export function float64ToUint16(d: number) {
     // 0x000fffff = 00000000 00001111 11111111 11111111 -- masks the 1st-20th bit
 
     const sign = (u32[1] & 0x80000000) >> 16 & 0xFFFF;
-    let expo = (u32[1] & 0x7ff00000), sigf = 0x0000;
+    let expo = (u32[1] & 0x7FF00000), sigf = 0x0000;
 
-    if (expo >= 0x40f00000) {
+    if (expo >= 0x40F00000) {
         //
         // If exponent overflowed, the float16 is either NaN or Infinity.
         // Rules to propagate the sign bit: mantissa > 0 ? NaN : +/-Infinity
@@ -77,16 +77,16 @@ export function float64ToUint16(d: number) {
             expo = 0x7C00;
         } else {
             expo = (expo & 0x7C000000) >> 16;
-            sigf = (u32[1] & 0x000fffff) >> 10;
+            sigf = (u32[1] & 0x000FFFFF) >> 10;
         }
-    } else if (expo <= 0x3f000000) {
+    } else if (expo <= 0x3F000000) {
         //
         // If exponent underflowed, the float is either signed zero or subnormal.
         //
         // Magic numbers:
         // 0x3F000000 = 00111111 00000000 00000000 00000000 -- 6-bit exponent underflow
         //
-        sigf = 0x100000 + (u32[1] & 0x000fffff);
+        sigf = 0x100000 + (u32[1] & 0x000FFFFF);
         sigf = 0x100000 + (sigf << ((expo >> 20) - 998)) >> 21;
         expo = 0;
     } else {
@@ -97,8 +97,8 @@ export function float64ToUint16(d: number) {
         //
 
         // Ensure the first mantissa bit (the 10th one) is 1 and round
-        expo = (expo - 0x3f000000) >> 10;
-        sigf = ((u32[1] & 0x000fffff) + 0x200) >> 10;
+        expo = (expo - 0x3F000000) >> 10;
+        sigf = ((u32[1] & 0x000FFFFF) + 0x200) >> 10;
     }
 
     return sign | expo | sigf & 0xFFFF;

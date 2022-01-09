@@ -127,7 +127,7 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         if (row[kParent].type.children.findIndex((f) => f.name === key) !== -1) {
             return { writable: true, enumerable: true, configurable: true };
         }
-        return undefined;
+        return;
     }
     get(row: StructRow<T>, key: string) {
         // Look up key in row first

@@ -108,14 +108,14 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         return row[kKeys].toArray().map(String);
     }
     has(row: MapRow<K, V>, key: string | symbol) {
-        return row[kKeys].indexOf(key) !== -1;
+        return row[kKeys].includes(key);
     }
     getOwnPropertyDescriptor(row: MapRow<K, V>, key: string | symbol) {
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
             return { writable: true, enumerable: true, configurable: true };
         }
-        return undefined;
+        return;
     }
     get(row: MapRow<K, V>, key: string | symbol) {
         // Look up key in row first

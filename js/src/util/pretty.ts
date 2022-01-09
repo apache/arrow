@@ -35,7 +35,7 @@ export function valueToString(x: any): string {
     }
     if (ArrayBuffer.isView(x)) {
         if (x instanceof BigInt64Array || x instanceof BigUint64Array) {
-            return `[${[...x].map(valueToString)}]`;
+            return `[${[...x].map(x => valueToString(x))}]`;
         }
         return `[${x}]`;
     }

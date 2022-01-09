@@ -49,11 +49,15 @@ class Footer_ {
         const schemaOffset = Schema.encode(b, footer.schema);
 
         _Footer.startRecordBatchesVector(b, footer.numRecordBatches);
-        [...footer.recordBatches()].slice().reverse().forEach((rb) => FileBlock.encode(b, rb));
+        for (const rb of [...footer.recordBatches()].slice().reverse()) {
+            FileBlock.encode(b, rb);
+        }
         const recordBatchesOffset = b.endVector();
 
         _Footer.startDictionariesVector(b, footer.numDictionaries);
-        [...footer.dictionaryBatches()].slice().reverse().forEach((db) => FileBlock.encode(b, db));
+        for (const db of [...footer.dictionaryBatches()].slice().reverse()) {
+            FileBlock.encode(b, db);
+        }
 
         const dictionaryBatchesOffset = b.endVector();
 

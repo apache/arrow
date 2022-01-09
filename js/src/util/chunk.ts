@@ -107,7 +107,7 @@ export function binarySearch<
         if (lhs >= rhs - 1) {
             return (idx < offsets[rhs]) ? fn(chunks, lhs, idx - offsets[lhs]) : null;
         }
-        mid = lhs + (((rhs - lhs) * .5) | 0);
+        mid = lhs + (Math.trunc((rhs - lhs) * .5));
         idx < offsets[mid] ? (rhs = mid) : (lhs = mid);
     } while (lhs < rhs);
 }
@@ -123,7 +123,7 @@ export function wrapChunkedCall1<T extends DataType>(fn: (c: Data<T>, _1: number
     return function (this: any, index: number) {
         const data = this.data as ReadonlyArray<Data<T>>;
         switch (data.length) {
-            case 0: return undefined;
+            case 0: return;
             case 1: return fn(data[0], index);
             default: return binarySearch(data, this._offsets, index, chunkedFn);
         }
@@ -137,7 +137,7 @@ export function wrapChunkedCall2<T extends DataType>(fn: (c: Data<T>, _1: number
     return function (this: any, index: number, value: any) {
         const data = this.data as ReadonlyArray<Data<T>>;
         switch (data.length) {
-            case 0: return undefined;
+            case 0: return;
             case 1: return fn(data[0], index, value);
             default: {
                 _2 = value;

@@ -405,7 +405,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
 function decodeCustomMetadata(parent?: _Schema | _Field | null) {
     const data = new Map<string, string>();
     if (parent) {
-        for (let entry, key, i = -1, n = parent.customMetadataLength() | 0; ++i < n;) {
+        for (let entry, key, i = -1, n = Math.trunc(parent.customMetadataLength()); ++i < n;) {
             if ((entry = parent.customMetadata(i)) && (key = entry.key()) != null) {
                 data.set(key, entry.value()!);
             }
@@ -566,12 +566,12 @@ function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
     const buffers = recordBatch.buffers || [];
 
     _RecordBatch.startNodesVector(b, nodes.length);
-    nodes.slice().reverse().forEach((n) => FieldNode.encode(b, n));
+    for (const n of nodes.slice().reverse()) FieldNode.encode(b, n);
 
     const nodesVectorOffset = b.endVector();
 
     _RecordBatch.startBuffersVector(b, buffers.length);
-    buffers.slice().reverse().forEach((b_) => BufferRegion.encode(b, b_));
+    for (const b_ of buffers.slice().reverse()) BufferRegion.encode(b, b_);
 
     const buffersVectorOffset = b.endVector();
 
@@ -603,7 +603,7 @@ function encodeBufferRegion(b: Builder, node: BufferRegion) {
 }
 
 /** @ignore */
-const platformIsLittleEndian = (function () {
+const platformIsLittleEndian = (() => {
     const buffer = new ArrayBuffer(2);
     new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
     // Int16Array uses the platform's endianness.

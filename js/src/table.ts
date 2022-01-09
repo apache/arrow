@@ -86,8 +86,8 @@ export class Table<T extends TypeMap = any> {
             return this;
         }
 
-        let schema: Schema<T> | undefined = undefined;
-        let offsets: Uint32Array | undefined = undefined;
+        let schema: Schema<T> | undefined;
+        let offsets: Uint32Array | undefined;
 
         if (args[0] instanceof Schema) {
             schema = args.shift() as Schema<T>;
@@ -108,9 +108,9 @@ export class Table<T extends TypeMap = any> {
                         return [new RecordBatch(new Schema(x.type.children), x)];
                     }
                 } else if (Array.isArray(x)) {
-                    return x.flatMap(unwrap);
+                    return x.flatMap(v => unwrap(v));
                 } else if (typeof x[Symbol.iterator] === 'function') {
-                    return [...x].flatMap(unwrap);
+                    return [...x].flatMap(v => unwrap(v));
                 } else if (typeof x === 'object') {
                     const keys = Object.keys(x) as (keyof T)[];
                     const vecs = keys.map((k) => new Vector(x[k]));
@@ -122,7 +122,7 @@ export class Table<T extends TypeMap = any> {
             return [];
         };
 
-        const batches = args.flatMap(unwrap);
+        const batches = args.flatMap(v => unwrap(v));
 
         schema = schema ?? batches[0]?.schema ?? new Schema([]);
 
@@ -240,7 +240,7 @@ export class Table<T extends TypeMap = any> {
      * @returns An Array of Table rows.
      */
     public toArray() {
-        return this.data.map(data => toArrayVisitor.visit(data)).flat(1);
+        return this.data.flatMap(data => toArrayVisitor.visit(data));
     }
 
     /**

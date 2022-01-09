@@ -380,7 +380,7 @@ export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchW
     // @ts-ignore
     protected _writeFooter(schema: Schema<T>) { return this; }
     protected _writeSchema(schema: Schema<T>) {
-        return this._write(`{\n  "schema": ${JSON.stringify({ fields: schema.fields.map(fieldToJSON) }, null, 2)}`);
+        return this._write(`{\n  "schema": ${JSON.stringify({ fields: schema.fields.map(field => fieldToJSON(field)) }, null, 2)}`);
     }
     protected _writeDictionaries(batch: RecordBatch<T>) {
         if (batch.dictionaries.size > 0) {
@@ -457,7 +457,7 @@ function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
     return {
         'name': name, 'nullable': nullable,
         'type': assembler.visit(type),
-        'children': (type.children || []).map(fieldToJSON),
+        'children': (type.children || []).map((field: any) => fieldToJSON(field)),
         'dictionary': !DataType.isDictionary(type) ? undefined : {
             'id': type.id,
             'isOrdered': type.isOrdered,

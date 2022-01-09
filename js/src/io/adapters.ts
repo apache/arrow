@@ -79,7 +79,7 @@ function* fromIterable<T extends ArrayBufferViewInput>(source: Iterable<T> | T):
     try {
         do {
             // read the next value
-            ({ done, value: buffer } = isNaN(size - bufferLength) ?
+            ({ done, value: buffer } = Number.isNaN(size - bufferLength) ?
                 it.next(undefined) : it.next(size - bufferLength));
             // if chunk is not null or empty, push it onto the queue
             if (!done && buffer.byteLength > 0) {
@@ -125,7 +125,7 @@ async function* fromAsyncIterable<T extends ArrayBufferViewInput>(source: AsyncI
     try {
         do {
             // read the next value
-            ({ done, value: buffer } = isNaN(size - bufferLength)
+            ({ done, value: buffer } = Number.isNaN(size - bufferLength)
                 ? await it.next(undefined)
                 : await it.next(size - bufferLength));
             // if chunk is not null or empty, push it onto the queue
@@ -175,7 +175,7 @@ async function* fromDOMStream<T extends ArrayBufferViewInput>(source: ReadableSt
     try {
         do {
             // read the next value
-            ({ done, value: buffer } = isNaN(size - bufferLength)
+            ({ done, value: buffer } = Number.isNaN(size - bufferLength)
                 ? await it['read'](undefined)
                 : await it['read'](size - bufferLength));
             // if chunk is not null or empty, push it onto the queue
@@ -296,7 +296,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
             if (event === 'error') { break; }
             if (!(done = event === 'end')) {
                 // If the size is NaN, request to read everything in the stream's internal buffer
-                if (!isFinite(size - bufferLength)) {
+                if (!Number.isFinite(size - bufferLength)) {
                     buffer = toUint8Array(stream['read'](undefined));
                 } else {
                     buffer = toUint8Array(stream['read'](size - bufferLength));

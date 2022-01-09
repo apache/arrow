@@ -45,7 +45,7 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends TypeMap = any>(s
             batchLength = Math.min(batchLength, child ? child.length : batchLength);
         }
 
-        if (isFinite(batchLength)) {
+        if (Number.isFinite(batchLength)) {
             children = distributeChildren(fields, batchLength, children, cols, memo);
             if (batchLength > 0) {
                 batches[numBatches++] = makeData({

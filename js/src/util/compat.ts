@@ -17,6 +17,8 @@
 
 import { ReadableInterop, ArrowJSONLike } from '../io/interfaces.js';
 
+/* eslint-disable unicorn/throw-new-error */
+
 /** @ignore */
 type FSReadStream = import('fs').ReadStream;
 /** @ignore */

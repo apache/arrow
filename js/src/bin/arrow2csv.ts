@@ -17,8 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
-import * as stream from 'stream';
+import * as fs from 'node:fs';
+import * as stream from 'node:stream';
 import { valueToString } from '../util/pretty.js';
 import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
 
@@ -104,7 +104,7 @@ async function* recordBatchReaders(createSourceStream: () => NodeJS.ReadableStre
             reader && (yield reader);
         }
         if (reader) return;
-    } catch (e) { readers = null; }
+    } catch { readers = null; }
 
     if (!readers) {
         await json.closed;
@@ -114,7 +114,7 @@ async function* recordBatchReaders(createSourceStream: () => NodeJS.ReadableStre
             for await (reader of RecordBatchReader.readAll(bignumJSONParse(await json.toString()))) {
                 reader && (yield reader);
             }
-        } catch (e) { readers = null; }
+        } catch { readers = null; }
     }
 }
 
@@ -125,7 +125,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
     let maxColWidths = [10];
     const { hr, sep } = state;
 
-    const header = ['row_id', ...schema.fields.map((f) => `${f}`)].map(valueToString);
+    const header = ['row_id', ...schema.fields.map((f) => `${f}`)].map(val => valueToString(val));
 
     state.maxColWidths = header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length));
 

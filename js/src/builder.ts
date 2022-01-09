@@ -158,7 +158,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughIterable({ ['highWaterMark']: Infinity, ...options });
+        return throughIterable({ ['highWaterMark']: Number.POSITIVE_INFINITY, ...options });
     }
 
     /**
@@ -187,7 +187,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @nocollapse
      */
     public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughAsyncIterable({ ['highWaterMark']: Infinity, ...options });
+        return throughAsyncIterable({ ['highWaterMark']: Number.POSITIVE_INFINITY, ...options });
     }
 
     /**
@@ -254,11 +254,12 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public get byteLength(): number {
         let size = 0;
-        this._offsets && (size += this._offsets.byteLength);
-        this._values && (size += this._values.byteLength);
-        this._nulls && (size += this._nulls.byteLength);
-        this._typeIds && (size += this._typeIds.byteLength);
-        return this.children.reduce((size, child) => size + child.byteLength, size);
+        const { _offsets, _values, _nulls, _typeIds, children } = this;
+        _offsets && (size += _offsets.byteLength);
+        _values && (size += _values.byteLength);
+        _nulls && (size += _nulls.byteLength);
+        _typeIds && (size += _typeIds.byteLength);
+        return children.reduce((size, child) => size + child.byteLength, size);
     }
 
     /**
@@ -360,24 +361,24 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public flush(): Data<T> {
 
-        let data = undefined;
-        let typeIds = undefined;
-        let nullBitmap = undefined;
-        let valueOffsets = undefined;
-        const { type, length, nullCount } = this;
+        let data;
+        let typeIds;
+        let nullBitmap;
+        let valueOffsets;
+        const { type, length, nullCount, _typeIds, _offsets, _values, _nulls } = this;
 
-        if (typeIds = this._typeIds?.flush(length)) { // Unions
+        if (typeIds = _typeIds?.flush(length)) { // Unions
             // DenseUnions
-            valueOffsets = this._offsets?.flush(length);
-        } else if (valueOffsets = this._offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
+            valueOffsets = _offsets?.flush(length);
+        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
             // Binary, Utf8
-            data = this._values?.flush(this._offsets.last());
+            data = _values?.flush(_offsets.last());
         } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
-            data = this._values?.flush(length);
+            data = _values?.flush(length);
         }
 
         if (nullCount > 0) {
-            nullBitmap = this._nulls?.flush(length);
+            nullBitmap = _nulls?.flush(length);
         }
 
         const children = this.children.map((child) => child.flush());
@@ -397,7 +398,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public finish() {
         this.finished = true;
-        this.children.forEach((child) => child.finish());
+        for (const child of this.children) child.finish();
         return this;
     }
 
@@ -411,7 +412,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         this._values?.clear();
         this._offsets?.clear();
         this._typeIds?.clear();
-        this.children.forEach((child) => child.clear());
+        for (const child of this.children) child.clear();
         return this;
     }
 }

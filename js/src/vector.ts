@@ -210,7 +210,7 @@ export class Vector<T extends DataType = any> {
      * @param others Additional Vectors to add to the end of this Vector.
      */
     public concat(...others: Vector<T>[]): Vector<T> {
-        return new Vector(this.data.concat(others.flatMap((x) => x.data).flat(Infinity)));
+        return new Vector(this.data.concat(others.flatMap((x) => x.data).flat(Number.POSITIVE_INFINITY)));
     }
 
     /**
@@ -238,14 +238,14 @@ export class Vector<T extends DataType = any> {
      * @returns An Array or TypedArray of the Vector's elements, based on the Vector's DataType.
      */
     public toArray(): T['TArray'] {
-        const data = this.data;
+        const { data, stride } = this;
+        let { ArrayType } = this;
         const toArray = toArrayVisitor.getVisitFn(this.type.typeId);
         switch (data.length) {
             case 1: return toArray(data[0]);
-            case 0: return new this.ArrayType();
+            case 0: return new ArrayType();
         }
-        let { ArrayType } = this;
-        const arrays = data.map(toArray);
+        const arrays = data.map(data => toArray(data));
         if (ArrayType !== arrays[0].constructor) {
             ArrayType = arrays[0].constructor;
         }
@@ -253,7 +253,7 @@ export class Vector<T extends DataType = any> {
             memo.array.set(array, memo.offset);
             memo.offset += array.length;
             return memo;
-        }, { array: new ArrayType(this.length * this.stride), offset: 0 }).array;
+        }, { array: new ArrayType(this.length * stride), offset: 0 }).array;
     }
 
     /**
@@ -331,19 +331,16 @@ export class Vector<T extends DataType = any> {
             (inst, key, val) => inst.set(key, val)
         )));
 
-        Object.assign(vectorPrototypesByTypeId, Object
+        Object.assign(vectorPrototypesByTypeId, Object.fromEntries(Object
             .keys(Type).map((T: any) => Type[T] as any)
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE)
-            .reduce((prototypes, typeId) => ({
-                ...prototypes,
-                [typeId]: Object.create(proto, {
-                    ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
-                    ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
-                    ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
-                    ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
-                    ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
-                })
-            }), {}));
+            .map((typeId) => [typeId, Object.create(proto, {
+                ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
+                ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
+                ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
+                ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
+                ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
+            })])));
 
         return 'Vector';
     })(Vector.prototype);
@@ -419,7 +416,7 @@ export function makeVector(init: any) {
         if (init instanceof Vector) { return new Vector(init.data); }
         if (init.type instanceof DataType) { return new Vector([makeData(init)]); }
         if (Array.isArray(init)) {
-            return new Vector(init.flatMap(unwrapInputs));
+            return new Vector(init.flatMap(v => unwrapInputs(v)));
         }
         if (ArrayBuffer.isView(init)) {
             if (init instanceof DataView) {
@@ -533,5 +530,5 @@ export function vectorFromArray(init: any, type?: DataType) {
 }
 
 function unwrapInputs(x: any) {
-    return x instanceof Data ? [x] : x instanceof Vector ? x.data : makeVector(x).data;
+    return x instanceof Data ? [x] : (x instanceof Vector ? x.data : makeVector(x).data);
 }

@@ -163,7 +163,7 @@ export class Data<T extends DataType = DataType> {
         const buffers = this._sliceBuffers(offset, length, stride, typeId);
         return this.clone<T>(this.type, this.offset + offset, length, nullCount, buffers,
             // Don't slice children if we have value offsets (the variable-width types)
-            (!children.length || this.valueOffsets) ? children : this._sliceChildren(children, childStride * offset, childStride * length));
+            (children.length === 0 || this.valueOffsets) ? children : this._sliceChildren(children, childStride * offset, childStride * length));
     }
 
     public _changeLengthAndBackfillNullBitmap(newLength: number): Data<T> {

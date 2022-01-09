@@ -40,7 +40,7 @@ export class RandomAccessFile extends ByteStream {
     public read(nBytes?: number | null) {
         const { buffer, size, position } = this;
         if (buffer && position < size) {
-            if (typeof nBytes !== 'number') { nBytes = Infinity; }
+            if (typeof nBytes !== 'number') { nBytes = Number.POSITIVE_INFINITY; }
             this.position = Math.min(size,
                 position + Math.min(size - position, nBytes));
             return buffer.subarray(position, this.position);
@@ -88,7 +88,7 @@ export class AsyncRandomAccessFile extends AsyncByteStream {
         this._pending && await this._pending;
         const { _handle: file, size, position } = this;
         if (file && position < size) {
-            if (typeof nBytes !== 'number') { nBytes = Infinity; }
+            if (typeof nBytes !== 'number') { nBytes = Number.POSITIVE_INFINITY; }
             let pos = position, offset = 0, bytesRead = 0;
             const end = Math.min(size, pos + Math.min(size - pos, nBytes));
             const buffer = new Uint8Array(Math.max(0, (this.position = end) - pos));

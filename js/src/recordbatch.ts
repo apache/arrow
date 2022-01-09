@@ -315,7 +315,7 @@ function ensureSameLengthData<T extends TypeMap = any>(
     const children = [...chunks] as Data<T[keyof T]>[];
     const nullBitmapSize = ((maxLength + 63) & ~63) >> 3;
 
-    schema.fields.forEach((field, idx) => {
+    for (const [idx, field] of schema.fields.entries()) {
         const chunk = chunks[idx];
         if (!chunk || chunk.length !== maxLength) {
             fields[idx] = field.clone({ nullable: true });
@@ -326,7 +326,7 @@ function ensureSameLengthData<T extends TypeMap = any>(
                 nullBitmap: new Uint8Array(nullBitmapSize)
             });
         }
-    });
+    }
 
     return [
         schema.assign(fields),

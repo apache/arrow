@@ -65,7 +65,7 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     const byteLength = result.reduce((x, b) => x + b.byteLength, 0);
     let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
     let offset = 0, index = -1;
-    const length = Math.min(size || Infinity, byteLength);
+    const length = Math.min(size || Number.POSITIVE_INFINITY, byteLength);
     for (const n = result.length; ++index < n;) {
         source = result[index];
         sliced = source.subarray(0, Math.min(source.length, length - offset));
@@ -107,8 +107,8 @@ export function toArrayBufferView<
     if (value instanceof ArrayBuffer) { return new ArrayBufferViewCtor(value); }
     if (value instanceof SharedArrayBuf) { return new ArrayBufferViewCtor(value); }
     if (isFlatbuffersByteBuffer(value)) { return toArrayBufferView(ArrayBufferViewCtor, value.bytes()); }
-    return !ArrayBuffer.isView(value) ? ArrayBufferViewCtor.from(value) : value.byteLength <= 0 ? new ArrayBufferViewCtor(0)
-        : new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength / ArrayBufferViewCtor.BYTES_PER_ELEMENT);
+    return !ArrayBuffer.isView(value) ? ArrayBufferViewCtor.from(value) : (value.byteLength <= 0 ? new ArrayBufferViewCtor(0)
+        : new ArrayBufferViewCtor(value.buffer, value.byteOffset, value.byteLength / ArrayBufferViewCtor.BYTES_PER_ELEMENT));
 }
 
 /** @ignore */ export const toInt8Array = (input: ArrayBufferViewInput) => toArrayBufferView(Int8Array, input);
@@ -131,7 +131,6 @@ const pump = <T extends Iterator<any> | AsyncIterator<any>>(iterator: T) => { it
 
 /** @ignore */
 export function* toArrayBufferViewIterator<T extends TypedArray>(ArrayCtor: TypedArrayConstructor<T>, source: ArrayBufferViewIteratorInput) {
-
     const wrap = function*<T>(x: T) { yield x; };
     const buffers: Iterable<ArrayBufferViewInput> =
         (typeof source === 'string') ? wrap(source)
