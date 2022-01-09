@@ -101,12 +101,12 @@ namespace IoTPipelineExample
                 var item = new SensorData
                 {
                     // approximately 9_000 unique subjects/sensors
-                    subjectId = rand.Next(1_001, 1_123),
-                    activityLabel = label,
-                    timestamp = DateTimeOffset.UtcNow;
-                    x_Axis = rand.NextDouble(),
-                    y_Axis = rand.NextDouble(),
-                    z_Axis = rand.NextDouble(),
+                    SubjectId = rand.Next(1_000, 10_000),
+                    ActivityLabel = label,
+                    Timestamp = DateTimeOffset.UtcNow,
+                    X_Axis = rand.NextDouble(),
+                    Y_Axis = rand.NextDouble(),
+                    Z_Axis = rand.NextDouble(),
                 };
 
                 if (_writer.TryWrite(item))
@@ -133,7 +133,7 @@ namespace IoTPipelineExample
                 {
                     if (item != null)
                     {
-                        int subjectId = (int)item.subjectId;
+                        int subjectId = (int)item.SubjectId;
                         if (!_colSubjectIdBuilderDict.ContainsKey(subjectId))
                         {
                             _colSubjectIdBuilderDict.Add(subjectId, new Int32Array.Builder());
@@ -143,12 +143,12 @@ namespace IoTPipelineExample
                             _colYAxisBuilderDict.Add(subjectId, new DoubleArray.Builder());
                             _colZAxisBuilderDict.Add(subjectId, new DoubleArray.Builder());
                         }
-                        _colSubjectIdBuilderDict[subjectId].Append((int)item.subjectId);
-                        _colActivityLabelBuilderDict[subjectId].Append(item.activityLabel);
-                        _colTimestampBuilderDict[subjectId].Append((DateTimeOffset)item.timestamp);
-                        _colXAxisBuilderDict[subjectId].Append((double)item.x_Axis);
-                        _colYAxisBuilderDict[subjectId].Append((double)item.y_Axis);
-                        _colZAxisBuilderDict[subjectId].Append((double)item.z_Axis);
+                        _colSubjectIdBuilderDict[subjectId].Append((int)item.SubjectId);
+                        _colActivityLabelBuilderDict[subjectId].Append(item.ActivityLabel);
+                        _colTimestampBuilderDict[subjectId].Append((DateTimeOffset)item.Timestamp);
+                        _colXAxisBuilderDict[subjectId].Append((double)item.X_Axis);
+                        _colYAxisBuilderDict[subjectId].Append((double)item.Y_Axis);
+                        _colZAxisBuilderDict[subjectId].Append((double)item.Z_Axis);
                     }
                 }
             }

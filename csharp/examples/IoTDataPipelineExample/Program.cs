@@ -25,7 +25,7 @@ namespace IoTPipelineExample
     class Program
     {
         public static int concurrencyLevel = 8;
-        public static int totalInputs = 10_000;
+        public static int totalInputs = 10_000_000;
         public static int queueCapacity = 1_000_000;
 
         public static async Task Main(string[] args)
