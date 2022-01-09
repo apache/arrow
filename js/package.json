@@ -19,7 +19,7 @@
     "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t src --coverage",
     "test:bundle": "gulp bundle",
-    "doc": "del-cli ./doc && typedoc --options typedoc.cjs",
+    "doc": "del-cli ./doc && typedoc",
     "lint": "eslint src test --fix",
     "lint:ci": "eslint src test",
     "prepublishOnly": "echo \"Error: do 'yarn release' instead of 'npm publish'\" && exit 1"
