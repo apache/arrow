@@ -2421,10 +2421,8 @@ void InitStaticData() {
                       timestamp(TimeUnit::NANO)};
 
   // Duration types
-  g_duration_types = {duration(TimeUnit::SECOND),
-                      duration(TimeUnit::MILLI),
-                      duration(TimeUnit::MICRO),
-                      duration(TimeUnit::NANO)};
+  g_duration_types = {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI),
+                      duration(TimeUnit::MICRO), duration(TimeUnit::NANO)};
 
   // Interval types
   g_interval_types = {day_time_interval(), month_interval(), month_day_nano_interval()};

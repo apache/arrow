@@ -117,7 +117,9 @@ struct Between {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
                           const Arg2& right, Status*) {
-    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
+    static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value &&
+                      std::is_same<Arg1, Arg2>::value,
+                  "");
     return BetweenImpl<Inclusive>::Call(middle, left, right);
   }
 };
@@ -220,7 +222,7 @@ Status CheckCompareTimestamps(const ExecBatch& batch) {
       invalid_state ^= ts.timezone().empty();
       if (invalid_state) {
         return Status::Invalid(
-          "Cannot compare timestamp with timezone to timestamp without timezone");
+            "Cannot compare timestamp with timezone to timestamp without timezone");
       }
     }
   }
@@ -401,38 +403,38 @@ using MinMaxState = OptionsWrapper<ElementWiseAggregateOptions>;
 // Implement a variadic scalar min/max kernel.
 template <typename OutType, typename Op>
 struct ScalarMinMax {
-using OutValue = typename GetOutputType<OutType>::T;
+  using OutValue = typename GetOutputType<OutType>::T;
 
-static void ExecScalar(const ExecBatch& batch,
-		 const ElementWiseAggregateOptions& options, Scalar* out) {
-// All arguments are scalar
-OutValue value{};
-bool valid = false;
-for (const auto& arg : batch.values) {
-// Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
-if (!arg.is_scalar()) continue;
-const auto& scalar = *arg.scalar();
-if (!scalar.is_valid) {
-if (options.skip_nulls) continue;
-out->is_valid = false;
-return;
-}
-if (!valid) {
-value = UnboxScalar<OutType>::Unbox(scalar);
-valid = true;
-} else {
-value = Op::template Call<OutValue, OutValue, OutValue>(
-    value, UnboxScalar<OutType>::Unbox(scalar));
-}
-}
-out->is_valid = valid;
-if (valid) {
-BoxScalar<OutType>::Box(value, out);
-}
-}
+  static void ExecScalar(const ExecBatch& batch,
+                         const ElementWiseAggregateOptions& options, Scalar* out) {
+  // All arguments are scalar
+  OutValue value{};
+  bool valid = false;
+  for (const auto& arg : batch.values) {
+    // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
+    if (!arg.is_scalar()) continue;
+    const auto& scalar = *arg.scalar();
+    if (!scalar.is_valid) {
+      if (options.skip_nulls) continue;
+        out->is_valid = false;
+        return;
+      }
+      if (!valid) {
+        value = UnboxScalar<OutType>::Unbox(scalar);
+        valid = true;
+      } else {
+        value = Op::template Call<OutValue, OutValue, OutValue>(
+        value, UnboxScalar<OutType>::Unbox(scalar));
+      }
+    }
+    out->is_valid = valid;
+    if (valid) {
+      BoxScalar<OutType>::Box(value, out);
+    }
+  }
 
-static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
     const auto descrs = batch.GetDescriptors();
     const size_t scalar_count =
         static_cast<size_t>(std::count_if(batch.values.begin(), batch.values.end(),
@@ -762,10 +764,12 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
 }
 
 template <template <BetweenOptions::Inclusive> class Op>
-std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const FunctionDoc* doc) {
+std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
+                                                    const FunctionDoc* doc) {
   using BetweenState = OptionsWrapper<BetweenOptions>;
   static const auto kDefaultOptions = BetweenOptions::Defaults();
-  auto func = std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
+  auto func =
+      std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
 
   // Add kernels for physical numeric types
   for (const auto& types : {NumericTypes(), TemporalTypes(), DurationTypes()}) {
@@ -773,7 +777,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name, const Func
       auto type_id = ty->id();
       auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
         // Type-specific validations - currently gives an error for random tests
-        //if (type_id == Type::TIMESTAMP) {
+        // if (type_id == Type::TIMESTAMP) {
         //  RETURN_NOT_OK(CheckCompareTimestamps(batch));
         //}
 
