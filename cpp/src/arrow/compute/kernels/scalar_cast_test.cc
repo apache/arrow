@@ -2216,26 +2216,29 @@ TEST(Cast, ListToListOptionsPassthru) {
     }
   }
 }
-/*
-static void CheckStructToStruct(const std::vector<std::shared_ptr<DataType>>& value_types)
-{ for (const auto& src_value_type : value_types) { for (const auto& dest_value_type :
-value_types) { std::vector<std::string> field_names = {"a", "b"}; std::shared_ptr<Array>
-a1, b1, a2, b2; a1 = ArrayFromJSON(src_value_type, "[1, 2]"); b1 =
-ArrayFromJSON(src_value_type, "[3, 4]"); a2 = ArrayFromJSON(dest_value_type, "[1, 2]"); b2
-= ArrayFromJSON(dest_value_type, "[3, 4]");
 
-    auto src = StructArray::Make({a1, b2}, field_names).ValueOrDie();
-    auto dest = StructArray::Make({a2, b2}, field_names).ValueOrDie();
+static void CheckStructToStruct(
+    const std::vector<std::shared_ptr<DataType>>& value_types) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      std::vector<std::string> field_names = {"a", "b"};
+      std::shared_ptr<Array> a1, b1, a2, b2;
+      a1 = ArrayFromJSON(src_value_type, "[1, 2]");
+      b1 = ArrayFromJSON(src_value_type, "[3, 4]");
+      a2 = ArrayFromJSON(dest_value_type, "[1, 2]");
+      b2 = ArrayFromJSON(dest_value_type, "[3, 4]");
 
-    CheckCast(src, dest);
+      auto src = StructArray::Make({a1, b2}, field_names).ValueOrDie();
+      auto dest = StructArray::Make({a2, b2}, field_names).ValueOrDie();
+
+      CheckCast(src, dest);
+    }
   }
-}
 }
 
 TEST(Cast, StructToSameSizedAndNamedStruct) {
-CheckStructToStruct({int32(), float32(), int64()});
+  CheckStructToStruct({int32(), float32(), int64()});
 }
-*/
 
 TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   std::vector<std::string> field_names = {"a", "b"};

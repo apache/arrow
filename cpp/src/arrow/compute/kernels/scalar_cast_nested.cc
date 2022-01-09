@@ -152,18 +152,7 @@ void AddListCast(CastFunction* func) {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // const CastOptions& options = CastState::Get(ctx);
-    if (out->kind() == Datum::SCALAR) {
-      const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
-      auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
-
-      DCHECK(!out_scalar->is_valid);
-      if (in_scalar.is_valid) {
-        auto in_type = in_scalar.type;
-      }
-      return Status::OK();
-    }
-
+    const CastOptions& options = CastState::Get(ctx);
     const auto in_size = checked_cast<const StructType&>(*batch[0].type()).num_fields();
     const auto out_size = checked_cast<const StructType&>(*out->type()).num_fields();
 
@@ -183,6 +172,20 @@ struct CastStruct {
       }
     }
 
+    const ArrayData& in_array = *batch[0].array();
+    ArrayData *out_array = out->mutable_array();
+    out_array->buffers = in_array.buffers;
+
+    for (int64_t i=0; i < in_array.length; i++) {
+      
+    }
+    auto out_type = out->type();
+    auto exec_ctxt = ctx->exec_context();
+    auto abcd = Cast(in_array, out_type, options, exec_ctxt);
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values, abcd);
+
+    DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+
     return Status::OK();
   }
 };
@@ -191,7 +194,6 @@ void AddStructToStructCast(CastFunction* func) {
   ScalarKernel kernel;
   kernel.exec = CastStruct::Exec;
   kernel.signature =
-      // TODO: create a signature that checks element names / lengths?
       KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
