@@ -171,14 +171,6 @@ namespace IoTPipelineExample
             {
                 var subjectId = key;
 
-                //var recordBatch = new RecordBatch.Builder(memoryAllocator)
-                //.Append("SubjectId", false, _colSubjectIdBuilderDict[subjectId].Build())
-                //.Append("ActivityLabel", false, _colActivityLabelBuilderDict[subjectId].Build())
-                //.Append("Timestamp", false, _colTimestampBuilderDict[subjectId].Build())
-                //.Append("XAxis", false, _colXAxisBuilderDict[subjectId].Build())
-                //.Append("YAxis", false, _colYAxisBuilderDict[subjectId].Build())
-                //.Append("ZAxis", false, _colZAxisBuilderDict[subjectId].Build())
-                //.Build();
                 Schema.Builder schemaBuilder = new Schema.Builder();
 
                 schemaBuilder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
