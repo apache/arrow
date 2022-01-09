@@ -224,6 +224,68 @@ garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
                                     GArrowSchema *schema);
 
 
+/**
+ * GArrowJoinType:
+ * @GARROW_JOIN_TYPE_LEFT_SEMI:
+ * @GARROW_JOIN_TYPE_RIGHT_SEMI:
+ * @GARROW_JOIN_TYPE_LEFT_ANTI:
+ * @GARROW_JOIN_TYPE_RIGHT_ANTI:
+ * @GARROW_JOIN_TYPE_INNER:
+ * @GARROW_JOIN_TYPE_LEFT_OUTER:
+ * @GARROW_JOIN_TYPE_RIGHT_OUTER:
+ * @GARROW_JOIN_TYPE_FULL_OUTER:
+ *
+ * They correspond to the values of `arrow::compute::JoinType`.
+ *
+ * Since: 7.0.0
+ */
+typedef enum {
+  GARROW_JOIN_TYPE_LEFT_SEMI,
+  GARROW_JOIN_TYPE_RIGHT_SEMI,
+  GARROW_JOIN_TYPE_LEFT_ANTI,
+  GARROW_JOIN_TYPE_RIGHT_ANTI,
+  GARROW_JOIN_TYPE_INNER,
+  GARROW_JOIN_TYPE_LEFT_OUTER,
+  GARROW_JOIN_TYPE_RIGHT_OUTER,
+  GARROW_JOIN_TYPE_FULL_OUTER,
+} GArrowJoinType;
+
+#define GARROW_TYPE_HASH_JOIN_NODE_OPTIONS      \
+  (garrow_hash_join_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHashJoinNodeOptions,
+                         garrow_hash_join_node_options,
+                         GARROW,
+                         HASH_JOIN_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowHashJoinNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowHashJoinNodeOptions *
+garrow_hash_join_node_options_new(GArrowJoinType type,
+                                  const gchar **left_keys,
+                                  gsize n_left_keys,
+                                  const gchar **right_keys,
+                                  gsize n_right_keys,
+                                  GError **error);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_hash_join_node_options_set_left_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_hash_join_node_options_set_right_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error);
+
+
 #define GARROW_TYPE_EXECUTE_NODE (garrow_execute_node_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowExecuteNode,
                          garrow_execute_node,
@@ -281,6 +343,13 @@ garrow_execute_plan_build_sink_node(GArrowExecutePlan *plan,
                                     GArrowExecuteNode *input,
                                     GArrowSinkNodeOptions *options,
                                     GError **error);
+GARROW_AVAILABLE_IN_7_0
+GArrowExecuteNode *
+garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
+                                         GArrowExecuteNode *left,
+                                         GArrowExecuteNode *right,
+                                         GArrowHashJoinNodeOptions *options,
+                                         GError **error);
 GARROW_AVAILABLE_IN_6_0
 gboolean
 garrow_execute_plan_validate(GArrowExecutePlan *plan,
