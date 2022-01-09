@@ -142,6 +142,8 @@ G_BEGIN_DECLS
  *
  * #GArrowSinkNodeOptions is a class to customize a sink node.
  *
+ * #GArrowHashJoinNodeOptions is a class to customize a hash join node.
+ *
  * #GArrowExecuteNode is a class to execute an operation.
  *
  * #GArrowExecutePlan is a class to execute operations.
@@ -1238,7 +1240,8 @@ garrow_aggregate_node_options_class_init(GArrowAggregateNodeOptionsClass *klass)
  * @n_keys: The number of @keys.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowAggregateNodeOptions.
+ * Returns: (nullable): A newly created #GArrowAggregateNodeOptions on success,
+ *   %NULL otherwise.
  *
  * Since: 6.0.0
  */
@@ -1379,6 +1382,143 @@ garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
   }
   g_object_ref(priv->reader);
   return priv->reader;
+}
+
+
+G_DEFINE_TYPE(GArrowHashJoinNodeOptions,
+              garrow_hash_join_node_options,
+              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+static void
+garrow_hash_join_node_options_init(GArrowHashJoinNodeOptions *object)
+{
+}
+
+static void
+garrow_hash_join_node_options_class_init(GArrowHashJoinNodeOptionsClass *klass)
+{
+  /* TODO: Add left_output_prefix and right_output_prefix properties */
+}
+
+/**
+ * garrow_hash_join_node_options_new:
+ * @type: A #GArrowJoinType to be used.
+ * @left_keys: (array length=n_left_keys): Left join keys.
+ * @n_left_keys: The number of @left_keys.
+ * @right_keys: (array length=n_right_keys): Right join keys.
+ * @n_right_keys: The number of @right_keys.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowHashJoinNodeOptions on success,
+ *   %NULL otherwise.
+ *
+ * Since: 7.0.0
+ */
+GArrowHashJoinNodeOptions *
+garrow_hash_join_node_options_new(GArrowJoinType type,
+                                  const gchar **left_keys,
+                                  gsize n_left_keys,
+                                  const gchar **right_keys,
+                                  gsize n_right_keys,
+                                  GError **error)
+{
+  auto arrow_type = static_cast<arrow::compute::JoinType>(type);
+  std::vector<arrow::FieldRef> arrow_left_keys;
+  for (gsize i = 0; i < n_left_keys; ++i) {
+    if (!garrow_field_refs_add(arrow_left_keys,
+                               left_keys[i],
+                               error,
+                               "[hash-join-node-options][new][left-key]")) {
+      return NULL;
+    }
+  }
+  std::vector<arrow::FieldRef> arrow_right_keys;
+  for (gsize i = 0; i < n_right_keys; ++i) {
+    if (!garrow_field_refs_add(arrow_right_keys,
+                               right_keys[i],
+                               error,
+                               "[hash-join-node-options][new][right-key]")) {
+      return NULL;
+    }
+  }
+  auto arrow_options =
+    new arrow::compute::HashJoinNodeOptions(arrow_type,
+                                            std::move(arrow_left_keys),
+                                            std::move(arrow_right_keys));
+  auto options = g_object_new(GARROW_TYPE_HASH_JOIN_NODE_OPTIONS,
+                              "options", arrow_options,
+                              NULL);
+  return GARROW_HASH_JOIN_NODE_OPTIONS(options);
+}
+
+/**
+ * garrow_hash_join_node_options_set_left_outputs:
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @outputs: (array length=n_outputs): Output fields.
+ * @n_outputs: The number of @outputs.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_hash_join_node_options_set_left_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error)
+{
+  auto arrow_options =
+    static_cast<arrow::compute::HashJoinNodeOptions *>(
+      garrow_execute_node_options_get_raw(
+        GARROW_EXECUTE_NODE_OPTIONS(options)));
+  arrow_options->output_all = false;
+  arrow_options->left_output.clear();
+  for (gsize i = 0; i < n_outputs; ++i) {
+    if (!garrow_field_refs_add(arrow_options->left_output,
+                               outputs[i],
+                               error,
+                               "[hash-join-node-options][set-left-outputs]")) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * garrow_hash_join_node_options_set_right_outputs:
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @outputs: (array length=n_outputs): Output fields.
+ * @n_outputs: The number of @outputs.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_hash_join_node_options_set_right_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error)
+{
+  auto arrow_options =
+    static_cast<arrow::compute::HashJoinNodeOptions *>(
+      garrow_execute_node_options_get_raw(
+        GARROW_EXECUTE_NODE_OPTIONS(options)));
+  arrow_options->output_all = false;
+  arrow_options->right_output.clear();
+  for (gsize i = 0; i < n_outputs; ++i) {
+    if (!garrow_field_refs_add(arrow_options->right_output,
+                               outputs[i],
+                               error,
+                               "[hash-join-node-options][set-right-outputs]")) {
+      return FALSE;
+    }
+  }
+  return TRUE;
 }
 
 
@@ -1686,6 +1826,42 @@ garrow_execute_plan_build_sink_node(GArrowExecutePlan *plan,
   auto node =
     garrow_execute_plan_build_node(plan,
                                    "sink",
+                                   inputs,
+                                   GARROW_EXECUTE_NODE_OPTIONS(options),
+                                   error);
+  g_list_free(inputs);
+  return node;
+}
+
+/**
+ * garrow_execute_plan_build_hash_join_node:
+ * @plan: A #GArrowExecutePlan.
+ * @left: A left #GArrowExecuteNode.
+ * @right: A right #GArrowExecuteNode.
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a shortcut of garrow_execute_plan_build_node() for hash
+ * join node.
+ *
+ * Returns: (transfer full): A newly built and added #GArrowExecuteNode
+ *   for hash join on success, %NULL on error.
+ *
+ * Since: 7.0.0
+ */
+GArrowExecuteNode *
+garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
+                                         GArrowExecuteNode *left,
+                                         GArrowExecuteNode *right,
+                                         GArrowHashJoinNodeOptions *options,
+                                         GError **error)
+{
+  GList *inputs = NULL;
+  inputs = g_list_append(inputs, left);
+  inputs = g_list_append(inputs, right);
+  auto node =
+    garrow_execute_plan_build_node(plan,
+                                   "hashjoin",
                                    inputs,
                                    GARROW_EXECUTE_NODE_OPTIONS(options),
                                    error);
