@@ -173,7 +173,7 @@ namespace IoTPipelineExample
 
                 schemaBuilder.Field(new Field("SubjectId", Int32Type.Default, nullable: false));
                 schemaBuilder.Field(new Field("ActivityLabel", StringType.Default, nullable: false));
-                schemaBuilder.Field(new Field("Timestamp", Int64Type.Default, nullable: false));
+                schemaBuilder.Field(new Field("Timestamp", TimestampType.Default, nullable: false));
                 schemaBuilder.Field(new Field("XAxis", DoubleType.Default, nullable: false));
                 schemaBuilder.Field(new Field("YAxis", DoubleType.Default, nullable: false));
                 schemaBuilder.Field(new Field("ZAxis", DoubleType.Default, nullable: false));
