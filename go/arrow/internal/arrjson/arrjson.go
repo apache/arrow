@@ -595,15 +595,15 @@ type Record struct {
 	Columns []Array `json:"columns"`
 }
 
-func recordsFromJSON(mem memory.Allocator, schema *arrow.Schema, recs []Record) []array.Record {
-	vs := make([]array.Record, len(recs))
+func recordsFromJSON(mem memory.Allocator, schema *arrow.Schema, recs []Record) []arrow.Record {
+	vs := make([]arrow.Record, len(recs))
 	for i, rec := range recs {
 		vs[i] = recordFromJSON(mem, schema, rec)
 	}
 	return vs
 }
 
-func recordFromJSON(mem memory.Allocator, schema *arrow.Schema, rec Record) array.Record {
+func recordFromJSON(mem memory.Allocator, schema *arrow.Schema, rec Record) arrow.Record {
 	arrs := arraysFromJSON(mem, schema, rec.Columns)
 	defer func() {
 		for _, arr := range arrs {
@@ -613,7 +613,7 @@ func recordFromJSON(mem memory.Allocator, schema *arrow.Schema, rec Record) arra
 	return array.NewRecord(schema, arrs, int64(rec.Count))
 }
 
-func recordToJSON(rec array.Record) Record {
+func recordToJSON(rec arrow.Record) Record {
 	return Record{
 		Count:   rec.NumRows(),
 		Columns: arraysToJSON(rec.Schema(), rec.Columns()),
@@ -629,15 +629,15 @@ type Array struct {
 	Children []Array       `json:"children,omitempty"`
 }
 
-func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []array.Interface {
-	o := make([]array.Interface, len(arrs))
+func arraysFromJSON(mem memory.Allocator, schema *arrow.Schema, arrs []Array) []arrow.Array {
+	o := make([]arrow.Array, len(arrs))
 	for i, v := range arrs {
 		o[i] = arrayFromJSON(mem, schema.Field(i).Type, v)
 	}
 	return o
 }
 
-func arraysToJSON(schema *arrow.Schema, arrs []array.Interface) []Array {
+func arraysToJSON(schema *arrow.Schema, arrs []arrow.Array) []Array {
 	o := make([]Array, len(arrs))
 	for i, v := range arrs {
 		o[i] = arrayToJSON(schema.Field(i), v)
@@ -655,7 +655,7 @@ func validsToBitmap(valids []bool, mem memory.Allocator) *memory.Buffer {
 	return buf
 }
 
-func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Interface {
+func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Array {
 	switch dt := dt.(type) {
 	case *arrow.NullType:
 		return array.NewNull(arr.Count)
@@ -783,7 +783,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
-			[]*array.Data{elems.Data()}, nulls, 0)
+			[]arrow.ArrayData{elems.Data()}, nulls, 0)
 		defer data.Release()
 		return array.NewListData(data)
 
@@ -796,7 +796,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		defer bitmap.Release()
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
-		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []*array.Data{elems.Data()}, nulls, 0)
+		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap}, []arrow.ArrayData{elems.Data()}, nulls, 0)
 		defer data.Release()
 		return array.NewFixedSizeListData(data)
 
@@ -807,7 +807,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 
-		fields := make([]*array.Data, len(dt.Fields()))
+		fields := make([]arrow.ArrayData, len(dt.Fields()))
 		for i := range fields {
 			child := arrayFromJSON(mem, dt.Field(i).Type, arr.Children[i])
 			defer child.Release()
@@ -849,7 +849,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 		nulls := arr.Count - bitutil.CountSetBits(bitmap.Bytes(), 0, arr.Count)
 		data := array.NewData(dt, arr.Count, []*memory.Buffer{bitmap,
 			memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(arr.Offset))},
-			[]*array.Data{elems.Data()}, nulls, 0)
+			[]arrow.ArrayData{elems.Data()}, nulls, 0)
 		defer data.Release()
 		return array.NewMapData(data)
 
@@ -944,7 +944,7 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 	panic("impossible")
 }
 
-func arrayToJSON(field arrow.Field, arr array.Interface) Array {
+func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 	switch arr := arr.(type) {
 	case *array.Null:
 		return Array{
@@ -1225,7 +1225,7 @@ func validsFromJSON(vs []int) []bool {
 	return o
 }
 
-func validsToJSON(arr array.Interface) []int {
+func validsToJSON(arr arrow.Array) []int {
 	o := make([]int, arr.Len())
 	for i := range o {
 		if arr.IsValid(i) {

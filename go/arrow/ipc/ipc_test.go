@@ -62,13 +62,13 @@ func TestArrow12072(t *testing.T) {
 	rec := b.NewRecord()
 	defer rec.Release()
 
-	tbl := array.NewTableFromRecords(schema, []array.Record{rec})
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec})
 	defer tbl.Release()
 
 	tr := array.NewTableReader(tbl, 1)
 	defer tr.Release()
 
-	data := []array.Record{}
+	data := []arrow.Record{}
 	for tr.Next() {
 		rec := tr.Record()
 		rec.Retain()
@@ -124,7 +124,7 @@ func (r *testMessageReader) Message() (*ipc.Message, error) {
 	return nil, errors.New("Error!")
 }
 func (r *testMessageReader) Release() {}
-func (r *testMessageReader) Retain() {}
+func (r *testMessageReader) Retain()  {}
 
 // Ensure that if the MessageReader errors, we get the error from Read
 func TestArrow14769(t *testing.T) {

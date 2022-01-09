@@ -36,7 +36,7 @@ func TestConcatenateValueBuffersNull(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	inputs := make([]array.Interface, 0)
+	inputs := make([]arrow.Array, 0)
 
 	bldr := array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
 	defer bldr.Release()
@@ -113,7 +113,7 @@ func (cts *ConcatTestSuite) TearDownSuite() {
 	cts.mem.AssertSize(cts.T(), 0)
 }
 
-func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Interface {
+func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Array {
 	switch cts.dt.ID() {
 	case arrow.BOOL:
 		return cts.rng.Boolean(size, 0.5, nullprob)
@@ -173,7 +173,7 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Inte
 		values := cts.rng.Int8(valuesSize, 0, 127, nullprob)
 		defer values.Release()
 
-		data := array.NewData(arrow.FixedSizeListOf(listsize, arrow.PrimitiveTypes.Int8), int(size), []*memory.Buffer{nil}, []*array.Data{values.Data()}, 0, 0)
+		data := array.NewData(arrow.FixedSizeListOf(listsize, arrow.PrimitiveTypes.Int8), int(size), []*memory.Buffer{nil}, []arrow.ArrayData{values.Data()}, 0, 0)
 		defer data.Release()
 		return array.MakeFromData(data)
 	case arrow.STRUCT:
@@ -188,7 +188,7 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Inte
 			arrow.Field{Name: "foo", Type: foo.DataType(), Nullable: true},
 			arrow.Field{Name: "bar", Type: bar.DataType(), Nullable: true},
 			arrow.Field{Name: "baz", Type: baz.DataType(), Nullable: true}),
-			int(size), []*memory.Buffer{nil}, []*array.Data{foo.Data(), bar.Data(), baz.Data()}, 0, 0)
+			int(size), []*memory.Buffer{nil}, []arrow.ArrayData{foo.Data(), bar.Data(), baz.Data()}, 0, 0)
 		defer data.Release()
 		return array.NewStructData(data)
 	case arrow.MAP:
@@ -227,8 +227,8 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) array.Inte
 	}
 }
 
-func (cts *ConcatTestSuite) slices(arr array.Interface, offsets []int32) []array.Interface {
-	slices := make([]array.Interface, len(offsets)-1)
+func (cts *ConcatTestSuite) slices(arr arrow.Array, offsets []int32) []arrow.Array {
+	slices := make([]arrow.Array, len(offsets)-1)
 	for i := 0; i != len(slices); i++ {
 		slices[i] = array.NewSlice(arr, int64(offsets[i]), int64(offsets[i+1]))
 	}
@@ -295,7 +295,7 @@ func TestOffsetOverflow(t *testing.T) {
 	fakeArr := array.NewStringData(array.NewData(arrow.BinaryTypes.String, 1, []*memory.Buffer{nil, fakeOffsets, memory.NewBufferBytes([]byte{})}, nil, 0, 0))
 	var err error
 	assert.NotPanics(t, func() {
-		_, err = array.Concatenate([]array.Interface{fakeArr, fakeArr}, memory.DefaultAllocator)
+		_, err = array.Concatenate([]arrow.Array{fakeArr, fakeArr}, memory.DefaultAllocator)
 	})
 	assert.EqualError(t, err, "offset overflow while concatenating arrays")
 }

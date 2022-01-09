@@ -34,10 +34,10 @@ type FixedSizeBinary struct {
 }
 
 // NewFixedSizeBinaryData constructs a new fixed-size binary array from data.
-func NewFixedSizeBinaryData(data *Data) *FixedSizeBinary {
+func NewFixedSizeBinaryData(data arrow.ArrayData) *FixedSizeBinary {
 	a := &FixedSizeBinary{bytewidth: int32(data.DataType().(arrow.FixedWidthDataType).BitWidth() / 8)}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 

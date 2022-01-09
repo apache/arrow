@@ -302,7 +302,7 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 	}
 }
 
-func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
+func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
@@ -565,7 +565,7 @@ func TestChunkedApproxEqual(t *testing.T) {
 
 	c1 := array.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c1.Release()
 
@@ -587,7 +587,7 @@ func TestChunkedApproxEqual(t *testing.T) {
 
 	c2 := array.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f4, f5, f6, f7},
+		[]arrow.Array{f4, f5, f6, f7},
 	)
 	defer c2.Release()
 

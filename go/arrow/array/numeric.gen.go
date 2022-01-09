@@ -33,10 +33,10 @@ type Int64 struct {
 }
 
 // NewInt64Data creates a new Int64.
-func NewInt64Data(data *Data) *Int64 {
+func NewInt64Data(data arrow.ArrayData) *Int64 {
 	a := &Int64{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -121,10 +121,10 @@ type Uint64 struct {
 }
 
 // NewUint64Data creates a new Uint64.
-func NewUint64Data(data *Data) *Uint64 {
+func NewUint64Data(data arrow.ArrayData) *Uint64 {
 	a := &Uint64{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -209,10 +209,10 @@ type Float64 struct {
 }
 
 // NewFloat64Data creates a new Float64.
-func NewFloat64Data(data *Data) *Float64 {
+func NewFloat64Data(data arrow.ArrayData) *Float64 {
 	a := &Float64{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -297,10 +297,10 @@ type Int32 struct {
 }
 
 // NewInt32Data creates a new Int32.
-func NewInt32Data(data *Data) *Int32 {
+func NewInt32Data(data arrow.ArrayData) *Int32 {
 	a := &Int32{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -385,10 +385,10 @@ type Uint32 struct {
 }
 
 // NewUint32Data creates a new Uint32.
-func NewUint32Data(data *Data) *Uint32 {
+func NewUint32Data(data arrow.ArrayData) *Uint32 {
 	a := &Uint32{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -473,10 +473,10 @@ type Float32 struct {
 }
 
 // NewFloat32Data creates a new Float32.
-func NewFloat32Data(data *Data) *Float32 {
+func NewFloat32Data(data arrow.ArrayData) *Float32 {
 	a := &Float32{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -561,10 +561,10 @@ type Int16 struct {
 }
 
 // NewInt16Data creates a new Int16.
-func NewInt16Data(data *Data) *Int16 {
+func NewInt16Data(data arrow.ArrayData) *Int16 {
 	a := &Int16{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -649,10 +649,10 @@ type Uint16 struct {
 }
 
 // NewUint16Data creates a new Uint16.
-func NewUint16Data(data *Data) *Uint16 {
+func NewUint16Data(data arrow.ArrayData) *Uint16 {
 	a := &Uint16{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -737,10 +737,10 @@ type Int8 struct {
 }
 
 // NewInt8Data creates a new Int8.
-func NewInt8Data(data *Data) *Int8 {
+func NewInt8Data(data arrow.ArrayData) *Int8 {
 	a := &Int8{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -825,10 +825,10 @@ type Uint8 struct {
 }
 
 // NewUint8Data creates a new Uint8.
-func NewUint8Data(data *Data) *Uint8 {
+func NewUint8Data(data arrow.ArrayData) *Uint8 {
 	a := &Uint8{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -913,10 +913,10 @@ type Timestamp struct {
 }
 
 // NewTimestampData creates a new Timestamp.
-func NewTimestampData(data *Data) *Timestamp {
+func NewTimestampData(data arrow.ArrayData) *Timestamp {
 	a := &Timestamp{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -996,10 +996,10 @@ type Time32 struct {
 }
 
 // NewTime32Data creates a new Time32.
-func NewTime32Data(data *Data) *Time32 {
+func NewTime32Data(data arrow.ArrayData) *Time32 {
 	a := &Time32{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -1079,10 +1079,10 @@ type Time64 struct {
 }
 
 // NewTime64Data creates a new Time64.
-func NewTime64Data(data *Data) *Time64 {
+func NewTime64Data(data arrow.ArrayData) *Time64 {
 	a := &Time64{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -1162,10 +1162,10 @@ type Date32 struct {
 }
 
 // NewDate32Data creates a new Date32.
-func NewDate32Data(data *Data) *Date32 {
+func NewDate32Data(data arrow.ArrayData) *Date32 {
 	a := &Date32{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -1245,10 +1245,10 @@ type Date64 struct {
 }
 
 // NewDate64Data creates a new Date64.
-func NewDate64Data(data *Data) *Date64 {
+func NewDate64Data(data arrow.ArrayData) *Date64 {
 	a := &Date64{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -1328,10 +1328,10 @@ type Duration struct {
 }
 
 // NewDurationData creates a new Duration.
-func NewDurationData(data *Data) *Duration {
+func NewDurationData(data arrow.ArrayData) *Duration {
 	a := &Duration{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 

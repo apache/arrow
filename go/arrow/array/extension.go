@@ -32,12 +32,12 @@ import (
 // and handling for the array while allowing custom behavior to be built
 // on top of it.
 type ExtensionArray interface {
-	Interface
+	arrow.Array
 	// ExtensionType returns the datatype as per calling DataType(), but
 	// already cast to ExtensionType
 	ExtensionType() arrow.ExtensionType
 	// Storage returns the underlying storage array for this array.
-	Storage() Interface
+	Storage() arrow.Array
 
 	// by having a non-exported function in the interface, it means that
 	// consumers must embed ExtensionArrayBase in their structs in order
@@ -70,17 +70,17 @@ func arrayApproxEqualExtension(l, r ExtensionArray, opt equalOption) bool {
 // This will not release the storage array passed in so consumers should call Release
 // on it manually while the new Extension array will share references to the underlying
 // Data buffers.
-func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage Interface) Interface {
+func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) arrow.Array {
 	if !arrow.TypeEqual(dt.StorageType(), storage.DataType()) {
 		panic(xerrors.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
 	}
 
 	base := ExtensionArrayBase{}
 	base.refCount = 1
-	base.storage = storage
+	base.storage = storage.(arraymarshal)
 	storage.Retain()
 
-	storageData := storage.Data()
+	storageData := storage.Data().(*Data)
 	// create a new data instance with the ExtensionType as the datatype but referencing the
 	// same underlying buffers to share them with the storage array.
 	baseData := NewData(dt, storageData.length, storageData.buffers, storageData.childData, storageData.nulls, storageData.offset)
@@ -101,10 +101,10 @@ func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage Interface) Int
 
 // NewExtensionData expects a data with a datatype of arrow.ExtensionType and
 // underlying data built for the storage array.
-func NewExtensionData(data *Data) ExtensionArray {
+func NewExtensionData(data arrow.ArrayData) ExtensionArray {
 	base := ExtensionArrayBase{}
 	base.refCount = 1
-	base.setData(data)
+	base.setData(data.(*Data))
 
 	// use the ExtensionType's ArrayType to construct the correctly typed object
 	// to use as the ExtensionArray interface. reflect.New returns a pointer to
@@ -127,7 +127,7 @@ func NewExtensionData(data *Data) ExtensionArray {
 //
 type ExtensionArrayBase struct {
 	array
-	storage Interface
+	storage arraymarshal
 }
 
 func (e *ExtensionArrayBase) getOneForMarshal(i int) interface{} {
@@ -154,7 +154,7 @@ func (e *ExtensionArrayBase) Release() {
 }
 
 // Storage returns the underlying storage array
-func (e *ExtensionArrayBase) Storage() Interface { return e.storage }
+func (e *ExtensionArrayBase) Storage() arrow.Array { return e.storage }
 
 // ExtensionType returns the same thing as DataType, just already casted
 // to an ExtensionType interface for convenience.
@@ -176,7 +176,7 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	// but should have the storage type's datatype, so we create a Data for it.
 	storageData := NewData(extType.StorageType(), data.length, data.buffers, data.childData, data.nulls, data.offset)
 	defer storageData.Release()
-	e.storage = MakeFromData(storageData)
+	e.storage = MakeFromData(storageData).(arraymarshal)
 }
 
 // no-op function that exists simply to force embedding this in any extension array types.
@@ -228,7 +228,7 @@ func (b *ExtensionBuilder) StorageBuilder() Builder { return b.Builder }
 
 // NewArray creates a new array from the memory buffers used by the builder
 // and resets the builder so it can be used to build a new array.
-func (b *ExtensionBuilder) NewArray() Interface {
+func (b *ExtensionBuilder) NewArray() arrow.Array {
 	return b.NewExtensionArray()
 }
 
@@ -239,7 +239,7 @@ func (b *ExtensionBuilder) NewExtensionArray() ExtensionArray {
 	storage := b.Builder.NewArray()
 	defer storage.Release()
 
-	data := NewData(b.dt, storage.Len(), storage.Data().buffers, storage.Data().childData, storage.Data().nulls, 0)
+	data := NewData(b.dt, storage.Len(), storage.Data().Buffers(), storage.Data().Children(), storage.Data().NullN(), 0)
 	defer data.Release()
 	return NewExtensionData(data)
 }

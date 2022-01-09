@@ -207,7 +207,10 @@ test_that("strftime", {
 })
 
 test_that("format_ISO8601", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # https://issues.apache.org/jira/projects/ARROW/issues/ARROW-15266
+  skip_if_not_available("re2")
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
   times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
 
   compare_dplyr_binding(
