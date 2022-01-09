@@ -131,10 +131,9 @@ namespace IoTPipelineExample
             {
                 while (_reader.TryRead(out SensorData item))
                 {
-                    int subjectId = (int)item.subjectId;
-
                     if (item != null)
                     {
+                        int subjectId = (int)item.subjectId;
                         if (!_colSubjectIdBuilderDict.ContainsKey(subjectId))
                         {
                             _colSubjectIdBuilderDict.Add(subjectId, new Int32Array.Builder());
