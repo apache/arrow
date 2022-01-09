@@ -96,13 +96,13 @@ module.exports = {
         "unicorn/numeric-separators-style": "off",
         "unicorn/prefer-spread": "off",
         "unicorn/filename-case": "off",
+        "unicorn/prefer-export-from": "off",
+        "unicorn/prefer-switch": "off",
 
         "unicorn/consistent-destructuring": "warn",
-        "unicorn/no-array-reduce": "warn",
+        "unicorn/no-array-reduce": ["warn", { "allowSimpleOperations": true }],
         "unicorn/no-await-expression-member": "warn",
         "unicorn/no-useless-undefined": "warn",
-        "unicorn/prefer-export-from": "warn",
-        "unicorn/prefer-switch": "warn",
         "unicorn/consistent-function-scoping": "warn",
     },
 };

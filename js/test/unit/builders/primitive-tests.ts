@@ -92,7 +92,7 @@ for (const [TypeCtor, noNulls, withNulls, withNaNs] of [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${name}`, () => {
+            describe(name, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);
@@ -129,7 +129,7 @@ for (const [TypeCtor, noNulls, withNulls, withNaNs] of [
         testNodeStreams && runTestsWithEncoder('encodeEachNode: 25', encodeEachNode(typeFactory, 25));
 
         function runTestsWithEncoder<T extends DataType>(name: string, encode: (vals: (T['TValue'] | null)[], nullVals?: any[]) => Promise<Vector<T>>) {
-            describe(`${name}`, () => {
+            describe(name, () => {
                 it(`encodes ${valueName} no nulls`, async () => {
                     const vals = noNulls(20);
                     validateVector(vals, await encode(vals, []), []);
