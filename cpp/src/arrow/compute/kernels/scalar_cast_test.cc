@@ -2216,7 +2216,7 @@ TEST(Cast, ListToListOptionsPassthru) {
     }
   }
 }
-
+  /*
 static void CheckStructToStruct(const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {
     for (const auto& dest_value_type : value_types) {
@@ -2238,6 +2238,48 @@ static void CheckStructToStruct(const std::vector<std::shared_ptr<DataType>>& va
 TEST(Cast, StructToSameSizedAndNamedStruct) {
   CheckStructToStruct({int32(), float32(), int64()});
 }
+  */
+
+  TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
+      std::vector<std::string> field_names = {"a", "b"};      
+      std::shared_ptr<Array> a, b;
+      a = ArrayFromJSON(int8(), "[1, 2]");
+      b = ArrayFromJSON(int8(), "[3, 4]");
+      auto src = StructArray::Make({a, b}, field_names).ValueOrDie();
+
+      // TODO: instead of creating an area create StructType directly
+      // error: call to implicitly-deleted copy constructor of 'arrow::StructType'
+      std::vector<std::string> field_names2 = {"c", "d"};      
+      std::shared_ptr<Array> c, d;
+      c = ArrayFromJSON(int8(), "[1, 2]");
+      d = ArrayFromJSON(int8(), "[3, 4]");
+      auto dest = StructArray::Make({c, d}, field_names2).ValueOrDie();
+      auto options = CastOptions{};
+      options.to_type = dest->type();
+
+      ASSERT_RAISES_WITH_MESSAGE(TypeError, "Type error: struct field names do not match", Cast(src, options));      
+  }
+
+  TEST(Cast, StructToDifferentSizeStruct) {
+      std::vector<std::string> field_names = {"a", "b"};      
+      std::shared_ptr<Array> a, b;
+      a = ArrayFromJSON(int8(), "[1, 2]");
+      b = ArrayFromJSON(int8(), "[3, 4]");
+      auto src = StructArray::Make({a, b}, field_names).ValueOrDie();
+
+      // TODO: instead of creating an area create StructType directly
+      // error: call to implicitly-deleted copy constructor of 'arrow::StructType'
+      std::vector<std::string> field_names2 = {"a", "b", "c"};
+      std::shared_ptr<Array> a2, b2, c;
+      a2 = ArrayFromJSON(int8(), "[1, 2]");
+      b2 = ArrayFromJSON(int8(), "[3, 4]");
+      c = ArrayFromJSON(int8(), "[5, 6]");
+      auto dest = StructArray::Make({a2, b2, c}, field_names2).ValueOrDie();
+      auto options = CastOptions{};
+      options.to_type = dest->type();
+
+      ASSERT_RAISES_WITH_MESSAGE(TypeError, "Type error: struct field sizes do not match", Cast(src, options));
+  }  
 
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
