@@ -19,7 +19,6 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using Apache.Arrow.Memory;
 using System.Threading.Channels;
 using System.Threading;
 using Apache.Arrow.Types;
@@ -63,11 +62,10 @@ namespace IoTPipelineExample
                 {"folding", "S"},
             };
 
-        public SensorDataPipeline(int totalInputs, int queueCapacity)
+        public SensorDataPipeline(int totalInputs)
         {
             _totalInputs = totalInputs;
-            _queueCapacity = queueCapacity;
-            _channel = Channel.CreateBounded<SensorData>(_queueCapacity);
+            _channel = Channel.CreateBounded<SensorData>(1_000_000);
             _writer = _channel.Writer;
             _reader = _channel.Reader;
             _colSubjectIdBuilderDict = new Dictionary<int, Int32Array.Builder>();

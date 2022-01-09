@@ -25,12 +25,11 @@ namespace IoTPipelineExample
     class Program
     {
         public static int concurrencyLevel = 8;
-        public static int totalInputs = 10_000_000;
-        public static int queueCapacity = 1_000_000;
+        public static int totalInputs = 1_000_000_000;
 
         public static async Task Main(string[] args)
         {
-            SensorDataPipeline sdp = new SensorDataPipeline(totalInputs, queueCapacity);
+            SensorDataPipeline sdp = new SensorDataPipeline(totalInputs);
             List<Task> tasks = new List<Task>();
             Dictionary<string, List<RecordBatch>> recordBatchDict = new Dictionary<string, List<RecordBatch>>();
 
