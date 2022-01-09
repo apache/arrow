@@ -153,6 +153,7 @@ void AddListCast(CastFunction* func) {
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const CastOptions& options = CastState::Get(ctx);
+
     const auto in_size = checked_cast<const StructType&>(*batch[0].type()).num_fields();
     const auto out_size = checked_cast<const StructType&>(*out->type()).num_fields();
 
@@ -175,16 +176,16 @@ struct CastStruct {
     const ArrayData& in_array = *batch[0].array();
     ArrayData *out_array = out->mutable_array();
     out_array->buffers = in_array.buffers;
+    
+    for (unsigned long i=0; i < in_array.child_data.size(); i++) {
+      Datum values = in_array.child_data[i];
 
-    for (int64_t i=0; i < in_array.length; i++) {
-      
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+			    Cast(values, out->type()->field(i)->type(), options, ctx->exec_context()));
+    
+      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+      out_array->child_data.push_back(cast_values.array());
     }
-    auto out_type = out->type();
-    auto exec_ctxt = ctx->exec_context();
-    auto abcd = Cast(in_array, out_type, options, exec_ctxt);
-    ARROW_ASSIGN_OR_RAISE(Datum cast_values, abcd);
-
-    DCHECK_EQ(Datum::ARRAY, cast_values.kind());
 
     return Status::OK();
   }
