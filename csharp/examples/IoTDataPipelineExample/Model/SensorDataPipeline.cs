@@ -103,7 +103,7 @@ namespace IoTPipelineExample
                     // approximately 9_000 unique subjects/sensors
                     subjectId = rand.Next(1_001, 1_123),
                     activityLabel = label,
-                    timestamp = basis.AddMilliseconds(1),
+                    timestamp = DateTimeOffset.UtcNow;
                     x_Axis = rand.NextDouble(),
                     y_Axis = rand.NextDouble(),
                     z_Axis = rand.NextDouble(),
