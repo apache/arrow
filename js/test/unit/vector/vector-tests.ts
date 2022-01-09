@@ -102,6 +102,10 @@ describe(`DictionaryVector`, () => {
             expect(vector.type).toBeInstanceOf(Dictionary);
         });
 
+        test(`has memoized dictionary`, () => {
+            expect(vector.isMemoized).toBe(true);
+        });
+
         basicVectorTests(vector, values, ['abc', '123']);
         describe(`sliced`, () => {
             basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
@@ -111,7 +115,20 @@ describe(`DictionaryVector`, () => {
 
 describe(`Utf8Vector`, () => {
     const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'];
-    const vector = vectorFromArray(values);
+    const vector = vectorFromArray(values, new Utf8);
+
+    test(`has utf8 type`, () => {
+        expect(vector.type).toBeInstanceOf(Utf8);
+    });
+
+    test(`is not memoized`, () => {
+        expect(vector.isMemoized).toBe(false);
+        const memoizedVector = vector.memoize();
+        expect(memoizedVector.isMemoized).toBe(true);
+        const unMemoizedVector = vector.unmemoize();
+        expect(unMemoizedVector.isMemoized).toBe(false);
+    });
+
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
         basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);

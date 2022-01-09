@@ -284,6 +284,13 @@ export class Vector<T extends DataType = any> {
         return null;
     }
 
+    public get isMemoized(): boolean {
+        if (DataType.isDictionary(this.type)) {
+            return this.data[0].dictionary!.isMemoized;
+        }
+        return false;
+    }
+
     /**
      * Adds memoization to the Vector's {@link get} method.
      * For dictionary vectors, this method return a vector that memoizes only the dictionary values.
@@ -294,9 +301,9 @@ export class Vector<T extends DataType = any> {
         if (DataType.isDictionary(this.type)) {
             const dictionary = new MemoizedVector(this.data[0].dictionary!);
             const newData = this.data.map((data) => {
-                const newData = data.clone();
-                newData.dictionary = dictionary;
-                return newData;
+                const cloned = data.clone();
+                cloned.dictionary = dictionary;
+                return cloned;
             });
             return new Vector(newData);
         }
@@ -374,6 +381,8 @@ export class MemoizedVector<T extends DataType = any> extends Vector<T> {
                 cache[index] = value;
             }
         });
+
+        Object.defineProperty(this, 'isMemoized', { value: true });
     }
 
     public memoize() {
@@ -482,7 +491,7 @@ function inferType(value: readonly unknown[]): DataType {
     } else if (booleansCount + nullsCount === value.length) {
         return new dtypes.Bool;
     } else if (datesCount + nullsCount === value.length) {
-        return new dtypes.TimestampMillisecond;
+        return new dtypes.DateMillisecond;
     }
     // TODO: add more types to infererence
 
