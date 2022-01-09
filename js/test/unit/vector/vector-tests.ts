@@ -54,12 +54,12 @@ describe(`DictionaryVector`, () => {
     const extras = ['abc', '123']; // values to search for that should NOT be found
     const dictionary_vec = vectorFromArray(dictionary, new Utf8).memoize();
 
-    const indices = Array.from({ length: 50 }, () => Math.random() * 3 | 0);
+    const indices = Array.from({ length: 50 }, () => Math.trunc(Math.random() * 3));
     const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
 
     describe(`index with nullCount == 0`, () => {
 
-        const values = Array.from(indices).map((d) => dictionary[d]);
+        const values = indices.map((d) => dictionary[d]);
         const vector = makeVector({
             data: indices,
             dictionary: dictionary_vec,
@@ -77,7 +77,7 @@ describe(`DictionaryVector`, () => {
 
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
-        const values = Array.from(indices).map((d, i) => validity[i] ? dictionary[d] : null);
+        const values = indices.map((d, i) => validity[i] ? dictionary[d] : null);
 
         const vector = makeVector({
             data: indices,
@@ -127,8 +127,8 @@ describe(`ListVector`, () => {
     });
 
     test(`get value`, () => {
-        for (let i = 0; i < values.length; i++) {
-            expect(vector.get(i)!.toJSON()).toEqual(values[i]);
+        for (const [i, value] of values.entries()) {
+            expect(vector.get(i)!.toJSON()).toEqual(value);
         }
     });
 });

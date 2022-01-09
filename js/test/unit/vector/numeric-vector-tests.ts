@@ -32,10 +32,10 @@ import type {
 
 const { joinUint8Arrays, float64ToUint16, uint16ToFloat64 } = util;
 
-const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(uint16ToFloat64));
+const uint16ToFloat64Array = (b: ArrayBuffer) => new Float64Array([...new Uint16Array(b)].map(x => uint16ToFloat64(x)));
 const randomBytes = (n: number) => new Uint16Array([
-    ...Uint16Array.from([0, 65535]),
-    ...Uint16Array.from({ length: (n / 2) - 2 }, () => (Math.random() * 65536) | 0),
+    ...Uint16Array.from([0, 65_535]),
+    ...Uint16Array.from({ length: (n / 2) - 2 }, () => Math.trunc(Math.random() * 65_536)),
 ]).buffer;
 
 const testValueBuffers = Array.from({ length: 5 }, () => randomBytes(64));
@@ -52,7 +52,7 @@ describe(`FloatVector`, () => {
     describe(`makeVector infers the type from the input TypedArray`, () => {
 
         const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-        const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
+        const f16s = valuesArray(Uint16Array).map(x => uint16ToFloat64(x));
         const f32s = valuesTyped(Float32Array);
         const f64s = valuesTyped(Float64Array);
         const f16Vec = new Vector(makeData({ type: new Float16, data: u16s }));
@@ -73,10 +73,10 @@ describe(`FloatVector`, () => {
     });
 
     describe(`Vector<Float16>`, () => {
-        testFloatVector(Float16, valuesArray(Uint16Array).map(uint16ToFloat64));
+        testFloatVector(Float16, valuesArray(Uint16Array).map(x => uint16ToFloat64(x)));
         describe(`vectorFromArray accepts regular Arrays to construct Vector<Float16>`, () => {
             const u16s = valuesTyped(Uint16Array).map((x) => float64ToUint16(uint16ToFloat64(x)));
-            const f16s = valuesArray(Uint16Array).map(uint16ToFloat64);
+            const f16s = valuesArray(Uint16Array).map(x => uint16ToFloat64(x));
             const vector = vectorFromArray(f16s, new Float16);
             testAndValidateVector(vector, u16s, f16s);
             test(`return type is correct`, () => checkDtype(Float16, vector));
@@ -245,15 +245,15 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
         .map((b) => new Vector(makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })))
         .reduce((v: any, v2) => v.concat(v2));
 
-    const vectorBegin = (vector.length * .25) | 0;
-    const vectorEnd = (vector.length * .75) | 0;
+    const vectorBegin = Math.trunc(vector.length * .25);
+    const vectorEnd = Math.trunc(vector.length * .75);
     const typedBegin = vectorBegin * (typed.length / vector.length);
     const typedEnd = vectorEnd * (typed.length / vector.length);
     const jsArrayBegin = vectorBegin * (jsArray.length / vector.length);
     const jsArrayEnd = vectorEnd * (jsArray.length / vector.length);
 
     const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, Vector<T>][];
-    combos.forEach(([chunksType, vector]) => {
+    for (const [chunksType, vector] of combos) {
         describe(chunksType, () => {
             // test base case no slicing
             describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
@@ -277,7 +277,7 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
                 );
             });
         });
-    });
+    }
 }
 
 function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<any>) {
@@ -292,11 +292,11 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
         .map((b) => new Vector(makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })))
         .reduce((v: any, v2) => v.concat(v2));
 
-    const begin = (vector.length * .25) | 0;
-    const end = (vector.length * .75) | 0;
+    const begin = Math.trunc(vector.length * .25);
+    const end = Math.trunc(vector.length * .75);
     const combos = [[`vector`, vector], [`chunked`, chunked]] as [string, Vector<T>][];
 
-    combos.forEach(([chunksType, vector]) => {
+    for (const [chunksType, vector] of combos) {
         describe(chunksType, () => {
             // test base case no slicing
             describe(`base case no slicing`, () => { testAndValidateVector(vector, typed, jsArray); });
@@ -319,7 +319,7 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
                 );
             });
         });
-    });
+    }
 }
 
 function testAndValidateVector<T extends Int | Float>(vector: Vector<T>, typed: T['TArray'], values: any[] = [...typed]) {
@@ -385,11 +385,11 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
         try {
             while (++i < n) {
                 const search = shuffled[i];
-                if (typeof search !== 'number' || !isNaN(search)) {
+                if (typeof search !== 'number' || !Number.isNaN(search)) {
                     expect(vector.indexOf(search)).toEqual(original.indexOf(search));
                 } else {
                     for (j = -1, k = original.length; ++j < k;) {
-                        if (isNaN(original[j])) { break; }
+                        if (Number.isNaN(original[j])) { break; }
                     }
                     expect(vector.indexOf(search)).toEqual(j < k ? j : -1);
                 }
@@ -429,7 +429,7 @@ function slices_from_0_to_minus_20<T extends Int | Float>(vector: Vector<T>, val
 function slices_the_array_from_0_to_length_minus_20<T extends Int | Float>(vector: Vector<T>, values: T['TArray']) {
     test(`slices the array from 0 to length - 20`, () => {
         expect.hasAssertions();
-        expect(vector.slice(0, vector.length - 20).toArray()).toEqual(values.slice(0, values.length - (20)));
+        expect(vector.slice(0, - 20).toArray()).toEqual(values.slice(0, - 20));
     });
 }
 
@@ -444,7 +444,7 @@ function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

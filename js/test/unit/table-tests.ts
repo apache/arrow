@@ -253,7 +253,7 @@ describe(`Table`, () => {
         const table = getSingleRecordBatchTable();
         const batch = table.batches[0];
         const n = batch.numRows;
-        const m = n / 2 | 0;
+        const m = Math.trunc(n / 2);
 
         // First compare what happens when slicing from the batch level
         let batch1 = batch.slice(0, m);

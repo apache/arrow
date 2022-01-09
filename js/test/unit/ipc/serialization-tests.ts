@@ -98,10 +98,10 @@ describe('serialize()', () => {
     });
 
     const chunkLengths = [] as number[];
+    const table = <T extends TypeMap = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
     for (let i = -1; ++i < 3;) {
-        chunkLengths[i * 2] = (Math.random() * 100) | 0;
+        chunkLengths[i * 2] = Math.trunc(Math.random() * 100);
         chunkLengths[i * 2 + 1] = 0;
-        const table = <T extends TypeMap = any>(schema: Schema<T>) => createTable(schema, chunkLengths);
         test(`Table#select round-trips through serialization`, () => {
             const source = table(schema1).select(['a', 'c']);
             expect(source.numCols).toBe(2);
@@ -162,7 +162,7 @@ describe('serialize()', () => {
         test(`Table#slice round-trips through serialization`, () => {
             const table1 = table(schema1);
             const length = table1.numRows;
-            const [begin, end] = [length * .25, length * .75].map((x) => x | 0);
+            const [begin, end] = [length * .25, length * .75].map((x) => Math.trunc(x));
             const source = table1.slice(begin, end);
             expect(source.numCols).toBe(3);
             expect(source.numRows).toBe(end - begin);
@@ -173,15 +173,17 @@ describe('serialize()', () => {
         test(`Table#concat of two slices round-trips through serialization`, () => {
             const table1 = table(schema1);
             const length = table1.numRows;
-            const [begin1, end1] = [length * .10, length * .20].map((x) => x | 0);
-            const [begin2, end2] = [length * .80, length * .90].map((x) => x | 0);
+            const [begin1, end1] = [length * .10, length * .20].map((x) => Math.trunc(x));
+            const [begin2, end2] = [length * .80, length * .90].map((x) => Math.trunc(x));
             const slice1 = table1.slice(begin1, end1);
             const slice2 = table1.slice(begin2, end2);
             const source = slice1.concat(slice2);
             expect(slice1.numRows).toBe(end1 - begin1);
             expect(slice2.numRows).toBe(end2 - begin2);
             expect(source.numRows).toBe((end1 - begin1) + (end2 - begin2));
-            [slice1, slice2, source].forEach((x) => expect(x.numCols).toBe(3));
+            for (const x of [slice1, slice2, source]) {
+                expect(x.numCols).toBe(3);
+            }
             const result = deepCopy(source);
             expect(result).toEqualTable(source);
             expect(result.schema.metadata.get('foo')).toBe('bar');

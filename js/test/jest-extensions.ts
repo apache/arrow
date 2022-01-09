@@ -117,33 +117,33 @@ function toEqualVector<
 
     const props: (string & keyof Vector)[] = ['type', 'length', 'nullCount'];
 
-        for (let i = -1, n = props.length; ++i < n;) {
-            const prop = props[i];
-            if (`${v1[prop]}` !== `${v2[prop]}`) {
-                propsFailures.push(`${prop}: ${format(this, v1[prop], v2[prop], ' !== ')}`);
-            }
+    for (let i = -1, n = props.length; ++i < n;) {
+        const prop = props[i];
+        if (`${v1[prop]}` !== `${v2[prop]}`) {
+            propsFailures.push(`${prop}: ${format(this, v1[prop], v2[prop], ' !== ')}`);
         }
-        for (let i = -1, n = v1.length; ++i < n;) {
-            const x1 = v1.get(i), x2 = v2.get(i);
-            if (!util.createElementComparator(x2)(x1)) {
-                getFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
-            }
+    }
+    for (let i = -1, n = v1.length; ++i < n;) {
+        const x1 = v1.get(i), x2 = v2.get(i);
+        if (!util.createElementComparator(x2)(x1)) {
+            getFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
         }
+    }
 
-        let i = -1;
-        for (let [x1, x2] of zip(v1, v2)) {
-            ++i;
-            if (!util.createElementComparator(x2)(x1)) {
-                iteratorFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
-            }
+    let i = -1;
+    for (let [x1, x2] of zip(v1, v2)) {
+        ++i;
+        if (!util.createElementComparator(x2)(x1)) {
+            iteratorFailures.push(`${i}: ${format(this, x1, x2, ' !== ')}`);
         }
+    }
 
     return {
         pass: allFailures.every(({ failures }) => failures.length === 0),
         message: () => [
             [columnName, `(${format(this, format1, format2, ' !== ')})`].filter(Boolean).join(':'),
             ...allFailures.map(({ failures, title }) =>
-                !failures.length ? `` : [`${title}:`, ...failures].join(`\n`))
+                failures.length === 0 ? `` : [`${title}:`, ...failures].join(`\n`))
         ].join('\n')
     };
 }

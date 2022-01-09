@@ -29,15 +29,15 @@ const { createElementComparator: compare } = util;
 export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {
     describe(`Table: ${table.schema}`, () => {
         validateVector({ values: rows, vector: new Vector(table.data) });
-        table.data.forEach((data, i) => {
+        for (const [i, data] of table.data.entries()) {
             describe(`recordBatch ${i}`, () => {
                 validateRecordBatch({
                     keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i],
                     recordBatch: new RecordBatch(new Schema(data.type.children), data)
                 });
             });
-        });
-        table.schema.fields.forEach((field, i) => {
+        }
+        for (const [i, field] of table.schema.fields.entries()) {
             describe(`column ${i}: ${field}`, () => {
                 validateVector({
                     keys: keys()[i],
@@ -45,30 +45,30 @@ export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBat
                     vector: table.getChildAt(i)!
                 });
             });
-        });
+        }
     });
 }
 
 export function validateRecordBatch({ rows, cols, keys, recordBatch }: GeneratedRecordBatch) {
     describe(`RecordBatch: ${recordBatch.schema}`, () => {
-        validateVector({ values: rows, vector: new Vector([recordBatch.data]) }),
-            recordBatch.schema.fields.forEach((field, i) => {
-                describe(`Field: ${field}`, () => {
-                    validateVector({
-                        keys: keys()[i],
-                        values: () => cols()[i],
-                        vector: recordBatch.getChildAt(i)!
-                    });
+        validateVector({ values: rows, vector: new Vector([recordBatch.data]) });
+        for (const [i, field] of recordBatch.schema.fields.entries()) {
+            describe(`Field: ${field}`, () => {
+                validateVector({
+                    keys: keys()[i],
+                    values: () => cols()[i],
+                    vector: recordBatch.getChildAt(i)!
                 });
             });
+        }
     });
 }
 
 export function validateVector({ values: createTestValues, vector, keys }: GeneratedVector<any>) {
 
     const values = createTestValues();
-    const begin = (values.length * .25) | 0;
-    const end = (values.length * .75) | 0;
+    const begin = Math.trunc(values.length * .25);
+    const end = Math.trunc(values.length * .75);
 
     describe(`Vector<${vector.type}>`, () => {
         // test no slice
@@ -175,7 +175,7 @@ function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

@@ -79,10 +79,10 @@ function validateBuilder(generate: (length?: number, nullCount?: number, ...args
             validateBuilderWithNullValues(`with \\0`, ['\0'], generate(100));
             validateBuilderWithNullValues(`with n/a`, ['n/a'], generate(100));
         } else if (DataType.isFloat(type)) {
-            validateBuilderWithNullValues(`with NaNs`, [NaN], generate(100));
+            validateBuilderWithNullValues(`with NaNs`, [Number.NaN], generate(100));
         } else if (DataType.isInt(type)) {
             validateBuilderWithNullValues(`with MAX_INT`, [
-                type.bitWidth < 64 ? 0x7fffffff : 9223372034707292159n
+                type.bitWidth < 64 ? 0x7FFFFFFF : 9223372034707292159n
             ], generate(100));
         }
     }
@@ -170,7 +170,7 @@ function validateBuilderWithNullValues(suiteName: string, nullValues: any[], gen
             validateVector(values, vector, referenceNullValues);
         });
         it(`encodes ${typeName} chunks by count`, () => {
-            const highWaterMark = Math.max(5, (Math.random() * values.length - 5) | 0);
+            const highWaterMark = Math.max(5, Math.trunc(Math.random() * values.length - 5));
             const opts_ = iterableBuilderOptions(generated, { ...opts, highWaterMark, queueingStrategy: 'count' });
             const vector = encodeChunks(values.slice(), opts_);
             validateVector(values, vector, referenceNullValues);
@@ -238,7 +238,7 @@ type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('ap
 
 function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = Builder.new(options);
-    values.forEach((x) => builder.append(x));
+    for (const x of values) builder.append(x);
     return builder.finish().toVector();
 }
 

@@ -27,5 +27,7 @@ module.exports = {
         "jest/valid-title": "off",
         "jest/expect-expect": "off",
         "jest/no-conditional-expect": "off",
+
+        "unicorn/consistent-function-scoping": "off",
     },
 };

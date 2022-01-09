@@ -26,7 +26,7 @@ import {
 } from 'apache-arrow';
 
 (() => {
-if (process.env.TEST_DOM_STREAMS !== 'true') {
+    if (process.env.TEST_DOM_STREAMS !== 'true') {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => { });
     }
 
@@ -199,7 +199,7 @@ if (process.env.TEST_DOM_STREAMS !== 'true') {
 
             let batchIndex = -1;
             const sourceTable = tables[++tableIndex];
-            const breakEarly = tableIndex === (tables.length / 2 | 0);
+            const breakEarly = tableIndex === (Math.trunc(tables.length / 2));
 
             for await (const streamBatch of reader) {
                 expect(streamBatch).toEqualRecordBatch(sourceTable.batches[++batchIndex]);
@@ -213,7 +213,7 @@ if (process.env.TEST_DOM_STREAMS !== 'true') {
         }
 
         validateStreamState(reader, stream, true);
-        expect(tableIndex).toBe(tables.length / 2 | 0);
+        expect(tableIndex).toBe(Math.trunc(tables.length / 2));
     });
 })();
 

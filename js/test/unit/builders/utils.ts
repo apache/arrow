@@ -34,18 +34,18 @@ export const randomString = ((opts) => (length: number) =>
     randstr('?', length, opts)
 )({ chars: `abcdefghijklmnopqrstuvwxyz0123456789_` });
 
-export const stringsNoNulls = (length = 20) => Array.from({ length }, (_) => randomString(1 + (Math.random() * 19 | 0)));
-export const timestamp32sNoNulls = (length = 20, now = Date.now() / 86400000 | 0) =>
-    Array.from({ length }, (_) => (now + (rand() * 10000 * (rand() > 0.5 ? -1 : 1)) | 0) * 86400000);
+export const stringsNoNulls = (length = 20) => Array.from({ length }, (_) => randomString(1 + (Math.trunc(Math.random() * 19))));
+export const timestamp32sNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
+    Array.from({ length }, (_) => (Math.trunc(now + (rand() * 10000 * (rand() > 0.5 ? -1 : 1)))) * 86400000);
 
 export const timestamp64sNoNulls = (length = 20, now = Date.now()) => Array.from({ length }, (_) => {
-    const ms = now + (rand() * 31557600000 * (rand() > 0.5 ? -1 : 1) | 0);
-    return new Int32Array([(ms % 4294967296) | 0, (ms / 4294967296) | 0]);
+    const ms = now + (Math.trunc(rand() * 31557600000 * (rand() > 0.5 ? -1 : 1)));
+    return new Int32Array([Math.trunc(ms % 4294967296), Math.trunc(ms / 4294967296)]);
 });
 
 export const timestamp32sWithNulls = (length = 20) => randnulls(timestamp32sNoNulls(length), null);
 export const timestamp64sWithNulls = (length = 20) => randnulls(timestamp64sNoNulls(length), null);
-export const timestamp32sWithMaxInts = (length = 20) => randnulls(timestamp32sNoNulls(length), 0x7fffffff);
+export const timestamp32sWithMaxInts = (length = 20) => randnulls(timestamp32sNoNulls(length), 0x7FFFFFFF);
 export const timestamp64sWithMaxInts = (length = 20) => randnulls(timestamp64sNoNulls(length), 9223372034707292159n);
 
 export const boolsNoNulls = (length = 20) => Array.from({ length }, () => rand() > 0.5);
@@ -60,7 +60,7 @@ export const uint8sNoNulls = (length = 20) => Array.from(new Uint8Array(randomBy
 export const uint16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer));
 export const uint32sNoNulls = (length = 20) => Array.from(new Uint32Array(randomBytes(length * Uint32Array.BYTES_PER_ELEMENT).buffer));
 export const uint64sNoNulls = (length = 20) => Array.from(new BigUint64Array(randomBytes(length * BigUint64Array.BYTES_PER_ELEMENT).buffer));
-export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map(util.uint16ToFloat64);
+export const float16sNoNulls = (length = 20) => Array.from(new Uint16Array(randomBytes(length * Uint16Array.BYTES_PER_ELEMENT).buffer)).map(x => util.uint16ToFloat64(x));
 export const float32sNoNulls = (length = 20) => Array.from(new Float32Array(randomBytes(length * Float32Array.BYTES_PER_ELEMENT).buffer));
 export const float64sNoNulls = (length = 20) => Array.from(new Float64Array(randomBytes(length * Float64Array.BYTES_PER_ELEMENT).buffer));
 
@@ -83,22 +83,22 @@ export const float16sWithNulls = (length = 20) => randnulls(float16sNoNulls(leng
 export const float32sWithNulls = (length = 20) => randnulls(float32sNoNulls(length), null);
 export const float64sWithNulls = (length = 20) => randnulls(float64sNoNulls(length), null);
 
-export const int8sWithMaxInts = (length = 20) => randnulls(int8sNoNulls(length), 0x7fffffff);
-export const int16sWithMaxInts = (length = 20) => randnulls(int16sNoNulls(length), 0x7fffffff);
-export const int32sWithMaxInts = (length = 20) => randnulls(int32sNoNulls(length), 0x7fffffff);
+export const int8sWithMaxInts = (length = 20) => randnulls(int8sNoNulls(length), 0x7FFFFFFF);
+export const int16sWithMaxInts = (length = 20) => randnulls(int16sNoNulls(length), 0x7FFFFFFF);
+export const int32sWithMaxInts = (length = 20) => randnulls(int32sNoNulls(length), 0x7FFFFFFF);
 export const int64sWithMaxInts = (length = 20) => randnulls(int64sNoNulls(length), 9223372034707292159n);
-export const uint8sWithMaxInts = (length = 20) => randnulls(uint8sNoNulls(length), 0x7fffffff);
-export const uint16sWithMaxInts = (length = 20) => randnulls(uint16sNoNulls(length), 0x7fffffff);
-export const uint32sWithMaxInts = (length = 20) => randnulls(uint32sNoNulls(length), 0x7fffffff);
+export const uint8sWithMaxInts = (length = 20) => randnulls(uint8sNoNulls(length), 0x7FFFFFFF);
+export const uint16sWithMaxInts = (length = 20) => randnulls(uint16sNoNulls(length), 0x7FFFFFFF);
+export const uint32sWithMaxInts = (length = 20) => randnulls(uint32sNoNulls(length), 0x7FFFFFFF);
 export const uint64sWithMaxInts = (length = 20) => randnulls(uint64sNoNulls(length), 9223372034707292159n);
-export const float16sWithNaNs = (length = 20) => randnulls(float16sNoNulls(length), NaN);
-export const float32sWithNaNs = (length = 20) => randnulls(float32sNoNulls(length), NaN);
-export const float64sWithNaNs = (length = 20) => randnulls(float64sNoNulls(length), NaN);
+export const float16sWithNaNs = (length = 20) => randnulls(float16sNoNulls(length), Number.NaN);
+export const float32sWithNaNs = (length = 20) => randnulls(float32sNoNulls(length), Number.NaN);
+export const float64sWithNaNs = (length = 20) => randnulls(float64sNoNulls(length), Number.NaN);
 
 export const duplicateItems = (n: number, xs: (any | null)[]) => {
     const out = new Array<string | null>(n);
     for (let i = -1, k = xs.length; ++i < n;) {
-        out[i] = xs[Math.random() * k | 0];
+        out[i] = xs[Math.trunc(Math.random() * k)];
     }
     return out;
 };
@@ -107,7 +107,7 @@ export function encodeAll<T extends DataType>(typeFactory: () => T) {
     return async function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const builder = Builder.new({ type, nullValues });
-        values.forEach(builder.append.bind(builder));
+        for (const x of values) builder.append.bind(builder)(x);
         return builder.finish().toVector();
     };
 }

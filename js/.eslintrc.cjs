@@ -27,9 +27,10 @@ module.exports = {
         sourceType: "module",
         ecmaVersion: 2020,
     },
-    plugins: ["@typescript-eslint", "jest"],
+    plugins: ["@typescript-eslint", "jest", "unicorn"],
     extends: [
         "eslint:recommended",
+        "plugin:unicorn/recommended",
         "plugin:jest/recommended",
         "plugin:jest/style",
         "plugin:@typescript-eslint/recommended",
@@ -82,6 +83,25 @@ module.exports = {
         "no-trailing-spaces": "error",
         "no-var": "error",
         "no-empty": "off",
-        "no-cond-assign": "off"
+        "no-cond-assign": "off",
+
+        "unicorn/catch-error-name": "off",
+        "unicorn/no-nested-ternary": "off",
+        "unicorn/no-new-array": "off",
+        "unicorn/no-null": "off",
+        "unicorn/empty-brace-spaces": "off",
+        "unicorn/no-zero-fractions": "off",
+        "unicorn/prevent-abbreviations": "off",
+        "unicorn/prefer-module": "off",
+        "unicorn/numeric-separators-style": "off",
+
+        "unicorn/consistent-destructuring": "warn",
+        "unicorn/no-array-reduce": "warn",
+        "unicorn/no-await-expression-member": "warn",
+        "unicorn/no-useless-undefined": "warn",
+        "unicorn/prefer-export-from": "warn",
+        "unicorn/prefer-spread": "warn",
+        "unicorn/prefer-switch": "warn",
+        "unicorn/consistent-function-scoping": "warn",
     },
 };
