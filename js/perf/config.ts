@@ -30,7 +30,7 @@ const LENGTH = 100_000;
 const NUM_BATCHES = 10;
 const cities = ['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC'];
 
-const values = Arrow.vectorFromArray(cities);
+const values = Arrow.vectorFromArray(cities, new Arrow.Utf8);
 
 const batches = Array.from({ length: NUM_BATCHES }).map(() => {
     const lat = Float32Array.from(
@@ -76,21 +76,13 @@ export const typedArrays = {
 export const arrays = {
     numbers: Array.from({ length: LENGTH }, () => Math.random() * 255),
     booleans: Array.from({ length: LENGTH }, () => Math.random() > 0.5),
-    strings: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
+    dictionary: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
 };
-
-const destinations = new Arrow.Vector(Arrow.makeData({
-    type: new Arrow.Dictionary(values.type, new Arrow.Int8, 0, false),
-    length: LENGTH,
-    nullCount: 0,
-    data: Uint8Array.from({ length: LENGTH }, () => (random() * 6)),
-    dictionary: values
-}));
 
 export const vectors: { [k: string]: Arrow.Vector } = Object.fromEntries([
     ...Object.entries(typedArrays).map(([name, array]) => [name, Arrow.makeVector(array)]),
     ...Object.entries(arrays).map(([name, array]) => [name, Arrow.vectorFromArray(array)]),
-    ['dictionary', destinations]
+    ['string', Arrow.vectorFromArray(arrays.dictionary, new Arrow.Utf8)],
 ]);
 
 const tracks = new Arrow.Table(batches[0].schema, batches);

@@ -147,7 +147,7 @@ export class Data<T extends DataType = DataType> {
         return value;
     }
 
-    public clone<R extends DataType>(type: R, offset = this.offset, length = this.length, nullCount = this._nullCount, buffers: Buffers<R> = <any>this, children: Data[] = this.children) {
+    public clone<R extends DataType = T>(type: R = this.type as any, offset = this.offset, length = this.length, nullCount = this._nullCount, buffers: Buffers<R> = <any>this, children: Data[] = this.children) {
         return new Data(type, offset, length, nullCount, buffers, children, this.dictionary);
     }
 

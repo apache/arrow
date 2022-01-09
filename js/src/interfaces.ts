@@ -146,7 +146,7 @@ export type TypedArrayDataType<T extends TypedArray | BigIntArray> =
 export type JavaScriptArrayDataType<T extends readonly unknown[]> =
     T extends readonly (null | undefined)[] ? type.Null :
     T extends readonly (null | undefined | boolean)[] ? type.Bool :
-    T extends readonly (null | undefined | string)[] ? type.Utf8 :
+    T extends readonly (null | undefined | string)[] ? type.Dictionary<type.Utf8, type.Int32> :
     T extends readonly (null | undefined | Date)[] ? type.Date_ :
     T extends readonly (null | undefined | bigint)[] ? type.Int64 :
     T extends readonly (null | undefined | number)[] ? type.Float64 :

@@ -122,8 +122,10 @@ console.table([...table]);
 
 ### Vectors look like JS Arrays
 
+You can create vector from JavaScript typed arrays with `makeVector` and from JavaScript arrays with `vectorFromArray`. `makeVector` is a lot faster and does not require a copy.
+
 ```js
-import { makeVector } from './src/Arrow.node.js';
+import { makeVector } from "apache-arrow";
 
 const LENGTH = 2000;
 
@@ -140,6 +142,26 @@ assert(typed instanceof Float32Array);
 for (let i = -1, n = vector.length; ++i < n;) {
     assert(vector.get(i) === typed[i]);
 }
+```
+
+### String vectors
+
+Strings can be encoded as UTF-8 or dictionary encoded UTF-8. Dictionary encoding means repeated values are encoded more efficiently. You can create a dictionary encoded string conveniently with `vectorFromArray` or efficiently with `makeVector`.
+
+```js
+import { makeVector, vectorFromArray, Dictionary, Uint8, Utf8 } from "apache-arrow";
+
+const uft8Vector = vectorFromArray(['foo', 'bar', 'baz'], new Utf8);
+
+const dictionaryVector1 = vectorFromArray(
+    ['foo', 'bar', 'baz', 'foo', 'bar']
+);
+
+const dictionaryVector2 = makeVector({
+    data: [0, 1, 2, 0, 1],  // indexes into the dictionary
+    dictionary: uft8Vector,
+    type: new Dictionary(new Utf8, new Uint8)
+});
 ```
 
 # Getting involved

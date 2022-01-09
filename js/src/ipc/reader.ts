@@ -366,9 +366,9 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
             const data = this._loadVectors(header.data, body, [type]);
             return (dictionary && isDelta ? dictionary.concat(
                 new Vector(data)) :
-                new Vector(data)) as Vector;
+                new Vector(data)).memoize() as Vector;
         }
-        return dictionary;
+        return dictionary.memoize();
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
         return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);

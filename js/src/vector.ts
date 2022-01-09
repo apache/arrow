@@ -19,7 +19,7 @@ import { Type } from './enum.js';
 import { clampRange } from './util/vector.js';
 import { DataType, strideForType } from './type.js';
 import { Data, makeData, DataProps } from './data.js';
-import { Builder } from './builder.js';
+import { Builder, IterableBuilderOptions } from './builder.js';
 import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
 
 import {
@@ -279,6 +279,34 @@ export class Vector<T extends DataType = any> {
         return null;
     }
 
+    /**
+     * Adds memoization to the Vector's {@link get} method.
+     * For dictionary vectors, this method return a vector that memoizes only the dictionary values.
+     *
+     * @returns A {@link MemoizedVector} of this vector.
+     */
+    public memoize(): Vector<T> {
+        if (DataType.isDictionary(this.type)) {
+            const dictionary = new MemoizedVector(this.data[0].dictionary!);
+            const newData = this.data.map((data) => {
+                const newData = data.clone();
+                newData.dictionary = dictionary;
+                return newData;
+            });
+            return new Vector(newData);
+        }
+        return new MemoizedVector(this);
+    }
+
+    /**
+     * Returns a new vector without memoization of the {@link get} method.
+     *
+     * @returns A new vector without memoization.
+     */
+    public unmemoize(): Vector<T> {
+        return this;
+    }
+
     // Initialize this static property via an IIFE so bundlers don't tree-shake
     // out this logic, but also so we're still compliant with `"sideEffects": false`
     protected static [Symbol.toStringTag] = ((proto: Vector) => {
@@ -314,10 +342,63 @@ export class Vector<T extends DataType = any> {
     })(Vector.prototype);
 }
 
+/**
+ * Vector that memoizes the {@link get} method.
+ * Memoization is very useful when decoding a value is expensive such as Uft8.
+ * The memoization creates a cache of the size of the Vector and therfore increases memory usage.
+ */
+export class MemoizedVector<T extends DataType = any> extends Vector<T> {
+
+    public constructor(vector: Vector<T>) {
+        super(vector.data);
+
+        const get = this.get;
+        const set = this.set;
+
+        const cache = new Array<T['TValue'] | null>(this.length);
+
+        Object.defineProperty(this, 'get', {
+            value: (index: number) => {
+                const cachedValue = cache[index];
+                if (cachedValue !== undefined) {
+                    return cachedValue;
+                }
+                const value = get.call(this, index);
+                cache[index] = value;
+                return value;
+            }
+        });
+
+        Object.defineProperty(this, 'set', {
+            value: (index: number, value: T['TValue'] | null) => {
+                set.call(this, index, value);
+                cache[index] = value;
+            }
+        });
+    }
+
+    public memoize() {
+        return this;
+    }
+
+    public unmemoize() {
+        if (DataType.isDictionary(this.type)) {
+            const dictionary = this.data[0].dictionary!.unmemoize();
+            const newData = this.data.map((data) => {
+                const newData = data.clone();
+                newData.dictionary = dictionary;
+                return newData;
+            });
+            return new Vector(newData);
+        }
+        return new Vector(this.data);
+    }
+}
+
 import * as dtypes from './type.js';
 
 /**
- * Creates a Vector with no data copies.
+ * Creates a Vector without data copies.
  *
  * @example
  * ```ts
@@ -396,7 +477,7 @@ function inferType(value: readonly unknown[]): DataType {
     if (numbersCount + nullsCount === value.length) {
         return new dtypes.Float64;
     } else if (stringsCount + nullsCount === value.length) {
-        return new dtypes.Utf8;
+        return new dtypes.Dictionary(new dtypes.Utf8, new dtypes.Int32);
     } else if (bigintsCount + nullsCount === value.length) {
         return new dtypes.Int64;
     } else if (booleansCount + nullsCount === value.length) {
@@ -416,12 +497,12 @@ function inferType(value: readonly unknown[]): DataType {
  * ```ts
  * const vf64 = vectorFromArray([1, 2, 3]);
  * const vi8 = vectorFromArray([1, 2, 3], new Int8);
- * const vs = vectorFromArray(['foo', 'bar']);
+ * const vdict = vectorFromArray(['foo', 'bar']);
  * ```
  */
 export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
 export function vectorFromArray(values: readonly (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
-export function vectorFromArray(values: readonly (null | undefined | string)[], type?: dtypes.Utf8): Vector<dtypes.Utf8>;
+export function vectorFromArray<T extends dtypes.Utf8 | dtypes.Dictionary<dtypes.Utf8> = dtypes.Dictionary<dtypes.Utf8, dtypes.Int32>>(values: readonly (null | undefined | string)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
 export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type?: T): Vector<T>;
@@ -439,9 +520,13 @@ export function vectorFromArray(init: any, type?: DataType) {
     if (init instanceof Data || init instanceof Vector || init.type instanceof DataType || ArrayBuffer.isView(init)) {
         return makeVector(init as any);
     }
-    const options = { type: type ?? inferType(init) };
+    const options: IterableBuilderOptions = { type: type ?? inferType(init) };
     const chunks = [...Builder.throughIterable(options)(init)];
-    return chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
+    const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
+    if (DataType.isDictionary(vector.type)) {
+        return vector.memoize();
+    }
+    return vector;
 }
 
 function unwrapInputs(x: any) {

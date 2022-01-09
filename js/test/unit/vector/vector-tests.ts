@@ -16,7 +16,8 @@
 // under the License.
 
 import {
-    DateDay, DateMillisecond, Dictionary, Int32, makeVector, util, Vector, vectorFromArray
+    DataType,
+    DateDay, DateMillisecond, Dictionary, Int32, makeVector, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
 describe(`DateVector`, () => {
@@ -52,7 +53,7 @@ describe(`DictionaryVector`, () => {
 
     const dictionary = ['foo', 'bar', 'baz'];
     const extras = ['abc', '123']; // values to search for that should NOT be found
-    const dictionary_vec = vectorFromArray(dictionary);
+    const dictionary_vec = vectorFromArray(dictionary, new Utf8).memoize();
 
     const indices = Array.from({ length: 50 }, () => Math.random() * 3 | 0);
     const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
@@ -90,6 +91,21 @@ describe(`DictionaryVector`, () => {
         basicVectorTests(vector, values, ['abc', '123']);
         describe(`sliced`, () => {
             basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
+        });
+    });
+
+    describe(`vectorFromArray`, () => {
+        const values = ['foo', 'bar', 'baz', 'foo', 'bar'];
+
+        const vector = vectorFromArray(values);
+
+        test(`has dictionary type`, () => {
+            expect(DataType.isDictionary(vector.type)).toBe(true);
+        });
+
+        basicVectorTests(vector, values, ['abc', '123']);
+        describe(`sliced`, () => {
+            basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
         });
     });
 });

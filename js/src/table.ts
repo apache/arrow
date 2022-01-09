@@ -235,10 +235,7 @@ export class Table<T extends TypeMap = any> {
      * @returns An Array of Table rows.
      */
     public toArray() {
-        return this.data.reduce((ary, data) =>
-            ary.concat(toArrayVisitor.visit(data)),
-            new Array<Struct<T>['TValue']>()
-        );
+        return this.data.map(data => toArrayVisitor.visit(data)).flat(1);
     }
 
     /**
