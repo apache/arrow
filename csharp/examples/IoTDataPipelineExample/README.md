@@ -24,6 +24,6 @@ reported from smartphone and smartwatch.
 
 ## Persist data in Arrow format
 
-The application has one producer thread produces data and one consumer thread consumes and transforms data, since the data volume is huge,
+The application has eight producer threads producing data and one consumer thread consumes and transforms data, since the data volume is huge,
 intermediate results (approximately 100 million records) need to be checkpointed into Arrow record batch, and finally persisted together to disk in .arrow data format,
 then further analysis can be performed in high-level Arrow computing APIs.
