@@ -58,6 +58,9 @@ export interface Vector<T extends DataType = any> {
 
 const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
 
+/**
+ * Array-like data structure. Use the convenience method {@link makeVector} and {@link vectorFromArray} to create vectors.
+ */
 export class Vector<T extends DataType = any> {
 
     constructor(...args: Data<T>[]);
@@ -254,7 +257,7 @@ export class Vector<T extends DataType = any> {
     /**
      * Returns a string representation of the Vector.
      *
-     * @returns  A string representation of the Vector.
+     * @returns A string representation of the Vector.
      */
     public toString() {
         return `[${[...this].join(',')}]`;
@@ -283,9 +286,9 @@ export class Vector<T extends DataType = any> {
      * Adds memoization to the Vector's {@link get} method.
      * For dictionary vectors, this method return a vector that memoizes only the dictionary values.
      *
-     * @returns A {@link MemoizedVector} of this vector.
+     * @returns A new vector that memoizes calls to {@link get}.
      */
-    public memoize(): Vector<T> {
+    public memoize(): MemoizedVector<T> {
         if (DataType.isDictionary(this.type)) {
             const dictionary = new MemoizedVector(this.data[0].dictionary!);
             const newData = this.data.map((data) => {
@@ -300,6 +303,8 @@ export class Vector<T extends DataType = any> {
 
     /**
      * Returns a new vector without memoization of the {@link get} method.
+     * Memoization is very useful when decoding a value is expensive such as Uft8.
+     * The memoization creates a cache of the size of the Vector and therfore increases memory usage.
      *
      * @returns A new vector without memoization.
      */
@@ -342,11 +347,6 @@ export class Vector<T extends DataType = any> {
     })(Vector.prototype);
 }
 
-/**
- * Vector that memoizes the {@link get} method.
- * Memoization is very useful when decoding a value is expensive such as Uft8.
- * The memoization creates a cache of the size of the Vector and therfore increases memory usage.
- */
 export class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
     public constructor(vector: Vector<T>) {

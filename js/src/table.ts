@@ -63,6 +63,11 @@ export interface Table<T extends TypeMap = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
+/**
+ * Tables are collections of {@link Vector}s and have a {@link Schema}. Use the convenience methods {@link makeTable}
+ * or {@link tableFromArrays} to create a table in JavaScript. To create a table from the IPC format, use
+ * {@link deserialize}.
+ */
 export class Table<T extends TypeMap = any> {
 
     constructor();
@@ -406,7 +411,7 @@ export class Table<T extends TypeMap = any> {
 type VectorsMap<T extends TypeMap> = { [P in keyof T]: Vector<T[P]> };
 
 /**
- * Creates a new Table from an object of typed arrays arrays.
+ * Creates a new Table from an object of typed arrays.
  *
 *  @example
  * ```ts

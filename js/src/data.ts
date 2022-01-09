@@ -47,7 +47,9 @@ export interface Data<T extends DataType = DataType> {
     readonly TValue: T['TValue'];
 }
 
-/** @ignore */
+/**
+ * Data structure underlying {@link Vector}s. Use the convenience method {@link makeData}.
+ */
 export class Data<T extends DataType = DataType> {
 
     declare public readonly type: T;

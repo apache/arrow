@@ -22,8 +22,8 @@ import { FromArg0, FromArg1, FromArg2, FromArg3, FromArg4, FromArg5, RecordBatch
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './writer.js';
 
 /**
- * Deserialize the IPC byte format into a {@link Table}.
- * This function is a convenience wrapper for {@link RecordBatchReader}.
+ * Deserialize the IPC byte format into a {@link Table}. This function is a convenience wrapper for
+ * {@link RecordBatchReader}. Opposite of {@link serialize}.
  */
 export function deserialize<T extends TypeMap = any>(source: FromArg0 | FromArg2): Table<T>;
 export function deserialize<T extends TypeMap = any>(source: FromArg1): Promise<Table<T>>;
@@ -37,8 +37,8 @@ export function deserialize<T extends TypeMap = any>(input: any): Table<T> | Pro
 }
 
 /**
- * Serialize a {@link Table} to the IPC format.
- * This function is a convenience wrapper for {@link RecordBatchStreamWriter} or {@link RecordBatchFileWriter}.
+ * Serialize a {@link Table} to the IPC format. This function is a convenience wrapper for
+ * {@link RecordBatchStreamWriter} or {@link RecordBatchFileWriter}. Opposite of {@link deserialize}.
  */
 export function serialize<T extends TypeMap = any>(table: Table, type: 'file' | 'stream' = 'stream'): Uint8Array {
     return (type === 'stream' ? RecordBatchStreamWriter : RecordBatchFileWriter)
