@@ -740,10 +740,8 @@ async function fromAsyncByteStream<T extends TypeMap>(source: AsyncByteStream) {
 async function fromFileHandle<T extends TypeMap>(source: FileHandle) {
     const { size } = await source.stat();
     const file = new AsyncRandomAccessFile(source, size);
-    if (size >= magicX2AndPadding) {
-        if (checkForMagicArrowString(await file.readAt(0, (magicLength + 7) & ~7))) {
-            return new AsyncRecordBatchFileReader(new AsyncRecordBatchFileReaderImpl<T>(file));
-        }
+    if (size >= magicX2AndPadding && checkForMagicArrowString(await file.readAt(0, (magicLength + 7) & ~7))) {
+        return new AsyncRecordBatchFileReader(new AsyncRecordBatchFileReaderImpl<T>(file));
     }
     return new AsyncRecordBatchStreamReader(new AsyncRecordBatchStreamReaderImpl<T>(file));
 }

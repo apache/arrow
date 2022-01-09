@@ -17,6 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable unicorn/no-array-for-each */
+
 import * as fs from 'node:fs';
 import * as stream from 'node:stream';
 import { valueToString } from '../util/pretty.js';
@@ -177,7 +179,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
                     if (rowId++ % 350 === 0) {
                         this.push(`${formatRow(header, maxColWidths, sep)}\n`);
                     }
-                    this.push(`${formatRow([rowId, ...row.toArray()].map(valueToString), maxColWidths, sep)}\n`);
+                    this.push(`${formatRow([rowId, ...row.toArray()].map(v => valueToString(v)), maxColWidths, sep)}\n`);
                 }
             }
             cb();
@@ -203,7 +205,7 @@ function formatMetadata(metadata: Map<string, string>) {
         let parsed = value;
         try {
             parsed = JSON.stringify(JSON.parse(value), null, 2);
-        } catch (e) { parsed = value; }
+        } catch { parsed = value; }
         return valueToString(parsed).split('\n').join('\n  ');
     }
 }

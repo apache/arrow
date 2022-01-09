@@ -49,8 +49,8 @@ export class Schema<T extends TypeMap = any> {
      * @returns A new Schema of fields matching the specified names.
      */
     public select<K extends keyof T = any>(fieldNames: K[]) {
-        const names = fieldNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
-        const fields = this.fields.filter((f) => names[f.name]) as Field<T[K]>[];
+        const names = new Set<string | K>(fieldNames);
+        const fields = this.fields.filter((f) => names.has(f.name)) as Field<T[K]>[];
         return new Schema<{ [P in K]: T[P] }>(fields, this.metadata);
     }
 

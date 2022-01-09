@@ -17,6 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable unicorn/no-array-callback-reference */
+
 import { Data } from '../data.js';
 import { Visitor } from '../visitor.js';
 import { TypeToDataType } from '../interfaces.js';

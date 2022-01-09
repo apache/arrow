@@ -272,8 +272,8 @@ const getIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T>, inde
 const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, index: number): T['TValue'] => {
     const interval = values[index];
     const int32s = new Int32Array(2);
-    int32s[0] = interval / 12 | 0; /* years */
-    int32s[1] = interval % 12 | 0; /* months */
+    int32s[0] = Math.trunc(interval / 12); /* years */
+    int32s[1] = Math.trunc(interval % 12); /* months */
     return int32s;
 };
 

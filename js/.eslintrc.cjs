@@ -95,6 +95,7 @@ module.exports = {
         "unicorn/prefer-module": "off",
         "unicorn/numeric-separators-style": "off",
         "unicorn/prefer-spread": "off",
+        "unicorn/filename-case": "off",
 
         "unicorn/consistent-destructuring": "warn",
         "unicorn/no-array-reduce": "warn",

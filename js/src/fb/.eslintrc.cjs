@@ -17,7 +17,8 @@
 
 module.exports = {
     rules: {
-        "@typescript-eslint/type-annotation-spacing" : "off",
+        "@typescript-eslint/type-annotation-spacing": "off",
         "@typescript-eslint/semi": "off",
+        "unicorn/no-new-buffer": "off",
     },
 };

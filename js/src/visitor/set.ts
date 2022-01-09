@@ -99,21 +99,21 @@ function wrapSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => vo
 }
 
 /** @ignore */
-export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = (epochMs / 86400000) | 0; };
+export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.trunc(epochMs / 86400000); };
 /** @ignore */
 export const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = (epochMs % 4294967296) | 0;
-    data[index + 1] = (epochMs / 4294967296) | 0;
+    data[index] = Math.trunc(epochMs % 4294967296);
+    data[index + 1] = Math.trunc(epochMs / 4294967296);
 };
 /** @ignore */
 export const setEpochMsToMicrosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = ((epochMs * 1000) % 4294967296) | 0;
-    data[index + 1] = ((epochMs * 1000) / 4294967296) | 0;
+    data[index] = Math.trunc((epochMs * 1000) % 4294967296);
+    data[index + 1] = Math.trunc((epochMs * 1000) / 4294967296);
 };
 /** @ignore */
 export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = ((epochMs * 1000000) % 4294967296) | 0;
-    data[index + 1] = ((epochMs * 1000000) / 4294967296) | 0;
+    data[index] = Math.trunc((epochMs * 1000000) % 4294967296);
+    data[index + 1] = Math.trunc((epochMs * 1000000) / 4294967296);
 };
 
 /** @ignore */
@@ -257,6 +257,7 @@ const setStruct = <T extends Struct>(data: Data<T>, index: number, value: T['TVa
             Array.isArray(value) ? _setStructArrayValue(index, value) :
                 _setStructObjectValue(index, value);
 
+    // eslint-disable-next-line unicorn/no-array-for-each
     data.type.children.forEach((f: Field, i: number) => set(childSetters[i], data.children[i], f, i));
 };
 

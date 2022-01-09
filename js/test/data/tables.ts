@@ -42,7 +42,7 @@ export function* generateRandomTables(batchLengths = [1000, 2000, 3000], minCols
 
     do {
         numCols = Math.max(Math.min(
-            Math.random() * maxCols | 0, allNames.length), minCols);
+            Math.trunc(Math.random() * maxCols), allNames.length), minCols);
 
         const names = allNames.slice(0, numCols);
         const types = names.map((fn) => vecs[fn](0).vector.type);
@@ -78,7 +78,7 @@ function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

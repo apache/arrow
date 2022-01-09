@@ -175,7 +175,7 @@ function binaryDataFromJSON(values: string[]) {
     const joined = values.join('');
     const data = new Uint8Array(joined.length / 2);
     for (let i = 0; i < joined.length; i += 2) {
-        data[i >> 1] = parseInt(joined.substr(i, 2), 16);
+        data[i >> 1] = Number.parseInt(joined.slice(i, i + 2), 16);
     }
     return data;
 }

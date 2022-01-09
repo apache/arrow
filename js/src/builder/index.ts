@@ -59,11 +59,11 @@ function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptio
             ? ((_: Field, i: number) => children[i] || defaultOptions)
             : (({ name }: Field) => children[name] || defaultOptions);
 
-        type.children.forEach((field, index) => {
+        for (const [index, field] of type.children.entries()) {
             const { type } = field;
             const opts = getChildOptions(field, index);
             builder.children.push(newBuilder({ ...opts, type }));
-        });
+        }
     }
 
     return builder as B<T, TNull>;

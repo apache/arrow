@@ -106,7 +106,7 @@ function createArrayLikeComparator(lhs: ArrayLike<any>) {
 function creatMapComparator(lhs: Map<any, any>) {
     let i = -1;
     const comparators = [] as ((x: any) => boolean)[];
-    lhs.forEach((v) => comparators[++i] = createElementComparator(v));
+    for (const v of lhs) comparators[++i] = createElementComparator(v);
     return createSubElementsComparator(comparators);
 }
 

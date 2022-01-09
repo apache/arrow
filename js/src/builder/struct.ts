@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable unicorn/no-array-for-each */
+
 import { Field } from '../schema.js';
 import { Builder } from '../builder.js';
 import { Struct, TypeMap } from '../type.js';
