@@ -100,7 +100,7 @@ describe(`DictionaryVector`, () => {
         const vector = vectorFromArray(values);
 
         test(`has dictionary type`, () => {
-            expect(DataType.isDictionary(vector.type)).toBe(true);
+            expect(vector.type).toBeInstanceOf(Dictionary);
         });
 
         basicVectorTests(vector, values, ['abc', '123']);

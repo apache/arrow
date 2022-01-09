@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Int32, Float32, Float64, Int8, makeTable, tableFromArrays, Utf8 } from 'apache-arrow';
+import { Int32, Float32, Float64, Int8, makeTable, tableFromArrays, Dictionary } from 'apache-arrow';
 
 describe('makeTable()', () => {
     test(`creates a new Table from Typed Arrays`, () => {
@@ -50,7 +50,7 @@ describe('tableFromArrays()', () => {
         expect(table.getChild('a')!.type).toBeInstanceOf(Float32);
         expect(table.getChild('b')!.type).toBeInstanceOf(Int8);
         expect(table.getChild('c')!.type).toBeInstanceOf(Float64);
-        expect(table.getChild('d')!.type).toBeInstanceOf(Utf8);
+        expect(table.getChild('d')!.type).toBeInstanceOf(Dictionary);
         expect(table.getChild('e' as any)).toBeNull();
     });
 });
