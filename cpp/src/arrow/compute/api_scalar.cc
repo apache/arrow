@@ -118,6 +118,7 @@ struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
     return "<INVALID>";
   }
 };
+
 template <>
 struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
     : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
@@ -169,6 +170,45 @@ struct EnumTraits<compute::RoundMode>
         return "HALF_TO_EVEN";
       case compute::RoundMode::HALF_TO_ODD:
         return "HALF_TO_ODD";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
+struct EnumTraits<compute::CalendarUnit>
+    : BasicEnumTraits<compute::CalendarUnit, compute::CalendarUnit::NANOSECOND,
+                      compute::CalendarUnit::MICROSECOND,
+                      compute::CalendarUnit::MILLISECOND, compute::CalendarUnit::SECOND,
+                      compute::CalendarUnit::MINUTE, compute::CalendarUnit::HOUR,
+                      compute::CalendarUnit::DAY, compute::CalendarUnit::WEEK,
+                      compute::CalendarUnit::MONTH, compute::CalendarUnit::QUARTER,
+                      compute::CalendarUnit::YEAR> {
+  static std::string name() { return "compute::CalendarUnit"; }
+  static std::string value_name(compute::CalendarUnit value) {
+    switch (value) {
+      case compute::CalendarUnit::NANOSECOND:
+        return "NANOSECOND";
+      case compute::CalendarUnit::MICROSECOND:
+        return "MICROSECOND";
+      case compute::CalendarUnit::MILLISECOND:
+        return "MILLISECOND";
+      case compute::CalendarUnit::SECOND:
+        return "SECOND";
+      case compute::CalendarUnit::MINUTE:
+        return "MINUTE";
+      case compute::CalendarUnit::HOUR:
+        return "HOUR";
+      case compute::CalendarUnit::DAY:
+        return "DAY";
+      case compute::CalendarUnit::WEEK:
+        return "WEEK";
+      case compute::CalendarUnit::MONTH:
+        return "MONTH";
+      case compute::CalendarUnit::QUARTER:
+        return "QUARTER";
+      case compute::CalendarUnit::YEAR:
+        return "YEAR";
     }
     return "<INVALID>";
   }
@@ -266,6 +306,9 @@ static auto kReplaceSubstringOptionsType =
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
+    DataMember("multiple", &RoundTemporalOptions::multiple),
+    DataMember("unit", &RoundTemporalOptions::unit));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -412,6 +455,12 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit)
+    : FunctionOptions(internal::kRoundTemporalOptionsType),
+      multiple(std::move(multiple)),
+      unit(unit) {}
+constexpr char RoundTemporalOptions::kTypeName[];
+
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
     : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
 RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
@@ -511,6 +560,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -688,6 +738,7 @@ Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
 SCALAR_EAGER_UNARY(Day, "day")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(Hour, "hour")
+SCALAR_EAGER_UNARY(YearMonthDay, "year_month_day")
 SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
@@ -709,6 +760,21 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> CeilTemporal(const Datum& arg, RoundTemporalOptions options,
+                           ExecContext* ctx) {
+  return CallFunction("ceil_temporal", {arg}, &options, ctx);
+}
+
+Result<Datum> FloorTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("floor_temporal", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("round_temporal", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {

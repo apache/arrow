@@ -34,7 +34,7 @@
 #include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
@@ -73,7 +73,7 @@ void AssertNullToNull(const std::string& func_name) {
 }
 
 template <typename T, typename OptionsType>
-class TestBaseUnaryArithmetic : public TestBase {
+class TestBaseUnaryArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -287,7 +287,7 @@ class TestArithmeticDecimal : public ::testing::Test {
 };
 
 template <typename T>
-class TestBinaryArithmetic : public TestBase {
+class TestBinaryArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -464,7 +464,7 @@ template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
 template <typename T>
-class TestBitWiseArithmetic : public TestBase {
+class TestBitWiseArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;

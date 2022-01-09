@@ -513,8 +513,6 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	default:
 		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
 	}
-
-	return false
 }
 
 func baseArrayEqual(left, right Interface) bool {

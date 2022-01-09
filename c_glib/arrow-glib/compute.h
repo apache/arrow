@@ -50,6 +50,14 @@ struct _GArrowFunctionOptionsClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_options_equal(GArrowFunctionOptions *options,
+                              GArrowFunctionOptions *other_options);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_options_to_string(GArrowFunctionOptions *options);
+
 
 #define GARROW_TYPE_FUNCTION_DOC (garrow_function_doc_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFunctionDoc,
@@ -107,6 +115,12 @@ garrow_function_get_name(GArrowFunction *function);
 GARROW_AVAILABLE_IN_6_0
 GArrowFunctionDoc *
 garrow_function_get_doc(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GArrowFunctionOptions *
+garrow_function_get_default_options(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GType
+garrow_function_get_options_type(GArrowFunction *function);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -558,6 +572,7 @@ typedef enum {
   GARROW_ROUND_HALF_TO_ODD,
 } GArrowRoundMode;
 
+
 #define GARROW_TYPE_ROUND_OPTIONS (garrow_round_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowRoundOptions,
                          garrow_round_options,
@@ -572,6 +587,23 @@ struct _GArrowRoundOptionsClass
 GARROW_AVAILABLE_IN_7_0
 GArrowRoundOptions *
 garrow_round_options_new(void);
+
+
+#define GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS   \
+  (garrow_round_to_multiple_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundToMultipleOptions,
+                         garrow_round_to_multiple_options,
+                         GARROW,
+                         ROUND_TO_MULTIPLE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundToMultipleOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,

@@ -28,7 +28,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1432,7 +1432,7 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
     ])");
 }
 
-class TestPermutationsWithTake : public TestBase {
+class TestPermutationsWithTake : public ::testing::Test {
  protected:
   void DoTake(const Int16Array& values, const Int16Array& indices,
               std::shared_ptr<Int16Array>* out) {
@@ -2363,6 +2363,40 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
                                                std::make_shared<ChunkedArray>(col_b)};
     *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
   });
+}
+
+TEST(TestIndicesNonZero, IndicesNonZero) {
+  Datum actual;
+  std::shared_ptr<Array> result;
+
+  ASSERT_OK_AND_ASSIGN(
+      actual,
+      CallFunction("indices_nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(
+      actual, CallFunction("indices_nonzero",
+                           {ArrayFromJSON(boolean(), "[null, true, false, true]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero",
+                                    {ArrayFromJSON(float64(), "[null, 1.3, 0.0, 5.0]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {ArrayFromJSON(float64(), "[]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[]"));
+
+  ChunkedArray chunkedarr(
+      {ArrayFromJSON(uint32(), "[1, 0, 3]"), ArrayFromJSON(uint32(), "[4, 0, 6]")});
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {static_cast<Datum>(chunkedarr)}));
+  AssertArraysEqual(*actual.make_array(), *ArrayFromJSON(uint64(), "[0, 2, 3, 5]"));
 }
 
 }  // namespace compute

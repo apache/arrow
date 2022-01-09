@@ -223,7 +223,7 @@ class ARROW_EXPORT ExecNode {
   /// \brief A future which will be marked finished when this node has stopped producing.
   virtual Future<> finished() = 0;
 
-  std::string ToString() const;
+  std::string ToString(int indent = 0) const;
 
  protected:
   ExecNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
@@ -234,7 +234,7 @@ class ARROW_EXPORT ExecNode {
   bool ErrorIfNotOk(Status status);
 
   /// Provide extra info to include in the string representation.
-  virtual std::string ToStringExtra() const;
+  virtual std::string ToStringExtra(int indent) const;
 
   ExecPlan* plan_;
   std::string label_;

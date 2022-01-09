@@ -466,6 +466,10 @@ func init() {
 // GetScalar creates a scalar object from the value at a given index in the
 // passed in array, returns an error if unable to do so.
 func GetScalar(arr array.Interface, idx int) (Scalar, error) {
+	if arr.IsNull(idx) {
+		return MakeNullScalar(arr.DataType()), nil
+	}
+
 	switch arr := arr.(type) {
 	case *array.Binary:
 		buf := memory.NewBufferBytes(arr.Value(idx))
@@ -561,12 +565,35 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
 func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) array.Interface {
-	nullBuf := memory.NewResizableBuffer(mem)
-	nullBuf.Resize(int(bitutil.BytesForBits(int64(length))))
-	defer nullBuf.Release()
-	memory.Set(nullBuf.Bytes(), 0xFF)
+	var (
+		buffers  = []*memory.Buffer{nil}
+		children []*array.Data
+	)
 
-	data := array.NewData(dt, length, []*memory.Buffer{nullBuf, nil}, nil, length, 0)
+	buffers[0] = memory.NewResizableBuffer(mem)
+	buffers[0].Resize(int(bitutil.BytesForBits(int64(length))))
+	defer buffers[0].Release()
+
+	switch t := dt.(type) {
+	case arrow.NestedType:
+		fieldList := t.Fields()
+		children = make([]*array.Data, len(fieldList))
+		for i, f := range fieldList {
+			arr := MakeArrayOfNull(f.Type, length, mem)
+			defer arr.Release()
+			children[i] = arr.Data()
+		}
+	case arrow.FixedWidthDataType:
+		buffers = append(buffers, memory.NewResizableBuffer(mem))
+		buffers[1].Resize(int(bitutil.BytesForBits(int64(t.BitWidth()))) * length)
+		defer buffers[1].Release()
+	case arrow.BinaryDataType:
+		buffers = append(buffers, memory.NewResizableBuffer(mem), nil)
+		buffers[1].Resize(arrow.Int32Traits.BytesRequired(length + 1))
+		defer buffers[1].Release()
+	}
+
+	data := array.NewData(dt, length, buffers, children, length, 0)
 	defer data.Release()
 	return array.MakeFromData(data)
 }
@@ -617,7 +644,6 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 			c = 0xFF
 		}
 		memory.Set(data.Bytes(), c)
-		defer data.Release()
 		return array.NewBoolean(length, data, nil, 0), nil
 	case BinaryScalar:
 		if s.DataType().ID() == arrow.FIXED_SIZE_BINARY {

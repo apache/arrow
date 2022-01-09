@@ -21,11 +21,6 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/"
 
-if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
-  # default method doesn't work on R 3.3, nor does libcurl
-  options(download.file.method = "wget")
-}
-
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
@@ -296,11 +291,6 @@ build_libarrow <- function(src_dir, dst_dir) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
-    if (getRversion() < 3.4) {
-      # var names were called CXX1X instead of CXX11
-      var <- sub("^CXX11", "CXX1X", var)
-    }
-    # tools::Rcmd introduced R 3.3
     tools::Rcmd(paste("config", var), stdout = TRUE)
   }
   env_var_list <- c(

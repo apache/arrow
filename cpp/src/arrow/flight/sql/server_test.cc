@@ -30,6 +30,7 @@
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 
 using ::testing::_;

@@ -38,7 +38,7 @@
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 

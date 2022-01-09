@@ -194,14 +194,21 @@ adding to the `nse_funcs` list in `arrow/r/R/dplyr-functions.R`.  Here is how
 this might look for `startsWith()`:
 
 ```{r, eval = FALSE}
-nse_funcs$startsWith <- function(x, prefix) {
+register_binding("startsWith", function(x, prefix) {
   Expression$create(
     "starts_with",
     x,
     options = list(pattern = prefix)
   )
-}
+})
 ```
+
+In the source files, all the `register_binding()` calls are wrapped in functions
+that are called on package load. These are separated into files based on
+subject matter (e.g., `R/dplyr-funcs-math.R`, `R/dplyr-funcs-string.R`): find the
+closest analog to the function whose binding is being defined and define the
+new binding in a similar location. For example, the binding for `startsWith()`
+is registered in `dplyr-funcs-string.R` next to the binding for `endsWith()`.
 
 Hint:  you can use `call_function()` to call a compute function directly from R.
 This might be useful if you want to experiment with a compute function while 
@@ -217,9 +224,15 @@ call_function(
 
 ## Step 4 - Run (and potentially add to) your tests.
 
-In the process of implementing the function, you may end up implementing more 
-tests, for example if you discover unusual edge cases.  This is fine - add them 
-to the ones you wrote originally, and run them all.  If they pass, you're done! 
-Submit a PR.  If you've modified the C++ code in the 
+In the process of implementing the function, you will need at least one test
+to make sure that your binding works and that future changes to the Arrow R
+package don't break it! Bindings are tested in files that correspond to
+the file in which they were defined (e.g., `startsWith()` is tested in
+`tests/testthat/test-dplyr-funcs-string.R`) next to the tests for `endsWith()`.
+
+You may end up implementing more tests, for example if you discover unusual 
+edge cases.  This is fine - add them  to the ones you wrote originally,
+and run them all.  If they pass, you're done and you can submit a PR. 
+If you've modified the C++ code in the 
 R package (for example, when hooking up a binding to its options class), you 
 should make sure to run `arrow/r/lint.sh` to lint the code.

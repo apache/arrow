@@ -453,6 +453,10 @@ using ArraySortFunc = std::function<NullPartitionResult(
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
+Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                        const ChunkedArray& values, SortOrder sort_order,
+                        NullPlacement null_placement);
+
 class NestedValuesComparator {
  public:
   // StructArray Compare overload

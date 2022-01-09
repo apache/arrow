@@ -27,7 +27,7 @@
 #include "arrow/array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -1117,7 +1117,7 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
 }
 
 template <typename T>
-class TestVarArgsCompare : public TestBase {
+class TestVarArgsCompare : public ::testing::Test {
  protected:
   static std::shared_ptr<DataType> type_singleton() {
     return TypeTraits<T>::type_singleton();

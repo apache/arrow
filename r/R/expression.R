@@ -106,6 +106,20 @@
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
+register_bindings_array_function_map <- function() {
+  # use a function to generate the binding so that `operator` persists
+  # beyond execution time (another option would be to use quasiquotation
+  # and unquote `operator` directly into the function expression)
+  array_function_map_factory <- function(operator) {
+    force(operator)
+    function(...) build_expr(operator, ...)
+  }
+
+  for (name in names(.array_function_map)) {
+    register_binding(name, array_function_map_factory(name))
+  }
+}
+
 #' Arrow expressions
 #'
 #' @description

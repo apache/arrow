@@ -16,12 +16,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/order_by_impl.h"
@@ -317,7 +316,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
  protected:
-  std::string ToStringExtra() const override {
+  std::string ToStringExtra(int indent) const override {
     return std::string("by=") + impl_->ToString();
   }
 

@@ -301,11 +301,11 @@ TEST(ExecPlan, ToString) {
                     {"sink", SinkNodeOptions{&sink_gen}},
                 })
                 .AddToPlan(plan.get()));
-  EXPECT_EQ(plan->sources()[0]->ToString(), R"(:SourceNode{outputs=[:SinkNode]})");
-  EXPECT_EQ(plan->sinks()[0]->ToString(), R"(:SinkNode{inputs=[collected=:SourceNode]})");
+  EXPECT_EQ(plan->sources()[0]->ToString(), R"(:SourceNode{})");
+  EXPECT_EQ(plan->sinks()[0]->ToString(), R"(:SinkNode{})");
   EXPECT_EQ(plan->ToString(), R"(ExecPlan with 2 nodes:
-:SourceNode{outputs=[:SinkNode]}
-:SinkNode{inputs=[collected=:SourceNode]}
+:SinkNode{}
+  :SourceNode{}
 )");
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
@@ -338,16 +338,18 @@ TEST(ExecPlan, ToString) {
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 6 nodes:
-custom_source_label:SourceNode{outputs=[:FilterNode]}
-:FilterNode{inputs=[target=custom_source_label:SourceNode], outputs=[:ProjectNode], filter=(i32 >= 0)}
-:ProjectNode{inputs=[target=:FilterNode], outputs=[:GroupByNode], projection=[bool, multiply(i32, 2)]}
-:GroupByNode{inputs=[groupby=:ProjectNode], outputs=[:FilterNode], keys=["bool"], aggregates=[
-	hash_sum(multiply(i32, 2)),
-	hash_count(multiply(i32, 2), {mode=NON_NULL}),
-]}
-:FilterNode{inputs=[target=:GroupByNode], outputs=[custom_sink_label:OrderBySinkNode], filter=(sum(multiply(i32, 2)) > 10)}
-custom_sink_label:OrderBySinkNode{inputs=[collected=:FilterNode], by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
+custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
+  :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
+    :GroupByNode{keys=["bool"], aggregates=[
+    	hash_sum(multiply(i32, 2)),
+    	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    ]}
+      :ProjectNode{projection=[bool, multiply(i32, 2)]}
+        :FilterNode{filter=(i32 >= 0)}
+          custom_source_label:SourceNode{}
 )a");
+
+  std::cout << plan->ToString() << '\n';
 
   ASSERT_OK_AND_ASSIGN(plan, ExecPlan::Make());
 
@@ -374,13 +376,13 @@ custom_sink_label:OrderBySinkNode{inputs=[collected=:FilterNode], by={sort_keys=
           })
           .AddToPlan(plan.get()));
   EXPECT_EQ(plan->ToString(), R"a(ExecPlan with 5 nodes:
-lhs:SourceNode{outputs=[:UnionNode]}
-rhs:SourceNode{outputs=[:UnionNode]}
-:UnionNode{inputs=[input_0_label=lhs:SourceNode, input_1_label=rhs:SourceNode], outputs=[:ScalarAggregateNode]}
-:ScalarAggregateNode{inputs=[target=:UnionNode], outputs=[:SinkNode], aggregates=[
+:SinkNode{}
+  :ScalarAggregateNode{aggregates=[
 	count(i32, {mode=NON_NULL}),
 ]}
-:SinkNode{inputs=[collected=:ScalarAggregateNode]}
+    :UnionNode{}
+      rhs:SourceNode{}
+      lhs:SourceNode{}
 )a");
 }
 

@@ -25,7 +25,6 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/result.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
 namespace flight_sql_pb = arrow::flight::protocol::sql;

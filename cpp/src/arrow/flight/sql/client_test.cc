@@ -23,6 +23,7 @@
 
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/sql/FlightSql.pb.h"
 #include "arrow/flight/sql/api.h"
 #include "arrow/testing/gtest_util.h"
