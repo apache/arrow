@@ -22,11 +22,11 @@ namespace IoTPipelineExample
     public class SensorData
     {
         //Subject-id, Activity Label, Timestamp, x, y, z
-        public int? subjectId { get; set; }
-        public string? activityLabel { get; set; }
-        public DateTimeOffset? timestamp { get; set; }
-        public double? x_Axis { get; set; }
-        public double? y_Axis { get; set; }
-        public double? z_Axis { get; set; }
+        public int? SubjectId { get; set; }
+        public string? ActivityLabel { get; set; }
+        public DateTimeOffset? Timestamp { get; set; }
+        public double? X_Axis { get; set; }
+        public double? Y_Axis { get; set; }
+        public double? Z_Axis { get; set; }
     }
 }
