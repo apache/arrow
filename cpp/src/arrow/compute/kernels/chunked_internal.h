@@ -30,6 +30,25 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
+// Visit all physical types for which sorting is implemented.
+#define VISIT_SORTABLE_PHYSICAL_TYPES(VISIT) \
+  VISIT(BooleanType)                         \
+  VISIT(Int8Type)                            \
+  VISIT(Int16Type)                           \
+  VISIT(Int32Type)                           \
+  VISIT(Int64Type)                           \
+  VISIT(UInt8Type)                           \
+  VISIT(UInt16Type)                          \
+  VISIT(UInt32Type)                          \
+  VISIT(UInt64Type)                          \
+  VISIT(FloatType)                           \
+  VISIT(DoubleType)                          \
+  VISIT(BinaryType)                          \
+  VISIT(LargeBinaryType)                     \
+  VISIT(FixedSizeBinaryType)                 \
+  VISIT(Decimal128Type)                      \
+  VISIT(Decimal256Type)
+
 // The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {
@@ -59,13 +78,6 @@ struct ResolvedChunk<StructArray> {
   ResolvedChunk(const StructArray* array, int64_t index) : array(array), index(index) {}
 
   bool IsNull() const { return array->field(0)->IsNull(index); }
-
-  int64_t Value() const {
-    auto t = array->field(0)->type();
-    auto arr = std::static_pointer_cast<arrow::Int64Array>(array->field(0));
-
-    return arr->Value(index);
-  }
 };
 
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup
@@ -181,6 +193,78 @@ inline std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {
                  [&](const std::shared_ptr<Array>& array) { return array.get(); });
   return pointers;
 }
+
+template <typename ArrayType>
+struct ResolvedChunkComparator {
+  bool Compare(const ResolvedChunk<ArrayType>& chunk_left,
+               const ResolvedChunk<ArrayType>& chunk_right) const {
+    return chunk_left.Value() < chunk_right.Value();
+  }
+
+  bool CompareChunks(const ChunkedArrayResolver& left_resolver,
+                     const ChunkedArrayResolver& right_resolver, uint64_t left,
+                     uint64_t right) {
+    const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
+    const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
+    return Compare(chunk_left, chunk_right);
+  }
+};
+
+template <>
+struct ResolvedChunkComparator<StructArray> {
+  bool CompareChunks(const ChunkedArrayResolver& left_resolver,
+                     const ChunkedArrayResolver& right_resolver, uint64_t left,
+                     uint64_t right) {
+    const auto chunk_left = left_resolver.Resolve<StructArray>(left);
+    const auto chunk_right = right_resolver.Resolve<StructArray>(right);
+    return Compare(chunk_left, chunk_right);
+  }
+
+  bool Compare(const ResolvedChunk<StructArray>& chunk_left,
+               const ResolvedChunk<StructArray>& chunk_right) const {
+    std::shared_ptr<DataType> field_type = chunk_left.array->field(0)->type();
+    ValComparatorVisitor type_visitor;
+    auto vCompare = type_visitor.Create(*field_type);
+    return vCompare(chunk_left.array->field(0), chunk_left.index,
+                    chunk_right.array->field(0), chunk_right.index);
+  }
+
+  using ValComparator = std::function<bool(std::shared_ptr<arrow::Array>, int64_t,
+                                           std::shared_ptr<arrow::Array>, int64_t)>;
+
+  struct ValComparatorVisitor {
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return VisitGeneric(type); }
+
+    VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+#undef VISIT
+
+    Status Visit(const DataType& type) {
+      return Status::TypeError("Unsupported type for ValComparatorVisitor: ",
+                               type.ToString());
+    }
+
+    template <typename T>
+    Status VisitGeneric(const T&) {
+      using ArrayType = typename TypeTraits<T>::ArrayType;
+
+      out = [](std::shared_ptr<arrow::Array> base, int64_t base_index,
+               std::shared_ptr<arrow::Array> target, int64_t target_index) {
+        auto base_arr = arrow::internal::checked_pointer_cast<ArrayType>(base);
+        auto target_arr = arrow::internal::checked_pointer_cast<ArrayType>(target);
+        return base_arr->Value(base_index) < target_arr->Value(target_index);
+      };
+      return Status::OK();
+    }
+
+    ValComparator Create(const DataType& type) {
+      DCHECK_OK(VisitTypeInline(type, this));
+      return out;
+    }
+
+    ValComparator out;
+  };
+};
 
 }  // namespace internal
 }  // namespace compute

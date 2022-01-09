@@ -798,6 +798,38 @@ def test_struct_chunked_array_sort():
         {"a": 35, "b": "foobar"},
     ]
 
+    arr1 = pa.StructArray.from_arrays([
+        pa.array(["foo", "car", "tar"]),
+        pa.array([5, 7, 8], type=pa.int64())
+    ], names=["a", "b"])
+
+    arr2 = pa.StructArray.from_arrays([
+        pa.array(["bar", "foobar", "far"]),
+        pa.array([7, 35, 9], type=pa.int64())
+    ], names=["a", "b"])
+
+    chunked_arr = pa.chunked_array([arr1, arr2])
+
+    sorted_arr = chunked_arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": "bar", "b": 7},
+        {"a": "car", "b": 7},
+        {"a": "far", "b": 9},
+        {"a": "foo", "b": 5},
+        {"a": "foobar", "b": 35},
+        {"a": "tar", "b": 8},
+    ]
+
+    sorted_arr = chunked_arr.sort("descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": "tar", "b": 8},
+        {"a": "foobar", "b": 35},
+        {"a": "foo", "b": 5},
+        {"a": "far", "b": 9},
+        {"a": "car", "b": 7},
+        {"a": "bar", "b": 7},
+    ]
+
 
 def test_record_batch_sort():
     rb = pa.RecordBatch.from_arrays([

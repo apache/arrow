@@ -274,23 +274,19 @@ class ChunkedArraySorter : public TypeVisitor {
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
     const ChunkedArrayResolver left_resolver(arrays);
     const ChunkedArrayResolver right_resolver(arrays);
+    ResolvedChunkComparator<ArrayType> resolved_chunk_comparator;
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   return chunk_left.Value() < chunk_right.Value();
+                   return resolved_chunk_comparator.CompareChunks(
+                       left_resolver, right_resolver, left, right);
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   const auto chunk_left = left_resolver.Resolve<ArrayType>(left);
-                   const auto chunk_right = right_resolver.Resolve<ArrayType>(right);
-                   // We don't use 'left > right' here to reduce required
-                   // operator. If we use 'right < left' here, '<' is only
-                   // required.
-                   return chunk_right.Value() < chunk_left.Value();
+                   return resolved_chunk_comparator.CompareChunks(
+                       right_resolver, left_resolver, right, left);
                  });
     }
     // Copy back temp area into main buffer
