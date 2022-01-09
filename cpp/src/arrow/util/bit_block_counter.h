@@ -88,9 +88,7 @@ struct BitBlockOrNot {
 // Three Arguments
 template <typename T>
 struct BitBlockAndAnd {
-  static constexpr T Call(T left, T mid, T right) {
-    return left & mid & right;
-  }
+  static constexpr T Call(T left, T mid, T right) { return left & mid & right; }
 };
 
 }  // namespace detail
