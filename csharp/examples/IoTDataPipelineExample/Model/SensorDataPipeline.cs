@@ -164,7 +164,6 @@ namespace IoTPipelineExample
             if (!Directory.Exists(arrowDataPath))
                 Directory.CreateDirectory(arrowDataPath);
 
-            var memoryAllocator = new NativeMemoryAllocator(alignment: 64);
 
             foreach (var key in _colSubjectIdBuilderDict.Keys)
             {
