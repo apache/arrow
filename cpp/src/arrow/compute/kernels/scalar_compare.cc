@@ -215,14 +215,16 @@ struct Maximum {
 // Check if timestamp timezones are comparable (either all are empty or none is).
 Status CheckCompareTimestamps(const ExecBatch& batch) {
   if (batch.num_values() > 0) {
-    const auto& ts0 = checked_cast<const TimestampType&>(*batch[0].type());
-    bool invalid_state = ts0.timezone().empty();
-    for (int i = 1; i < batch.num_values(); ++i) {
-      const auto& ts = checked_cast<const TimestampType&>(*batch[i].type());
-      invalid_state ^= ts.timezone().empty();
-      if (invalid_state) {
-        return Status::Invalid(
-            "Cannot compare timestamp with timezone to timestamp without timezone");
+    for (int i = 0; i < batch.num_values()-1; ++i) {
+      const auto& tsi = checked_cast<const TimestampType&>(*batch[i].type());
+      for (int j = i+1; j < batch.num_values(); ++j) {
+        const auto& tsj = checked_cast<const TimestampType&>(*batch[j].type());
+        bool invalid_state = tsi.timezone().empty();
+	invalid_state ^= tsj.timezone().empty();
+        if (invalid_state) {
+          return Status::Invalid(
+              "Cannot compare timestamp with timezone to timestamp without timezone");
+        }
       }
     }
   }
@@ -407,15 +409,15 @@ struct ScalarMinMax {
 
   static void ExecScalar(const ExecBatch& batch,
                          const ElementWiseAggregateOptions& options, Scalar* out) {
-  // All arguments are scalar
-  OutValue value{};
-  bool valid = false;
-  for (const auto& arg : batch.values) {
-    // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
-    if (!arg.is_scalar()) continue;
-    const auto& scalar = *arg.scalar();
-    if (!scalar.is_valid) {
-      if (options.skip_nulls) continue;
+    // All arguments are scalar
+    OutValue value{};
+    bool valid = false;
+    for (const auto& arg : batch.values) {
+      // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
+      if (!arg.is_scalar()) continue;
+      const auto& scalar = *arg.scalar();
+      if (!scalar.is_valid) {
+        if (options.skip_nulls) continue;
         out->is_valid = false;
         return;
       }
@@ -776,10 +778,10 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
     for (const auto& ty : types) {
       auto type_id = ty->id();
       auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-        // Type-specific validations - currently gives an error for random tests
-        // if (type_id == Type::TIMESTAMP) {
-        //  RETURN_NOT_OK(CheckCompareTimestamps(batch));
-        //}
+        // Type-specific validations
+        if (type_id == Type::TIMESTAMP) {
+          RETURN_NOT_OK(CheckCompareTimestamps(batch));
+        }
 
         // Resolve generator based on options
         const auto& state = static_cast<const BetweenState&>(*ctx->state());

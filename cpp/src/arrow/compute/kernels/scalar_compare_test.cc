@@ -2170,35 +2170,35 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   Datum null(std::make_shared<ScalarType>());
   BetweenOptions InclusiveOption(BetweenOptions::Inclusive::BOTH);
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero,
+      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"), zero,
+      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"),
-      zero, four,
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"), zero, four,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"),
-      zero, four,
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"), zero, four,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-      zero, four,
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, four,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero,
-      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-      "[null,1,1,1]"));
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero, four,
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,1,1,1]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-      null, four,
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), null, four,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
                     "[null,null,null,null,null,null]"));
   ValidateBetween<TypeParam>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"),
-      zero, null,
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, null,
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
                     "[null,null,null,null,null,null]"));
 }
@@ -2310,11 +2310,11 @@ TEST(TestStringBetweenKernel, SimpleStringTest) {
   auto r = Datum(std::make_shared<ScalarType>("zzz"));
   BetweenOptions InclusiveOption(BetweenOptions::Inclusive::BOTH);
   ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]"), l, r,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]"), l,
+      r, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]"), l, r,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
+      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]"),
+      l, r, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
   ValidateBetween<StringType>(InclusiveOption,
                               ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                                             R"(["aaa", "aaaa", "ccc", "z"])"),
@@ -2353,17 +2353,16 @@ TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
       InclusiveOption,
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                     R"(["david","hello","world"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["adam","hi","whirl"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["adam","hi","whirl"])"),
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                     R"(["robert","goeiemoreen","whirlwind"])"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false, false]"));
   ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["x","a","f"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["w","a","e"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["z","a","g"])"), ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-      "[true, true, true]"));
+      InclusiveOption, 
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["x","a","f"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["w","a","e"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["z","a","g"])"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, true, true]"));
   ValidateBetween<StringType>(
       InclusiveOption,
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
@@ -2386,11 +2385,11 @@ TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
       ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["李","田",null])"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, true, null]"));
   ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["Б",null,"Я"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["А","Ж","Щ"])"), ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-      R"(["Д","Л","Ф"])"), ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-      "[true, null, false]"));
+      InclusiveOption,
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Б",null,"Я"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["А","Ж","Щ"])"),
+      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Д","Л","Ф"])"),
+      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, null, false]"));
 }
 
 }  // namespace compute
