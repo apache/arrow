@@ -696,34 +696,34 @@ comparison. If any of the input elements in a pair or triple is null, the corres
 output element is null. Decimal arguments will be promoted in the same way as
 for ``add`` and ``subtract``.
 
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| Function names                | Arity      | Input types                                 | Output type         |
-+===============================+============+=============================================+=====================+
-| equal                         | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| greater                       | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| greater_equal                 | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| less                          | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| less_equal                    | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| not_equal                     | Binary     | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| between_less_less             | Ternary    | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| between_less_equal_less       | Ternary    | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| between_less_less_equal       | Ternary    | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
-| between_less_equal_less_equal | Ternary    | Numeric, Temporal, Binary- and String-like  | Boolean             |
-+-------------------------------+------------+---------------------------------------------+---------------------+
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| Function names | Arity   | Input types                                 | Output type | Options Class            | Notes |
++================+=========+=============================================+=============+==========================+=======+
+| equal          | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| greater        | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| greater_equal  | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| less           | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| less_equal     | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| not_equal      | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
+| between        | Ternary | Numeric, Temporal, Binary- and String-like  | Boolean     | :struct:`BetweenOptions` | \(1)  |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 
 These functions take any number of inputs of numeric type (in which case they
 will be cast to the :ref:`common numeric type <common-numeric-type>` before
 comparison) or of temporal types. If any input is dictionary encoded it will be
 expanded for the purposes of comparison.
+
+* \(1) The default is `BetweenOptions::Inclusive::BOTH`, other options are
+  `BetweenOptions::Inclusive::LEFT`, `BetweenOptions::Inclusive::RIGHT` and
+  `BetweenOptions::Inlcusive::NEITHER` corresponding to a <= value <= b,
+  a <= value < b, a < value <= b and a < value < b.  Strings are presently
+  compared by their UTF8 codepoint values.
 
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names   | Arity      | Input types                                 | Output type         | Options class                         | Notes |

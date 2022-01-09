@@ -215,12 +215,12 @@ struct Maximum {
 // Check if timestamp timezones are comparable (either all are empty or none is).
 Status CheckCompareTimestamps(const ExecBatch& batch) {
   if (batch.num_values() > 0) {
-    for (int i = 0; i < batch.num_values()-1; ++i) {
+    for (int i = 0; i < batch.num_values() - 1; ++i) {
       const auto& tsi = checked_cast<const TimestampType&>(*batch[i].type());
-      for (int j = i+1; j < batch.num_values(); ++j) {
+      for (int j = i + 1; j < batch.num_values(); ++j) {
         const auto& tsj = checked_cast<const TimestampType&>(*batch[j].type());
         bool invalid_state = tsi.timezone().empty();
-	invalid_state ^= tsj.timezone().empty();
+        invalid_state ^= tsj.timezone().empty();
         if (invalid_state) {
           return Status::Invalid(
               "Cannot compare timestamp with timezone to timestamp without timezone");
@@ -426,7 +426,7 @@ struct ScalarMinMax {
         valid = true;
       } else {
         value = Op::template Call<OutValue, OutValue, OutValue>(
-        value, UnboxScalar<OutType>::Unbox(scalar));
+            value, UnboxScalar<OutType>::Unbox(scalar));
       }
     }
     out->is_valid = valid;

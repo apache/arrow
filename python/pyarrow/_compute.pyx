@@ -870,7 +870,31 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
-cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
+cdef CBetweenMode unwrap_between_mode(between_mode) except *:
+    if between_mode == "both":
+        return CBetweenMode_BOTH
+    elif between_mode == "left":
+        return CBetweenMode_LEFT
+    elif between_mode == "right":
+        return CBetweenMode_RIGHT
+    elif round_mode == "neither":
+        return CBetweenMode_NEITHER
+    _raise_invalid_function_option(between_mode, "between mode")
+
+
+cdef class _BetweenOptions(FunctionOptions):
+    def _set_options(self, between_mode):
+        self.wrapped.reset(
+            new CBetweenOptions(unwrap_between_mode(between_mode))
+        )
+
+
+class BetweenOptions(_BetweenOptions):
+    def __init__(self, between_mode="both"):
+        self._set_options(between_mode)
+
+
+cdef CCalendarUnit unwrap_round_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
     elif unit == "microsecond":
