@@ -68,13 +68,13 @@ namespace IoTPipelineExample
                         {
                             var recordBatch = await reader.ReadRecordBatchAsync(i);
 
-                            //for (int j = 0; j < recordBatch.ColumnCount; j++)
-                            //{
-                            //    Console.WriteLine($"RecordBatch {i.ToString().PadLeft(6)} Column {j} Length is: "
-                            //        + recordBatch.Column(j).Data.Length.ToString().PadLeft(6)
-                            //        + " NULL Count is: "
-                            //        + recordBatch.Column(j).Data.NullCount);
-                            //}
+                            for (int j = 0; j < recordBatch.ColumnCount; j++)
+                            {
+                                Console.WriteLine($"RecordBatch {i.ToString().PadLeft(6)} Column {j} Length is: "
+                                    + recordBatch.Column(j).Data.Length.ToString().PadLeft(6)
+                                    + " NULL Count is: "
+                                    + recordBatch.Column(j).Data.NullCount);
+                            }
 
                             if (recordBatch.Schema.HasMetadata && recordBatch.Schema.Metadata.TryGetValue("SubjectId", out string subjectId))
                             {
