@@ -30,7 +30,6 @@ namespace IoTPipelineExample
     {
         private int _size;
         private readonly int _totalInputs;
-        private readonly int _queueCapacity;
         private readonly Channel<SensorData> _channel;
         ChannelWriter<SensorData> _writer;
         ChannelReader<SensorData> _reader;
