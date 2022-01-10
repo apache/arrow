@@ -26,9 +26,9 @@ import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow
 
 import commandLineUsage from 'command-line-usage';
 import commandLineArgs from 'command-line-args';
-import padLeft from "pad-left";
+import padLeft from 'pad-left';
 // @ts-ignore
-import { parse as bignumJSONParse } from "json-bignum";
+import { parse as bignumJSONParse } from 'json-bignum';
 
 const argv = commandLineArgs(cliOpts(), { partial: true });
 const files = argv.help ? [] : [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
