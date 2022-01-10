@@ -55,18 +55,6 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// The schema is cached after being read once, or may be specified at construction.
   Result<std::shared_ptr<Schema>> ReadPhysicalSchema();
 
-  /// \brief Scan returns an iterator of ScanTasks, each of which yields
-  /// RecordBatches from this Fragment.
-  ///
-  /// Note that batches yielded using this method will not be filtered and may not align
-  /// with the Fragment's schema. In particular, note that columns referenced by the
-  /// filter may be present in yielded batches even if they are not projected (so that
-  /// they are available when a filter is applied). Additionally, explicitly projected
-  /// columns may be absent if they were not present in this fragment.
-  ///
-  /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
-
   /// An asynchronous version of Scan
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) = 0;
@@ -133,7 +121,6 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   explicit InMemoryFragment(RecordBatchVector record_batches,
                             compute::Expression = compute::literal(true));
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
   Future<util::optional<int64_t>> CountRows(

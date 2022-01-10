@@ -135,7 +135,6 @@ std::shared_ptr<compute::ExecNode> ExecNode_Scan(
   // TODO: pass in FragmentScanOptions
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
 
-  options->use_async = true;
   options->use_threads = arrow::r::GetBoolOption("arrow.use_threads", true);
 
   options->dataset_schema = dataset->schema();

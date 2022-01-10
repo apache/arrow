@@ -95,11 +95,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const override;
-
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;

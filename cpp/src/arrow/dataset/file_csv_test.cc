@@ -98,15 +98,9 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
-  }
-
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    return MakeGeneratorIterator(batch_gen);
   }
 };
 

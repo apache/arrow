@@ -160,7 +160,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Project(vector[CExpression]& exprs, vector[c_string]& columns)
         CStatus Filter(CExpression filter)
         CStatus UseThreads(c_bool use_threads)
-        CStatus UseAsync(c_bool use_async)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
         CStatus FragmentScanOptions(
