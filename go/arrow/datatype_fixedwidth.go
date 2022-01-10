@@ -451,14 +451,14 @@ func ConvertTimestampValue(in, out TimeUnit, value int64) int64 {
 // It contains a dictionary-encoded value type (any type) and an index type
 // (any integer type).
 type DictionaryType struct {
-	IndexType FixedWidthDataType
+	IndexType DataType
 	ValueType DataType
 	Ordered   bool
 }
 
 func (*DictionaryType) ID() Type        { return DICTIONARY }
 func (*DictionaryType) Name() string    { return "dictionary" }
-func (d *DictionaryType) BitWidth() int { return d.IndexType.BitWidth() }
+func (d *DictionaryType) BitWidth() int { return d.IndexType.(FixedWidthDataType).BitWidth() }
 func (d *DictionaryType) String() string {
 	return fmt.Sprintf("%s<values=%s, indices=%s, ordered=%t>",
 		d.Name(), d.ValueType, d.IndexType, d.Ordered)

@@ -17,7 +17,9 @@
 package array
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"sync/atomic"
 	"unsafe"
 
@@ -50,21 +52,147 @@ import (
 // The indices in principle may be any integer type.
 type Dictionary struct {
 	array
-	dictType *arrow.DictionaryType
-	indices  Interface
-	dict     Interface
+
+	indices Interface
+	dict    Interface
 }
 
-func NewDictionaryArray(typ *arrow.DictionaryType, indices, dict Interface) *Dictionary {
-	a := &Dictionary{dictType: typ}
+func NewDictionaryArray(typ arrow.DataType, indices, dict Interface) *Dictionary {
+	a := &Dictionary{}
 	a.array.refCount = 1
-	dictdata := NewData(indices.DataType(), indices.Len(), indices.Data().buffers, indices.Data().childData, indices.NullN(), indices.Data().offset)
+	dictdata := NewData(typ, indices.Len(), indices.Data().buffers, indices.Data().childData, indices.NullN(), indices.Data().offset)
 	dictdata.dictionary = dict.Data()
 	dict.Data().Retain()
 
 	defer dictdata.Release()
 	a.setData(dictdata)
 	return a
+}
+
+func checkIndexBounds(indices *Data, upperlimit uint64) error {
+	if indices.length == 0 {
+		return nil
+	}
+
+	var maxval uint64
+	switch indices.dtype.ID() {
+	case arrow.UINT8:
+		maxval = math.MaxUint8
+	case arrow.UINT16:
+		maxval = math.MaxUint16
+	case arrow.UINT32:
+		maxval = math.MaxUint32
+	case arrow.UINT64:
+		maxval = math.MaxUint64
+	}
+	isSigned := maxval == 0
+	if !isSigned && upperlimit > maxval {
+		return nil
+	}
+
+	// TODO(mtopol): lift BitSetRunReader from parquet to utils
+	// and use it here for performance improvement.
+	var nullbitmap []byte
+	if indices.buffers[0] != nil {
+		nullbitmap = indices.buffers[0].Bytes()
+	}
+
+	var outOfBounds func(i int) error
+	switch indices.dtype.ID() {
+	case arrow.INT8:
+		data := arrow.Int8Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] < 0 || data[i] >= int8(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.UINT8:
+		data := arrow.Uint8Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] >= uint8(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.INT16:
+		data := arrow.Int16Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] < 0 || data[i] >= int16(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.UINT16:
+		data := arrow.Uint16Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] >= uint16(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.INT32:
+		data := arrow.Int32Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] < 0 || data[i] >= int32(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.UINT32:
+		data := arrow.Uint32Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] >= uint32(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.INT64:
+		data := arrow.Int64Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] < 0 || data[i] >= int64(upperlimit) {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	case arrow.UINT64:
+		data := arrow.Uint64Traits.CastFromBytes(indices.buffers[1].Bytes())
+		outOfBounds = func(i int) error {
+			if data[i] >= upperlimit {
+				return fmt.Errorf("index %d out of bounds", data[i])
+			}
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid type for bounds checking: %T", indices.dtype)
+	}
+
+	for i := 0; i < indices.length; i++ {
+		if len(nullbitmap) > 0 && bitutil.BitIsNotSet(nullbitmap, i+indices.offset) {
+			continue
+		}
+
+		if err := outOfBounds(i + indices.offset); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict Interface) (*Dictionary, error) {
+	if indices.DataType().ID() != typ.IndexType.ID() {
+		return nil, fmt.Errorf("dictionary type index (%T) does not match indices array type (%T)", typ.IndexType, indices.DataType())
+	}
+
+	if !arrow.TypeEqual(typ.ValueType, dict.DataType()) {
+		return nil, fmt.Errorf("dictionary value type (%T) does not match dict array type (%T)", typ.ValueType, dict.DataType())
+	}
+
+	if err := checkIndexBounds(indices.Data(), uint64(dict.Len())); err != nil {
+		return nil, err
+	}
+
+	return NewDictionaryArray(typ, indices, dict), nil
 }
 
 func NewDictionaryData(data *Data) *Dictionary {
@@ -100,22 +228,12 @@ func (d *Dictionary) setData(data *Data) {
 		panic("arrow/array: no dictionary set in Data for Dictionary array")
 	}
 
-	if d.dictType == nil {
-		d.dictType = &arrow.DictionaryType{
-			IndexType: data.dtype.(arrow.FixedWidthDataType),
-			ValueType: data.dictionary.DataType(),
-			Ordered:   false, // assume not ordered
-		}
-	}
+	dictType := data.dtype.(*arrow.DictionaryType)
+	debug.Assert(arrow.TypeEqual(dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
 
-	debug.Assert(arrow.TypeEqual(d.dictType.IndexType, data.dtype), "mismatched dictionary index types")
-	debug.Assert(arrow.TypeEqual(d.dictType.ValueType, data.dictionary.DataType()), "mismatched dictionary value types")
-
-	indexData := NewData(data.dtype, data.length, data.buffers, data.childData, data.nulls, data.offset)
+	indexData := NewData(dictType.IndexType, data.length, data.buffers, data.childData, data.nulls, data.offset)
 	defer indexData.Release()
 	d.indices = MakeFromData(indexData)
-
-	d.data.dtype = d.dictType
 }
 
 // Dictionary returns the values array that makes up the dictionary for this
@@ -130,6 +248,21 @@ func (d *Dictionary) Dictionary() Interface {
 // Indices returns the underlying array of indices as it's own array
 func (d *Dictionary) Indices() Interface {
 	return d.indices
+}
+
+// CanCompareIndices returns true if the dictionary arrays can be compared
+// without having to unify the dictionaries themselves first.
+func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
+	if !arrow.TypeEqual(d.indices.DataType(), other.indices.DataType()) {
+		return false
+	}
+
+	minlen := int64(min(d.data.dictionary.length, other.data.dictionary.length))
+	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
+}
+
+func (d *Dictionary) String() string {
+	return fmt.Sprintf("{ dictionary: %v\n  indices: %v }", d.Dictionary(), d.Indices())
 }
 
 func (d *Dictionary) GetValueIndex(i int) int {
@@ -254,6 +387,7 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 	case arrow.STRING:
 		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
+	case arrow.NULL:
 	default:
 		debug.Assert(false, "unimplemented dictionary value type")
 		err = fmt.Errorf("unimplemented dictionary value type, %s", dt)
@@ -285,7 +419,7 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		panic(fmt.Errorf("arrow/array: cannot initialize dictionary type %T with array of type %T", dt.ValueType, init.DataType()))
 	}
 
-	idxbldr, err := createIndexBuilder(mem, dt.IndexType)
+	idxbldr, err := createIndexBuilder(mem, dt.IndexType.(arrow.FixedWidthDataType))
 	if err != nil {
 		panic(fmt.Errorf("arrow/array: unsupported builder for index type of %T", dt))
 	}
@@ -303,6 +437,10 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 	}
 
 	switch dt.ValueType.ID() {
+	case arrow.NULL:
+		ret := &NullDictionaryBuilder{bldr}
+		debug.Assert(init == nil, "arrow/array: doesn't make sense to init a null dictionary")
+		return ret
 	case arrow.UINT8:
 		ret := &Uint8DictionaryBuilder{bldr}
 		if init != nil {
@@ -554,32 +692,40 @@ func (b *dictionaryBuilder) ResetFull() {
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
 
-func (b *dictionaryBuilder) UnmarshalJSON([]byte) error { return nil }
+// UnmarshalJSON is not yet implemented for dictionary builders and will always error.
+func (b *dictionaryBuilder) UnmarshalJSON([]byte) error {
+	return errors.New("unmarshal json to dictionary not yet implemented")
+}
 
-func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error { return nil }
+func (b *dictionaryBuilder) unmarshal(dec *json.Decoder) error {
+	return errors.New("unmarshal json to dictionary not yet implemented")
+}
 
-func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error { return nil }
+func (b *dictionaryBuilder) unmarshalOne(dec *json.Decoder) error {
+	return errors.New("unmarshal json to dictionary not yet implemented")
+}
 
 func (b *dictionaryBuilder) NewArray() Interface {
 	return b.NewDictionaryArray()
 }
 
 func (b *dictionaryBuilder) NewDictionaryArray() *Dictionary {
-	a := &Dictionary{dictType: b.dt}
+	a := &Dictionary{}
 	a.refCount = 1
 
-	indices, dict, err := b.NewWithDictOffset(0)
+	indices, dict, err := b.newWithDictOffset(0)
 	if err != nil {
 		panic(err)
 	}
 	defer indices.Release()
 
+	indices.dtype = b.dt
 	indices.dictionary = dict
 	a.setData(indices)
 	return a
 }
 
-func (b *dictionaryBuilder) NewWithDictOffset(offset int) (indices, dict *Data, err error) {
+func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, err error) {
 	idxarr := b.idxBuilder.NewArray()
 	defer idxarr.Release()
 
@@ -634,7 +780,7 @@ func (b *dictionaryBuilder) NewWithDictOffset(offset int) (indices, dict *Data, 
 }
 
 func (b *dictionaryBuilder) NewDelta() (indices, delta Interface, err error) {
-	indicesData, deltaData, err := b.NewWithDictOffset(b.deltaOffset)
+	indicesData, deltaData, err := b.newWithDictOffset(b.deltaOffset)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -651,11 +797,6 @@ func (b *dictionaryBuilder) insertDictValue(val interface{}) error {
 }
 
 func (b *dictionaryBuilder) appendValue(val interface{}) error {
-	if val == nil {
-		b.memoTable.GetOrInsertNull()
-		b.AppendNull()
-		return nil
-	}
 	idx, _, err := b.memoTable.GetOrInsert(val)
 	b.idxBuilder.Append(idx)
 	b.length += 1
@@ -708,18 +849,18 @@ func getvalFn(arr Interface) func(i int) interface{} {
 		return func(i int) interface{} { return typedarr.Value(i) }
 	case *Decimal128:
 		return func(i int) interface{} {
-			var data [16]byte
-			return typedarr.Value(i).BigInt().FillBytes(data[:])
+			val := typedarr.Value(i)
+			return (*(*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&val)))[:]
 		}
 	case *DayTimeInterval:
 		return func(i int) interface{} {
 			val := typedarr.Value(i)
-			return (*(*[8]byte)(unsafe.Pointer(&val)))[:]
+			return (*(*[arrow.DayTimeIntervalSizeBytes]byte)(unsafe.Pointer(&val)))[:]
 		}
 	case *MonthDayNanoInterval:
 		return func(i int) interface{} {
 			val := typedarr.Value(i)
-			return (*(*[16]byte)(unsafe.Pointer(&val)))[:]
+			return (*(*[arrow.MonthDayNanoIntervalSizeBytes]byte)(unsafe.Pointer(&val)))[:]
 		}
 	}
 
@@ -738,6 +879,40 @@ func (b *dictionaryBuilder) AppendArray(arr Interface) error {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+type NullDictionaryBuilder struct {
+	dictionaryBuilder
+}
+
+func (b *NullDictionaryBuilder) NewArray() Interface {
+	return b.NewDictionaryArray()
+}
+
+func (b *NullDictionaryBuilder) NewDictionaryArray() *Dictionary {
+	idxarr := b.idxBuilder.NewArray()
+	defer idxarr.Release()
+
+	out := idxarr.Data()
+	dictarr := NewNull(0)
+	defer dictarr.Release()
+
+	dictarr.data.Retain()
+	out.dtype = b.dt
+	out.dictionary = dictarr.data
+
+	return NewDictionaryData(out)
+}
+
+func (b *NullDictionaryBuilder) AppendArray(arr Interface) error {
+	if arr.DataType().ID() != arrow.NULL {
+		return fmt.Errorf("cannot append non-null array to null dictionary")
+	}
+
+	for i := 0; i < arr.(*Null).Len(); i++ {
+		b.AppendNull()
 	}
 	return nil
 }
@@ -1000,7 +1175,13 @@ type BinaryDictionaryBuilder struct {
 	dictionaryBuilder
 }
 
-func (b *BinaryDictionaryBuilder) Append(v []byte) error       { return b.appendValue(v) }
+func (b *BinaryDictionaryBuilder) Append(v []byte) error {
+	if v == nil {
+		b.AppendNull()
+		return nil
+	}
+	return b.appendValue(v)
+}
 func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendValue(v) }
 func (b *BinaryDictionaryBuilder) InsertDictValues(arr *Binary) (err error) {
 	if !arrow.TypeEqual(arr.DataType(), b.dt.ValueType) {
@@ -1038,7 +1219,7 @@ func (b *FixedSizeBinaryDictionaryBuilder) Append(v []byte) error {
 func (b *FixedSizeBinaryDictionaryBuilder) InsertDictValues(arr *FixedSizeBinary) (err error) {
 	var (
 		beg = arr.array.data.offset * b.byteWidth
-		end = (arr.array.data.offset + arr.data.length + 1) * b.byteWidth
+		end = (arr.array.data.offset + arr.data.length) * b.byteWidth
 	)
 	data := arr.valueBytes[beg:end]
 	for len(data) > 0 {
@@ -1055,16 +1236,15 @@ type Decimal128DictionaryBuilder struct {
 }
 
 func (b *Decimal128DictionaryBuilder) Append(v decimal128.Num) error {
-	var data [16]byte
-	return b.appendValue(v.BigInt().FillBytes(data[:]))
+	return b.appendValue((*(*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&v)))[:])
 }
 func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err error) {
 	data := arrow.Decimal128Traits.CastToBytes(arr.values)
 	for len(data) > 0 {
-		if err = b.insertDictValue(data[:16]); err != nil {
+		if err = b.insertDictValue(data[:arrow.Decimal128SizeBytes]); err != nil {
 			break
 		}
-		data = data[16:]
+		data = data[arrow.Decimal128SizeBytes:]
 	}
 	return
 }
@@ -1074,15 +1254,15 @@ type MonthDayNanoDictionaryBuilder struct {
 }
 
 func (b *MonthDayNanoDictionaryBuilder) Append(v arrow.MonthDayNanoInterval) error {
-	return b.appendValue((*(*[16]byte)(unsafe.Pointer(&v)))[:])
+	return b.appendValue((*(*[arrow.MonthDayNanoIntervalSizeBytes]byte)(unsafe.Pointer(&v)))[:])
 }
 func (b *MonthDayNanoDictionaryBuilder) InsertDictValues(arr *MonthDayNanoInterval) (err error) {
 	data := arrow.MonthDayNanoIntervalTraits.CastToBytes(arr.values)
 	for len(data) > 0 {
-		if err = b.insertDictValue(data[:16]); err != nil {
+		if err = b.insertDictValue(data[:arrow.MonthDayNanoIntervalSizeBytes]); err != nil {
 			break
 		}
-		data = data[16:]
+		data = data[arrow.MonthDayNanoIntervalSizeBytes:]
 	}
 	return
 }
@@ -1092,15 +1272,15 @@ type DayTimeDictionaryBuilder struct {
 }
 
 func (b *DayTimeDictionaryBuilder) Append(v arrow.DayTimeInterval) error {
-	return b.appendValue((*(*[8]byte)(unsafe.Pointer(&v)))[:])
+	return b.appendValue((*(*[arrow.DayTimeIntervalSizeBytes]byte)(unsafe.Pointer(&v)))[:])
 }
 func (b *DayTimeDictionaryBuilder) InsertDictValues(arr *DayTimeInterval) (err error) {
 	data := arrow.DayTimeIntervalTraits.CastToBytes(arr.values)
 	for len(data) > 0 {
-		if err = b.insertDictValue(data[:8]); err != nil {
+		if err = b.insertDictValue(data[:arrow.DayTimeIntervalSizeBytes]); err != nil {
 			break
 		}
-		data = data[8:]
+		data = data[arrow.DayTimeIntervalSizeBytes:]
 	}
 	return
 }

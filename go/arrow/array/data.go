@@ -64,6 +64,15 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 	}
 }
 
+func NewDataWithDictionary(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int, dict *Data) *Data {
+	data := NewData(dtype, length, buffers, childData, nulls, offset)
+	if dict != nil {
+		dict.Retain()
+	}
+	data.dictionary = dict
+	return data
+}
+
 // Reset sets the Data for re-use.
 func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []arrow.ArrayData, nulls, offset int) {
 	// Retain new buffers before releasing existing buffers in-case they're the same ones to prevent accidental premature
