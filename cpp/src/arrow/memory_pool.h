@@ -63,6 +63,42 @@ class MemoryPoolStats {
 /// take care of the required 64-byte alignment.
 class ARROW_EXPORT MemoryPool {
  public:
+  class ARROW_EXPORT ImmutableZeros {
+   public:
+    explicit ImmutableZeros(uint8_t* data, int64_t size, MemoryPool* pool)
+        : pool_(pool), data_(data), size_(size) {}
+
+    ImmutableZeros() = default;
+
+    ~ImmutableZeros();
+
+    // Prevent copies and handle moves explicitly to avoid double free
+    ImmutableZeros(const ImmutableZeros&) = delete;
+    ImmutableZeros& operator=(const ImmutableZeros&) = delete;
+
+    ImmutableZeros(ImmutableZeros&& other) noexcept
+        : pool_(other.pool_), data_(other.data_), size_(other.size_) {
+      other.pool_ = NULLPTR;
+      other.data_ = NULLPTR;
+      other.size_ = 0;
+    }
+
+    ImmutableZeros& operator=(ImmutableZeros&& other) noexcept {
+      std::swap(data_, other.data_);
+      std::swap(pool_, other.pool_);
+      std::swap(size_, other.size_);
+      return *this;
+    }
+
+    const uint8_t* data() const { return data_; }
+    int64_t size() const { return size_; }
+
+   private:
+    MemoryPool* pool_ = NULLPTR;
+    uint8_t* data_ = NULLPTR;
+    int64_t size_ = 0;
+  };
+
   virtual ~MemoryPool() = default;
 
   /// \brief EXPERIMENTAL. Create a new instance of the default MemoryPool
@@ -87,6 +123,18 @@ class ARROW_EXPORT MemoryPool {
   ///   faster deallocation if supported by its backend.
   virtual void Free(uint8_t* buffer, int64_t size) = 0;
 
+  /// Return a block of immutable zero bytes of at least the given size.
+  ///
+  /// These blocks are useful when a buffer, array, or some other readable block
+  /// of data is needed to comply with an interface, but the contents of the
+  /// block don't matter and/or can just be zero. Unlike other allocations, the
+  /// same underlying block of memory can be shared between all users (for a
+  /// particular size limit), thus reducing memory footprint.
+  ///
+  /// The allocated region shall be 64-byte aligned. A region will be
+  /// deallocated when all shared_ptrs to the region are destroyed.
+  virtual Result<std::shared_ptr<ImmutableZeros>> GetImmutableZeros(int64_t size);
+
   /// Return unused memory to the OS
   ///
   /// Only applies to allocators that hold onto unused memory.  This will be
@@ -109,6 +157,14 @@ class ARROW_EXPORT MemoryPool {
 
  protected:
   MemoryPool() = default;
+
+  /// Free a memory region allocated by GetImmutableZeros().
+  ///
+  /// @param buffer Pointer to the start of the allocated memory region
+  /// @param size Allocated size located at buffer. An allocator implementation
+  ///   may use this for tracking the amount of allocated bytes as well as for
+  ///   faster deallocation if supported by its backend.
+  virtual void FreeImmutableZeros(uint8_t* buffer, int64_t size);
 };
 
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {

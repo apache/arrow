@@ -462,6 +462,13 @@ ARROW_EXPORT
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(
     const int64_t size, MemoryPool* pool = NULLPTR);
 
+/// \brief Allocate or reuse an immutable buffer filled with zeros from a memory pool.
+///
+/// \param[in] size size of buffer to allocate
+/// \param[in] pool a memory pool
+ARROW_EXPORT
+Result<std::unique_ptr<Buffer>> MakeBufferOfZeros(int64_t size, MemoryPool* pool);
+
 /// \brief Allocate a bitmap buffer from a memory pool
 /// no guarantee on values is provided.
 ///

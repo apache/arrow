@@ -30,6 +30,11 @@
 #include <stdlib.h>
 #endif
 
+#ifdef __linux__
+#define ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+#include <sys/mman.h>
+#endif
+
 #include "arrow/buffer.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
@@ -603,7 +608,99 @@ class BaseMemoryPoolImpl : public MemoryPool {
     stats_.UpdateAllocatedBytes(-size);
   }
 
-  void ReleaseUnused() override { Allocator::ReleaseUnused(); }
+ protected:
+  virtual Status AllocateImmutableZeros(int64_t size, uint8_t** out) {
+#ifdef ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+    if (size > 0) {
+      *out = static_cast<uint8_t*>(mmap(
+          NULLPTR, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
+      if (*out == MAP_FAILED) {
+        auto err = errno;
+        return Status::OutOfMemory("Failed to allocate zero buffer of size ", size, ": ",
+                                   strerror(err));
+      }
+      return Status::OK();
+    }
+#endif
+    RETURN_NOT_OK(Allocate(size, out));
+    std::memset(out, 0, size);
+    return Status::OK();
+  }
+
+  void FreeImmutableZeros(uint8_t* buffer, int64_t size) override {
+#ifdef ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+    if (size > 0) {
+      munmap(buffer, size);
+      return;
+    }
+#endif
+    Free(buffer, size);
+  }
+
+ public:
+  Result<std::shared_ptr<ImmutableZeros>> GetImmutableZeros(int64_t size) override {
+    // Thread-safely get the current largest buffer of zeros.
+    std::shared_ptr<ImmutableZeros> current_buffer;
+    {
+      std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
+      current_buffer = immutable_zeros_cache_;
+    }
+
+    // If no buffer exists yet or the current buffer isn't large enough,
+    // acquire the mutex for growing the buffer, then try again (another thread
+    // may have beat us to it and have grown the buffer already while we're
+    // waiting for the lock).
+    if (!current_buffer || current_buffer->size() < size) {
+      std::lock_guard<std::mutex> gg(immutable_zeros_grow_mutex_);
+      {
+        std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
+        current_buffer = immutable_zeros_cache_;
+      }
+
+      // If the buffer is still not large enough, heuristically allocate a
+      // larger buffer. Try to allocate at least twice the size of the current
+      // buffer first, to prevent allocating lots of buffers for subsequent
+      // calls with slightly larger sizes. Fall back to the requested size if
+      // this fails.
+      if (!current_buffer || current_buffer->size() < size) {
+        uint8_t* data = NULLPTR;
+        int64_t alloc_size;
+        if (current_buffer && size < current_buffer->size() * 2) {
+          alloc_size = current_buffer->size() * 2;
+          if (!AllocateImmutableZeros(alloc_size, &data).ok()) {
+            data = NULLPTR;
+          }
+        }
+        if (data == NULLPTR) {
+          alloc_size = size;
+          RETURN_NOT_OK(AllocateImmutableZeros(alloc_size, &data));
+        }
+        current_buffer = std::make_shared<ImmutableZeros>(data, alloc_size, this);
+
+        // Save the new buffer for other threads to use.
+        {
+          std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
+          immutable_zeros_cache_ = current_buffer;
+        }
+      }
+    }
+
+    return std::move(current_buffer);
+  }
+
+  void ReleaseUnused() override {
+    // Get rid of the ImmutableZeros cache if we're the only one using it. If
+    // there are other pieces of code using it, getting rid of the cache won't
+    // deallocate it anyway, so it's better to hold onto it.
+    {
+      std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
+      if (immutable_zeros_cache_.use_count() <= 1) {
+        immutable_zeros_cache_.reset();
+      }
+    }
+
+    Allocator::ReleaseUnused();
+  }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
 
@@ -611,6 +708,9 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
  protected:
   internal::MemoryPoolStats stats_;
+  std::shared_ptr<ImmutableZeros> immutable_zeros_cache_;
+  std::mutex immutable_zeros_access_mutex_;
+  std::mutex immutable_zeros_grow_mutex_;
 };
 
 class SystemMemoryPool : public BaseMemoryPoolImpl<SystemAllocator> {
@@ -718,6 +818,28 @@ static struct GlobalState {
   MimallocDebugMemoryPool mimalloc_debug_pool_;
 #endif
 } global_state;
+
+MemoryPool::ImmutableZeros::~ImmutableZeros() {
+  // Avoid calling pool_->FreeImmutableZeros if the global pools are destroyed
+  // (XXX this will not work with user-defined pools)
+
+  // This can happen if a Future is destructing on one thread while or
+  // after memory pools are destructed on the main thread (as there is
+  // no guarantee of destructor order between thread/memory pools)
+  if (data_ && !global_state.is_finalizing()) {
+    pool_->FreeImmutableZeros(data_, size_);
+  }
+}
+
+Result<std::shared_ptr<MemoryPool::ImmutableZeros>> MemoryPool::GetImmutableZeros(
+    int64_t size) {
+  uint8_t* data;
+  RETURN_NOT_OK(Allocate(size, &data));
+  std::memset(data, 0, size);
+  return std::make_shared<ImmutableZeros>(data, size, this);
+}
+
+void MemoryPool::FreeImmutableZeros(uint8_t* buffer, int64_t size) { Free(buffer, size); }
 
 MemoryPool* system_memory_pool() { return global_state.system_memory_pool(); }
 
@@ -964,6 +1086,32 @@ class PoolBuffer final : public ResizableBuffer {
   MemoryPool* pool_;
 };
 
+/// An immutable Buffer containing zeros, whose lifetime is tied to a particular
+/// MemoryPool
+class ImmutableZerosPoolBuffer final : public Buffer {
+ public:
+  explicit ImmutableZerosPoolBuffer(std::shared_ptr<MemoryPool::ImmutableZeros>&& zeros,
+                                    int64_t size, std::shared_ptr<MemoryManager>&& mm)
+      : Buffer(zeros->data(), size, std::move(mm)), zeros_(std::move(zeros)) {}
+
+  static Result<std::unique_ptr<ImmutableZerosPoolBuffer>> Make(int64_t size,
+                                                                MemoryPool* pool) {
+    std::shared_ptr<MemoryManager> mm;
+    if (pool == nullptr) {
+      pool = default_memory_pool();
+      mm = default_cpu_memory_manager();
+    } else {
+      mm = CPUDevice::memory_manager(pool);
+    }
+    ARROW_ASSIGN_OR_RAISE(auto zeros, pool->GetImmutableZeros(size));
+    return std::unique_ptr<ImmutableZerosPoolBuffer>(
+        new ImmutableZerosPoolBuffer(std::move(zeros), size, std::move(mm)));
+  }
+
+ private:
+  std::shared_ptr<MemoryPool::ImmutableZeros> zeros_;
+};
+
 namespace {
 // A utility that does most of the work of the `AllocateBuffer` and
 // `AllocateResizableBuffer` methods. The argument `buffer` should be a smart pointer to
@@ -984,6 +1132,10 @@ Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* p
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
                                                                  MemoryPool* pool) {
   return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::Make(pool), size);
+}
+
+Result<std::unique_ptr<Buffer>> MakeBufferOfZeros(const int64_t size, MemoryPool* pool) {
+  return ImmutableZerosPoolBuffer::Make(size, pool);
 }
 
 }  // namespace arrow

@@ -422,8 +422,7 @@ class NullArrayFactory {
   Status CreateBuffer() {
     ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
                           GetBufferLength(type_, length_).Finish());
-    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(buffer_length, pool_));
-    std::memset(buffer_->mutable_data(), 0, buffer_->size());
+    ARROW_ASSIGN_OR_RAISE(buffer_, MakeBufferOfZeros(buffer_length, pool_));
     return Status::OK();
   }
 
