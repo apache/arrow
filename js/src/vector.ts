@@ -33,8 +33,6 @@ import {
     wrapChunkedIndexOf,
 } from './util/chunk.js';
 
-import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
-
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
@@ -90,11 +88,6 @@ export class Vector<T extends DataType = any> {
     declare protected _offsets: Uint32Array;
     declare protected _nullCount: number;
     declare protected _byteLength: number;
-
-    /**
-     * Get and set elements by index.
-     */
-    [index: number]: T['TValue'] | null;
 
     /**
      * The {@link DataType `DataType`} of this Vector.
@@ -333,11 +326,6 @@ export class Vector<T extends DataType = any> {
         (proto as any)._byteLength = -1;
         (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
-        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin(
-            (inst, key) => inst.get(key),
-            (inst, key, val) => inst.set(key, val)
-        )));
-
         Object.assign(vectorPrototypesByTypeId, Object.fromEntries(Object
             .keys(Type).map((T: any) => Type[T] as any)
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE)

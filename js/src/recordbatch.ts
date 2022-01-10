@@ -20,7 +20,6 @@ import { Table } from './table.js';
 import { Vector } from './vector.js';
 import { Schema, Field } from './schema.js';
 import { DataType, Struct, Null, TypeMap } from './type.js';
-import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -93,11 +92,6 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     protected _dictionaries?: Map<number, Vector>;
-
-    /**
-     * Get and set elements by index.
-     */
-    [index: number]: Struct<T>['TValue'] | null;
 
     public readonly schema: Schema<T>;
     public readonly data: Data<Struct<T>>;
@@ -285,21 +279,8 @@ export class RecordBatch<T extends TypeMap = any> {
     // Initialize this static property via an IIFE so bundlers don't tree-shake
     // out this logic, but also so we're still compliant with `"sideEffects": false`
     protected static [Symbol.toStringTag] = ((proto: RecordBatch) => {
-
         (proto as any)._nullCount = -1;
         (proto as any)[Symbol.isConcatSpreadable] = true;
-
-        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin<RecordBatch>(
-            (inst, key) => inst.get(key),
-            (inst, key, val) => inst.set(key, val)
-        )));
-        // Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin<RecordBatch>(
-        //     (inst, key) => inst.get(key),
-        //     (inst, key, val) => inst.set(key, val),
-        //     (inst, key) => inst.getChild(key),
-        //     (inst, key, val) => inst.setChild(key, val),
-        // )));
-
         return 'RecordBatch';
     })(RecordBatch.prototype);
 }

@@ -109,11 +109,11 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
         let i = -1, n = vector.length, actual, expected;
         try {
             while (++i < n) {
-                actual = vector[i];
+                actual = vector.get(i);
                 expected = values[i];
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
     });
     if (keys && keys.length > 0) {
         test(`dictionary indices should match`, () => {
@@ -123,8 +123,8 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
             try {
                 while (++i < n) {
                     indices.isValid(i)
-                        ? expect(indices[i]).toBe(keys[i])
-                        : expect(indices[i]).toBeNull();
+                        ? expect(indices.get(i)).toBe(keys[i])
+                        : expect(indices.get(i)).toBeNull();
                 }
             } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
         });
@@ -135,11 +135,11 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
         try {
             while (++i < n) {
                 expected = values[i];
-                vector[i] = expected;
-                actual = vector[i];
+                vector.set(i, expected);
+                actual = vector.get(i);
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
     });
     test(`iterates expected values`, () => {
         expect.hasAssertions();
@@ -149,7 +149,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 expected = values[++i];
                 expect(actual).toArrowCompare(expected);
             }
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
     });
     test(`indexOf returns expected values`, () => {
         expect.hasAssertions();
@@ -167,7 +167,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
             expect(vector.indexOf('purple elephants')).toBe(-1);
             expect(vector.indexOf('whistling wombats')).toBe(-1);
             expect(vector.indexOf('carnivorous novices')).toBe(-1);
-        } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
     });
 }
 

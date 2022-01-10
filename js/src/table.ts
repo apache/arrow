@@ -34,8 +34,6 @@ import {
     sliceChunks,
 } from './util/chunk.js';
 
-import { NumericIndexingProxyHandlerMixin } from './util/proxy.js';
-
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
@@ -146,11 +144,6 @@ export class Table<T extends TypeMap = any> {
 
     declare protected _offsets: Uint32Array;
     declare protected _nullCount: number;
-
-    /**
-     * Get and set elements by index.
-     */
-    [index: number]: Struct<T>['TValue'] | null;
 
     declare public readonly schema: Schema<T>;
 
@@ -393,16 +386,6 @@ export class Table<T extends TypeMap = any> {
         (proto as any)['set'] = wrapChunkedCall2(setVisitor.getVisitFn(Type.Struct));
         (proto as any)['indexOf'] = wrapChunkedIndexOf(indexOfVisitor.getVisitFn(Type.Struct));
         (proto as any)['getByteLength'] = wrapChunkedCall1(byteLengthVisitor.getVisitFn(Type.Struct));
-        Object.setPrototypeOf(proto, new Proxy({}, new NumericIndexingProxyHandlerMixin<Table>(
-            (inst, key) => inst.get(key),
-            (inst, key, val) => inst.set(key, val)
-        )));
-        // Object.setPrototypeOf(proto, new Proxy({}, new IndexingProxyHandlerMixin<Table>(
-        //     (inst, key) => inst.get(key),
-        //     (inst, key, val) => inst.set(key, val),
-        //     (inst, key) => inst.getChild(key),
-        //     (inst, key, val) => inst.setChild(key, val),
-        // )));
         return 'Table';
     })(Table.prototype);
 }

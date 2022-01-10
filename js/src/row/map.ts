@@ -49,7 +49,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         const vals = this[kVals];
         const json = {} as { [P in K['TValue']]: V['TValue'] };
         for (let i = -1, n = keys.length; ++i < n;) {
-            json[keys[i]] = vals[i];
+            json[keys.get(i)] = vals.get(i);
         }
         return json;
     }
@@ -92,8 +92,8 @@ class MapRowIterator<K extends DataType = any, V extends DataType = any>
         return {
             done: false,
             value: [
-                this.keys[i],
-                this.vals[i],
+                this.keys.get(i),
+                this.vals.get(i),
             ] as [K['TValue'], V['TValue'] | null]
         };
     }
@@ -124,7 +124,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         }
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            const val = row[kVals][idx];
+            const val = row[kVals].get(idx);
             // Cache key/val lookups
             Reflect.set(row, key, val);
             return val;
@@ -133,7 +133,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
     set(row: MapRow<K, V>, key: string | symbol, val: V) {
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            row[kVals][idx] = val;
+            row[kVals].set(idx, val);
             // Cache key/val lookups
             return Reflect.set(row, key, val);
         } else if (Reflect.has(row, key)) {
