@@ -23,7 +23,8 @@ import * as generate from '../../../generate-test-data.js';
 import { validateRecordBatchIterator } from '../validate.js';
 
 import type { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
-import { Builder,
+import {
+    Builder,
     Dictionary,
     Field,
     Int32,
