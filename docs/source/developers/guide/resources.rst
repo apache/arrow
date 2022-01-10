@@ -28,7 +28,7 @@
 Additional information and resources
 ************************************
 
-On this page we are listing resources that may be relevant or useful for
+On this page we have listed resources that may be relevant or useful for
 contributors who want to learn more about different parts of Apache Arrow.
 
 .. Annotation Glossary
