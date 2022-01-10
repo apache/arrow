@@ -193,7 +193,6 @@ namespace IoTPipelineExample
                 recordBatches.Add(recordBatch);
             }
 
-            //schemaBuilder.Metadata("SubjectId", null);
             Schema fileSchema = recordBatches[0].Schema;
 
             using (var stream = File.OpenWrite(arrowDataPath + @"\iotbigdata_" + DateTime.UtcNow.ToString("yyyy-MM-dd--HH-mm-ss") + ".arrow"))
