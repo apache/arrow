@@ -351,7 +351,7 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
   ASSERT_OK_AND_ASSIGN(auto sink, GetFileSink());
   ASSERT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, data_schema, options, {}));
   ASSERT_OK(writer->Write(ConstantArrayGenerator::Zeroes(5, data_schema)));
-  ASSERT_OK(writer->Finish());
+  ASSERT_FINISHES_OK(writer->Finish());
   ASSERT_OK_AND_ASSIGN(auto written, sink->Finish());
   ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
