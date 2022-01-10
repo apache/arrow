@@ -90,6 +90,32 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
   RoundMode round_mode;
 };
 
+enum class CalendarUnit : int8_t {
+  NANOSECOND,
+  MICROSECOND,
+  MILLISECOND,
+  SECOND,
+  MINUTE,
+  HOUR,
+  DAY,
+  WEEK,
+  MONTH,
+  QUARTER,
+  YEAR
+};
+
+class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
+ public:
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY);
+  constexpr static char const kTypeName[] = "RoundTemporalOptions";
+  static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
+
+  /// Number of units to round to
+  int multiple;
+  /// The unit used for rounding of time
+  CalendarUnit unit;
+};
+
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
  public:
   explicit RoundToMultipleOptions(double multiple = 1.0,
@@ -418,6 +444,30 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
   /// The Unicode normalization form to apply
   Form form;
+};
+
+class ARROW_EXPORT RandomOptions : public FunctionOptions {
+ public:
+  enum Initializer { SystemRandom, Seed };
+
+  static RandomOptions FromSystemRandom(int64_t length) {
+    return RandomOptions{length, SystemRandom, 0};
+  }
+  static RandomOptions FromSeed(int64_t length, uint64_t seed) {
+    return RandomOptions{length, Seed, seed};
+  }
+
+  RandomOptions(int64_t length, Initializer initializer, uint64_t seed);
+  RandomOptions();
+  constexpr static char const kTypeName[] = "RandomOptions";
+  static RandomOptions Defaults() { return RandomOptions(); }
+
+  /// The length of the array returned. Negative is invalid.
+  int64_t length;
+  /// The type of initialization for random number generation - system or provided seed.
+  Initializer initializer;
+  /// The seed value used to initialize the random number generation.
+  uint64_t seed;
 };
 
 /// @}
@@ -757,6 +807,54 @@ Result<Datum> RoundToMultiple(
     const Datum& arg, RoundToMultipleOptions options = RoundToMultipleOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Ceil a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to ceil
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> CeilTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Floor a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to floor
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> FloorTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Round a temporal value to a given frequency
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg the temporal value to round
+/// \param[in] options temporal rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> RoundTemporal(
+    const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Compare a numeric array with a scalar.
 ///
 /// \param[in] left datum to compare, must be an Array
@@ -1023,6 +1121,18 @@ Result<Datum> Month(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Day(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief YearMonthDay returns a struct containing the Year, Month and Day value for
+/// each element of `values`.
+///
+/// \param[in] values input to extract (year, month, day) struct from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 7.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> YearMonthDay(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief DayOfWeek returns number of the day of the week value for each element of
 /// `values`.

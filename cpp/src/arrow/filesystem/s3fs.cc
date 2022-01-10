@@ -359,7 +359,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
 
   if (!region_set && !bucket.empty() && options.endpoint_override.empty()) {
     // XXX Should we use a dedicated resolver with the given credentials?
-    ARROW_ASSIGN_OR_RAISE(options.region, ResolveBucketRegion(bucket));
+    ARROW_ASSIGN_OR_RAISE(options.region, ResolveS3BucketRegion(bucket));
   }
 
   return options;
@@ -402,6 +402,10 @@ struct S3Path {
   std::vector<std::string> key_parts;
 
   static Result<S3Path> FromString(const std::string& s) {
+    if (internal::IsLikelyUri(s)) {
+      return Status::Invalid(
+          "Expected an S3 object path of the form 'bucket/key...', got a URI: '", s, "'");
+    }
     const auto src = internal::RemoveTrailingSlash(s);
     auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
@@ -415,14 +419,14 @@ struct S3Path {
     path.bucket = std::string(src.substr(0, first_sep));
     path.key = std::string(src.substr(first_sep + 1));
     path.key_parts = internal::SplitAbstractPath(path.key);
-    RETURN_NOT_OK(Validate(&path));
+    RETURN_NOT_OK(Validate(path));
     return path;
   }
 
-  static Status Validate(const S3Path* path) {
-    auto result = internal::ValidateAbstractPathParts(path->key_parts);
+  static Status Validate(const S3Path& path) {
+    auto result = internal::ValidateAbstractPathParts(path.key_parts);
     if (!result.ok()) {
-      return Status::Invalid(result.message(), " in path ", path->full_path);
+      return Status::Invalid(result.message(), " in path ", path.full_path);
     } else {
       return result;
     }
@@ -1720,7 +1724,27 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   // a non-empty "directory".  This is a Minio-specific quirk, but we need
   // to handle it for unit testing.
 
-  Status IsEmptyDirectory(const std::string& bucket, const std::string& key, bool* out) {
+  // If this method is called after HEAD on "bucket/key" already returned a 404,
+  // can pass the given outcome to spare a spurious HEAD call.
+  Result<bool> IsEmptyDirectory(
+      const std::string& bucket, const std::string& key,
+      const S3Model::HeadObjectOutcome* previous_outcome = nullptr) {
+    if (previous_outcome) {
+      // Fetch the backend from the previous error
+      DCHECK(!previous_outcome->IsSuccess());
+      if (!backend_) {
+        SaveBackend(previous_outcome->GetError());
+        DCHECK(backend_);
+      }
+      if (backend_ != S3Backend::Minio) {
+        // HEAD already returned a 404, nothing more to do
+        return false;
+      }
+    }
+
+    // We come here in one of two situations:
+    // - we don't know the backend and there is no previous outcome
+    // - the backend is Minio
     S3Model::HeadObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     if (backend_ && *backend_ == S3Backend::Minio) {
@@ -1732,31 +1756,30 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
     auto outcome = client_->HeadObject(req);
     if (outcome.IsSuccess()) {
-      *out = true;
-      return Status::OK();
+      return true;
     }
     if (!backend_) {
       SaveBackend(outcome.GetError());
       DCHECK(backend_);
       if (*backend_ == S3Backend::Minio) {
         // Try again with separator-terminated key (see above)
-        return IsEmptyDirectory(bucket, key, out);
+        return IsEmptyDirectory(bucket, key);
       }
     }
     if (IsNotFound(outcome.GetError())) {
-      *out = false;
-      return Status::OK();
+      return false;
     }
     return ErrorToStatus(std::forward_as_tuple("When reading information for key '", key,
                                                "' in bucket '", bucket, "': "),
                          outcome.GetError());
   }
 
-  Status IsEmptyDirectory(const S3Path& path, bool* out) {
-    return IsEmptyDirectory(path.bucket, path.key, out);
+  Result<bool> IsEmptyDirectory(
+      const S3Path& path, const S3Model::HeadObjectOutcome* previous_outcome = nullptr) {
+    return IsEmptyDirectory(path.bucket, path.key, previous_outcome);
   }
 
-  Status IsNonEmptyDirectory(const S3Path& path, bool* out) {
+  Result<bool> IsNonEmptyDirectory(const S3Path& path) {
     S3Model::ListObjectsV2Request req;
     req.SetBucket(ToAwsString(path.bucket));
     req.SetPrefix(ToAwsString(path.key) + kSep);
@@ -1764,12 +1787,12 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     req.SetMaxKeys(1);
     auto outcome = client_->ListObjectsV2(req);
     if (outcome.IsSuccess()) {
-      *out = outcome.GetResult().GetKeyCount() > 0;
-      return Status::OK();
+      const S3Model::ListObjectsV2Result& r = outcome.GetResult();
+      // In some cases, there may be 0 keys but some prefixes
+      return r.GetKeyCount() > 0 || !r.GetCommonPrefixes().empty();
     }
     if (IsNotFound(outcome.GetError())) {
-      *out = false;
-      return Status::OK();
+      return false;
     }
     return ErrorToStatus(
         std::forward_as_tuple("When listing objects under key '", path.key,
@@ -1828,8 +1851,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       // If no contents were found, perhaps it's an empty "directory",
       // or perhaps it's a nonexistent entry.  Check.
       if (is_empty && !allow_not_found) {
-        bool is_actually_empty;
-        RETURN_NOT_OK(impl->IsEmptyDirectory(bucket, key, &is_actually_empty));
+        ARROW_ASSIGN_OR_RAISE(bool is_actually_empty,
+                              impl->IsEmptyDirectory(bucket, key));
         if (!is_actually_empty) {
           return PathNotFound(bucket, key);
         }
@@ -2022,8 +2045,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     RETURN_NOT_OK(WalkForDeleteDir(bucket, key, &file_keys, &dir_keys));
     if (file_keys.empty() && dir_keys.empty() && !key.empty()) {
       // No contents found, is it an empty directory?
-      bool exists = false;
-      RETURN_NOT_OK(IsEmptyDirectory(bucket, key, &exists));
+      ARROW_ASSIGN_OR_RAISE(bool exists, IsEmptyDirectory(bucket, key));
       if (!exists) {
         return PathNotFound(bucket, key);
       }
@@ -2186,14 +2208,13 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
           outcome.GetError());
     }
     // Not found => perhaps it's an empty "directory"
-    bool is_dir = false;
-    RETURN_NOT_OK(impl_->IsEmptyDirectory(path, &is_dir));
+    ARROW_ASSIGN_OR_RAISE(bool is_dir, impl_->IsEmptyDirectory(path, &outcome));
     if (is_dir) {
       info.set_type(FileType::Directory);
       return info;
     }
     // Not found => perhaps it's a non-empty "directory"
-    RETURN_NOT_OK(impl_->IsNonEmptyDirectory(path, &is_dir));
+    ARROW_ASSIGN_OR_RAISE(is_dir, impl_->IsNonEmptyDirectory(path));
     if (is_dir) {
       info.set_type(FileType::Directory);
     } else {
@@ -2300,10 +2321,9 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     // Check parent dir exists
     if (path.has_parent()) {
       S3Path parent_path = path.parent();
-      bool exists;
-      RETURN_NOT_OK(impl_->IsNonEmptyDirectory(parent_path, &exists));
+      ARROW_ASSIGN_OR_RAISE(bool exists, impl_->IsNonEmptyDirectory(parent_path));
       if (!exists) {
-        RETURN_NOT_OK(impl_->IsEmptyDirectory(parent_path, &exists));
+        ARROW_ASSIGN_OR_RAISE(exists, impl_->IsEmptyDirectory(parent_path));
       }
       if (!exists) {
         return Status::IOError("Cannot create directory '", path.full_path,
@@ -2454,7 +2474,12 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 // Top-level utility functions
 //
 
-Result<std::string> ResolveBucketRegion(const std::string& bucket) {
+Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
+  if (bucket.empty() || bucket.find_first_of(kSep) != bucket.npos ||
+      internal::IsLikelyUri(bucket)) {
+    return Status::Invalid("Not a valid bucket name: '", bucket, "'");
+  }
+
   ARROW_ASSIGN_OR_RAISE(auto resolver, RegionResolver::DefaultInstance());
   return resolver->ResolveRegion(bucket);
 }

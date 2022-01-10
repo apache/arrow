@@ -99,6 +99,12 @@ override_dh_auto_test:
 	#     PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
 	#       ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'
 
-# skip file failing with "Unknown DWARF DW_OP_255" (see bug#949296)
+# libarrow.so: avoid failing with "Unknown DWARF DW_OP_172"
+# libgandiva.so: avoid failing with "Unknown DWARF DW_OP_255"
+#   See also: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=949296
+# plasma-store-server: avoid failing with "Unknown DWARF DW_OP_1"
 override_dh_dwz:
-	dh_dwz --exclude=libgandiva.so
+	dh_dwz \
+	  --exclude=libarrow.so \
+	  --exclude=libgandiva.so \
+	  --exclude=plasma-store-server

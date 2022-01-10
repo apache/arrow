@@ -66,7 +66,7 @@ type Builder interface {
 	// NewArray creates a new array from the memory buffers used
 	// by the builder and resets the Builder so it can be used to build
 	// a new array.
-	NewArray() Interface
+	NewArray() arrow.Array
 
 	init(capacity int)
 	resize(newBits int, init func(int))

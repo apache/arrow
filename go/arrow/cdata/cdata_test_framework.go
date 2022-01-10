@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build test
 // +build test
 
 package cdata
@@ -74,10 +75,6 @@ func exportInt32TypeSchema() CArrowSchema {
 
 func releaseStream(s *CArrowArrayStream) {
 	C.ArrowArrayStreamRelease(s)
-}
-
-func releaseSchema(s *CArrowSchema) {
-	C.ArrowSchemaRelease(s)
 }
 
 func schemaIsReleased(s *CArrowSchema) bool {
@@ -199,7 +196,7 @@ func freeTestArr(carr *CArrowArray) {
 	C.free(unsafe.Pointer(carr))
 }
 
-func createCArr(arr array.Interface) *CArrowArray {
+func createCArr(arr arrow.Array) *CArrowArray {
 	var (
 		carr      = C.get_test_arr()
 		children  = (**CArrowArray)(nil)

@@ -29,14 +29,14 @@ import (
 // logical type that is implemented as a List<Struct: key, value>.
 type Map struct {
 	*List
-	keys, items Interface
+	keys, items arrow.Array
 }
 
 // NewMapData returns a new Map array value, from data
-func NewMapData(data *Data) *Map {
+func NewMapData(data arrow.ArrayData) *Map {
 	a := &Map{List: &List{}}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -54,7 +54,7 @@ func (a *Map) validateData(data *Data) {
 		panic("arrow/array: expected one child array for map array")
 	}
 
-	if data.childData[0].dtype.ID() != arrow.STRUCT {
+	if data.childData[0].DataType().ID() != arrow.STRUCT {
 		panic("arrow/array: map array child should be struct type")
 	}
 
@@ -62,11 +62,11 @@ func (a *Map) validateData(data *Data) {
 		panic("arrow/array: map array child array should have no nulls")
 	}
 
-	if len(data.childData[0].childData) != 2 {
+	if len(data.childData[0].Children()) != 2 {
 		panic("arrow/array: map array child array should have two fields")
 	}
 
-	if data.childData[0].childData[0].NullN() != 0 {
+	if data.childData[0].Children()[0].NullN() != 0 {
 		panic("arrow/array: map array keys array should have no nulls")
 	}
 }
@@ -75,17 +75,17 @@ func (a *Map) setData(data *Data) {
 	a.validateData(data)
 
 	a.List.setData(data)
-	a.keys = MakeFromData(data.childData[0].childData[0])
-	a.items = MakeFromData(data.childData[0].childData[1])
+	a.keys = MakeFromData(data.childData[0].Children()[0])
+	a.items = MakeFromData(data.childData[0].Children()[1])
 }
 
 // Keys returns the full Array of Key values, equivalent to grabbing
 // the key field of the child struct.
-func (a *Map) Keys() Interface { return a.keys }
+func (a *Map) Keys() arrow.Array { return a.keys }
 
 // Items returns the full Array of Item values, equivalent to grabbing
 // the Value field (the second field) of the child struct.
-func (a *Map) Items() Interface { return a.items }
+func (a *Map) Items() arrow.Array { return a.items }
 
 // Retain increases the reference count by 1.
 // Retain may be called simultaneously from multiple goroutines.
@@ -232,7 +232,7 @@ func (b *MapBuilder) adjustStructBuilderLen() {
 
 // NewArray creates a new Map array from the memory buffers used by the builder, and
 // resets the builder so it can be used again to build a new Map array.
-func (b *MapBuilder) NewArray() Interface {
+func (b *MapBuilder) NewArray() arrow.Array {
 	return b.NewMapArray()
 }
 

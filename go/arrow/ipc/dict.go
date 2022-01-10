@@ -18,21 +18,20 @@ package ipc
 
 import (
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"golang.org/x/xerrors"
 )
 
-type dictMap map[int64]array.Interface
+type dictMap map[int64]arrow.Array
 type dictTypeMap map[int64]arrow.Field
 
 type dictMemo struct {
-	dict2id map[array.Interface]int64
+	dict2id map[arrow.Array]int64
 	id2dict dictMap // map of dictionary ID to dictionary array
 }
 
 func newMemo() dictMemo {
 	return dictMemo{
-		dict2id: make(map[array.Interface]int64),
+		dict2id: make(map[arrow.Array]int64),
 		id2dict: make(dictMap),
 	}
 }
@@ -47,12 +46,12 @@ func (memo *dictMemo) delete() {
 	}
 }
 
-func (memo dictMemo) Dict(id int64) (array.Interface, bool) {
+func (memo dictMemo) Dict(id int64) (arrow.Array, bool) {
 	v, ok := memo.id2dict[id]
 	return v, ok
 }
 
-func (memo *dictMemo) ID(v array.Interface) int64 {
+func (memo *dictMemo) ID(v arrow.Array) int64 {
 	id, ok := memo.dict2id[v]
 	if ok {
 		return id
@@ -65,7 +64,7 @@ func (memo *dictMemo) ID(v array.Interface) int64 {
 	return id
 }
 
-func (memo dictMemo) HasDict(v array.Interface) bool {
+func (memo dictMemo) HasDict(v arrow.Array) bool {
 	_, ok := memo.dict2id[v]
 	return ok
 }
@@ -75,7 +74,7 @@ func (memo dictMemo) HasID(id int64) bool {
 	return ok
 }
 
-func (memo *dictMemo) Add(id int64, v array.Interface) {
+func (memo *dictMemo) Add(id int64, v arrow.Array) {
 	if _, dup := memo.id2dict[id]; dup {
 		panic(xerrors.Errorf("arrow/ipc: duplicate id=%d", id))
 	}

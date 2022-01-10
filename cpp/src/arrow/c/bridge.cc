@@ -42,7 +42,7 @@
 #include "arrow/util/small_vector.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

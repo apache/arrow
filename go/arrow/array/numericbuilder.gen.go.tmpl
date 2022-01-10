@@ -140,7 +140,7 @@ func (b *{{.Name}}Builder) Resize(n int) {
 
 // NewArray creates a {{.Name}} array from the memory buffers used by the builder and resets the {{.Name}}Builder
 // so it can be used to build a new array.
-func (b *{{.Name}}Builder) NewArray() Interface {
+func (b *{{.Name}}Builder) NewArray() arrow.Array {
 	return b.New{{.Name}}Array()
 }
 

@@ -27,6 +27,7 @@
 #include "arrow/csv/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

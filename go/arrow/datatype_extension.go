@@ -157,7 +157,15 @@ func (e *ExtensionBase) StorageType() DataType { return e.Storage }
 
 func (e *ExtensionBase) Fingerprint() string { return typeFingerprint(e) + e.Storage.Fingerprint() }
 
+func (e *ExtensionBase) Fields() []Field {
+	if nested, ok := e.Storage.(NestedType); ok {
+		return nested.Fields()
+	}
+	return nil
+}
+
 // this no-op exists to ensure that this type must be embedded in any user-defined extension type.
+//lint:ignore U1000 this function is intentionally unused as it only exists to ensure embedding happens
 func (ExtensionBase) mustEmbedExtensionBase() {}
 
 var (

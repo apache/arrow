@@ -48,6 +48,10 @@ set(ARROW_PYTHON_SRCS
 set_source_files_properties(init.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                                SKIP_UNITY_BUILD_INCLUSION ON)
 
+if(ARROW_CSV)
+  list(APPEND ARROW_PYTHON_SRCS csv.cc)
+endif()
+
 if(ARROW_FILESYSTEM)
   list(APPEND ARROW_PYTHON_SRCS filesystem.cc)
 endif()

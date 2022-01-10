@@ -25,14 +25,15 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow() -%}
+{%- macro github_checkout_arrow(fetch_depth=1) -%}
   - name: Checkout Arrow
-    run: |
-      git clone --no-checkout {{ arrow.remote }} arrow
-      git -C arrow config core.symlinks true
-      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      git -C arrow checkout FETCH_HEAD
-      git -C arrow submodule update --init --recursive
+    uses: actions/checkout@v2
+    with:
+      fetch-depth: {{ fetch_depth }}
+      path: arrow
+      repository: {{ arrow.github_repo }}
+      ref: {{ arrow.head }}
+      submodules: recursive
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
@@ -102,9 +103,8 @@ on:
 
 {%- macro azure_checkout_arrow() -%}
   - script: |
-      git clone --no-checkout {{ arrow.remote }} arrow
-      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-      git -C arrow checkout FETCH_HEAD
+      git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
+      git -C arrow checkout {{ arrow.head }}
       git -C arrow submodule update --init --recursive
     displayName: Clone arrow
 {% endmacro %}
@@ -149,9 +149,8 @@ on:
 {% endmacro %}
 
 {%- macro travis_checkout_arrow() -%}
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
+  - git -C arrow checkout {{ arrow.head }}
   - git -C arrow submodule update --init --recursive
 {% endmacro %}
 

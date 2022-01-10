@@ -28,7 +28,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -473,6 +473,43 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
         [&](CType e) { return (e > c_fifty) && (e < c_hundred); });
     ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
   }
+}
+
+template <typename ArrowType>
+class TestFilterKernelWithDecimal : public TestFilterKernel {
+ protected:
+  std::shared_ptr<DataType> type_singleton() { return std::make_shared<ArrowType>(3, 2); }
+};
+
+TYPED_TEST_SUITE(TestFilterKernelWithDecimal, DecimalArrowTypes);
+TYPED_TEST(TestFilterKernelWithDecimal, FilterNumeric) {
+  auto type = this->type_singleton();
+  this->AssertFilter(type, R"([])", "[]", R"([])");
+
+  this->AssertFilter(type, R"(["9.00"])", "[0]", R"([])");
+  this->AssertFilter(type, R"(["9.00"])", "[1]", R"(["9.00"])");
+  this->AssertFilter(type, R"(["9.00"])", "[null]", R"([null])");
+  this->AssertFilter(type, R"([null])", "[0]", R"([])");
+  this->AssertFilter(type, R"([null])", "[1]", R"([null])");
+  this->AssertFilter(type, R"([null])", "[null]", R"([null])");
+
+  this->AssertFilter(type, R"(["7.12", "8.00", "9.87"])", "[0, 1, 0]", R"(["8.00"])");
+  this->AssertFilter(type, R"(["7.12", "8.00", "9.87"])", "[1, 0, 1]",
+                     R"(["7.12", "9.87"])");
+  this->AssertFilter(type, R"([null, "8.00", "9.87"])", "[0, 1, 0]", R"(["8.00"])");
+  this->AssertFilter(type, R"(["7.12", "8.00", "9.87"])", "[null, 1, 0]",
+                     R"([null, "8.00"])");
+  this->AssertFilter(type, R"(["7.12", "8.00", "9.87"])", "[1, null, 1]",
+                     R"(["7.12", null, "9.87"])");
+
+  this->AssertFilter(ArrayFromJSON(type, R"(["7.12", "8.00", "9.87"])"),
+                     ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
+                     ArrayFromJSON(type, R"(["7.12", "9.87"])"));
+
+  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, R"(["7.12", "8.00", "9.87"])"),
+                                ArrayFromJSON(boolean(), "[]"), this->emit_null_));
+  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, R"(["7.12", "8.00", "9.87"])"),
+                                ArrayFromJSON(boolean(), "[]"), this->drop_));
 }
 
 TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
@@ -1395,7 +1432,7 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
     ])");
 }
 
-class TestPermutationsWithTake : public TestBase {
+class TestPermutationsWithTake : public ::testing::Test {
  protected:
   void DoTake(const Int16Array& values, const Int16Array& indices,
               std::shared_ptr<Int16Array>* out) {
@@ -2326,6 +2363,40 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
                                                std::make_shared<ChunkedArray>(col_b)};
     *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
   });
+}
+
+TEST(TestIndicesNonZero, IndicesNonZero) {
+  Datum actual;
+  std::shared_ptr<Array> result;
+
+  ASSERT_OK_AND_ASSIGN(
+      actual,
+      CallFunction("indices_nonzero", {ArrayFromJSON(uint32(), "[null, 50, 0, 10]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(
+      actual, CallFunction("indices_nonzero",
+                           {ArrayFromJSON(boolean(), "[null, true, false, true]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero",
+                                    {ArrayFromJSON(float64(), "[null, 1.3, 0.0, 5.0]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {ArrayFromJSON(float64(), "[]")}));
+  result = actual.make_array();
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[]"));
+
+  ChunkedArray chunkedarr(
+      {ArrayFromJSON(uint32(), "[1, 0, 3]"), ArrayFromJSON(uint32(), "[4, 0, 6]")});
+  ASSERT_OK_AND_ASSIGN(actual,
+                       CallFunction("indices_nonzero", {static_cast<Datum>(chunkedarr)}));
+  AssertArraysEqual(*actual.make_array(), *ArrayFromJSON(uint64(), "[0, 2, 3, 5]"));
 }
 
 }  // namespace compute

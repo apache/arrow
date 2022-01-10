@@ -40,7 +40,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
 
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -2267,7 +2266,7 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
   this->AssertIndexIs(chunked_input4, value, 5);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Must provide IndexOptions"),
+      Invalid, ::testing::HasSubstr("Function 'index' cannot be called without options"),
       CallFunction("index", {ArrayFromJSON(this->type_singleton(), "[0]")}));
 }
 TYPED_TEST(TestNumericIndexKernel, Random) {

@@ -21,6 +21,7 @@
 #include <sstream>
 #include <string>
 
+#include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"

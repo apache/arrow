@@ -22,7 +22,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
 )
 
 // #include <stdlib.h>
@@ -36,7 +36,7 @@ var (
 
 type dataHandle uintptr
 
-func storeData(d *array.Data) dataHandle {
+func storeData(d arrow.ArrayData) dataHandle {
 	h := atomic.AddUintptr(&handleIdx, 1)
 	if h == 0 {
 		panic("cgo: ran out of space")
@@ -51,7 +51,7 @@ func (d dataHandle) releaseData() {
 	if !ok {
 		panic("cgo: invalid datahandle")
 	}
-	arrd.(*array.Data).Release()
+	arrd.(arrow.ArrayData).Release()
 }
 
 //export releaseExportedSchema

@@ -433,10 +433,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -796,10 +793,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     columns = []
     for col in table.itercolumns():

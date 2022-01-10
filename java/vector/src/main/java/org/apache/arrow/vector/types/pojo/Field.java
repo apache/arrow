@@ -64,6 +64,10 @@ public class Field {
     return new Field(name, FieldType.nullable(type), null);
   }
 
+  public static Field notNullable(String name, ArrowType type) {
+    return new Field(name, FieldType.notNullable(type), null);
+  }
+
   private final String name;
   private final FieldType fieldType;
   private final List<Field> children;

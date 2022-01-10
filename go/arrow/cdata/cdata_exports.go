@@ -328,7 +328,7 @@ func exportField(field arrow.Field, out *CArrowSchema) {
 	exp.finish(out)
 }
 
-func exportArray(arr array.Interface, out *CArrowArray, outSchema *CArrowSchema) {
+func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	if outSchema != nil {
 		exportField(arrow.Field{Type: arr.DataType()}, outSchema)
 	}

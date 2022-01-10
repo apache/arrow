@@ -33,7 +33,6 @@
 #include "gandiva/expression_cache_key.h"
 #include "gandiva/function_registry.h"
 #include "gandiva/gandiva_aliases.h"
-#include "gandiva/gandiva_object_cache.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
 #include "gandiva/selection_vector.h"
@@ -51,10 +50,11 @@ class GANDIVA_EXPORT LLVMGenerator {
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
+  /// \brief Get the cache to be used for LLVM ObjectCache.
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
-  /// Set LLVM ObjectCache.
+  /// \brief Set LLVM ObjectCache.
   void SetLLVMObjectCache(GandivaObjectCache& object_cache);
 
   /// \brief Build the code for the expression trees for default mode with a LLVM

@@ -80,15 +80,14 @@ TEST(TestVectorNested, ListParentIndices) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
 
-    auto out_ty = ty->id() == Type::LIST ? int32() : int64();
-    auto expected = ArrayFromJSON(out_ty, "[0, 0, 0, 2, 2, 4, 4]");
+    auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 2, 2, 4, 4]");
     CheckVectorUnary("list_parent_indices", input, expected);
   }
 
   // Construct a list with a non-empty null slot
   auto input = ArrayFromJSON(list(int16()), "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
   TweakValidityBit(input, 1, false);
-  auto expected = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
+  auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
   CheckVectorUnary("list_parent_indices", input, expected);
 }
 
@@ -97,12 +96,11 @@ TEST(TestVectorNested, ListParentIndicesChunkedArray) {
     auto input =
         ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
 
-    auto out_ty = ty->id() == Type::LIST ? int32() : int64();
-    auto expected = ChunkedArrayFromJSON(out_ty, {"[0, 0, 0]", "[2, 2, 4, 4]"});
+    auto expected = ChunkedArrayFromJSON(int64(), {"[0, 0, 0]", "[2, 2, 4, 4]"});
     CheckVectorUnary("list_parent_indices", input, expected);
 
     input = ChunkedArrayFromJSON(ty, {});
-    expected = ChunkedArrayFromJSON(out_ty, {});
+    expected = ChunkedArrayFromJSON(int64(), {});
     CheckVectorUnary("list_parent_indices", input, expected);
   }
 }

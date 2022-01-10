@@ -118,6 +118,7 @@ struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
     return "<INVALID>";
   }
 };
+
 template <>
 struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
     : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
@@ -175,6 +176,45 @@ struct EnumTraits<compute::RoundMode>
 };
 
 template <>
+struct EnumTraits<compute::CalendarUnit>
+    : BasicEnumTraits<compute::CalendarUnit, compute::CalendarUnit::NANOSECOND,
+                      compute::CalendarUnit::MICROSECOND,
+                      compute::CalendarUnit::MILLISECOND, compute::CalendarUnit::SECOND,
+                      compute::CalendarUnit::MINUTE, compute::CalendarUnit::HOUR,
+                      compute::CalendarUnit::DAY, compute::CalendarUnit::WEEK,
+                      compute::CalendarUnit::MONTH, compute::CalendarUnit::QUARTER,
+                      compute::CalendarUnit::YEAR> {
+  static std::string name() { return "compute::CalendarUnit"; }
+  static std::string value_name(compute::CalendarUnit value) {
+    switch (value) {
+      case compute::CalendarUnit::NANOSECOND:
+        return "NANOSECOND";
+      case compute::CalendarUnit::MICROSECOND:
+        return "MICROSECOND";
+      case compute::CalendarUnit::MILLISECOND:
+        return "MILLISECOND";
+      case compute::CalendarUnit::SECOND:
+        return "SECOND";
+      case compute::CalendarUnit::MINUTE:
+        return "MINUTE";
+      case compute::CalendarUnit::HOUR:
+        return "HOUR";
+      case compute::CalendarUnit::DAY:
+        return "DAY";
+      case compute::CalendarUnit::WEEK:
+        return "WEEK";
+      case compute::CalendarUnit::MONTH:
+        return "MONTH";
+      case compute::CalendarUnit::QUARTER:
+        return "QUARTER";
+      case compute::CalendarUnit::YEAR:
+        return "YEAR";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
 struct EnumTraits<compute::Utf8NormalizeOptions::Form>
     : BasicEnumTraits<compute::Utf8NormalizeOptions::Form,
                       compute::Utf8NormalizeOptions::Form::NFC,
@@ -192,6 +232,23 @@ struct EnumTraits<compute::Utf8NormalizeOptions::Form>
         return "NFD";
       case compute::Utf8NormalizeOptions::Form::NFKD:
         return "NFKD";
+    }
+    return "<INVALID>";
+  }
+};
+
+template <>
+struct EnumTraits<compute::RandomOptions::Initializer>
+    : BasicEnumTraits<compute::RandomOptions::Initializer,
+                      compute::RandomOptions::Initializer::SystemRandom,
+                      compute::RandomOptions::Initializer::Seed> {
+  static std::string name() { return "RandomOptions::Initializer"; }
+  static std::string value_name(compute::RandomOptions::Initializer value) {
+    switch (value) {
+      case compute::RandomOptions::Initializer::SystemRandom:
+        return "SystemRandom";
+      case compute::RandomOptions::Initializer::Seed:
+        return "Seed";
     }
     return "<INVALID>";
   }
@@ -249,6 +306,9 @@ static auto kReplaceSubstringOptionsType =
 static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("ndigits", &RoundOptions::ndigits),
     DataMember("round_mode", &RoundOptions::round_mode));
+static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
+    DataMember("multiple", &RoundTemporalOptions::multiple),
+    DataMember("unit", &RoundTemporalOptions::unit));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -280,6 +340,10 @@ static auto kWeekOptionsType = GetFunctionOptionsType<WeekOptions>(
     DataMember("week_starts_monday", &WeekOptions::week_starts_monday),
     DataMember("count_from_zero", &WeekOptions::count_from_zero),
     DataMember("first_week_is_fully_in_year", &WeekOptions::first_week_is_fully_in_year));
+static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
+    DataMember("length", &RandomOptions::length),
+    DataMember("initializer", &RandomOptions::initializer),
+    DataMember("seed", &RandomOptions::seed));
 }  // namespace
 }  // namespace internal
 
@@ -391,6 +455,12 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit)
+    : FunctionOptions(internal::kRoundTemporalOptionsType),
+      multiple(std::move(multiple)),
+      unit(unit) {}
+constexpr char RoundTemporalOptions::kTypeName[];
+
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
     : RoundToMultipleOptions(std::make_shared<DoubleScalar>(multiple), round_mode) {}
 RoundToMultipleOptions::RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
@@ -467,6 +537,14 @@ WeekOptions::WeekOptions(bool week_starts_monday, bool count_from_zero,
       first_week_is_fully_in_year(first_week_is_fully_in_year) {}
 constexpr char WeekOptions::kTypeName[];
 
+RandomOptions::RandomOptions(int64_t length, Initializer initializer, uint64_t seed)
+    : FunctionOptions(internal::kRandomOptionsType),
+      length(length),
+      initializer(initializer),
+      seed(seed) {}
+RandomOptions::RandomOptions() : RandomOptions(0, SystemRandom, 0) {}
+constexpr char RandomOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -482,6 +560,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSliceOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kReplaceSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRoundTemporalOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRoundToMultipleOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSetLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSliceOptionsType));
@@ -493,6 +572,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kTrimOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kUtf8NormalizeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kRandomOptionsType));
 }
 }  // namespace internal
 
@@ -658,6 +738,7 @@ Result<Datum> IsNull(const Datum& arg, NullOptions options, ExecContext* ctx) {
 SCALAR_EAGER_UNARY(Day, "day")
 SCALAR_EAGER_UNARY(DayOfYear, "day_of_year")
 SCALAR_EAGER_UNARY(Hour, "hour")
+SCALAR_EAGER_UNARY(YearMonthDay, "year_month_day")
 SCALAR_EAGER_UNARY(ISOCalendar, "iso_calendar")
 SCALAR_EAGER_UNARY(ISOWeek, "iso_week")
 SCALAR_EAGER_UNARY(ISOYear, "iso_year")
@@ -679,6 +760,21 @@ Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,
 
 Result<Datum> DayOfWeek(const Datum& arg, DayOfWeekOptions options, ExecContext* ctx) {
   return CallFunction("day_of_week", {arg}, &options, ctx);
+}
+
+Result<Datum> CeilTemporal(const Datum& arg, RoundTemporalOptions options,
+                           ExecContext* ctx) {
+  return CallFunction("ceil_temporal", {arg}, &options, ctx);
+}
+
+Result<Datum> FloorTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("floor_temporal", {arg}, &options, ctx);
+}
+
+Result<Datum> RoundTemporal(const Datum& arg, RoundTemporalOptions options,
+                            ExecContext* ctx) {
+  return CallFunction("round_temporal", {arg}, &options, ctx);
 }
 
 Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* ctx) {

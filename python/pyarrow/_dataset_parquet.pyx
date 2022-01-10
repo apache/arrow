@@ -528,6 +528,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_byte_stream_split=(
                 self._properties["use_byte_stream_split"]
             ),
+            column_encoding=self._properties["column_encoding"],
             data_page_version=self._properties["data_page_version"],
         )
 
@@ -559,6 +560,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             data_page_size=None,
             compression_level=None,
             use_byte_stream_split=False,
+            column_encoding=None,
             data_page_version="1.0",
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,

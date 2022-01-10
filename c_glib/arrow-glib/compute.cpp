@@ -28,6 +28,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
+#include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 
@@ -141,6 +142,8 @@ G_BEGIN_DECLS
  *
  * #GArrowSinkNodeOptions is a class to customize a sink node.
  *
+ * #GArrowHashJoinNodeOptions is a class to customize a hash join node.
+ *
  * #GArrowExecuteNode is a class to execute an operation.
  *
  * #GArrowExecutePlan is a class to execute operations.
@@ -172,6 +175,11 @@ G_BEGIN_DECLS
  *
  * #GArrowVarianceOptions is a class to customize the `stddev` function
  * and `variance` function.
+ *
+ * #GArrowRoundOptions is a class to customize the `round` function.
+ *
+ * #GArrowRoundToMultipleOptions is a class to customize the
+ * `round_to_multiple` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -259,6 +267,46 @@ garrow_function_options_class_init(GArrowFunctionOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->finalize = garrow_function_options_finalize;
+}
+
+/**
+ * garrow_function_options_equal:
+ * @options: A #GArrowFunctionOptions.
+ * @other_options: (nullable): A #GArrowFunctionOptions to be compared.
+ *
+ * Returns: %TRUE if both of them have the same values, %FALSE
+ *   otherwise.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_function_options_equal(GArrowFunctionOptions *options,
+                              GArrowFunctionOptions *other_options)
+{
+  if (!other_options) {
+    return FALSE;
+  }
+  auto arrow_options = garrow_function_options_get_raw(options);
+  auto arrow_other_options = garrow_function_options_get_raw(other_options);
+  return arrow_options->Equals(*arrow_other_options);
+}
+
+/**
+ * garrow_function_options_to_string:
+ * @options: A #GArrowFunctionOptions.
+ *
+ * Returns: The formatted options.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 7.0.0
+ */
+gchar *
+garrow_function_options_to_string(GArrowFunctionOptions *options)
+{
+  auto arrow_options = garrow_function_options_get_raw(options);
+  auto string = arrow_options->ToString();
+  return g_strndup(string.data(), string.size());
 }
 
 
@@ -403,6 +451,7 @@ garrow_function_doc_get_options_class_name(GArrowFunctionDoc *doc)
 
 typedef struct GArrowFunctionPrivate_ {
   std::shared_ptr<arrow::compute::Function> function;
+  gchar *name;
 } GArrowFunctionPrivate;
 
 enum {
@@ -423,6 +472,9 @@ garrow_function_finalize(GObject *object)
 {
   auto priv = GARROW_FUNCTION_GET_PRIVATE(object);
   priv->function.~shared_ptr();
+  if (priv->name) {
+    g_free(priv->name);
+  }
   G_OBJECT_CLASS(garrow_function_parent_class)->finalize(object);
 }
 
@@ -439,6 +491,10 @@ garrow_function_set_property(GObject *object,
     priv->function =
       *static_cast<std::shared_ptr<arrow::compute::Function> *>(
         g_value_get_pointer(value));
+    {
+      const auto &arrow_name = priv->function->name();
+      priv->name = g_strndup(arrow_name.data(), arrow_name.length());
+    }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -489,6 +545,34 @@ garrow_function_find(const gchar *name)
   }
   auto arrow_function = *arrow_function_result;
   return garrow_function_new_raw(&arrow_function);
+}
+
+/**
+ * garrow_function_all:
+ *
+ * Returns: (element-type GArrowFunction) (transfer full):
+ *   The all available functions.
+ *
+ *   It should be freed with g_list_free_full() and g_object_unref()
+ *   when no longer needed.
+ *
+ * Since: 7.0.0
+ */
+GList *
+garrow_function_all(void)
+{
+  auto arrow_function_registry = arrow::compute::GetFunctionRegistry();
+  GList *functions = NULL;
+  for (const auto &arrow_name : arrow_function_registry->GetFunctionNames()) {
+    auto arrow_function_result = arrow_function_registry->GetFunction(arrow_name);
+    if (!arrow_function_result.ok()) {
+      continue;
+    }
+    auto arrow_function = *arrow_function_result;
+    functions = g_list_prepend(functions,
+                               garrow_function_new_raw(&arrow_function));
+  }
+  return g_list_reverse(functions);
 }
 
 /**
@@ -545,6 +629,21 @@ garrow_function_execute(GArrowFunction *function,
 }
 
 /**
+ * garrow_function_get_name:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: The function name.
+ *
+ * Since: 7.0.0
+ */
+const gchar *
+garrow_function_get_name(GArrowFunction *function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  return priv->name;
+}
+
+/**
  * garrow_function_get_doc:
  * @function: A #GArrowFunction.
  *
@@ -558,6 +657,105 @@ garrow_function_get_doc(GArrowFunction *function)
   auto arrow_function = garrow_function_get_raw(function);
   const auto &arrow_doc = arrow_function->doc();
   return garrow_function_doc_new_raw(&arrow_doc);
+}
+
+/**
+ * garrow_function_get_default_options:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: (transfer full) (nullable): The default options of this
+ *   function if exists, %NULL otherwise.
+ *
+ * Since: 7.0.0
+ */
+GArrowFunctionOptions *
+garrow_function_get_default_options(GArrowFunction *function)
+{
+  auto arrow_function = garrow_function_get_raw(function);
+  auto arrow_function_options = arrow_function->default_options();
+  if (!arrow_function_options) {
+    return NULL;
+  }
+  return garrow_function_options_new_raw(arrow_function_options);
+}
+
+/**
+ * garrow_function_get_options_type:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: %G_TYPE_NONE if this function doesn't have options, the
+ *   #GType of options of this function if it exists and Apache Arrow
+ *   GLib bindings of it also exist, %G_TYPE_INVALID if options of this
+ *   function exists but Apache Arrow GLib bindings of it don't exist.
+ *
+ * Since: 7.0.0
+ */
+GType
+garrow_function_get_options_type(GArrowFunction *function)
+{
+  auto arrow_function = garrow_function_get_raw(function);
+  const auto &arrow_doc = arrow_function->doc();
+  if (arrow_doc.options_class.empty()) {
+    return G_TYPE_NONE;
+  }
+  auto options_type_name = std::string("GArrow") + arrow_doc.options_class;
+  return g_type_from_name(options_type_name.c_str());
+}
+
+/**
+ * garrow_function_equal:
+ * @function: A #GArrowFunction.
+ * @other_function: A #GArrowFunction to be compared.
+ *
+ * Returns: %TRUE if both of them have the same name, %FALSE
+ *   otherwise.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_function_equal(GArrowFunction *function,
+                      GArrowFunction *other_function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  auto other_priv = GARROW_FUNCTION_GET_PRIVATE(other_function);
+  return g_strcmp0(priv->name, other_priv->name) == 0;
+}
+
+/**
+ * garrow_function_to_string:
+ * @function: A #GArrowFunction.
+ *
+ * Returns: The formatted function.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 7.0.0
+ */
+gchar *
+garrow_function_to_string(GArrowFunction *function)
+{
+  auto priv = GARROW_FUNCTION_GET_PRIVATE(function);
+  auto arrow_function = garrow_function_get_raw(function);
+  const auto &arrow_doc = arrow_function->doc();
+  const auto arrow_default_options = arrow_function->default_options();
+  auto string = g_string_new(NULL);
+  g_string_append_printf(string, "%s(", priv->name);
+  int i = 0;
+  for (const auto &arrow_arg_name : arrow_doc.arg_names) {
+    if (i > 0) {
+      g_string_append(string, ", ");
+    }
+    g_string_append(string, arrow_arg_name.c_str());
+    ++i;
+  }
+  if (arrow_default_options) {
+    if (i > 0) {
+      g_string_append(string, ", ");
+    }
+    g_string_append(string, arrow_default_options->ToString().c_str());
+  }
+  g_string_append_printf(string, "): %s", arrow_doc.summary.c_str());
+  return g_string_free(string, FALSE);
 }
 
 
@@ -1042,7 +1240,8 @@ garrow_aggregate_node_options_class_init(GArrowAggregateNodeOptionsClass *klass)
  * @n_keys: The number of @keys.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: A newly created #GArrowAggregateNodeOptions.
+ * Returns: (nullable): A newly created #GArrowAggregateNodeOptions on success,
+ *   %NULL otherwise.
  *
  * Since: 6.0.0
  */
@@ -1183,6 +1382,143 @@ garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
   }
   g_object_ref(priv->reader);
   return priv->reader;
+}
+
+
+G_DEFINE_TYPE(GArrowHashJoinNodeOptions,
+              garrow_hash_join_node_options,
+              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+static void
+garrow_hash_join_node_options_init(GArrowHashJoinNodeOptions *object)
+{
+}
+
+static void
+garrow_hash_join_node_options_class_init(GArrowHashJoinNodeOptionsClass *klass)
+{
+  /* TODO: Add left_output_prefix and right_output_prefix properties */
+}
+
+/**
+ * garrow_hash_join_node_options_new:
+ * @type: A #GArrowJoinType to be used.
+ * @left_keys: (array length=n_left_keys): Left join keys.
+ * @n_left_keys: The number of @left_keys.
+ * @right_keys: (array length=n_right_keys): Right join keys.
+ * @n_right_keys: The number of @right_keys.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowHashJoinNodeOptions on success,
+ *   %NULL otherwise.
+ *
+ * Since: 7.0.0
+ */
+GArrowHashJoinNodeOptions *
+garrow_hash_join_node_options_new(GArrowJoinType type,
+                                  const gchar **left_keys,
+                                  gsize n_left_keys,
+                                  const gchar **right_keys,
+                                  gsize n_right_keys,
+                                  GError **error)
+{
+  auto arrow_type = static_cast<arrow::compute::JoinType>(type);
+  std::vector<arrow::FieldRef> arrow_left_keys;
+  for (gsize i = 0; i < n_left_keys; ++i) {
+    if (!garrow_field_refs_add(arrow_left_keys,
+                               left_keys[i],
+                               error,
+                               "[hash-join-node-options][new][left-key]")) {
+      return NULL;
+    }
+  }
+  std::vector<arrow::FieldRef> arrow_right_keys;
+  for (gsize i = 0; i < n_right_keys; ++i) {
+    if (!garrow_field_refs_add(arrow_right_keys,
+                               right_keys[i],
+                               error,
+                               "[hash-join-node-options][new][right-key]")) {
+      return NULL;
+    }
+  }
+  auto arrow_options =
+    new arrow::compute::HashJoinNodeOptions(arrow_type,
+                                            std::move(arrow_left_keys),
+                                            std::move(arrow_right_keys));
+  auto options = g_object_new(GARROW_TYPE_HASH_JOIN_NODE_OPTIONS,
+                              "options", arrow_options,
+                              NULL);
+  return GARROW_HASH_JOIN_NODE_OPTIONS(options);
+}
+
+/**
+ * garrow_hash_join_node_options_set_left_outputs:
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @outputs: (array length=n_outputs): Output fields.
+ * @n_outputs: The number of @outputs.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_hash_join_node_options_set_left_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error)
+{
+  auto arrow_options =
+    static_cast<arrow::compute::HashJoinNodeOptions *>(
+      garrow_execute_node_options_get_raw(
+        GARROW_EXECUTE_NODE_OPTIONS(options)));
+  arrow_options->output_all = false;
+  arrow_options->left_output.clear();
+  for (gsize i = 0; i < n_outputs; ++i) {
+    if (!garrow_field_refs_add(arrow_options->left_output,
+                               outputs[i],
+                               error,
+                               "[hash-join-node-options][set-left-outputs]")) {
+      return FALSE;
+    }
+  }
+  return TRUE;
+}
+
+/**
+ * garrow_hash_join_node_options_set_right_outputs:
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @outputs: (array length=n_outputs): Output fields.
+ * @n_outputs: The number of @outputs.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 7.0.0
+ */
+gboolean
+garrow_hash_join_node_options_set_right_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error)
+{
+  auto arrow_options =
+    static_cast<arrow::compute::HashJoinNodeOptions *>(
+      garrow_execute_node_options_get_raw(
+        GARROW_EXECUTE_NODE_OPTIONS(options)));
+  arrow_options->output_all = false;
+  arrow_options->right_output.clear();
+  for (gsize i = 0; i < n_outputs; ++i) {
+    if (!garrow_field_refs_add(arrow_options->right_output,
+                               outputs[i],
+                               error,
+                               "[hash-join-node-options][set-right-outputs]")) {
+      return FALSE;
+    }
+  }
+  return TRUE;
 }
 
 
@@ -1490,6 +1826,42 @@ garrow_execute_plan_build_sink_node(GArrowExecutePlan *plan,
   auto node =
     garrow_execute_plan_build_node(plan,
                                    "sink",
+                                   inputs,
+                                   GARROW_EXECUTE_NODE_OPTIONS(options),
+                                   error);
+  g_list_free(inputs);
+  return node;
+}
+
+/**
+ * garrow_execute_plan_build_hash_join_node:
+ * @plan: A #GArrowExecutePlan.
+ * @left: A left #GArrowExecuteNode.
+ * @right: A right #GArrowExecuteNode.
+ * @options: A #GArrowHashJoinNodeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * This is a shortcut of garrow_execute_plan_build_node() for hash
+ * join node.
+ *
+ * Returns: (transfer full): A newly built and added #GArrowExecuteNode
+ *   for hash join on success, %NULL on error.
+ *
+ * Since: 7.0.0
+ */
+GArrowExecuteNode *
+garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
+                                         GArrowExecuteNode *left,
+                                         GArrowExecuteNode *right,
+                                         GArrowHashJoinNodeOptions *options,
+                                         GError **error)
+{
+  GList *inputs = NULL;
+  inputs = g_list_append(inputs, left);
+  inputs = g_list_append(inputs, right);
+  auto node =
+    garrow_execute_plan_build_node(plan,
+                                   "hashjoin",
                                    inputs,
                                    GARROW_EXECUTE_NODE_OPTIONS(options),
                                    error);
@@ -2639,8 +3011,21 @@ garrow_set_lookup_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_SET_LOOKUP_OPTIONS_VALUE_SET:
-    priv->value_set = GARROW_DATUM(g_value_dup_object(value));
-    options->value_set = garrow_datum_get_raw(priv->value_set);
+    {
+      auto value_set = g_value_get_object(value);
+      if (priv->value_set != value_set) {
+        if (priv->value_set) {
+          g_object_unref(priv->value_set);
+        }
+        priv->value_set = GARROW_DATUM(value_set);
+        g_object_ref(priv->value_set);
+        if (priv->value_set) {
+          options->value_set = garrow_datum_get_raw(priv->value_set);
+        } else {
+          options->value_set = {};
+        }
+      }
+    }
     break;
   case PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS:
     options->skip_nulls = g_value_get_boolean(value);
@@ -2706,8 +3091,7 @@ garrow_set_lookup_options_class_init(GArrowSetLookupOptionsClass *klass)
                              "Value set",
                              "The set of values to look up input values into",
                              GARROW_TYPE_DATUM,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_SET_LOOKUP_OPTIONS_VALUE_SET,
                                   spec);
@@ -2731,7 +3115,8 @@ garrow_set_lookup_options_class_init(GArrowSetLookupOptionsClass *klass)
 
 /**
  * garrow_set_lookup_options_new:
- * @value_set: A #GArrowArrayDatum or #GArrowChunkedArrayDatum to be looked up.
+ * @value_set: (nullable): A #GArrowArrayDatum or
+ *   #GArrowChunkedArrayDatum to be looked up.
  *
  * Returns: A newly created #GArrowSetLookupOptions.
  *
@@ -2899,6 +3284,306 @@ garrow_variance_options_new(void)
 {
   return GARROW_VARIANCE_OPTIONS(
     g_object_new(GARROW_TYPE_VARIANCE_OPTIONS, NULL));
+}
+
+
+enum {
+  PROP_ROUND_OPTIONS_N_DIGITS = 1,
+  PROP_ROUND_OPTIONS_MODE,
+};
+
+G_DEFINE_TYPE(GArrowRoundOptions,
+              garrow_round_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_ROUND_OPTIONS_GET_PRIVATE(object)  \
+  static_cast<GArrowRoundOptionsPrivate *>(       \
+    garrow_round_options_get_instance_private(    \
+      GARROW_ROUND_OPTIONS(object)))
+
+static void
+garrow_round_options_set_property(GObject *object,
+                                  guint prop_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto options = garrow_round_options_get_raw(GARROW_ROUND_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_OPTIONS_N_DIGITS:
+    options->ndigits = g_value_get_int64(value);
+    break;
+  case PROP_ROUND_OPTIONS_MODE:
+    options->round_mode =
+      static_cast<arrow::compute::RoundMode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_options_get_property(GObject *object,
+                                  guint prop_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+  auto options = garrow_round_options_get_raw(GARROW_ROUND_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_OPTIONS_N_DIGITS:
+    g_value_set_int64(value, options->ndigits);
+    break;
+  case PROP_ROUND_OPTIONS_MODE:
+    g_value_set_enum(value, static_cast<GArrowRoundMode>(options->round_mode));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_options_init(GArrowRoundOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RoundOptions());
+}
+
+static void
+garrow_round_options_class_init(GArrowRoundOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_round_options_set_property;
+  gobject_class->get_property = garrow_round_options_get_property;
+
+
+  arrow::compute::RoundOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundOptions:n-digits:
+   *
+   * The rounding precision (number of digits to round to).
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_int64("n-digits",
+                            "Number of digits to round to",
+                            "The round precision",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.ndigits,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_OPTIONS_N_DIGITS,
+                                  spec);
+
+  /**
+   * GArrowRoundOptions:mode:
+   *
+   * The rounding and tie-breaking mode.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "The rounding and tie-breaking mode",
+                           GARROW_TYPE_ROUND_MODE,
+                           static_cast<GArrowRoundMode>(options.round_mode),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_OPTIONS_MODE,
+                                  spec);
+}
+
+/**
+ * garrow_round_options_new:
+ *
+ * Returns: A newly created #GArrowRoundOptions.
+ *
+ * Since: 7.0.0
+ */
+GArrowRoundOptions *
+garrow_round_options_new(void)
+{
+  return GARROW_ROUND_OPTIONS(g_object_new(GARROW_TYPE_ROUND_OPTIONS, NULL));
+}
+
+
+typedef struct GArrowRoundToMultipleOptionsPrivate_ {
+  GArrowScalar *multiple;
+} GArrowRoundToMultipleOptionsPrivate;
+
+enum {
+  PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE = 1,
+  PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRoundToMultipleOptions,
+                           garrow_round_to_multiple_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object)    \
+  static_cast<GArrowRoundToMultipleOptionsPrivate *>(           \
+    garrow_round_to_multiple_options_get_instance_private(      \
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object)))
+
+static void
+garrow_round_to_multiple_options_dispose(GObject *object)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->multiple) {
+    g_object_unref(priv->multiple);
+    priv->multiple = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_round_to_multiple_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_round_to_multiple_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_round_to_multiple_options_get_raw(
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE:
+    {
+      auto multiple = g_value_get_object(value);
+      if (priv->multiple != multiple) {
+        if (priv->multiple) {
+          g_object_unref(priv->multiple);
+        }
+        if (multiple) {
+          priv->multiple = GARROW_SCALAR(multiple);
+          g_object_ref(priv->multiple);
+          options->multiple = garrow_scalar_get_raw(priv->multiple);
+        } else {
+          priv->multiple = NULL;
+          options->multiple = std::make_shared<arrow::NullScalar>();
+        }
+      }
+    }
+    break;
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE:
+    options->round_mode =
+      static_cast<arrow::compute::RoundMode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_to_multiple_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  auto options =
+    garrow_round_to_multiple_options_get_raw(
+      GARROW_ROUND_TO_MULTIPLE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE:
+    g_value_set_object(value, priv->multiple);
+    break;
+  case PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE:
+    g_value_set_enum(value, static_cast<GArrowRoundMode>(options->round_mode));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_to_multiple_options_init(GArrowRoundToMultipleOptions *object)
+{
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  auto options = new arrow::compute::RoundToMultipleOptions();
+  function_options_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(options);
+  auto priv = GARROW_ROUND_TO_MULTIPLE_OPTIONS_GET_PRIVATE(object);
+  priv->multiple = garrow_scalar_new_raw(&(options->multiple));
+}
+
+static void
+garrow_round_to_multiple_options_class_init(
+  GArrowRoundToMultipleOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = garrow_round_to_multiple_options_dispose;
+  gobject_class->set_property = garrow_round_to_multiple_options_set_property;
+  gobject_class->get_property = garrow_round_to_multiple_options_get_property;
+
+
+  arrow::compute::RoundToMultipleOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundToMultipleOptions:multiple:
+   *
+   * The rounding scale (multiple to round to).
+   *
+   * Should be a scalar of a type compatible with the argument to be rounded.
+   * For example, rounding a decimal value means a decimal multiple is
+   * required. Rounding a floating point or integer value means a floating
+   * point scalar is required.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_object("multiple",
+                             "Multiple to round to",
+                             "The round scale",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TO_MULTIPLE_OPTIONS_MULTIPLE,
+                                  spec);
+
+  /**
+   * GArrowRoundToMultipleOptions:mode:
+   *
+   * The rounding and tie-breaking mode.
+   *
+   * Since: 7.0.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "The rounding and tie-breaking mode",
+                           GARROW_TYPE_ROUND_MODE,
+                           static_cast<GArrowRoundMode>(options.round_mode),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TO_MULTIPLE_OPTIONS_MODE,
+                                  spec);
+}
+
+/**
+ * garrow_round_to_multiple_options_new:
+ *
+ * Returns: A newly created #GArrowRoundToMultipleOptions.
+ *
+ * Since: 7.0.0
+ */
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void)
+{
+  return GARROW_ROUND_TO_MULTIPLE_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS, NULL));
 }
 
 
@@ -4101,6 +4786,76 @@ garrow_execute_context_get_raw(GArrowExecuteContext *context)
   return &priv->context;
 }
 
+
+GArrowFunctionOptions *
+garrow_function_options_new_raw(
+  const arrow::compute::FunctionOptions *arrow_options)
+{
+  arrow::util::string_view arrow_type_name(arrow_options->type_name());
+  if (arrow_type_name == "CastOptions") {
+    auto arrow_cast_options =
+      static_cast<const arrow::compute::CastOptions *>(arrow_options);
+    auto options = garrow_cast_options_new_raw(arrow_cast_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ScalarAggregateOptions") {
+    const auto arrow_scalar_aggregate_options =
+      static_cast<const arrow::compute::ScalarAggregateOptions *>(arrow_options);
+    auto options =
+      garrow_scalar_aggregate_options_new_raw(arrow_scalar_aggregate_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "CountOptions") {
+    const auto arrow_count_options =
+      static_cast<const arrow::compute::CountOptions *>(arrow_options);
+    auto options = garrow_count_options_new_raw(arrow_count_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "FilterOptions") {
+    const auto arrow_filter_options =
+      static_cast<const arrow::compute::FilterOptions *>(arrow_options);
+    auto options = garrow_filter_options_new_raw(arrow_filter_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "TakeOptions") {
+    const auto arrow_take_options =
+      static_cast<const arrow::compute::TakeOptions *>(arrow_options);
+    auto options = garrow_take_options_new_raw(arrow_take_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ArraySortOptions") {
+    const auto arrow_array_sort_options =
+      static_cast<const arrow::compute::ArraySortOptions *>(arrow_options);
+    auto options = garrow_array_sort_options_new_raw(arrow_array_sort_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SortOptions") {
+    const auto arrow_sort_options =
+      static_cast<const arrow::compute::SortOptions *>(arrow_options);
+    auto options = garrow_sort_options_new_raw(arrow_sort_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SetLookupOptions") {
+    const auto arrow_set_lookup_options =
+      static_cast<const arrow::compute::SetLookupOptions *>(arrow_options);
+    auto options = garrow_set_lookup_options_new_raw(arrow_set_lookup_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "VarianceOptions") {
+    const auto arrow_variance_options =
+      static_cast<const arrow::compute::VarianceOptions *>(arrow_options);
+    auto options = garrow_variance_options_new_raw(arrow_variance_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RoundOptions") {
+    const auto arrow_round_options =
+      static_cast<const arrow::compute::RoundOptions *>(arrow_options);
+    auto options = garrow_round_options_new_raw(arrow_round_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RoundToMultipleOptions") {
+    const auto arrow_round_to_multiple_options =
+      static_cast<const arrow::compute::RoundToMultipleOptions *>(arrow_options);
+    auto options =
+      garrow_round_to_multiple_options_new_raw(arrow_round_to_multiple_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else {
+    auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
+                                NULL);
+    return GARROW_FUNCTION_OPTIONS(options);
+  }
+}
+
 arrow::compute::FunctionOptions *
 garrow_function_options_get_raw(GArrowFunctionOptions *options)
 {
@@ -4184,11 +4939,15 @@ garrow_execute_plan_get_raw(GArrowExecutePlan *plan)
 
 
 GArrowCastOptions *
-garrow_cast_options_new_raw(arrow::compute::CastOptions *arrow_options)
+garrow_cast_options_new_raw(const arrow::compute::CastOptions *arrow_options)
 {
   GArrowDataType *to_data_type = NULL;
   if (arrow_options->to_type) {
-    to_data_type = garrow_data_type_new_raw(&(arrow_options->to_type));
+    auto arrow_copied_options = arrow_options->Copy();
+    auto arrow_copied_cast_options =
+      static_cast<arrow::compute::CastOptions *>(arrow_copied_options.get());
+    to_data_type =
+      garrow_data_type_new_raw(&(arrow_copied_cast_options->to_type));
   }
   auto options =
     g_object_new(GARROW_TYPE_CAST_OPTIONS,
@@ -4210,9 +4969,10 @@ garrow_cast_options_get_raw(GArrowCastOptions *options)
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 
+
 GArrowScalarAggregateOptions *
 garrow_scalar_aggregate_options_new_raw(
-  arrow::compute::ScalarAggregateOptions *arrow_options)
+  const arrow::compute::ScalarAggregateOptions *arrow_options)
 {
   auto options =
     g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS,
@@ -4229,11 +4989,35 @@ garrow_scalar_aggregate_options_get_raw(GArrowScalarAggregateOptions *options)
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 
+
+GArrowCountOptions *
+garrow_count_options_new_raw(
+  const arrow::compute::CountOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_COUNT_OPTIONS,
+                              "mode", arrow_options->mode,
+                              NULL);
+  return GARROW_COUNT_OPTIONS(options);
+}
+
 arrow::compute::CountOptions *
 garrow_count_options_get_raw(GArrowCountOptions *options)
 {
   return static_cast<arrow::compute::CountOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowFilterOptions *
+garrow_filter_options_new_raw(
+  const arrow::compute::FilterOptions *arrow_options)
+{
+  auto options =
+    g_object_new(GARROW_TYPE_FILTER_OPTIONS,
+                 "null-selection-behavior",
+                 arrow_options->null_selection_behavior,
+                 NULL);
+  return GARROW_FILTER_OPTIONS(options);
 }
 
 arrow::compute::FilterOptions *
@@ -4243,11 +5027,35 @@ garrow_filter_options_get_raw(GArrowFilterOptions *options)
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
 
+
+GArrowTakeOptions *
+garrow_take_options_new_raw(
+  const arrow::compute::TakeOptions *arrow_options)
+{
+  auto options =
+    GARROW_TAKE_OPTIONS(g_object_new(GARROW_TYPE_TAKE_OPTIONS, NULL));
+  /* TODO: Use property when we add support for boundscheck. */
+  auto arrow_new_options = garrow_take_options_get_raw(options);
+  arrow_new_options->boundscheck = arrow_options->boundscheck;
+  return options;
+}
+
 arrow::compute::TakeOptions *
 garrow_take_options_get_raw(GArrowTakeOptions *options)
 {
   return static_cast<arrow::compute::TakeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowArraySortOptions *
+garrow_array_sort_options_new_raw(
+  const arrow::compute::ArraySortOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_ARRAY_SORT_OPTIONS,
+                              "order", arrow_options->order,
+                              NULL);
+  return GARROW_ARRAY_SORT_OPTIONS(options);
 }
 
 arrow::compute::ArraySortOptions *
@@ -4275,11 +5083,42 @@ garrow_sort_key_get_raw(GArrowSortKey *sort_key)
 }
 
 
+GArrowSortOptions *
+garrow_sort_options_new_raw(
+  const arrow::compute::SortOptions *arrow_options)
+{
+  auto options =
+    GARROW_SORT_OPTIONS(g_object_new(GARROW_TYPE_SORT_OPTIONS,
+                                     NULL));
+  auto arrow_new_options = garrow_sort_options_get_raw(options);
+  arrow_new_options->sort_keys = arrow_options->sort_keys;
+  /* TODO: Use property when we add support for null_placement. */
+  arrow_new_options->null_placement = arrow_options->null_placement;
+  return options;
+}
+
 arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options)
 {
   return static_cast<arrow::compute::SortOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowSetLookupOptions *
+garrow_set_lookup_options_new_raw(
+  const arrow::compute::SetLookupOptions *arrow_options)
+{
+  auto arrow_copied_options = arrow_options->Copy();
+  auto arrow_copied_set_lookup_options =
+    static_cast<arrow::compute::SetLookupOptions *>(
+      arrow_copied_options.get());
+  auto value_set =
+    garrow_datum_new_raw(&(arrow_copied_set_lookup_options->value_set));
+  auto options = g_object_new(GARROW_TYPE_SET_LOOKUP_OPTIONS,
+                              "value-set", value_set,
+                              "skip-nulls", arrow_options->skip_nulls,
+                              NULL);
+  return GARROW_SET_LOOKUP_OPTIONS(options);
 }
 
 arrow::compute::SetLookupOptions *
@@ -4290,9 +5129,66 @@ garrow_set_lookup_options_get_raw(GArrowSetLookupOptions *options)
 }
 
 
+GArrowVarianceOptions *
+garrow_variance_options_new_raw(
+  const arrow::compute::VarianceOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_VARIANCE_OPTIONS,
+                              "ddof", arrow_options->ddof,
+                              "skip-nulls", arrow_options->skip_nulls,
+                              "min-count", arrow_options->min_count,
+                              NULL);
+  return GARROW_VARIANCE_OPTIONS(options);
+}
+
 arrow::compute::VarianceOptions *
 garrow_variance_options_get_raw(GArrowVarianceOptions *options)
 {
   return static_cast<arrow::compute::VarianceOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowRoundOptions *
+garrow_round_options_new_raw(
+  const arrow::compute::RoundOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_ROUND_OPTIONS,
+                              "n-digits", arrow_options->ndigits,
+                              "mode", arrow_options->round_mode,
+                              NULL);
+  return GARROW_ROUND_OPTIONS(options);
+}
+
+arrow::compute::RoundOptions *
+garrow_round_options_get_raw(GArrowRoundOptions *options)
+{
+  return static_cast<arrow::compute::RoundOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new_raw(
+  const arrow::compute::RoundToMultipleOptions *arrow_options)
+{
+  auto arrow_copied_options = arrow_options->Copy();
+  auto arrow_copied_round_to_multiple_options =
+    static_cast<arrow::compute::RoundToMultipleOptions *>(
+      arrow_copied_options.get());
+  auto multiple =
+    garrow_scalar_new_raw(&(arrow_copied_round_to_multiple_options->multiple));
+  auto options = g_object_new(GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS,
+                              "multiple", multiple,
+                              "mode", arrow_options->round_mode,
+                              NULL);
+  g_object_unref(multiple);
+  return GARROW_ROUND_TO_MULTIPLE_OPTIONS(options);
+}
+
+arrow::compute::RoundToMultipleOptions *
+garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options)
+{
+  return static_cast<arrow::compute::RoundToMultipleOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

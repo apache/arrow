@@ -32,7 +32,7 @@ type {{.Name}} struct {
 // New{{.Name}} returns a new n-dimensional array of {{.Type}}s.
 // If strides is nil, row-major strides will be inferred.
 // If names is nil, a slice of empty strings will be created.
-func New{{.Name}}(data *array.Data, shape, strides []int64, names []string) *{{.Name}} {
+func New{{.Name}}(data arrow.ArrayData, shape, strides []int64, names []string) *{{.Name}} {
 	tsr := &{{.Name}}{tensorBase:*newTensor(arrow.PrimitiveTypes.{{.Name}}, data, shape, strides, names)}
 	vals := tsr.data.Buffers()[1]
 	if vals != nil {

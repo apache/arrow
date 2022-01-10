@@ -50,8 +50,6 @@ jobs:
       - name: Git Fixup
         shell: bash
         run: git branch master origin/master || true
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:

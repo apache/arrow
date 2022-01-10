@@ -32,6 +32,7 @@
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/range.h"
 

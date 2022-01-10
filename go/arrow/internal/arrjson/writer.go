@@ -21,7 +21,6 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/arrio"
 )
 
@@ -52,7 +51,7 @@ func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
 	return ww, nil
 }
 
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	w.raw.Records = append(w.raw.Records, recordToJSON(rec))
 	w.nrecs++
 	return nil

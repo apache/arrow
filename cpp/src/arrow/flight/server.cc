@@ -826,9 +826,9 @@ class ServerSignalHandler {
         errno != EWOULDBLOCK && errno != EINTR) {
       return arrow::internal::IOErrorFromErrno(errno, "Could not unblock signal thread");
     }
+    handle_signals_.join();
     RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.rfd));
     RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.wfd));
-    handle_signals_.join();
     self_pipe_.rfd = 0;
     self_pipe_.wfd = 0;
     return Status::OK();
@@ -1012,6 +1012,7 @@ Status FlightServerBase::Shutdown() {
   if (!server) {
     return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
   }
+  impl_->running_instance_ = nullptr;
   impl_->server_->Shutdown();
   return Status::OK();
 }

@@ -209,39 +209,50 @@ test_that("type checks with is() giving Arrow types", {
       i32 = Array$create(1, int32()),
       dec = Array$create(pi)$cast(decimal(3, 2)),
       dec128 = Array$create(pi)$cast(decimal128(3, 2)),
+      dec256 = Array$create(pi)$cast(decimal256(3, 2)),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
     ) %>% transmute(
       i32_is_i32 = is(i32, int32()),
       i32_is_dec = is(i32, decimal(3, 2)),
       i32_is_dec128 = is(i32, decimal128(3, 2)),
+      i32_is_dec256 = is(i32, decimal256(3, 2)),
       i32_is_i64 = is(i32, float64()),
       i32_is_str = is(i32, arrow::string()),
       dec_is_i32 = is(dec, int32()),
       dec_is_dec = is(dec, decimal(3, 2)),
       dec_is_dec128 = is(dec, decimal128(3, 2)),
+      dec_is_dec256 = is(dec, decimal256(3, 2)),
       dec_is_i64 = is(dec, float64()),
       dec_is_str = is(dec, arrow::string()),
       dec128_is_i32 = is(dec128, int32()),
       dec128_is_dec128 = is(dec128, decimal128(3, 2)),
+      dec128_is_dec256 = is(dec128, decimal256(3, 2)),
       dec128_is_i64 = is(dec128, float64()),
       dec128_is_str = is(dec128, arrow::string()),
+      dec256_is_i32 = is(dec128, int32()),
+      dec256_is_dec128 = is(dec128, decimal128(3, 2)),
+      dec256_is_dec256 = is(dec128, decimal256(3, 2)),
+      dec256_is_i64 = is(dec128, float64()),
+      dec256_is_str = is(dec128, arrow::string()),
       f64_is_i32 = is(f64, int32()),
       f64_is_dec = is(f64, decimal(3, 2)),
       f64_is_dec128 = is(f64, decimal128(3, 2)),
+      f64_is_dec256 = is(f64, decimal256(3, 2)),
       f64_is_i64 = is(f64, float64()),
       f64_is_str = is(f64, arrow::string()),
       str_is_i32 = is(str, int32()),
       str_is_dec128 = is(str, decimal128(3, 2)),
+      str_is_dec256 = is(str, decimal256(3, 2)),
       str_is_i64 = is(str, float64()),
       str_is_str = is(str, arrow::string())
     ) %>%
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE,
-      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE,
-      TRUE)
+    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+      FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
   )
   # with class2=string
   expect_equal(

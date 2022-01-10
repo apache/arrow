@@ -31,7 +31,8 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
+
 #include "orc/Exceptions.hh"
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
