@@ -22,13 +22,15 @@
 import * as fs from 'node:fs';
 import * as stream from 'node:stream';
 import { valueToString } from '../util/pretty.js';
-import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
+import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node.js';
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+import commandLineUsage from 'command-line-usage';
+import commandLineArgs from 'command-line-args';
+import padLeft from "pad-left";
+// @ts-ignore
+import { parse as bignumJSONParse } from "json-bignum";
 
-const padLeft = require('pad-left');
-const bignumJSONParse = require('json-bignum').parse;
-const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+const argv = commandLineArgs(cliOpts(), { partial: true });
 const files = argv.help ? [] : [...(argv.file || []), ...(argv._unknown || [])].filter(Boolean);
 
 const state = { ...argv, closed: false, maxColWidths: [10] };
@@ -301,7 +303,7 @@ function cliOpts() {
 }
 
 function print_usage() {
-    console.log(require('command-line-usage')([
+    console.log(commandLineUsage([
         {
             header: 'arrow2csv',
             content: 'Print a CSV from an Arrow file'

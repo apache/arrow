@@ -52,7 +52,10 @@
     "jest.config.js"
   ],
   "dependencies": {
+    "@types/command-line-args": "5.2.0",
+    "@types/command-line-usage": "5.0.2",
     "@types/node": "^17.0.8",
+    "@types/pad-left": "2.1.1",
     "command-line-args": "5.2.0",
     "command-line-usage": "6.1.1",
     "flatbuffers": "2.0.4",
