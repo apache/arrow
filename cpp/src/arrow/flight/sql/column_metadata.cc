@@ -19,6 +19,9 @@
 
 #include <utility>
 
+namespace arrow {
+namespace flight {
+namespace sql {
 namespace {
   /// \brief Constant variable used to convert boolean true value
   ///        to a string.
@@ -31,15 +34,6 @@ namespace {
     return boolean_value ? BOOLEAN_TRUE_STR :
            BOOLEAN_FALSE_STR;
   }
-
-  bool StringToBoolean(const std::string& string_value) {
-    return string_value == BOOLEAN_TRUE_STR;
-  }
-}  // namespace
-
-namespace arrow {
-namespace flight {
-namespace sql {
 
 const char* ColumnMetadata::CATALOG_NAME = "ARROW:FLIGHT:SQL:CATALOG_NAME";
 const char* ColumnMetadata::SCHEMA_NAME = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
