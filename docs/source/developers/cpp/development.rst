@@ -78,7 +78,7 @@ This project follows `Google's C++ Style Guide
 
 * We relax the line length restriction to 90 characters.
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
-  in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
+  in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134).
 * We relax the guide's rules regarding structs.  For public headers we should
   use struct only for objects that are principally simple data containers where
   it is OK to expose all the internal members and any methods are primarily
@@ -92,32 +92,65 @@ Address Sanitizer and Undefined Behavior Sanitizer to check for various
 patterns of misbehaviour such as memory leaks. In addition, the
 codebase is subjected to a number of code style and code cleanliness checks.
 
-In order to have a passing CI build, your modified git branch must pass the
+In order to have a passing CI build, your modified Git branch must pass the
 following checks:
 
 * C++ builds with the project's active version of ``clang`` without
   compiler warnings with ``-DBUILD_WARNING_LEVEL=CHECKIN``. Note that
   there are classes of warnings (such as ``-Wdocumentation``, see more
   on this below) that are not caught by ``gcc``.
+* Passes various C++ (and others) style checks, checked with the ``lint``
+  subcommand to :ref:`Archery <archery>`. This can also be fixed locally
+  by running ``archery lint --cpplint --clang-format --clang-tidy --fix``.
 * CMake files pass style checks, can be fixed by running
   ``archery lint --cmake-format --fix``. This requires Python
   3 and `cmake_format <https://github.com/cheshirekow/cmake_format>`_ (note:
-  this currently does not work on Windows)
-* Passes various C++ (and others) style checks, checked with the ``lint``
-  subcommand to :ref:`Archery <archery>`. This can also be fixed locally
-  by running ``archery lint --cpplint --fix``.
+  this currently does not work on Windows).
 
-In order to account for variations in the behavior of ``clang-format``
-between major versions of LLVM, we pin the version of ``clang-format``
-used. You can confirm the current pinned version by finding
-the ``CLANG_TOOLS`` variable value in `.env
-<https://github.com/apache/arrow/blob/master/.env>`_.
+On pull requests, the "Dev / Lint" pipeline will run these checks, and report
+what files/lines need to be fixed, if any.
+
+In order to account for variations in the behavior of ``clang-format`` between
+major versions of LLVM, we pin the version of ``clang-format`` used. You can
+confirm the current pinned version by finding the ``CLANG_TOOLS`` variable
+value in `.env <https://github.com/apache/arrow/blob/master/.env>`_. Note that
+the version must match exactly; a newer version (even a patch release) will
+not work. LLVM can be installed through a system package manager or a package
+manager like Conda or Homebrew, though note they may not offer the exact
+version needed. Alternatively, binaries can be directly downloaded from the
+`LLVM website <https://releases.llvm.org/>`_.
+
+For convenience, C++ style checks can run via a build, in addition to
+Archery. To do so, build one or more of the targets ``format`` (for
+clang-format), ``lint_cpp_cli``, ``lint`` (for cpplint), or
+``clang-tidy``. For example::
+
+  $ cmake -GNinja ../cpp ...
+  $ ninja format lint clang-tidy lint_cpp_cli
 
 Depending on how you installed clang-format, the build system may not be able
-to find it. You can provide an explicit path to your LLVM installation (or the
-root path for the clang tools) with the environment variable
-`$CLANG_TOOLS_PATH` or by passing ``-DClangTools_PATH=$PATH_TO_CLANG_TOOLS`` when
-invoking CMake.
+to find it. In that case, invoking CMake will show errors like the following::
+
+  -- clang-format 12 not found
+
+Or if the wrong version is installed::
+
+  -- clang-format found, but version did not match "^clang-format version 12"
+
+You can provide an explicit path to the directory containing the clang-format
+executable and others with the environment variable ``$CLANG_TOOLS_PATH``, or
+by passing ``-DClangTools_PATH=$PATH_TO_CLANG_TOOLS`` when invoking CMake. For
+example::
+
+  # We unpacked LLVM here:
+  $ ~/tools/bin/clang-format --version
+  clang-format version 12.0.0
+  # Pass the directory containing the tools to CMake
+  $ cmake ../cpp -DClangTools_PATH=~/tools/bin/
+  ...snip...
+  -- clang-tidy found at /home/user/tools/bin/clang-tidy
+  -- clang-format found at /home/user/tools/bin/clang-format
+  ...snip...
 
 To make linting more reproducible for everyone, we provide a ``docker-compose``
 target that is executable from the root of the repository:
@@ -125,6 +158,12 @@ target that is executable from the root of the repository:
 .. code-block::
 
    $ docker-compose run ubuntu-lint
+
+Alternatively, on an open pull request, the comment bot can format C++ code
+for you (it will push a commit to the branch that can then be pulled). Just
+comment the following::
+
+  @github-actions autotune
 
 Cleaning includes with include-what-you-use (IWYU)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
