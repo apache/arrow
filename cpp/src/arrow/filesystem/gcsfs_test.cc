@@ -226,6 +226,18 @@ class GcsIntegrationTest : public ::testing::Test {
     return result;
   }
 
+  // Directories must appear without a trailing slash in the results.
+  std::vector<arrow::fs::FileInfo> static CleanupDirectoryNames(
+      std::vector<arrow::fs::FileInfo> expected) {
+    std::transform(expected.begin(), expected.end(), expected.begin(),
+                   [](FileInfo const& info) {
+                     if (!info.IsDirectory()) return info;
+                     return Dir(internal::RemoveTrailingSlash(info.path()).to_string());
+                   });
+    return expected;
+  }
+
+
  private:
   std::string RandomChars(std::size_t count) {
     auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
@@ -506,12 +518,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
                  }
                  return hierarchy.base_dir != info.path();
                });
-  // Directories must appear without a trailing slash in the results.
-  std::transform(expected.begin(), expected.end(), expected.begin(),
-                 [](FileInfo const& info) {
-                   if (!info.IsDirectory()) return info;
-                   return Dir(internal::RemoveTrailingSlash(info.path()).to_string());
-                 });
+  expected = CleanupDirectoryNames(std::move(expected));
 
   auto selector = FileSelector();
   selector.base_dir = hierarchy.base_dir;
@@ -563,12 +570,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
                    }
                    return internal::Depth(info.path()) <= max_depth;
                  });
-    // Directories must appear without a trailing slash in the results.
-    std::transform(expected.begin(), expected.end(), expected.begin(),
-                   [](FileInfo const& info) {
-                     if (!info.IsDirectory()) return info;
-                     return Dir(internal::RemoveTrailingSlash(info.path()).to_string());
-                   });
+    expected = CleanupDirectoryNames(std::move(expected));
     auto selector = FileSelector();
     selector.base_dir = hierarchy.base_dir;
     selector.allow_not_found = true;

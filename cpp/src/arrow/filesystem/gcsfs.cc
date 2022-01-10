@@ -326,8 +326,8 @@ class GcsFileSystem::Impl {
 
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) {
     ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(select.base_dir));
-    // Adding the trailing '/' avoids problems with files named 'a', 'ab', 'ac' which
-    // where GCS would return all of them if the prefix is 'a'.
+    // Adding the trailing '/' avoids problems with files named 'a', 'ab', 'ac'  where GCS
+    // would return all of them if the prefix is 'a'.
     const auto canonical = internal::EnsureTrailingSlash(p.object);
     const auto max_depth = internal::Depth(canonical) + select.max_recursion;
     auto prefix = p.object.empty() ? gcs::Prefix() : gcs::Prefix(canonical);
@@ -356,6 +356,9 @@ class GcsFileSystem::Impl {
     // To find out if the directory exists we need to perform an additional query.
     ARROW_ASSIGN_OR_RAISE(auto directory, GetFileInfo(p));
     if (directory.IsDirectory()) return result;
+    if (directory.IsFile()) {
+      return Status::IOError("Cannot use file '", select.base_dir, "' as a directory");
+    }
     return Status::IOError("No such file or directory '", select.base_dir, "'");
   }
 
@@ -412,6 +415,8 @@ class GcsFileSystem::Impl {
         if (!b) return internal::ToArrowStatus(b.status());
       }
     }
+    // Iterate in reverse order, if `a/b/c` is found, there is no need to create `a/b/`
+    // and `a/`
     for (auto d = missing_parents.rbegin(); d != missing_parents.rend(); ++d) {
       auto o = CreateDirMarker(bucket, *d);
       if (o) {
