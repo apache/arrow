@@ -161,8 +161,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     -----
     Timezone will be preserved in the returned array for timezone-aware data,
     else no timezone will be returned for naive timestamps.
-    Internally, UTC values are stored for timezone-aware data,
-    whereas timezone-naive data is implicitly interpreted as if in UTC.
+    Internally, UTC values are stored for timezone-aware data with the
+    timezone set in the data type.
 
     Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
     default converted as MonthDayNanoIntervalArray. relativedelta leapdays
