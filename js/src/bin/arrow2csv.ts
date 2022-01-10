@@ -127,7 +127,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
     let rowId = 0;
     let batchId = -1;
     let maxColWidths = [10];
-    const { hr, sep } = state;
+    const { hr, sep, metadata } = state;
 
     const header = ['row_id', ...schema.fields.map((f) => `${f}`)].map(val => valueToString(val));
 
@@ -142,7 +142,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
             if (batchId === -1) {
                 hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n\n`);
                 this.push(`${formatRow(header, maxColWidths, sep)}\n`);
-                if (state.metadata && schema.metadata.size > 0) {
+                if (metadata && schema.metadata.size > 0) {
                     this.push(`metadata:\n${formatMetadata(schema.metadata)}\n`);
                 }
             }
@@ -161,7 +161,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
             // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and
             if (++batchId === 0) {
                 hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
-                if (state.metadata && batch.schema.metadata.size > 0) {
+                if (metadata && batch.schema.metadata.size > 0) {
                     this.push(`metadata:\n${formatMetadata(batch.schema.metadata)}\n`);
                     hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
                 }
@@ -197,19 +197,19 @@ function formatRow(row: string[] = [], maxColWidths: number[] = [], sep = ' | ')
     return `${row.map((x, j) => padLeft(x, maxColWidths[j])).join(sep)}`;
 }
 
+function formatMetadataValue(value = '') {
+    let parsed = value;
+    try {
+        parsed = JSON.stringify(JSON.parse(value), null, 2);
+    } catch { parsed = value; }
+    return valueToString(parsed).split('\n').join('\n  ');
+}
+
 function formatMetadata(metadata: Map<string, string>) {
 
     return [...metadata].map(([key, val]) =>
         `  ${key}: ${formatMetadataValue(val)}`
     ).join(',  \n');
-
-    function formatMetadataValue(value = '') {
-        let parsed = value;
-        try {
-            parsed = JSON.stringify(JSON.parse(value), null, 2);
-        } catch { parsed = value; }
-        return valueToString(parsed).split('\n').join('\n  ');
-    }
 }
 
 function measureColumnWidths(rowId: number, batch: RecordBatch, maxColWidths: number[] = []) {
