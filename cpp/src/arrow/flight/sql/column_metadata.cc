@@ -35,68 +35,73 @@ namespace {
            BOOLEAN_FALSE_STR;
   }
 
-const char* ColumnMetadata::CATALOG_NAME = "ARROW:FLIGHT:SQL:CATALOG_NAME";
-const char* ColumnMetadata::SCHEMA_NAME = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
-const char* ColumnMetadata::TABLE_NAME = "ARROW:FLIGHT:SQL:TABLE_NAME";
-const char* ColumnMetadata::PRECISION = "ARROW:FLIGHT:SQL:PRECISION";
-const char* ColumnMetadata::SCALE = "ARROW:FLIGHT:SQL:SCALE";
-const char* ColumnMetadata::IS_AUTO_INCREMENT = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
-const char* ColumnMetadata::IS_CASE_SENSITIVE = "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE";
-const char* ColumnMetadata::IS_READ_ONLY = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
-const char* ColumnMetadata::IS_SEARCHABLE = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
+  bool StringToBoolean(const std::string& string_value) {
+    return string_value == BOOLEAN_TRUE_STR;
+  }
+}  // namespace
+
+const char* ColumnMetadata::kCatalogName = "ARROW:FLIGHT:SQL:CATALOG_NAME";
+const char* ColumnMetadata::kSchemaName = "ARROW:FLIGHT:SQL:SCHEMA_NAME";
+const char* ColumnMetadata::kTableName = "ARROW:FLIGHT:SQL:TABLE_NAME";
+const char* ColumnMetadata::kPrecision = "ARROW:FLIGHT:SQL:PRECISION";
+const char* ColumnMetadata::kScale = "ARROW:FLIGHT:SQL:SCALE";
+const char* ColumnMetadata::kIsAutoIncrement = "ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT";
+const char* ColumnMetadata::kIsCaseSensitive = "ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE";
+const char* ColumnMetadata::kIsReadOnly = "ARROW:FLIGHT:SQL:IS_READ_ONLY";
+const char* ColumnMetadata::kIsSearchable = "ARROW:FLIGHT:SQL:IS_SEARCHABLE";
 
 ColumnMetadata::ColumnMetadata(std::shared_ptr<arrow::KeyValueMetadata> metadata_map) :
   metadata_map_(std::move(metadata_map)) {
 }
 
-arrow::Result<std::string> ColumnMetadata::GetCatalogName() {
-  return metadata_map_->Get(CATALOG_NAME);
+arrow::Result<std::string> ColumnMetadata::GetCatalogName() const {
+  return metadata_map_->Get(kCatalogName);
 }
 
-arrow::Result<std::string> ColumnMetadata::GetSchemaName() {
-  return metadata_map_->Get(SCHEMA_NAME);
+arrow::Result<std::string> ColumnMetadata::GetSchemaName() const {
+  return metadata_map_->Get(kSchemaName);
 }
 
-arrow::Result<std::string> ColumnMetadata::GetTableName() {
-  return metadata_map_->Get(TABLE_NAME);
+arrow::Result<std::string> ColumnMetadata::GetTableName() const {
+  return metadata_map_->Get(kTableName);
 }
 
-arrow::Result<int32_t> ColumnMetadata::GetPrecision() {
-  const Result <std::string> &result = metadata_map_->Get(PRECISION);
+arrow::Result<int32_t> ColumnMetadata::GetPrecision() const {
+  const Result <std::string> &result = metadata_map_->Get(kPrecision);
   std::string precision_string;
   ARROW_ASSIGN_OR_RAISE(precision_string, result);
 
   return std::stoi(precision_string);
 }
 
-arrow::Result<int32_t> ColumnMetadata::GetScale() {
+arrow::Result<int32_t> ColumnMetadata::GetScale() const {
   std::string scale_string;
-  ARROW_ASSIGN_OR_RAISE(scale_string, metadata_map_->Get(SCALE));
+  ARROW_ASSIGN_OR_RAISE(scale_string, metadata_map_->Get(kScale));
 
   return std::stoi(scale_string);
 }
 
-arrow::Result<bool> ColumnMetadata::GetIsAutoIncrement() {
+arrow::Result<bool> ColumnMetadata::GetIsAutoIncrement() const {
   std::string auto_increment_string;
-  ARROW_ASSIGN_OR_RAISE(auto_increment_string, metadata_map_->Get(IS_AUTO_INCREMENT));
+  ARROW_ASSIGN_OR_RAISE(auto_increment_string, metadata_map_->Get(kIsAutoIncrement));
   return StringToBoolean(auto_increment_string);
 }
 
-arrow::Result<bool> ColumnMetadata::GetIsCaseSensitive() {
+arrow::Result<bool> ColumnMetadata::GetIsCaseSensitive() const {
   std::string is_case_sensitive;
-  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(IS_AUTO_INCREMENT));
+  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsAutoIncrement));
   return StringToBoolean(is_case_sensitive);
 }
 
-arrow::Result<bool> ColumnMetadata::GetIsReadOnly() {
+arrow::Result<bool> ColumnMetadata::GetIsReadOnly() const {
   std::string is_read_only;
-  ARROW_ASSIGN_OR_RAISE(is_read_only, metadata_map_->Get(IS_AUTO_INCREMENT));
+  ARROW_ASSIGN_OR_RAISE(is_read_only, metadata_map_->Get(kIsAutoIncrement));
   return StringToBoolean(is_read_only);
 }
 
-arrow::Result<bool> ColumnMetadata::GetIsSearchable() {
+arrow::Result<bool> ColumnMetadata::GetIsSearchable() const {
   std::string is_case_sensitive;
-  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(IS_AUTO_INCREMENT));
+  ARROW_ASSIGN_OR_RAISE(is_case_sensitive, metadata_map_->Get(kIsAutoIncrement));
   return StringToBoolean(is_case_sensitive);
 }
 
@@ -111,61 +116,61 @@ std::shared_ptr<arrow::KeyValueMetadata> ColumnMetadata::GetMetadataMap() const 
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::CatalogName(std::string &catalog_name) {
-  metadata_map_->Append(ColumnMetadata::CATALOG_NAME, catalog_name);
+  metadata_map_->Append(ColumnMetadata::kCatalogName, catalog_name);
   return *this;
 }
 
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::SchemaName(std::string &schema_name) {
-  metadata_map_->Append(ColumnMetadata::SCHEMA_NAME, schema_name);
+  metadata_map_->Append(ColumnMetadata::kSchemaName, schema_name);
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::TableName(std::string &table_name) {
-  metadata_map_->Append(ColumnMetadata::TABLE_NAME, table_name);
+  metadata_map_->Append(ColumnMetadata::kTableName, table_name);
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::Precision(int32_t precision) {
   metadata_map_->Append(
-    ColumnMetadata::PRECISION, std::to_string(precision));
+    ColumnMetadata::kPrecision, std::to_string(precision));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::Scale(int32_t scale) {
   metadata_map_->Append(
-    ColumnMetadata::SCALE, std::to_string(scale));
+    ColumnMetadata::kScale, std::to_string(scale));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder &
 ColumnMetadata::ColumnMetadataBuilder::IsAutoIncrement(bool is_auto_increment) {
-  metadata_map_->Append(ColumnMetadata::IS_AUTO_INCREMENT,
+  metadata_map_->Append(ColumnMetadata::kIsAutoIncrement,
                                             BooleanToString(is_auto_increment));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder &
 ColumnMetadata::ColumnMetadataBuilder::IsCaseSensitive(bool is_case_sensitive) {
-  metadata_map_->Append(ColumnMetadata::IS_CASE_SENSITIVE,
+  metadata_map_->Append(ColumnMetadata::kIsCaseSensitive,
                                             BooleanToString(is_case_sensitive));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::IsReadOnly(bool is_read_only) {
-  metadata_map_->Append(ColumnMetadata::IS_READ_ONLY,
+  metadata_map_->Append(ColumnMetadata::kIsReadOnly,
                                             BooleanToString(is_read_only));
   return *this;
 }
 
 ColumnMetadata::ColumnMetadataBuilder
 &ColumnMetadata::ColumnMetadataBuilder::IsSearchable(bool is_searchable) {
-  metadata_map_->Append(ColumnMetadata::IS_SEARCHABLE,
+  metadata_map_->Append(ColumnMetadata::kIsSearchable,
                                             BooleanToString(is_searchable));
   return *this;
 }
