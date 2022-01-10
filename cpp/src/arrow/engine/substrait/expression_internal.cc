@@ -31,6 +31,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/visit_scalar_inline.h"
 #include "generated/substrait/expression.pb.h"  // IWYU pragma: export
 
 namespace st = io::substrait;

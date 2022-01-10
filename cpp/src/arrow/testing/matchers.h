@@ -24,6 +24,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/stl_iterator.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/future.h"
@@ -358,10 +359,10 @@ inline DataEqMatcher DataEqArray(const std::shared_ptr<DataType>& type,
 }
 
 /// Constructs an array from a vector of optionals against which arguments are matched
-template <
-    typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
-    typename BuilderType = typename TypeTraits<T>::BuilderType,
-    typename ValueType = typename stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
+template <typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
+          typename BuilderType = typename TypeTraits<T>::BuilderType,
+          typename ValueType =
+              typename ::arrow::stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
 DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
   BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
   DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
