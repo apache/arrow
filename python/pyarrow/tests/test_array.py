@@ -2643,7 +2643,7 @@ def test_fixed_size_list_array_flatten():
     assert arr2.flatten().flatten().equals(arr0)
 
 
-def test_map_array_flatten():
+def test_map_array_values_offsets():
     ty = pa.map_(pa.utf8(), pa.int32())
     ty_values = pa.struct([pa.field("key", pa.utf8(), nullable=False),
                            pa.field("value", pa.int32())])
