@@ -36,11 +36,11 @@ const files = argv.help ? [] : [...(argv.file || []), ...(argv._unknown || [])].
 const state = { ...argv, closed: false, maxColWidths: [10] };
 
 type ToStringState = {
-    hr: string;
-    sep: string;
-    schema: any;
-    closed: boolean;
-    metadata: boolean;
+    hr?: string;
+    sep?: string;
+    schema?: any;
+    closed?: boolean;
+    metadata?: boolean;
     maxColWidths: number[];
 };
 
