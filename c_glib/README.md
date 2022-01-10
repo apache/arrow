@@ -92,7 +92,7 @@ Others:
 ```console
 $ meson setup c_glib.build c_glib --buildtype=release
 $ meson compile -C c_glib.build
-$ sudo meson install -C build
+$ sudo meson install -C c_glib.build
 ```
 
 ### How to build by developers
