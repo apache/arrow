@@ -36,13 +36,13 @@ struct PrettyPrintOptions {
   PrettyPrintOptions() = default;
 
   PrettyPrintOptions(int indent_arg,  // NOLINT runtime/explicit
-                     int window_arg = 10, int child_window_arg = 5,
+                     int window_arg = 10, int container_window_arg = 2,
                      int indent_size_arg = 2, std::string null_rep_arg = "null",
                      bool skip_new_lines_arg = false, bool truncate_metadata_arg = true)
       : indent(indent_arg),
         indent_size(indent_size_arg),
         window(window_arg),
-        child_window(child_window_arg),
+        container_window(container_window_arg),
         null_rep(std::move(null_rep_arg)),
         skip_new_lines(skip_new_lines_arg),
         truncate_metadata(truncate_metadata_arg) {}
@@ -58,9 +58,9 @@ struct PrettyPrintOptions {
   /// Maximum number of elements to show at the beginning and at the end.
   int window = 10;
 
-  /// For each element, maximum number of sub-elements to show at the beginning and the
-  /// end
-  int child_window = 5;
+  /// Maximum number of elements to show at the beginning and at the end, for elements that
+  /// are containers.
+  int container_window = 5;
 
   /// String to use for representing a null value, defaults to "null"
   std::string null_rep = "null";

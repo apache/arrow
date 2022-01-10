@@ -69,7 +69,6 @@ class PrettyPrinter {
   PrettyPrintOptions ChildOptions() const {
     PrettyPrintOptions child_options = options_;
     child_options.indent = indent_;
-    child_options.window = options_.child_window;
     return child_options;
   }
 
@@ -135,18 +134,20 @@ class ArrayPrinter : public PrettyPrinter {
  private:
   template <typename FormatFunction>
   Status WriteValues(const Array& array, FormatFunction&& func,
-                     bool indent_non_null_values = true) {
+                     bool indent_non_null_values = true,
+                     bool is_container = false) {
     // `indent_non_null_values` should be false if `FormatFunction` applies
     // indentation itself.
+    int window = is_container ? options_.container_window : options_.window;
     for (int64_t i = 0; i < array.length(); ++i) {
       const bool is_last = (i == array.length() - 1);
-      if ((i >= options_.window) && (i < (array.length() - options_.window))) {
+      if ((i >= window) && (i < (array.length() - window))) {
         IndentAfterNewline();
         (*sink_) << "...";
         if (!is_last && options_.skip_new_lines) {
           (*sink_) << ",";
         }
-        i = array.length() - options_.window - 1;
+        i = array.length() - window - 1;
       } else if (array.IsNull(i)) {
         IndentAfterNewline();
         (*sink_) << options_.null_rep;
@@ -257,7 +258,8 @@ class ArrayPrinter : public PrettyPrinter {
           return values_printer.Print(
               *values->Slice(array.value_offset(i), array.value_length(i)));
         },
-        /*indent_non_null_values=*/false);
+        /*indent_non_null_values=*/false,
+        /*is_container=*/true);
   }
 
   Status WriteDataValues(const MapArray& array) {
@@ -419,7 +421,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
                    std::ostream* sink) {
   int num_chunks = chunked_arr.num_chunks();
   int indent = options.indent;
-  int window = options.window;
+  int window = options.container_window;
 
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
@@ -450,7 +452,6 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       skip_comma = true;
     } else {
       PrettyPrintOptions chunk_options = options;
-      chunk_options.window = options.child_window;
       chunk_options.indent += options.indent_size;
       ArrayPrinter printer(chunk_options, sink);
       RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));

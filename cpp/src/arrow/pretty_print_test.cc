@@ -740,7 +740,7 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
 
   options.window = 2;
-  options.child_window = 2;
+  options.container_window = 2;
   CheckArray(*empty_array, options, "[]", false);
   CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
 }
