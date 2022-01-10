@@ -189,7 +189,7 @@ class ArrayPrinter : public PrettyPrinter {
   Status PrintChildren(const std::vector<std::shared_ptr<Array>>& fields, int64_t offset,
                        int64_t length) {
     for (size_t i = 0; i < fields.size(); ++i) {
-      Newline();
+      Write("\n"); // Always want newline before child array description
       Indent();
       std::stringstream ss;
       ss << "-- child " << i << " type: " << fields[i]->type()->ToString() << "\n";
@@ -199,7 +199,13 @@ class ArrayPrinter : public PrettyPrinter {
       if (offset != 0) {
         field = field->Slice(offset, length);
       }
-      RETURN_NOT_OK(PrettyPrint(*field, indent_ + options_.indent_size, sink_));
+      Indent();
+      // PrettyPrintOptions child_options = PrettyPrintOptions::Defaults();
+      // child_options.indent_size = indent_ + options_.indent_size;
+      // child_options.skip_new_lines = options_.skip_new_lines;
+      // child_options.window = options_.window;
+      // child_options.container_window = options_.container_window;
+      RETURN_NOT_OK(PrettyPrint(*field, ChildOptions(), sink_));
     }
     return Status::OK();
   }
@@ -271,7 +277,7 @@ class ArrayPrinter : public PrettyPrinter {
     return WriteValues(
         array,
         [&](int64_t i) {
-          Indent();
+          IndentAfterNewline();
           (*sink_) << "keys:";
           Newline();
           RETURN_NOT_OK(values_printer.Print(
@@ -337,7 +343,7 @@ class ArrayPrinter : public PrettyPrinter {
     Indent();
     Write("-- type_ids: ");
     UInt8Array type_codes(array.length(), array.type_codes(), nullptr, 0, array.offset());
-    RETURN_NOT_OK(PrettyPrint(type_codes, indent_ + options_.indent_size, sink_));
+    RETURN_NOT_OK(PrettyPrint(type_codes, ChildOptions(), sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();
@@ -346,7 +352,7 @@ class ArrayPrinter : public PrettyPrinter {
       Int32Array value_offsets(
           array.length(), checked_cast<const DenseUnionArray&>(array).value_offsets(),
           nullptr, 0, array.offset());
-      RETURN_NOT_OK(PrettyPrint(value_offsets, indent_ + options_.indent_size, sink_));
+      RETURN_NOT_OK(PrettyPrint(value_offsets, ChildOptions(), sink_));
     }
 
     // Print the children without any offset, because the type ids are absolute
@@ -363,12 +369,12 @@ class ArrayPrinter : public PrettyPrinter {
     Indent();
     Write("-- dictionary:\n");
     RETURN_NOT_OK(
-        PrettyPrint(*array.dictionary(), indent_ + options_.indent_size, sink_));
+        PrettyPrint(*array.dictionary(), ChildOptions(), sink_));
 
     Newline();
     Indent();
     Write("-- indices:\n");
-    return PrettyPrint(*array.indices(), indent_ + options_.indent_size, sink_);
+    return PrettyPrint(*array.indices(), ChildOptions(), sink_);
   }
 
   Status Print(const Array& array) {
@@ -387,7 +393,7 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
     Indent();
     BooleanArray is_valid(array.length(), array.null_bitmap(), nullptr, 0,
                           array.offset());
-    return PrettyPrint(is_valid, indent_ + options_.indent_size, sink_);
+    return PrettyPrint(is_valid, ChildOptions(), sink_);
   } else {
     Write(" all not null");
     return Status::OK();
@@ -422,12 +428,14 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
   int num_chunks = chunked_arr.num_chunks();
   int indent = options.indent;
   int window = options.container_window;
+  // Struct fields are always on new line
+  bool skip_new_lines = options.skip_new_lines && (chunked_arr.type()->id() != Type::STRUCT);
 
   for (int i = 0; i < indent; ++i) {
     (*sink) << " ";
   }
   (*sink) << "[";
-  if (!options.skip_new_lines) {
+  if (!skip_new_lines) {
     *sink << "\n";
   }
   bool skip_comma = true;
@@ -436,7 +444,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       skip_comma = false;
     } else {
       (*sink) << ",";
-      if (!options.skip_new_lines) {
+      if (!skip_new_lines) {
         *sink << "\n";
       }
     }
@@ -444,8 +452,8 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
       for (int i = 0; i < indent; ++i) {
         (*sink) << " ";
       }
-      (*sink) << "...";
-      if (!options.skip_new_lines) {
+      (*sink) << "...,";
+      if (!skip_new_lines) {
         *sink << "\n";
       }
       i = num_chunks - window - 1;

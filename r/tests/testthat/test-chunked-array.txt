@@ -79,25 +79,25 @@ ChunkedArray
 [
 
   -- dictionary:
-    [
-      "a",
-      "b"
-    ]
+  [
+    "a",
+    "b"
+  ]
   -- indices:
-    [
-      0,
-      1
-    ],
+  [
+    0,
+    1
+  ],
 
   -- dictionary:
-    [
-      "c",
-      "d"
-    ]
+  [
+    "c",
+    "d"
+  ]
   -- indices:
-    [
-      0,
-      1
-    ]
+  [
+    0,
+    1
+  ]
 ]
 

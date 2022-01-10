@@ -60,7 +60,7 @@ struct PrettyPrintOptions {
 
   /// Maximum number of elements to show at the beginning and at the end, for elements that
   /// are containers.
-  int container_window = 5;
+  int container_window = 2;
 
   /// String to use for representing a null value, defaults to "null"
   std::string null_rep = "null";
