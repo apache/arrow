@@ -21,6 +21,9 @@ FROM ${base}
 ARG r=4.1
 ARG jdk=8
 
+ARG r_dev_deps='website'
+ENV R_DEV_DEPS=${r_dev_deps}
+
 # See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/
 RUN apt-get update -y && \
     apt-get install -y \
@@ -90,8 +93,7 @@ RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/e
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
-RUN /arrow/ci/scripts/r_deps.sh /arrow && \
-    R -e "install.packages('pkgdown')"
+RUN /arrow/ci/scripts/r_deps.sh /arrow
 
 ENV ARROW_FLIGHT=ON \
     ARROW_PYTHON=ON \
