@@ -541,7 +541,9 @@ class Queue(Repo):
         pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
         matches = list(filter(None, map(pattern.match, self.repo.branches)))
         if matches:
-            latest = sorted([m.group(0) for m in matches])[-1][-10:]
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
         else:
             latest = -1
         return latest
