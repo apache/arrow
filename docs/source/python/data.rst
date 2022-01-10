@@ -435,12 +435,12 @@ Arrow supports both schema-level and field-level custom key-value metadata
 allowing for systems to insert their own application defined metadata to
 customize behavior.
 
-Custom metadata can be accessed at ``Schema.metadata`` for the schema-level
-and ``Field.metadata`` for the field-level.
+Custom metadata can be accessed at :attr:`Schema.metadata` for the schema-level
+and :attr:`Field.metadata` for the field-level.
 
 Note that this metadata is preserved in :ref:`ipc` processes.
 
-To customize the schema metadata of the existing table you can use
+To customize the schema metadata of an existing table you can use
 :meth:`Table.replace_schema_metadata`:
 
 .. ipython:: python
@@ -464,13 +464,13 @@ Schema which is immutable. To change the metadata in the schema of the table
 we created a new object when calling :meth:`Table.replace_schema_metadata`.
 
 To change the metadata of the field in the schema we would need to define
-a new schema and cast it to the data available:
+a new schema and cast the data to this schema:
 
 .. ipython:: python
 
    my_schema2 = pa.schema([
-      pa.field('f0', pa.int64(), metadata={"f0": "First dose"}),
-      pa.field('f1', pa.string(), metadata={"f1": "Second dose"}),
+      pa.field('f0', pa.int64(), metadata={"name": "First dose"}),
+      pa.field('f1', pa.string(), metadata={"name": "Second dose"}),
       pa.field('f2', pa.bool_())],
       metadata={"f2": "booster"})
    t2 = table.cast(my_schema2)
