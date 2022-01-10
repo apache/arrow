@@ -2506,7 +2506,12 @@ cdef class Scanner(_Weakrefable):
         table : Table
         """
         cdef CResult[shared_ptr[CTable]] result
-        cdef shared_ptr[CArray] c_indices = pyarrow_unwrap_array(indices)
+        cdef shared_ptr[CArray] c_indices
+
+        if not isinstance(indices, pa.Array):
+            indices = pa.array(indices)
+        c_indices = pyarrow_unwrap_array(indices)
+
         with nogil:
             result = self.scanner.TakeRows(deref(c_indices))
         return pyarrow_wrap_table(GetResultValue(result))
