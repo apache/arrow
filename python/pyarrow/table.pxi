@@ -1065,24 +1065,17 @@ cdef class RecordBatch(_PandasConvertible):
             entries.append((name, column))
         return ordered_dict(entries)
 
-    def to_pylist(self, index=None):
+    def to_pylist(self):
         """
-        Convert the RecordBatch to a list of dictionaries of rows.
-
-        Parameters
-        ----------
-        index: list
-            A list of column names to index.
+        Convert the RecordBatch to a list of rows / dictionaries.
 
         Returns
         -------
         list
         """
+
         pydict = self.to_pydict()
-        if index:
-            names = index
-        else:
-            names = self.schema.names
+        names = self.schema.names
         pylist = [{column: pydict[column][row] if column in pydict else None for column in names}
                   for row in range(self.num_rows)]
         return pylist
@@ -1974,14 +1967,9 @@ cdef class Table(_PandasConvertible):
 
         return ordered_dict(entries)
 
-    def to_pylist(self, index=None):
+    def to_pylist(self):
         """
-        Convert the Table to a list of dictionaries of rows.
-
-        Parameters
-        ----------
-        index: list
-            A list of column names to index.
+        Convert the Table to a list of rows / dictionaries.
 
         Returns
         -------
@@ -1998,10 +1986,7 @@ cdef class Table(_PandasConvertible):
         [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
         """
         pydict = self.to_pydict()
-        if index:
-            names = index
-        else:
-            names = self.schema.names
+        names = self.schema.names
         pylist = [{column: pydict[column][row] if column in pydict else None for column in names}
                   for row in range(self.num_rows)]
         return pylist

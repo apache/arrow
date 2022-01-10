@@ -1565,31 +1565,6 @@ def test_table_from_pylist(cls):
     assert table.to_pylist() == data2
 
 
-@pytest.mark.parametrize(
-    ('cls'),
-    [
-        (pa.Table),
-        (pa.RecordBatch)
-    ]
-)
-def test_table_to_pylist(cls):
-    data = [{'strs': '', 'floats': 4.5},
-            {'strs': 'foo', 'floats': 5},
-            {'strs': 'bar', 'floats': None}]
-
-    index = {'floats'}
-    data_index = [{'floats': 4.5}, {'floats': 5}, {'floats': None}]
-    table = cls.from_pylist(data)
-    assert table.to_pylist(index=index) == data_index
-
-    index = {'floats', 'bools'}
-    data_index = [{'floats': 4.5, 'bools': None},
-                  {'floats': 5, 'bools': None},
-                  {'floats': None, 'bools': None}]
-    table = cls.from_pylist(data)
-    assert table.to_pylist(index=index) == data_index
-
-
 @pytest.mark.pandas
 def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
