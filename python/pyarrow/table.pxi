@@ -1076,7 +1076,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         pydict = self.to_pydict()
         names = self.schema.names
-        pylist = [{column: pydict[column][row] if column in pydict else None for column in names}
+        pylist = [{column: pydict[column][row] for column in names} 
                   for row in range(self.num_rows)]
         return pylist
 
@@ -2615,13 +2615,13 @@ def _from_pylist(cls, mapping, schema, metadata):
         if mapping:
             names = list(mapping[0].keys())
         for n in names:
-            v = [i[n] if n in i else None for i in mapping]
+            v = [row[n] if n in row else None for row in mapping]
             arrays.append(v)
         return cls.from_arrays(arrays, names, metadata=metadata)
     else:
         if isinstance(schema, Schema):
             for n in schema.names:
-                v = [i[n] if n in i else None for i in mapping]
+                v = [row[n] if n in row else None for row in mapping]
                 arrays.append(v)
             # Will raise if metadata is not None
             return cls.from_arrays(arrays, schema=schema, metadata=metadata)
