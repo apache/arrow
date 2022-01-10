@@ -25,6 +25,8 @@ R_PRUNE_DEPS=`echo $R_PRUNE_DEPS | tr '[:upper:]' '[:lower:]'`
 
 : ${R_DUCKDB_DEV:=FALSE}
 R_DUCKDB_DEV=`echo $R_DUCKDB_DEV | tr '[:upper:]' '[:lower:]'`
+: ${R_DEV_DEPS:=''}
+R_DEV_DEPS=`echo $R_DEV_DEPS | tr '[:upper:]' '[:lower:]'`
 
 source_dir=${1}/r
 
@@ -53,5 +55,17 @@ fi
 # Separately install the optional/test dependencies but don't error on them,
 # they're not available everywhere and that's ok
 ${R_BIN} -e "remotes::install_deps(dependencies = TRUE, INSTALL_opts = '"${INSTALL_ARGS}"')"
+
+# install additional dependencies (i.e. for building the website)
+if [ ${R_DEV_DEPS} = "dev" ]; then
+  exit 2
+  ${R_BIN} -e "remotes::install_deps(dependencies = 'Config/Needs/dev')"
+elif [ ${R_DEV_DEPS} = "website" ]; then
+  exit 3
+  ${R_BIN} -e "remotes::install_deps(dependencies = 'Config/Needs/website')"
+elif [ ${R_DEV_DEPS} = "all" ]; then
+  exit 4
+  ${R_BIN} -e "remotes::install_deps(dependencies = c('Config/Needs/dev', 'Config/Needs/website'))"
+fi
 
 popd
