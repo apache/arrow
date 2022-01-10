@@ -25,7 +25,7 @@ namespace IoTPipelineExample
     class Program
     {
         public static int concurrencyLevel = 8;
-        public static int totalInputs = 1_000_000_000;
+        public static int totalInputs = 100_000_000;
 
         public static async Task Main(string[] args)
         {
@@ -75,14 +75,23 @@ namespace IoTPipelineExample
                                     + recordBatch.Column(j).Data.NullCount);
                             }
 
-                            if (recordBatch.Schema.HasMetadata && recordBatch.Schema.Metadata.TryGetValue("SubjectId", out string subjectId))
+                            var col = (Int32Array)recordBatch.Column(0);
+                            var subjectId = col.Values[0].ToString();
+
+                            if (!recordBatchDict.ContainsKey(subjectId))
                             {
-                                if (!recordBatchDict.ContainsKey(subjectId))
-                                {
-                                    recordBatchDict.Add(subjectId, new List<RecordBatch>());
-                                }
-                                recordBatchDict[subjectId].Add(recordBatch);
+                                recordBatchDict.Add(subjectId, new List<RecordBatch>());
                             }
+                            recordBatchDict[subjectId].Add(recordBatch);
+
+                            //if (recordBatch.Schema.HasMetadata && recordBatch.Schema.Metadata.TryGetValue("SubjectId", out string subjectId))
+                            //{
+                            //    if (!recordBatchDict.ContainsKey(subjectId))
+                            //    {
+                            //        recordBatchDict.Add(subjectId, new List<RecordBatch>());
+                            //    }
+                            //    recordBatchDict[subjectId].Add(recordBatch);
+                            //}
                         }
                     }
                     catch (Exception ex)
