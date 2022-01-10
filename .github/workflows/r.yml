@@ -364,6 +364,10 @@ jobs:
         shell: cmd
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        shell: bash
+        run: find r/check -name 'testthat.Rout*' -exec cat '{}' \; || true
+        if: always()
       # We can remove this when we drop support for Rtools 3.5.
       - name: Ensure using system tar in actions/cache
         run: |

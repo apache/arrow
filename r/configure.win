@@ -26,7 +26,11 @@ fi
 
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 MIMALLOC_LIBS="-lbcrypt -lpsapi"
-AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
+BROTLI_LIBS="-lbrotlienc -lbrotlidec -lbrotlicommon" # Common goes last since dec and enc depend on it
+AWS_LIBS="-laws-cpp-sdk-config -laws-cpp-sdk-transfer -laws-cpp-sdk-identity-management \
+          -laws-cpp-sdk-cognito-identity -laws-cpp-sdk-sts -laws-cpp-sdk-s3 \
+          -laws-cpp-sdk-core -laws-c-event-stream -laws-checksums -laws-c-common \
+          -lUserenv -lversion -lws2_32 -lBcrypt -lWininet -lwinhttp"
 
 function configure_release() {
   VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
@@ -51,8 +55,14 @@ function configure_release() {
 
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
-  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET -DARROW_R_WITH_JSON"
-  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '"-lparquet -larrow_dataset -larrow -larrow_bundled_dependencies -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC \
+              -DARROW_R_WITH_ARROW -DARROW_R_WITH_PARQUET -DARROW_R_WITH_DATASET \
+              -DARROW_R_WITH_JSON"
+  PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
+  PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
+  PKG_LIBS="$PKG_LIBS -lparquet -larrow_dataset -larrow -larrow_bundled_dependencies \
+            -lutf8proc -lthrift -lsnappy -lz -lzstd -llz4 ${BROTLI_LIBS} -lole32 \
+            ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
 
   # S3 and re2 support only for Rtools40 (i.e. R >= 4.0)
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
