@@ -699,3 +699,46 @@ Parquet files:
 
     # also clean-up custom base directory used in some examples
     shutil.rmtree(str(base), ignore_errors=True)
+
+
+Configuring files open during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing data to the disk, there are a few parameters that can be 
+important to optimize the writes, i.e number of rows per file and
+number of files open during write. 
+
+The number of files opened at during the write time can be set as follows;
+
+.. ipython:: python
+
+    ds.write_dataset(data=table, base_dir="data_dir", max_open_files=max_open_files)
+
+The maximum number of rows per file can be set as follows;
+
+.. ipython:: pythoin
+    ds.write_dataset(record_batch, "data_dir", format="parquet",
+                     max_rows_per_file=10)
+
+
+Configuring rows per group during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing data to disk, depending on the volume of data obtained, 
+(in a mini-batch setting where, records are obtained in batch by batch)
+the volume of data written to disk per each group can be configured. 
+This can be configured using a minimum and maximum parameter. 
+
+Set minimum rows per group;
+
+.. ipython:: python
+    ds.write_dataset(data=record_batches, base_dir="data_dir",
+                     min_rows_per_group=5,
+                     format="parquet")
+
+Set maximum rows per group;
+
+.. ipython:: python
+    ds.write_dataset(data=record_batches, base_dir="data_dir",
+                     max_rows_per_group=10,
+                     format="parquet")
