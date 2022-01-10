@@ -300,6 +300,11 @@ CsvTableReader$create <- function(file,
                                   convert_options = CsvConvertOptions$create(),
                                   ...) {
   assert_is(file, "InputStream")
+
+  if (!(tolower(read_options$encoding) %in% c("utf-8", "utf8"))) {
+    file <- MakeReencodeInputStream(file, read_options$encoding)
+  }
+
   csv___TableReader__Make(file, read_options, parse_options, convert_options)
 }
 
@@ -379,6 +384,7 @@ CsvTableReader$create <- function(file,
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' - `encoding` The file encoding.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -395,6 +401,9 @@ CsvTableReader$create <- function(file,
 #' @export
 CsvReadOptions <- R6Class("CsvReadOptions",
   inherit = ArrowObject,
+  public = list(
+    encoding = NULL
+  ),
   active = list(
     column_names = function() csv___ReadOptions__column_names(self)
   )
@@ -403,8 +412,11 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
                                   block_size = 1048576L,
                                   skip_rows = 0L,
                                   column_names = character(0),
-                                  autogenerate_column_names = FALSE) {
-  csv___ReadOptions__initialize(
+                                  autogenerate_column_names = FALSE,
+                                  encoding = "UTF-8") {
+  assert_that(is.string(encoding))
+
+  options <- csv___ReadOptions__initialize(
     list(
       use_threads = use_threads,
       block_size = block_size,
@@ -413,6 +425,9 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
       autogenerate_column_names = autogenerate_column_names
     )
   )
+
+  options$encoding <- encoding
+  options
 }
 
 readr_to_csv_write_options <- function(include_header,

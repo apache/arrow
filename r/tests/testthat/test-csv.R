@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(tibble)
+
 # Not all types round trip via CSV 100% identical by default
 tbl <- example_data[, c("dbl", "lgl", "false", "chr")]
 tbl_no_dates <- tbl
@@ -288,6 +290,50 @@ test_that("more informative error when reading a CSV with headers and schema", {
     read_csv_arrow(tf, schema = share_schema),
     "header row"
   )
+})
+
+test_that("CSV reader works on files with non-UTF-8 encoding", {
+  strings <- c("a", "\u00e9", "\U0001f4a9")
+  file_string <- paste0(
+    "col1,col2\n",
+    paste(strings, 1:30, sep = ",", collapse = "\n")
+  )
+  file_bytes_utf16 <- iconv(
+    file_string,
+    from = Encoding(file_string),
+    to = "UTF-16LE",
+    toRaw = TRUE
+  )[[1]]
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  con <- file(tf, open = "wb")
+  writeBin(file_bytes_utf16, con)
+  close(con)
+
+  fs <- LocalFileSystem$create()
+  reader <- CsvTableReader$create(
+    fs$OpenInputStream(tf),
+    read_options = CsvReadOptions$create(encoding = "UTF-16LE")
+  )
+
+  table <- reader$Read()
+
+  # check that the CSV reader didn't create a binary column because of
+  # invalid bytes
+  expect_true(table$col1$type == string())
+
+  # check that the bytes are correct
+  expect_identical(
+    lapply(as.vector(table$col1$cast(binary())), as.raw),
+    rep(
+      list(as.raw(0x61), as.raw(c(0xc3, 0xa9)), as.raw(c(0xf0, 0x9f, 0x92, 0xa9))),
+      10
+    )
+  )
+
+  # check that the strings are correct
+  expect_identical(as.vector(table$col1), rep(strings, 10))
 })
 
 test_that("Write a CSV file with header", {

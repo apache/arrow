@@ -4903,6 +4903,22 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 }
 #endif
 
+// io.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from);
+extern "C" SEXP _arrow_MakeReencodeInputStream(SEXP wrapped_sexp, SEXP from_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type wrapped(wrapped_sexp);
+	arrow::r::Input<std::string>::type from(from_sexp);
+	return cpp11::as_sexp(MakeReencodeInputStream(wrapped, from));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MakeReencodeInputStream(SEXP wrapped_sexp, SEXP from_sexp){
+	Rf_error("Cannot call MakeReencodeInputStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // json.cpp
 #if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads, int block_size);
@@ -7557,6 +7573,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_MakeReencodeInputStream", (DL_FUNC) &_arrow_MakeReencodeInputStream, 2}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 2}, 
 		{ "_arrow_json___ParseOptions__initialize1", (DL_FUNC) &_arrow_json___ParseOptions__initialize1, 1}, 
 		{ "_arrow_json___ParseOptions__initialize2", (DL_FUNC) &_arrow_json___ParseOptions__initialize2, 2}, 
