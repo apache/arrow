@@ -294,8 +294,7 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
         proj_maps[side].data_type(HashJoinProjection::INPUT, input_field_id);
 
     std::string output_field_name =
-        (is_left ? left_field_name_prefix : right_field_name_prefix) + input_field_name;
-
+        input_field_name + (is_left ? left_field_name_prefix : right_field_name_prefix);
     // All fields coming out of join are marked as nullable.
     fields[i] =
         std::make_shared<Field>(output_field_name, input_data_type, true /*nullable*/);
@@ -452,6 +451,7 @@ class HashJoinNode : public ExecNode {
 
     const auto& left_schema = *(inputs[0]->output_schema());
     const auto& right_schema = *(inputs[1]->output_schema());
+
     // This will also validate input schemas
     if (join_options.output_all) {
       RETURN_NOT_OK(schema_mgr->Init(
@@ -473,7 +473,6 @@ class HashJoinNode : public ExecNode {
     // Generate output schema
     std::shared_ptr<Schema> output_schema = schema_mgr->MakeOutputSchema(
         join_options.output_suffix_for_left, join_options.output_suffix_for_right);
-
     // Create hash join implementation object
     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<HashJoinImpl> impl, HashJoinImpl::MakeBasic());
 

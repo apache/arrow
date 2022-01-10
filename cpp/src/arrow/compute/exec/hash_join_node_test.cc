@@ -966,9 +966,9 @@ TEST(HashJoin, Prefix) {
   // This is the current behavior, not the desired behavior.  Ideally it should be
   // lkey, ldistinct, rkey, and rdistinct and NOT l_lkey, l_ldistinct, r_rkey, and
   // r_rdistinct.  The l_shared and r_shared is correct.
-  expected.schema = schema({field("l_lkey", int32()), field("l_shared", int32()),
-                            field("l_ldistinct", int32()), field("r_rkey", int32()),
-                            field("r_shared", int32()), field("r_rdistinct", int32())});
+  expected.schema = schema({field("lkey_l", int32()), field("shared_l", int32()),
+                            field("ldistinct_l", int32()), field("rkey_r", int32()),
+                            field("shared_r", int32()), field("rdistinct_r", int32())});
 
   ExecContext exec_ctx;
 
@@ -991,7 +991,7 @@ TEST(HashJoin, Prefix) {
 
   HashJoinNodeOptions join_opts{JoinType::INNER,
                                 /*left_keys=*/{"lkey"},
-                                /*right_keys=*/{"rkey"}, literal(true), "l_", "r_"};
+                                /*right_keys=*/{"rkey"}, literal(true), "_l", "_r"};
 
   ASSERT_OK_AND_ASSIGN(
       auto hashjoin,

@@ -167,7 +167,7 @@ arrow::Status DoHashJoin() {
   arrow::compute::HashJoinNodeOptions join_opts{
       arrow::compute::JoinType::INNER,
       /*left_keys=*/{"lkey"},
-      /*right_keys=*/{"rkey"},         arrow::compute::literal(true), "l_", "r_"};
+      /*right_keys=*/{"rkey"},         arrow::compute::literal(true), "_l", "_r"};
 
   ARROW_ASSIGN_OR_RAISE(
       auto hashjoin,
