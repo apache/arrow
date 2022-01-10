@@ -937,7 +937,7 @@ void HashJoinWithExecPlan(Random64Bit& rng, bool parallel,
   ASSERT_OK_AND_ASSIGN(*output, TableFromExecBatches(output_schema, res));
 }
 
-TEST(HashJoin, Prefix) {
+TEST(HashJoin, Suffix) {
   BatchesWithSchema input_left;
   input_left.batches = {ExecBatchFromJSON({int32(), int32(), int32()}, R"([
                    [1, 4, 7],
