@@ -979,13 +979,13 @@ TEST(HashJoin, Suffix) {
       left_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{input_left.schema,
-                                     input_left.gen(/*parallel=*/true, /*slow=*/false)}));
+                                     input_left.gen(/*parallel=*/false, /*slow=*/false)}));
 
   ASSERT_OK_AND_ASSIGN(
       right_source,
       MakeExecNode("source", plan.get(), {},
                    SourceNodeOptions{input_right.schema,
-                                     input_right.gen(/*parallel=*/true, /*slow=*/false)}))
+                                     input_right.gen(/*parallel=*/false, /*slow=*/false)}))
 
   HashJoinNodeOptions join_opts{JoinType::INNER,
                                 /*left_keys=*/{"lkey"},
