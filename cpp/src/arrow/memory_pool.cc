@@ -949,18 +949,7 @@ class PoolBuffer final : public ResizableBuffer {
     return Status::OK();
   }
 
-  static std::shared_ptr<PoolBuffer> MakeShared(MemoryPool* pool) {
-    std::shared_ptr<MemoryManager> mm;
-    if (pool == nullptr) {
-      pool = default_memory_pool();
-      mm = default_cpu_memory_manager();
-    } else {
-      mm = CPUDevice::memory_manager(pool);
-    }
-    return std::make_shared<PoolBuffer>(std::move(mm), pool);
-  }
-
-  static std::unique_ptr<PoolBuffer> MakeUnique(MemoryPool* pool) {
+  static std::unique_ptr<PoolBuffer> Make(MemoryPool* pool) {
     std::shared_ptr<MemoryManager> mm;
     if (pool == nullptr) {
       pool = default_memory_pool();
@@ -989,13 +978,12 @@ inline Result<BufferPtr> ResizePoolBuffer(PoolBufferPtr&& buffer, const int64_t 
 }  // namespace
 
 Result<std::unique_ptr<Buffer>> AllocateBuffer(const int64_t size, MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::MakeUnique(pool), size);
+  return ResizePoolBuffer<std::unique_ptr<Buffer>>(PoolBuffer::Make(pool), size);
 }
 
 Result<std::unique_ptr<ResizableBuffer>> AllocateResizableBuffer(const int64_t size,
                                                                  MemoryPool* pool) {
-  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::MakeUnique(pool),
-                                                            size);
+  return ResizePoolBuffer<std::unique_ptr<ResizableBuffer>>(PoolBuffer::Make(pool), size);
 }
 
 }  // namespace arrow
