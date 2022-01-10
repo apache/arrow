@@ -215,8 +215,9 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
   util::tracing::Span span;
-  START_SPAN(span, "Function::Execute",
-             {{"function", name()}, {"kind", kind()}, {"options", options->ToString()}});
+  START_SPAN(span, "Function::Execute", {{"function", name()}, {"kind", kind()}});
+  // todo(mb): add options to attributes. Requires fixing Option ToString impls for all
+  // option types.
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
@@ -259,7 +260,6 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
 }
 
 namespace {
-
 Status ValidateFunctionSummary(const std::string& s) {
   if (s.find('\n') != s.npos) {
     return Status::Invalid("summary contains a newline");
