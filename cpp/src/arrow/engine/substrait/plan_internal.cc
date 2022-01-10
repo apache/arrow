@@ -21,6 +21,7 @@
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 namespace engine {
@@ -45,13 +46,15 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
   }
 
   auto extensions = plan->mutable_extensions();
-  extensions->Reserve(static_cast<int>(ext_set.types().size()));
+  extensions->Reserve(
+      static_cast<int>(ext_set.type_ids().size() + ext_set.function_ids().size()));
+
+  using ExtDecl = st::extensions::SimpleExtensionDeclaration;
 
   for (size_t anchor = 0; anchor < ext_set.type_ids().size(); ++anchor) {
     auto id = ext_set.type_ids()[anchor];
     if (id.empty()) continue;
 
-    using ExtDecl = st::extensions::SimpleExtensionDeclaration;
     auto ext_decl = internal::make_unique<ExtDecl>();
 
     if (ext_set.type_is_variation(anchor)) {
@@ -68,6 +71,20 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
       ext_decl->set_allocated_extension_type(type.release());
     }
 
+    extensions->AddAllocated(ext_decl.release());
+  }
+
+  for (size_t anchor = 0; anchor < ext_set.function_ids().size(); ++anchor) {
+    auto id = ext_set.function_ids()[anchor];
+    if (id.empty()) continue;
+
+    auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
+    fn->set_extension_uri_pointer(map[id.uri]);
+    fn->set_function_anchor(anchor);
+    fn->set_name(id.name.to_string());
+
+    auto ext_decl = internal::make_unique<ExtDecl>();
+    ext_decl->set_allocated_extension_function(fn.release());
     extensions->AddAllocated(ext_decl.release());
   }
 
@@ -95,7 +112,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const st::Plan& plan,
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
   // will only store views to memory owned by registry.
 
-  std::vector<ExtensionSet::Id> type_ids;
+  std::vector<ExtensionSet::Id> type_ids, function_ids;
   std::vector<bool> type_is_variation;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
@@ -115,15 +132,26 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const st::Plan& plan,
         break;
       }
 
-      case st::extensions::SimpleExtensionDeclaration::kExtensionFunction:
+      case st::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+        const auto& fn = ext.extension_function();
+        util::string_view uri = uris[fn.extension_uri_pointer()];
+        SetElement(fn.function_anchor(), {uri, fn.name()}, &function_ids);
+        break;
+      }
+
       default:
-        return Status::NotImplemented("");
+        Unreachable();
     }
   }
 
   return ExtensionSet::Make(std::move(uris), std::move(type_ids),
-                            std::move(type_is_variation), registry);
+                            std::move(type_is_variation), std::move(function_ids),
+                            registry);
 }
+
+// if read relation is LocalFiles -> produce dataset scan node Declaration
+// otherwise                      -> invoke callback, probably does Voltron specific
+//                                   things with other read relation types
 
 }  // namespace engine
 }  // namespace arrow

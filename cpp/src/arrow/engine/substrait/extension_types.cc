@@ -214,6 +214,7 @@ ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
 Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
                                         std::vector<Id> type_ids,
                                         std::vector<bool> type_is_variation,
+                                        std::vector<Id> function_ids,
                                         ExtensionIdRegistry* registry) {
   ExtensionSet set;
   set.registry_ = registry;

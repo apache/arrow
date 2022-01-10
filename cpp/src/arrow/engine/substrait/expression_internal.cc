@@ -30,7 +30,6 @@
 #include "arrow/engine/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-
 #include "arrow/util/make_unique.h"
 #include "generated/substrait/expression.pb.h"  // IWYU pragma: export
 
@@ -75,7 +74,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
             if (auto root_ref = root_expr->field_ref()) {
               out = FieldRef(std::move(out), *root_ref);
             } else {
-              // FIXME add field_ref compute function to handle
+              // FIXME add struct_field compute function to handle
               // field references into expressions
               break;
             }
@@ -111,6 +110,20 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
       ARROW_ASSIGN_OR_RAISE(auto else_, FromProto(if_then.else_()));
       return compute::call("if_else",
                            {std::move(if_), std::move(then), std::move(else_)});
+    }
+
+    case st::Expression::kScalarFunction: {
+      const auto& scalar_fn = expr.scalar_function();
+
+      ExtensionSet ext_set;
+      auto id = ext_set.function_ids()[scalar_fn.function_reference()];
+
+      std::vector<compute::Expression> arguments(scalar_fn.args_size());
+      for (size_t i = 0; i < arguments.size(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i)));
+      }
+
+      return compute::call(id.name.to_string(), std::move(arguments));
     }
 
     default:
@@ -595,9 +608,10 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
     return Status::Invalid("ToProto requires a bound Expression");
   }
 
+  auto out = internal::make_unique<st::Expression>();
+
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum));
-    auto out = internal::make_unique<st::Expression>();
     out->set_allocated_literal(literal.release());
     return std::move(out);
   }
@@ -605,7 +619,6 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   if (auto param = expr.parameter()) {
     // Special case of a nested StructField
     DCHECK(!param->indices.empty());
-    auto out = internal::make_unique<st::Expression>();
 
     for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
       auto struct_field =
@@ -657,7 +670,6 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
         field_ref->set_allocated_direct_reference(ref_segment.release());
         field_ref->set_allocated_expression(arguments[0].release());
 
-        auto out = internal::make_unique<st::Expression>();
         out->set_allocated_selection(field_ref.release());
         return std::move(out);
       }
@@ -674,12 +686,10 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
     if_then->mutable_ifs()->AddAllocated(if_clause.release());
     if_then->set_allocated_else_(arguments[2].release());
 
-    auto out = internal::make_unique<st::Expression>();
     out->set_allocated_if_then(if_then.release());
     return std::move(out);
   }
 
-  // other expression types dive into extensions immediately
   /*
   if (call->function_name == "case_when") {
     auto conditions = call->arguments[0].call();
@@ -703,10 +713,21 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
       return std::move(out);
     }
   }
-  */
+  // other expression types dive into extensions immediately
+  ExtensionSet* ext_set = nullptr;
+  ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction({"", call->function_name}));
 
-  return Status::NotImplemented("conversion to substrait::Expression from ",
-                                expr.ToString());
+  auto scalar_fn = internal::make_unique<st::Expression::ScalarFunction>();
+  scalar_fn->set_function_reference(anchor);
+  scalar_fn->mutable_args()->Reserve(arguments.size());
+  for (auto& arg : arguments) {
+    scalar_fn->mutable_args()->AddAllocated(arg.release());
+  }
+
+  out->set_allocated_scalar_function(scalar_fn.release());
+  return std::move(out);
+  */
+  return Status::NotImplemented("");
 }
 
 }  // namespace engine

@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/compute/function.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/optional.h"
@@ -96,6 +97,16 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   virtual util::optional<TypeRecord> GetType(const DataType&) const = 0;
   virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
   virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
+
+  // FIXME some functions will not be simple enough to convert without access to their
+  // arguments/options. For example is_in embeds the set in options rather than using an
+  // argument:
+  //     is_in(x, SetLookupOptions(set)) <-> (k...Uri, "is_in")(x, set)
+  //
+  // ... for another example, depending on the value of the first argument to
+  // substrait::add it either corresponds to arrow::add or arrow::add_checked
+  // virtual util::optional<Id> GetFunction(const compute::Expression&) const = 0;
+  // virtual Status RegisterFunction(Id, const std::string&) = 0;
 };
 
 constexpr util::string_view kArrowExtTypesUri =
@@ -118,9 +129,12 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// (default constructed) Id may be used as a placeholder to indicate an unused
   /// _anchor/_reference. This factory will be used to wrap the extensions declared in a
   /// substrait::Plan before deserializing the plan's relations.
+  ///
+  /// Views will be replaced with equivalent views pointing to memory owned by the
+  /// registry.
   static Result<ExtensionSet> Make(
       std::vector<std::string> uris, std::vector<Id> type_ids,
-      std::vector<bool> type_is_variation,
+      std::vector<bool> type_is_variation, std::vector<Id> function_ids,
       ExtensionIdRegistry* = default_extension_id_registry());
 
   // index in these vectors == value of _anchor/_reference fields
@@ -141,12 +155,18 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// If no type is found, an error will be raised.
   Result<uint32_t> EncodeType(const DataType& type);
 
+  const std::vector<Id>& function_ids() const { return function_ids_; }
+
+  Result<uint32_t> EncodeFunction(Id);
+
  private:
   ExtensionIdRegistry* registry_;
+  std::vector<std::string> uris_;
   DataTypeVector types_;
   std::vector<Id> type_ids_;
-  std::vector<std::string> uris_;
   std::vector<bool> type_is_variation_;
+
+  std::vector<Id> function_ids_;
 
   // pimpl pattern to hide lookup details
   struct Impl;
