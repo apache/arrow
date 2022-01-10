@@ -2616,14 +2616,13 @@ def _from_pylist(cls, mapping, schema, metadata):
             names = list(mapping[0].keys())
         for n in names:
             v = [i[n] if n in i else None for i in mapping]
-            arrays.append(asarray(v))
+            arrays.append(v)
         return cls.from_arrays(arrays, names, metadata=metadata)
     else:
         if isinstance(schema, Schema):
             for n in schema.names:
                 v = [i[n] if n in i else None for i in mapping]
-                n_type = schema.types[schema.get_field_index(n)]
-                arrays.append(asarray(v, type=n_type))
+                arrays.append(v)
             # Will raise if metadata is not None
             return cls.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
