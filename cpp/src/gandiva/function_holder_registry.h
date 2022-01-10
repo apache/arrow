@@ -23,8 +23,8 @@
 #include <unordered_map>
 
 #include "arrow/status.h"
-
 #include "gandiva/function_holder.h"
+#include "gandiva/interval_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
@@ -61,14 +61,14 @@ class FunctionHolderRegistry {
 
  private:
   static map_type& makers() {
-    static map_type maker_map = {
-        {"like", LAMBDA_MAKER(LikeHolder)},
-        {"ilike", LAMBDA_MAKER(LikeHolder)},
-        {"to_date", LAMBDA_MAKER(ToDateHolder)},
-        {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
-        {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
-        {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
-    };
+    static map_type maker_map = {{"like", LAMBDA_MAKER(LikeHolder)},
+                                 {"ilike", LAMBDA_MAKER(LikeHolder)},
+                                 {"to_date", LAMBDA_MAKER(ToDateHolder)},
+                                 {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
+                                 {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+                                 {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
+                                 {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
+                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };
