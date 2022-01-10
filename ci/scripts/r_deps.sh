@@ -61,7 +61,6 @@ if [ ${R_DEV_DEPS} = "dev" ]; then
   exit 2
   ${R_BIN} -e "remotes::install_deps(dependencies = 'Config/Needs/dev')"
 elif [ ${R_DEV_DEPS} = "website" ]; then
-  exit 3
   ${R_BIN} -e "remotes::install_deps(dependencies = 'Config/Needs/website')"
 elif [ ${R_DEV_DEPS} = "all" ]; then
   exit 4
