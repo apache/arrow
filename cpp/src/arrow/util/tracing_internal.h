@@ -113,7 +113,7 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
   auto opentelemetry_scope##__LINE__ =                                              \
       ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                      \
           target_span                                                               \
-              .set_impl(::arrow::util::tracing::Span::Impl{                         \
+              .Set(::arrow::util::tracing::Span::Impl{                              \
                   ::arrow::internal::tracing::GetTracer()->StartSpan(__VA_ARGS__)}) \
               .span)
 
@@ -121,18 +121,18 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
   auto opentelemetry_scope##__LINE__ =                                                  \
       ::arrow::internal::tracing::GetTracer()->WithActiveSpan(                          \
           target_span                                                                   \
-              .set_impl(::arrow::util::tracing::Span::Impl{                             \
+              .Set(::arrow::util::tracing::Span::Impl{                                  \
                   ::arrow::internal::tracing::GetTracer()->StartSpan(                   \
                       __VA_ARGS__,                                                      \
                       ::arrow::internal::tracing::SpanOptionsWithParent(parent_span))}) \
               .span)
 
-#define EVENT(target_span, ...) target_span.impl().span->AddEvent(__VA_ARGS__)
+#define EVENT(target_span, ...) target_span.Get().span->AddEvent(__VA_ARGS__)
 
 #define MARK_SPAN(target_span, status) \
-  ::arrow::internal::tracing::MarkSpan(status, target_span.impl().span.get())
+  ::arrow::internal::tracing::MarkSpan(status, target_span.Get().span.get())
 
-#define END_SPAN(target_span) target_span.impl().span->End()
+#define END_SPAN(target_span) target_span.Get().span->End()
 
 #else
 

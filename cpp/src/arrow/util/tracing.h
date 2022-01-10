@@ -43,24 +43,24 @@ class Span {
   ~Span();  // Destructor. Default destructor defined in tracing.cc where impl is a
             // complete type.
 
-  Impl& set_impl(const Impl&);
-  Impl& set_impl(Impl&&);
+  Impl& Set(const Impl&);
+  Impl& Set(Impl&&);
 
-  const Impl& impl() const {
+  const Impl& Get() const {
     if (inner_impl) {
       return *inner_impl;
     } else {
-      ARROW_LOG(FATAL) << "Attempted to dereference a nullptr. Use Span::set_impl before "
+      ARROW_LOG(FATAL) << "Attempted to dereference a null pointer. Use Span::Set before "
                           "dereferencing.";
       std::abort();
     }
   }
 
-  Impl& impl() {
+  Impl& Get() {
     if (inner_impl) {
       return *inner_impl;
     } else {
-      ARROW_LOG(FATAL) << "Attempted to dereference a nullptr. Use Span::set_impl before "
+      ARROW_LOG(FATAL) << "Attempted to dereference a null pointer. Use Span::Set before "
                           "dereferencing.";
       std::abort();
     }

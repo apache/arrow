@@ -25,12 +25,12 @@ namespace tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
-Span::Impl& Span::set_impl(const Impl& impl) {
+Span::Impl& Span::Set(const Impl& impl) {
   inner_impl.reset(new Impl(impl));
   return *inner_impl;
 }
 
-Span::Impl& Span::set_impl(Impl&& impl) {
+Span::Impl& Span::Set(Impl&& impl) {
   inner_impl.reset(new Impl(std::move(impl)));
   return *inner_impl;
 }
