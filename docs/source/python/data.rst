@@ -431,4 +431,52 @@ around, so if your data is already in table form, then use
 Custom Schema and Field Metadata
 --------------------------------
 
-TODO
+Arrow supports both schema-level and field-level custom key-value metadata
+allowing for systems to insert their own application defined metadata to
+customize behavior.
+
+Custom metadata can be accessed at :attr:`Schema.metadata` for the schema-level
+and :attr:`Field.metadata` for the field-level.
+
+Note that this metadata is preserved in :ref:`ipc` processes.
+
+To customize the schema metadata of an existing table you can use
+:meth:`Table.replace_schema_metadata`:
+
+.. ipython:: python
+
+   table.schema.metadata # empty
+   table = table.replace_schema_metadata({"f0": "First dose"})
+   table.schema.metadata
+
+To customize the metadata of the field from the table schema you can use
+:meth:`Field.with_metadata`:
+
+.. ipython:: python
+
+   field_f1 = table.schema.field("f1")
+   field_f1.metadata # empty
+   field_f1 = field_f1.with_metadata({"f1": "Second dose"})
+   field_f1.metadata
+
+Both options create a shallow copy of the data and do not in fact change the
+Schema which is immutable. To change the metadata in the schema of the table
+we created a new object when calling :meth:`Table.replace_schema_metadata`.
+
+To change the metadata of the field in the schema we would need to define
+a new schema and cast the data to this schema:
+
+.. ipython:: python
+
+   my_schema2 = pa.schema([
+      pa.field('f0', pa.int64(), metadata={"name": "First dose"}),
+      pa.field('f1', pa.string(), metadata={"name": "Second dose"}),
+      pa.field('f2', pa.bool_())],
+      metadata={"f2": "booster"})
+   t2 = table.cast(my_schema2)
+   t2.schema.field("f0").metadata
+   t2.schema.field("f1").metadata
+   t2.schema.metadata
+
+Metadata key and value pair are ``std::string`` objects in the C++ implementation
+and so they are bytes objects (``b'...'``) in Python.
