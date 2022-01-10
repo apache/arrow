@@ -52,7 +52,7 @@ Additional information
 
 - Nightly builds
 
-  R package has an option of installing the nightly builds which are daily development
+  It is possible to install the Arrow R package from the nightly builds which are daily development
   builds of the R package and are not the official releases. See more on the
   `Install R package article <https://ursalabs.org/arrow-r-nightly/articles/install.html#install-the-nightly-build>`_.
 
