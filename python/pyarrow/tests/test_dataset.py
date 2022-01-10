@@ -454,15 +454,15 @@ def test_head(dataset, dataset_reader):
 @pytest.mark.parquet
 def test_take(dataset, dataset_reader):
     fragment = next(dataset.get_fragments())
-    indices = pa.array([1, 3])
-    assert dataset_reader.take(
-        fragment, indices) == dataset_reader.to_table(fragment).take(indices)
+    for indices in [[1, 3], pa.array([1, 3])]:
+        expected = dataset_reader.to_table(fragment).take(indices)
+        assert dataset_reader.take(fragment, indices) == expected
     with pytest.raises(IndexError):
         dataset_reader.take(fragment, pa.array([5]))
 
-    indices = pa.array([1, 7])
-    assert dataset_reader.take(
-        dataset, indices) == dataset_reader.to_table(dataset).take(indices)
+    for indices in [[1, 7], pa.array([1, 7])]:
+        assert dataset_reader.take(
+            dataset, indices) == dataset_reader.to_table(dataset).take(indices)
     with pytest.raises(IndexError):
         dataset_reader.take(dataset, pa.array([10]))
 
