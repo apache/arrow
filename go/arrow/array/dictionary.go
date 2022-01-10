@@ -60,8 +60,8 @@ type Dictionary struct {
 func NewDictionaryArray(typ arrow.DataType, indices, dict Interface) *Dictionary {
 	a := &Dictionary{}
 	a.array.refCount = 1
-	dictdata := NewData(typ, indices.Len(), indices.Data().buffers, indices.Data().childData, indices.NullN(), indices.Data().offset)
-	dictdata.dictionary = dict.Data()
+	dictdata := NewData(typ, indices.Len(), indices.Data().Buffers(), indices.Data().Children(), indices.NullN(), indices.Data().Offset())
+	dictdata.dictionary = dict.Data().(*Data)
 	dict.Data().Retain()
 
 	defer dictdata.Release()
@@ -188,17 +188,17 @@ func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict Interf
 		return nil, fmt.Errorf("dictionary value type (%T) does not match dict array type (%T)", typ.ValueType, dict.DataType())
 	}
 
-	if err := checkIndexBounds(indices.Data(), uint64(dict.Len())); err != nil {
+	if err := checkIndexBounds(indices.Data().(*Data), uint64(dict.Len())); err != nil {
 		return nil, err
 	}
 
 	return NewDictionaryArray(typ, indices, dict), nil
 }
 
-func NewDictionaryData(data *Data) *Dictionary {
+func NewDictionaryData(data arrow.ArrayData) *Dictionary {
 	a := &Dictionary{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -288,7 +288,7 @@ func (d *Dictionary) getOneForMarshal(i int) interface{} {
 		return nil
 	}
 	vidx := d.GetValueIndex(i)
-	return d.Dictionary().getOneForMarshal(vidx)
+	return d.Dictionary().(arraymarshal).getOneForMarshal(vidx)
 }
 
 func (d *Dictionary) MarshalJSON() ([]byte, error) {
@@ -729,7 +729,7 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	idxarr := b.idxBuilder.NewArray()
 	defer idxarr.Release()
 
-	indices = idxarr.Data()
+	indices = idxarr.Data().(*Data)
 	indices.Retain()
 
 	dictBuffers := make([]*memory.Buffer, 2)
@@ -895,7 +895,7 @@ func (b *NullDictionaryBuilder) NewDictionaryArray() *Dictionary {
 	idxarr := b.idxBuilder.NewArray()
 	defer idxarr.Release()
 
-	out := idxarr.Data()
+	out := idxarr.Data().(*Data)
 	dictarr := NewNull(0)
 	defer dictarr.Release()
 
