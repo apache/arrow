@@ -963,9 +963,7 @@ TEST(HashJoin, Suffix) {
     [2, 5, 8, 2, 11, 14],
     [3, 6, 9, 3, 12, 15]
   ])")};
-  // This is the current behavior, not the desired behavior.  Ideally it should be
-  // lkey, ldistinct, rkey, and rdistinct and NOT l_lkey, l_ldistinct, r_rkey, and
-  // r_rdistinct.  The l_shared and r_shared is correct.
+
   expected.schema = schema({field("lkey_l", int32()), field("shared_l", int32()),
                             field("ldistinct_l", int32()), field("rkey_r", int32()),
                             field("shared_r", int32()), field("rdistinct_r", int32())});
