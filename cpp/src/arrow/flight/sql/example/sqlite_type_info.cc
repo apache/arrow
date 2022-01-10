@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/sql/types.h"
+#include "arrow/record_batch.h"
 
 namespace arrow {
 namespace flight {
