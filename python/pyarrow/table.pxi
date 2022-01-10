@@ -690,14 +690,15 @@ cdef class RecordBatch(_PandasConvertible):
     @staticmethod
     def from_pylist(mapping, schema=None, metadata=None):
         """
-        Construct a RecordBatch from list of dictionary of rows.
+        Construct a RecordBatch from list of rows / dictionaries.
 
         Parameters
         ----------
         mapping : list of dicts of rows
             A mapping of strings to row values.
         schema : Schema, default None
-            If not passed, will be inferred from the Mapping values.
+            If not passed, will be inferred from the first row of the
+            mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
@@ -1817,14 +1818,15 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_pylist(mapping, schema=None, metadata=None):
         """
-        Construct a Table from list of dictionary of rows.
+        Construct a Table from list of rows / dictionaries.
 
         Parameters
         ----------
         mapping : list of dicts of rows
             A mapping of strings to row values.
         schema : Schema, default None
-            If not passed, will be inferred from the Mapping values.
+            If not passed, will be inferred from the first row of the
+            mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
@@ -2604,7 +2606,7 @@ def _from_pydict(cls, mapping, schema, metadata):
 
 def _from_pylist(cls, mapping, schema, metadata):
     """
-    Construct a Table/RecordBatch from list of dictionary of rows.
+    Construct a Table/RecordBatch from list of rows / dictionaries.
 
     Parameters
     ----------
@@ -2612,7 +2614,8 @@ def _from_pylist(cls, mapping, schema, metadata):
     mapping : list of dicts of rows
         A mapping of strings to row values.
     schema : Schema, default None
-        If not passed, will be inferred from the Mapping values.
+        If not passed, will be inferred from the first row of the
+        mapping values.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if inferred).
 
