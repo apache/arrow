@@ -16,9 +16,11 @@
 // under the License.
 
 #include "arrow/compute/exec/options.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
+
 std::string ToString(JoinType t) {
   switch (t) {
     case JoinType::LEFT_SEMI:
@@ -38,6 +40,9 @@ std::string ToString(JoinType t) {
     case JoinType::FULL_OUTER:
       return "FULL_OUTER";
   }
+  ARROW_LOG(FATAL) << "Invalid variant of arrow::compute::JoinType";
+  std::abort();
 }
+
 }  // namespace compute
 }  // namespace arrow
