@@ -36,70 +36,70 @@ class ColumnMetadata {
 
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* CATALOG_NAME;
+  static const char* kCatalogName;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* SCHEMA_NAME;
+  static const char* kSchemaName;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* TABLE_NAME;
+  static const char* kTableName;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* PRECISION;
+  static const char* kPrecision;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* SCALE;
+  static const char* kScale;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* IS_AUTO_INCREMENT;
+  static const char* kIsAutoIncrement;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* IS_CASE_SENSITIVE;
+  static const char* kIsCaseSensitive;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* IS_READ_ONLY;
+  static const char* kIsReadOnly;
   /// \brief Constant variable to hold the value of the key that
   ///        will be used in the KeyValueMetadata class.
-  static const char* IS_SEARCHABLE;
+  static const char* kIsSearchable;
 
   /// \brief Static initializer.
   static ColumnMetadataBuilder Builder();
 
   /// \brief  Return the catalog name set in the KeyValueMetadata.
   /// \return The catalog name.
-  arrow::Result<std::string> GetCatalogName();
+  arrow::Result<std::string> GetCatalogName() const;
 
   /// \brief  Return the schema name set in the KeyValueMetadata.
   /// \return The schema name.
-  arrow::Result<std::string> GetSchemaName();
+  arrow::Result<std::string> GetSchemaName() const;
 
   /// \brief  Return the table name set in the KeyValueMetadata.
   /// \return The table name.
-  arrow::Result<std::string> GetTableName();
+  arrow::Result<std::string> GetTableName() const;
 
   /// \brief  Return the precision set in the KeyValueMetadata.
   /// \return The precision.
-  arrow::Result<int32_t> GetPrecision();
+  arrow::Result<int32_t> GetPrecision() const;
 
   /// \brief  Return the scale set in the KeyValueMetadata.
   /// \return The scale.
-  arrow::Result<int32_t> GetScale();
+  arrow::Result<int32_t> GetScale() const;
 
   /// \brief  Return the IsAutoIncrement set in the KeyValueMetadata.
   /// \return The IsAutoIncrement.
-  arrow::Result<bool> GetIsAutoIncrement();
+  arrow::Result<bool> GetIsAutoIncrement() const;
 
   /// \brief  Return the IsCaseSensitive set in the KeyValueMetadata.
   /// \return The IsCaseSensitive.
-  arrow::Result<bool> GetIsCaseSensitive();
+  arrow::Result<bool> GetIsCaseSensitive() const;
 
   /// \brief  Return the IsReadOnly set in the KeyValueMetadata.
   /// \return The IsReadOnly.
-  arrow::Result<bool> GetIsReadOnly();
+  arrow::Result<bool> GetIsReadOnly() const;
 
   /// \brief  Return the IsSearchable set in the KeyValueMetadata.
   /// \return The IsSearchable.
-  arrow::Result<bool> GetIsSearchable();
+  arrow::Result<bool> GetIsSearchable() const;
 
   /// \brief  Return the KeyValueMetadata.
   /// \return The KeyValueMetadata.
