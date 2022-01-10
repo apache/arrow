@@ -358,7 +358,9 @@ A source node can be constructed as follows.
 :class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation. 
 The :class:`Schema` of the data passing through and a function to generate data 
 ``arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>``
-are required to create this option.
+are required to create this option. Additionally, when using `source` operator, 
+the data scanning operations like filter and project may need to be applied
+in a later part of the execution plan. 
 
 Struct to hold the data generator definition;
 
@@ -662,6 +664,8 @@ SelectK Example;
 `scan` is an operation used to load and process data, and the behavior of is defined using 
 :class:`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
 The :ref:`dataset<cpp-dataset-reading>` API also use scanner for processing data.
+In contrast to `source` operation, `scan` operation can load the data and apply scanning
+operations like filter and project to the loaded data. 
 
 Creating a Scan `ExecNode`::
 
