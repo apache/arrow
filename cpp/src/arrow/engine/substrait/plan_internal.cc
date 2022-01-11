@@ -26,7 +26,7 @@
 namespace arrow {
 namespace engine {
 
-Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
+Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
 
   std::unordered_map<util::string_view, int, internal::StringViewHash> map;
@@ -37,7 +37,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
     const auto& uri = ext_set.uris()[anchor];
     if (uri.empty()) continue;
 
-    auto ext_uri = internal::make_unique<st::extensions::SimpleExtensionURI>();
+    auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
     ext_uri->set_uri(uri);
     ext_uri->set_extension_uri_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
@@ -49,7 +49,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
   extensions->Reserve(
       static_cast<int>(ext_set.type_ids().size() + ext_set.function_ids().size()));
 
-  using ExtDecl = st::extensions::SimpleExtensionDeclaration;
+  using ExtDecl = substrait::extensions::SimpleExtensionDeclaration;
 
   for (size_t anchor = 0; anchor < ext_set.type_ids().size(); ++anchor) {
     auto id = ext_set.type_ids()[anchor];
@@ -59,7 +59,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
 
     if (ext_set.type_is_variation(anchor)) {
       auto type_var = internal::make_unique<ExtDecl::ExtensionTypeVariation>();
-      type_var->set_extension_uri_pointer(map[id.uri]);
+      type_var->set_extension_uri_reference(map[id.uri]);
       type_var->set_type_variation_anchor(anchor);
       type_var->set_name(id.name.to_string());
       ext_decl->set_allocated_extension_type_variation(type_var.release());
@@ -79,7 +79,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, st::Plan* plan) {
     if (id.empty()) continue;
 
     auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
-    fn->set_extension_uri_pointer(map[id.uri]);
+    fn->set_extension_uri_reference(map[id.uri]);
     fn->set_function_anchor(anchor);
     fn->set_name(id.name.to_string());
 
@@ -102,7 +102,7 @@ void SetElement(size_t i, T element, std::vector<T>* vector) {
 }
 }  // namespace
 
-Result<ExtensionSet> GetExtensionSetFromPlan(const st::Plan& plan,
+Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
   std::vector<std::string> uris;
   for (const auto& uri : plan.extension_uris()) {
@@ -116,15 +116,15 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const st::Plan& plan,
   std::vector<bool> type_is_variation;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
-      case st::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
         const auto& type_var = ext.extension_type_variation();
-        util::string_view uri = uris[type_var.extension_uri_pointer()];
+        util::string_view uri = uris[type_var.extension_uri_reference()];
         SetElement(type_var.type_variation_anchor(), {uri, type_var.name()}, &type_ids);
         SetElement(type_var.type_variation_anchor(), true, &type_is_variation);
         break;
       }
 
-      case st::extensions::SimpleExtensionDeclaration::kExtensionType: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
         util::string_view uri = uris[type.extension_uri_reference()];
         SetElement(type.type_anchor(), {uri, type.name()}, &type_ids);
@@ -132,9 +132,9 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const st::Plan& plan,
         break;
       }
 
-      case st::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
+      case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
-        util::string_view uri = uris[fn.extension_uri_pointer()];
+        util::string_view uri = uris[fn.extension_uri_reference()];
         SetElement(fn.function_anchor(), {uri, fn.name()}, &function_ids);
         break;
       }

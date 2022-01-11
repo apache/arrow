@@ -27,22 +27,20 @@
 
 #include "generated/substrait/expression.pb.h"  // IWYU pragma: export
 
-namespace st = io::substrait;
-
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> FromProto(const st::Expression&);
+Result<compute::Expression> FromProto(const substrait::Expression&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression&);
+Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression&);
 
 ARROW_ENGINE_EXPORT
-Result<Datum> FromProto(const st::Expression::Literal&);
+Result<Datum> FromProto(const substrait::Expression::Literal&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum&);
+Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum&);
 
 }  // namespace engine
 }  // namespace arrow

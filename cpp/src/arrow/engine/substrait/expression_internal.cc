@@ -34,8 +34,6 @@
 #include "arrow/visit_scalar_inline.h"
 #include "generated/substrait/expression.pb.h"  // IWYU pragma: export
 
-namespace st = io::substrait;
-
 namespace arrow {
 namespace engine {
 namespace {
@@ -49,14 +47,14 @@ std::shared_ptr<FixedSizeBinaryScalar> FixedSizeBinaryScalarFromBytes(
 
 }  // namespace
 
-Result<compute::Expression> FromProto(const st::Expression& expr) {
+Result<compute::Expression> FromProto(const substrait::Expression& expr) {
   switch (expr.rex_type_case()) {
-    case st::Expression::kLiteral: {
+    case substrait::Expression::kLiteral: {
       ARROW_ASSIGN_OR_RAISE(auto datum, FromProto(expr.literal()));
       return compute::literal(std::move(datum));
     }
 
-    case st::Expression::kSelection: {
+    case substrait::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
 
       util::optional<compute::Expression> root_expr;
@@ -66,7 +64,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
 
       const auto& ref = expr.selection().direct_reference();
       switch (ref.reference_type_case()) {
-        case st::Expression::ReferenceSegment::kStructField: {
+        case substrait::Expression::ReferenceSegment::kStructField: {
           if (ref.struct_field().has_child()) break;
 
           FieldRef out(ref.struct_field().field());
@@ -83,7 +81,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
           return compute::field_ref(std::move(out));
         }
 
-        case st::Expression::ReferenceSegment::kListElement: {
+        case substrait::Expression::ReferenceSegment::kListElement: {
           if (ref.list_element().has_child()) break;
           if (!root_expr) {
             return Status::Invalid(
@@ -102,7 +100,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
       break;
     }
 
-    case st::Expression::kIfThen: {
+    case substrait::Expression::kIfThen: {
       const auto& if_then = expr.if_then();
       if (!if_then.has_else_()) break;
       if (if_then.ifs_size() != 1) break;
@@ -113,7 +111,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
                            {std::move(if_), std::move(then), std::move(else_)});
     }
 
-    case st::Expression::kScalarFunction: {
+    case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
       ExtensionSet ext_set;
@@ -135,7 +133,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
                                 expr.DebugString());
 }
 
-Result<Datum> FromProto(const st::Expression::Literal& lit) {
+Result<Datum> FromProto(const substrait::Expression::Literal& lit) {
   if (lit.nullable()) {
     // FIXME not sure how this field should be interpreted and there's no way to round
     // trip it through arrow
@@ -146,43 +144,43 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
   ExtensionSet ext_set;
 
   switch (lit.literal_type_case()) {
-    case st::Expression::Literal::kBoolean:
+    case substrait::Expression::Literal::kBoolean:
       return Datum(lit.boolean());
 
-    case st::Expression::Literal::kI8:
+    case substrait::Expression::Literal::kI8:
       return Datum(static_cast<int8_t>(lit.i8()));
-    case st::Expression::Literal::kI16:
+    case substrait::Expression::Literal::kI16:
       return Datum(static_cast<int16_t>(lit.i16()));
-    case st::Expression::Literal::kI32:
+    case substrait::Expression::Literal::kI32:
       return Datum(static_cast<int32_t>(lit.i32()));
-    case st::Expression::Literal::kI64:
+    case substrait::Expression::Literal::kI64:
       return Datum(static_cast<int64_t>(lit.i64()));
 
-    case st::Expression::Literal::kFp32:
+    case substrait::Expression::Literal::kFp32:
       return Datum(lit.fp32());
-    case st::Expression::Literal::kFp64:
+    case substrait::Expression::Literal::kFp64:
       return Datum(lit.fp64());
 
-    case st::Expression::Literal::kString:
+    case substrait::Expression::Literal::kString:
       return Datum(lit.string());
-    case st::Expression::Literal::kBinary:
+    case substrait::Expression::Literal::kBinary:
       return Datum(BinaryScalar(Buffer::FromString(lit.binary())));
 
-    case st::Expression::Literal::kTimestamp:
+    case substrait::Expression::Literal::kTimestamp:
       return Datum(
           TimestampScalar(static_cast<int64_t>(lit.timestamp()), TimeUnit::MICRO));
 
-    case st::Expression::Literal::kTimestampTz:
+    case substrait::Expression::Literal::kTimestampTz:
       return Datum(TimestampScalar(static_cast<int64_t>(lit.timestamp_tz()),
                                    TimeUnit::MICRO, TimestampTzTimezoneString()));
 
-    case st::Expression::Literal::kDate:
+    case substrait::Expression::Literal::kDate:
       return Datum(Date64Scalar(static_cast<int64_t>(lit.date())));
-    case st::Expression::Literal::kTime:
+    case substrait::Expression::Literal::kTime:
       return Datum(Time64Scalar(static_cast<int64_t>(lit.time()), TimeUnit::MICRO));
 
-    case st::Expression::Literal::kIntervalYearToMonth:
-    case st::Expression::Literal::kIntervalDayToSecond: {
+    case substrait::Expression::Literal::kIntervalYearToMonth:
+    case substrait::Expression::Literal::kIntervalDayToSecond: {
       Int32Builder builder;
       std::shared_ptr<DataType> type;
       if (lit.has_interval_year_to_month()) {
@@ -199,23 +197,23 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
           ExtensionScalar(FixedSizeListScalar(std::move(array)), std::move(type)));
     }
 
-    case st::Expression::Literal::kUuid:
+    case substrait::Expression::Literal::kUuid:
       return Datum(ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.uuid()), uuid()));
 
-    case st::Expression::Literal::kFixedChar:
+    case substrait::Expression::Literal::kFixedChar:
       return Datum(
           ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.fixed_char()),
                           fixed_char(static_cast<int32_t>(lit.fixed_char().size()))));
 
-    case st::Expression::Literal::kVarChar:
+    case substrait::Expression::Literal::kVarChar:
       return Datum(
           ExtensionScalar(StringScalar(lit.var_char().value()),
                           varchar(static_cast<int32_t>(lit.var_char().length()))));
 
-    case st::Expression::Literal::kFixedBinary:
+    case substrait::Expression::Literal::kFixedBinary:
       return Datum(FixedSizeBinaryScalarFromBytes(lit.fixed_binary()));
 
-    case st::Expression::Literal::kDecimal: {
+    case substrait::Expression::Literal::kDecimal: {
       if (lit.decimal().value().size() != sizeof(Decimal128)) {
         return Status::Invalid("Decimal literal had ", lit.decimal().value().size(),
                                " bytes (expected ", sizeof(Decimal128), ")");
@@ -232,7 +230,7 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       return Datum(Decimal128Scalar(value, std::move(type)));
     }
 
-    case st::Expression::Literal::kStruct: {
+    case substrait::Expression::Literal::kStruct: {
       const auto& struct_ = lit.struct_();
 
       ScalarVector fields(struct_.fields_size());
@@ -247,18 +245,15 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       return Datum(std::move(scalar));
     }
 
-    case st::Expression::Literal::kList: {
+    case substrait::Expression::Literal::kList: {
       const auto& list = lit.list();
-      if (list.values_size() == 0 && !list.has_element_type()) {
+      if (list.values_size() == 0) {
         return Status::Invalid(
-            "substrait::Expression::Literal::List had no values and no element_type");
+            "substrait::Expression::Literal::List had no values; should have been an "
+            "substrait::Expression::Literal::EmptyList");
       }
 
       std::shared_ptr<DataType> element_type;
-      if (list.has_element_type()) {
-        ARROW_ASSIGN_OR_RAISE(std::tie(element_type, std::ignore),
-                              FromProto(list.element_type(), ext_set));
-      }
 
       ScalarVector values(list.values_size());
       for (size_t i = 0; i < values.size(); ++i) {
@@ -267,38 +262,30 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
         values[i] = value.scalar();
         if (element_type) {
           if (!value.type()->Equals(*element_type)) {
-            return Status::Invalid(list.DebugString(),
-                                   " has a value whose type doesn't match element_type");
+            return Status::Invalid(
+                list.DebugString(),
+                " has a value whose type doesn't match the other list values");
           }
         } else {
           element_type = value.type();
         }
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(element_type));
+      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(std::move(element_type)));
       RETURN_NOT_OK(builder->AppendScalars(values));
       ARROW_ASSIGN_OR_RAISE(auto arr, builder->Finish());
       return Datum(ListScalar(std::move(arr)));
     }
 
-    case st::Expression::Literal::kMap: {
+    case substrait::Expression::Literal::kMap: {
       const auto& map = lit.map();
-      if (map.key_values_size() == 0 && !(map.has_key_type() && map.has_value_type())) {
+      if (map.key_values_size() == 0) {
         return Status::Invalid(
-            "substrait::Expression::Literal::Map had no key_values and no key_type or "
-            "values_type");
+            "substrait::Expression::Literal::Map had no values; should have been an "
+            "substrait::Expression::Literal::EmptyMap");
       }
 
       std::shared_ptr<DataType> key_type, value_type;
-      if (map.has_key_type()) {
-        ARROW_ASSIGN_OR_RAISE(std::tie(key_type, std::ignore),
-                              FromProto(map.key_type(), ext_set));
-      }
-      if (map.has_value_type()) {
-        ARROW_ASSIGN_OR_RAISE(std::tie(value_type, std::ignore),
-                              FromProto(map.value_type(), ext_set));
-      }
-
       ScalarVector keys(map.key_values_size()), values(map.key_values_size());
       for (size_t i = 0; i < values.size(); ++i) {
         const auto& kv = map.key_values(i);
@@ -350,7 +337,31 @@ Result<Datum> FromProto(const st::Expression::Literal& lit) {
       return Datum(std::make_shared<MapScalar>(std::move(kv_arr)));
     }
 
-    case st::Expression::Literal::kNull: {
+    case substrait::Expression::Literal::kEmptyList: {
+      ARROW_ASSIGN_OR_RAISE(auto type_nullable,
+                            FromProto(lit.empty_list().type(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto values, MakeEmptyArray(type_nullable.first));
+      return ListScalar{std::move(values)};
+    }
+
+    case substrait::Expression::Literal::kEmptyMap: {
+      ARROW_ASSIGN_OR_RAISE(auto key_type_nullable,
+                            FromProto(lit.empty_map().key(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto value_type_nullable,
+                            FromProto(lit.empty_map().value(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto keys, MakeEmptyArray(key_type_nullable.first));
+      ARROW_ASSIGN_OR_RAISE(auto values, MakeEmptyArray(value_type_nullable.first));
+
+      auto map_type = std::make_shared<MapType>(keys->type(), values->type());
+      ARROW_ASSIGN_OR_RAISE(
+          auto key_values,
+          StructArray::Make(
+              {std::move(keys), std::move(values)},
+              checked_cast<const ListType&>(*map_type).value_type()->fields()));
+      return MapScalar{std::move(key_values)};
+    }
+
+    case substrait::Expression::Literal::kNull: {
       ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(lit.null(), ext_set));
       if (!type_nullable.second) {
         return Status::Invalid("Null literal ", lit.DebugString(),
@@ -371,17 +382,17 @@ namespace {
 struct ToProtoImpl {
   Status Visit(const NullScalar& s) { return NotImplemented(s); }
 
-  using Lit = st::Expression::Literal;
+  using Lit = substrait::Expression::Literal;
 
   template <typename Arg, typename PrimitiveScalar>
-  Status Primitive(void (st::Expression::Literal::*set)(Arg),
+  Status Primitive(void (substrait::Expression::Literal::*set)(Arg),
                    const PrimitiveScalar& primitive_scalar) {
     (lit_->*set)(static_cast<Arg>(primitive_scalar.value));
     return Status::OK();
   }
 
   template <typename ScalarWithBufferValue>
-  Status FromBuffer(void (st::Expression::Literal::*set)(std::string&&),
+  Status FromBuffer(void (substrait::Expression::Literal::*set)(std::string&&),
                     const ScalarWithBufferValue& scalar_with_buffer) {
     (lit_->*set)(scalar_with_buffer.value->ToString());
     return Status::OK();
@@ -457,14 +468,20 @@ struct ToProtoImpl {
   Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const ListScalar& s) {
+    ExtensionSet ext_set;
+    if (s.value->length() == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto list_type,
+                            ToProto(*s.type, /*nullable=*/true, &ext_set));
+      lit_->set_allocated_empty_list(list_type->release_list());
+      return Status::OK();
+    }
+
     lit_->set_allocated_list(new Lit::List());
 
     const auto& list_type = internal::checked_cast<const ListType&>(*s.type);
-    ExtensionSet ext_set;
     ARROW_ASSIGN_OR_RAISE(
         auto element_type,
         ToProto(*list_type.value_type(), list_type.value_field()->nullable(), &ext_set));
-    lit_->mutable_list()->set_allocated_element_type(element_type.release());
 
     auto values = lit_->mutable_list()->mutable_values();
     values->Reserve(static_cast<int>(s.value->length()));
@@ -495,6 +512,13 @@ struct ToProtoImpl {
   Status Visit(const DictionaryScalar& s) { return NotImplemented(s); }
 
   Status Visit(const MapScalar& s) {
+    ExtensionSet ext_set;
+    if (s.value->length() == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto map_type, ToProto(*s.type, /*nullable=*/true, &ext_set));
+      lit_->set_allocated_empty_map(map_type->release_map());
+      return Status::OK();
+    }
+
     lit_->set_allocated_map(new Lit::Map());
 
     const auto& kv_arr = internal::checked_cast<const StructArray&>(*s.value);
@@ -581,17 +605,17 @@ struct ToProtoImpl {
 
   Status operator()(const Scalar& scalar) { return VisitScalarInline(scalar, this); }
 
-  st::Expression::Literal* lit_;
+  substrait::Expression::Literal* lit_;
 };
 }  // namespace
 
-Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum& datum) {
+Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum& datum) {
   if (!datum.is_scalar()) {
     return Status::NotImplemented("representing ", datum.ToString(),
                                   " as a substrait::Expression::Literal");
   }
 
-  auto out = internal::make_unique<st::Expression::Literal>();
+  auto out = internal::make_unique<substrait::Expression::Literal>();
 
   if (datum.scalar()->is_valid) {
     RETURN_NOT_OK((ToProtoImpl{out.get()})(*datum.scalar()));
@@ -604,12 +628,12 @@ Result<std::unique_ptr<st::Expression::Literal>> ToProto(const Datum& datum) {
   return std::move(out);
 }
 
-Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr) {
+Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression& expr) {
   if (!expr.IsBound()) {
     return Status::Invalid("ToProto requires a bound Expression");
   }
 
-  auto out = internal::make_unique<st::Expression>();
+  auto out = internal::make_unique<substrait::Expression>();
 
   if (auto datum = expr.literal()) {
     ARROW_ASSIGN_OR_RAISE(auto literal, ToProto(*datum));
@@ -623,21 +647,21 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
 
     for (auto it = param->indices.begin(); it != param->indices.end(); ++it) {
       auto struct_field =
-          internal::make_unique<st::Expression::ReferenceSegment::StructField>();
+          internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
       struct_field->set_field(*it);
 
-      auto ref_segment = internal::make_unique<st::Expression::ReferenceSegment>();
+      auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
       ref_segment->set_allocated_struct_field(struct_field.release());
 
-      auto selection = internal::make_unique<st::Expression::FieldReference>();
+      auto selection = internal::make_unique<substrait::Expression::FieldReference>();
       selection->set_allocated_direct_reference(ref_segment.release());
 
       if (out->has_selection()) {
         selection->set_allocated_expression(out.release());
-        out = internal::make_unique<st::Expression>();
+        out = internal::make_unique<substrait::Expression>();
       } else {
         selection->set_allocated_root_reference(
-            new st::Expression::FieldReference::RootReference());
+            new substrait::Expression::FieldReference::RootReference());
       }
 
       out->set_allocated_selection(selection.release());
@@ -649,7 +673,7 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   auto call = CallNotNull(expr);
 
   // convert all arguments first
-  std::vector<std::unique_ptr<st::Expression>> arguments(call->arguments.size());
+  std::vector<std::unique_ptr<substrait::Expression>> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(arguments[i], ToProto(call->arguments[i]));
   }
@@ -660,14 +684,15 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
         auto list_element =
-            internal::make_unique<st::Expression::ReferenceSegment::ListElement>();
+            internal::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
 
         list_element->set_offset(arguments[1]->literal().i32());
 
-        auto ref_segment = internal::make_unique<st::Expression::ReferenceSegment>();
+        auto ref_segment =
+            internal::make_unique<substrait::Expression::ReferenceSegment>();
         ref_segment->set_allocated_list_element(list_element.release());
 
-        auto field_ref = internal::make_unique<st::Expression::FieldReference>();
+        auto field_ref = internal::make_unique<substrait::Expression::FieldReference>();
         field_ref->set_allocated_direct_reference(ref_segment.release());
         field_ref->set_allocated_expression(arguments[0].release());
 
@@ -679,11 +704,11 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
 
   if (call->function_name == "if_else") {
     // catch the special case of calls convertible to IfThen
-    auto if_clause = internal::make_unique<st::Expression::IfThen::IfClause>();
+    auto if_clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
     if_clause->set_allocated_if_(arguments[0].release());
     if_clause->set_allocated_then(arguments[1].release());
 
-    auto if_then = internal::make_unique<st::Expression::IfThen>();
+    auto if_then = internal::make_unique<substrait::Expression::IfThen>();
     if_then->mutable_ifs()->AddAllocated(if_clause.release());
     if_then->set_allocated_else_(arguments[2].release());
 
@@ -696,11 +721,11 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
     auto conditions = call->arguments[0].call();
     if (conditions && conditions->function_name == "make_struct") {
       // catch the special case of calls convertible to SwitchExpression
-      auto switch_ = internal::make_unique<st::Expression::SwitchExpression>();
+      auto switch_ = internal::make_unique<substrait::Expression::SwitchExpression>();
 
       for (auto& cond : conditions->arguments) {
         auto if_value =
-            internal::make_unique<st::Expression::SwitchExpression::IfValue>();
+            internal::make_unique<substrait::Expression::SwitchExpression::IfValue>();
         if_value->set_allocated_if_(arguments[0].release());
         if_value->set_allocated_then(arguments[1].release());
 
@@ -709,7 +734,7 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
 
       switch_->set_allocated_else_(arguments[2].release());
 
-      auto out = std::move(arguments[0]);  // reuse an emptied st::Expression
+      auto out = std::move(arguments[0]);  // reuse an emptied substrait::Expression
       out->set_allocated_switch_expression(switch_.release());
       return std::move(out);
     }
@@ -718,7 +743,7 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
   ExtensionSet* ext_set = nullptr;
   ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction({"", call->function_name}));
 
-  auto scalar_fn = internal::make_unique<st::Expression::ScalarFunction>();
+  auto scalar_fn = internal::make_unique<substrait::Expression::ScalarFunction>();
   scalar_fn->set_function_reference(anchor);
   scalar_fn->mutable_args()->Reserve(arguments.size());
   for (auto& arg : arguments) {

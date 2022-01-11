@@ -27,23 +27,21 @@
 
 #include "generated/substrait/type.pb.h"  // IWYU pragma: export
 
-namespace st = io::substrait;
-
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const st::Type&,
+Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(const substrait::Type&,
                                                              const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<st::Type>> ToProto(const DataType&, bool nullable, ExtensionSet*);
+Result<std::unique_ptr<substrait::Type>> ToProto(const DataType&, bool nullable, ExtensionSet*);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Schema>> FromProto(const st::NamedStruct&);
+Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<st::NamedStruct>> ToProto(const Schema&);
+Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema&);
 
 inline std::string TimestampTzTimezoneString() { return "UTC"; }
 

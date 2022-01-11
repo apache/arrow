@@ -103,7 +103,7 @@ google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
 
 std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view type_name,
                                           util::string_view json) {
-  std::string type_url = "/io.substrait." + type_name.to_string();
+  std::string type_url = "/substrait." + type_name.to_string();
 
   google::protobuf::io::ArrayInputStream json_stream{json.data(),
                                                      static_cast<int>(json.size())};
@@ -119,7 +119,7 @@ std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view type_name,
 }
 
 std::string SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
-  std::string type_url = "/io.substrait." + type_name.to_string();
+  std::string type_url = "/substrait." + type_name.to_string();
 
   google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
                                                     static_cast<int>(buf.size())};
@@ -380,7 +380,7 @@ TEST(Substrait, SupportedLiterals) {
   ExpectEq(R"({"timestamp_tz": "579"})", TimestampScalar(579, TimeUnit::MICRO, "UTC"));
 
   // special case for empty lists
-  ExpectEq(R"({"list": {"element_type": {"i32": {}}, "values": []}})",
+  ExpectEq(R"({"empty_list": {"type": {"i32": {}}}})",
            ScalarFromJSON(list(int32()), "[]"));
 
   ExpectEq(R"({"struct": {
@@ -426,10 +426,11 @@ TEST(Substrait, CannotDeserializeLiteral) {
               Raises(StatusCode::Invalid));
 
   // Invalid: required null literal
-  EXPECT_THAT(DeserializeExpression(*SubstraitFromJSON(
-                  "Expression",
-                  R"({"literal": {"null": {"bool": {"nullability": "REQUIRED"}}}})")),
-              Raises(StatusCode::Invalid));
+  EXPECT_THAT(
+      DeserializeExpression(*SubstraitFromJSON(
+          "Expression",
+          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})")),
+      Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
   // FIXME no way to specify scalars of user_defined_type_reference

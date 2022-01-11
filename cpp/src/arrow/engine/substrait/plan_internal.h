@@ -24,17 +24,15 @@
 #include "arrow/type_fwd.h"
 #include "generated/substrait/plan.pb.h"  // IWYU pragma: export
 
-namespace st = io::substrait;
-
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Status AddExtensionSetToPlan(const ExtensionSet&, st::Plan*);
+Status AddExtensionSetToPlan(const ExtensionSet&, substrait::Plan*);
 
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
-    const st::Plan&, ExtensionIdRegistry* = default_extension_id_registry());
+    const substrait::Plan&, ExtensionIdRegistry* = default_extension_id_registry());
 
 }  // namespace engine
 }  // namespace arrow

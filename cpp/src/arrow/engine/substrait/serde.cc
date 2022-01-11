@@ -55,12 +55,12 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
-Result<compute::Declaration> Convert(const st::PlanRel& relation) {
+Result<compute::Declaration> Convert(const substrait::PlanRel& relation) {
   return Status::NotImplemented("");
 }
 
 Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
-  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<st::Plan>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   std::vector<compute::Declaration> decls;
   for (const auto& relation : plan.relations()) {
@@ -72,7 +72,7 @@ Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
 }
 
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf) {
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<st::NamedStruct>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<substrait::NamedStruct>(buf));
   return FromProto(named_struct);
 }
 
@@ -84,7 +84,7 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema) {
 
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer& buf,
                                                   const ExtensionSet& ext_set) {
-  ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<st::Type>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto type, ParseFromBuffer<substrait::Type>(buf));
   ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(type, ext_set));
   return std::move(type_nullable.first);
 }
@@ -97,7 +97,7 @@ Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
 }
 
 Result<compute::Expression> DeserializeExpression(const Buffer& buf) {
-  ARROW_ASSIGN_OR_RAISE(auto expr, ParseFromBuffer<st::Expression>(buf));
+  ARROW_ASSIGN_OR_RAISE(auto expr, ParseFromBuffer<substrait::Expression>(buf));
   return FromProto(expr);
 }
 
