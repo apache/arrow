@@ -102,12 +102,6 @@ struct GenerateOptions {
     std::generate(data, data + n, [&] { return static_cast<ValueType>(dist(rng)); });
   }
 
-  void GenerateFullDayNoNan(uint8_t* buffer, size_t n) {
-    int64_t* data = reinterpret_cast<int64_t*>(buffer);
-    constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
-    std::for_each(data, data + n, [&](int64_t v) { return v * kFullDayMillis; });
-  }
-
   void GenerateBitmap(uint8_t* buffer, size_t n, int64_t* null_count) {
     int64_t count = 0;
     pcg32_fast rng(seed_++);
@@ -175,6 +169,12 @@ std::shared_ptr<Array> RandomArrayGenerator::Boolean(int64_t size,
   return std::make_shared<BooleanArray>(array_data);
 }
 
+void GenerateFullDayMillisNoNan(uint8_t* buffer, size_t n) {
+  int64_t* data = reinterpret_cast<int64_t*>(buffer);
+  constexpr int64_t kFullDayMillis = 1000 * 60 * 60 * 24;
+  std::for_each(data, data + n, [&](int64_t& v) { return v *= kFullDayMillis; });
+}
+
 template <typename ArrowType, typename OptionType>
 static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t size,
                                                                      OptionType options) {
@@ -189,7 +189,7 @@ static std::shared_ptr<NumericArray<ArrowType>> GenerateNumericArray(int64_t siz
   buffers[1] = *AllocateBuffer(sizeof(CType) * size);
   options.GenerateData(buffers[1]->mutable_data(), size);
   if (std::is_same<ArrowType, Date64Type>::value) {
-    options.GenerateFullDayNoNan(buffers[1]->mutable_data(), size);
+    GenerateFullDayMillisNoNan(buffers[1]->mutable_data(), size);
   }
 
   auto array_data = ArrayData::Make(type, size, buffers, null_count);
@@ -793,8 +793,6 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
       GENERATE_INTEGRAL_CASE_VIEW(Int32Type, MonthIntervalType);
 
     case Type::type::DATE64: {
-      std::shared_ptr<Date64Type> type =
-          std::dynamic_pointer_cast<Date64Type>(field.type());
       using c_type = typename Date64Type::c_type;
       constexpr c_type kFullDayMillis = 1000 * 60 * 60 * 24;
       constexpr c_type min_value = std::numeric_limits<c_type>::min() / kFullDayMillis;
@@ -805,26 +803,24 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
     case Type::type::TIME32: {
-      std::shared_ptr<Time32Type> type =
-          std::dynamic_pointer_cast<Time32Type>(field.type());
+      TimeUnit::type unit = std::dynamic_pointer_cast<Time32Type>(field.type())->unit();
       using c_type = typename Time32Type::c_type;
       const c_type min_value = 0;
-      const c_type max_value = (type->unit() == TimeUnit::SECOND)
-                                   ? (60 * 60 * 24 - 1)
-                                   : (1000 * 60 * 60 * 24 - 1);
+      const c_type max_value =
+          (unit == TimeUnit::SECOND) ? (60 * 60 * 24 - 1) : (1000 * 60 * 60 * 24 - 1);
 
       return *Numeric<Int32Type>(length, min_value, max_value, null_probability)
                   ->View(field.type());
     }
 
     case Type::type::TIME64: {
-      std::shared_ptr<Time64Type> type =
-          std::dynamic_pointer_cast<Time64Type>(field.type());
+      TimeUnit::type unit = std::dynamic_pointer_cast<Time64Type>(field.type())->unit();
       using c_type = typename Time64Type::c_type;
       const c_type min_value = 0;
-      const c_type max_value = (type->unit() == TimeUnit::MICRO)
+      const c_type max_value = (unit == TimeUnit::MICRO)
                                    ? (1000000LL * 60 * 60 * 24 - 1)
                                    : (1000000000LL * 60 * 60 * 24 - 1);
+
       return *Numeric<Int64Type>(length, min_value, max_value, null_probability)
                   ->View(field.type());
     }
