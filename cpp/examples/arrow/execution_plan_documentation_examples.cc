@@ -172,7 +172,7 @@ arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
 struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
   std::shared_ptr<arrow::Schema> schema;
-  // // This method uses internal arrow utilities to 
+  // // This method uses internal arrow utilities to
   // // convert a vector of record batches to an AsyncGenerator of optional batches
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen() const {
     auto opt_batches = ::arrow::internal::MapVector(
@@ -307,8 +307,8 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {scan},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {scan}, cp::SinkNodeOptions{&sink_gen}));
 
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -362,8 +362,8 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {source},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {source}, cp::SinkNodeOptions{&sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -440,8 +440,8 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
 
   // // finally, pipe the project node into a sink node
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {filter},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {filter}, cp::SinkNodeOptions{&sink_gen}));
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
@@ -505,8 +505,8 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
                                                   cp::ProjectNodeOptions{{a_times_2}}));
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {project},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {project}, cp::SinkNodeOptions{&sink_gen}));
 
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
@@ -573,8 +573,8 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
       cp::ExecNode * aggregate,
       cp::MakeExecNode("aggregate", plan.get(), {source}, aggregate_options));
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {aggregate},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {aggregate}, cp::SinkNodeOptions{&sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
@@ -700,11 +700,10 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  ARROW_RETURN_NOT_OK(
-      cp::MakeExecNode("order_by_sink", plan.get(), {source},
-                       cp::OrderBySinkNodeOptions{
-                           cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}},
-                           &sink_gen}));
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode(
+      "order_by_sink", plan.get(), {source},
+      cp::OrderBySinkNodeOptions{
+          cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}}, &sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -760,8 +759,8 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
       auto hashjoin,
       cp::MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
 
-  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {hashjoin},
-                                                      cp::SinkNodeOptions{&sink_gen}));
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {hashjoin}, cp::SinkNodeOptions{&sink_gen}));
   // expected columns i32, str, l_str, r_str
 
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -962,20 +961,17 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
   cp::CountOptions options(cp::CountOptions::ONLY_VALID);
   ARROW_ASSIGN_OR_RAISE(
-      auto declr,
-      cp::Declaration::Sequence(
-          {
-              union_node,
-              {"sink", cp::SinkNodeOptions{&sink_gen}},
-          })
-          .AddToPlan(plan.get()));
+      auto declr, cp::Declaration::Sequence({
+                                                union_node,
+                                                {"sink", cp::SinkNodeOptions{&sink_gen}},
+                                            })
+                      .AddToPlan(plan.get()));
 
   ABORT_NOT_OK(declr->Validate());
 
   ABORT_NOT_OK(plan->Validate());
-  std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(basic_data.schema,
-                              std::move(sink_gen), exec_context.memory_pool());
+  std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
+      basic_data.schema, std::move(sink_gen), exec_context.memory_pool());
 
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
