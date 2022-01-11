@@ -241,7 +241,7 @@ export class Table<T extends TypeMap = any> {
      * @returns  A string representation of the Table rows.
      */
     public toString() {
-        return this.toArray().join('\n');
+        return `[\n  ${this.toArray().join(',\n  ')}\n]`;
     }
 
     /**
