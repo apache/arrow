@@ -1104,6 +1104,19 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTimestampAndDuration) {
   CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDate) {
+  std::string op = "subtract";
+  auto arr_date32s = ArrayFromJSON(date32(), date32s);
+  auto arr_date32s2 = ArrayFromJSON(date32(), date32s2);
+  auto arr_date64s = ArrayFromJSON(date64(), date64s);
+  auto arr_date64s2 = ArrayFromJSON(date64(), date64s2);
+
+  CheckScalarBinary(op, arr_date32s2, arr_date32s,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+  CheckScalarBinary(op, arr_date64s2, arr_date64s,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
   auto raw_days = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([
     "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",

@@ -214,6 +214,15 @@ struct SubtractChecked {
   }
 };
 
+struct SubtractDate32 {
+  static constexpr int64_t kSecondsInDay = 86400;
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left, right) * kSecondsInDay;
+  }
+};
+
 struct Multiply {
   static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
@@ -1490,6 +1499,8 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
     case Type::INT64:
     case Type::TIMESTAMP:
       return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
+    case Type::DATE64:
+      return KernelGenerator<Int64Type, Date64Type, Op>::Exec;
     case Type::UINT64:
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     case Type::FLOAT:
@@ -2436,6 +2447,19 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
                                   std::move(exec)));
   }
+
+  // Add subtract(date32, date32) -> duration(TimeUnit::SECOND)
+  InputType in_type_date_32(date32());
+  auto exec_date_32 = ScalarBinaryEqualTypes<Int64Type, Date32Type, SubtractDate32>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_32, in_type_date_32},
+                                duration(TimeUnit::MILLI), std::move(exec_date_32)));
+
+  // Add subtract(date64, date64) -> duration(TimeUnit::MILLI)
+  InputType in_type_date_64(date64());
+  auto exec_date_64 =
+      ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DATE64);
+  DCHECK_OK(subtract->AddKernel({in_type_date_64, in_type_date_64},
+                                duration(TimeUnit::MILLI), std::move(exec_date_64)));
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
