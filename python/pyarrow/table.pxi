@@ -1076,7 +1076,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         pydict = self.to_pydict()
         names = self.schema.names
-        pylist = [{column: pydict[column][row] for column in names} 
+        pylist = [{column: pydict[column][row] for column in names}
                   for row in range(self.num_rows)]
         return pylist
 
