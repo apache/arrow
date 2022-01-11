@@ -72,6 +72,7 @@ may expose data type-specific methods or properties.
    ListArray
    FixedSizeListArray
    LargeListArray
+   MapArray
    StructArray
    UnionArray
    ExtensionArray
@@ -123,5 +124,6 @@ classes may expose data type-specific methods or properties.
    DictionaryScalar
    ListScalar
    LargeListScalar
+   MapScalar
    StructScalar
    UnionScalar

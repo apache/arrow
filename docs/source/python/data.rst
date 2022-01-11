@@ -52,7 +52,7 @@ array data. These include:
 * **Fixed-length primitive types**: numbers, booleans, date and times, fixed
   size binary, decimals, and other values that fit into a given number
 * **Variable-length primitive types**: binary, string
-* **Nested types**: list, struct, and union
+* **Nested types**: list, map, struct, and union
 * **Dictionary type**: An encoded categorical type (more on this later)
 
 Each logical data type in Arrow has a corresponding factory function for
@@ -90,7 +90,7 @@ user-defined metadata:
    f0.name
    f0.type
 
-Arrow supports **nested value types** like list, struct, and union. When
+Arrow supports **nested value types** like list, map, struct, and union. When
 creating these, you must pass types or fields to indicate the data types of the
 types' children. For example, we can define a list of int32 values with:
 
@@ -233,9 +233,15 @@ like lists:
 Struct arrays
 ~~~~~~~~~~~~~
 
-For other kinds of nested arrays, such as struct arrays, you currently need
-to pass the type explicitly.  Struct arrays can be initialized from a
-sequence of Python dicts or tuples:
+``pyarrow.array`` is able to infer the schema of a struct type from arrays of
+dictionaries:
+
+.. ipython:: python
+
+   pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
+
+Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples, 
+you must explicitly pass the type:
 
 .. ipython:: python
 
@@ -263,6 +269,32 @@ individual arrays, and no copy is involved:
    arr = pa.StructArray.from_arrays((xs, ys), names=('x', 'y'))
    arr.type
    arr
+
+Map arrays
+~~~~~~~~~~
+
+Map arrays can be constructed from lists of lists of tuples (key-item pairs), but only if
+the type is explicitly passed into :meth:`array`:
+
+.. ipython:: python
+
+   data = [[('x', 1), ('y', 0)], [('a', 2), ('b', 45)]]
+   ty = pa.map_(pa.string(), pa.int64())
+   pa.array(data, type=ty)
+
+MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the 
+starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
+properties give the *flattened* keys and items. To keep the keys and items associated to 
+their row, use the :meth:`ListArray.from_arrays` constructor with the 
+:attr:`MapArray.offsets` property.
+
+.. ipython:: python
+
+   arr = pa.MapArray.from_arrays([0, 2, 3], ['x', 'y', 'z'], [4, 5, 6])
+   arr.keys
+   arr.items
+   pa.ListArray.from_arrays(arr.offsets, arr.keys)
+   pa.ListArray.from_arrays(arr.offsets, arr.items)
 
 Union arrays
 ~~~~~~~~~~~~

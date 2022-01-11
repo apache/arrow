@@ -1800,7 +1800,7 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
-cdef class MapArray(Array):
+cdef class MapArray(ListArray):
     """
     Concrete class for Arrow arrays of a map data type.
     """
@@ -1841,10 +1841,12 @@ cdef class MapArray(Array):
 
     @property
     def keys(self):
+        """Flattened array of keys across all maps in array"""
         return pyarrow_wrap_array((<CMapArray*> self.ap).keys())
 
     @property
     def items(self):
+        """Flattened array of items across all maps in array"""
         return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
