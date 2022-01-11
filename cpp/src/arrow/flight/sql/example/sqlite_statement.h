@@ -30,7 +30,6 @@ namespace flight {
 namespace sql {
 namespace example {
 
-
 /// \brief Create an object ColumnMetadata using the column type and
 ///        table name.
 /// \param column_type  The SQLite type.

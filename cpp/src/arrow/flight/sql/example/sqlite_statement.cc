@@ -60,9 +60,7 @@ int32_t GetPrecisionFromColumn(int column_type) {
 ColumnMetadata GetColumnMetadata(int column_type, const char* table) {
   ColumnMetadata::ColumnMetadataBuilder builder = ColumnMetadata::Builder();
 
-  builder.Scale(15)
-    .IsAutoIncrement(false)
-    .IsReadOnly(false);
+  builder.Scale(15).IsAutoIncrement(false).IsReadOnly(false);
   if (table == NULLPTR) {
     return builder.Build();
   } else if (column_type == SQLITE_TEXT || column_type == SQLITE_BLOB) {
@@ -70,8 +68,7 @@ ColumnMetadata GetColumnMetadata(int column_type, const char* table) {
     builder.TableName(table_name);
   } else {
     std::string table_name(table);
-      builder.TableName(table_name)
-      .Precision(GetPrecisionFromColumn(column_type));
+    builder.TableName(table_name).Precision(GetPrecisionFromColumn(column_type));
   }
   return builder.Build();
 }
@@ -130,8 +127,8 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
     }
     ColumnMetadata column_metadata = GetColumnMetadata(column_type, table);
 
-    fields.push_back(arrow::field(column_name, data_type,
-                                  column_metadata.metadata_map()));
+    fields.push_back(
+        arrow::field(column_name, data_type, column_metadata.metadata_map()));
   }
 
   return arrow::schema(fields);

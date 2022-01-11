@@ -113,7 +113,7 @@ class ColumnMetadata {
     /// \brief Set the catalog name in the KeyValueMetadata object.
     /// \param[in] catalog_name The catalog name.
     /// \return                 A ColumnMetadataBuilder.
-    ColumnMetadataBuilder& CatalogName(std::string &catalog_name);
+    ColumnMetadataBuilder& CatalogName(std::string& catalog_name);
 
     /// \brief Set the schema_name in the KeyValueMetadata object.
     /// \param[in] schema_name The schema_name.
