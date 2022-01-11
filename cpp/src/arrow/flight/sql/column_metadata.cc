@@ -106,8 +106,7 @@ arrow::Result<bool> ColumnMetadata::GetIsSearchable() const {
 }
 
 ColumnMetadata::ColumnMetadataBuilder ColumnMetadata::Builder() {
-  const ColumnMetadataBuilder &builder = ColumnMetadataBuilder{};
-  return builder;
+  return ColumnMetadataBuilder{};
 }
 
 std::shared_ptr<arrow::KeyValueMetadata> ColumnMetadata::GetMetadataMap() const {
