@@ -78,10 +78,12 @@ Scanner$create <- function(dataset,
                            fragment_scan_options = NULL,
                            ...) {
   if (!is.null(use_async)) {
-      .Deprecated(msg = paste0("The parameter 'use_async' is deprecated ",
-      "and will be removed in a future release."))
+    .Deprecated(msg = paste0(
+      "The parameter 'use_async' is deprecated ",
+      "and will be removed in a future release."
+    ))
   }
-  
+
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (is_collapsed(dataset)) {
       # TODO: Is there a way to get a RecordBatchReader rather than evaluating?
@@ -205,7 +207,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
     res <- dplyr::bind_rows(map(res, collect))
   } else if (.data.frame) {
-     res <- dplyr::bind_rows(map(res, as.data.frame))
+    res <- dplyr::bind_rows(map(res, as.data.frame))
   }
 
   res
@@ -241,8 +243,10 @@ ScannerBuilder <- R6Class("ScannerBuilder",
       self
     },
     UseAsync = function(use_async = TRUE) {
-      .Deprecated(msg = paste0("The function 'UseAsync' is deprecated and ",
-      "will be removed in a future release."))
+      .Deprecated(msg = paste0(
+        "The function 'UseAsync' is deprecated and ",
+        "will be removed in a future release."
+      ))
       self
     },
     BatchSize = function(batch_size) {
