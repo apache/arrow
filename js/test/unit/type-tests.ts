@@ -15,23 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { generateRandomTables } from '../../../data/tables.js';
-import { ArrowIOTestHelper } from '../helpers.js';
-import { validateRecordBatchReader } from '../validate.js';
+import { Decimal } from 'apache-arrow';
 
-import { RecordBatchReader } from 'apache-arrow';
-
-for (const table of generateRandomTables([10, 20, 30])) {
-
-    const io = ArrowIOTestHelper.json(table);
-    const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
-
-    describe(`RecordBatchJSONReader (${name})`, () => {
-        describe(`should read all RecordBatches`, () => {
-            test(`Uint8Array`, io.buffer((buffer) => {
-                const json = JSON.parse(Buffer.from(buffer).toString());
-                validateRecordBatchReader('json', 3, RecordBatchReader.from(json));
-            }));
-        });
+describe(`Decimal`, () => {
+    test(`has default bit width of 128`, () => {
+        const decimal = new Decimal(2, 9);
+        expect(decimal.bitWidth).toBe(128);
     });
-}
+});
