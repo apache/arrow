@@ -128,6 +128,7 @@ def test_option_class_equality():
     options = [
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
+        pc.BetweenOptions("both"),
         pc.CastOptions.safe(pa.int8()),
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
@@ -1337,6 +1338,28 @@ def test_filter_null_type():
     assert len(chunked_arr.filter(mask)) == 5
     assert len(batch.filter(mask).column(0)) == 5
     assert len(table.filter(mask).column(0)) == 5
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    arr1 = con([1, 1, 3, 4, None, 5])
+    arr2 = con([1, 2, 4, None, 4, 7])
+    val = con([1, 1, 4, 3, 2, 6])
+
+    inclusive_and_expected = {
+        "both": [True, True, True, None, None, True],
+        "left": [False, True, False, None, None, True],
+        "right": [False, False, True, None, None, True],
+        "neither": [False, False, False, None, None, True],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, arr1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])

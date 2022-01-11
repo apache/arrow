@@ -2269,8 +2269,8 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
                     "[null,null,null,null,null,null]"));
   BetweenOptions InclusiveNeither(Inclusive::NEITHER);
   ValidateBetween<TypeParam>(
-      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero,
-      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
+      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
       InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
       zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
@@ -2414,8 +2414,7 @@ struct BetweenRandomNumeric {
     const int64_t length = 1000;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusive :
-           {Inclusive::BOTH, Inclusive::LEFT,
-            Inclusive::RIGHT, Inclusive::NEITHER}) {
+           {Inclusive::BOTH, Inclusive::LEFT, Inclusive::RIGHT, Inclusive::NEITHER}) {
         auto data1 =
             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
         auto data2 =
@@ -2457,15 +2456,14 @@ TEST(TestStringBetweenKernel, RandomBetween) {
   for (size_t i = 3; i < 10; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusive :
-           {Inclusive::BOTH, Inclusive::LEFT,
-            Inclusive::RIGHT, Inclusive::NEITHER}) {
+           {Inclusive::BOTH, Inclusive::LEFT, Inclusive::RIGHT, Inclusive::NEITHER}) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array1 = Datum(rand.String(length, 0, 16, null_probability));
         auto array2 = Datum(rand.String(length, 0, 16, null_probability));
         auto array3 = Datum(rand.String(length, 0, 16, null_probability));
         auto scalar1 = Datum(std::make_shared<ScalarType>("fupi"));
         auto scalar2 = Datum(std::make_shared<ScalarType>("tupu"));
-	auto scalar3 = Datum(std::make_shared<ScalarType>("zito"));
+        auto scalar3 = Datum(std::make_shared<ScalarType>("zito"));
         auto options = BetweenOptions(inclusive);
         ValidateBetween<StringType>(options, array1, scalar2, scalar3);
         ValidateBetween<StringType>(options, scalar1, array2, scalar3);
