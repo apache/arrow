@@ -215,9 +215,9 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
   util::tracing::Span span;
-  START_SPAN(span, "Function::Execute", {{"function", name()}, {"kind", kind()}});
-  // todo(mb): add options to attributes. Requires fixing Option ToString impls for all
-  // option types.
+  START_SPAN(span, name(),
+             {{"detail", options ? options->ToString() : "<NULLPTR>"},
+              {"function.kind", kind()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible
