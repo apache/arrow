@@ -389,19 +389,19 @@ class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
         Object.defineProperty(this, 'isMemoized', { value: true });
 
+        Object.defineProperty(this, 'unmemoize', {
+            value: () => new Vector(this.data)
+        });
+
+        Object.defineProperty(this, 'memoize', {
+            value: () => this
+        });
+
         Object.defineProperty(this, 'slice', {
             value(begin?: number, end?: number) {
                 return new MemoizedVector(slice.call(this, begin, end));
             }
         });
-    }
-
-    public memoize() {
-        return this;
-    }
-
-    public unmemoize() {
-        return new Vector(this.data);
     }
 }
 
