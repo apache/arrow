@@ -347,10 +347,13 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit) {
     case substrait::Expression::Literal::kEmptyMap: {
       ARROW_ASSIGN_OR_RAISE(auto key_type_nullable,
                             FromProto(lit.empty_map().key(), ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto keys,
+                            MakeEmptyArray(std::move(key_type_nullable.first)));
+
       ARROW_ASSIGN_OR_RAISE(auto value_type_nullable,
                             FromProto(lit.empty_map().value(), ext_set));
-      ARROW_ASSIGN_OR_RAISE(auto keys, MakeEmptyArray(key_type_nullable.first));
-      ARROW_ASSIGN_OR_RAISE(auto values, MakeEmptyArray(value_type_nullable.first));
+      ARROW_ASSIGN_OR_RAISE(auto values,
+                            MakeEmptyArray(std::move(value_type_nullable.first)));
 
       auto map_type = std::make_shared<MapType>(keys->type(), values->type());
       ARROW_ASSIGN_OR_RAISE(
@@ -358,6 +361,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit) {
           StructArray::Make(
               {std::move(keys), std::move(values)},
               checked_cast<const ListType&>(*map_type).value_type()->fields()));
+
       return MapScalar{std::move(key_values)};
     }
 

@@ -92,46 +92,17 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
-  static std::unique_ptr<google::protobuf::util::TypeResolver> type_resolver;
-  if (!type_resolver) {
-    type_resolver.reset(google::protobuf::util::NewTypeResolverForDescriptorPool(
-        /*url_prefix=*/"", google::protobuf::DescriptorPool::generated_pool()));
-  }
-  return type_resolver.get();
-}
-
 std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view type_name,
                                           util::string_view json) {
-  std::string type_url = "/substrait." + type_name.to_string();
-
-  google::protobuf::io::ArrayInputStream json_stream{json.data(),
-                                                     static_cast<int>(json.size())};
-
-  std::string out;
-  google::protobuf::io::StringOutputStream out_stream{&out};
-
-  auto status = google::protobuf::util::JsonToBinaryStream(
-      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream);
-  DCHECK(status.ok()) << "JsonToBinaryStream returned " << status;
-
-  return Buffer::FromString(std::move(out));
+  auto maybe_buf = internal::SubstraitFromJSON(type_name, json);
+  DCHECK_OK(maybe_buf.status());
+  return maybe_buf.ValueOrDie();
 }
 
 std::string SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
-  std::string type_url = "/substrait." + type_name.to_string();
-
-  google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
-                                                    static_cast<int>(buf.size())};
-
-  std::string out;
-  google::protobuf::io::StringOutputStream out_stream{&out};
-
-  auto status = google::protobuf::util::BinaryToJsonStream(
-      GetGeneratedTypeResolver(), type_url, &buf_stream, &out_stream);
-  DCHECK(status.ok()) << "BinaryToJsonStream returned " << status;
-
-  return out;
+  auto maybe_buf = internal::SubstraitToJSON(type_name, buf);
+  DCHECK_OK(maybe_buf.status());
+  return maybe_buf.ValueOrDie();
 }
 
 TEST(Substrait, SupportedTypes) {
@@ -146,6 +117,9 @@ TEST(Substrait, SupportedTypes) {
 
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &empty));
     EXPECT_EQ(empty.types().size(), 0);
+
+    // FIXME chokes on NULLABILITY_UNSPECIFIED
+    // EXPECT_THAT(internal::CheckMessagesEquivalent("Type", *buf, *serialized), Ok());
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, empty));
 

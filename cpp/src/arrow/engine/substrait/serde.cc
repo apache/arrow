@@ -20,18 +20,15 @@
 #include "arrow/engine/substrait/expression_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/string_view.h"
-#include "google/protobuf/io/zero_copy_stream_impl_lite.h"
-#include "google/protobuf/message.h"
+
+#include <google/protobuf/descriptor.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/message.h>
+#include <google/protobuf/util/json_util.h>
+#include <google/protobuf/util/message_differencer.h>
+#include <google/protobuf/util/type_resolver_util.h>
 
 #include "generated/substrait/plan.pb.h"
-
-namespace google {
-namespace protobuf {
-
-class Message;
-
-}  // namespace protobuf
-}  // namespace google
 
 namespace arrow {
 namespace engine {
@@ -107,5 +104,88 @@ Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& e
   return Buffer::FromString(std::move(serialized));
 }
 
+namespace internal {
+
+template <typename Message>
+static Status CheckMessagesEquivalent(const Buffer& l_buf, const Buffer& r_buf) {
+  ARROW_ASSIGN_OR_RAISE(auto l, ParseFromBuffer<Message>(l_buf));
+  ARROW_ASSIGN_OR_RAISE(auto r, ParseFromBuffer<Message>(r_buf));
+
+  using google::protobuf::util::MessageDifferencer;
+
+  std::string out;
+  google::protobuf::io::StringOutputStream out_stream{&out};
+  MessageDifferencer::StreamReporter reporter{&out_stream};
+
+  MessageDifferencer differencer;
+  differencer.set_message_field_comparison(MessageDifferencer::EQUIVALENT);
+  differencer.ReportDifferencesTo(&reporter);
+
+  if (differencer.Compare(l, r)) {
+    return Status::OK();
+  }
+  return Status::Invalid("Messages were not equivalent: ", out);
+}
+
+Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_buf,
+                               const Buffer& r_buf) {
+  if (message_name == "Type") {
+    return CheckMessagesEquivalent<substrait::Type>(l_buf, r_buf);
+  }
+
+  if (message_name == "Expression") {
+    return CheckMessagesEquivalent<substrait::Expression>(l_buf, r_buf);
+  }
+
+  return Status::Invalid("Unsupported message name ", message_name,
+                         " for CheckMessagesEquivalent");
+}
+
+inline google::protobuf::util::TypeResolver* GetGeneratedTypeResolver() {
+  static std::unique_ptr<google::protobuf::util::TypeResolver> type_resolver;
+  if (!type_resolver) {
+    type_resolver.reset(google::protobuf::util::NewTypeResolverForDescriptorPool(
+        /*url_prefix=*/"", google::protobuf::DescriptorPool::generated_pool()));
+  }
+  return type_resolver.get();
+}
+
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
+                                                  util::string_view json) {
+  std::string type_url = "/substrait." + type_name.to_string();
+
+  google::protobuf::io::ArrayInputStream json_stream{json.data(),
+                                                     static_cast<int>(json.size())};
+
+  std::string out;
+  google::protobuf::io::StringOutputStream out_stream{&out};
+
+  auto status = google::protobuf::util::JsonToBinaryStream(
+      GetGeneratedTypeResolver(), type_url, &json_stream, &out_stream);
+
+  if (!status.ok()) {
+    return Status::Invalid("JsonToBinaryStream returned ", status);
+  }
+  return Buffer::FromString(std::move(out));
+}
+
+Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
+  std::string type_url = "/substrait." + type_name.to_string();
+
+  google::protobuf::io::ArrayInputStream buf_stream{buf.data(),
+                                                    static_cast<int>(buf.size())};
+
+  std::string out;
+  google::protobuf::io::StringOutputStream out_stream{&out};
+
+  auto status = google::protobuf::util::BinaryToJsonStream(
+      GetGeneratedTypeResolver(), type_url, &buf_stream, &out_stream);
+  if (!status.ok()) {
+    return Status::Invalid("BinaryToJsonStream returned ", status);
+  }
+  return out;
+}
+
+}  // namespace internal
 }  // namespace engine
 }  // namespace arrow

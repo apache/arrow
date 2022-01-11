@@ -27,6 +27,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace engine {
@@ -51,5 +52,19 @@ Result<compute::Expression> DeserializeExpression(const Buffer&);
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&);
 
+namespace internal {
+
+ARROW_ENGINE_EXPORT
+Status CheckMessagesEquivalent(util::string_view message_name, const Buffer&,
+                               const Buffer&);
+
+ARROW_ENGINE_EXPORT
+Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
+                                                  util::string_view json);
+
+ARROW_ENGINE_EXPORT
+Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf);
+
+}  // namespace internal
 }  // namespace engine
 }  // namespace arrow
