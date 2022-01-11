@@ -288,8 +288,13 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * Adds memoization to the Vector's {@link get} method.
-     * For dictionary vectors, this method return a vector that memoizes only the dictionary values.
+     * Adds memoization to the Vector's {@link get} method. For dictionary
+     * vectors, this method return a vector that memoizes only the dictionary
+     * values.
+     *
+     * Memoization is very useful when decoding a value is expensive such as
+     * Uft8. The memoization creates a cache of the size of the Vector and
+     * therfore increases memory usage.
      *
      * @returns A new vector that memoizes calls to {@link get}.
      */
@@ -307,13 +312,21 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * Returns a new vector without memoization of the {@link get} method.
-     * Memoization is very useful when decoding a value is expensive such as Uft8.
-     * The memoization creates a cache of the size of the Vector and therfore increases memory usage.
+     * Returns a vector without memoization of the {@link get} method. If this
+     * vector is not memoized, this method returns this vector.
      *
-     * @returns A new vector without memoization.
+     * @returns A a vector without memoization.
      */
     public unmemoize(): Vector<T> {
+        if (DataType.isDictionary(this.type) && this.isMemoized) {
+            const dictionary = this.data[0].dictionary!.unmemoize();
+            const newData = this.data.map((data) => {
+                const newData = data.clone();
+                newData.dictionary = dictionary;
+                return newData;
+            });
+            return new Vector(newData);
+        }
         return this;
     }
 
@@ -344,7 +357,7 @@ export class Vector<T extends DataType = any> {
     })(Vector.prototype);
 }
 
-export class MemoizedVector<T extends DataType = any> extends Vector<T> {
+class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
     public constructor(vector: Vector<T>) {
         super(vector.data);
@@ -388,15 +401,6 @@ export class MemoizedVector<T extends DataType = any> extends Vector<T> {
     }
 
     public unmemoize() {
-        if (DataType.isDictionary(this.type)) {
-            const dictionary = this.data[0].dictionary!.unmemoize();
-            const newData = this.data.map((data) => {
-                const newData = data.clone();
-                newData.dictionary = dictionary;
-                return newData;
-            });
-            return new Vector(newData);
-        }
         return new Vector(this.data);
     }
 }

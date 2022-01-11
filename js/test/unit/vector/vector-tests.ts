@@ -104,6 +104,8 @@ describe(`DictionaryVector`, () => {
 
         test(`has memoized dictionary`, () => {
             expect(vector.isMemoized).toBe(true);
+            const unmemoized = vector.unmemoize();
+            expect(unmemoized.isMemoized).toBe(false);
         });
 
         basicVectorTests(vector, values, ['abc', '123']);
