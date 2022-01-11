@@ -757,7 +757,8 @@ chris\t-1
                          output.data.to_s,
                          "application/vnd.apache.arrow.stream") do |port|
           input = URI("http://127.0.0.1:#{port}#{path}")
-          assert_equal(@table, Arrow::Table.load(input))
+          assert_equal(@table,
+                       Arrow::Table.load(input, format: :arrow_streaming))
         end
       end
     end
