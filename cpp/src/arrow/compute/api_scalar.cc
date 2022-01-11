@@ -102,10 +102,8 @@ struct EnumTraits<compute::CompareOperator>
 
 template <>
 struct EnumTraits<compute::Inclusive>
-    : BasicEnumTraits<compute::Inclusive,
-                      compute::Inclusive::BOTH,
-                      compute::Inclusive::LEFT,
-                      compute::Inclusive::RIGHT,
+    : BasicEnumTraits<compute::Inclusive, compute::Inclusive::BOTH,
+                      compute::Inclusive::LEFT, compute::Inclusive::RIGHT,
                       compute::Inclusive::NEITHER> {
   static std::string name() { return "Inclusive"; }
   static std::string value_name(compute::Inclusive value) {
