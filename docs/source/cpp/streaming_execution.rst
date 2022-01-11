@@ -491,8 +491,6 @@ In the future, spillover mechanisms will be added which should alleviate this co
 
 Example::
 
-  arrow::compute::IndexOptions index_options(arrow::MakeScalar("1"));
-
 An example for creating an aggregate node::
 
   arrow::compute::CountOptions options(arrow::compute::CountOptions::ONLY_VALID);
@@ -509,8 +507,6 @@ An example for creating an aggregate node::
 
 Aggregate example:
 
-Filter Example;
-
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
   :start-after: (Doc section: Aggregate Example)
@@ -523,12 +519,17 @@ Filter Example;
 ``sink``
 --------
 
-``sink`` operation can be considered as the option providing output or final node of an streaming 
+``sink`` operation provides output and is the final node of a streaming 
 execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used to pass 
-the required options. Requires 
-``arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>* generator``
-and ``arrow::util::BackpressureOptions backpressure``. 
-An execution plan should only have one "terminal" node (one sink node).
+the required options. Similar to the source operator the sink operator exposes the output
+with a function that returns a record batch future each time it is called.  It is expected the
+caller will repeatedly call this function until the generator function is exhausted (returns
+arrow::util::optional::nullopt).  If this function is not called often enough then record batches
+will accumulate in memory.  An execution plan should only have one
+"terminal" node (one sink node).  An execution plan may "finish" by marking
+`exec_plan->finished()` as complete before the sink generator is fully consumed and the
+execution plan can be safely destroyed without harming the sink generator (which will hold
+references to the unconsumed batches).
 
 Example::
 
