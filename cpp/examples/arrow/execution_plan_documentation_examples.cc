@@ -172,7 +172,8 @@ arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
 struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
   std::shared_ptr<arrow::Schema> schema;
-
+  // // This method uses internal arrow utilities to 
+  // // convert a vector of record batches to an AsyncGenerator of optional batches
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> gen() const {
     auto opt_batches = ::arrow::internal::MapVector(
         [](cp::ExecBatch batch) { return arrow::util::make_optional(std::move(batch)); },
@@ -306,7 +307,7 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
 
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {scan},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {scan},
                                                       cp::SinkNodeOptions{&sink_gen}));
 
   // // translate sink_gen (async) to sink_reader (sync)
@@ -330,9 +331,9 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
   // // stop producing
   plan->StopProducing();
   // // plan mark finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
   return arrow::Status::OK();
 }
 // (Doc section: Scan Example)
@@ -361,7 +362,7 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {source},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {source},
                                                       cp::SinkNodeOptions{&sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
@@ -385,9 +386,9 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // // plan mark finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -439,7 +440,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
 
   // // finally, pipe the project node into a sink node
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {filter},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {filter},
                                                       cp::SinkNodeOptions{&sink_gen}));
   // // translate sink_gen (async) to sink_reader (sync)
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
@@ -460,9 +461,9 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // /// plan marked finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -504,7 +505,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
                                                   cp::ProjectNodeOptions{{a_times_2}}));
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {project},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {project},
                                                       cp::SinkNodeOptions{&sink_gen}));
 
   // // translate sink_gen (async) to sink_reader (sync)
@@ -530,9 +531,9 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // // plan marked finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -572,7 +573,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
       cp::ExecNode * aggregate,
       cp::MakeExecNode("aggregate", plan.get(), {source}, aggregate_options));
 
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {aggregate},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {aggregate},
                                                       cp::SinkNodeOptions{&sink_gen}));
 
   // // // translate sink_gen (async) to sink_reader (sync)
@@ -600,9 +601,9 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
   // plan stop producing
   plan->StopProducing();
   // plan mark finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -699,8 +700,7 @@ arrow::Status SourceOrderBySinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
 
-  ARROW_ASSIGN_OR_RAISE(
-      std::ignore,
+  ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("order_by_sink", plan.get(), {source},
                        cp::OrderBySinkNodeOptions{
                            cp::SortOptions{{cp::SortKey{"a", cp::SortOrder::Descending}}},
@@ -760,7 +760,7 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
       auto hashjoin,
       cp::MakeExecNode("hashjoin", plan.get(), {left_source, right_source}, join_opts));
 
-  ARROW_ASSIGN_OR_RAISE(std::ignore, cp::MakeExecNode("sink", plan.get(), {hashjoin},
+  ARROW_RETURN_NOT_OK(cp::MakeExecNode("sink", plan.get(), {hashjoin},
                                                       cp::SinkNodeOptions{&sink_gen}));
   // expected columns i32, str, l_str, r_str
 
@@ -786,9 +786,9 @@ arrow::Status SourceHashJoinSinkExample(cp::ExecContext& exec_context) {
   // // plan stop producing
   plan->StopProducing();
   // // plan mark finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -845,9 +845,9 @@ arrow::Status SourceKSelectExample(cp::ExecContext& exec_context) {
   // // plan stop proudcing
   plan->StopProducing();
   // // plan mark finished
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
 
   return arrow::Status::OK();
 }
@@ -925,9 +925,9 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
   return arrow::Status::OK();
 }
 
@@ -987,9 +987,9 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
                         arrow::Table::FromRecordBatchReader(sink_reader.get()));
 
   std::cout << "Results : " << response_table->ToString() << std::endl;
- auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(futures.status());
-  futures.Wait();
+  auto future = plan->finished();
+  ARROW_RETURN_NOT_OK(future.status());
+  future.Wait();
   return arrow::Status::OK();
 }
 

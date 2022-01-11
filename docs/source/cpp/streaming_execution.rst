@@ -314,7 +314,7 @@ To construct such queries, we have provided a set of building blocks
 referred to as :class:`ExecNode` s. These nodes provide the ability to  
 construct operations like filtering, projection, join, etc. 
 
-This is the list of operations associated with the execution plan;
+This is the list of operations associated with the execution plan:
 
 .. list-table:: Operations and Options
    :widths: 50 50
@@ -353,16 +353,23 @@ This is the list of operations associated with the execution plan;
 ``source``
 ----------
 
-`source` operation can be considered as an entry point to create a streaming execution plan. 
-A source node can be constructed as follows.
-:class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation. 
-The :class:`Schema` of the data passing through and a function to generate data 
-``arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>>``
-are required to create this option. Additionally, when using `source` operator, 
-the data scanning operations like filter and project may need to be applied
-in a later part of the execution plan. 
+A `source` operation can be considered as an entry point to create a streaming execution plan. 
+:class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation.  The
+`source` operation is the most generic and flexible type of source currently available but it can
+be quite tricky to configure.  To process data from files the scan operation is likely a simpler choice.
+The source node requires some kind of function that can be called to poll for more data.  This
+function should take no arguments and should return an
+``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
+This function might be reading a file, iterating through an in memory structure, or receiving data
+from a network connection.  The arrow library refers to these functions as `arrow::AsyncGenerator`
+and there are a number of utilities for working with these functions.  For this example we use 
+a vector of record batches that we've already stored in memory.
+In addition, the schema of the data must be known up front.  Arrow's streaming execution
+engine must know the schema of the data at each stage of the execution graph before any
+processing has begun.  This means we must supply the schema for a source node separately
+from the data itself.
 
-Struct to hold the data generator definition;
+Struct to hold the data generator definition:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -371,7 +378,7 @@ Struct to hold the data generator definition;
   :linenos:
   :lineno-match:
 
-Generating Batches for computation;
+Generating sample Batches for computation:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -380,7 +387,7 @@ Generating Batches for computation;
   :linenos:
   :lineno-match:
 
-Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<stream_execution_sink_docs>`);
+Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<stream_execution_sink_docs>`):
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
