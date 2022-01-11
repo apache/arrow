@@ -1362,6 +1362,159 @@ def test_between_array_array_array(ty):
         np.testing.assert_array_equal(result, pa.array(expected))
 
 
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_array_array_scalar(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.array([1, 1, 4, 3, 2, 5])
+    arr1 = pa.array([1, 2, 3, 2, None, 2])
+    scalar2 = pa.scalar(4)
+
+    inclusive_and_expected = {
+        "both": [True, False, True, True, None, False],
+        "left": [True, False, False, True, None, False],
+        "right": [False, False, True, True, None, False],
+        "neither": [False, False, False, True, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, arr1, scalar2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_array_scalar_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.array([1, 1, 4, 2, 2, 5])
+    scalar1 = pa.scalar(1)
+    arr2 = pa.array([1, 2, 5, 2, None, 2])
+
+    inclusive_and_expected = {
+        "both": [True, True, True, True, None, False],
+        "left": [False, True, True, False, None, False],
+        "right": [False, False, True, True, None, False],
+        "neither": [False, False, True, False, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, scalar1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_scalar_array_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.scalar(2)
+    arr1 = pa.scalar([1, 2, None, 3, 1)
+    arr2 = pa.array([1, 2, 5, 2, None, 3])
+
+    inclusive_and_expected = {
+        "both": [False, True, None, True, None, False],
+        "left": [False, True, None, False, None, False],
+        "right": [False, False, None, True, None, False],
+        "neither": [False, False, None, False, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, scalar1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_string_array_array_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.array(['a', 'a', 'd', 'c', 'b', 'f'])
+    arr1 = pa.array(['a', 'a', 'c', 'd', None, 'e'])
+    arr2 = pa.array(['a', 'b', 'd', None, 'd', 'g'])
+
+    inclusive_and_expected = {
+        "both": [True, True, True, None, None, True],
+        "left": [False, True, False, None, None, True],
+        "right": [False, False, True, None, None, True],
+        "neither": [False, False, False, None, None, True],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, arr1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_string_array_array_scalar(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.array(['a', 'a', 'd', 'c', 'b', 'e'])
+    arr1 = pa.array(['a', 'b', 'c', 'b', None, 'b'])
+    scalar2 = pa.scalar('d')
+
+    inclusive_and_expected = {
+        "both": [True, False, True, True, None, False],
+        "left": [True, False, False, True, None, False],
+        "right": [False, False, True, True, None, False],
+        "neither": [False, False, False, True, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, arr1, scalar2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_string_array_scalar_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.array(['a', 'a', 'd', 'b', 'b', 'e'])
+    scalar1 = pa.scalar('a')
+    arr2 = pa.array(['a', 'b', 'e', 'e', None, 'b'])
+
+    inclusive_and_expected = {
+        "both": [True, True, True, True, None, False],
+        "left": [False, True, True, False, None, False],
+        "right": [False, False, True, True, None, False],
+        "neither": [False, False, True, False, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, scalar1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
+@pytest.mark.parametrize("ty", ["inclusive"])
+def test_between_string_scalar_array_array(ty):
+    between = pc.between
+    BetweenOptions = partial(pc.BetweenOptions)
+
+    val = pa.scalar('b')
+    arr1 = pa.scalar(['a', 'b', None, 'c', 'a')
+    arr2 = pa.array(['a', 'b', 'e', 'b', None, 'c'])
+
+    inclusive_and_expected = {
+        "both": [False, True, None, True, None, False],
+        "left": [False, True, None, False, None, False],
+        "right": [False, False, None, True, None, False],
+        "neither": [False, False, None, False, None, False],
+    }
+
+    for inclusive, expected in inclusive_and_expected.items():
+        options = BetweenOptions(inclusive=inclusive)
+        result = pc.between(val, scalar1, arr2, options=options)
+        np.testing.assert_array_equal(result, pa.array(expected))
+
+
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
 def test_compare_array(typ):
     if typ == "array":

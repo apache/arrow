@@ -794,7 +794,8 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                                            Op<Inclusive::LEFT>>(type_id)(ctx, batch, out);
           case Inclusive::RIGHT:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<Inclusive::RIGHT>>(type_id)(ctx, batch, out);
+                                           Op<Inclusive::RIGHT>>(type_id)(ctx, batch,
+                                                                          out);
           case Inclusive::NEITHER:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
                                            Op<Inclusive::NEITHER>>(type_id)(ctx, batch,
