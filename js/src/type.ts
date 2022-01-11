@@ -281,7 +281,7 @@ export interface Decimal extends DataType<Type.Decimal> { TArray: Uint32Array; T
 export class Decimal extends DataType<Type.Decimal> {
     constructor(public readonly scale: number,
         public readonly precision: number,
-        public readonly bitWidth: number) {
+        public readonly bitWidth: number = 128) {
         super();
     }
     public get typeId() { return Type.Decimal as Type.Decimal; }
