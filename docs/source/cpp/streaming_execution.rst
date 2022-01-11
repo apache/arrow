@@ -556,6 +556,16 @@ As a part of the Source Example, the Sink operation is also included;
 
 ``consuming_sink`` operator is a sink operation containing consuming operation within the
 execution plan (i.e. the exec plan should not complete until the consumption has completed).
+Unlike the `sink` node this node takes in a callback function that is expected to consume the
+batch.  Once this callback has finished the execution plan will no longer hold any reference to
+the batch.
+The consuming function may be called before a previous invocation has completed.  If the consuming
+function does not run quickly enough then many concurrent executions could pile up, blocking the
+CPU thread pool.  The execution plan will not be marked finished until all consuming function callbacks
+have been completed.
+Once all batches have been delivered the execution plan will wait for the `finish` future to complete
+before marking the execution plan finished.  This allows for workflows where the consumption function
+converts batches into async tasks (this is currently done internally for the dataset write node).
 
 Example::
 
