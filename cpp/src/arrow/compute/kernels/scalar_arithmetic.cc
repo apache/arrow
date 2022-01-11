@@ -1515,10 +1515,6 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
     case Type::INT64:
     case Type::TIMESTAMP:
       return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
-    case Type::TIME32:
-      return KernelGenerator<Time32Type, Time32Type, Op>::Exec;
-    case Type::TIME64:
-      return KernelGenerator<Time64Type, Time64Type, Op>::Exec;
     case Type::UINT64:
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     case Type::FLOAT:
@@ -2484,18 +2480,18 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
                                   std::move(exec)));
 
-  // Add subtract(time32, time32) -> time32
+  // Add subtract(time32, time32) -> duration
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIME32);
-    DCHECK_OK(subtract->AddKernel({in_type, in_type}, time32(unit), std::move(exec)));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time32Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
-  // Add subtract(time64, time64) -> time64
+  // Add subtract(time64, time64) -> duration
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIME64);
-    DCHECK_OK(subtract->AddKernel({in_type, in_type}, time64(unit), std::move(exec)));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time64Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   // Add subtract(date32, date32) -> duration(TimeUnit::SECOND)

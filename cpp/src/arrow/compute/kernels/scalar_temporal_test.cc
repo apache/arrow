@@ -1155,18 +1155,18 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTime) {
   auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
 
   CheckScalarBinary(op, arr_s2, arr_s,
-                    ArrayFromJSON(time32(TimeUnit::SECOND), seconds_between_time));
+                    ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time));
   CheckScalarBinary(op, arr_ms2, arr_ms,
-                    ArrayFromJSON(time32(TimeUnit::MILLI), milliseconds_between_time));
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time));
   CheckScalarBinary(op, arr_us2, arr_us,
-                    ArrayFromJSON(time64(TimeUnit::MICRO), microseconds_between_time));
+                    ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time));
   CheckScalarBinary(op, arr_ns2, arr_ns,
-                    ArrayFromJSON(time64(TimeUnit::NANO), nanoseconds_between_time));
+                    ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time));
 
-  CheckScalarBinary(op, arr_s, arr_s, ArrayFromJSON(time32(TimeUnit::SECOND), zeros));
-  CheckScalarBinary(op, arr_ms, arr_ms, ArrayFromJSON(time32(TimeUnit::MILLI), zeros));
-  CheckScalarBinary(op, arr_us, arr_us, ArrayFromJSON(time64(TimeUnit::MICRO), zeros));
-  CheckScalarBinary(op, arr_ns, arr_ns, ArrayFromJSON(time64(TimeUnit::NANO), zeros));
+  CheckScalarBinary(op, arr_s, arr_s, ArrayFromJSON(duration(TimeUnit::SECOND), zeros));
+  CheckScalarBinary(op, arr_ms, arr_ms, ArrayFromJSON(duration(TimeUnit::MILLI), zeros));
+  CheckScalarBinary(op, arr_us, arr_us, ArrayFromJSON(duration(TimeUnit::MICRO), zeros));
+  CheckScalarBinary(op, arr_ns, arr_ns, ArrayFromJSON(duration(TimeUnit::NANO), zeros));
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
