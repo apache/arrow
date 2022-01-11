@@ -32,7 +32,7 @@ namespace arrow {
 namespace engine {
 
 template <const util::string_view& kExtensionName, typename Params,
-          typename ParamsProperties, const ParamsProperties& kProperties,
+          typename ParamsProperties, const ParamsProperties* kProperties,
           std::shared_ptr<DataType> GetStorage(const Params&)>
 class SimpleExtensionType : public ExtensionType {
  public:
@@ -62,7 +62,7 @@ class SimpleExtensionType : public ExtensionType {
 
   struct ExtensionEqualsImpl {
     ExtensionEqualsImpl(const Params& l, const Params& r) : left_(l), right_(r) {
-      kProperties.ForEach(*this);
+      kProperties->ForEach(*this);
     }
 
     template <typename Property>
@@ -89,8 +89,8 @@ class SimpleExtensionType : public ExtensionType {
 
   struct DeserializeImpl {
     explicit DeserializeImpl(util::string_view repr) {
-      Init(kExtensionName, repr, kProperties.size());
-      kProperties.ForEach(*this);
+      Init(kExtensionName, repr, kProperties->size());
+      kProperties->ForEach(*this);
     }
 
     void Fail() { params_ = util::nullopt; }
@@ -154,8 +154,8 @@ class SimpleExtensionType : public ExtensionType {
 
   struct SerializeImpl {
     explicit SerializeImpl(const Params& params)
-        : params_(params), members_(kProperties.size()) {
-      kProperties.ForEach(*this);
+        : params_(params), members_(kProperties->size()) {
+      kProperties->ForEach(*this);
     }
 
     template <typename Property>

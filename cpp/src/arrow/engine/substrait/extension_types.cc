@@ -38,7 +38,7 @@ static auto kUuidExtensionParamsProperties = internal::MakeProperties();
 
 using UuidType = SimpleExtensionType<kUuidExtensionName, UuidExtensionParams,
                                      decltype(kUuidExtensionParamsProperties),
-                                     kUuidExtensionParamsProperties, UuidGetStorage>;
+                                     &kUuidExtensionParamsProperties, UuidGetStorage>;
 
 constexpr util::string_view kFixedCharExtensionName = "fixed_char";
 struct FixedCharExtensionParams {
@@ -53,7 +53,7 @@ static constexpr auto kFixedCharExtensionParamsProperties = internal::MakeProper
 using FixedCharType =
     SimpleExtensionType<kFixedCharExtensionName, FixedCharExtensionParams,
                         decltype(kFixedCharExtensionParamsProperties),
-                        kFixedCharExtensionParamsProperties, FixedCharGetStorage>;
+                        &kFixedCharExtensionParamsProperties, FixedCharGetStorage>;
 
 constexpr util::string_view kVarCharExtensionName = "varchar";
 struct VarCharExtensionParams {
@@ -68,7 +68,7 @@ static constexpr auto kVarCharExtensionParamsProperties = internal::MakeProperti
 using VarCharType =
     SimpleExtensionType<kVarCharExtensionName, VarCharExtensionParams,
                         decltype(kVarCharExtensionParamsProperties),
-                        kVarCharExtensionParamsProperties, VarCharGetStorage>;
+                        &kVarCharExtensionParamsProperties, VarCharGetStorage>;
 
 constexpr util::string_view kIntervalYearExtensionName = "interval_year";
 struct IntervalYearExtensionParams {};
@@ -80,7 +80,7 @@ static auto kIntervalYearExtensionParamsProperties = internal::MakeProperties();
 using IntervalYearType =
     SimpleExtensionType<kIntervalYearExtensionName, IntervalYearExtensionParams,
                         decltype(kIntervalYearExtensionParamsProperties),
-                        kIntervalYearExtensionParamsProperties, IntervalYearGetStorage>;
+                        &kIntervalYearExtensionParamsProperties, IntervalYearGetStorage>;
 
 constexpr util::string_view kIntervalDayExtensionName = "interval_day";
 struct IntervalDayExtensionParams {};
@@ -92,7 +92,7 @@ static auto kIntervalDayExtensionParamsProperties = internal::MakeProperties();
 using IntervalDayType =
     SimpleExtensionType<kIntervalDayExtensionName, IntervalDayExtensionParams,
                         decltype(kIntervalDayExtensionParamsProperties),
-                        kIntervalDayExtensionParamsProperties, IntervalDayGetStorage>;
+                        &kIntervalDayExtensionParamsProperties, IntervalDayGetStorage>;
 
 }  // namespace
 
