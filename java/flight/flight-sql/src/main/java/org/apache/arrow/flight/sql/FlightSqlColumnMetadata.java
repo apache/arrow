@@ -286,8 +286,8 @@ public class FlightSqlColumnMetadata {
     }
   }
 
-  private static String booleanToString(boolean isSearchable) {
-    return isSearchable ? BOOLEAN_TRUE_STR : BOOLEAN_FALSE_STR;
+  private static String booleanToString(boolean boolValue) {
+    return boolValue ? BOOLEAN_TRUE_STR : BOOLEAN_FALSE_STR;
   }
 
   private static boolean stringToBoolean(String value) {
