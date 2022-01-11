@@ -38,7 +38,7 @@ const json = args[0] === '--json';
 
 const formatter = new Intl.NumberFormat();
 function formatNumber(number: number, precision = 0) {
-    const rounded = number > precision * 10 ? Math.round(number) : parseFloat((number).toPrecision(precision));
+    const rounded = number > precision * 10 ? Math.round(number) : Number.parseFloat((number).toPrecision(precision));
     return formatter.format(rounded);
 }
 
