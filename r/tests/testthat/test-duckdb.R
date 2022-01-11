@@ -118,13 +118,34 @@ test_that("to_arrow roundtrip, with dataset", {
   new_ds <- rbind(
     cbind(example_data, part = 1),
     cbind(example_data, part = 2),
-    cbind(example_data, part = 3),
-    cbind(example_data, part = 4)
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
   )
   write_dataset(new_ds, tf, partitioning = "part")
 
   ds <- open_dataset(tf)
 
+  # without integers, this works
+  expect_identical(
+    ds %>%
+      to_duckdb() %>%
+      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
+      select(-fct) %>%
+      to_arrow() %>%
+      filter(dbl > 5 & part > 1) %>%
+      collect() %>%
+      select(-int, -part) %>%
+      arrange(dbl) %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(dbl > 5 & part > 1) %>%
+      select(-int, -part) %>%
+      collect() %>%
+      arrange(dbl)
+  )
+
+  # but with integers, this errors(!?)
   expect_identical(
     ds %>%
       to_duckdb() %>%

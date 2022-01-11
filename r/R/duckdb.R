@@ -104,12 +104,11 @@ unique_arrow_tablename <- function() {
 
 # Creates an environment that disconnects the database when it's GC'd
 duckdb_disconnector <- function(con, tbl_name) {
+  force(tbl_name)
   reg.finalizer(environment(), function(...) {
     # remote the table we ephemerally created (though only if the connection is
     # still valid)
-    if (DBI::dbIsValid(con)) {
-      duckdb::duckdb_unregister_arrow(con, tbl_name)
-    }
+    duckdb::duckdb_unregister_arrow(con, tbl_name)
   })
   environment()
 }
