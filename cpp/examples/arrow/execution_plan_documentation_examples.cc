@@ -1010,10 +1010,6 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
       cp::Declaration::Sequence(
           {
               union_node,
-              {"aggregate", cp::AggregateNodeOptions{/*aggregates=*/{{"count", &options}},
-                                                     /*targets=*/{"a"},
-                                                     /*names=*/{"count(a)"},
-                                                     /*keys=*/{}}},
               {"sink", cp::SinkNodeOptions{&sink_gen}},
           })
           .AddToPlan(plan.get()));
