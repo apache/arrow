@@ -372,16 +372,16 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
 
   const std::shared_ptr<Schema> schema_table = arrow::schema(
   {arrow::field("id", int64(), true,
-   example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+                example::GetColumnMetadata(SQLITE_INTEGER, db_table_name).metadata_map()),
    arrow::field("keyName", utf8(), true,
                 example::GetColumnMetadata(
-                  SQLITE_TEXT, db_table_name).GetMetadataMap()),
+                  SQLITE_TEXT, db_table_name).metadata_map()),
    arrow::field("value", int64(), true,
                 example::GetColumnMetadata(
-                  SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+                  SQLITE_INTEGER, db_table_name).metadata_map()),
    arrow::field("foreignId", int64(), true,
                 example::GetColumnMetadata(
-                  SQLITE_INTEGER, db_table_name).GetMetadataMap())});
+                  SQLITE_INTEGER, db_table_name).metadata_map())});
 
   ASSERT_OK_AND_ASSIGN(auto schema_buffer, ipc::SerializeSchema(*schema_table));
 
@@ -485,16 +485,16 @@ TEST_F(TestFlightSqlServer, TestCommandPreparedStatementQuery) {
       arrow::schema({
         arrow::field("id", int64(),
                      example::GetColumnMetadata(
-                       SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+                       SQLITE_INTEGER, db_table_name).metadata_map()),
         arrow::field("keyName", utf8(),
                      example::GetColumnMetadata(
-                       SQLITE_TEXT, db_table_name).GetMetadataMap()),
+                       SQLITE_TEXT, db_table_name).metadata_map()),
         arrow::field("value", int64(),
                      example::GetColumnMetadata(
-                       SQLITE_INTEGER, db_table_name).GetMetadataMap()),
+                       SQLITE_INTEGER, db_table_name).metadata_map()),
         arrow::field("foreignId", int64(),
                      example::GetColumnMetadata(
-                       SQLITE_INTEGER, db_table_name).GetMetadataMap())});
+                       SQLITE_INTEGER, db_table_name).metadata_map())});
 
   const auto id_array = ArrayFromJSON(int64(), R"([1, 2, 3, 4])");
   const auto keyname_array =

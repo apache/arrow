@@ -82,7 +82,7 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
           GetSqlTypeFromTypeName(column_type), sqlite_table_name.c_str());
         column_fields.push_back(
             arrow::field(column_name, GetArrowType(column_type),
-                         nullable == 0, column_metadata.GetMetadataMap()));
+                         nullable == 0, column_metadata.metadata_map()));
       }
     }
     const arrow::Result<std::shared_ptr<Buffer>>& value =

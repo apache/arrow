@@ -131,7 +131,7 @@ arrow::Result<std::shared_ptr<Schema>> SqliteStatement::GetSchema() const {
     ColumnMetadata column_metadata = GetColumnMetadata(column_type, table);
 
     fields.push_back(arrow::field(column_name, data_type,
-                                  column_metadata.GetMetadataMap()));
+                                  column_metadata.metadata_map()));
   }
 
   return arrow::schema(fields);
