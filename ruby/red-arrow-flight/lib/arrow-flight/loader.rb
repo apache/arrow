@@ -26,7 +26,6 @@ module ArrowFlight
     private
     def post_load(repository, namespace)
       require_libraries
-      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries

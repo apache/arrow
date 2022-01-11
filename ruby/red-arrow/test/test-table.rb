@@ -728,6 +728,39 @@ chris\t-1
         end
       end
     end
+
+    sub_test_case("URI") do
+      def start_web_server(path, data, content_type)
+        http_server = WEBrick::HTTPServer.new(:Port => 0)
+        http_server.mount_proc(path) do |request, response|
+          response.body = data
+          response.content_type = content_type
+        end
+        http_server_thread = Thread.new do
+          http_server.start
+        end
+        begin
+          Timeout.timeout(1) do
+            yield(http_server[:Port])
+          end
+        ensure
+          http_server.shutdown
+          http_server_thread.join
+        end
+      end
+
+      def test_http
+        output = Arrow::ResizableBuffer.new(1024)
+        @table.save(output, format: :arrow_streaming)
+        path = "/data.arrows"
+        start_web_server(path,
+                         output.data.to_s,
+                         "application/vnd.apache.arrow.stream") do |port|
+          input = URI("http://127.0.0.1:#{port}#{path}")
+          assert_equal(@table, Arrow::Table.load(input))
+        end
+      end
+    end
   end
 
   test("#pack") do

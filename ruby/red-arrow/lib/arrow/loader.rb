@@ -30,6 +30,7 @@ module Arrow
       require_libraries
       require_extension_library
       gc_guard
+      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
@@ -97,7 +98,6 @@ module Arrow
       require "arrow/s3-global-options"
       require "arrow/scalar"
       require "arrow/schema"
-      require "arrow/set-lookup-options"
       require "arrow/slicer"
       require "arrow/sort-key"
       require "arrow/sort-options"
