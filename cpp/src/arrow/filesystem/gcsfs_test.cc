@@ -237,7 +237,6 @@ class GcsIntegrationTest : public ::testing::Test {
     return expected;
   }
 
-
  private:
   std::string RandomChars(std::size_t count) {
     auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
