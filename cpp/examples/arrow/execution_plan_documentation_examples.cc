@@ -195,8 +195,6 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
                         CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
   options->projection = Materialize({});  // create empty projection
 
   // construct the scan node
@@ -429,8 +427,6 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
                         CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
   // specify the filter
   cp::Expression filter_opt = cp::greater(cp::field_ref("a"), cp::literal(3));
   // set filter for scanner : on-disk / push-down filtering.
@@ -508,8 +504,6 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
                         CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
   // projection
   cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
   options->projection = Materialize({});
@@ -913,11 +907,6 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
                         CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  options->use_async = true;
-  // specify the filter
-  // cp::Expression b_is_true = cp::field_ref("b");
-  // options->filter = b_is_true;
   // empty projection
   options->projection = Materialize({});
 
@@ -1018,7 +1007,7 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
   ABORT_ON_FAILURE(plan->Validate());
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
-      cp::MakeGeneratorReader(arrow::schema({arrow::field("count(a)", arrow::int32())}),
+      cp::MakeGeneratorReader(basic_data.schema,
                               std::move(sink_gen), exec_context.memory_pool());
 
   // // // start the ExecPlan
