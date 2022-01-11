@@ -572,10 +572,14 @@ void KeyEncoder::EncoderBinaryPair::Decode(uint32_t start_row, uint32_t num_rows
 
   uint32_t col_width1 = col_prep[0].metadata().fixed_length;
   uint32_t col_width2 = col_prep[1].metadata().fixed_length;
-  int log_col_width1 =
-      col_width1 == 8 ? 3 : col_width1 == 4 ? 2 : col_width1 == 2 ? 1 : 0;
-  int log_col_width2 =
-      col_width2 == 8 ? 3 : col_width2 == 4 ? 2 : col_width2 == 2 ? 1 : 0;
+  int log_col_width1 = col_width1 == 8   ? 3
+                       : col_width1 == 4 ? 2
+                       : col_width1 == 2 ? 1
+                                         : 0;
+  int log_col_width2 = col_width2 == 8   ? 3
+                       : col_width2 == 4 ? 2
+                       : col_width2 == 2 ? 1
+                                         : 0;
 
   bool is_row_fixed_length = rows.metadata().is_fixed_length;
 

@@ -142,7 +142,8 @@ TEST_F(TestLikeHolder, TestOptimise) {
   // optimise for 'is_substr with special characters'
   fnode = LikeHolder::TryOptimize(BuildLike("%ab-c%"));
   EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
-  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'ab\\-c')");
+  EXPECT_EQ(fnode.ToString(),
+            "bool is_substr((string) in, (const string) 'ab\\-c')");
 
   // optimise for 'ends_with with special characters'
   fnode = LikeHolder::TryOptimize(BuildLike("%ab-c"));
