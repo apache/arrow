@@ -149,14 +149,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
 }
 
 // (Doc section: Materialize)
-cp::Expression Materialize(std::vector<std::string> names,
-                           bool include_aug_fields = false) {
-  if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-      names.emplace_back(aug_name);
-    }
-  }
-
+cp::Expression Materialize(std::vector<std::string> names) {
   std::vector<cp::Expression> exprs;
   for (const auto& name : names) {
     exprs.push_back(cp::field_ref(name));
