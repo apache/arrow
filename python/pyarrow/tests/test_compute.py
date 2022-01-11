@@ -1412,9 +1412,9 @@ def test_between_scalar_array_array(ty):
     arr2 = pa.array([1, 2, 5, 3, None])
 
     inclusive_and_expected = {
-        "both": [False, True, None, True, None ],
-        "left": [False, False, None, False, None],
-        "right": [False, False, None, True, None],
+        "both": [False, True, None, True, None],
+        "left": [False, False, None, True, None],
+        "right": [False, False, None, False, None],
         "neither": [False, False, None, False, None],
     }
 
@@ -1560,8 +1560,8 @@ def test_between_string_scalar_array_array(ty):
 
     inclusive_and_expected = {
         "both": [False, True, None, True, None],
-        "left": [False, False, None, False, None],
-        "right": [False, False, None, True, None],
+        "left": [False, False, None, True, None],
+        "right": [False, False, None, False, None],
         "neither": [False, False, None, False, None],
     }
 
