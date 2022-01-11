@@ -200,11 +200,6 @@ class ArrayPrinter : public PrettyPrinter {
         field = field->Slice(offset, length);
       }
       Indent();
-      // PrettyPrintOptions child_options = PrettyPrintOptions::Defaults();
-      // child_options.indent_size = indent_ + options_.indent_size;
-      // child_options.skip_new_lines = options_.skip_new_lines;
-      // child_options.window = options_.window;
-      // child_options.container_window = options_.container_window;
       RETURN_NOT_OK(PrettyPrint(*field, ChildOptions(), sink_));
     }
     return Status::OK();
