@@ -1341,13 +1341,13 @@ def test_filter_null_type():
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
-def test_between_array(ty):
+def test_between_array_array_array(ty):
     between = pc.between
     BetweenOptions = partial(pc.BetweenOptions)
 
-    arr1 = con([1, 1, 3, 4, None, 5])
-    arr2 = con([1, 2, 4, None, 4, 7])
-    val = con([1, 1, 4, 3, 2, 6])
+    val = pa.array([1, 1, 4, 3, 2, 6])
+    arr1 = pa.array([1, 1, 3, 4, None, 5])
+    arr2 = pa.array([1, 2, 4, None, 4, 7])
 
     inclusive_and_expected = {
         "both": [True, True, True, None, None, True],
