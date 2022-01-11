@@ -47,7 +47,7 @@ struct FixedCharExtensionParams {
 std::shared_ptr<DataType> FixedCharGetStorage(const FixedCharExtensionParams& params) {
   return fixed_size_binary(params.length);
 }
-static auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
+static constexpr auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
     internal::DataMember("length", &FixedCharExtensionParams::length));
 
 using FixedCharType =
@@ -62,7 +62,7 @@ struct VarCharExtensionParams {
 std::shared_ptr<DataType> VarCharGetStorage(const VarCharExtensionParams&) {
   return utf8();
 }
-static auto kVarCharExtensionParamsProperties = internal::MakeProperties(
+static constexpr auto kVarCharExtensionParamsProperties = internal::MakeProperties(
     internal::DataMember("length", &VarCharExtensionParams::length));
 
 using VarCharType =
@@ -109,7 +109,7 @@ std::shared_ptr<DataType> interval_year() { return IntervalYearType::Make({}); }
 std::shared_ptr<DataType> interval_day() { return IntervalDayType::Make({}); }
 
 bool UnwrapUuid(const DataType& t) {
-  if (auto params = UuidType::GetIf(t)) {
+  if (UuidType::GetIf(t)) {
     return true;
   }
   return false;
@@ -130,14 +130,14 @@ util::optional<int32_t> UnwrapVarChar(const DataType& t) {
 }
 
 bool UnwrapIntervalYear(const DataType& t) {
-  if (auto params = IntervalYearType::GetIf(t)) {
+  if (IntervalYearType::GetIf(t)) {
     return true;
   }
   return false;
 }
 
 bool UnwrapIntervalDay(const DataType& t) {
-  if (auto params = IntervalDayType::GetIf(t)) {
+  if (IntervalDayType::GetIf(t)) {
     return true;
   }
   return false;

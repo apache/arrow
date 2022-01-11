@@ -887,7 +887,7 @@ struct StringViewHash {
   // (the std::hash specialization provided by nonstd constructs std::string
   // temporaries then invokes std::hash<std::string> against those)
   hash_t operator()(const util::string_view& value) const {
-    return ComputeStringHash<>(value.data(), static_cast<int64_t>(value.size()));
+    return ComputeStringHash<0>(value.data(), static_cast<int64_t>(value.size()));
   }
 };
 
