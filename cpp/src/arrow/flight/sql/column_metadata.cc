@@ -25,10 +25,10 @@ namespace sql {
 namespace {
   /// \brief Constant variable used to convert boolean true value
   ///        to a string.
-  const char* BOOLEAN_TRUE_STR = "YES";
+  const char* BOOLEAN_TRUE_STR = "1";
   /// \brief Constant variable used to convert boolean false value
   ///        to a string.
-  const char* BOOLEAN_FALSE_STR = "NO";
+  const char* BOOLEAN_FALSE_STR = "0";
 
   std::string BooleanToString(bool boolean_value) {
     return boolean_value ? BOOLEAN_TRUE_STR :
