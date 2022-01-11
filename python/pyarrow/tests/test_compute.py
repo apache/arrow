@@ -1424,7 +1424,7 @@ def test_between_scalar_array_array(ty):
 
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
-        result = pc.between(val, scalar1, arr2, options=options)
+        result = pc.between(val, arr1, arr2, options=options)
         np.testing.assert_array_equal(result, pa.array(expected))
 
 
@@ -1457,7 +1457,7 @@ def test_between_scalar_array_scalar(ty):
 
     val = pa.scalar(2)
     arr1 = pa.array([1, 2, 3, None])
-    scalar2 = pa.array(3)
+    scalar2 = pa.scalar(3)
 
     inclusive_and_expected = {
         "both": [True, True, False, None],
@@ -1549,9 +1549,9 @@ def test_between_string_array_scalar_array(ty):
 
     inclusive_and_expected = {
         "both": [True, True, True, True, None, False],
-        "left": [False, True, True, False, None, False],
+        "left": [False, True, True, True, None, False],
         "right": [False, False, True, True, None, False],
-        "neither": [False, False, True, False, None, False],
+        "neither": [False, False, True, True, None, False],
     }
 
     for inclusive, expected in inclusive_and_expected.items():
@@ -1566,7 +1566,7 @@ def test_between_string_scalar_array_array(ty):
     BetweenOptions = partial(pc.BetweenOptions)
 
     val = pa.scalar('b')
-    arr1 = pa.scalar(['a', 'b', None, 'c', 'a'])
+    arr1 = pa.array(['a', 'b', None, 'c', 'a'])
     arr2 = pa.array(['a', 'b', 'e', 'b', None, 'c'])
 
     inclusive_and_expected = {
@@ -1578,7 +1578,7 @@ def test_between_string_scalar_array_array(ty):
 
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
-        result = pc.between(val, scalar1, arr2, options=options)
+        result = pc.between(val, arr1, arr2, options=options)
         np.testing.assert_array_equal(result, pa.array(expected))
 
 
@@ -1611,7 +1611,7 @@ def test_between_string_scalar_array_scalar(ty):
 
     val = pa.scalar('b')
     arr1 = pa.array(['a', 'b', 'c', None])
-    scalar2 = pa.array('c')
+    scalar2 = pa.scalar('c')
 
     inclusive_and_expected = {
         "both": [True, True, False, None],
