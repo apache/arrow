@@ -688,11 +688,15 @@ SelectK Example;
 ``scan``
 ---------
 
-`scan` is an operation used to load and process data, and the behavior of is defined using 
-:class:`arrow::dataset::ScanNodeOptions`. This option contains a set of definitions. 
-The :ref:`dataset<cpp-dataset-reading>` API also use scanner for processing data.
-In contrast to `source` operation, `scan` operation can load the data and apply scanning
-operations like filter and project to the loaded data. 
+`scan` is an operation used to load and process datasets.  It should be preferred over the
+more generic `source` node when your input is a dataset.  The behavior is defined using 
+:class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
+scan options can be found in :ref:`dataset<cpp-dataset-reading>`.
+
+This node is capable of applying pushdown filters to the file readers which reduce
+the amount of data that needs to be read.  This means you may supply the same
+filter expression to the scan node that you also supply to the FilterNode because
+the filtering is done in two different places.
 
 Creating a Scan `ExecNode`::
 
