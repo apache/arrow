@@ -66,7 +66,7 @@ arrow::Result<std::string> ColumnMetadata::GetTableName() const {
 
 arrow::Result<int32_t> ColumnMetadata::GetPrecision() const {
   std::string precision_string;
-  ARROW_ASSIGN_OR_RAISE(precision_string,metadata_map_->Get(kPrecision));
+  ARROW_ASSIGN_OR_RAISE(precision_string, metadata_map_->Get(kPrecision));
 
   return std::stoi(precision_string);
 }
