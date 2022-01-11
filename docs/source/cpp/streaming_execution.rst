@@ -424,7 +424,7 @@ Using this option, the filter node can be constructed as follows::
                           //filter node options
                           arrow::compute::FilterNodeOptions{filter_opt}));
 
-Filter Example;
+Filter example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -464,7 +464,7 @@ Creating a project node::
           // project node options 
           arrow::compute::ProjectNodeOptions{{a_times_2}}));
 
-Project Example;
+Project example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -488,8 +488,6 @@ field specified as a target.  The aggregation functions can be
 selected from :ref:`this list of aggregation functions <aggregation-option-list>`.
 Note: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
 In the future, spillover mechanisms will be added which should alleviate this constraint.
-
-Example::
 
 An example for creating an aggregate node::
 
@@ -601,7 +599,7 @@ Example::
       {source}, cp::ConsumingSinkNodeOptions(consumer)));
 
 
-Consuming-Sink Example;
+Consuming-Sink example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -640,7 +638,7 @@ Example::
   }}},&sink_gen}));
 
 
-Order-By-Sink Example:
+Order-By-Sink example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -674,7 +672,7 @@ Create SelectK Option::
       arrow::compute::SelectKSinkNodeOptions{options, &sink_gen}));
 
 
-SelectK Example;
+SelectK example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -712,12 +710,32 @@ Creating a Scan `ExecNode`::
                           cp::MakeExecNode("scan", plan.get(), {}, 
                             scan_node_options));
 
-Scan example;
+Scan example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
   :start-after: (Doc section: Scan Example)
   :end-before: (Doc section: Scan Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_hashjoin_docs:
+
+``hash_join``
+-------------
+
+``hash_join`` operation provides the relational algebra operation, join using hash-based
+algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
+defining a join. JoinType can be one of LEFT_SEMI, RIGHT_SEMI, LEFT_ANTI, RIGHT_ANTI,
+INNER, LEFT_OUTER, RIGHT_OUTER and FULL_OUTER. Also the join-key or by which column/s, 
+and output suffixes can be set via the the join options. 
+
+Hash-Join example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: HashJoin Example)
+  :end-before: (Doc section: HashJoin Example)
   :linenos:
   :lineno-match:
 
@@ -729,13 +747,11 @@ Scan example;
 ``write`` option enables writing a result to supported file formats (example `parquet`,
 `feather`, `csv`, etc). 
 The write options are provided via the :class:`arrow::dataset::WriteNodeOptions` and 
-defined using :class:`arrow::dataset::FileSystemDatasetWriteOptions`, 
-``std::shared_ptr<arrow::Schema>``, and 
-``std::shared_ptr<arrow::util::AsyncToggle> backpressure_toggle``. Here the 
+defined using :class:`arrow::dataset::FileSystemDatasetWriteOptions`. Here the 
 :class:`arrow::dataset::FileSystemDatasetWriteOptions` contains the meta-data required 
 to write the data. 
 
-Write Example;
+Write example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -756,7 +772,7 @@ sources(:class:`ExecNodes`).
 The following example demonstrates how this can be achieved using 
 two data sources.
 
-Union Example;
+Union example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -770,16 +786,16 @@ Union Example;
 Example List
 ============
 
-There a set of examples can be found in ``examples/arrow/execution_plan_documentation_examples.cc``
+There are examples of these nodes which can be found in ``examples/arrow/execution_plan_documentation_examples.cc``
 
-1. Source-Sink
-2. Scan-Sink
-3. Scan-Filter-Sink
-4. Scan-Project-Sink
-5. Source-Aggregate-Sink
-6. Scan-ConsumingSinkNode
-7. Scan-OrderBySinkNode
-8. Scan-HashJoinNode
-9. Scan-SelectSinkNode
-10. Scan-Filter-WriteNode
-11. Scan-Union-Sink
+1. :ref:`Source-Sink<stream_execution_source_docs>`
+2. :ref:`Filter<stream_execution_filter_docs>`
+3. :ref:`Project<stream_execution_project_docs>`
+4. :ref:`Aggregate<stream_execution_aggregate_docs>`
+5. :ref:`ConsumingSink<stream_execution_consuming_sink_docs>`
+6. :ref:`OrderBySink<stream_execution_order_by_sink_docs>`
+7. :ref:`SelectK<stream_execution_select_k_docs>`
+8. :ref:`Scan<stream_execution_scan_docs>`
+9. :ref:`HashJoin<stream_execution_hashjoin_docs>`
+10. :ref:`Write<stream_execution_write_docs>`
+11. :ref:`Union<stream_execution_union_docs>`
