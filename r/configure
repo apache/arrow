@@ -216,15 +216,11 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
 fi
 
 # Test that we can find libarrow
-CXXCPP="`${R_HOME}/bin/R CMD config CXX11` -E"
-if [ $? -eq 0 ]; then
-  # Great, CXX11 exists for this version of R (current);
-  # now let's set the other two variables
-  CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX11FLAGS`
-  CXX11STD=`"${R_HOME}"/bin/R CMD config CXX11STD`
-fi
+CXX11="`${R_HOME}/bin/R CMD config CXX11` -E"
+CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX11FLAGS`
+CXX11STD=`"${R_HOME}"/bin/R CMD config CXX11STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
-TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
+TEST_CMD="${CXX11} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
 if [ $? -eq 0 ]; then
