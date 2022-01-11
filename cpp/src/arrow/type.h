@@ -76,7 +76,7 @@ class ARROW_EXPORT Fingerprintable {
   }
 
  protected:
-  Fingerprintable() = default;
+  Fingerprintable() : fingerprint_(NULLPTR), metadata_fingerprint_(NULLPTR) {}
 
   Fingerprintable(Fingerprintable&& other) { MoveFrom(std::move(other)); }
 
