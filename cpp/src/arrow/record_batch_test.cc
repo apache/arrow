@@ -390,10 +390,10 @@ class TestRecordBatchReader : public ::testing::Test {
 
 TEST_F(TestRecordBatchReader, RangeForLoop) {
   int64_t i = 0;
-  ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
   for (auto maybe_batch : *reader_) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
     AssertBatchesEqual(*batch, *batches_[i++]);
   }
   ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
@@ -401,10 +401,10 @@ TEST_F(TestRecordBatchReader, RangeForLoop) {
 
 TEST_F(TestRecordBatchReader, BeginEndForLoop) {
   int64_t i = 0;
-  ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
 
   for (auto it = reader_->begin(); it != reader_->end(); ++it) {
     ASSERT_OK_AND_ASSIGN(auto batch, *it);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
     AssertBatchesEqual(*batch, *batches_[i++]);
   }
   ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));

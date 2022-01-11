@@ -290,9 +290,10 @@ class ARROW_EXPORT RecordBatchReader {
     Result<std::shared_ptr<RecordBatch>> batch_;
     RecordBatchReader* reader_;
   };
-
+  /// \brief Returns an iterator to the first record batch in the stream
   RecordBatchReaderIterator begin() { return RecordBatchReaderIterator(this); }
 
+  /// \brief Returns an iterator to the end of the stream
   RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
 
   /// \brief Consume entire stream as a vector of record batches
