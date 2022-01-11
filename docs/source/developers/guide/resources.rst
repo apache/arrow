@@ -68,8 +68,8 @@ Other resources
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
 
-Recommended books for learning languages
-----------------------------------------
+Recommended references 
+----------------------
 
 - Slatkin, Brett, *Effective Python: 90 Specific Ways to Write Better Python*, Addison-Wesley Professional, 2019
 - Stroustrup, Bjarne, *A Tour of C++ (Second edition)*, Addison-Wesley, 2018
