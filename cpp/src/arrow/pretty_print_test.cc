@@ -715,17 +715,35 @@ TEST_F(TestPrettyPrint, ListType) {
     3
   ]
 ])expected";
+  static const char* ex_4 = R"expected([
+  [
+    null
+  ],
+  [],
+  ...
+  [
+    4,
+    6,
+    7
+  ],
+  [
+    2,
+    3
+  ]
+])expected";
 
   auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
-  CheckArray(*array, {0, 10}, ex);
-  CheckArray(*array, {2, 10}, ex_2);
-  CheckStream(*array, {0, 1}, ex_3);
+  CheckArray(*array, {0, 10, 5}, ex, false);
+  CheckArray(*array, {2, 10, 5}, ex_2, false);
+  CheckArray(*array, {0, 10, 1}, ex_3, false);
+  CheckArray(*array, {0, 10}, ex_4);
 
   list_type = large_list(int64());
   array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
-  CheckArray(*array, {0, 10}, ex);
-  CheckArray(*array, {2, 10}, ex_2);
-  CheckStream(*array, {0, 1}, ex_3);
+  CheckArray(*array, {0, 10, 5}, ex, false);
+  CheckArray(*array, {2, 10, 5}, ex_2, false);
+  CheckArray(*array, {0, 10, 1}, ex_3, false);
+  CheckArray(*array, {0, 10}, ex_4);
 }
 
 TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
@@ -736,6 +754,7 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   PrettyPrintOptions options{};
   options.skip_new_lines = true;
   options.null_rep = "NA";
+  options.container_window = 10;
   CheckArray(*empty_array, options, "[]", false);
   CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
 
@@ -780,6 +799,14 @@ TEST_F(TestPrettyPrint, MapType) {
   []
 ])expected";
   CheckArray(*array, {0, 10}, ex);
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+
+  static const char* ex_flat =
+      R"expected([keys:["joe","mark"]values:[0,null],null,)expected"
+      R"expected(keys:["cap"]values:[8],keys:[]values:[]])expected";
+  CheckArray(*array, options, ex_flat, false);
 }
 
 TEST_F(TestPrettyPrint, FixedSizeListType) {
@@ -798,7 +825,7 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
     3,
     null
   ],
-  null,
+  ...
   [
     4,
     6,
@@ -810,6 +837,31 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
     5
   ]
 ])expected");
+
+  CheckStream(*array, {0, 1, 3}, R"expected([
+  [
+    null,
+    ...
+    1
+  ],
+  [
+    2,
+    ...
+    null
+  ],
+  null,
+  [
+    4,
+    ...
+    7
+  ],
+  [
+    8,
+    ...
+    5
+  ]
+])expected");
+
   CheckStream(*array, {0, 1, 1}, R"expected([
   [
     null,

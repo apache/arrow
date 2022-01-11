@@ -58,8 +58,8 @@ struct PrettyPrintOptions {
   /// Maximum number of elements to show at the beginning and at the end.
   int window = 10;
 
-  /// Maximum number of elements to show at the beginning and at the end, for elements that
-  /// are containers.
+  /// Maximum number of elements to show at the beginning and at the end, for elements
+  /// that are containers (that is, list in ListArray and chunks in ChunkedArray)
   int container_window = 2;
 
   /// String to use for representing a null value, defaults to "null"
