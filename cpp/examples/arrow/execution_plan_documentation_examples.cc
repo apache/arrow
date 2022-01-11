@@ -412,9 +412,11 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
                         CreateDataSetFromCSVData());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  // specify the filter
+  // // specify the filter.  This filter removes all rows where the
+  // value of the "a" column is greater than 3.
   cp::Expression filter_opt = cp::greater(cp::field_ref("a"), cp::literal(3));
   // set filter for scanner : on-disk / push-down filtering.
+  // This step can be skipped if you are not reading from disk.
   options->filter = filter_opt;
   // empty projection
   options->projection = Materialize({});
@@ -438,7 +440,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(filter, cp::MakeExecNode("filter", plan.get(), {scan},
                                                  cp::FilterNodeOptions{filter_opt}));
 
-  // // finally, pipe the project node into a sink node
+  // // finally, pipe the filter node into a sink node
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {filter}, cp::SinkNodeOptions{&sink_gen}));

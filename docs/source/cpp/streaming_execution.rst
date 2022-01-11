@@ -401,12 +401,11 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
 ``filter``
 ----------
 
-``filter`` operation as the name suggests, provides an option to define a data filtering
-criteria. It keeps only rows matching a given expression. 
+``filter`` operation, as the name suggests, provides an option to define data filtering
+criteria. It selects rows matching a given expression. 
 Filters can be written using :class:`arrow::compute::Expression`. 
-For example, if we wish to keep rows of column ``b`` greater than 3, 
-then we can use the following expression::, can be written using 
-:class:`arrow::compute::FilterNodeOptions` as follows::
+For example, if we wish to keep rows where the value of column ``b``
+is greater than 3,  then we can use the following expression:: 
 
   // a > 3
   arrow::compute::Expression filter_opt = arrow::compute::greater(
@@ -442,9 +441,9 @@ Filter Example;
 ``project`` operation rearranges, deletes, transforms, and creates columns.
 Each output column is computed by evaluating an expression
 against the source record batch. This is exposed via 
-:class:`arrow::compute::ProjectNodeOptions` class which requires, 
-a :class:`arrow::compute::Expression`, names for the output columns (if names are not
-provided, the string representations of exprs will be used). 
+:class:`arrow::compute::ProjectNodeOptions` which requires,
+an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
+provided, the string representations of exprs will be used).  
 
 Sample Expression for projection::
 
@@ -481,8 +480,14 @@ Project Example;
 
 ``aggregate`` operation provides various data aggregation options. 
 The :class:`arrow::compute::AggregateNodeOptions` is used to 
-define the aggregation criterion. These options can be 
-selected from :ref:`aggregation options <aggregation-option-list>`.
+define the aggregation criteria. An aggregate node can first group data by
+one or more key columns or the keys can be left off to compute aggregates
+across the entire dataset.  Each aggregate node can compute any number of
+aggregation functions.  Each aggregation function will be applied to every
+field specified as a target.  The aggregation functions can be 
+selected from :ref:`this list of aggregation functions <aggregation-option-list>`.
+Note: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
+In the future, spillover mechanisms will be added which should alleviate this constraint.
 
 Example::
 
@@ -502,7 +507,7 @@ An example for creating an aggregate node::
                             cp::MakeExecNode("aggregate", plan.get(), {source},
                             aggregate_options));
 
-Aggregate example;
+Aggregate example:
 
 Filter Example;
 
