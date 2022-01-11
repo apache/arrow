@@ -4,10 +4,13 @@
 \alias{to_arrow}
 \title{Create an Arrow object from others}
 \usage{
-to_arrow(.data)
+to_arrow(.data, stream = TRUE)
 }
 \arguments{
 \item{.data}{the object to be converted}
+
+\item{stream}{should the results be streamed (\code{TRUE}) or read as a table
+(\code{FALSE})? default: TRUE}
 }
 \value{
 an \code{arrow_dplyr_query} object, to be used in dplyr pipelines.

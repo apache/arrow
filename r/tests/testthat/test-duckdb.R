@@ -128,8 +128,8 @@ test_that("to_arrow roundtrip, with dataset", {
   expect_identical(
     ds %>%
       to_duckdb() %>%
-      # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
       select(-fct) %>%
+      mutate(dbl_plus = dbl + 1) %>%
       to_arrow() %>%
       filter(int > 5 & part > 1) %>%
       collect() %>%
@@ -138,6 +138,40 @@ test_that("to_arrow roundtrip, with dataset", {
     ds %>%
       select(-fct) %>%
       filter(int > 5 & part > 1) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      collect() %>%
+      arrange(part, int)
+  )
+})
+
+
+test_that("to_arrow roundtrip, with dataset (not streaming)", {
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  ds <- open_dataset(tf)
+
+  expect_identical(
+    ds %>%
+      to_duckdb() %>%
+      select(-fct) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      to_arrow(stream = FALSE) %>%
+      filter(int > 5 & part > 1) %>%
+      collect() %>%
+      arrange(part, int) %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5 & part > 1) %>%
+      mutate(dbl_plus = dbl + 1) %>%
       collect() %>%
       arrange(part, int)
   )

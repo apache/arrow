@@ -119,6 +119,8 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
+#' @param stream should the results be streamed (`TRUE`) or read as a table
+#' (`FALSE`)? default: TRUE
 #'
 #' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
 #' @export
@@ -135,7 +137,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #'   summarize(mean_mpg = mean(mpg, na.rm = TRUE)) %>%
 #'   to_arrow() %>%
 #'   collect()
-to_arrow <- function(.data) {
+to_arrow <- function(.data, stream = TRUE) {
   # If this is an Arrow object already, return quickly since we're already Arrow
   if (inherits(.data, c("arrow_dplyr_query", "ArrowObject"))) {
     return(.data)
@@ -153,6 +155,11 @@ to_arrow <- function(.data) {
 
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
+  out <- duckdb::duckdb_fetch_record_batch(res)
 
-  arrow_dplyr_query(duckdb::duckdb_fetch_record_batch(res))
+  if (stream) {
+    arrow_dplyr_query(out)
+  } else {
+    arrow_dplyr_query(out$read_table())
+  }
 }
