@@ -1566,7 +1566,7 @@ def test_between_string_scalar_array_array(ty):
     BetweenOptions = partial(pc.BetweenOptions)
 
     val = pa.scalar('b')
-    arr1 = pa.scalar(['a', 'b', None, 'c', 'a')
+    arr1 = pa.scalar(['a', 'b', None, 'c', 'a'])
     arr2 = pa.array(['a', 'b', 'e', 'b', None, 'c'])
 
     inclusive_and_expected = {
