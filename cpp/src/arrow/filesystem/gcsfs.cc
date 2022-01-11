@@ -415,10 +415,11 @@ class GcsFileSystem::Impl {
         if (!b) return internal::ToArrowStatus(b.status());
       }
     }
-    // Iterate in reverse order, if `a/b/c` is found, there is no need to create `a/b/`
-    // and `a/`
-    for (auto d = missing_parents.rbegin(); d != missing_parents.rend(); ++d) {
-      auto o = CreateDirMarker(bucket, *d);
+
+    // Note that the list of parents are sorted from deepest to most shallow, this is
+    // convenient because as soon as we find a directory we can stop the iteration.
+    for (auto const& d : missing_parents) {
+      auto o = CreateDirMarker(bucket, d);
       if (o) {
         if (IsDirectory(*o)) continue;
         // This is probably a race condition, something created a file before we managed
