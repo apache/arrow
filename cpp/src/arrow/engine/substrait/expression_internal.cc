@@ -73,7 +73,7 @@ Result<compute::Expression> FromProto(const st::Expression& expr) {
 
           if (root_expr) {
             if (auto root_ref = root_expr->field_ref()) {
-              out = FieldRef(std::move(out), *root_ref);
+              out = FieldRef(*root_ref, std::move(out));
             } else {
               // FIXME add struct_field compute function to handle
               // field references into expressions
@@ -621,7 +621,7 @@ Result<std::unique_ptr<st::Expression>> ToProto(const compute::Expression& expr)
     // Special case of a nested StructField
     DCHECK(!param->indices.empty());
 
-    for (auto it = param->indices.rbegin(); it != param->indices.rend(); ++it) {
+    for (auto it = param->indices.begin(); it != param->indices.end(); ++it) {
       auto struct_field =
           internal::make_unique<st::Expression::ReferenceSegment::StructField>();
       struct_field->set_field(*it);

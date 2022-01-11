@@ -464,6 +464,19 @@ TEST(Substrait, FieldRefRoundTrip) {
   }
 }
 
+TEST(Substrait, RecursiveFieldRef) {
+  FieldRef ref("struct_i32_str", "str");
+
+  ARROW_SCOPED_TRACE(ref.ToString());
+  ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
+
+  auto json = SubstraitToJSON("Expression", *serialized);
+  EXPECT_EQ(
+      R"({"selection":{"directReference":{"structField":{"field":1}},"expression":{"selection":{"directReference":{"structField":{"field":12}},"rootReference":{}}}}})",
+      json);
+}
+
 TEST(Substrait, CallSpecialCaseRoundTrip) {
   for (compute::Expression expr : {
            compute::call("if_else",
@@ -490,4 +503,3 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
 
 }  // namespace engine
 }  // namespace arrow
-
