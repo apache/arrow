@@ -107,11 +107,6 @@ class ColumnMetadata {
 
   /// \brief A builder class to construct the ColumnMetadata object.
   class ColumnMetadataBuilder {
-    std::shared_ptr<arrow::KeyValueMetadata> metadata_map_;
-
-    /// \brief Default constructor.
-    ColumnMetadataBuilder();
-
    public:
     friend class ColumnMetadata;
 
@@ -161,6 +156,12 @@ class ColumnMetadata {
     ColumnMetadataBuilder& IsSearchable(bool is_searchable);
 
     ColumnMetadata Build() const;
+
+   private:
+    std::shared_ptr<arrow::KeyValueMetadata> metadata_map_;
+
+    /// \brief Default constructor.
+    ColumnMetadataBuilder();
   };
 };
 }  // namespace sql
