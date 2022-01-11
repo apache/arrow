@@ -264,6 +264,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
       "hashjoin", input->plan(), {input.get(), right_data.get()},
       compute::HashJoinNodeOptions{join_type, std::move(left_refs), std::move(right_refs),
                                    std::move(left_out_refs), std::move(right_out_refs),
+                                   compute::literal(true),
                                    std::move(output_prefix_for_left), std::move(output_prefix_for_right)});
 }
 
