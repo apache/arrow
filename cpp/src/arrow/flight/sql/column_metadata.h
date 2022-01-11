@@ -103,7 +103,7 @@ class ColumnMetadata {
 
   /// \brief  Return the KeyValueMetadata.
   /// \return The KeyValueMetadata.
-  std::shared_ptr<arrow::KeyValueMetadata> GetMetadataMap() const;
+  const std::shared_ptr<arrow::KeyValueMetadata>& metadata_map() const;
 
   /// \brief A builder class to construct the ColumnMetadata object.
   class ColumnMetadataBuilder {

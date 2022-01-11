@@ -109,7 +109,7 @@ ColumnMetadata::ColumnMetadataBuilder ColumnMetadata::Builder() {
   return ColumnMetadataBuilder{};
 }
 
-std::shared_ptr<arrow::KeyValueMetadata> ColumnMetadata::GetMetadataMap() const {
+const std::shared_ptr<arrow::KeyValueMetadata>& ColumnMetadata::metadata_map() const {
   return metadata_map_;
 }
 
