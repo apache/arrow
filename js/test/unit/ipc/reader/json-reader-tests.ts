@@ -19,7 +19,7 @@ import { generateRandomTables } from '../../../data/tables.js';
 import { ArrowIOTestHelper } from '../helpers.js';
 import { validateRecordBatchReader } from '../validate.js';
 
-import { RecordBatchReader } from 'apache-arrow';
+import { RecordBatchReader, Table } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 
@@ -35,3 +35,57 @@ for (const table of generateRandomTables([10, 20, 30])) {
         });
     });
 }
+
+// Test for failing integration test
+// TODO: remove me
+test(`gold dataset`, () => {
+    const json = {
+        'schema': {
+            'fields': [
+                {
+                    'name': 'f0',
+                    'type': {
+                        'name': 'decimal',
+                        'precision': 3,
+                        'scale': 2
+                    },
+                    'nullable': true,
+                    'children': []
+                }
+            ]
+        },
+        'batches': [
+            {
+                'count': 7,
+                'columns': [
+                    {
+                        'name': 'f0',
+                        'count': 7,
+                        'VALIDITY': [
+                            1,
+                            0,
+                            1,
+                            1,
+                            0,
+                            1,
+                            0
+                        ],
+                        'DATA': [
+                            '-11697',
+                            '-25234',
+                            '27521',
+                            '-18229',
+                            '-12589',
+                            '13359',
+                            '16532'
+                        ]
+                    }
+                ]
+            }
+        ]
+    };
+
+    const table = new Table(RecordBatchReader.from(json));
+    const value = table.getChild('f0')!.get(0);
+    expect(value.toString()).toBe('340282366920938463463374607431768199759');
+});
