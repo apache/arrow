@@ -1614,7 +1614,7 @@ def test_between_string_scalar_array_scalar(ty):
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
-def test_between_scalar_scalar_array(ty):
+def test_between_string_scalar_scalar_array(ty):
     BetweenOptions = partial(pc.BetweenOptions)
 
     val = pa.scalar('b')
