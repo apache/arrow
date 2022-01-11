@@ -164,4 +164,4 @@ make changes to the Arrow C++ library.
 	  binary version of the C++ libary and then need to link it up with the R package.
 
 	  Full instructions on setting up the Arrow C++ library and Arrow R package
-	  can be found in the `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`.
+	  can be found in the `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
