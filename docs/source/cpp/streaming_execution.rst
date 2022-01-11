@@ -620,6 +620,8 @@ This operation provides the ability to guarantee the ordering of the
 stream by providing the :class:`arrow::compute::OrderBySinkNodeOptions`. 
 Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
 are used for sorting and whether to sort by ascending or descending values.
+Note: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
+In the future, spillover mechanisms will be added which should alleviate this constraint.
 
 Example::
 
@@ -657,6 +659,8 @@ Order-By-Sink Example:
 :class:`arrow::compute::SelectKOptions` which is a defined by 
 using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
 inputs and then compute top_k/bottom_k.
+Note: This node is a "pipeline breaker" and will fully materialize the input in memory.
+In the future, spillover mechanisms will be added which should alleviate this constraint.
 
 Create SelectK Option::
 
