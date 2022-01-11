@@ -163,8 +163,8 @@ variants which detect domain errors where appropriate.
 Comparisons
 -----------
 
-These functions expect two inputs of the same type. If one of the inputs is `null`
-they return ``null``.
+These functions expect two or three inputs of the same type. If one of the inputs is 
+`null` they return ``null``.
 
 .. autosummary::
    :toctree: ../generated/
@@ -175,6 +175,7 @@ they return ``null``.
    less
    less_equal
    not_equal
+   between
 
 These functions take any number of arguments of a numeric or temporal type.
 

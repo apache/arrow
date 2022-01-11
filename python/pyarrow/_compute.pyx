@@ -870,28 +870,28 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
-cdef CBetweenMode unwrap_between_mode(between_mode) except *:
-    if between_mode == "both":
-        return CBetweenMode_BOTH
-    elif between_mode == "left":
-        return CBetweenMode_LEFT
-    elif between_mode == "right":
-        return CBetweenMode_RIGHT
-    elif round_mode == "neither":
-        return CBetweenMode_NEITHER
-    _raise_invalid_function_option(between_mode, "between mode")
+cdef CInclusive unwrap_inclusive(inclusive) except *:
+    if inclusive == "both":
+        return CInclusive_BOTH
+    elif inclusive == "left":
+        return CInclusive_LEFT
+    elif inclusive == "right":
+        return CInclusive_RIGHT
+    elif inclusive == "neither":
+        return CInclusive_NEITHER
+    _raise_invalid_function_option(inclusive, "inclusive")
 
 
 cdef class _BetweenOptions(FunctionOptions):
-    def _set_options(self, between_mode):
+    def _set_options(self, inclusive):
         self.wrapped.reset(
-            new CBetweenOptions(unwrap_between_mode(between_mode))
+            new CBetweenOptions(unwrap_inclusive(inclusive))
         )
 
 
 class BetweenOptions(_BetweenOptions):
-    def __init__(self, between_mode="both"):
-        self._set_options(between_mode)
+    def __init__(self, inclusive="both"):
+        self._set_options(inclusive)
 
 
 cdef CCalendarUnit unwrap_round_unit(unit) except *:

@@ -73,11 +73,11 @@ struct GreaterEqual {
   }
 };
 
-template <BetweenOptions::Inclusive>
+template <Inclusive>
 struct BetweenImpl;
 
 template <>
-struct BetweenImpl<BetweenOptions::BOTH> {
+struct BetweenImpl<Inclusive::BOTH> {
   template <typename Arg0, typename Arg1, typename Arg2>
   static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
@@ -86,7 +86,7 @@ struct BetweenImpl<BetweenOptions::BOTH> {
 };
 
 template <>
-struct BetweenImpl<BetweenOptions::RIGHT> {
+struct BetweenImpl<Inclusive::RIGHT> {
   template <typename Arg0, typename Arg1, typename Arg2>
   static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
@@ -95,7 +95,7 @@ struct BetweenImpl<BetweenOptions::RIGHT> {
 };
 
 template <>
-struct BetweenImpl<BetweenOptions::LEFT> {
+struct BetweenImpl<Inclusive::LEFT> {
   template <typename Arg0, typename Arg1, typename Arg2>
   static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
@@ -104,7 +104,7 @@ struct BetweenImpl<BetweenOptions::LEFT> {
 };
 
 template <>
-struct BetweenImpl<BetweenOptions::NEITHER> {
+struct BetweenImpl<Inclusive::NEITHER> {
   template <typename Arg0, typename Arg1, typename Arg2>
   static constexpr bool Call(const Arg0& middle, const Arg1& left, const Arg2& right) {
     static_assert(std::is_same<Arg0, Arg1>::value && std::is_same<Arg1, Arg2>::value, "");
@@ -112,7 +112,7 @@ struct BetweenImpl<BetweenOptions::NEITHER> {
   }
 };
 
-template <BetweenOptions::Inclusive Inclusive>
+template <Inclusive Inclusive>
 struct Between {
   template <typename T, typename Arg0, typename Arg1, typename Arg2>
   static constexpr T Call(KernelContext*, const Arg0& middle, const Arg1& left,
@@ -765,7 +765,7 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
   return func;
 }
 
-template <template <BetweenOptions::Inclusive> class Op>
+template <template <Inclusive> class Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                                                     const FunctionDoc* doc) {
   using BetweenState = OptionsWrapper<BetweenOptions>;
@@ -786,21 +786,21 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
         // Resolve generator based on options
         const auto& state = static_cast<const BetweenState&>(*ctx->state());
         switch (state.options.inclusive) {
-          case BetweenOptions::BOTH:
+	  case Inclusive::BOTH:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::BOTH>>(type_id)(ctx, batch,
+                                           Op<Inclusive::BOTH>>(type_id)(ctx, batch,
                                                                               out);
-          case BetweenOptions::LEFT:
+	  case Inclusive::LEFT:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::LEFT>>(type_id)(ctx, batch,
+                                           Op<Inclusive::LEFT>>(type_id)(ctx, batch,
                                                                               out);
-          case BetweenOptions::RIGHT:
+	  case Inclusive::RIGHT:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch,
+                                           Op<Inclusive::RIGHT>>(type_id)(ctx, batch,
                                                                                out);
-          case BetweenOptions::NEITHER:
+	  case Inclusive::NEITHER:
             return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::NEITHER>>(type_id)(
+                                           Op<Inclusive::NEITHER>>(type_id)(
                 ctx, batch, out);
           default:
             return Status::NotImplemented("between inclusiveness not implemented: ",
@@ -818,21 +818,21 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
       // Resolve generator based on options
       const auto& state = static_cast<const BetweenState&>(*ctx->state());
       switch (state.options.inclusive) {
-        case BetweenOptions::BOTH:
+	case Inclusive::BOTH:
           return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
-                                       Op<BetweenOptions::BOTH>>(type_id)(ctx, batch,
+                                       Op<Inclusive::BOTH>>(type_id)(ctx, batch,
                                                                           out);
-        case BetweenOptions::LEFT:
+	case Inclusive::LEFT:
           return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
-                                       Op<BetweenOptions::LEFT>>(type_id)(ctx, batch,
+                                       Op<Inclusive::LEFT>>(type_id)(ctx, batch,
                                                                           out);
-        case BetweenOptions::RIGHT:
+	case Inclusive::RIGHT:
           return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
-                                       Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch,
+                                       Op<Inclusive::RIGHT>>(type_id)(ctx, batch,
                                                                            out);
-        case BetweenOptions::NEITHER:
+	case Inclusive::NEITHER:
           return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
-                                       Op<BetweenOptions::NEITHER>>(type_id)(ctx, batch,
+                                       Op<Inclusive::NEITHER>>(type_id)(ctx, batch,
                                                                              out);
         default:
           return Status::NotImplemented("between inclusiveness not implemented: ",
@@ -848,18 +848,18 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
       // Resolve generator based on options
       const auto& state = static_cast<const BetweenState&>(*ctx->state());
       switch (state.options.inclusive) {
-        case BetweenOptions::BOTH:
+	case Inclusive::BOTH:
           return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
-                                 Op<BetweenOptions::BOTH>>(type_id)(ctx, batch, out);
-        case BetweenOptions::LEFT:
+                                 Op<Inclusive::BOTH>>(type_id)(ctx, batch, out);
+	case Inclusive::LEFT:
           return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
-                                 Op<BetweenOptions::LEFT>>(type_id)(ctx, batch, out);
-        case BetweenOptions::RIGHT:
+                                 Op<Inclusive::LEFT>>(type_id)(ctx, batch, out);
+	case Inclusive::RIGHT:
           return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
-                                 Op<BetweenOptions::RIGHT>>(type_id)(ctx, batch, out);
-        case BetweenOptions::NEITHER:
+                                 Op<Inclusive::RIGHT>>(type_id)(ctx, batch, out);
+	case Inclusive::NEITHER:
           return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
-                                 Op<BetweenOptions::NEITHER>>(type_id)(ctx, batch, out);
+                                 Op<Inclusive::NEITHER>>(type_id)(ctx, batch, out);
         default:
           return Status::NotImplemented("between inclusiveness not implemented: ",
                                         state.options.ToString());
@@ -877,19 +877,19 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
       // Resolve generator based on options
       const auto& state = static_cast<const BetweenState&>(*ctx->state());
       switch (state.options.inclusive) {
-        case BetweenOptions::BOTH:
+	case Inclusive::BOTH:
           return ScalarTernaryEqualTypes<BooleanType, ArrowType,
-                                         Op<BetweenOptions::BOTH>>::Exec(ctx, batch, out);
-        case BetweenOptions::LEFT:
+                                         Op<Inclusive::BOTH>>::Exec(ctx, batch, out);
+	case Inclusive::LEFT:
           return ScalarTernaryEqualTypes<BooleanType, ArrowType,
-                                         Op<BetweenOptions::LEFT>>::Exec(ctx, batch, out);
-        case BetweenOptions::RIGHT:
+                                         Op<Inclusive::LEFT>>::Exec(ctx, batch, out);
+	case Inclusive::RIGHT:
           return ScalarTernaryEqualTypes<BooleanType, ArrowType,
-                                         Op<BetweenOptions::RIGHT>>::Exec(ctx, batch,
+                                         Op<Inclusive::RIGHT>>::Exec(ctx, batch,
                                                                           out);
-        case BetweenOptions::NEITHER:
+	case Inclusive::NEITHER:
           return ScalarTernaryEqualTypes<BooleanType, ArrowType,
-                                         Op<BetweenOptions::NEITHER>>::Exec(ctx, batch,
+                                         Op<Inclusive::NEITHER>>::Exec(ctx, batch,
                                                                             out);
         default:
           return Status::NotImplemented("between inclusiveness not implemented: ",

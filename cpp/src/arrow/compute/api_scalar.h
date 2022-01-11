@@ -370,11 +370,20 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
+enum class Inclusive : int8_t {
+  /// Include both endpoints
+  BOTH,
+  /// Include only left endpoint
+  LEFT,
+  /// Include only right endpoint
+  RIGHT,
+  /// Do not include endpoints
+  NEITHER,
+};
+
 class ARROW_EXPORT BetweenOptions : public FunctionOptions {
  public:
-  enum Inclusive { BOTH, LEFT, RIGHT, NEITHER };
-
-  explicit BetweenOptions(Inclusive inclusive = BOTH);
+  explicit BetweenOptions(Inclusive inclusive = Inclusive::BOTH);
   static BetweenOptions Defaults() { return BetweenOptions(); }
   constexpr static char const kTypeName[] = "BetweenOptions";
 

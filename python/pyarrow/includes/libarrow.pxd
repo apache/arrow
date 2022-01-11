@@ -1958,29 +1958,23 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRoundMode_HALF_TO_ODD \
             "arrow::compute::RoundMode::HALF_TO_ODD"
 
-     cdef cppclass CRoundOptions \
+    cdef cppclass CRoundOptions \
             "arrow::compute::RoundOptions"(CFunctionOptions):
         CRoundOptions(int64_t ndigits, CRoundMode round_mode)
         int64_t ndigits
         CRoundMode round_mode
 
-
-     ctypedef enum CBetweenMode \
-            "arrow::compute::BetweenMode":
-        CBetweenMode_BOTH \
-            "arrow::compute::BetweenOptions::Inclusive::BOTH"
-        CBetweenMode_LEFT \
-                "arrow::compute::BetweenOptions::Inclusive::LEFT"
-        CBetweenMode_RIGHT \
-                "arrow::compute::BetweenOptions::Inclusive::RIGHT"
-        CBetweenMode_NEITHER \
-                "arrow::compute::BetweenOptions::Inclusive::NEITHER"
+    ctypedef enum CInclusive \
+            "arrow::compute::Inclusive":
+        CInclusive_BOTH "arrow::compute::Inclusive::BOTH"
+        CInclusive_LEFT "arrow::compute::Inclusive::LEFT"
+        CInclusive_RIGHT "arrow::compute::Inclusive::RIGHT"
+        CInclusive_NEITHER "arrow::compute::Inclusive::NEITHER"
 
     cdef cppclass CBetweenOptions \
             "arrow::compute::BetweenOptions"(CFunctionOptions):
-        CBetweenOptions(CBetweenMode between_mode)
-        CBetweenMode between_mode
-
+        CBetweenOptions(CInclusive inclusive)
+        CInclusive inclusive
 
     ctypedef enum CCalendarUnit \
             "arrow::compute::CalendarUnit":
