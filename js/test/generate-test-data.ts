@@ -640,7 +640,7 @@ function createBitmap(length: number, nullCount: number) {
     const nulls = Object.create(null) as { [key: number]: boolean };
     const bytes = new Uint8Array((((length >> 3) + 7) & ~7) || 8).fill(255);
     for (let i, j = -1; ++j < nullCount;) {
-        while (nulls[i = Math.trunc(rand() * length)]);
+        while (nulls[i = (rand() * length) | 0]);
         nulls[i] = true;
         bytes[i >> 3] &= ~(1 << (i % 8)); // false
     }

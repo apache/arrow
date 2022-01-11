@@ -24,7 +24,6 @@ import { DataType, Struct, Null, TypeMap } from './type.js';
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
-import { instance as toArrayVisitor } from './visitor/toarray.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
 import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
@@ -163,7 +162,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Iterator for rows in this RecordBatch.
      */
     public [Symbol.iterator]() {
-        return iteratorVisitor.visit(this.data);
+        return iteratorVisitor.visit(new Vector(this.data));
     }
 
     /**
@@ -171,7 +170,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * @returns An Array of RecordBatch rows.
      */
     public toArray() {
-        return toArrayVisitor.visit(this.data);
+        return [...this];
     }
 
     /**

@@ -23,7 +23,6 @@ import { Builder, IterableBuilderOptions } from './builder.js';
 import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
 
 import {
-    ChunkedIterator,
     isChunkedValid,
     computeChunkOffsets,
     computeChunkNullCounts,
@@ -36,7 +35,7 @@ import {
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
-import { instance as toArrayVisitor } from './visitor/toarray.js';
+import { instance as iteratorVisitor } from './visitor/iterator.js';
 import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 export interface Vector<T extends DataType = any> {
@@ -195,7 +194,7 @@ export class Vector<T extends DataType = any> {
      * Iterator for the Vector's elements.
      */
     public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        return new ChunkedIterator(this.data);
+        return iteratorVisitor.visit(this);
     }
 
     /**
@@ -231,22 +230,26 @@ export class Vector<T extends DataType = any> {
      * @returns An Array or TypedArray of the Vector's elements, based on the Vector's DataType.
      */
     public toArray(): T['TArray'] {
-        const { data, stride } = this;
-        let { ArrayType } = this;
-        const toArray = toArrayVisitor.getVisitFn(this.type.typeId);
-        switch (data.length) {
-            case 1: return toArray(data[0]);
-            case 0: return new ArrayType();
+        const { type, data, length, stride, ArrayType } = this;
+        // Fast case, return subarray if possible
+        switch (type.typeId) {
+            case Type.Int:
+            case Type.Float:
+            case Type.Decimal:
+            case Type.Time:
+            case Type.Timestamp:
+                switch (data.length) {
+                    case 0: return new ArrayType();
+                    case 1: return data[0].values.subarray(0, length * stride);
+                    default: return data.reduce((memo, { values }) => {
+                        memo.array.set(values, memo.offset);
+                        memo.offset += values.length;
+                        return memo;
+                    }, { array: new ArrayType(length * stride), offset: 0 }).array;
+                }
         }
-        const arrays = data.map(data => toArray(data));
-        if (ArrayType !== arrays[0].constructor) {
-            ArrayType = arrays[0].constructor;
-        }
-        return ArrayType === Array ? arrays.flat(1) : arrays.reduce((memo, array) => {
-            memo.array.set(array, memo.offset);
-            memo.offset += array.length;
-            return memo;
-        }, { array: new ArrayType(this.length * stride), offset: 0 }).array;
+        // Otherwise if not primitive, slow copy
+        return [...this] as T['TArray'];
     }
 
     /**
@@ -348,6 +351,7 @@ export class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
         const get = this.get;
         const set = this.set;
+        const slice = this.slice;
 
         const cache = new Array<T['TValue'] | null>(this.length);
 
@@ -371,6 +375,12 @@ export class MemoizedVector<T extends DataType = any> extends Vector<T> {
         });
 
         Object.defineProperty(this, 'isMemoized', { value: true });
+
+        Object.defineProperty(this, 'slice', {
+            value(begin?: number, end?: number) {
+                return new MemoizedVector(slice.call(this, begin, end));
+            }
+        });
     }
 
     public memoize() {

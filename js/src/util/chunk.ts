@@ -17,7 +17,6 @@
 
 import { Data } from '../data.js';
 import { DataType } from '../type.js';
-import { instance as iteratorVisitor } from '../visitor/iterator.js';
 
 /** @ignore */
 export class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
@@ -25,29 +24,26 @@ export class ChunkedIterator<T extends DataType> implements IterableIterator<T['
     private chunkIterator: IterableIterator<T['TValue'] | null>;
 
     constructor(
-        private chunks: ReadonlyArray<Data<T>>,
+        private numChunks: number = 0,
+        private getChunkIterator: (chunkIndex: number) => IterableIterator<T['TValue'] | null>
     ) {
-        this.chunkIterator = this.getChunkIterator();
+        this.chunkIterator = this.getChunkIterator(0);
     }
 
     next(): IteratorResult<T['TValue'] | null> {
-        while (this.chunkIndex < this.chunks.length) {
+        while (this.chunkIndex < this.numChunks) {
             const next = this.chunkIterator.next();
 
             if (!next.done) {
                 return next;
             }
 
-            if (++this.chunkIndex < this.chunks.length) {
-                this.chunkIterator = this.getChunkIterator();
+            if (++this.chunkIndex < this.numChunks) {
+                this.chunkIterator = this.getChunkIterator(this.chunkIndex);
             }
         }
 
         return { done: true, value: null };
-    }
-
-    getChunkIterator() {
-        return iteratorVisitor.visit(this.chunks[this.chunkIndex]);
     }
 
     [Symbol.iterator]() {
