@@ -23,7 +23,7 @@ py_to_r.pyarrow.lib.Array <- function(x, ...) {
     delete_arrow_array(array_ptr)
   })
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(array_ptr, schema_ptr)
   } else {
     x$`_export_to_c`(
@@ -47,7 +47,7 @@ r_to_py.Array <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(array_ptr, schema_ptr)
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$Array$`_import_from_c`(array_ptr, schema_ptr)
   } else {
     out <- pa$Array$`_import_from_c`(
@@ -69,7 +69,7 @@ py_to_r.pyarrow.lib.RecordBatch <- function(x, ...) {
     delete_arrow_array(array_ptr)
   })
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(array_ptr, schema_ptr)
   } else {
     x$`_export_to_c`(
@@ -93,7 +93,7 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(array_ptr, schema_ptr)
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$RecordBatch$`_import_from_c`(array_ptr, schema_ptr)
   } else {
     out <- pa$RecordBatch$`_import_from_c`(
@@ -140,7 +140,7 @@ py_to_r.pyarrow.lib.Schema <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(schema_ptr)
   } else {
     x$`_export_to_c`(external_pointer_addr_double(schema_ptr))
@@ -157,7 +157,7 @@ r_to_py.Schema <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$Schema$`_import_from_c`(schema_ptr)
   } else {
     out <- pa$Schema$`_import_from_c`(external_pointer_addr_double(schema_ptr))
@@ -172,7 +172,7 @@ py_to_r.pyarrow.lib.Field <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(schema_ptr)
   } else {
     x$`_export_to_c`(external_pointer_addr_double(schema_ptr))
@@ -189,7 +189,7 @@ r_to_py.Field <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$Field$`_import_from_c`(schema_ptr)
   } else {
     out <- pa$Field$`_import_from_c`(external_pointer_addr_double(schema_ptr))
@@ -204,7 +204,7 @@ py_to_r.pyarrow.lib.DataType <- function(x, ...) {
   schema_ptr <- allocate_arrow_schema()
   on.exit(delete_arrow_schema(schema_ptr))
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(schema_ptr)
   } else {
     x$`_export_to_c`(external_pointer_addr_double(schema_ptr))
@@ -221,7 +221,7 @@ r_to_py.DataType <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(schema_ptr)
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$DataType$`_import_from_c`(schema_ptr)
   } else {
     out <- pa$DataType$`_import_from_c`(
@@ -238,7 +238,7 @@ py_to_r.pyarrow.lib.RecordBatchReader <- function(x, ...) {
   stream_ptr <- allocate_arrow_array_stream()
   on.exit(delete_arrow_array_stream(stream_ptr))
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     x$`_export_to_c`(stream_ptr)
   } else {
     x$`_export_to_c`(
@@ -258,7 +258,7 @@ r_to_py.RecordBatchReader <- function(x, convert = FALSE) {
   x$export_to_c(stream_ptr)
   # TODO: handle subclasses of RecordBatchReader?
 
-  if (pyarrow_version() >= pyarrow_version_pointers_changed()) {
+  if (pyarrow_version() >= pyarrow_version_pointers_changed) {
     out <- pa$lib$RecordBatchReader$`_import_from_c`(stream_ptr)
   } else {
     out <- pa$lib$RecordBatchReader$`_import_from_c`(
@@ -314,6 +314,4 @@ pyarrow_version <- function() {
   package_version(gsub("\\.dev.*?$", "", version_string))
 }
 
-pyarrow_version_pointers_changed <- function() {
-  "7.0.0"
-}
+pyarrow_version_pointers_changed <- "7.0.0"
