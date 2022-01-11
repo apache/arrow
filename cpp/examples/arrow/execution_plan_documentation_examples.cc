@@ -59,15 +59,6 @@
 
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
-#define ABORT_ON_FAILURE(expr)                     \
-  do {                                             \
-    arrow::Status status_ = (expr);                \
-    if (!status_.ok()) {                           \
-      std::cerr << status_.message() << std::endl; \
-      abort();                                     \
-    }                                              \
-  } while (0);
-
 constexpr char kSep[] = "******";
 
 #define PRINT_BLOCK(msg)                                               \
@@ -102,10 +93,10 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
   using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
   using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
   ARROW_BUILDER_TYPE builder;
-  ABORT_ON_FAILURE(builder.Reserve(values.size()));
+  ABORT_NOT_OK(builder.Reserve(values.size()));
   std::shared_ptr<ARROW_ARRAY_TYPE> array;
-  ABORT_ON_FAILURE(builder.AppendValues(values));
-  ABORT_ON_FAILURE(builder.Finish(&array));
+  ABORT_NOT_OK(builder.AppendValues(values));
+  ABORT_NOT_OK(builder.Finish(&array));
   arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
   return result;
 }
@@ -116,10 +107,10 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
   using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
   using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
   ARROW_BUILDER_TYPE builder;
-  ABORT_ON_FAILURE(builder.Reserve(values.size()));
+  ABORT_NOT_OK(builder.Reserve(values.size()));
   std::shared_ptr<ARROW_ARRAY_TYPE> array;
-  ABORT_ON_FAILURE(builder.AppendValues(values));
-  ABORT_ON_FAILURE(builder.Finish(&array));
+  ABORT_NOT_OK(builder.AppendValues(values));
+  ABORT_NOT_OK(builder.Finish(&array));
   arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
   return result;
 }
@@ -385,7 +376,7 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
       basic_data.schema, std::move(sink_gen), exec_context.memory_pool());
 
   // // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::cout << "Exec Plan Created: " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -462,7 +453,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
       dataset->schema(), std::move(sink_gen), exec_context.memory_pool());
 
   // // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::cout << "Exec Plan created " << plan->ToString() << std::endl;
   // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -529,7 +520,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
                               std::move(sink_gen), exec_context.memory_pool());
 
   // // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
 
   std::cout << "Exec Plan Created : " << plan->ToString() << std::endl;
 
@@ -600,7 +591,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
                               std::move(sink_gen), exec_context.memory_pool());
 
   // // validate the ExecPlan
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::cout << "ExecPlan created : " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -669,9 +660,9 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
                         MakeExecNode("consuming_sink", plan.get(), {source},
                                      cp::ConsumingSinkNodeOptions(consumer)));
 
-  ABORT_ON_FAILURE(consuming_sink->Validate());
+  ABORT_NOT_OK(consuming_sink->Validate());
 
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
   // plan start producing
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -953,8 +944,8 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * wr, cp::MakeExecNode("write", plan.get(), {scan},
                                                             write_node_options));
 
-  ABORT_ON_FAILURE(wr->Validate());
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(wr->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -1003,9 +994,9 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
           })
           .AddToPlan(plan.get()));
 
-  ABORT_ON_FAILURE(declr->Validate());
+  ABORT_NOT_OK(declr->Validate());
 
-  ABORT_ON_FAILURE(plan->Validate());
+  ABORT_NOT_OK(plan->Validate());
   std::shared_ptr<arrow::RecordBatchReader> sink_reader =
       cp::MakeGeneratorReader(basic_data.schema,
                               std::move(sink_gen), exec_context.memory_pool());

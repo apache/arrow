@@ -723,8 +723,7 @@ The union operation can be executed on multiple data
 sources(:class:`ExecNodes`).
 
 The following example demonstrates how this can be achieved using 
-two data sources. Following a union operations the output is obtained using 
-a aggregation operation. 
+two data sources.
 
 Union Example;
 
