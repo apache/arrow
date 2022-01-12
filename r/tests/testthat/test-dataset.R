@@ -397,6 +397,59 @@ test_that("Partitioning inference", {
   )
 })
 
+test_that("Specifying partitioning when hive_style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+
+  # If string and names match hive partition names, it's accepted silently
+  ds_with_chr <- open_dataset(hive_dir, partitioning = c("group", "other"))
+  expect_equal(ds_with_chr$schema, expected_schema)
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = c("asdf", "zxcv")),
+    '"partitioning" does not match the detected Hive-style partitions: c("group", "other")',
+    fixed = TRUE
+  )
+
+  # If schema and names match, the schema is used to specify the types
+  ds_with_sch <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int32(), other = utf8())
+  )
+  expect_equal(ds_with_sch$schema, expected_schema)
+
+  ds_with_int8 <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int8(), other = utf8())
+  )
+  expect_equal(ds_with_int8$schema[["group"]]$type, int8())
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = schema(a = int32(), b = utf8())),
+    '"partitioning" does not match the detected Hive-style partitions: c("group", "other")',
+    fixed = TRUE
+  )
+
+
+  # This can be disabled with hive_style = FALSE
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    partitioning = c("group", "other"),
+    hive_style = FALSE
+  )
+  expect_equal(ds_not_hive$schema[["group"]]$type, utf8())
+})
+
+test_that("Including partition columns in schema, hive style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+  # Specify a different type than what is autodetected
+  expected_schema$group <- float32()
+
+  ds <- open_dataset(hive_dir, schema = expected_schema)
+  expect_equal(ds$schema, expected_schema)
+})
+
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(

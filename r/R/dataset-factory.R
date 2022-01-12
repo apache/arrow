@@ -41,6 +41,7 @@ DatasetFactory$create <- function(x,
                                   filesystem = NULL,
                                   format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
                                   partitioning = NULL,
+                                  hive_style = NA,
                                   ...) {
   if (is_list_of(x, "DatasetFactory")) {
     return(dataset___UnionDatasetFactory__Make(x))
@@ -60,16 +61,65 @@ DatasetFactory$create <- function(x,
     return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
   }
 
-  if (!is.null(partitioning)) {
-    if (inherits(partitioning, "Schema")) {
-      partitioning <- DirectoryPartitioning$create(partitioning)
-    } else if (is.character(partitioning)) {
-      # These are the column/field names, and we should autodetect their types
-      partitioning <- DirectoryPartitioningFactory$create(partitioning)
+  # Handle partitioning arg in cases where it is "character" or "Schema"
+  if (!is.null(partitioning) && !inherits(partitioning, c("Partitioning", "PartitioningFactory"))) {
+    # isFALSE() would be sufficient but that requires R >= 3.5
+    assert_that(is.logical(hive_style), length(hive_style) == 1)
+    if (hive_style %in% c(TRUE, NA)) {
+      # Default is NA, which means check to see if the paths could be hive_style
+      hive_factory <- HivePartitioningFactory$create()
+      paths <- path_and_fs$fs$ls(
+        path_and_fs$path,
+        allow_not_found = FALSE,
+        recursive = TRUE
+      )
+      hive_schema <- hive_factory$Inspect(paths)
+      # This is length-0 if there are no hive segments
+      if (is.na(hive_style)) {
+        hive_style <- length(hive_schema) > 0
+      }
+    }
+
+    if (hive_style) {
+      if (is.character(partitioning)) {
+        # These are not needed, the user probably provided them because they
+        # thought they needed to. Just make sure they aren't invalid.
+        if (!identical(names(hive_schema), partitioning)) {
+          stop(
+            '"partitioning" does not match the detected Hive-style partitions: ',
+            deparse1(names(hive_schema)),
+            call. = FALSE
+          )
+        }
+        partitioning <- hive_factory$Finish(hive_schema)
+      } else if (inherits(partitioning, "Schema")) {
+        # This means we want to set the types of the hive-style partitions
+        # to be exactly what we want them to be
+        if (!identical(names(hive_schema), names(partitioning))) {
+          stop(
+            '"partitioning" does not match the detected Hive-style partitions: ',
+            deparse1(names(hive_schema)),
+            call. = FALSE
+          )
+        }
+        partitioning <- HivePartitioning$create(partitioning)
+      }
+    } else {
+      # DirectoryPartitioning
+      if (is.character(partitioning)) {
+        # These are the column/field names, and we should autodetect their types
+        partitioning <- DirectoryPartitioningFactory$create(partitioning)
+      } else if (inherits(partitioning, "Schema")) {
+        partitioning <- DirectoryPartitioning$create(partitioning)
+      }
     }
   }
 
-  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
+  selector <- FileSelector$create(
+    path_and_fs$path,
+    allow_not_found = FALSE,
+    recursive = TRUE
+  )
 
   FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
 }
@@ -115,6 +165,10 @@ DatasetFactory$create <- function(x,
 #'    by [hive_partition()] which parses explicit or autodetected fields from
 #'    Hive-style path segments
 #'   * `NULL` for no partitioning
+#' @param hive_style Logical: if `partitioning` is a character vector or a
+#' `Schema`, should it be interpreted as specifying Hive-style partitioning?
+#' Default is `NA`, which means to inspect the file paths for Hive-style
+#' partitioning and behave accordingly.
 #' @param ... Additional format-specific options, passed to
 #' `FileFormat$create()`. For CSV options, note that you can specify them either
 #' with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the

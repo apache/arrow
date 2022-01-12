@@ -391,6 +391,20 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
   return ds::HivePartitioning::MakeFactory(options);
 }
 
+// [[dataset::export]]
+std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(
+    const std::shared_ptr<ds::PartitioningFactory>& factory,
+    const std::vector<std::string>& paths) {
+  return ValueOrStop(factory->Inspect(paths));
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::Partitioning> dataset___PartitioningFactory__Finish(
+    const std::shared_ptr<ds::PartitioningFactory>& factory,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return ValueOrStop(factory->Finish(schema));
+}
+
 // ScannerBuilder, Scanner
 
 // [[dataset::export]]
