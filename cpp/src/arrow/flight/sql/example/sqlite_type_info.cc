@@ -33,15 +33,15 @@ namespace example {
                             "integer", "smallint", "float", "double",
                             "numeric", "varchar", "date", "time",
                             "timestamp"])");
-    auto data_type = ArrayFromJSON(int64(), R"([-7, -6, -5, -4, -3, -1, -1, 1, 4, 5, 6, 8, 8, 12, 91, 92, 93])");
-    auto column_size = ArrayFromJSON(int64(), R"([1, 3, 19, 65536, 255, 65536, 65536, 255, 9, 5, 7, 15, 15, 255, 10, 8, 32])");
+    auto data_type = ArrayFromJSON(int32(), R"([-7, -6, -5, -4, -3, -1, -1, 1, 4, 5, 6, 8, 8, 12, 91, 92, 93])");
+    auto column_size = ArrayFromJSON(int32(), R"([1, 3, 19, 65536, 255, 65536, 65536, 255, 9, 5, 7, 15, 15, 255, 10, 8, 32])");
     auto literal_prefix = ArrayFromJSON(utf8(), R"([null, null, null, null, null, "'", "'", "'", null, null, null, null, null, "'", "'", "'", "'"])");
     auto literal_suffix = ArrayFromJSON(utf8(), R"([null, null, null, null, null, "'", "'", "'", null, null, null, null, null, "'", "'", "'", "'"])");
     auto create_params = ArrayFromJSON(utf8(), R"([null, null, null, null, null, "length", "length", "length", null, null, null, null, null, "length", null, null, null])");
-    auto nullable = ArrayFromJSON(int64(), R"([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])");
+    auto nullable = ArrayFromJSON(int32(), R"([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])");
     auto case_sensitive = ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-    auto serachable = ArrayFromJSON(int64(), R"([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])");
-    auto unsigned_attribute = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto serachable = ArrayFromJSON(int32(), R"([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])");
+    auto unsigned_attribute = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
     auto fixed_prec_scale = ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
     auto auto_unique_value = ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
     auto local_type_name = ArrayFromJSON(utf8(), R"(["bit", "tinyint", "bigint", "longvarbinary",
@@ -49,12 +49,12 @@ namespace example {
                           "integer", "smallint", "float", "double",
                           "numeric", "varchar", "date", "time",
                           "timestamp"])");
-    auto minimal_scale = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-    auto maximum_scale = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-    auto sql_data_type = ArrayFromJSON(int64(), R"([-7,-6,-5,-4,-3,-1,-1,1,4,5,6,8,8,12,91,92,93])");
-    auto sql_datetime_sub = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-    auto num_prec_radix = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-    auto interval_precision = ArrayFromJSON(int64(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto minimal_scale = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto maximum_scale = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto sql_data_type = ArrayFromJSON(int32(), R"([-7,-6,-5,-4,-3,-1,-1,1,4,5,6,8,8,12,91,92,93])");
+    auto sql_datetime_sub = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto num_prec_radix = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+    auto interval_precision = ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
 
     return RecordBatch::Make(schema, 17, {
       type_name_array, data_type, column_size, literal_prefix,

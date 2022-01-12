@@ -195,6 +195,18 @@ public class FlightSqlScenarioProducer implements FlightSqlProducer {
   }
 
   @Override
+  public void getStreamTypeInfo(FlightSql.CommandGetTypeInfo request,
+                                CallContext context, ServerStreamListener listener) {
+    putEmptyBatchToStreamListener(listener, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
+  public FlightInfo getFlightInfoTypeInfo(FlightSql.CommandGetTypeInfo request, CallContext context,
+                                          FlightDescriptor descriptor) {
+    return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
+  }
+
+  @Override
   public FlightInfo getFlightInfoCatalogs(FlightSql.CommandGetCatalogs request, CallContext context,
                                           FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_CATALOGS_SCHEMA);
