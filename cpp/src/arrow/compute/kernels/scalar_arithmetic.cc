@@ -42,6 +42,7 @@ using internal::SubtractWithOverflow;
 namespace compute {
 namespace internal {
 
+using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
 using applicator::ScalarBinaryNotNullEqualTypes;
 using applicator::ScalarUnary;
@@ -212,6 +213,22 @@ struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + (-right);
+  }
+};
+
+struct SubtractDate32AndDuration {
+  static constexpr int64_t kMillisecondsInDay = 86400000;
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left * kMillisecondsInDay, right);
+  }
+};
+
+struct SubtractDate64AndDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left, right);
   }
 };
 
@@ -2427,6 +2444,20 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
+
+  // Add subtract(date32, date32) -> duration(TimeUnit::MILLI)
+  InputType in_type_date_32(date32());
+  auto exec_date_32 =
+      ScalarBinary<Int64Type, Date32Type, Int64Type, SubtractDate32AndDuration>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_32, duration(TimeUnit::MILLI)},
+                                timestamp(TimeUnit::MILLI), std::move(exec_date_32)));
+
+  // Add subtract(date64, date64) -> duration(TimeUnit::MILLI)
+  InputType in_type_date_64(date64());
+  auto exec_date_64 =
+      ScalarBinary<Int64Type, Date64Type, Int64Type, SubtractDate64AndDuration>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_64, duration(TimeUnit::MILLI)},
+                                timestamp(TimeUnit::MILLI), std::move(exec_date_64)));
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
