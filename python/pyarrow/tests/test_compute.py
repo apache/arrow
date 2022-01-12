@@ -1803,7 +1803,7 @@ def test_round_to_integer(ty):
     for round_mode, expected in rmode_and_expected.items():
         options = RoundOptions(round_mode=round_mode)
         result = round(values, options=options)
-        assert result.equals(pa.array(expected))
+        np.testing.assert_array_equal(result, pa.array(expected))
 
 
 def test_round():
