@@ -1663,7 +1663,7 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// \param[in] right used as the upper bound for comparison
 /// \param[in] options for bounds, default is inclusive of both
 ///  endpoints, other choices are left (exclude left endpoint),
-///  right (exclude right endpoint) and both (exclude both endpoints), 
+///  right (exclude right endpoint) and both (exclude both endpoints),
 ///  optional
 /// \param[in] ctx the function execution context, optional
 ///
