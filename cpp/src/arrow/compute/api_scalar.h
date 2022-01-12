@@ -342,7 +342,7 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
-enum class Inclusive : int8_t  {
+enum class Inclusive : int8_t {
   /// Include both endpoints
   BOTH,
   /// Include only left endpoint

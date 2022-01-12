@@ -86,7 +86,7 @@ static void BetweenArrayArrayArray(benchmark::State& state) {
   auto mid = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-      ABORT_NOT_OK(Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
+    ABORT_NOT_OK(Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
   }
 }
 
@@ -99,7 +99,8 @@ static void BetweenScalarArrayScalar(benchmark::State& state) {
   auto lhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   auto rhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   for (auto _ : state) {
-    ABORT_NOT_OK(Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
+    ABORT_NOT_OK(
+        Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
   }
 }
 
@@ -112,7 +113,8 @@ static void BetweenScalarArrayArray(benchmark::State& state) {
   auto lhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
+    ABORT_NOT_OK(
+        Between(mid, lhs, rhs, arrow::compute::BetweenOptions(), nullptr).status());
   }
 }
 
