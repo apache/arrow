@@ -30,11 +30,7 @@ using arrow::utf8;
 
 class TestFilter : public ::testing::Test {
  public:
-  void SetUp() {
-    pool_ = arrow::default_memory_pool();
-    // Setup arrow log severity threshold to debug level.
-    arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
-  }
+  void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
   arrow::MemoryPool* pool_;
@@ -60,13 +56,12 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_FALSE(filter->GetBuiltFromCache());
 
   // same schema and condition, should return the same filter as above.
   std::shared_ptr<Filter> cached_filter;
   status = Filter::Make(schema, condition, configuration, &cached_filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_filter->GetBuiltFromCache());
+  EXPECT_TRUE(cached_filter.get() == filter.get());
 
   // schema is different should return a new filter.
   auto field2 = field("f2", int32());
@@ -75,7 +70,7 @@ TEST_F(TestFilter, TestFilterCache) {
   status =
       Filter::Make(different_schema, condition, configuration, &should_be_new_filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+  EXPECT_TRUE(cached_filter.get() != should_be_new_filter.get());
 
   // condition is different, should return a new filter.
   auto greater_than_10 = TreeExprBuilder::MakeFunction(
@@ -84,7 +79,7 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> should_be_new_filter1;
   status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
-  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+  EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get());
 }
 
 TEST_F(TestFilter, TestFilterCacheNullTreatment) {
