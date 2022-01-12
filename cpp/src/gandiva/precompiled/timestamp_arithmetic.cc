@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./epoch_time_point.h"
-#include "time.h"
 
 // The first row is for non-leap years
 static int days_in_a_month[2][12] = {{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
