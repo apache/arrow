@@ -749,16 +749,24 @@ chris\t-1
         end
       end
 
-      def test_http
+      # TODO: Need to consider Ruby's GVL carefully
+      # data("Arrow File",
+      #      [:arrow, "arrow", "application/vnd.apache.arrow.file"])
+      data("Arrow Stream",
+           [:arrow_streaming, "arrows", "application/vnd.apache.arrow.stream"])
+      data("CSV",
+           [:csv, "csv", "text/csv"])
+      def test_http(data)
+        format, extension, content_type = data
         output = Arrow::ResizableBuffer.new(1024)
-        @table.save(output, format: :arrow_streaming)
-        path = "/data.arrows"
+        @table.save(output, format: format)
+        path = "/data.#{extension}"
         start_web_server(path,
                          output.data.to_s,
-                         "application/vnd.apache.arrow.stream") do |port|
+                         content_type) do |port|
           input = URI("http://127.0.0.1:#{port}#{path}")
-          assert_equal(@table,
-                       Arrow::Table.load(input, format: :arrow_streaming))
+          loaded_table = Arrow::Table.load(input, format: format)
+          assert_equal(@table.to_s, loaded_table.to_s)
         end
       end
     end

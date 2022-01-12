@@ -204,8 +204,13 @@ module Arrow
 
     def csv_load(options)
       options.delete(:format)
-      if @input.is_a?(Buffer)
+      case @input
+      when Buffer
         CSVLoader.load(@input.data.to_s, **options)
+      when URI
+        @input.open do |input|
+          CSVLoader.load(input.read, **options)
+        end
       else
         CSVLoader.load(Pathname.new(@input), **options)
       end

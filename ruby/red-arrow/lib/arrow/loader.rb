@@ -215,5 +215,16 @@ module Arrow
         super
       end
     end
+
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      case klass.name
+      when "Arrow::RecordBatchFileReader"
+        case function_info.name
+        when "new"
+          function_info.lock_gvl_default = false
+        end
+      end
+    end
   end
 end
