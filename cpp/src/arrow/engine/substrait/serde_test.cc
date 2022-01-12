@@ -450,12 +450,22 @@ TEST(Substrait, RecursiveFieldRef) {
   ARROW_SCOPED_TRACE(ref.ToString());
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
-
-  auto json = SubstraitToJSON("Expression", *serialized);
-  EXPECT_EQ(
-      // R"({"selection":{"directReference":{"structField":{"field":1}},"expression":{"selection":{"directReference":{"structField":{"field":12}},"rootReference":{}}}}})",
-      R"({"selection":{"directReference":{"structField":{"field":12,"child":{"structField":{"field":1}}}},"rootReference":{}}})",
-      json);
+  auto expected = SubstraitFromJSON("Expression", R"({
+    "selection": {
+      "directReference": {
+        "structField": {
+          "field": 12,
+          "child": {
+            "structField": {
+              "field": 1
+            }
+          }
+        }
+      },
+      "rootReference": {}
+    }
+  })");
+  ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
 TEST(Substrait, CallSpecialCaseRoundTrip) {
