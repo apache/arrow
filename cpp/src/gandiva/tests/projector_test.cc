@@ -2378,7 +2378,7 @@ TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
   auto schema = arrow::schema({field_time, field_year_interval});
 
   // output fields
-  auto field_result = field("r0", arrow::date64());
+  auto field_result = field("r0", arrow::timestamp(arrow::TimeUnit::MILLI));
 
   // Build expression
   auto expr = TreeExprBuilder::MakeExpression("add", {field_time, field_year_interval},

@@ -50,6 +50,24 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
+#define INTERVAL_ADD_FNS(name, ALIASES)                                                  \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval,      \
+                                       timestamp),                                       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, month_interval,            \
+                                       timestamp),                                       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval,         \
+                                       timestamp),                                       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval, time32)
+
+#define INTERVAL_DIFF_FNS(name, ALIASES)                                                 \
+  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval, timestamp), \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval,      \
+                                       timestamp),                                       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval,         \
+                                       timestamp),                                       \
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval, time32)
+
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(months_between, {}, date64, date64, float64),
@@ -76,31 +94,8 @@ std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
       DATE_ADD_FNS(date_add, {}),
       DATE_ADD_FNS(add, {}),
 
-      NativeFunction("add", {}, DataTypeVector{date64(), int64()}, date64(),
-                     kResultNullIfNull, "add_date64_int64"),
-      NativeFunction("add", {}, DataTypeVector{date64(), day_time_interval()}, date64(),
-                     kResultNullIfNull, "add_day_time_interval_date64"),
-      NativeFunction("add", {}, DataTypeVector{timestamp(), day_time_interval()},
-                     timestamp(), kResultNullIfNull, "add_day_time_interval_timestamp"),
-      NativeFunction("add", {}, DataTypeVector{date64(), month_interval()}, date64(),
-                     kResultNullIfNull, "add_year_month_interval_date64"),
-      NativeFunction("add", {}, DataTypeVector{timestamp(), month_interval()},
-                     timestamp(), kResultNullIfNull, "add_year_month_interval_timestamp"),
-      NativeFunction("add", {}, DataTypeVector{time32(), day_time_interval()}, time32(),
-                     kResultNullIfNull, "add_day_time_interval_time32"),
-
-      NativeFunction("subtract", {}, DataTypeVector{date64(), day_time_interval()},
-                     date64(), kResultNullIfNull, "subtract_day_time_interval_date64"),
-      NativeFunction("subtract", {}, DataTypeVector{timestamp(), day_time_interval()},
-                     timestamp(), kResultNullIfNull,
-                     "subtract_day_time_interval_timestamp"),
-      NativeFunction("subtract", {}, DataTypeVector{date64(), month_interval()}, date64(),
-                     kResultNullIfNull, "subtract_year_month_interval_date64"),
-      NativeFunction("subtract", {}, DataTypeVector{timestamp(), month_interval()},
-                     timestamp(), kResultNullIfNull,
-                     "subtract_year_month_interval_timestamp"),
-      NativeFunction("subtract", {}, DataTypeVector{time32(), day_time_interval()},
-                     time32(), kResultNullIfNull, "subtract_day_time_interval_time32"),
+      INTERVAL_ADD_FNS(add, {}),
+      INTERVAL_DIFF_FNS(subtract, {}),
 
       DATE_DIFF_FNS(date_sub, {}),
       DATE_DIFF_FNS(subtract, {}),
