@@ -657,6 +657,115 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum& dat
   return std::move(out);
 }
 
+static Status AddChildToReferenceSegment(
+    substrait::Expression::ReferenceSegment& segment,
+    std::unique_ptr<substrait::Expression::ReferenceSegment>&& child) {
+  auto status = Status::Invalid("Attempt to add child to incomplete reference segment");
+  switch (segment.reference_type_case()) {
+    case substrait::Expression::ReferenceSegment::kMapKey: {
+      auto map_key = segment.release_map_key();
+      if (map_key->has_child()) {
+        auto intermediate_segment = map_key->release_child();
+        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
+        map_key->set_allocated_child(intermediate_segment);
+      } else {
+        map_key->set_allocated_child(child.release());
+        status = Status::OK();
+      }
+      segment.set_allocated_map_key(map_key);
+      break;
+    }
+    case substrait::Expression::ReferenceSegment::kStructField: {
+      auto struct_field = segment.release_struct_field();
+      if (struct_field->has_child()) {
+        auto intermediate_segment = struct_field->release_child();
+        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
+        struct_field->set_allocated_child(intermediate_segment);
+      } else {
+        struct_field->set_allocated_child(child.release());
+        status = Status::OK();
+      }
+      segment.set_allocated_struct_field(struct_field);
+      break;
+    }
+    case substrait::Expression::ReferenceSegment::kListElement: {
+      auto list_element = segment.release_list_element();
+      if (list_element->has_child()) {
+        auto intermediate_segment = list_element->release_child();
+        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
+        list_element->set_allocated_child(intermediate_segment);
+      } else {
+        list_element->set_allocated_child(child.release());
+        status = Status::OK();
+      }
+      segment.set_allocated_list_element(list_element);
+      break;
+    }
+    default:
+      break;
+  }
+  return status;
+}
+
+// Indexes the given Substrait expression or root (if expr is empty) using the given
+// ReferenceSegment.
+static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
+    std::unique_ptr<substrait::Expression>&& expr,
+    std::unique_ptr<substrait::Expression::ReferenceSegment>&& ref_segment) {
+  // If expr is already a selection expression, add the index to its index stack.
+  if (expr && expr->has_selection() && expr->selection().has_direct_reference()) {
+    auto selection = expr->release_selection();
+    auto root_ref_segment = selection->release_direct_reference();
+    auto status = AddChildToReferenceSegment(*root_ref_segment, std::move(ref_segment));
+    selection->set_allocated_direct_reference(root_ref_segment);
+    expr->set_allocated_selection(selection);
+    if (status.ok()) {
+      return std::move(expr);
+    }
+  }
+
+  auto selection = internal::make_unique<substrait::Expression::FieldReference>();
+  selection->set_allocated_direct_reference(ref_segment.release());
+
+  if (expr && expr->rex_type_case() != substrait::Expression::REX_TYPE_NOT_SET) {
+    selection->set_allocated_expression(expr.release());
+  } else {
+    selection->set_allocated_root_reference(
+        new substrait::Expression::FieldReference::RootReference());
+  }
+
+  auto out = internal::make_unique<substrait::Expression>();
+  out->set_allocated_selection(selection.release());
+  return std::move(out);
+}
+
+// Indexes the given Substrait struct-typed expression or root (if expr is empty) using
+// the given field index.
+static Result<std::unique_ptr<substrait::Expression>> MakeStructFieldReference(
+    std::unique_ptr<substrait::Expression>&& expr, int field) {
+  auto struct_field =
+      internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
+  struct_field->set_field(field);
+
+  auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
+  ref_segment->set_allocated_struct_field(struct_field.release());
+
+  return MakeDirectReference(std::move(expr), std::move(ref_segment));
+}
+
+// Indexes the given Substrait list-typed expression using the given offset.
+static Result<std::unique_ptr<substrait::Expression>> MakeListElementReference(
+    std::unique_ptr<substrait::Expression>&& expr, int offset) {
+  auto list_element =
+      internal::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
+  list_element->set_offset(offset);
+
+  auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
+  ref_segment->set_allocated_list_element(list_element.release());
+
+  return MakeDirectReference(std::move(expr), std::move(ref_segment));
+}
+
 Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression& expr) {
   if (!expr.IsBound()) {
     return Status::Invalid("ToProto requires a bound Expression");
@@ -675,25 +784,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     DCHECK(!param->indices.empty());
 
     for (int index : param->indices) {
-      auto struct_field =
-          internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
-      struct_field->set_field(index);
-
-      auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
-      ref_segment->set_allocated_struct_field(struct_field.release());
-
-      auto selection = internal::make_unique<substrait::Expression::FieldReference>();
-      selection->set_allocated_direct_reference(ref_segment.release());
-
-      if (out->has_selection()) {
-        selection->set_allocated_expression(out.release());
-        out = internal::make_unique<substrait::Expression>();
-      } else {
-        selection->set_allocated_root_reference(
-            new substrait::Expression::FieldReference::RootReference());
-      }
-
-      out->set_allocated_selection(selection.release());
+      ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
 
     return std::move(out);
@@ -709,31 +800,11 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   if (call->function_name == "struct_field") {
     // catch the special case of calls convertible to a StructField
-    // TODO: DRY (nested StructField above); also, utilize ReferenceSegment.child for
-    // nesting if possible
-    const auto& indices =
-        std::static_pointer_cast<arrow::compute::StructFieldOptions>(call->options)
-            ->indices;
-
-    for (int index : indices) {
-      auto struct_field =
-          internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
-      struct_field->set_field(index);
-
-      auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
-      ref_segment->set_allocated_struct_field(struct_field.release());
-
-      auto selection = internal::make_unique<substrait::Expression::FieldReference>();
-      selection->set_allocated_direct_reference(ref_segment.release());
-
-      if (out->has_selection()) {
-        selection->set_allocated_expression(out.release());
-        out = internal::make_unique<substrait::Expression>();
-      } else {
-        selection->set_allocated_expression(arguments[0].release());
-      }
-
-      out->set_allocated_selection(selection.release());
+    out.reset(arguments[0].release());
+    for (int index :
+         std::static_pointer_cast<arrow::compute::StructFieldOptions>(call->options)
+             ->indices) {
+      ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
 
     return std::move(out);
@@ -744,21 +815,9 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
-        auto list_element =
-            internal::make_unique<substrait::Expression::ReferenceSegment::ListElement>();
-
-        list_element->set_offset(arguments[1]->literal().i32());
-
-        auto ref_segment =
-            internal::make_unique<substrait::Expression::ReferenceSegment>();
-        ref_segment->set_allocated_list_element(list_element.release());
-
-        auto field_ref = internal::make_unique<substrait::Expression::FieldReference>();
-        field_ref->set_allocated_direct_reference(ref_segment.release());
-        field_ref->set_allocated_expression(arguments[0].release());
-
-        out->set_allocated_selection(field_ref.release());
-        return std::move(out);
+        return MakeListElementReference(
+            std::unique_ptr<substrait::Expression>(arguments[0].release()),
+            arguments[1]->literal().i32());
       }
     }
   }

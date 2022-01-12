@@ -429,7 +429,9 @@ TEST(Substrait, FieldRefRoundTrip) {
 
         // nested
         FieldRef("struct", "i32"), FieldRef("struct", "struct_i32_str", "i32"),
-        FieldRef(kBoringSchema->GetFieldIndex("struct"), 1)}) {
+        FieldRef(kBoringSchema->GetFieldIndex("struct"), 1)
+
+       }) {
     ARROW_SCOPED_TRACE(ref.ToString());
     ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
@@ -451,7 +453,8 @@ TEST(Substrait, RecursiveFieldRef) {
 
   auto json = SubstraitToJSON("Expression", *serialized);
   EXPECT_EQ(
-      R"({"selection":{"directReference":{"structField":{"field":1}},"expression":{"selection":{"directReference":{"structField":{"field":12}},"rootReference":{}}}}})",
+      // R"({"selection":{"directReference":{"structField":{"field":1}},"expression":{"selection":{"directReference":{"structField":{"field":12}},"rootReference":{}}}}})",
+      R"({"selection":{"directReference":{"structField":{"field":12,"child":{"structField":{"field":1}}}},"rootReference":{}}})",
       json);
 }
 
