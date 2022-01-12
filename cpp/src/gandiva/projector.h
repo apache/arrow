@@ -120,7 +120,6 @@ class GANDIVA_EXPORT Projector {
   std::string DumpIR();
 
   void SetBuiltFromCache(bool flag);
-
   bool GetBuiltFromCache();
 
  private:

@@ -29,6 +29,8 @@
 #include <llvm/ExecutionEngine/ObjectCache.h>
 #include <llvm/Support/MemoryBuffer.h>
 
+#include <chrono>
+
 #include "gandiva/cache.h"
 #include "gandiva/expression_cache_key.h"
 
@@ -50,5 +52,6 @@ class GandivaObjectCache : public llvm::ObjectCache {
  private:
   ExpressionCacheKey cache_key_;
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
+  std::chrono::high_resolution_clock::time_point begin_time_;
 };
 }  // namespace gandiva
