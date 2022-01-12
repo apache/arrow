@@ -349,9 +349,11 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
   options->write_options->include_header = false;
   auto data_schema = schema({field("f64", float64())});
   ASSERT_OK_AND_ASSIGN(auto sink, GetFileSink());
-  ASSERT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, data_schema, options, {}));
+  ASSERT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+  ASSERT_OK_AND_ASSIGN(auto writer,
+                       format_->MakeWriter(sink, data_schema, options, {fs, "<buffer>"}));
   ASSERT_OK(writer->Write(ConstantArrayGenerator::Zeroes(5, data_schema)));
-  ASSERT_OK(writer->Finish());
+  ASSERT_FINISHES_OK(writer->Finish());
   ASSERT_OK_AND_ASSIGN(auto written, sink->Finish());
   ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }

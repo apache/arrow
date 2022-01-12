@@ -106,7 +106,7 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
                 std::shared_ptr<IpcFileWriteOptions> options,
                 fs::FileLocator destination_locator);
 
-  Status FinishInternal() override;
+  Future<> FinishInternal() override;
 
   std::shared_ptr<io::OutputStream> destination_;
   std::shared_ptr<ipc::RecordBatchWriter> batch_writer_;

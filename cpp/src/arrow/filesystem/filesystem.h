@@ -216,6 +216,9 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// Passing an empty path ("" or "/") is disallowed, see DeleteRootDirContents.
   virtual Status DeleteDirContents(const std::string& path) = 0;
 
+  /// Async version of DeleteDirContents.
+  virtual Future<> DeleteDirContentsAsync(const std::string& path);
+
   /// EXPERIMENTAL: Delete the root directory's contents, recursively.
   ///
   /// Implementations may decide to raise an error if this operation is

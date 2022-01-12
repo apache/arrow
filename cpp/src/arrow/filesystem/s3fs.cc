@@ -1207,9 +1207,12 @@ class ObjectOutputStream final : public io::OutputStream {
   // OutputStream interface
 
   Status Close() override {
-    if (closed_) {
-      return Status::OK();
-    }
+    auto fut = CloseAsync();
+    return fut.status();
+  }
+
+  Future<> CloseAsync() override {
+    if (closed_) return Status::OK();
 
     if (current_part_) {
       // Upload last part
@@ -1222,32 +1225,32 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
-    RETURN_NOT_OK(Flush());
+    return FlushAsync().Then([this]() {
+      // At this point, all part uploads have finished successfully
+      DCHECK_GT(part_number_, 1);
+      DCHECK_EQ(upload_state_->completed_parts.size(),
+                static_cast<size_t>(part_number_ - 1));
 
-    // At this point, all part uploads have finished successfully
-    DCHECK_GT(part_number_, 1);
-    DCHECK_EQ(upload_state_->completed_parts.size(),
-              static_cast<size_t>(part_number_ - 1));
+      S3Model::CompletedMultipartUpload completed_upload;
+      completed_upload.SetParts(upload_state_->completed_parts);
+      S3Model::CompleteMultipartUploadRequest req;
+      req.SetBucket(ToAwsString(path_.bucket));
+      req.SetKey(ToAwsString(path_.key));
+      req.SetUploadId(upload_id_);
+      req.SetMultipartUpload(std::move(completed_upload));
 
-    S3Model::CompletedMultipartUpload completed_upload;
-    completed_upload.SetParts(upload_state_->completed_parts);
-    S3Model::CompleteMultipartUploadRequest req;
-    req.SetBucket(ToAwsString(path_.bucket));
-    req.SetKey(ToAwsString(path_.key));
-    req.SetUploadId(upload_id_);
-    req.SetMultipartUpload(std::move(completed_upload));
+      auto outcome = client_->CompleteMultipartUploadWithErrorFixup(std::move(req));
+      if (!outcome.IsSuccess()) {
+        return ErrorToStatus(
+            std::forward_as_tuple("When completing multiple part upload for key '",
+                                  path_.key, "' in bucket '", path_.bucket, "': "),
+            outcome.GetError());
+      }
 
-    auto outcome = client_->CompleteMultipartUploadWithErrorFixup(std::move(req));
-    if (!outcome.IsSuccess()) {
-      return ErrorToStatus(
-          std::forward_as_tuple("When completing multiple part upload for key '",
-                                path_.key, "' in bucket '", path_.bucket, "': "),
-          outcome.GetError());
-    }
-
-    client_ = nullptr;
-    closed_ = true;
-    return Status::OK();
+      client_ = nullptr;
+      closed_ = true;
+      return Status::OK();
+    });
   }
 
   bool closed() const override { return closed_; }
@@ -1300,14 +1303,17 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status Flush() override {
+    auto fut = FlushAsync();
+    return fut.status();
+  }
+
+  Future<> FlushAsync() {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
     // Wait for background writes to finish
     std::unique_lock<std::mutex> lock(upload_state_->mutex);
-    upload_state_->cv.wait(lock,
-                           [this]() { return upload_state_->parts_in_progress == 0; });
-    return upload_state_->status;
+    return upload_state_->pending_parts_completed;
   }
 
   // Upload-related helpers
@@ -1354,7 +1360,9 @@ class ObjectOutputStream final : public io::OutputStream {
 
       {
         std::unique_lock<std::mutex> lock(upload_state_->mutex);
-        ++upload_state_->parts_in_progress;
+        if (upload_state_->parts_in_progress++ == 0) {
+          upload_state_->pending_parts_completed = Future<>::Make();
+        }
       }
       auto client = client_;
       ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
@@ -1405,7 +1413,7 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // Notify completion
     if (--state->parts_in_progress == 0) {
-      state->cv.notify_all();
+      state->pending_parts_completed.MarkFinished(state->status);
     }
   }
 
@@ -1452,10 +1460,10 @@ class ObjectOutputStream final : public io::OutputStream {
   // in the completion handler.
   struct UploadState {
     std::mutex mutex;
-    std::condition_variable cv;
     Aws::Vector<S3Model::CompletedPart> completed_parts;
     int64_t parts_in_progress = 0;
     Status status;
+    Future<> pending_parts_completed = Future<>::MakeFinished(Status::OK());
   };
   std::shared_ptr<UploadState> upload_state_;
 };
@@ -1958,37 +1966,44 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return gen;
   }
 
-  Status WalkForDeleteDir(const std::string& bucket, const std::string& key,
-                          std::vector<std::string>* file_keys,
-                          std::vector<std::string>* dir_keys) {
-    auto handle_results = [&](const std::string& prefix,
-                              const S3Model::ListObjectsV2Result& result) -> Status {
+  struct WalkResult {
+    std::vector<std::string> file_keys;
+    std::vector<std::string> dir_keys;
+  };
+  Future<std::shared_ptr<WalkResult>> WalkForDeleteDirAsync(const std::string& bucket,
+                                                            const std::string& key) {
+    auto state = std::make_shared<WalkResult>();
+
+    auto handle_results = [state](const std::string& prefix,
+                                  const S3Model::ListObjectsV2Result& result) -> Status {
       // Walk "files"
-      file_keys->reserve(file_keys->size() + result.GetContents().size());
+      state->file_keys.reserve(state->file_keys.size() + result.GetContents().size());
       for (const auto& obj : result.GetContents()) {
-        file_keys->emplace_back(FromAwsString(obj.GetKey()));
+        state->file_keys.emplace_back(FromAwsString(obj.GetKey()));
       }
       // Walk "directories"
-      dir_keys->reserve(dir_keys->size() + result.GetCommonPrefixes().size());
+      state->dir_keys.reserve(state->dir_keys.size() + result.GetCommonPrefixes().size());
       for (const auto& prefix : result.GetCommonPrefixes()) {
-        dir_keys->emplace_back(FromAwsString(prefix.GetPrefix()));
+        state->dir_keys.emplace_back(FromAwsString(prefix.GetPrefix()));
       }
       return Status::OK();
     };
 
-    auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
+    auto handle_error = [=](const AWSError<S3Errors>& error) -> Status {
       return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
                                                  "' in bucket '", bucket, "': "),
                            error);
     };
 
-    auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
-      RETURN_NOT_OK(CheckNestingDepth(nesting_depth));
+    auto self = shared_from_this();
+    auto handle_recursion = [self](int32_t nesting_depth) -> Result<bool> {
+      RETURN_NOT_OK(self->CheckNestingDepth(nesting_depth));
       return true;  // Recurse
     };
 
-    return TreeWalker::Walk(client_, io_context_, bucket, key, kListObjectsMaxKeys,
-                            handle_results, handle_error, handle_recursion);
+    return TreeWalker::WalkAsync(client_, io_context_, bucket, key, kListObjectsMaxKeys,
+                                 handle_results, handle_error, handle_recursion)
+        .Then([state]() { return state; });
   }
 
   // Delete multiple objects at once
@@ -2046,23 +2061,28 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return DeleteObjectsAsync(bucket, keys).status();
   }
 
-  Status DeleteDirContents(const std::string& bucket, const std::string& key) {
-    std::vector<std::string> file_keys;
-    std::vector<std::string> dir_keys;
-    RETURN_NOT_OK(WalkForDeleteDir(bucket, key, &file_keys, &dir_keys));
-    if (file_keys.empty() && dir_keys.empty() && !key.empty()) {
-      // No contents found, is it an empty directory?
-      ARROW_ASSIGN_OR_RAISE(bool exists, IsEmptyDirectory(bucket, key));
-      if (!exists) {
-        return PathNotFound(bucket, key);
-      }
-    }
-    // First delete all "files", then delete all child "directories"
-    RETURN_NOT_OK(DeleteObjects(bucket, file_keys));
-    // Delete directories in reverse lexicographic order, to ensure children
-    // are deleted before their parents (Minio).
-    std::sort(dir_keys.rbegin(), dir_keys.rend());
-    return DeleteObjects(bucket, dir_keys);
+  Future<> DeleteDirContentsAsync(const std::string& bucket, const std::string& key) {
+    auto self = shared_from_this();
+    return WalkForDeleteDirAsync(bucket, key)
+        .Then([bucket, key,
+               self](const std::shared_ptr<WalkResult>& discovered) -> Future<> {
+          if (discovered->file_keys.empty() && discovered->dir_keys.empty() &&
+              !key.empty()) {
+            // No contents found, is it an empty directory?
+            ARROW_ASSIGN_OR_RAISE(bool exists, self->IsEmptyDirectory(bucket, key));
+            if (!exists) {
+              return PathNotFound(bucket, key);
+            }
+          }
+          // First delete all "files", then delete all child "directories"
+          return self->DeleteObjectsAsync(bucket, discovered->file_keys)
+              .Then([bucket, discovered, self]() {
+                // Delete directories in reverse lexicographic order, to ensure children
+                // are deleted before their parents (Minio).
+                std::sort(discovered->dir_keys.rbegin(), discovered->dir_keys.rend());
+                return self->DeleteObjectsAsync(bucket, discovered->dir_keys);
+              });
+        });
   }
 
   Status EnsureDirectoryExists(const S3Path& path) {
@@ -2350,7 +2370,7 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
-  RETURN_NOT_OK(impl_->DeleteDirContents(path.bucket, path.key));
+  RETURN_NOT_OK(impl_->DeleteDirContentsAsync(path.bucket, path.key).status());
   if (path.key.empty()) {
     // Delete bucket
     S3Model::DeleteBucketRequest req;
@@ -2367,14 +2387,20 @@ Status S3FileSystem::DeleteDir(const std::string& s) {
 }
 
 Status S3FileSystem::DeleteDirContents(const std::string& s) {
+  return DeleteDirContentsAsync(s).status();
+}
+
+Future<> S3FileSystem::DeleteDirContentsAsync(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
 
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
-  RETURN_NOT_OK(impl_->DeleteDirContents(path.bucket, path.key));
-  // Directory may be implicitly deleted, recreate it
-  return impl_->EnsureDirectoryExists(path);
+  auto self = impl_;
+  return impl_->DeleteDirContentsAsync(path.bucket, path.key).Then([path, self]() {
+    // Directory may be implicitly deleted, recreate it
+    return self->EnsureDirectoryExists(path);
+  });
 }
 
 Status S3FileSystem::DeleteRootDirContents() {

@@ -488,11 +488,15 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto format = format_;
     SetSchema(schema->fields());
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
-
     if (!options) options = format->DefaultWriteOptions();
-    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options, {}));
+
+    EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+    EXPECT_OK_AND_ASSIGN(auto writer,
+                         format->MakeWriter(sink, schema, options, {fs, "<buffer>"}));
     ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
-    ARROW_EXPECT_OK(writer->Finish());
+    auto fut = writer->Finish();
+    EXPECT_FINISHES(fut);
+    ARROW_EXPECT_OK(fut.status());
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
     return written;
   }

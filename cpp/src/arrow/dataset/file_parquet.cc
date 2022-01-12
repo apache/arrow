@@ -447,7 +447,10 @@ Status ParquetFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return parquet_writer_->WriteTable(*table, batch->num_rows());
 }
 
-Status ParquetFileWriter::FinishInternal() { return parquet_writer_->Close(); }
+Future<> ParquetFileWriter::FinishInternal() {
+  return DeferNotOk(destination_locator_.filesystem->io_context().executor()->Submit(
+      [this]() { return parquet_writer_->Close(); }));
+}
 
 //
 // ParquetFileFragment

@@ -252,7 +252,7 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
                     std::shared_ptr<ParquetFileWriteOptions> options,
                     fs::FileLocator destination_locator);
 
-  Status FinishInternal() override;
+  Future<> FinishInternal() override;
 
   std::shared_ptr<parquet::arrow::FileWriter> parquet_writer_;
 
