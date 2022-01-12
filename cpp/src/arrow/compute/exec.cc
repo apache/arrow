@@ -771,17 +771,17 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       }
     }
 
+#ifndef NDEBUG
     // To check whether the kernel allocated new Buffers,
     // insert all the preallocated ones into a set
     std::unordered_set<std::shared_ptr<Buffer>> pre_buffers;
     if (preallocate_contiguous_) {
-      for (auto dat : batch.values) {
-        AddBuffersToSet(dat, &pre_buffers);
-      }
       AddBuffersToSet(out, &pre_buffers);
     }
+#endif  // NDEBUG
 
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
+
 
     if (preallocate_contiguous_) {
       // Some kernels may like to simply nullify the validity bitmap when
@@ -792,21 +792,15 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
             << "Null bitmap deleted by kernel but can_write_into_slices = true";
       }
 
+#ifndef NDEBUG
       // Check whether the kernel allocated new Buffers
       // (instead of using the preallocated ones)
-      bool insertion_occured = false;
-      for (auto dat : batch.values) {
-        insertion_occured |= AddBuffersToSet(dat, &pre_buffers);
+      bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
+      if (insertion_occured) {
+        return Status::ExecutionError("Unauthorized memory allocations "
+                                      "in function kernel");
       }
-      insertion_occured |= AddBuffersToSet(out, &pre_buffers);
-      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations "
-                                             "in function kernel";
-      // TODO: instead of aborting (which is what DCHECK_EQ() above does),
-      // consider throwing an Error we can catch in a test
-      //      if (insertion_occured) {
-      //        return Status::ExecutionError("Unauthorized memory allocations "
-      //                                      "in function kernel");
-      //      }
+#endif  // NDEBUG
     } else {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
@@ -979,29 +973,28 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       RETURN_NOT_OK(PropagateNulls(kernel_ctx_, batch, out.mutable_array()));
     }
 
+#ifndef NDEBUG
     // To check whether the kernel allocated new Buffers,
     // insert all the preallocated ones into a set
     std::unordered_set<std::shared_ptr<Buffer>> pre_buffers;
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
-      for (auto dat : batch.values) {
-        AddBuffersToSet(dat, &pre_buffers);
-      }
       AddBuffersToSet(out, &pre_buffers);
     }
+#endif  // NDEBUG
 
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
 
+#ifndef NDEBUG
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
       // Check whether the kernel allocated new Buffers
       // (instead of using the preallocated ones)
-      bool insertion_occured = false;
-      for (auto dat : batch.values) {
-        insertion_occured |= AddBuffersToSet(dat, &pre_buffers);
+      bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
+      if (insertion_occured) {
+        return Status::ExecutionError("Unauthorized memory allocations "
+                                      "in function kernel");
       }
-      insertion_occured |= AddBuffersToSet(out, &pre_buffers);
-      DCHECK_EQ(insertion_occured, false) << "Unauthorized memory allocations "
-                                             "in function kernel";
     }
+#endif  // NDEBUG
 
     if (!kernel_->finalize) {
       // If there is no result finalizer (e.g. for hash-based functions, we can

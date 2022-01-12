@@ -31,7 +31,11 @@ template <typename AllocateMem>
 struct ScalarMisbehaveExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // allocate a buffer even though we've promised not to
-    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->Allocate(64));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, ctx->Allocate(64));
+    BufferVector buffers{nullptr, std::move(buffer)};
+    auto array = std::make_shared<ArrayData>(int64(), 8, std::move(buffers),
+    0);
+    *out = array;
     // return Status::NotImplemented("This kernel only exists for testing purposes");
     // The function should return OK, otherwise the buffer check is not performed
     return Status::OK();
@@ -39,13 +43,16 @@ struct ScalarMisbehaveExec {
 };
 
 void AddScalarMisbehaveKernels(const std::shared_ptr<ScalarFunction>& scalar_function) {
-  ScalarKernel kernel({}, null(),
-                      ScalarMisbehaveExec</*AllocateMem=*/std::false_type>::Exec);
-  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::PREALLOCATE;
-  kernel.can_write_into_slices = true;
+//  ScalarKernel kernel({InputType(Type::FIXED_SIZE_BINARY)},
+//                      OutputType(ValueDescr(fixed_size_binary(2)))),
+//                      ScalarMisbehaveExec</*AllocateMem=*/std::false_type>::Exec);
+//  kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+//  kernel.mem_allocation = MemAllocation::PREALLOCATE; //is the default
+//  kernel.can_write_into_slices = true;
 
-  DCHECK_OK(scalar_function->AddKernel(std::move(kernel)));
+  DCHECK_OK(scalar_function->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                                       OutputType(ValueDescr(fixed_size_binary(2))),
+            ScalarMisbehaveExec</*AllocateMem=*/std::false_type>::Exec));
 }
 
 const FunctionDoc misbehave_doc{
@@ -57,16 +64,13 @@ const FunctionDoc misbehave_doc{
     {}};
 }  // namespace
 
-void RegisterScalarMisbehave(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("scalar_misbehave", Arity::Nullary(),
-                                               &misbehave_doc);
-
-  AddScalarMisbehaveKernels(func);
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-  // TODO: We want to prevent people from actually using this kernel.
-  // Can we add the function only for testing?
-}
-
 }  // namespace internal
+using arrow::compute::internal::AddScalarMisbehaveKernels;
+std::shared_ptr<const ScalarFunction> CreateScalarMisbehaveFunction() {
+  auto func = std::make_shared<ScalarFunction>("scalar_misbehave", Arity::Unary(),
+                                               &misbehave_doc);
+  AddScalarMisbehaveKernels(func);
+  return func;
+}
 }  // namespace compute
 }  // namespace arrow

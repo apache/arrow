@@ -17,17 +17,18 @@
 
 #include <gtest/gtest.h>
 #include "arrow/array/concatenate.h"
-#include "arrow/compute/api_scalar.h"
+#include "arrow/chunked_array.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace compute {
-std::shared_ptr<const ScalarFunction> CreateScalarMisbehaveFunction();
+std::shared_ptr<const VectorFunction> CreateVectorMisbehaveFunction();
 
-TEST(Misbehave, MisbehavingScalarKernel) {
+TEST(Misbehave, MisbehavingVectorKernel) {
   ExecContext ctx;
-  auto func = CreateScalarMisbehaveFunction();
-  Datum datum(ArrayFromJSON(fixed_size_binary(6), R"(["123456"])"));
+  auto func = CreateVectorMisbehaveFunction();
+  Datum datum(ChunkedArray(ArrayVector{}, int32()));
   const std::vector<Datum> &args = {datum};
   const FunctionOptions *options = nullptr;
   ASSERT_RAISES_WITH_MESSAGE(ExecutionError,

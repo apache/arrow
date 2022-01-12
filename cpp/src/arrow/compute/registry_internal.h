@@ -30,7 +30,6 @@ void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarIfElse(FunctionRegistry* registry);
-void RegisterScalarMisbehave(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
 void RegisterScalarRandom(FunctionRegistry* registry);  // Nullary
 void RegisterScalarSetLookup(FunctionRegistry* registry);
@@ -45,7 +44,6 @@ void RegisterScalarOptions(FunctionRegistry* registry);
 // Vector functions
 void RegisterVectorArraySort(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
-void RegisterVectorMisbehave(FunctionRegistry* registry);
 void RegisterVectorNested(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
