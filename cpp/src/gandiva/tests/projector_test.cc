@@ -2394,7 +2394,7 @@ TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
   auto array0 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
   auto array1 = MakeArrowArrayInt64({4, 4}, {true, true});
   // expected output
-  auto exp = MakeArrowArrayDate64({962064000000, -16243200000}, {true, false});
+  auto exp = MakeArrowTypeArray<arrow::TimestampType, int64_t>(arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, -16243200000}, {true, false});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
