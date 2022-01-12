@@ -102,7 +102,7 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& 
   // is more than one we increase the counter.
   int16_t counter = 1;
   while (data_type_vector[begin_offset + counter] == data_type_filter &&
-  begin_offset + counter < static_cast<int64_t>(data_type_vector.size())) {
+         begin_offset + counter < static_cast<int64_t>(data_type_vector.size())) {
     counter++;
   }
 
