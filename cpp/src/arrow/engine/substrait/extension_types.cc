@@ -47,7 +47,7 @@ struct FixedCharExtensionParams {
 std::shared_ptr<DataType> FixedCharGetStorage(const FixedCharExtensionParams& params) {
   return fixed_size_binary(params.length);
 }
-static constexpr auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
+static auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
     internal::DataMember("length", &FixedCharExtensionParams::length));
 
 using FixedCharType =
@@ -62,7 +62,7 @@ struct VarCharExtensionParams {
 std::shared_ptr<DataType> VarCharGetStorage(const VarCharExtensionParams&) {
   return utf8();
 }
-static constexpr auto kVarCharExtensionParamsProperties = internal::MakeProperties(
+static auto kVarCharExtensionParamsProperties = internal::MakeProperties(
     internal::DataMember("length", &VarCharExtensionParams::length));
 
 using VarCharType =

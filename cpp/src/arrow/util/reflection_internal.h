@@ -109,7 +109,7 @@ struct PropertyTuple {
 };
 
 template <typename... Properties>
-PropertyTuple<Properties...> constexpr MakeProperties(Properties... props) {
+PropertyTuple<Properties...> MakeProperties(Properties... props) {
   return {std::make_tuple(props...)};
 }
 
