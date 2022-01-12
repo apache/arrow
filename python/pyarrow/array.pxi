@@ -711,7 +711,7 @@ cdef class _PandasConvertible(_Weakrefable):
             useful if you have timestamps that don't fit in the normal date
             range of nanosecond timestamps (1678 CE-2262 CE).
             If False, all timestamps are converted to datetime64[ns] dtype.
-        use_threads: bool, default True
+        use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default False
             Do not create multiple copies Python objects when created, to save

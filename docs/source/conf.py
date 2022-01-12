@@ -96,6 +96,7 @@ ipython_mplbackend = ''
 # numpydoc configuration
 numpydoc_xref_param_type = True
 numpydoc_show_class_members = False
+numpydoc_xref_ignore = {"or", "and", "of", ",", "default", "optional"}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -189,6 +190,7 @@ todo_include_todos = False
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None)
 }
 
 
