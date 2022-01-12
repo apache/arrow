@@ -82,6 +82,7 @@ func TestWriteDataPageV1NumValues(t *testing.T) {
 	}, -1)))
 	descr := sc.Column(0)
 	props := parquet.NewWriterProperties(
+		parquet.WithStats(true),
 		parquet.WithVersion(parquet.V1_0),
 		parquet.WithDataPageVersion(parquet.DataPageV1),
 		parquet.WithDictionaryDefault(false))
@@ -104,8 +105,11 @@ func TestWriteDataPageV1NumValues(t *testing.T) {
 			return false
 		}
 
+		encodedStats := pagev1.Statistics()
 		// only match if the page being written has 2 nulls, 6 values and 3 rows
-		return pagev1.NumValues() == 6
+		return pagev1.NumValues() == 6 &&
+			encodedStats.HasNullCount &&
+			encodedStats.NullCount == 2
 	})).Return(10, nil)
 
 	wr.FlushBufferedDataPages()
@@ -121,6 +125,7 @@ func TestWriteDataPageV2NumRows(t *testing.T) {
 	}, -1)))
 	descr := sc.Column(0)
 	props := parquet.NewWriterProperties(
+		parquet.WithStats(true),
 		parquet.WithVersion(parquet.V2_LATEST),
 		parquet.WithDataPageVersion(parquet.DataPageV2),
 		parquet.WithDictionaryDefault(false))
@@ -143,9 +148,10 @@ func TestWriteDataPageV2NumRows(t *testing.T) {
 			return false
 		}
 
+		encodedStats := pagev2.Statistics()
 		// only match if the page being written has 2 nulls, 6 values and 3 rows
 		return !pagev2.IsCompressed() &&
-			pagev2.NumNulls() == 2 &&
+			pagev2.NumNulls() == 2 && encodedStats.NullCount == 2 &&
 			pagev2.NumValues() == 6 &&
 			pagev2.NumRows() == 3
 	})).Return(10, nil)
