@@ -21,9 +21,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <arrow/flight/sql/example/sqlite_type_info.h>
 #include <condition_variable>
 #include <thread>
-#include <arrow/flight/sql/example/sqlite_type_info.h>
 
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
@@ -390,11 +390,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetTypeInfoSchema();
 
-  const std::shared_ptr<RecordBatch> &batch = example::DoGetTypeInfoResult(
-    expected_schema);
+  const std::shared_ptr<RecordBatch>& batch =
+      example::DoGetTypeInfoResult(expected_schema);
 
-  const arrow::Result<std::shared_ptr<Table>> &expected_table_result =
-    Table::FromRecordBatches({batch});
+  const arrow::Result<std::shared_ptr<Table>>& expected_table_result =
+      Table::FromRecordBatches({batch});
 
   std::shared_ptr<Table> table;
   std::shared_ptr<Table> expected_table;
@@ -415,11 +415,11 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
 
   const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetTypeInfoSchema();
 
-  const std::shared_ptr<RecordBatch> &batch = example::DoGetTypeInfoResult(
-    expected_schema, data_type);
+  const std::shared_ptr<RecordBatch>& batch =
+      example::DoGetTypeInfoResult(expected_schema, data_type);
 
-  const arrow::Result<std::shared_ptr<Table>> &expected_table_result =
-    Table::FromRecordBatches({batch});
+  const arrow::Result<std::shared_ptr<Table>>& expected_table_result =
+      Table::FromRecordBatches({batch});
 
   std::shared_ptr<Table> table;
   std::shared_ptr<Table> expected_table;

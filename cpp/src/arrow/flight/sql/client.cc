@@ -241,14 +241,14 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTableTypes(
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTypeInfo(
-  const FlightCallOptions& options) {
+    const FlightCallOptions& options) {
   flight_sql_pb::CommandGetTypeInfo command;
 
   return GetFlightInfoForCommand(*this, options, command);
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetTypeInfo(
-  const FlightCallOptions& options, int data_type) {
+    const FlightCallOptions& options, int data_type) {
   flight_sql_pb::CommandGetTypeInfo command;
 
   command.set_data_type(data_type);

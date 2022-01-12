@@ -24,14 +24,13 @@ namespace example {
 
 /// \brief Gets the harded-coded type info from Sqlite for all data types.
 /// \return A record batch.
-  std::shared_ptr<RecordBatch>
-  DoGetTypeInfoResult(const std::shared_ptr<Schema> &schema);
+std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& schema);
 
 /// \brief Gets the harded-coded type info from Sqlite filtering
 ///        for a specific data type.
 /// \return A record batch.
-  std::shared_ptr<RecordBatch>
-  DoGetTypeInfoResult(const std::shared_ptr<Schema> &schema, int data_type_filter);
+std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& schema,
+                                                 int data_type_filter);
 }  // namespace example
 }  // namespace sql
 }  // namespace flight
