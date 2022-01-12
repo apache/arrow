@@ -138,6 +138,7 @@ go/*.s
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
+go/parquet/version_string.go
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
