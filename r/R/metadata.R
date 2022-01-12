@@ -133,6 +133,10 @@ remove_attributes <- function(x) {
 }
 
 arrow_attributes <- function(x, only_top_level = FALSE) {
+
+  att <- attributes(x)
+  removed_attributes <- remove_attributes(x)
+
   if (inherits(x, "grouped_df")) {
     # Keep only the group var names, not the rest of the cached data that dplyr
     # uses, which may be large
@@ -140,17 +144,13 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
       gv <- dplyr::group_vars(x)
       x <- dplyr::ungroup(x)
       # ungroup() first, then set attribute, bc ungroup() would erase it
-      attr(x, ".group_vars") <- gv
-    } else {
-      # Regardless, we shouldn't keep groups around
-      attr(x, "groups") <- NULL
+      att[[".group_vars"]] <- gv
+      removed_attributes <- c(removed_attributes, "groups", "class")
     }
   }
-  att <- attributes(x)
-
-  removed_attributes <- remove_attributes(x)
 
   att <- att[setdiff(names(att), removed_attributes)]
+
   if (isTRUE(only_top_level)) {
     return(att)
   }

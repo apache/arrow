@@ -159,7 +159,7 @@ ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
 ${APT_INSTALL} ruby-gobject-introspection
-ruby -r gi -e "p GI.load('Arrow')"
+ruby -r gobject-introspection -e "p GObjectIntrospection.load('Arrow')"
 echo "::endgroup::"
 
 
@@ -167,7 +167,7 @@ if [ "${have_flight}" = "yes" ]; then
   echo "::group::Test Apache Arrow Flight"
   ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
   ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlight')"
+  ruby -r gobject-introspection -e "p GObjectIntrospection.load('ArrowFlight')"
   echo "::endgroup::"
 fi
 
@@ -182,7 +182,7 @@ if [ "${have_plasma}" = "yes" ]; then
   ${APT_INSTALL} libplasma-glib-dev=${package_version}
   ${APT_INSTALL} libplasma-glib-doc=${package_version}
   ${APT_INSTALL} plasma-store-server=${package_version}
-  ruby -r gi -e "p GI.load('Plasma')"
+  ruby -r gobject-introspection -e "p GObjectIntrospection.load('Plasma')"
   echo "::endgroup::"
 fi
 
@@ -190,19 +190,19 @@ fi
 echo "::group::Test Gandiva"
 ${APT_INSTALL} libgandiva-glib-dev=${package_version}
 ${APT_INSTALL} libgandiva-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('Gandiva')"
+ruby -r gobject-introspection -e "p GObjectIntrospection.load('Gandiva')"
 echo "::endgroup::"
 
 
 echo "::group::Test Apache Parquet"
 ${APT_INSTALL} libparquet-glib-dev=${package_version}
 ${APT_INSTALL} libparquet-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('Parquet')"
+ruby -r gobject-introspection -e "p GObjectIntrospection.load('Parquet')"
 echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow Dataset"
 ${APT_INSTALL} libarrow-dataset-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-dataset-glib-doc=${package_version}
-ruby -r gi -e "p GI.load('ArrowDataset')"
+ruby -r gobject-introspection -e "p GObjectIntrospection.load('ArrowDataset')"
 echo "::endgroup::"

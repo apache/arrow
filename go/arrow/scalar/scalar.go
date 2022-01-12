@@ -465,7 +465,7 @@ func init() {
 
 // GetScalar creates a scalar object from the value at a given index in the
 // passed in array, returns an error if unable to do so.
-func GetScalar(arr array.Interface, idx int) (Scalar, error) {
+func GetScalar(arr arrow.Array, idx int) (Scalar, error) {
 	if arr.IsNull(idx) {
 		return MakeNullScalar(arr.DataType()), nil
 	}
@@ -564,10 +564,10 @@ func GetScalar(arr array.Interface, idx int) (Scalar, error) {
 }
 
 // MakeArrayOfNull creates an array of size length which is all null of the given data type.
-func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) array.Interface {
+func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) arrow.Array {
 	var (
 		buffers  = []*memory.Buffer{nil}
-		children []*array.Data
+		children []arrow.ArrayData
 	)
 
 	buffers[0] = memory.NewResizableBuffer(mem)
@@ -577,7 +577,7 @@ func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) array.
 	switch t := dt.(type) {
 	case arrow.NestedType:
 		fieldList := t.Fields()
-		children = make([]*array.Data, len(fieldList))
+		children = make([]arrow.ArrayData, len(fieldList))
 		for i, f := range fieldList {
 			arr := MakeArrayOfNull(f.Type, length, mem)
 			defer arr.Release()
@@ -600,7 +600,7 @@ func MakeArrayOfNull(dt arrow.DataType, length int, mem memory.Allocator) array.
 
 // MakeArrayFromScalar returns an array filled with the scalar value repeated length times.
 // Not yet implemented for nested types such as Struct, List, extension and so on.
-func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Interface, error) {
+func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (arrow.Array, error) {
 	if !sc.IsValid() {
 		return MakeArrayOfNull(sc.DataType(), length, mem), nil
 	}
@@ -628,7 +628,7 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		return buffer
 	}
 
-	finishFixedWidth := func(data []byte) *array.Data {
+	finishFixedWidth := func(data []byte) arrow.ArrayData {
 		buffer := createBuffer(data)
 		defer buffer.Release()
 		return array.NewData(sc.DataType(), length, []*memory.Buffer{nil, buffer}, nil, 0, 0)
@@ -670,7 +670,7 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *List:
-		values := make([]array.Interface, length)
+		values := make([]arrow.Array, length)
 		for i := range values {
 			values[i] = s.Value
 		}
@@ -683,11 +683,11 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 
 		offsetsBuf := createOffsets(int32(s.Value.Len()))
 		defer offsetsBuf.Release()
-		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []*array.Data{valueArray.Data()}, 0, 0)
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []arrow.ArrayData{valueArray.Data()}, 0, 0)
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *FixedSizeList:
-		values := make([]array.Interface, length)
+		values := make([]arrow.Array, length)
 		for i := range values {
 			values[i] = s.Value
 		}
@@ -698,11 +698,11 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		}
 		defer valueArray.Release()
 
-		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil}, []*array.Data{valueArray.Data()}, 0, 0)
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil}, []arrow.ArrayData{valueArray.Data()}, 0, 0)
 		defer data.Release()
 		return array.MakeFromData(data), nil
 	case *Struct:
-		fields := make([]*array.Data, 0)
+		fields := make([]arrow.ArrayData, 0)
 		for _, v := range s.Value {
 			arr, err := MakeArrayFromScalar(v, length, mem)
 			if err != nil {
@@ -717,8 +717,8 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		return array.NewStructData(data), nil
 	case *Map:
 		structArr := s.GetList().(*array.Struct)
-		keys := make([]array.Interface, length)
-		values := make([]array.Interface, length)
+		keys := make([]arrow.Array, length)
+		values := make([]arrow.Array, length)
 		for i := 0; i < length; i++ {
 			keys[i] = structArr.Field(0)
 			values[i] = structArr.Field(1)
@@ -737,8 +737,8 @@ func MakeArrayFromScalar(sc Scalar, length int, mem memory.Allocator) (array.Int
 		defer valueArr.Release()
 
 		offsetsBuf := createOffsets(int32(structArr.Len()))
-		outStructArr := array.NewData(structArr.DataType(), keyArr.Len(), []*memory.Buffer{nil}, []*array.Data{keyArr.Data(), valueArr.Data()}, 0, 0)
-		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []*array.Data{outStructArr}, 0, 0)
+		outStructArr := array.NewData(structArr.DataType(), keyArr.Len(), []*memory.Buffer{nil}, []arrow.ArrayData{keyArr.Data(), valueArr.Data()}, 0, 0)
+		data := array.NewData(s.DataType(), length, []*memory.Buffer{nil, offsetsBuf}, []arrow.ArrayData{outStructArr}, 0, 0)
 		defer func() {
 			offsetsBuf.Release()
 			outStructArr.Release()

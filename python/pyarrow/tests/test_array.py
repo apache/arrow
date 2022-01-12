@@ -2548,9 +2548,8 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr2.values.values.equals(arr0)
 
 
-@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
-def test_list_value_parent_indices(offset_type, list_type_factory):
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+def test_list_value_parent_indices(list_type_factory):
     arr = pa.array(
         [
             [0, 1, 2],
@@ -2558,7 +2557,7 @@ def test_list_value_parent_indices(offset_type, list_type_factory):
             [],
             [3, 4]
         ], type=list_type_factory(pa.int32()))
-    expected = pa.array([0, 0, 0, 3, 3], type=offset_type)
+    expected = pa.array([0, 0, 0, 3, 3], type=pa.int64())
     assert arr.value_parent_indices().equals(expected)
 
 

@@ -29,20 +29,20 @@ import (
 
 type ListScalar interface {
 	Scalar
-	GetList() array.Interface
+	GetList() arrow.Array
 	Release()
 	Retain()
 }
 
 type List struct {
 	scalar
-	Value array.Interface
+	Value arrow.Array
 }
 
-func (l *List) Release()                 { l.Value.Release() }
-func (l *List) Retain()                  { l.Value.Retain() }
-func (l *List) value() interface{}       { return l.Value }
-func (l *List) GetList() array.Interface { return l.Value }
+func (l *List) Release()             { l.Value.Release() }
+func (l *List) Retain()              { l.Value.Retain() }
+func (l *List) value() interface{}   { return l.Value }
+func (l *List) GetList() arrow.Array { return l.Value }
 func (l *List) equals(rhs Scalar) bool {
 	return array.ArrayEqual(l.Value, rhs.(ListScalar).GetList())
 }
@@ -111,11 +111,11 @@ func (l *List) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
-func NewListScalar(val array.Interface) *List {
+func NewListScalar(val arrow.Array) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val.Data())}
 }
 
-func NewListScalarData(val *array.Data) *List {
+func NewListScalarData(val arrow.ArrayData) *List {
 	return &List{scalar{arrow.ListOf(val.DataType()), true}, array.MakeFromData(val)}
 }
 
@@ -128,7 +128,7 @@ type Map struct {
 	*List
 }
 
-func NewMapScalar(val array.Interface) *Map {
+func NewMapScalar(val arrow.Array) *Map {
 	return &Map{&List{scalar{makeMapType(val.DataType().(*arrow.StructType)), true}, array.MakeFromData(val.Data())}}
 }
 
@@ -153,11 +153,11 @@ func (f *FixedSizeList) Validate() (err error) {
 
 func (f *FixedSizeList) ValidateFull() error { return f.Validate() }
 
-func NewFixedSizeListScalar(val array.Interface) *FixedSizeList {
+func NewFixedSizeListScalar(val arrow.Array) *FixedSizeList {
 	return NewFixedSizeListScalarWithType(val, arrow.FixedSizeListOf(int32(val.Len()), val.DataType()))
 }
 
-func NewFixedSizeListScalarWithType(val array.Interface, typ arrow.DataType) *FixedSizeList {
+func NewFixedSizeListScalarWithType(val arrow.Array, typ arrow.DataType) *FixedSizeList {
 	debug.Assert(val.Len() == int(typ.(*arrow.FixedSizeListType).Len()), "length of value for fixed size list scalar must match type")
 	return &FixedSizeList{&List{scalar{typ, true}, array.MakeFromData(val.Data())}}
 }

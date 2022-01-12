@@ -48,18 +48,18 @@ func getFields(typ arrow.DataType) []arrow.Field {
 }
 
 type listvals interface {
-	ListValues() array.Interface
+	ListValues() arrow.Array
 }
 
-func getChildren(arr array.Interface) (ret []array.Interface) {
+func getChildren(arr arrow.Array) (ret []arrow.Array) {
 	switch arr := arr.(type) {
 	case *array.Struct:
-		ret = make([]array.Interface, arr.NumField())
+		ret = make([]arrow.Array, arr.NumField())
 		for i := 0; i < arr.NumField(); i++ {
 			ret[i] = arr.Field(i)
 		}
 	case listvals:
-		ret = []array.Interface{arr.ListValues()}
+		ret = []arrow.Array{arr.ListValues()}
 	}
 	return
 }
@@ -74,7 +74,7 @@ func getChildren(arr array.Interface) (ret []array.Interface) {
 // FieldPaths provide for drilling down to potentially nested children for convenience
 // of accepting a slice of fields, a schema or a datatype (which should contain child fields).
 //
-// A fieldpath can also be used to retrieve a child array.Interface or column from a record batch.
+// A fieldpath can also be used to retrieve a child arrow.Array or column from a record batch.
 type FieldPath []int
 
 func (f FieldPath) String() string {
@@ -126,14 +126,14 @@ func (f FieldPath) GetFieldFromSlice(fields []arrow.Field) (*arrow.Field, error)
 	return out, nil
 }
 
-func (f FieldPath) getArray(arrs []array.Interface) (array.Interface, error) {
+func (f FieldPath) getArray(arrs []arrow.Array) (arrow.Array, error) {
 	if len(f) == 0 {
 		return nil, ErrEmpty
 	}
 
 	var (
 		depth = 0
-		out   array.Interface
+		out   arrow.Array
 	)
 	for _, idx := range f {
 		if len(arrs) == 0 {
@@ -164,7 +164,7 @@ func (f FieldPath) GetField(field arrow.Field) (*arrow.Field, error) {
 
 // GetColumn will return the correct child array by traversing the fieldpath
 // going to the nested arrays of the columns in the record batch.
-func (f FieldPath) GetColumn(batch array.Record) (array.Interface, error) {
+func (f FieldPath) GetColumn(batch arrow.Record) (arrow.Array, error) {
 	return f.getArray(batch.Columns())
 }
 
@@ -530,7 +530,7 @@ func (f FieldRef) FindOneOrNone(schema *arrow.Schema) (FieldPath, error) {
 
 // FindOneOrNoneRecord is like FindOneOrNone but for the schema of a record,
 // returning an error only if there are multiple matches.
-func (f FieldRef) FindOneOrNoneRecord(root array.Record) (FieldPath, error) {
+func (f FieldRef) FindOneOrNoneRecord(root arrow.Record) (FieldPath, error) {
 	return f.FindOneOrNone(root.Schema())
 }
 
@@ -549,8 +549,8 @@ func (f FieldRef) FindOne(schema *arrow.Schema) (FieldPath, error) {
 
 // GetAllColumns gets all the matching column arrays from the given record that
 // this FieldRef references.
-func (f FieldRef) GetAllColumns(root array.Record) ([]array.Interface, error) {
-	out := make([]array.Interface, 0)
+func (f FieldRef) GetAllColumns(root arrow.Record) ([]arrow.Array, error) {
+	out := make([]arrow.Array, 0)
 	for _, m := range f.FindAll(root.Schema().Fields()) {
 		n, err := m.GetColumn(root)
 		if err != nil {
@@ -587,7 +587,7 @@ func (f FieldRef) GetOneOrNone(schema *arrow.Schema) (*arrow.Field, error) {
 
 // GetOneColumnOrNone returns either a nil or the referenced array if it can be
 // found, erroring only if there is an ambiguous multiple matches.
-func (f FieldRef) GetOneColumnOrNone(root array.Record) (array.Interface, error) {
+func (f FieldRef) GetOneColumnOrNone(root arrow.Record) (arrow.Array, error) {
 	match, err := f.FindOneOrNoneRecord(root)
 	if err != nil {
 		return nil, err

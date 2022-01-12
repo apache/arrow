@@ -41,10 +41,10 @@ func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, null
 	return NewBooleanData(arrdata)
 }
 
-func NewBooleanData(data *Data) *Boolean {
+func NewBooleanData(data arrow.ArrayData) *Boolean {
 	a := &Boolean{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
