@@ -1379,7 +1379,7 @@ def test_between_array_array_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1400,7 +1400,7 @@ def test_between_array_scalar_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1421,7 +1421,7 @@ def test_between_scalar_array_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1442,7 +1442,7 @@ def test_between_array_scalar_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1463,7 +1463,7 @@ def test_between_scalar_array_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1484,7 +1484,7 @@ def test_between_scalar_scalar_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1505,7 +1505,7 @@ def test_between_string_array_array_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1526,7 +1526,7 @@ def test_between_string_array_array_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1547,7 +1547,7 @@ def test_between_string_array_scalar_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1568,7 +1568,7 @@ def test_between_string_scalar_array_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1589,7 +1589,7 @@ def test_between_string_array_scalar_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1610,7 +1610,7 @@ def test_between_string_scalar_array_scalar(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, scalar2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
@@ -1631,7 +1631,7 @@ def test_between_string_scalar_scalar_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, scalar1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("typ", ["array", "chunked_array"])
@@ -1803,7 +1803,7 @@ def test_round_to_integer(ty):
     for round_mode, expected in rmode_and_expected.items():
         options = RoundOptions(round_mode=round_mode)
         result = round(values, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 def test_round():
@@ -2346,15 +2346,15 @@ def _check_temporal_rounding(ts, values, unit):
 
         result = pc.ceil_temporal(ta, options=options).to_pandas()
         expected = ts.dt.ceil(frequency)
-        np.testing.assert_array_equal(result, expected)
+        assert result.equals(expected)
 
         result = pc.floor_temporal(ta, options=options).to_pandas()
         expected = ts.dt.floor(frequency)
-        np.testing.assert_array_equal(result, expected)
+        assert result.equals(expected)
 
         result = pc.round_temporal(ta, options=options).to_pandas()
         expected = ts.dt.round(frequency)
-        np.testing.assert_array_equal(result, expected)
+        assert result.equals(expected)
 
         # Check rounding with calendar_based_origin=True.
         # Note: rounding to month is not supported in Pandas so we can't
