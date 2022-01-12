@@ -22,13 +22,13 @@ import { FromArg0, FromArg1, FromArg2, FromArg3, FromArg4, FromArg5, RecordBatch
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './writer.js';
 
 /**
- * Deserialize the IPC byte format into a {@link Table}. This function is a convenience wrapper for
- * {@link RecordBatchReader}. Opposite of {@link serialize}.
+ * Deserialize the IPC format into a {@link Table}. This function is a
+ * convenience wrapper for {@link RecordBatchReader}. Opposite of {@link tableToIPC}.
  */
-export function deserialize<T extends TypeMap = any>(source: FromArg0 | FromArg2): Table<T>;
-export function deserialize<T extends TypeMap = any>(source: FromArg1): Promise<Table<T>>;
-export function deserialize<T extends TypeMap = any>(source: FromArg3 | FromArg4 | FromArg5): Promise<Table<T>> | Table<T>;
-export function deserialize<T extends TypeMap = any>(input: any): Table<T> | Promise<Table<T>> {
+export function tableFromIPC<T extends TypeMap = any>(source: FromArg0 | FromArg2): Table<T>;
+export function tableFromIPC<T extends TypeMap = any>(source: FromArg1): Promise<Table<T>>;
+export function tableFromIPC<T extends TypeMap = any>(source: FromArg3 | FromArg4 | FromArg5): Promise<Table<T>> | Table<T>;
+export function tableFromIPC<T extends TypeMap = any>(input: any): Table<T> | Promise<Table<T>> {
     const reader = RecordBatchReader.from<T>(input);
     if (isPromise(reader)) {
         return (async () => new Table(await (await reader).readAll()))();
@@ -37,10 +37,14 @@ export function deserialize<T extends TypeMap = any>(input: any): Table<T> | Pro
 }
 
 /**
- * Serialize a {@link Table} to the IPC format. This function is a convenience wrapper for
- * {@link RecordBatchStreamWriter} or {@link RecordBatchFileWriter}. Opposite of {@link deserialize}.
+ * Serialize a {@link Table} to the IPC format. This function is a convenience
+ * wrapper for {@link RecordBatchStreamWriter} and {@link RecordBatchFileWriter}.
+ * Opposite of {@link tableFromIPC}.
+ *
+ * @param table The Table to serialize.
+ * @param type Whether to serialize the Table as a file or a stream.
  */
-export function serialize<T extends TypeMap = any>(table: Table, type: 'file' | 'stream' = 'stream'): Uint8Array {
+export function tableToIPC<T extends TypeMap = any>(table: Table, type: 'file' | 'stream' = 'stream'): Uint8Array {
     return (type === 'stream' ? RecordBatchStreamWriter : RecordBatchFileWriter)
         .writeAll<T>(table)
         .toUint8Array(true);

@@ -21,10 +21,10 @@ import * as generate from '../../generate-test-data.js';
 import {
     Table, Schema, Field, DataType, TypeMap, Dictionary, Int32, Float32, Utf8, Null,
     makeVector,
-    serialize, deserialize
+    tableFromIPC, tableToIPC
 } from 'apache-arrow';
 
-const deepCopy = (t: Table) => deserialize(serialize(t));
+const deepCopy = (t: Table) => tableFromIPC(tableToIPC(t));
 
 const toSchema = (...xs: [string, DataType][]) => new Schema(xs.map((x) => new Field(...x)));
 const schema1 = toSchema(['a', new Int32()], ['b', new Float32()], ['c', new Dictionary(new Utf8(), new Int32())]);
@@ -37,14 +37,14 @@ function createTable<T extends TypeMap = any>(schema: Schema<T>, chunkLengths: n
     return generate.table(chunkLengths, schema).table;
 }
 
-describe('serialize()', () => {
+describe('tableToIPC()', () => {
 
     test(`to file format`, () => {
         const source = new Table({
             a: makeVector(new Uint8Array([1, 2, 3])),
         });
-        const buffer = serialize(source, 'file');
-        const result = deserialize(buffer);
+        const buffer = tableToIPC(source, 'file');
+        const result = tableFromIPC(buffer);
         expect(source).toEqualTable(result);
     });
 
@@ -52,8 +52,8 @@ describe('serialize()', () => {
         const source = new Table({
             a: makeVector(new Uint8Array([1, 2, 3])),
         });
-        const buffer = serialize(source, 'stream');
-        const result = deserialize(buffer);
+        const buffer = tableToIPC(source, 'stream');
+        const result = tableFromIPC(buffer);
         expect(source).toEqualTable(result);
     });
 

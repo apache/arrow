@@ -63,7 +63,7 @@ export interface Table<T extends TypeMap = any> {
 /**
  * Tables are collections of {@link Vector}s and have a {@link Schema}. Use the convenience methods {@link makeTable}
  * or {@link tableFromArrays} to create a table in JavaScript. To create a table from the IPC format, use
- * {@link deserialize}.
+ * {@link tableFromIPC}.
  */
 export class Table<T extends TypeMap = any> {
 

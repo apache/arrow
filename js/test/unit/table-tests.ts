@@ -24,10 +24,10 @@ import {
     Schema, Field, Table, RecordBatch,
     Vector, Builder,
     Float32, Int32, Dictionary, Utf8, Int8,
-    serialize, deserialize
+    tableFromIPC, tableToIPC
 } from 'apache-arrow';
 
-const deepCopy = (t: Table) => deserialize(serialize(t));
+const deepCopy = (t: Table) => tableFromIPC(tableToIPC(t));
 
 const F32 = 0, I32 = 1, DICT = 2;
 
@@ -248,7 +248,7 @@ describe(`Table`, () => {
         });
     });
 
-    test(`serialize() serializes sliced RecordBatches`, () => {
+    test(`tableToIPC() serializes sliced RecordBatches`, () => {
 
         const table = getSingleRecordBatchTable();
         const batch = table.batches[0];

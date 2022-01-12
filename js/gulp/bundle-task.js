@@ -25,6 +25,7 @@ import { observableFromStreams } from "./util.js";
 import { forkJoin as ObservableForkJoin } from "rxjs";
 import { resolve, join } from "path";
 import { readdirSync } from "fs";
+import { execSync } from 'child_process';
 
 import gulpEsbuild from "gulp-esbuild";
 import esbuildAlias from "esbuild-plugin-alias";
@@ -48,6 +49,8 @@ const fileNames = readdirSync(bundleDir)
     .filter(fileName => fileName.endsWith('.js'))
     .map(fileName => fileName.replace(/\.js$/, ''));
 
+const target = `apache-arrow`;
+
 const bundlesGlob = join(bundleDir, '**.js');
 const esbuildDir = join(bundleDir, 'esbuild');
 export const esbuildTask = (minify = true) => () => observableFromStreams(
@@ -58,7 +61,7 @@ export const esbuildTask = (minify = true) => () => observableFromStreams(
         treeShaking: true,
         plugins: [
             esbuildAlias({
-                'apache-arrow': resolve(__dirname, '../targets/apache-arrow/Arrow.dom.mjs'),
+                'apache-arrow': resolve(__dirname, `../targets/${target}/Arrow.dom.mjs`),
             }),
         ],
     }),
@@ -75,9 +78,9 @@ export const rollupTask = (minify = true) => () => ObservableForkJoin(
             output: { format: 'cjs' },
             plugins: [
                 rollupAlias({
-                    entries: { 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/') }
+                    entries: { 'apache-arrow': resolve(__dirname, `../targets/${target}/`) }
                 }),
-                nodeResolve({ browser: true })
+                nodeResolve()
             ],
             onwarn: (message) => {
                 if (message.code === 'CIRCULAR_DEPENDENCY') return
@@ -114,11 +117,22 @@ export const webpackTask = (opts = { minify: true, analyze: false }) => () => ob
             ]
         },
         resolve: {
-            alias: { 'apache-arrow': resolve(__dirname, '../targets/apache-arrow/') }
+            alias: { 'apache-arrow': resolve(__dirname, `../targets/${target}/`) }
         },
         stats: 'errors-only',
         plugins: opts?.analyze ? [new BundleAnalyzerPlugin()] : []
     }),
     gulp.dest(webpackDir),
     size({ gzip: true })
-)
+);
+
+export const execBundleTask = () => () => observableFromStreams(
+    // TODO: test esbuild bundles as well when they are smaller
+    gulp.src(join(bundleDir, '{webpack,rollup}/**-bundle.js')),
+    async (generator) => {
+        for await (const file of generator) {
+            console.log(`executing ${file.path}`);
+            execSync(`node ${file.path}`);
+        }
+    }
+);

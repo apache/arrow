@@ -98,6 +98,7 @@ module.exports = {
         "unicorn/filename-case": "off",
         "unicorn/prefer-export-from": "off",
         "unicorn/prefer-switch": "off",
+        "unicorn/prefer-node-protocol": "off",
 
         "unicorn/consistent-destructuring": "warn",
         "unicorn/no-array-reduce": ["warn", { "allowSimpleOperations": true }],

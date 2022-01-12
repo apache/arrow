@@ -17,10 +17,10 @@
 
 import '../../jest-extensions.js';
 
-import * as fs from 'node:fs';
+import * as fs from 'fs';
 import { fs as memfs } from 'memfs';
 import randomatic from 'randomatic';
-import { PassThrough, Readable } from 'node:stream';
+import { PassThrough, Readable } from 'stream';
 
 import {
     RecordBatchFileWriter,

@@ -67,7 +67,7 @@ export {
     ByteStream, AsyncByteStream, AsyncByteQueue,
     RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader,
     RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter,
-    deserialize, serialize,
+    tableFromIPC, tableToIPC,
     MessageReader, AsyncMessageReader, JSONMessageReader,
     Message,
     RecordBatch,

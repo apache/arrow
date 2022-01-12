@@ -102,7 +102,7 @@ import {
     it('readAll() should pipe to separate NodeJS WritableStreams', async () => {
         // @ts-ignore
         const { default: MultiStream } = await import('multistream');
-        const { PassThrough } = await import('node:stream');
+        const { PassThrough } = await import('stream');
 
         expect.hasAssertions();
 

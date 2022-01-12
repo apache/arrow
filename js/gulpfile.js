@@ -25,7 +25,7 @@ import cleanTask from "./gulp/clean-task.js";
 import compileTask from "./gulp/compile-task.js";
 import packageTask from "./gulp/package-task.js";
 import { testTask, createTestData, cleanTestData } from "./gulp/test-task.js";
-import { esbuildTask, rollupTask, webpackTask } from "./gulp/bundle-task.js";
+import { esbuildTask, rollupTask, webpackTask, execBundleTask } from "./gulp/bundle-task.js";
 import { taskName, combinations, targetDir, knownTargets, npmPkgName, tasksToSkipPerTargetOrFormat, targetAndModuleCombinations } from "./gulp/util.js";
 
 for (const [target, format] of combinations([`all`], [`all`])) {
@@ -86,6 +86,7 @@ gulp.task(`bundle:rollup`, rollupTask());
 gulp.task(`bundle:webpack`, webpackTask());
 gulp.task(`bundle:webpack:analyze`, webpackTask({ analyze: true }));
 gulp.task(`bundle:clean`, () => del(`test/bundle/**/*-bundle.js`));
+gulp.task(`bundle:exec`, execBundleTask());
 
 gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`));
 

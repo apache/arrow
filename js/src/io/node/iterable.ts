@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Readable } from 'node:stream';
+import { Readable } from 'stream';
 import { isIterable, isAsyncIterable } from '../../util/compat.js';
 
 /** @ignore */

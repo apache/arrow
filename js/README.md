@@ -47,10 +47,10 @@ Check out our [API documentation][5] to learn more about how to use Apache Arrow
 
 ```js
 import { readFileSync } from 'fs';
-import { deserialize } from 'apache-arrow';
+import { tableFromIPC } from 'apache-arrow';
 
 const arrow = readFileSync('simple.arrow');
-const table = deserialize(arrow);
+const table = tableFromIPC(arrow);
 
 console.table(table.toArray());
 
@@ -68,9 +68,9 @@ null, null, null
 
 ```js
 import { readFileSync } from 'fs';
-import { deserialize } from 'apache-arrow';
+import { tableFromIPC } from 'apache-arrow';
 
-const table = deserialize([
+const table = tableFromIPC([
     'latlong/schema.arrow',
     'latlong/records.arrow'
 ].map((file) => readFileSync(file)));
@@ -113,9 +113,9 @@ console.table([...rainfall]);
 ### Load data with `fetch`
 
 ```js
-import { deserialize } from "apache-arrow";
+import { tableFromIPC } from "apache-arrow";
 
-const table = await deserialize(fetch("/simple.arrow"));
+const table = await tableFromIPC(fetch("/simple.arrow"));
 
 console.table([...table]);
 ```
