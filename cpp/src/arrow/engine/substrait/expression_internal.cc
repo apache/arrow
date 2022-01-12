@@ -57,45 +57,65 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
     case substrait::Expression::kSelection: {
       if (!expr.selection().has_direct_reference()) break;
 
-      util::optional<compute::Expression> root_expr;
+      util::optional<compute::Expression> out;
       if (expr.selection().has_expression()) {
-        ARROW_ASSIGN_OR_RAISE(root_expr, FromProto(expr.selection().expression()));
+        ARROW_ASSIGN_OR_RAISE(out, FromProto(expr.selection().expression()));
       }
 
-      const auto& ref = expr.selection().direct_reference();
-      switch (ref.reference_type_case()) {
-        case substrait::Expression::ReferenceSegment::kStructField: {
-          if (ref.struct_field().has_child()) break;
-
-          FieldRef out(ref.struct_field().field());
-
-          if (root_expr) {
-            if (auto root_ref = root_expr->field_ref()) {
-              out = FieldRef(*root_ref, std::move(out));
+      const auto* ref = &expr.selection().direct_reference();
+      while (ref != NULLPTR) {
+        switch (ref->reference_type_case()) {
+          case substrait::Expression::ReferenceSegment::kStructField: {
+            if (!out) {
+              // Root StructField (column selection)
+              out = compute::field_ref(FieldRef(ref->struct_field().field()));
+            } else if (auto out_ref = out->field_ref()) {
+              // StructField on top of another StructField
+              out = compute::field_ref(FieldRef(*out_ref, ref->struct_field().field()));
             } else {
-              // FIXME add struct_field compute function to handle
-              // field references into expressions
+              // StructField on top of an arbitrary expression
+              // FIXME add struct_field compute function to handle this case
+              out.reset();
+              ref = NULLPTR;
               break;
             }
+
+            // Segment handled, continue with child segment (if any)
+            if (ref->struct_field().has_child()) {
+              ref = &ref->struct_field().child();
+            } else {
+              ref = NULLPTR;
+            }
+            break;
           }
-          return compute::field_ref(std::move(out));
-        }
+          case substrait::Expression::ReferenceSegment::kListElement: {
+            if (!out) {
+              // Root ListField (illegal)
+              return Status::Invalid(
+                  "substrait::ListElement cannot take a Relation as an argument");
+            } else {
+              // ListField on top of an arbitrary expression
+              out = compute::call(
+                  "list_element",
+                  {std::move(*out), compute::literal(ref->list_element().offset())});
+            }
 
-        case substrait::Expression::ReferenceSegment::kListElement: {
-          if (ref.list_element().has_child()) break;
-          if (!root_expr) {
-            return Status::Invalid(
-                "substrait::ListElement cannot take a Relation as an argument");
+            // Segment handled, continue with child segment (if any)
+            if (ref->list_element().has_child()) {
+              ref = &ref->list_element().child();
+            } else {
+              ref = NULLPTR;
+            }
+            break;
           }
-
-          return compute::call(
-              "list_element",
-              {std::move(*root_expr), compute::literal(ref.list_element().offset())});
-          break;
+          default:
+            // Unimplemented construct, break out of loop
+            out.reset();
+            ref = NULLPTR;
         }
-
-        default:
-          break;
+      }
+      if (out) {
+        return *std::move(out);
       }
       break;
     }

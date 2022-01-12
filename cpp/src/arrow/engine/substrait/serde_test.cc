@@ -47,10 +47,12 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("date64", date64()),
     field("str", utf8()),
     field("list_i32", list(int32())),
-    field("struct_i32_str", struct_({
-                                field("i32", int32()),
-                                field("str", utf8()),
-                            })),
+    field("struct", struct_({
+                        field("i32", int32()),
+                        field("str", utf8()),
+                        field("struct_i32_str",
+                              struct_({field("i32", int32()), field("str", utf8())})),
+                    })),
     field("dict_str", dictionary(int32(), utf8())),
     field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
@@ -415,17 +417,18 @@ TEST(Substrait, FieldRefRoundTrip) {
            // by name
            FieldRef("i32"),
            FieldRef("ts_ns"),
-           FieldRef("struct_i32_str"),
+           FieldRef("struct"),
 
            // by index
            FieldRef(0),
            FieldRef(1),
            FieldRef(kBoringSchema->num_fields() - 1),
-           FieldRef(kBoringSchema->GetFieldIndex("struct_i32_str")),
+           FieldRef(kBoringSchema->GetFieldIndex("struct")),
 
            // nested
-           FieldRef("struct_i32_str", "i32"),
-           FieldRef(kBoringSchema->GetFieldIndex("struct_i32_str"), 1),
+           FieldRef("struct", "i32"),
+           FieldRef("struct", "struct_i32_str", "i32"),
+           FieldRef(kBoringSchema->GetFieldIndex("struct"), 1),
        }) {
     ARROW_SCOPED_TRACE(ref.ToString());
     ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
@@ -440,7 +443,7 @@ TEST(Substrait, FieldRefRoundTrip) {
 }
 
 TEST(Substrait, RecursiveFieldRef) {
-  FieldRef ref("struct_i32_str", "str");
+  FieldRef ref("struct", "str");
 
   ARROW_SCOPED_TRACE(ref.ToString());
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
@@ -457,7 +460,7 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
            compute::call("if_else",
                          {
                              compute::literal(true),
-                             compute::field_ref({"struct_i32_str", 1}),
+                             compute::field_ref({"struct", 1}),
                              compute::field_ref("str"),
                          }),
 
