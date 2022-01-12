@@ -1161,6 +1161,13 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(SetObjectMetadata(default_metadata_, &req));
     }
 
+    // If we do not set anything then the SDK will default to application/xml
+    // which confuses some tools (https://github.com/apache/arrow/issues/11934)
+    // So we instead default to application/octet-stream which is less misleading
+    if (!req.ContentTypeHasBeenSet()) {
+      req.SetContentType("application/octet-stream");
+    }
+
     auto outcome = client_->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(

@@ -1033,6 +1033,14 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
   std::shared_ptr<io::OutputStream> stream;
 
+  // Create new file with no explicit or default metadata
+  // The Content-Type will still be set
+  auto empty_metadata = KeyValueMetadata::Make({}, {});
+  auto implicit_metadata =
+      KeyValueMetadata::Make({"Content-Type"}, {"application/octet-stream"});
+  AssertMetadataRoundtrip("bucket/mdfile0", empty_metadata,
+                          testing::IsSupersetOf(implicit_metadata->sorted_pairs()));
+
   // Create new file with explicit metadata
   auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
                                          {"x-arrow/test6", "2016-02-05T20:08:35Z"});
