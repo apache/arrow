@@ -268,17 +268,17 @@ std::shared_ptr<Schema> GetQuerySchema() {
   std::string table_name = "test";
   std::string schema_name = "schema_test";
   std::string catalog_name = "catalog_test";
-  return arrow::schema({
-    arrow::field("id", int64(), true,
- arrow::flight::sql::ColumnMetadata::Builder()
-  .TableName(table_name)
-  .IsAutoIncrement(true)
-  .IsCaseSensitive(false)
-  .SchemaName(schema_name)
-  .IsSearchable(true)
-  .CatalogName(catalog_name)
-  .Precision(100)
-  .Build().metadata_map())});
+  return arrow::schema({arrow::field("id", int64(), true,
+                                     arrow::flight::sql::ColumnMetadata::Builder()
+                                         .TableName(table_name)
+                                         .IsAutoIncrement(true)
+                                         .IsCaseSensitive(false)
+                                         .SchemaName(schema_name)
+                                         .IsSearchable(true)
+                                         .CatalogName(catalog_name)
+                                         .Precision(100)
+                                         .Build()
+                                         .metadata_map())});
 }
 
 constexpr int64_t kUpdateStatementExpectedRows = 10000L;
