@@ -74,6 +74,44 @@ func (m *mockpagewriter) Reset(sink utils.WriterTell, codec compress.Compression
 	return m.Called().Error(0)
 }
 
+func TestWriteDataPageV1NumValues(t *testing.T) {
+	sc := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.ListOf(
+			schema.Must(schema.NewPrimitiveNode("column", parquet.Repetitions.Optional, parquet.Types.Int32, -1, -1)),
+			parquet.Repetitions.Optional, -1)),
+	}, -1)))
+	descr := sc.Column(0)
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+		parquet.WithDataPageVersion(parquet.DataPageV1),
+		parquet.WithDictionaryDefault(false))
+
+	metadata := metadata.NewColumnChunkMetaDataBuilder(props, descr)
+	pager := new(mockpagewriter)
+	defer pager.AssertExpectations(t)
+	pager.On("HasCompressor").Return(false)
+	wr := file.NewColumnChunkWriter(metadata, pager, props).(*file.Int32ColumnChunkWriter)
+
+	// write a list "[[0, 1], null, [2, null, 3]]"
+	// should be 6 values, 2 nulls and 3 rows
+	wr.WriteBatch([]int32{0, 1, 2, 3},
+		[]int16{3, 3, 0, 3, 2, 3},
+		[]int16{0, 1, 0, 0, 1, 1})
+
+	pager.On("WriteDataPage", mock.MatchedBy(func(page file.DataPage) bool {
+		pagev1, ok := page.(*file.DataPageV1)
+		if !ok {
+			return false
+		}
+
+		// only match if the page being written has 2 nulls, 6 values and 3 rows
+		return pagev1.NumValues() == 6
+	})).Return(10, nil)
+
+	wr.FlushBufferedDataPages()
+	assert.EqualValues(t, 3, wr.RowsWritten())
+}
+
 func TestWriteDataPageV2NumRows(t *testing.T) {
 	// test issue from PARQUET-2066
 	sc := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
@@ -114,6 +152,58 @@ func TestWriteDataPageV2NumRows(t *testing.T) {
 
 	wr.FlushBufferedDataPages()
 	assert.EqualValues(t, 3, wr.RowsWritten())
+}
+
+func TestDataPageV2RowBoundaries(t *testing.T) {
+	sc := schema.NewSchema(schema.MustGroup(schema.NewGroupNode("schema", parquet.Repetitions.Required, schema.FieldList{
+		schema.Must(schema.ListOf(
+			schema.Must(schema.NewPrimitiveNode("column", parquet.Repetitions.Optional, parquet.Types.Int32, -1, -1)),
+			parquet.Repetitions.Optional, -1)),
+	}, -1)))
+	descr := sc.Column(0)
+	props := parquet.NewWriterProperties(
+		parquet.WithBatchSize(128),
+		parquet.WithDataPageSize(1024),
+		parquet.WithVersion(parquet.V2_LATEST),
+		parquet.WithDataPageVersion(parquet.DataPageV2),
+		parquet.WithDictionaryDefault(false))
+
+	metadata := metadata.NewColumnChunkMetaDataBuilder(props, descr)
+	pager := new(mockpagewriter)
+	defer pager.AssertExpectations(t)
+	pager.On("HasCompressor").Return(false)
+	wr := file.NewColumnChunkWriter(metadata, pager, props).(*file.Int32ColumnChunkWriter)
+
+	pager.On("WriteDataPage", mock.MatchedBy(func(page file.DataPage) bool {
+		pagev2, ok := page.(*file.DataPageV2)
+		if !ok {
+			return false
+		}
+
+		// only match if the page being written has 2 nulls, 6 values and 3 rows
+		return !pagev2.IsCompressed() &&
+			pagev2.NumNulls() == 0 &&
+			pagev2.NumValues() == 378 &&
+			pagev2.NumRows() == 126
+	})).Return(10, nil)
+
+	// create rows of lists of 3 values each
+	values := make([]int32, 1024)
+	defLevels := make([]int16, 1024)
+	repLevels := make([]int16, 1024)
+	for i := range values {
+		values[i] = int32(i)
+		defLevels[i] = 3
+
+		switch i % 3 {
+		case 0:
+			repLevels[i] = 0
+		case 1, 2:
+			repLevels[i] = 1
+		}
+	}
+
+	wr.WriteBatch(values, defLevels, repLevels)
 }
 
 type PrimitiveWriterTestSuite struct {

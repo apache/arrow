@@ -376,7 +376,7 @@ func (w *columnWriter) writeLevels(numValues int64, defLevels, repLevels []int16
 	toWrite := int64(0)
 	// if the field is required and non-repeated, no definition levels
 	if defLevels != nil && w.descr.MaxDefinitionLevel() > 0 {
-		for _, v := range defLevels {
+		for _, v := range defLevels[:numValues] {
 			if v == w.descr.MaxDefinitionLevel() {
 				toWrite++
 			}
@@ -389,7 +389,7 @@ func (w *columnWriter) writeLevels(numValues int64, defLevels, repLevels []int16
 	if repLevels != nil && w.descr.MaxRepetitionLevel() > 0 {
 		// a row could include more than one value
 		//count the occasions where we start a new row
-		for _, v := range repLevels {
+		for _, v := range repLevels[:numValues] {
 			if v == 0 {
 				w.numBufferedRows++
 			}
@@ -536,6 +536,48 @@ func (w *columnWriter) Close() (err error) {
 		w.repLevelSink.Reset(0)
 	}
 	return err
+}
+
+func (w *columnWriter) doBatches(total int64, repLevels []int16, action func(offset, batch int64)) {
+	batchSize := w.props.WriteBatchSize()
+	// if we're writing V1 data pages, have no replevels or the max replevel is 0 then just
+	// use the regular doBatches function
+	if w.props.DataPageVersion() == parquet.DataPageV1 || repLevels == nil || w.descr.MaxRepetitionLevel() == 0 {
+		doBatches(total, batchSize, action)
+		return
+	}
+
+	// if we get here that means we have repetition levels to write and we're writing
+	// V2 data pages. since we check whether to flush after each batch we write
+	// if we ensure all the batches begin and end on row boundaries we can avoid
+	// complex logic inside of our flushing or batch writing functions.
+	// the WriteBatch function recovers from panics so we can just panic here on a failure
+	// and it'll get caught by the WriteBatch functions above it
+	if int64(len(repLevels)) < total {
+		// if we're writing repLevels there has to be at least enough in the slice
+		// to write the total number that we're being asked to write
+		panic("columnwriter: not enough repetition levels for batch to write")
+	}
+
+	if repLevels[0] != 0 {
+		panic("columnwriter: batch writing for V2 data pages must start at a row boundary")
+	}
+
+	// loop by batchSize, but make sure we're ending/starting each batch on a row boundary
+	var (
+		batchStart, batch int64
+	)
+	for batchStart = 0; batchStart+batchSize < int64(len(repLevels)); batchStart += batch {
+		// check one past the last value of the batch for if it's a new row
+		// if it's not, shrink the batch and feel back to the beginning of a
+		// previous row boundary to end on
+		batch = batchSize
+		for ; repLevels[batchStart+batch] != 0; batch-- {
+		}
+		// batchStart <--> batch now begins and ends on a row boundary!
+		action(batchStart, batch)
+	}
+	action(batchStart, int64(len(repLevels))-batchStart)
 }
 
 func doBatches(total, batchSize int64, action func(offset, batch int64)) {

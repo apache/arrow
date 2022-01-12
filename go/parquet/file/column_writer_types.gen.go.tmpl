@@ -17,10 +17,10 @@
 package file
 
 import (
-    "github.com/apache/arrow/go/parquet"
-    "github.com/apache/arrow/go/parquet/metadata"
-    "github.com/apache/arrow/go/parquet/internal/encoding"
-    format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+    "github.com/apache/arrow/go/v7/parquet"
+    "github.com/apache/arrow/go/v7/parquet/metadata"
+    "github.com/apache/arrow/go/v7/parquet/internal/encoding"
+    format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
 )
 
 {{range .In}}
@@ -58,6 +58,12 @@ func New{{.Name}}ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pa
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, repLevels []int16) (valueOffset int64, err error) {
   defer func() {
     if r := recover(); r != nil {
@@ -84,7 +90,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
   case values != nil:
     n = int64(len(values))
   }
-  doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+  w.doBatches(n, repLevels, func(offset, batch int64) {
     var vals []{{.name}}
 
     toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))

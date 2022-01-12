@@ -53,6 +53,12 @@ func NewInt32ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *Int32ColumnChunkWriter) WriteBatch(values []int32, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -79,7 +85,7 @@ func (w *Int32ColumnChunkWriter) WriteBatch(values []int32, defLevels, repLevels
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []int32
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -206,6 +212,12 @@ func NewInt64ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *Int64ColumnChunkWriter) WriteBatch(values []int64, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -232,7 +244,7 @@ func (w *Int64ColumnChunkWriter) WriteBatch(values []int64, defLevels, repLevels
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []int64
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -359,6 +371,12 @@ func NewInt96ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pager 
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *Int96ColumnChunkWriter) WriteBatch(values []parquet.Int96, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -385,7 +403,7 @@ func (w *Int96ColumnChunkWriter) WriteBatch(values []parquet.Int96, defLevels, r
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []parquet.Int96
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -512,6 +530,12 @@ func NewFloat32ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *Float32ColumnChunkWriter) WriteBatch(values []float32, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -538,7 +562,7 @@ func (w *Float32ColumnChunkWriter) WriteBatch(values []float32, defLevels, repLe
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []float32
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -665,6 +689,12 @@ func NewFloat64ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *Float64ColumnChunkWriter) WriteBatch(values []float64, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -691,7 +721,7 @@ func (w *Float64ColumnChunkWriter) WriteBatch(values []float64, defLevels, repLe
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []float64
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -821,6 +851,12 @@ func NewBooleanColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, page
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *BooleanColumnChunkWriter) WriteBatch(values []bool, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -847,7 +883,7 @@ func (w *BooleanColumnChunkWriter) WriteBatch(values []bool, defLevels, repLevel
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []bool
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -974,6 +1010,12 @@ func NewByteArrayColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pa
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *ByteArrayColumnChunkWriter) WriteBatch(values []parquet.ByteArray, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1000,7 +1042,7 @@ func (w *ByteArrayColumnChunkWriter) WriteBatch(values []parquet.ByteArray, defL
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []parquet.ByteArray
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
@@ -1127,6 +1169,12 @@ func NewFixedLenByteArrayColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBui
 //
 // The number of physical values written (taken from `values`) is returned.
 // It can be smaller than `len(values)` is there are some undefined values.
+//
+// When using DataPageV2 to write a repeated column rows cannot cross data
+// page boundaries. To ensure this the writer ensures that every batch of
+// w.props.BatchSize begins and ends on a row boundary. As a consequence,
+// the first value to WriteBatch must always be the beginning of a row if
+// repLevels is not nil (repLevels[0] should always be 0) and using DataPageV2.
 func (w *FixedLenByteArrayColumnChunkWriter) WriteBatch(values []parquet.FixedLenByteArray, defLevels, repLevels []int16) (valueOffset int64, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1153,7 +1201,7 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteBatch(values []parquet.FixedLe
 	case values != nil:
 		n = int64(len(values))
 	}
-	doBatches(n, w.props.WriteBatchSize(), func(offset, batch int64) {
+	w.doBatches(n, repLevels, func(offset, batch int64) {
 		var vals []parquet.FixedLenByteArray
 
 		toWrite := w.writeLevels(batch, levelSliceOrNil(defLevels, offset, batch), levelSliceOrNil(repLevels, offset, batch))
