@@ -134,9 +134,9 @@ class JoinBenchmark {
     };
 
     DCHECK_OK(join_->Init(
-        ctx_.get(), settings.join_type, !is_parallel /* use_sync_execution*/,
-        settings.num_threads, schema_mgr_.get(), {JoinKeyCmp::EQ}, std::move(filter),
-        [](ExecBatch) {}, [](int64_t x) {}, schedule_callback));
+        ctx_.get(), settings.join_type, !is_parallel, settings.num_threads,
+        schema_mgr_.get(), {JoinKeyCmp::EQ}, std::move(filter), [](ExecBatch) {},
+        [](int64_t x) {}, schedule_callback));
   }
 
   void RunJoin() {
@@ -145,18 +145,18 @@ class JoinBenchmark {
       int tid = omp_get_thread_num();
 #pragma omp for nowait
       for (auto it = r_batches_.batches.begin(); it != r_batches_.batches.end(); ++it)
-        DCHECK_OK(join_->InputReceived(tid, 1 /* side */, *it));
+        DCHECK_OK(join_->InputReceived(tid, /*side=*/1, *it));
 #pragma omp for nowait
       for (auto it = l_batches_.batches.begin(); it != l_batches_.batches.end(); ++it)
-        DCHECK_OK(join_->InputReceived(tid, 0 /* side */, *it));
+        DCHECK_OK(join_->InputReceived(tid, /*side=*/0, *it));
 
 #pragma omp barrier
 
 #pragma omp single nowait
-      { DCHECK_OK(join_->InputFinished(tid, /* side */ 1)); }
+      { DCHECK_OK(join_->InputFinished(tid, /*side=*/1)); }
 
 #pragma omp single nowait
-      { DCHECK_OK(join_->InputFinished(tid, /* side */ 0)); }
+      { DCHECK_OK(join_->InputFinished(tid, /*side=*/0)); }
     }
   }
 

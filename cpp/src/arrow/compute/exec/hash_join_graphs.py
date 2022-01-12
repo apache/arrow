@@ -20,6 +20,17 @@
 '''
 This script takes a JSON file from a google benchmark run that measures rows/sec and generates graphs
 for each benchmark.
+
+Example usage:
+1. Generate Benchmark Data:
+release/arrow-compute-hash-join-benchmark \
+    --benchmark_counters_tabular=true \
+    --benchmark_format=console \
+    --benchmark_out=benchmark_data.json \
+    --benchmark_out_format=json
+
+2. Visualize:
+../src/arrow/compute/exec/hash_join_graphs.py benchmarks_data.json
 '''
 
 import math
@@ -29,6 +40,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 sns.set()
+
+def try_as_numeric(val):
+    try:
+        return float(val)
+    except:
+        return str(val)
+
+def is_multiplicative(lst):
+    if len(lst) < 3:
+        return False
+
+    if (lst[2] - lst[1]) == (lst[1] - lst[0]):
+        return False
+    
+    assert (lst[2] / lst[1]) == (lst[1] / lst[0])
+    return True
 
 class Test:
     def __init__(self):
@@ -78,17 +105,13 @@ def organize_tests(filename):
                     arg_split = arg.split(':')
                     arg_name = arg_split[0]
                     arg_value = arg_split[1].strip('\"')
+
+                arg_value = try_as_numeric(arg_value)
                 if arg_name not in tests[base_name].args.keys():
                     tests[base_name].args[arg_name] = [arg_value]
                 else:
                     tests[base_name].args[arg_name].append(arg_value)
     return tests;
-
-def string_numeric_sort_key(val):
-    try:
-        return float(val)
-    except:
-        return str(val)
 
 def construct_name(argname, argvalue):
     if not argname:
@@ -99,6 +122,9 @@ def plot_1d(test, argname, ax, label=None):
     x_axis = test.args[argname]
     y_axis = test.times
     ax.plot(x_axis, y_axis, label=label)
+    if is_multiplicative(x_axis):
+        ax.set_xscale('log', base=(x_axis[1] / x_axis[0]))
+        ax.xaxis.set_major_formatter(plt.ScalarFormatter())
     ax.legend()
     ax.set_xlabel(argname)
     ax.set_ylabel('rows/sec')
@@ -107,7 +133,7 @@ def plot_2d(test, sorted_argnames, ax, title):
     assert len(sorted_argnames) == 2
     lines = set(test.args[sorted_argnames[0]])
     ax.set_title(title)
-    for line in sorted(lines, key=string_numeric_sort_key):
+    for line in sorted(lines, key=try_as_numeric):
         indices = range(len(test.times))
         indices = list(filter(lambda i: test.args[sorted_argnames[0]][i] == line, indices))
         filtered_test = Test()
