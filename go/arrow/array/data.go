@@ -156,6 +156,16 @@ func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 
 func (d *Data) Children() []arrow.ArrayData { return d.childData }
 
+func (d *Data) Dictionary() arrow.ArrayData { return d.dictionary }
+
+func (d *Data) SetDictionary(dict arrow.ArrayData) {
+	dict.Retain()
+	if d.dictionary != nil {
+		d.dictionary.Release()
+	}
+	d.dictionary = dict.(*Data)
+}
+
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
 //    slice := data[i:j]
