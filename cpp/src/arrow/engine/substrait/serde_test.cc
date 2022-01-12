@@ -210,7 +210,7 @@ TEST(Substrait, NamedStruct) {
         {"list": {"type": {"string":{}} }},
         {"struct": {
           "types": [
-            {"fp32": {}},
+            {"fp32": {"nullability": "NULLABILITY_REQUIRED"}},
             {"string": {}}
           ]
         }},
@@ -224,7 +224,7 @@ TEST(Substrait, NamedStruct) {
       field("a", int64()),
       field("b", list(utf8())),
       field("c", struct_({
-                     field("d", float32()),
+                     field("d", float32(), /*nullable=*/false),
                      field("e", utf8()),
                  })),
       field("f", list(utf8())),
