@@ -2518,6 +2518,21 @@ extern "C" SEXP _arrow_dataset___PartitioningFactory__Finish(SEXP factory_sexp, 
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::string dataset___PartitioningFactory__type_name(const std::shared_ptr<ds::PartitioningFactory>& factory);
+extern "C" SEXP _arrow_dataset___PartitioningFactory__type_name(SEXP factory_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
+	return cpp11::as_sexp(dataset___PartitioningFactory__type_name(factory));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___PartitioningFactory__type_name(SEXP factory_sexp){
+	Rf_error("Cannot call dataset___PartitioningFactory__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 void dataset___ScannerBuilder__ProjectNames(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::string>& cols);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectNames(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_CPP11
@@ -7481,6 +7496,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 2}, 
 		{ "_arrow_dataset___PartitioningFactory__Inspect", (DL_FUNC) &_arrow_dataset___PartitioningFactory__Inspect, 2}, 
 		{ "_arrow_dataset___PartitioningFactory__Finish", (DL_FUNC) &_arrow_dataset___PartitioningFactory__Finish, 2}, 
+		{ "_arrow_dataset___PartitioningFactory__type_name", (DL_FUNC) &_arrow_dataset___PartitioningFactory__type_name, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectNames", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectNames, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectExprs", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectExprs, 3}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 

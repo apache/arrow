@@ -405,6 +405,12 @@ std::shared_ptr<ds::Partitioning> dataset___PartitioningFactory__Finish(
   return ValueOrStop(factory->Finish(schema));
 }
 
+// [[dataset::export]]
+std::string dataset___PartitioningFactory__type_name(
+    const std::shared_ptr<ds::PartitioningFactory>& factory) {
+  return factory->type_name();
+}
+
 // ScannerBuilder, Scanner
 
 // [[dataset::export]]

@@ -63,9 +63,7 @@ DatasetFactory$create <- function(x,
 
   # Handle partitioning arg in cases where it is "character" or "Schema"
   if (!is.null(partitioning) && !inherits(partitioning, c("Partitioning", "PartitioningFactory"))) {
-    # isFALSE() would be sufficient but that requires R >= 3.5
-    assert_that(is.logical(hive_style), length(hive_style) == 1)
-    if (hive_style %in% c(TRUE, NA)) {
+    if (!is_false(hive_style)) {
       # Default is NA, which means check to see if the paths could be hive_style
       hive_factory <- HivePartitioningFactory$create()
       paths <- path_and_fs$fs$ls(

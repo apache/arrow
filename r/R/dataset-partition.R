@@ -112,6 +112,9 @@ PartitioningFactory <- R6Class("PartitioningFactory",
   public = list(
     Inspect = function(paths) dataset___PartitioningFactory__Inspect(self, paths),
     Finish = function(schema) dataset___PartitioningFactory__Finish(self, schema)
+  ),
+  active = list(
+    type_name = function() dataset___PartitioningFactory__type_name(self)
   )
 )
 

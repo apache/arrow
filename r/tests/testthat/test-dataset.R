@@ -431,14 +431,23 @@ test_that("Specifying partitioning when hive_style", {
     fixed = TRUE
   )
 
-
   # This can be disabled with hive_style = FALSE
   ds_not_hive <- open_dataset(
     hive_dir,
     partitioning = c("group", "other"),
     hive_style = FALSE
   )
+  # Since it's DirectoryPartitioning, the column values are all strings
+  # like "group=1"
   expect_equal(ds_not_hive$schema[["group"]]$type, utf8())
+
+  # And if no partitioning is specified and hive_style = FALSE, we don't parse at all
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    hive_style = FALSE
+  )
+  expect_null(ds_not_hive$schema[["group"]])
+  expect_null(ds_not_hive$schema[["other"]])
 })
 
 test_that("Including partition columns in schema, hive style", {
@@ -448,6 +457,10 @@ test_that("Including partition columns in schema, hive style", {
 
   ds <- open_dataset(hive_dir, schema = expected_schema)
   expect_equal(ds$schema, expected_schema)
+
+  # Now also with specifying `partitioning`
+  ds2 <- open_dataset(hive_dir, schema = expected_schema, partitioning = c("group", "other"))
+  expect_equal(ds2$schema, expected_schema)
 })
 
 test_that("Dataset with multiple file formats", {

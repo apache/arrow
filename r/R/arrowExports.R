@@ -636,6 +636,10 @@ dataset___PartitioningFactory__Finish <- function(factory, schema) {
   .Call(`_arrow_dataset___PartitioningFactory__Finish`, factory, schema)
 }
 
+dataset___PartitioningFactory__type_name <- function(factory) {
+  .Call(`_arrow_dataset___PartitioningFactory__type_name`, factory)
+}
+
 dataset___ScannerBuilder__ProjectNames <- function(sb, cols) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
 }
