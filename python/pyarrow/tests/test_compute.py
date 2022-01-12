@@ -1358,7 +1358,7 @@ def test_between_array_array_array(ty):
     for inclusive, expected in inclusive_and_expected.items():
         options = BetweenOptions(inclusive=inclusive)
         result = pc.between(val, arr1, arr2, options=options)
-        np.testing.assert_array_equal(result, pa.array(expected))
+        assert result.equals(pa.array(expected))
 
 
 @pytest.mark.parametrize("ty", ["inclusive"])
