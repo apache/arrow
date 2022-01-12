@@ -66,18 +66,23 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
       while (ref != NULLPTR) {
         switch (ref->reference_type_case()) {
           case substrait::Expression::ReferenceSegment::kStructField: {
+            auto index = ref->struct_field().field();
             if (!out) {
               // Root StructField (column selection)
-              out = compute::field_ref(FieldRef(ref->struct_field().field()));
+              out = compute::field_ref(FieldRef(index));
             } else if (auto out_ref = out->field_ref()) {
-              // StructField on top of another StructField
-              out = compute::field_ref(FieldRef(*out_ref, ref->struct_field().field()));
+              // Nested StructFields on the root (selection of struct-typed column
+              // combined with selecting struct fields)
+              out = compute::field_ref(FieldRef(*out_ref, index));
+            } else if (out->call() && out->call()->function_name == "struct_field") {
+              // Nested StructFields on top of an arbitrary expression
+              std::static_pointer_cast<arrow::compute::StructFieldOptions>(
+                  out->call()->options)
+                  ->indices.push_back(index);
             } else {
-              // StructField on top of an arbitrary expression
-              // FIXME add struct_field compute function to handle this case
-              out.reset();
-              ref = NULLPTR;
-              break;
+              // First StructField on top of an arbitrary expression
+              out = compute::call("struct_field", {std::move(*out)},
+                                  arrow::compute::StructFieldOptions({index}));
             }
 
             // Segment handled, continue with child segment (if any)
@@ -669,10 +674,10 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     // Special case of a nested StructField
     DCHECK(!param->indices.empty());
 
-    for (auto it = param->indices.begin(); it != param->indices.end(); ++it) {
+    for (int index : param->indices) {
       auto struct_field =
           internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
-      struct_field->set_field(*it);
+      struct_field->set_field(index);
 
       auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
       ref_segment->set_allocated_struct_field(struct_field.release());
@@ -700,6 +705,38 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
   std::vector<std::unique_ptr<substrait::Expression>> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(arguments[i], ToProto(call->arguments[i]));
+  }
+
+  if (call->function_name == "struct_field") {
+    // catch the special case of calls convertible to a StructField
+    // TODO: DRY (nested StructField above); also, utilize ReferenceSegment.child for
+    // nesting if possible
+    const auto& indices =
+        std::static_pointer_cast<arrow::compute::StructFieldOptions>(call->options)
+            ->indices;
+
+    for (int index : indices) {
+      auto struct_field =
+          internal::make_unique<substrait::Expression::ReferenceSegment::StructField>();
+      struct_field->set_field(index);
+
+      auto ref_segment = internal::make_unique<substrait::Expression::ReferenceSegment>();
+      ref_segment->set_allocated_struct_field(struct_field.release());
+
+      auto selection = internal::make_unique<substrait::Expression::FieldReference>();
+      selection->set_allocated_direct_reference(ref_segment.release());
+
+      if (out->has_selection()) {
+        selection->set_allocated_expression(out.release());
+        out = internal::make_unique<substrait::Expression>();
+      } else {
+        selection->set_allocated_expression(arguments[0].release());
+      }
+
+      out->set_allocated_selection(selection.release());
+    }
+
+    return std::move(out);
   }
 
   if (call->function_name == "list_element") {
