@@ -964,9 +964,9 @@ TEST(HashJoin, Suffix) {
     [3, 6, 9, 3, 12, 15]
   ])")};
 
-  expected.schema = schema({field("lkey_l", int32()), field("shared_l", int32()),
-                            field("ldistinct_l", int32()), field("rkey_r", int32()),
-                            field("shared_r", int32()), field("rdistinct_r", int32())});
+  expected.schema = schema({field("lkey", int32()), field("shared_l", int32()),
+                            field("ldistinct", int32()), field("rkey", int32()),
+                            field("shared_r", int32()), field("rdistinct", int32())});
 
   ExecContext exec_ctx;
 
@@ -978,14 +978,14 @@ TEST(HashJoin, Suffix) {
   ASSERT_OK_AND_ASSIGN(
       left_source,
       MakeExecNode("source", plan.get(), {},
-                   SourceNodeOptions{input_left.schema,
-                                     input_left.gen(/*parallel=*/false, /*slow=*/false)}));
+                   SourceNodeOptions{input_left.schema, input_left.gen(/*parallel=*/false,
+                                                                       /*slow=*/false)}));
 
-  ASSERT_OK_AND_ASSIGN(
-      right_source,
-      MakeExecNode("source", plan.get(), {},
-                   SourceNodeOptions{input_right.schema,
-                                     input_right.gen(/*parallel=*/false, /*slow=*/false)}))
+  ASSERT_OK_AND_ASSIGN(right_source,
+                       MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions{input_right.schema,
+                                                      input_right.gen(/*parallel=*/false,
+                                                                      /*slow=*/false)}))
 
   HashJoinNodeOptions join_opts{JoinType::INNER,
                                 /*left_keys=*/{"lkey"},

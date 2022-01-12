@@ -87,8 +87,8 @@ TEST(FieldMap, SingleKeyField) {
   auto output = schema_mgr.MakeOutputSchema(kLeftSuffix, kRightSuffix);
   EXPECT_THAT(*output, Eq(Schema({
                            field("i32.left", int32()),
-                           field("str.left", utf8()),
-                           field("f32.right", float32()),
+                           field("str", utf8()),
+                           field("f32", float32()),
                            field("i32.right", int32()),
                        })));
 
@@ -119,12 +119,12 @@ TEST(FieldMap, TwoKeyFields) {
   EXPECT_THAT(*output, Eq(Schema({
                            field("i32.left", int32()),
                            field("str.left", utf8()),
-                           field("bool.left", boolean()),
+                           field("bool", boolean()),
 
                            field("i32.right", int32()),
                            field("str.right", utf8()),
-                           field("f32.right", float32()),
-                           field("f64.right", float64()),
+                           field("f32", float32()),
+                           field("f64", float64()),
                        })));
 }
 

@@ -57,13 +57,13 @@ namespace cp = arrow::compute;
 std::string GetDataAsCsvString(std::string relation) {
   std::string data_str = "";
   if (relation == "l") {
-    data_str = R"csv(lkey,shared,xdistinct
+    data_str = R"csv(lkey,shared,ldistinct
 1,4,7
 2,5,8
 11,20,21
 3,6,9)csv";
   } else if (relation == "r") {
-    data_str = R"csv(rkey,shared,ydistinct
+    data_str = R"csv(rkey,shared,rdistinct
 1,10,13
 124,10,11
 2,11,14
@@ -112,14 +112,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
   return result;
 }
 
-cp::Expression Materialize(std::vector<std::string> names,
-                           bool include_aug_fields = false) {
-  if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
-      names.emplace_back(aug_name);
-    }
-  }
-
+cp::Expression Materialize(std::vector<std::string> names) {
   std::vector<cp::Expression> exprs;
   for (const auto& name : names) {
     exprs.push_back(cp::field_ref(name));

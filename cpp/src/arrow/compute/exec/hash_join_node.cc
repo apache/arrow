@@ -275,29 +275,56 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
 }
 
 std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
-    const std::string& left_field_name_prefix,
-    const std::string& right_field_name_prefix) {
+    const std::string& left_field_name_suffix,
+    const std::string& right_field_name_suffix) {
   std::vector<std::shared_ptr<Field>> fields;
   int left_size = proj_maps[0].num_cols(HashJoinProjection::OUTPUT);
   int right_size = proj_maps[1].num_cols(HashJoinProjection::OUTPUT);
   fields.resize(left_size + right_size);
 
-  for (int i = 0; i < left_size + right_size; ++i) {
-    bool is_left = (i < left_size);
-    int side = (is_left ? 0 : 1);
-    int input_field_id = proj_maps[side]
-                             .map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT)
-                             .get(is_left ? i : i - left_size);
+  std::unordered_multimap<std::string, int> left_field_map;
+  left_field_map.reserve(left_size);
+  for (int i = 0; i < left_size; ++i) {
+    int side = 0;  // left
+    int input_field_id =
+        proj_maps[side].map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT).get(i);
     const std::string& input_field_name =
         proj_maps[side].field_name(HashJoinProjection::INPUT, input_field_id);
     const std::shared_ptr<DataType>& input_data_type =
         proj_maps[side].data_type(HashJoinProjection::INPUT, input_field_id);
-
-    std::string output_field_name =
-        input_field_name + (is_left ? left_field_name_prefix : right_field_name_prefix);
-    // All fields coming out of join are marked as nullable.
+    left_field_map.insert({input_field_name, i});
+    // insert left table field
     fields[i] =
-        std::make_shared<Field>(output_field_name, input_data_type, true /*nullable*/);
+        std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
+  }
+
+  for (int i = 0; i < right_size; ++i) {
+    int side = 1;  // right
+    int input_field_id =
+        proj_maps[side].map(HashJoinProjection::OUTPUT, HashJoinProjection::INPUT).get(i);
+    const std::string& input_field_name =
+        proj_maps[side].field_name(HashJoinProjection::INPUT, input_field_id);
+    const std::shared_ptr<DataType>& input_data_type =
+        proj_maps[side].data_type(HashJoinProjection::INPUT, input_field_id);
+    // search the map and add suffix to the elements which
+    // are present both in left and right tables
+    auto search = left_field_map.find(input_field_name);
+    if (search != left_field_map.end()) {
+      auto left_val = search->first;
+      auto left_index = search->second;
+      auto left_field = fields[left_index];
+      // update left table field with suffix
+      fields[left_index] =
+          std::make_shared<Field>(input_field_name + left_field_name_suffix,
+                                  left_field->type(), true /*nullable*/);
+      // insert right table field with suffix
+      fields[left_size + i] = std::make_shared<Field>(
+          input_field_name + right_field_name_suffix, input_data_type, true /*nullable*/);
+    } else {
+      // insert right table field without suffix
+      fields[left_size + i] =
+          std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
+    }
   }
   return std::make_shared<Schema>(std::move(fields));
 }
