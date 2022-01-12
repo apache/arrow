@@ -36,8 +36,9 @@ module ArrowFlight
       require "arrow-flight/ticket"
     end
 
-    def should_unlock_gvl?(info, klass)
-      true
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      function_info.lock_gvl_default = false
     end
   end
 end
