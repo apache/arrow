@@ -331,6 +331,9 @@ TEST(TestTime, TimeStampTrunc) {
 }
 
 TEST(TestTime, TimeStampAdd) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
   EXPECT_EQ(
       timestampaddSecond_int32_timestamp(30, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2000-05-01 10:21:04"));
@@ -436,6 +439,12 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_timestamp_day_time_interval(StringToTimestamp("1968-02-27 00:00:00"), 4),
             StringToTimestamp("1968-03-02 00:00:00"));
 
+  EXPECT_EQ(add_date64_month_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+            StringToTimestamp("2001-01-23 00:00:00"));
+
+  EXPECT_EQ(add_date64_day_time_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+            StringToTimestamp("2000-09-27 00:00:00"));
+
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
   EXPECT_EQ(add_time32_day_time_interval(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
                                          77309411328000001),
@@ -481,6 +490,11 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(subtract_time32_day_time_interval(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
                                               77309411328000001),
             MILLIS_IN_DAY - 15 * MILLIS_IN_HOUR);
+
+  EXPECT_EQ(
+      subtract_date64_day_time_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+      StringToTimestamp("2000-09-19 00:00:00"));
+  context.Reset();
 }
 
 // test cases from http://www.staff.science.uu.nl/~gent0113/calendar/isocalendar.htm
