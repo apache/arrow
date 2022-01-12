@@ -519,6 +519,16 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "round_temporal") {
+    using Options = arrow::compute::RoundTemporalOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    SEXP unit = options["unit"];
+    if (!Rf_isNull(unit)) {
+      out->unit = cpp11::as_cpp<enum arrow::compute::CalendarUnit>(unit);
+    }
+    return out;
+  }
+
   if (func_name == "round_to_multiple") {
     using Options = arrow::compute::RoundToMultipleOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
