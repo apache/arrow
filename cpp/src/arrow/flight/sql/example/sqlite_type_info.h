@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "arrow/record_batch.h"
+
 namespace arrow {
 namespace flight {
 namespace sql {

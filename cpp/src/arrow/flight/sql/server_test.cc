@@ -21,7 +21,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <arrow/flight/sql/example/sqlite_type_info.h>
 #include <condition_variable>
 #include <thread>
 
@@ -29,6 +28,7 @@
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
+#include "arrow/flight/sql/example/sqlite_type_info.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
 #include "arrow/testing/builder.h"
@@ -393,16 +393,10 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
   const std::shared_ptr<RecordBatch>& batch =
       example::DoGetTypeInfoResult(expected_schema);
 
-  const arrow::Result<std::shared_ptr<Table>>& expected_table_result =
-      Table::FromRecordBatches({batch});
-
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   std::shared_ptr<Table> table;
-  std::shared_ptr<Table> expected_table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(expected_table, expected_table_result);
-
-  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
   AssertTablesEqual(*expected_table, *table);
 }
 

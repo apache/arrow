@@ -195,8 +195,7 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
 
   /// \brief Gets a FlightInfo for retrieving other information (See TypeInfo).
   /// \param[in] context      Per-call context.
-  /// \param[in] command      The GetTypeInfo object which may contain filter for
-  ///                         the date type to be search for.
+  /// \param[in] command      An optional filter for on the data type.
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \return                 Status.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
@@ -206,8 +205,8 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \brief Gets a FlightDataStream containing information about the data types
   ///        supported.
   /// \param[in] context  Per-call context.
-  /// \param[in] command      The GetTypeInfo object which may contain filter for
-  ///                         the date type to be search for.
+  /// \param[in] command  The GetTypeInfo object which may contain filter for
+  ///                     the date type to be search for.
   /// \return             Status.
   virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
       const ServerCallContext& context, const GetTypeInfo& command);

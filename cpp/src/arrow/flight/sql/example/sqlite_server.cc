@@ -19,7 +19,6 @@
 
 #include <sqlite3.h>
 
-#include <arrow/flight/sql/server.h>
 #include <boost/algorithm/string.hpp>
 #include <map>
 #include <random>
@@ -31,6 +30,7 @@
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_tables_schema_batch_reader.h"
 #include "arrow/flight/sql/example/sqlite_type_info.h"
+#include "arrow/flight/sql/server.h"
 
 namespace arrow {
 namespace flight {

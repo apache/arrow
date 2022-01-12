@@ -15,11 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/testing/gtest_util.h>
-
 #include "arrow/flight/sql/example/sqlite_type_info.h"
+
 #include "arrow/flight/sql/types.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 namespace flight {
@@ -101,7 +101,8 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& 
   // Check if there is more than one of the same data type in the vector, if there
   // is more than one we increase the counter.
   int16_t counter = 1;
-  while (data_type_vector[begin_offset + counter] == data_type_filter) {
+  while (data_type_vector[begin_offset + counter] == data_type_filter &&
+  begin_offset + counter < static_cast<int64_t>(data_type_vector.size())) {
     counter++;
   }
 
