@@ -139,13 +139,9 @@ arrow::Status DoHashJoin() {
   ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData("r"));
 
   auto l_options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  l_options->use_async = true;
   l_options->projection = Materialize({});  // create empty projection
 
   auto r_options = std::make_shared<arrow::dataset::ScanOptions>();
-  // sync scanning is not supported by ScanNode
-  r_options->use_async = true;
   r_options->projection = Materialize({});  // create empty projection
 
   // construct the scan node
