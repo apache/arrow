@@ -47,11 +47,6 @@ class SkyhookFileFormat::Impl {
       const std::shared_ptr<const SkyhookFileFormat>& format,
       const std::shared_ptr<arrow::dataset::ScanOptions>& options,
       const std::shared_ptr<arrow::dataset::FileFragment>& file) const {
-    // TODO: investigate "true" async version
-
-    // Make sure client-side filtering and projection is turned off.
-    file->apply_compute = false;
-
     /// Convert string file format name to Enum.
     skyhook::SkyhookFileType::type file_format;
     if (file_format_ == "parquet") {
