@@ -699,6 +699,8 @@ for ``add`` and ``subtract``.
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 | Function names | Arity   | Input types                                 | Output type | Options Class            | Notes |
 +================+=========+=============================================+=============+==========================+=======+
+| between        | Ternary | Numeric, Temporal, Binary- and String-like  | Boolean     | :struct:`BetweenOptions` | \(1)  |
++----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 | equal          | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 | greater        | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
@@ -710,8 +712,6 @@ for ``add`` and ``subtract``.
 | less_equal     | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 | not_equal      | Binary  | Numeric, Temporal, Binary- and String-like  | Boolean     |                          |       |
-+----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
-| between        | Ternary | Numeric, Temporal, Binary- and String-like  | Boolean     | :struct:`BetweenOptions` | \(1)  |
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
 
 These functions take any number of inputs of numeric type (in which case they

@@ -99,21 +99,6 @@ BENCHMARK(MaxElementWiseArrayArrayString)->Apply(RegressionSetArgs);
 BENCHMARK(MaxElementWiseArrayScalarString)->Apply(RegressionSetArgs);
 
 template <typename Type>
-static void BetweenScalarArrayScalar(benchmark::State& state) {
-  RegressionArgs args(state, /*size_is_bytes=*/false);
-  auto ty = TypeTraits<Type>::type_singleton();
-  auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = rand.ArrayOf(ty, args.size, args.null_proportion);
-  auto scalar_left = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
-  auto scalar_right = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
-  for (auto _ : state) {
-    ABORT_NOT_OK(
-        CallFunction("between_less_equal_less_equal", {array, scalar_left, scalar_right})
-            .status());
-  }
-}
-
-template <typename Type>
 static void BetweenArrayArrayArray(benchmark::State& state) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
   auto ty = TypeTraits<Type>::type_singleton();
@@ -122,20 +107,51 @@ static void BetweenArrayArrayArray(benchmark::State& state) {
   auto mid = rand.ArrayOf(ty, args.size, args.null_proportion);
   auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("between_less_equal_less_equal", {mid, lhs, rhs}).status());
+    ABORT_NOT_OK(Between(mid, lhs, rhs, BetweenOptions(), nullptr}).status());
   }
 }
 
-// static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
-//   BetweenArrayArrayArray<Int64Type>(state);
-// }
-//
-// static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
-//   BetweenScalarArrayScalar<Int64Type>(state);
-// }
+template <typename Type>
+static void BetweenScalarArrayScalar(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  auto ty = TypeTraits<Type>::type_singleton();
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto mid = rand.ArrayOf(ty, args.size, args.null_proportion);
+  auto lhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
+  auto rhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
+  for (auto _ : state) {
+    ABORT_NOT_OK(Between(mid, lhs, rhs, BetweenOptions(), nullptr).status());
+  }
+}
 
-// BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);
-// BENCHMARK(BetweenScalarArrayScalarInt64)->Apply(RegressionSetArgs);
+template <typename Type>
+static void BetweenScalarArrayArray(benchmark::State& state) {
+  RegressionArgs args(state, /*size_is_bytes=*/false);
+  auto ty = TypeTraits<Type>::type_singleton();
+  auto rand = random::RandomArrayGenerator(kSeed);
+  auto mid = rand.ArrayOf(ty, args.size, args.null_proportion);
+  auto lhs = *rand.ArrayOf(ty, 1, 0)->GetScalar(0);
+  auto rhs = rand.ArrayOf(ty, args.size, args.null_proportion);
+  for (auto _ : state) {
+    ABORT_NOT_OK(Between(mid, lhs, rhs, BetweenOptions(), nullptr).status());
+  }
+}
+
+static void BetweenArrayArrayArrayInt64(benchmark::State& state) {
+  BetweenArrayArrayArray<Int64Type>(state);
+}
+
+static void BetweenScalarArrayScalarInt64(benchmark::State& state) {
+  BetweenScalarArrayScalar<Int64Type>(state);
+}
+
+static void BetweenScalarArrayArrayInt64(benchmark::State& state) {
+  BetweenScalarArrayScalar<Int64Type>(state);
+}
+
+BENCHMARK(BetweenArrayArrayArrayInt64)->Apply(RegressionSetArgs);
+BENCHMARK(BetweenScalarArrayScalarInt64)->Apply(RegressionSetArgs);
+BENCHMARK(BetweenScalarArrayArrayInt64)->Apply(RegressionSetArgs);
 
 }  // namespace compute
 }  // namespace arrow

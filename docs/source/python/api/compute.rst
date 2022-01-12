@@ -169,13 +169,13 @@ These functions expect two or three inputs of the same type. If one of the input
 .. autosummary::
    :toctree: ../generated/
 
+   between
    equal
    greater
    greater_equal
    less
    less_equal
    not_equal
-   between
 
 These functions take any number of arguments of a numeric or temporal type.
 

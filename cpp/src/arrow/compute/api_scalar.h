@@ -370,7 +370,7 @@ struct ARROW_EXPORT CompareOptions {
   enum CompareOperator op;
 };
 
-enum class Inclusive : int8_t {
+enum class Inclusive : int8_t  {
   /// Include both endpoints
   BOTH,
   /// Include only left endpoint
@@ -1661,15 +1661,16 @@ ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
 /// \param[in] values input to compare between left and right
 /// \param[in] left used as the lower bound for comparison
 /// \param[in] right used as the upper bound for comparison
-/// \param[in] options for bounds, default is inclusive of both, other
-///  endpoints, other choices are left (exclude left endpoint), right
-///  (exclude right endpoint) and both (exclude both endpoints), optional
+/// \param[in] options for bounds, default is inclusive of both
+///  endpoints, other choices are left (exclude left endpoint),
+///  right (exclude right endpoint) and both (exclude both endpoints), 
+///  optional
 /// \param[in] ctx the function execution context, optional
 ///
 /// \return the resulting datum
 ///
-/// \since 8.0.0
 /// \note Bounds are not inclusive
+//  \since 8.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Between(const Datum& values, const Datum& left, const Datum& right,
