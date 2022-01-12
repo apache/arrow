@@ -195,8 +195,8 @@ TIMESTAMP_DIFF(timestamp)
 
 #define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                    \
   FORCE_INLINE                                                                          \
-  gdv_##TYPE NAME##_##TYPE##_month_interval(gdv_##TYPE millis,                     \
-                                                 gdv_year_month_interval count) {       \
+  gdv_##TYPE NAME##_##TYPE##_month_interval(gdv_##TYPE millis,                          \
+                                            gdv_year_month_interval count) {            \
     EpochTimePoint tp(millis);                                                          \
     return static_cast<gdv_##TYPE>(tp.AddMonths(TO_MILLIS * count).MillisSinceEpoch()); \
   }
