@@ -32,6 +32,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
@@ -66,6 +67,11 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.kind", kind_name()},
+                {"node.label", label()},
+                {"node.output_schema", output_schema()->ToString()},
+                {"node.detail", ToString()}});
     {
       // If another exec node encountered an error during its StartProducing call
       // it might have already called StopProducing on all of its inputs (including this
@@ -140,7 +146,12 @@ struct SourceNode : ExecNode {
           outputs_[0]->InputFinished(this, total_batches);
           return task_group_.End();
         });
-
+#ifdef ARROW_WITH_OPENTELEMETRY
+    finished_.AddCallback([this](const Status& st) {
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
+    });
+#endif
     return Status::OK();
   }
 
@@ -164,7 +175,6 @@ struct SourceNode : ExecNode {
   std::mutex mutex_;
   bool stop_requested_{false};
   int batch_count_{0};
-  Future<> finished_ = Future<>::MakeFinished();
   util::AsyncTaskGroup task_group_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };

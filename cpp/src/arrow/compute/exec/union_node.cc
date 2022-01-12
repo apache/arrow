@@ -76,7 +76,7 @@ class UnionNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
@@ -84,13 +84,12 @@ class UnionNode : public ExecNode {
     }
     outputs_[0]->InputReceived(this, std::move(batch));
     if (batch_count_.Increment()) {
-      END_SPAN(span);
       finished_.MarkFinished();
     }
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span, "ErrorReceived", {{"error", error.message()}});
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
 
@@ -98,7 +97,7 @@ class UnionNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span, "InputFinished",
+    EVENT(span_, "InputFinished",
           {{"input", input_count_.count()}, {"batches.length", total_batches}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
@@ -107,27 +106,34 @@ class UnionNode : public ExecNode {
     if (input_count_.Increment()) {
       outputs_[0]->InputFinished(this, total_batches_.load());
       if (batch_count_.SetTotal(total_batches_.load())) {
-        END_SPAN(span);
         finished_.MarkFinished();
       }
     }
   }
 
   Status StartProducing() override {
-    START_SPAN(span, kind_name(), {{"node", ToString()}});
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    finished_.AddCallback([this](const Status& st) {
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
+    });
+#endif
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
+  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
-    EVENT(span, "StopProducing");
+    EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
-      END_SPAN(span);
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {
@@ -137,7 +143,6 @@ class UnionNode : public ExecNode {
 
   void StopProducing() override {
     if (batch_count_.Cancel()) {
-      END_SPAN(span);
       finished_.MarkFinished();
     }
     for (auto&& input : inputs_) {
@@ -151,7 +156,6 @@ class UnionNode : public ExecNode {
   AtomicCounter batch_count_;
   AtomicCounter input_count_;
   std::atomic<int> total_batches_{0};
-  Future<> finished_ = Future<>::MakeFinished();
 };
 
 namespace internal {

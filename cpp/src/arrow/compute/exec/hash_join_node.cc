@@ -493,7 +493,10 @@ class HashJoinNode : public ExecNode {
     size_t thread_index = thread_indexer_();
     int side = (input == inputs_[0]) ? 0 : 1;
 
-    EVENT(span, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}, {"side", side}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"batch.length", batch.length}});
 
     {
       Status status = impl_->InputReceived(thread_index, side, std::move(batch));
@@ -514,7 +517,7 @@ class HashJoinNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span, "ErrorReceived", {{"error", error.message()}});
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     StopProducing();
     outputs_[0]->ErrorReceived(this, std::move(error));
@@ -526,7 +529,7 @@ class HashJoinNode : public ExecNode {
     size_t thread_index = thread_indexer_();
     int side = (input == inputs_[0]) ? 0 : 1;
 
-    EVENT(span, "InputFinished", {{"side", side}, {"batches.length", total_batches}});
+    EVENT(span_, "InputFinished", {{"side", side}, {"batches.length", total_batches}});
 
     if (batch_count_[side].SetTotal(total_batches)) {
       Status status = impl_->InputFinished(thread_index, side);
@@ -539,8 +542,17 @@ class HashJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(span, kind_name(), {{"node", ToString()}});
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    finished_.AddCallback([this](const Status& st) {
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
+    });
+#endif
 
     bool use_sync_execution = !(plan_->exec_context()->executor());
     size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();
@@ -556,9 +568,9 @@ class HashJoinNode : public ExecNode {
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
+  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -566,16 +578,13 @@ class HashJoinNode : public ExecNode {
   }
 
   void StopProducing() override {
-    EVENT(span, "StopProducing");
+    EVENT(span_, "StopProducing");
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       for (auto&& input : inputs_) {
         input->StopProducing(this);
       }
-      impl_->Abort([this]() {
-        END_SPAN(span);
-        finished_.MarkFinished();
-      });
+      impl_->Abort([this]() { finished_.MarkFinished(); });
     }
   }
 
@@ -590,7 +599,6 @@ class HashJoinNode : public ExecNode {
     bool expected = false;
     if (complete_.compare_exchange_strong(expected, true)) {
       outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-      END_SPAN(span);
       finished_.MarkFinished();
     }
   }
@@ -617,7 +625,6 @@ class HashJoinNode : public ExecNode {
  private:
   AtomicCounter batch_count_[2];
   std::atomic<bool> complete_;
-  Future<> finished_ = Future<>::MakeFinished();
   JoinType join_type_;
   std::vector<JoinKeyCmp> key_cmp_;
   Expression filter_;

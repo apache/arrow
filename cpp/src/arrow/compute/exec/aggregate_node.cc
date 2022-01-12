@@ -166,11 +166,18 @@ class ScalarAggregateNode : public ExecNode {
   const char* kind_name() const override { return "ScalarAggregateNode"; }
 
   Status DoConsume(const ExecBatch& batch, size_t thread_index) {
-    util::tracing::Span inner_span;
-    START_SPAN_WITH_PARENT(inner_span, span, "ScalarAggregateNode::DoConsume",
-                           {{"agg", ToStringExtra()}});
-
+    util::tracing::Span span;
+    START_SPAN(span, "Consume",
+               {{"aggregate", ToStringExtra()},
+                {"node.label", label()},
+                {"batch.length", batch.length}});
     for (size_t i = 0; i < kernels_.size(); ++i) {
+      util::tracing::Span span;
+      START_SPAN(span, aggs_[i].function,
+                 {{"function", aggs_[i].function},
+                  {"function.options",
+                   aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
+                  {"function.kind", "consume"}});
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
@@ -181,7 +188,12 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"aggregate", ToStringExtra()},
+                            {"node.label", label()},
+                            {"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
 
     auto thread_index = get_thread_index_();
@@ -194,13 +206,13 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span, "ErrorReceived", {{"error", error.message()}});
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span, "InputFinished", {{"batches.length", total_batches}});
+    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     DCHECK_EQ(input, inputs_[0]);
     if (input_counter_.SetTotal(total_batches)) {
       ErrorIfNotOk(Finish());
@@ -208,16 +220,25 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(span, kind_name(), {{"node", ToString()}});
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    finished_.AddCallback([this](const Status& st) {
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
+    });
+#endif
     // Scalar aggregates will only output a single batch
     outputs_[0]->InputFinished(this, 1);
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
+  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
     DCHECK_EQ(output, outputs_[0]);
@@ -225,9 +246,8 @@ class ScalarAggregateNode : public ExecNode {
   }
 
   void StopProducing() override {
-    EVENT(span, "StopProducing");
+    EVENT(span_, "StopProducing");
     if (input_counter_.Cancel()) {
-      END_SPAN(span);
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);
@@ -245,10 +265,18 @@ class ScalarAggregateNode : public ExecNode {
 
  private:
   Status Finish() {
+    util::tracing::Span span;
+    START_SPAN(span, "Finish", {{"aggregate", ToStringExtra()}, {"node.label", label()}});
     ExecBatch batch{{}, 1};
     batch.values.resize(kernels_.size());
 
     for (size_t i = 0; i < kernels_.size(); ++i) {
+      util::tracing::Span span;
+      START_SPAN(span, aggs_[i].function,
+                 {{"function", aggs_[i].function},
+                  {"function.options",
+                   aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
+                  {"function.kind", "finalize"}});
       KernelContext ctx{plan()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
@@ -256,12 +284,10 @@ class ScalarAggregateNode : public ExecNode {
     }
 
     outputs_[0]->InputReceived(this, std::move(batch));
-    END_SPAN(span);
     finished_.MarkFinished();
     return Status::OK();
   }
 
-  Future<> finished_ = Future<>::MakeFinished();
   const std::vector<int> target_field_ids_;
   const std::vector<internal::Aggregate> aggs_;
   const std::vector<const ScalarAggregateKernel*> kernels_;
@@ -369,8 +395,11 @@ class GroupByNode : public ExecNode {
   const char* kind_name() const override { return "GroupByNode"; }
 
   Status Consume(ExecBatch batch) {
-    util::tracing::Span inner_span;
-    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Consume");
+    util::tracing::Span span;
+    START_SPAN(span, "Consume",
+               {{"group_by", ToStringExtra()},
+                {"node.label", label()},
+                {"batch.length", batch.length}});
     size_t thread_index = get_thread_index_();
     if (thread_index >= local_states_.size()) {
       return Status::IndexError("thread index ", thread_index, " is out of range [0, ",
@@ -393,7 +422,11 @@ class GroupByNode : public ExecNode {
     // Execute aggregate kernels
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       util::tracing::Span span;
-      START_SPAN(span, "Aggregate", {{"function", aggs_[i].function}});
+      START_SPAN(span, aggs_[i].function,
+                 {{"function", aggs_[i].function},
+                  {"function.options",
+                   aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
+                  {"function.kind", "consume"}});
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
@@ -409,8 +442,8 @@ class GroupByNode : public ExecNode {
   }
 
   Status Merge() {
-    util::tracing::Span inner_span;
-    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Merge");
+    util::tracing::Span span;
+    START_SPAN(span, "Merge", {{"group_by", ToStringExtra()}, {"node.label", label()}});
     ThreadLocalState* state0 = &local_states_[0];
     for (size_t i = 1; i < local_states_.size(); ++i) {
       ThreadLocalState* state = &local_states_[i];
@@ -424,7 +457,11 @@ class GroupByNode : public ExecNode {
 
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
         util::tracing::Span span;
-        START_SPAN(span, "MergeKernel", {{"function", aggs_[i].function}});
+        START_SPAN(span, aggs_[i].function,
+                   {{"function", aggs_[i].function},
+                    {"function.options",
+                     aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
+                    {"function.kind", "merge"}});
         KernelContext batch_ctx{ctx_};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
@@ -439,8 +476,9 @@ class GroupByNode : public ExecNode {
   }
 
   Result<ExecBatch> Finalize() {
-    util::tracing::Span inner_span;
-    START_SPAN_WITH_PARENT(inner_span, span, "GroupByNode::Finalize");
+    util::tracing::Span span;
+    START_SPAN(span, "Finalize",
+               {{"group_by", ToStringExtra()}, {"node.label", label()}});
 
     ThreadLocalState* state = &local_states_[0];
     // If we never got any batches, then state won't have been initialized
@@ -451,6 +489,12 @@ class GroupByNode : public ExecNode {
 
     // Aggregate fields come before key fields to match the behavior of GroupBy function
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
+      util::tracing::Span span;
+      START_SPAN(span, aggs_[i].function,
+                 {{"function", aggs_[i].function},
+                  {"function.options",
+                   aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
+                  {"function.kind", "finalize"}});
       KernelContext batch_ctx{ctx_};
       batch_ctx.SetState(state->agg_states[i].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
@@ -502,13 +546,16 @@ class GroupByNode : public ExecNode {
       }
     }
 
-    END_SPAN(span);
-
     return Status::OK();
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"group_by", ToStringExtra()},
+                            {"node.label", label()},
+                            {"batch.length", batch.length}});
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -523,7 +570,7 @@ class GroupByNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
-    EVENT(span, "ErrorReceived", {{"error", error.message()}});
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
 
     DCHECK_EQ(input, inputs_[0]);
 
@@ -531,7 +578,7 @@ class GroupByNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
-    EVENT(span, "InputFinished", {{"batches.length", total_batches}});
+    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
 
     // bail if StopProducing was called
     if (finished_.is_finished()) return;
@@ -544,26 +591,32 @@ class GroupByNode : public ExecNode {
   }
 
   Status StartProducing() override {
-    START_SPAN(span, kind_name(), {{"node", ToString()}});
-
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    finished_.AddCallback([this](const Status& st) {
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
+    });
+#endif
 
     local_states_.resize(ThreadIndexer::Capacity());
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override { EVENT(span, "PauseProducing"); }
+  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override { EVENT(span, "ResumeProducing"); }
+  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
+    EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
-
-    EVENT(span, "StopProducing");
 
     ARROW_UNUSED(input_counter_.Cancel());
     if (output_counter_.Cancel()) {
-      END_SPAN(span);
       finished_.MarkFinished();
     }
     inputs_[0]->StopProducing(this);
@@ -638,7 +691,6 @@ class GroupByNode : public ExecNode {
   }
 
   ExecContext* ctx_;
-  Future<> finished_ = Future<>::MakeFinished();
 
   const std::vector<int> key_field_ids_;
   const std::vector<int> agg_src_field_ids_;

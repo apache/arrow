@@ -247,7 +247,10 @@ class ARROW_EXPORT ExecNode {
   int num_outputs_;
   NodeVector outputs_;
 
-  util::tracing::Span span;
+  // Future to sync finished
+  Future<> finished_ = Future<>::MakeFinished();
+
+  util::tracing::Span span_;
 };
 
 /// \brief MapNode is an ExecNode type class which process a task like filter/project
@@ -287,9 +290,6 @@ class MapNode : public ExecNode {
  protected:
   // Counter for the number of batches received
   AtomicCounter input_counter_;
-
-  // Future to sync finished
-  Future<> finished_ = Future<>::Make();
 
   // The task group for the corresponding batches
   util::AsyncTaskGroup task_group_;

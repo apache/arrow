@@ -47,23 +47,17 @@ class ARROW_EXPORT Span {
   Impl& Set(Impl&&);
 
   const Impl& Get() const {
-    if (inner_impl) {
-      return *inner_impl;
-    } else {
-      ARROW_LOG(FATAL) << "Attempted to dereference a null pointer. Use Span::Set before "
-                          "dereferencing.";
-      std::abort();
-    }
+    ARROW_CHECK(inner_impl)
+        << "Attempted to dereference a null pointer. Use Span::Set before "
+           "dereferencing.";
+    return *inner_impl;
   }
 
   Impl& Get() {
-    if (inner_impl) {
-      return *inner_impl;
-    } else {
-      ARROW_LOG(FATAL) << "Attempted to dereference a null pointer. Use Span::Set before "
-                          "dereferencing.";
-      std::abort();
-    }
+    ARROW_CHECK(inner_impl)
+        << "Attempted to dereference a null pointer. Use Span::Set before "
+           "dereferencing.";
+    return *inner_impl;
   }
 
  private:

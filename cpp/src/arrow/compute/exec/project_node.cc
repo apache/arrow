@@ -80,6 +80,11 @@ class ProjectNode : public MapNode {
   Result<ExecBatch> DoProject(const ExecBatch& target) {
     std::vector<Datum> values{exprs_.size()};
     for (size_t i = 0; i < exprs_.size(); ++i) {
+      util::tracing::Span span;
+      START_SPAN(span, "Project",
+                 {{"project.descr", exprs_[i].descr().ToString()},
+                  {"project.length", target.length},
+                  {"project.expression", exprs_[i].ToString()}});
       ARROW_ASSIGN_OR_RAISE(Expression simplified_expr,
                             SimplifyWithGuarantee(exprs_[i], target.guarantee));
 
@@ -90,14 +95,17 @@ class ProjectNode : public MapNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
-    EVENT(span, "InputReceived", {{"batch.length", batch.length}});
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     DCHECK_EQ(input, inputs_[0]);
     auto func = [this](ExecBatch batch) {
-      util::tracing::Span inner_span;
-      START_SPAN_WITH_PARENT(inner_span, span, "ProjectNode::DoProject");
+      util::tracing::Span span;
+      START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                             {{"project", ToStringExtra()},
+                              {"node.label", label()},
+                              {"batch.length", batch.length}});
       auto result = DoProject(std::move(batch));
-      MARK_SPAN(inner_span, result.status());
-      END_SPAN(inner_span);
+      MARK_SPAN(span, result.status());
+      END_SPAN(span);
       return result;
     };
     this->SubmitTask(std::move(func), std::move(batch));

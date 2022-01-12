@@ -115,7 +115,7 @@ class HashJoinImpl {
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();
 
  protected:
-  util::tracing::Span span;
+  util::tracing::Span span_;
 };
 
 }  // namespace compute

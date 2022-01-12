@@ -79,7 +79,7 @@ struct ExecPlanImpl : public ExecPlan {
   }
 
   Status StartProducing() {
-    START_SPAN(span, "ExecPlan", {{"plan", ToString()}});
+    START_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
 
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
@@ -97,7 +97,10 @@ struct ExecPlanImpl : public ExecPlan {
     for (rev_it it(sorted_nodes_.end()), end(sorted_nodes_.begin()); it != end; ++it) {
       auto node = *it;
 
+      EVENT(span_, "StartProducing:" + node->label(),
+            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
       st = node->StartProducing();
+      EVENT(span_, "StartProducing:" + node->label(), {{"status", st.ToString()}});
       if (!st.ok()) {
         // Stop nodes that successfully started, in reverse order
         stopped_ = true;
@@ -111,16 +114,16 @@ struct ExecPlanImpl : public ExecPlan {
     finished_ = AllFinished(futures);
 #ifdef ARROW_WITH_OPENTELEMETRY
     finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span, st);
-      END_SPAN(span);
+      MARK_SPAN(span_, st);
+      END_SPAN(span_);
     });
 #endif
     return st;
   }
 
   void StopProducing() {
-    EVENT(span, "StopProducing");
     DCHECK(started_) << "stopped an ExecPlan which never started";
+    EVENT(span_, "StopProducing");
     stopped_ = true;
 
     StopProducingImpl(sorted_nodes_.begin(), sorted_nodes_.end());
@@ -130,6 +133,8 @@ struct ExecPlanImpl : public ExecPlan {
   void StopProducingImpl(It begin, It end) {
     for (auto it = begin; it != end; ++it) {
       auto node = *it;
+      EVENT(span_, "StopProducing:" + node->label(),
+            {{"node.label", node->label()}, {"node.kind_name", node->kind_name()}});
       node->StopProducing();
     }
   }
@@ -182,8 +187,7 @@ struct ExecPlanImpl : public ExecPlan {
   NodeVector sources_, sinks_;
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
-
-  util::tracing::Span span;
+  util::tracing::Span span_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -327,14 +331,14 @@ MapNode::MapNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
 }
 
 void MapNode::ErrorReceived(ExecNode* input, Status error) {
-  EVENT(span, "ErrorReceived", {{"error", error.message()}});
   DCHECK_EQ(input, inputs_[0]);
+  EVENT(span_, "ErrorReceived", {{"error.message", error.message()}});
   outputs_[0]->ErrorReceived(this, std::move(error));
 }
 
 void MapNode::InputFinished(ExecNode* input, int total_batches) {
-  EVENT(span, "InputFinished", {{"batches.length", total_batches}});
   DCHECK_EQ(input, inputs_[0]);
+  EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
   outputs_[0]->InputFinished(this, total_batches);
   if (input_counter_.SetTotal(total_batches)) {
     this->Finish();
@@ -342,13 +346,22 @@ void MapNode::InputFinished(ExecNode* input, int total_batches) {
 }
 
 Status MapNode::StartProducing() {
-  START_SPAN(span, kind_name(), {{"node", ToString()}});
+  START_SPAN(
+      span_, std::string(kind_name()) + ":" + label(),
+      {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
+  finished_ = Future<>::Make();
+#ifdef ARROW_WITH_OPENTELEMETRY
+  finished_.AddCallback([this](const Status& st) {
+    MARK_SPAN(span_, st);
+    END_SPAN(span_);
+  });
+#endif
   return Status::OK();
 }
 
-void MapNode::PauseProducing(ExecNode* output) { EVENT(span, "PauseProducing"); }
+void MapNode::PauseProducing(ExecNode* output) { EVENT(span_, "PauseProducing"); }
 
-void MapNode::ResumeProducing(ExecNode* output) { EVENT(span, "ResumeProducing"); }
+void MapNode::ResumeProducing(ExecNode* output) { EVENT(span_, "ResumeProducing"); }
 
 void MapNode::StopProducing(ExecNode* output) {
   DCHECK_EQ(output, outputs_[0]);
@@ -356,7 +369,7 @@ void MapNode::StopProducing(ExecNode* output) {
 }
 
 void MapNode::StopProducing() {
-  EVENT(span, "StopProducing");
+  EVENT(span_, "StopProducing");
   if (executor_) {
     this->stop_source_.RequestStop();
   }
@@ -423,8 +436,6 @@ void MapNode::Finish(Status finish_st /*= Status::OK()*/) {
   } else {
     this->finished_.MarkFinished(finish_st);
   }
-  MARK_SPAN(span, finish_st);
-  END_SPAN(span);
 }
 
 std::shared_ptr<RecordBatchReader> MakeGeneratorReader(
