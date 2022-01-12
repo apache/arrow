@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @ignore */
 export { Builder } from '../builder.js';
 export type { BuilderOptions } from '../builder.js';
 export { BoolBuilder } from './bool.js';
@@ -43,10 +42,7 @@ import { BuilderType as B } from '../interfaces.js';
 import { Builder, BuilderOptions } from '../builder.js';
 import { instance as getBuilderConstructor } from '../visitor/builderctor.js';
 
-/** @nocollapse */
-Builder.new = newBuilder;
-
-function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {
+export function newBuilder<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {
 
     const type = options.type;
     const builder = new (getBuilderConstructor.getVisitFn<T>(type)())(options) as Builder<T, TNull>;

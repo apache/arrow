@@ -27,6 +27,7 @@ import {
     Date_, Time, Timestamp, Interval,
     Utf8, Binary, List, Map_
 } from './type.js';
+import { newBuilder } from './builder/index.js';
 
 /**
  * A set of options required to create a `Builder` instance for a given `DataType`.
@@ -119,8 +120,9 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * @typeparam TNull The type(s) of values which will be considered null-value sentinels.
      * @nocollapse
      */
-    // @ts-ignore
-    public static new<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> { }
+    public static new<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {
+        return newBuilder(options);
+    }
 
     /** @nocollapse */
     // @ts-ignore

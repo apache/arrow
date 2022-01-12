@@ -34,7 +34,7 @@ import rollupStream from "@rollup/stream";
 import { default as nodeResolve } from "@rollup/plugin-node-resolve";
 import rollupAlias from "@rollup/plugin-alias";
 
-import { BundleAnalyzerPlugin as BundleAnalyzerPlugin } from "webpack-bundle-analyzer";
+import { BundleAnalyzerPlugin } from "webpack-bundle-analyzer";
 import webpack from "webpack-stream";
 import named from "vinyl-named";
 
@@ -127,8 +127,7 @@ export const webpackTask = (opts = { minify: true, analyze: false }) => () => ob
 );
 
 export const execBundleTask = () => () => observableFromStreams(
-    // TODO: test esbuild bundles as well when they are smaller
-    gulp.src(join(bundleDir, '{webpack,rollup}/**-bundle.js')),
+    gulp.src(join(bundleDir, '**/**-bundle.js')),
     async (generator) => {
         for await (const file of generator) {
             console.log(`executing ${file.path}`);
