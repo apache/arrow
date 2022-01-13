@@ -133,10 +133,20 @@ module Arrow
         yield(BufferInputStream.new(@input))
       when URI
         @input.open do |ruby_input|
-          Gio::RubyInputStream.open(ruby_input) do |gio_input|
-            GIOInputStream.open(gio_input) do |input|
-              yield(input)
+          case @options[:format]
+          when :stream, :arrow_streaming
+            Gio::RubyInputStream.open(ruby_input) do |gio_input|
+              GIOInputStream.open(gio_input) do |input|
+                yield(input)
+              end
             end
+          else
+            # TODO: We need to consider Ruby's GVL carefully to use
+            # Ruby object directly for input with other formats. We
+            # read data and use it as Buffer for now.
+            data = GLib::Bytes.new(ruby_input.read.freeze)
+            buffer = Buffer.new(data)
+            yield(BufferInputStream.new(buffer))
           end
         end
       else

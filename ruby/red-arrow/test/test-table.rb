@@ -749,9 +749,8 @@ chris\t-1
         end
       end
 
-      # TODO: Need to consider Ruby's GVL carefully
-      # data("Arrow File",
-      #      [:arrow, "arrow", "application/vnd.apache.arrow.file"])
+      data("Arrow File",
+           [:arrow, "arrow", "application/vnd.apache.arrow.file"])
       data("Arrow Stream",
            [:arrow_streaming, "arrows", "application/vnd.apache.arrow.stream"])
       data("CSV",
