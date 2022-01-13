@@ -124,7 +124,6 @@ Collate:
     'install-arrow.R'
     'ipc-stream.R'
     'json.R'
-    'lubridate-round.R'
     'memory-pool.R'
     'message.R'
     'metadata.R'

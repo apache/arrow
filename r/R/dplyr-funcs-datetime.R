@@ -622,4 +622,22 @@ register_bindings_datetime_parsers <- function() {
 
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
+
+  register_binding("round_date", function(x, unit = "second", week_start = NULL) {
+    unit <- switch(
+      unit,
+      "nanosecond" = 0L,
+      "microsecond" = 1L,
+      "millisecond" = 2L,
+      "second" = 3L,
+      "minute" = 4L,
+      "hour" = 5L,
+      "day" = 6L,
+      "week" = 7L,
+      "month" = 8L,
+      "quarter" = 9L,
+      "year" = 10L
+    )
+    Expression$create("round_temporal", x, options = list(unit = unit))
+  })
 }
