@@ -98,12 +98,12 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
               // Root ListField (illegal)
               return Status::Invalid(
                   "substrait::ListElement cannot take a Relation as an argument");
-            } else {
-              // ListField on top of an arbitrary expression
-              out = compute::call(
-                  "list_element",
-                  {std::move(*out), compute::literal(ref->list_element().offset())});
             }
+
+            // ListField on top of an arbitrary expression
+            out = compute::call(
+                "list_element",
+                {std::move(*out), compute::literal(ref->list_element().offset())});
 
             // Segment handled, continue with child segment (if any)
             if (ref->list_element().has_child()) {
