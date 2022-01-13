@@ -573,49 +573,49 @@ public class TestFlightSql {
 
     final List<List<String>> matchers = ImmutableList.of(
         asList("BIGINT", "-5", "19", null, null, null, "1", "false", "2", "false", "false", "true", "BIGINT", "0", "0",
-            null, null, "10"),
+            null, null, "10", null),
         asList("LONG VARCHAR FOR BIT DATA", "-4", "32700", "X'", "'", null, "1", "false", "0", "true", "false", "false",
-            "LONG VARCHAR FOR BIT DATA", null, null, null, null, null),
+            "LONG VARCHAR FOR BIT DATA", null, null, null, null, null, null),
         asList("VARCHAR () FOR BIT DATA", "-3", "32672", "X'", "'", "length", "1", "false", "2", "true", "false",
-            "false", "VARCHAR () FOR BIT DATA", null, null, null, null, null),
+            "false", "VARCHAR () FOR BIT DATA", null, null, null, null, null, null),
         asList("CHAR () FOR BIT DATA", "-2", "254", "X'", "'", "length", "1", "false", "2", "true", "false", "false",
-            "CHAR () FOR BIT DATA", null, null, null, null, null),
+            "CHAR () FOR BIT DATA", null, null, null, null, null, null),
         asList("LONG VARCHAR", "-1", "32700", "'", "'", null, "1", "true", "1", "true", "false", "false",
-            "LONG VARCHAR", null, null, null, null, null),
+            "LONG VARCHAR", null, null, null, null, null, null),
         asList("CHAR", "1", "254", "'", "'", "length", "1", "true", "3", "true", "false", "false", "CHAR", null, null,
-            null, null, null),
+            null, null, null, null),
         asList("NUMERIC", "2", "31", null, null, "precision,scale", "1", "false", "2", "false", "true", "false",
-            "NUMERIC", "0", "31", null, null, "10"),
+            "NUMERIC", "0", "31", null, null, "10", null),
         asList("DECIMAL", "3", "31", null, null, "precision,scale", "1", "false", "2", "false", "true", "false",
-            "DECIMAL", "0", "31", null, null, "10"),
+            "DECIMAL", "0", "31", null, null, "10", null),
         asList("INTEGER", "4", "10", null, null, null, "1", "false", "2", "false", "false", "true", "INTEGER", "0", "0",
-            null, null, "10"),
+            null, null, "10", null),
         asList("SMALLINT", "5", "5", null, null, null, "1", "false", "2", "false", "false", "true", "SMALLINT", "0",
-            "0", null, null, "10"),
+            "0", null, null, "10", null),
         asList("FLOAT", "6", "52", null, null, "precision", "1", "false", "2", "false", "false", "false", "FLOAT", null,
-            null, null, null, "2"),
+            null, null, null, "2", null),
         asList("REAL", "7", "23", null, null, null, "1", "false", "2", "false", "false", "false", "REAL", null, null,
-            null, null, "2"),
+            null, null, "2", null),
         asList("DOUBLE", "8", "52", null, null, null, "1", "false", "2", "false", "false", "false", "DOUBLE", null,
-            null, null, null, "2"),
+            null, null, null, "2", null),
         asList("VARCHAR", "12", "32672", "'", "'", "length", "1", "true", "3", "true", "false", "false", "VARCHAR",
-            null, null, null, null, null),
+            null, null, null, null, null, null),
         asList("BOOLEAN", "16", "1", null, null, null, "1", "false", "2", "true", "false", "false", "BOOLEAN", null,
-            null, null, null, null),
+            null, null, null, null, null),
         asList("DATE", "91", "10", "DATE'", "'", null, "1", "false", "2", "true", "false", "false", "DATE", "0", "0",
-            null, null, "10"),
+            null, null, "10", null),
         asList("TIME", "92", "8", "TIME'", "'", null, "1", "false", "2", "true", "false", "false", "TIME", "0", "0",
-            null, null, "10"),
+            null, null, "10", null),
         asList("TIMESTAMP", "93", "29", "TIMESTAMP'", "'", null, "1", "false", "2", "true", "false", "false",
-            "TIMESTAMP", "0", "9", null, null, "10"),
+            "TIMESTAMP", "0", "9", null, null, "10", null),
         asList("OBJECT", "2000", null, null, null, null, "1", "false", "2", "true", "false", "false", "OBJECT", null,
-            null, null, null, null),
+            null, null, null, null, null),
         asList("BLOB", "2004", "2147483647", null, null, "length", "1", "false", "0", null, "false", null, "BLOB", null,
-            null, null, null, null),
+            null, null, null, null, null),
         asList("CLOB", "2005", "2147483647", "'", "'", "length", "1", "true", "1", null, "false", null, "CLOB", null,
-            null, null, null, null),
+            null, null, null, null, null),
         asList("XML", "2009", null, null, null, null, "1", "true", "0", "false", "false", "false", "XML", null, null,
-            null, null, null));
+            null, null, null, null));
     collector.checkThat(results, is(matchers));
   }
 
@@ -629,7 +629,7 @@ public class TestFlightSql {
 
     final List<List<String>> matchers = ImmutableList.of(
         asList("BIGINT", "-5", "19", null, null, null, "1", "false", "2", "false", "false", "true", "BIGINT", "0", "0",
-            null, null, "10"));
+            null, null, "10", null));
     collector.checkThat(results, is(matchers));
   }
 

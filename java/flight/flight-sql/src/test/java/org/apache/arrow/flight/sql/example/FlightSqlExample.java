@@ -462,24 +462,26 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       throws SQLException {
     Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
 
-    VarCharVector typeNameVector = new VarCharVector("type_name", allocator);
-    IntVector dataTypeVector = new IntVector("data_type", allocator);
-    IntVector columnSizeVector = new IntVector("column_size", allocator);
-    VarCharVector literalPrefixVector = new VarCharVector("literal_prefix", allocator);
-    VarCharVector literalSuffixVector = new VarCharVector("literal_suffix", allocator);
-    VarCharVector createParamsVector = new VarCharVector("create_params", allocator);
-    IntVector nullableVector = new IntVector("nullable", allocator);
-    BitVector caseSensitiveVector = new BitVector("case_sensitive", allocator);
-    IntVector searchableVector = new IntVector("searchable", allocator);
-    BitVector unsignedAttributeVector = new BitVector("unsigned_attribute", allocator);
-    BitVector fixedPrecScaleVector = new BitVector("fixed_prec_scale", allocator);
-    BitVector autoIncrementVector = new BitVector("auto_increment", allocator);
-    VarCharVector localTypeNameVector = new VarCharVector("local_type_name", allocator);
-    IntVector minimumScaleVector = new IntVector("minimum_scale", allocator);
-    IntVector maximumScaleVector = new IntVector("maximum_scale", allocator);
-    IntVector sqlDataTypeVector = new IntVector("sql_data_type", allocator);
-    IntVector sqlDatetimeSubVector = new IntVector("sql_datetime_sub", allocator);
-    IntVector numPrecRadixVector = new IntVector("num_prec_radix", allocator);
+    VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
+
+    VarCharVector typeNameVector = (VarCharVector) root.getVector("type_name");
+    IntVector dataTypeVector = (IntVector) root.getVector("data_type");
+    IntVector columnSizeVector = (IntVector) root.getVector("column_size");
+    VarCharVector literalPrefixVector = (VarCharVector) root.getVector("literal_prefix");
+    VarCharVector literalSuffixVector = (VarCharVector) root.getVector("literal_suffix");
+    VarCharVector createParamsVector = (VarCharVector) root.getVector("create_params");
+    IntVector nullableVector = (IntVector) root.getVector("nullable");
+    BitVector caseSensitiveVector = (BitVector) root.getVector("case_sensitive");
+    IntVector searchableVector = (IntVector) root.getVector("searchable");
+    BitVector unsignedAttributeVector = (BitVector) root.getVector("unsigned_attribute");
+    BitVector fixedPrecScaleVector = (BitVector) root.getVector("fixed_prec_scale");
+    BitVector autoIncrementVector = (BitVector) root.getVector("auto_increment");
+    VarCharVector localTypeNameVector = (VarCharVector) root.getVector("local_type_name");
+    IntVector minimumScaleVector = (IntVector) root.getVector("minimum_scale");
+    IntVector maximumScaleVector = (IntVector) root.getVector("maximum_scale");
+    IntVector sqlDataTypeVector = (IntVector) root.getVector("sql_data_type");
+    IntVector sqlDatetimeSubVector = (IntVector) root.getVector("sql_datetime_sub");
+    IntVector numPrecRadixVector = (IntVector) root.getVector("num_prec_radix");
 
     List<FieldVector> vectors =
         ImmutableList.of(typeNameVector, dataTypeVector, columnSizeVector, literalPrefixVector, literalSuffixVector,
@@ -525,7 +527,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         vectors.stream().map(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
     vectors.forEach(vector -> vector.setValueCount(rows));
 
-    return new VectorSchemaRoot(vectors);
+    root.setRowCount(rows);
+    return root;
   }
 
   private static VectorSchemaRoot getTablesRoot(final DatabaseMetaData databaseMetaData,
