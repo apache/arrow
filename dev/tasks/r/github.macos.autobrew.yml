@@ -23,11 +23,11 @@ jobs:
   autobrew:
     name: "Autobrew {{ "${{ matrix.platform }}" }}"
     runs-on: {{ "${{ matrix.platform }}" }}
-    matrix:
-        platform:
-          - macos-11
-          - macos-10.15
-
+    strategy:
+      matrix:
+          platform:
+            - macos-11
+            - macos-10.15
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
