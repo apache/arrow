@@ -647,17 +647,28 @@ func (r *recordReader) next() bool {
 		ch = make(chan int, np)
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	wg.Add(np)
 	for i := 0; i < np; i++ {
 		go func() {
 			defer wg.Done()
-			for idx := range ch {
-				if r.err != nil {
-					break
-				}
-				if err := readField(idx, r.fieldReaders[idx]); err != nil {
-					r.err = err
-					break
+			for {
+				select {
+				case idx, ok := <-ch:
+					if !ok {
+						return
+					}
+
+					if err := readField(idx, r.fieldReaders[idx]); err != nil {
+						r.err = err
+						cancel()
+						return
+					}
+
+				case <-ctx.Done():
+					return
 				}
 			}
 		}()
