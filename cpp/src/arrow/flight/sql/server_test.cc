@@ -388,7 +388,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetTypeInfoSchema();
+  auto expected_schema = SqlSchema::GetTypeInfoSchema();
 
   const std::shared_ptr<RecordBatch>& batch =
       example::DoGetTypeInfoResult(expected_schema);
@@ -407,21 +407,15 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  const std::shared_ptr<Schema>& expected_schema = SqlSchema::GetTypeInfoSchema();
+  auto expected_schema = SqlSchema::GetTypeInfoSchema();
 
   const std::shared_ptr<RecordBatch>& batch =
       example::DoGetTypeInfoResult(expected_schema, data_type);
 
-  const arrow::Result<std::shared_ptr<Table>>& expected_table_result =
-      Table::FromRecordBatches({batch});
-
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   std::shared_ptr<Table> table;
-  std::shared_ptr<Table> expected_table;
   ASSERT_OK(stream->ReadAll(&table));
 
-  ASSERT_OK_AND_ASSIGN(expected_table, expected_table_result);
-
-  ASSERT_TRUE(table->schema()->Equals(*expected_schema));
   AssertTablesEqual(*expected_table, *table);
 }
 
