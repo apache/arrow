@@ -1429,6 +1429,23 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDuration) {
+  std::string op = "subtract";
+
+  for (auto u : TimeUnit::values()) {
+    auto unit = duration(u);
+    CheckScalarBinary(op,
+                      ArrayFromJSON(unit, times_s2),
+                      ArrayFromJSON(unit, times_s),
+                      ArrayFromJSON(unit, seconds_between_time));
+  }
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, testing::HasSubstr("no kernel matching input types"),
+      Subtract(ArrayFromJSON(duration(TimeUnit::SECOND), times_s),
+               ArrayFromJSON(duration(TimeUnit::MILLI), times_s)));
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
   auto raw_days = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([
     "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",
