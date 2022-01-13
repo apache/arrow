@@ -94,17 +94,34 @@ In this section we outline steps needed for unit testing in Arrow.
       Expect the usual testthat folder structure:
 
       .. code-block:: R
-      tests
-        ├── testthat      # unit test files live here
-        └── testthat.R    # runs tests when R CMD check runs (e.g. with `devtools::check()`)
+
+         tests
+          ├── testthat      # unit test files live here
+          └── testthat.R    # runs tests when R CMD check runs (e.g. with devtools::check())
 
       Usually, most files in the ``R/`` sub-folder have a corresponding test file in ``tests/testthat``.
 
       **Running tests**
 
-      To run all tests in a package locally use ``devtools::test()`` in the R console. Alternatively, you can use ``make test`` in the shell.
+      To run all tests in a package locally call
 
-      You can run the tests in a single test file you have open with ``devtools::test_active_file()``.
+      .. code-block:: R
+
+         devtools::test()
+
+      in the R console. Alternatively, you can use
+
+      .. code:: console
+
+         $ make test
+
+      in the shell.
+
+      You can run the tests in a single test file you have open with
+
+      .. code-block:: R
+
+         devtools::test_active_file()
 
       All tests are also run as part of our continuous integration (CI) pipelines.
 
@@ -126,8 +143,11 @@ In this section we outline steps needed for unit testing in Arrow.
             - for example, ``expect_altrep_roundtrip()`` compares the result
             of a function ``fn`` run on a vector ``x`` with the result of the
             same function run on the altrep version of ``x``. More generally,
-            expect_…_roundtrip() functions do … .. TODO _fill int the blanks_
+            expect_…_roundtrip() functions do …
+
+            .. TODO _fill in the blanks_
             .. TODO
+
             - Expect
       * ``skip_`` - skips a unit test - think of them as acceptable fails. Situations in which we might want to skip unit tests:
 
