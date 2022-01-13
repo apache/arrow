@@ -1698,6 +1698,7 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.pandas
 def test_read_partition_keys_only(tempdir):
     # This is a regression test for ARROW-15318 which saw issues
     # reading only the partition keys from files with batches larger
