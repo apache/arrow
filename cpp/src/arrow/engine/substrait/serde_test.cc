@@ -419,18 +419,22 @@ TEST(Substrait, CannotDeserializeLiteral) {
 }
 
 TEST(Substrait, FieldRefRoundTrip) {
-  for (FieldRef ref :
-       {// by name
-        FieldRef("i32"), FieldRef("ts_ns"), FieldRef("struct"),
+  for (FieldRef ref : {
+           // by name
+           FieldRef("i32"),
+           FieldRef("ts_ns"),
+           FieldRef("struct"),
 
-        // by index
-        FieldRef(0), FieldRef(1), FieldRef(kBoringSchema->num_fields() - 1),
-        FieldRef(kBoringSchema->GetFieldIndex("struct")),
+           // by index
+           FieldRef(0),
+           FieldRef(1),
+           FieldRef(kBoringSchema->num_fields() - 1),
+           FieldRef(kBoringSchema->GetFieldIndex("struct")),
 
-        // nested
-        FieldRef("struct", "i32"), FieldRef("struct", "struct_i32_str", "i32"),
-        FieldRef(kBoringSchema->GetFieldIndex("struct"), 1)
-
+           // nested
+           FieldRef("struct", "i32"),
+           FieldRef("struct", "struct_i32_str", "i32"),
+           FieldRef(kBoringSchema->GetFieldIndex("struct"), 1),
        }) {
     ARROW_SCOPED_TRACE(ref.ToString());
     ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
