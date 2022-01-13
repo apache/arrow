@@ -239,6 +239,20 @@ struct SubtractCheckedDate32 {
   }
 };
 
+struct SubtractTime32AndDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left, static_cast<T>(right));
+  }
+};
+
+struct SubtractTime64AndDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left, right);
+  }
+};
+
 struct Multiply {
   static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
@@ -2506,6 +2520,25 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto exec_date_64 = ScalarBinaryEqualTypes<Int64Type, Date64Type, Subtract>::Exec;
   DCHECK_OK(subtract->AddKernel({in_type_date_64, in_type_date_64},
                                 duration(TimeUnit::MILLI), std::move(exec_date_64)));
+  }
+
+  // Add subtract(time32, duration) -> time32
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec =
+        ScalarBinary<Time32Type, Time32Type, Int64Type, SubtractTime32AndDuration>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                  std::move(exec)));
+  }
+
+  // Add subtract(time64, duration) -> time64
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec =
+        ScalarBinary<Time64Type, Int64Type, Time64Type, SubtractTime64AndDuration>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                  std::move(exec)));
+  }
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
