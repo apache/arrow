@@ -63,7 +63,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
       }
 
       const auto* ref = &expr.selection().direct_reference();
-      while (ref != NULLPTR) {
+      while (ref != nullptr) {
         switch (ref->reference_type_case()) {
           case substrait::Expression::ReferenceSegment::kStructField: {
             auto index = ref->struct_field().field();
@@ -89,7 +89,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
             if (ref->struct_field().has_child()) {
               ref = &ref->struct_field().child();
             } else {
-              ref = NULLPTR;
+              ref = nullptr;
             }
             break;
           }
@@ -109,14 +109,14 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
             if (ref->list_element().has_child()) {
               ref = &ref->list_element().child();
             } else {
-              ref = NULLPTR;
+              ref = nullptr;
             }
             break;
           }
           default:
             // Unimplemented construct, break out of loop
             out.reset();
-            ref = NULLPTR;
+            ref = nullptr;
         }
       }
       if (out) {
