@@ -36,7 +36,7 @@ type Data struct {
 	length     int
 	buffers    []*memory.Buffer  // TODO(sgc): should this be an interface?
 	childData  []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
-	dictionary *Data
+	dictionary *Data             // only populated for dictionary arrays
 }
 
 // NewData creates a new Data.
@@ -64,6 +64,7 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 	}
 }
 
+// NewDataWithDictionary creates a new data object, but also sets the provided dictionary into the data if it's not nil
 func NewDataWithDictionary(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []arrow.ArrayData, nulls, offset int, dict *Data) *Data {
 	data := NewData(dtype, length, buffers, childData, nulls, offset)
 	if dict != nil {
@@ -156,8 +157,10 @@ func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 
 func (d *Data) Children() []arrow.ArrayData { return d.childData }
 
+// Dictionary returns the ArrayData object for the dictionary member, or nil
 func (d *Data) Dictionary() arrow.ArrayData { return d.dictionary }
 
+// SetDictionary allows replacing the dictionary for this particular Data object
 func (d *Data) SetDictionary(dict arrow.ArrayData) {
 	dict.Retain()
 	if d.dictionary != nil {

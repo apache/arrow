@@ -57,6 +57,8 @@ type Dictionary struct {
 	dict    Interface
 }
 
+// NewDictionaryArray constructs a dictionary array with the provided indices
+// and dictionary using the given type.
 func NewDictionaryArray(typ arrow.DataType, indices, dict Interface) *Dictionary {
 	a := &Dictionary{}
 	a.array.refCount = 1
@@ -69,6 +71,8 @@ func NewDictionaryArray(typ arrow.DataType, indices, dict Interface) *Dictionary
 	return a
 }
 
+// checkIndexBounds returns an error if any value in the provided integer
+// arraydata is >= the passed upperlimit or < 0. otherwise nil
 func checkIndexBounds(indices *Data, upperlimit uint64) error {
 	if indices.length == 0 {
 		return nil
@@ -179,6 +183,9 @@ func checkIndexBounds(indices *Data, upperlimit uint64) error {
 	return nil
 }
 
+// NewValidatedDictionaryArray constructs a dictionary array from the provided indices
+// and dictionary arrays, while also performing validation checks to ensure correctness
+// such as bounds checking at are usually skipped for performance.
 func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict Interface) (*Dictionary, error) {
 	if indices.DataType().ID() != typ.IndexType.ID() {
 		return nil, fmt.Errorf("dictionary type index (%T) does not match indices array type (%T)", typ.IndexType, indices.DataType())
@@ -195,6 +202,8 @@ func NewValidatedDictionaryArray(typ *arrow.DictionaryType, indices, dict Interf
 	return NewDictionaryArray(typ, indices, dict), nil
 }
 
+// NewDictionaryData creates a strongly typed Dictionary array from
+// an ArrayData object with a datatype of arrow.Dictionary and a dictionary
 func NewDictionaryData(data arrow.ArrayData) *Dictionary {
 	a := &Dictionary{}
 	a.refCount = 1
@@ -265,6 +274,8 @@ func (d *Dictionary) String() string {
 	return fmt.Sprintf("{ dictionary: %v\n  indices: %v }", d.Dictionary(), d.Indices())
 }
 
+// GetValueIndex returns the dictionary index for the value at index i of the array.
+// The actual value can be retrieved by using d.Dictionary().(valuetype).Value(d.GetValueIndex(i))
 func (d *Dictionary) GetValueIndex(i int) int {
 	indiceData := d.data.buffers[1].Bytes()
 	// we know the value is non-negative per the spec, so
@@ -307,6 +318,7 @@ func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
 	return arrayApproxEqual(l.Dictionary(), r.Dictionary(), opt) && arrayApproxEqual(l.indices, r.indices, opt)
 }
 
+// helper for building the properly typed indices of the dictionary builder
 type indexBuilder struct {
 	Builder
 	Append func(int)
@@ -355,6 +367,8 @@ func createIndexBuilder(mem memory.Allocator, dt arrow.FixedWidthDataType) (ret 
 	return
 }
 
+// helper function to construct an appropriately typed memo table based on
+// the value type for the dictionary
 func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoTable, err error) {
 	switch dt.ID() {
 	case arrow.INT8:
