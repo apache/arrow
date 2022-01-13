@@ -616,7 +616,6 @@ func (r *recordReader) next() bool {
 		if err != nil {
 			return err
 		}
-		defer data.Release()
 
 		if data.Len() == 0 {
 			return io.EOF

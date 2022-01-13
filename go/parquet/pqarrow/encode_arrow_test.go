@@ -628,7 +628,6 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRequiredTableRead(typ arrow.DataT
 	ps.EqualValues(smallSize, tbl.NumRows())
 
 	chunked := tbl.Column(0).Data()
-	defer chunked.Release()
 	ps.Len(chunked.Chunks(), 1)
 	ps.True(array.ArrayEqual(values, chunked.Chunk(0)))
 }
