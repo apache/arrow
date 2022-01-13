@@ -578,7 +578,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
                                      final StreamListener<Result> listener) {
-    // Simulate running on another thread
+    // Running on another thread
     executorService.submit(() -> {
       try {
         preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
@@ -667,7 +667,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
-    // Simulate running on another thread
+    // Running on another thread
     executorService.submit(() -> {
       try {
         final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
