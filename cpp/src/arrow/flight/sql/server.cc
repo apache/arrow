@@ -794,7 +794,7 @@ std::shared_ptr<Schema> SqlSchema::GetTypeInfoSchema() {
       field("data_type", int32(), false),
       field("column_size", int32()),
       field("literal_prefix", utf8()),
-      field("literal_sufFix", utf8()),
+      field("literal_suffix", utf8()),
       field("create_params", utf8()),
       field("nullable", int32(), false),
       field("case_sensitive", boolean(), false),
