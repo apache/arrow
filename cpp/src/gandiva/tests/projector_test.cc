@@ -2374,32 +2374,59 @@ TEST_F(TestProjector, TestInstr) {
 
 TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
   auto field_year_interval = field("f0", arrow::month_interval());
-  auto field_time = field("f1", arrow::date64());
-  auto schema = arrow::schema({field_time, field_year_interval});
+  auto field_day_time_interval = field("f1", arrow::day_time_interval());
+  auto field_date = field("f2", arrow::date64());
+  auto field_time = field("f3", arrow::time32(arrow::TimeUnit::MILLI));
+  auto field_timestamp = field("f4", arrow::timestamp(arrow::TimeUnit::MILLI));
+
+  auto schema = arrow::schema({field_date, field_year_interval, field_day_time_interval, field_time, field_timestamp});
 
   // output fields
-  auto field_result = field("r0", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto field_result_timestamp = field("r0", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto field_result_time = field("r1", arrow::time32(arrow::TimeUnit::MILLI));
 
-  // Build expression
-  auto expr = TreeExprBuilder::MakeExpression("add", {field_time, field_year_interval},
-                                              field_result);
+  // Build add expressions
+  auto add1 = TreeExprBuilder::MakeExpression("add", {field_date, field_year_interval},
+                                              field_result_timestamp);
+  auto add2 = TreeExprBuilder::MakeExpression("add", {field_date, field_day_time_interval},
+                                              field_result_timestamp);
+  auto add3 = TreeExprBuilder::MakeExpression("add", {field_timestamp, field_day_time_interval},
+                                              field_result_timestamp);
+  auto add4 = TreeExprBuilder::MakeExpression("add", {field_timestamp, field_year_interval},
+                                              field_result_timestamp);
+  auto add5 = TreeExprBuilder::MakeExpression("add", {field_time, field_day_time_interval},
+                                              field_result_time);
+
+  // Build subtract expressions
+  auto sub1 = TreeExprBuilder::MakeExpression("subtract", {field_date, field_day_time_interval},
+                                              field_result_timestamp);
+  auto sub2 = TreeExprBuilder::MakeExpression("subtract", {field_timestamp, field_day_time_interval},
+                                              field_result_timestamp);
+  auto sub3 = TreeExprBuilder::MakeExpression("subtract", {field_timestamp, field_year_interval},
+                                              field_result_timestamp);
+  auto sub4 = TreeExprBuilder::MakeExpression("subtract", {field_time, field_day_time_interval},
+                                              field_result_time);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {add1, add2, add3, add4, add5, sub1, sub2, sub3, sub4}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
   int num_records = 2;
-  auto array0 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
-  auto array1 = MakeArrowArrayInt64({4, 4}, {true, true});
-  // expected output
+  auto array_date64 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
+  auto array_timestamp = MakeArrowTypeArray<arrow::TimestampType, int64_t>(arrow::timestamp(arrow::TimeUnit::MILLI), {951609600000, -26611200000}, {true, false});
+  auto array_time = MakeArrowTypeArray<arrow::Time32Type, int64_t>(arrow::time32(arrow::TimeUnit::MILLI), {951609600000, -26611200000}, {true, false});
+  auto array_month_interval = MakeArrowArrayInt64({4, 4}, {true, true});
+  auto array_day_interval = MakeArrowArrayInt64({4, 4}, {true, true});
+
+  // expected outputs
   auto exp = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, -16243200000},
       {true, false});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_date64, array_timestamp, array_time, array_month_interval, array_day_interval});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
