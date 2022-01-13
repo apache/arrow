@@ -464,50 +464,25 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
     VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
 
-    VarCharVector typeNameVector = (VarCharVector) root.getVector("type_name");
-    IntVector dataTypeVector = (IntVector) root.getVector("data_type");
-    IntVector columnSizeVector = (IntVector) root.getVector("column_size");
-    VarCharVector literalPrefixVector = (VarCharVector) root.getVector("literal_prefix");
-    VarCharVector literalSuffixVector = (VarCharVector) root.getVector("literal_suffix");
-    VarCharVector createParamsVector = (VarCharVector) root.getVector("create_params");
-    IntVector nullableVector = (IntVector) root.getVector("nullable");
-    BitVector caseSensitiveVector = (BitVector) root.getVector("case_sensitive");
-    IntVector searchableVector = (IntVector) root.getVector("searchable");
-    BitVector unsignedAttributeVector = (BitVector) root.getVector("unsigned_attribute");
-    BitVector fixedPrecScaleVector = (BitVector) root.getVector("fixed_prec_scale");
-    BitVector autoIncrementVector = (BitVector) root.getVector("auto_increment");
-    VarCharVector localTypeNameVector = (VarCharVector) root.getVector("local_type_name");
-    IntVector minimumScaleVector = (IntVector) root.getVector("minimum_scale");
-    IntVector maximumScaleVector = (IntVector) root.getVector("maximum_scale");
-    IntVector sqlDataTypeVector = (IntVector) root.getVector("sql_data_type");
-    IntVector sqlDatetimeSubVector = (IntVector) root.getVector("sql_datetime_sub");
-    IntVector numPrecRadixVector = (IntVector) root.getVector("num_prec_radix");
-
-    List<FieldVector> vectors =
-        ImmutableList.of(typeNameVector, dataTypeVector, columnSizeVector, literalPrefixVector, literalSuffixVector,
-            createParamsVector, nullableVector, caseSensitiveVector, searchableVector, unsignedAttributeVector,
-            fixedPrecScaleVector, autoIncrementVector, localTypeNameVector, minimumScaleVector, maximumScaleVector,
-            sqlDataTypeVector, sqlDatetimeSubVector, numPrecRadixVector);
-
     Map<FieldVector, String> mapper = new HashMap<>();
-    mapper.put(typeNameVector, "TYPE_NAME");
-    mapper.put(dataTypeVector, "DATA_TYPE");
-    mapper.put(columnSizeVector, "PRECISION");
-    mapper.put(literalPrefixVector, "LITERAL_PREFIX");
-    mapper.put(literalSuffixVector, "LITERAL_SUFFIX");
-    mapper.put(createParamsVector, "CREATE_PARAMS");
-    mapper.put(nullableVector, "NULLABLE");
-    mapper.put(caseSensitiveVector, "CASE_SENSITIVE");
-    mapper.put(searchableVector, "SEARCHABLE");
-    mapper.put(unsignedAttributeVector, "UNSIGNED_ATTRIBUTE");
-    mapper.put(fixedPrecScaleVector, "FIXED_PREC_SCALE");
-    mapper.put(autoIncrementVector, "AUTO_INCREMENT");
-    mapper.put(localTypeNameVector, "LOCAL_TYPE_NAME");
-    mapper.put(minimumScaleVector, "MINIMUM_SCALE");
-    mapper.put(maximumScaleVector, "MAXIMUM_SCALE");
-    mapper.put(sqlDataTypeVector, "SQL_DATA_TYPE");
-    mapper.put(sqlDatetimeSubVector, "SQL_DATETIME_SUB");
-    mapper.put(numPrecRadixVector, "NUM_PREC_RADIX");
+    mapper.put(root.getVector("type_name"), "TYPE_NAME");
+    mapper.put(root.getVector("data_type"), "DATA_TYPE");
+    mapper.put(root.getVector("column_size"), "PRECISION");
+    mapper.put(root.getVector("literal_prefix"), "LITERAL_PREFIX");
+    mapper.put(root.getVector("literal_suffix"), "LITERAL_SUFFIX");
+    mapper.put(root.getVector("create_params"), "CREATE_PARAMS");
+    mapper.put(root.getVector("nullable"), "NULLABLE");
+    mapper.put(root.getVector("case_sensitive"), "CASE_SENSITIVE");
+    mapper.put(root.getVector("searchable"), "SEARCHABLE");
+    mapper.put(root.getVector("unsigned_attribute"), "UNSIGNED_ATTRIBUTE");
+    mapper.put(root.getVector("fixed_prec_scale"), "FIXED_PREC_SCALE");
+    mapper.put(root.getVector("auto_increment"), "AUTO_INCREMENT");
+    mapper.put(root.getVector("local_type_name"), "LOCAL_TYPE_NAME");
+    mapper.put(root.getVector("minimum_scale"), "MINIMUM_SCALE");
+    mapper.put(root.getVector("maximum_scale"), "MAXIMUM_SCALE");
+    mapper.put(root.getVector("sql_data_type"), "SQL_DATA_TYPE");
+    mapper.put(root.getVector("sql_datetime_sub"), "SQL_DATETIME_SUB");
+    mapper.put(root.getVector("num_prec_radix"), "NUM_PREC_RADIX");
 
     Predicate<ResultSet> predicate;
     if (request.hasDataType()) {
@@ -522,10 +497,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       predicate = (resultSet -> true);
     }
 
-    saveToVectors(mapper, typeInfo, true, predicate);
-    final int rows =
-        vectors.stream().map(FieldVector::getValueCount).findAny().orElseThrow(IllegalStateException::new);
-    vectors.forEach(vector -> vector.setValueCount(rows));
+    int rows = saveToVectors(mapper, typeInfo, true, predicate);
 
     root.setRowCount(rows);
     return root;
