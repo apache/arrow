@@ -21,7 +21,7 @@ export HOMEBREW_NO_AUTO_UPDATE=1
 
 if [[ ${OSTYPE:6} -ge 20 ]]; then
   # We are on a modern enough macOS, we can use the real brew
-  UPSTREAM_ORG="brew"
+  UPSTREAM_ORG="homebrew"
   PKG_BREW_NAME="$PKG_BREW_NAME-static"
 else
   # Official Homebrew no longer supports El-Capitan
