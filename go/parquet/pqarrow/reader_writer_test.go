@@ -75,7 +75,7 @@ func randomInt32(size, truePct int, sampleVals [2]int32, seed uint64) []int32 {
 	return ret
 }
 
-func tableFromVec(dt arrow.DataType, size int, data interface{}, nullable bool, nullPct int) array.Table {
+func tableFromVec(dt arrow.DataType, size int, data interface{}, nullable bool, nullPct int) arrow.Table {
 	if !nullable && nullPct != alternateOrNA {
 		panic("bad check")
 	}
@@ -105,7 +105,9 @@ func tableFromVec(dt arrow.DataType, size int, data interface{}, nullable bool, 
 
 	field := arrow.Field{Name: "column", Type: dt, Nullable: nullable}
 	sc := arrow.NewSchema([]arrow.Field{field}, nil)
-	return array.NewTable(sc, []array.Column{*array.NewColumn(field, array.NewChunked(dt, []array.Interface{arr}))}, int64(size))
+	col := arrow.NewColumnFromArr(field, arr)
+	defer col.Release()
+	return array.NewTable(sc, []arrow.Column{col}, int64(size))
 }
 
 func BenchmarkWriteColumn(b *testing.B) {
@@ -160,7 +162,7 @@ func BenchmarkWriteColumn(b *testing.B) {
 	}
 }
 
-func benchReadTable(b *testing.B, name string, tbl array.Table, nbytes int64) {
+func benchReadTable(b *testing.B, name string, tbl arrow.Table, nbytes int64) {
 	props := parquet.NewWriterProperties(parquet.WithDictionaryDefault(false))
 	arrProps := pqarrow.DefaultWriterProps()
 
