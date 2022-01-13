@@ -397,6 +397,98 @@ test_that("Partitioning inference", {
   )
 })
 
+test_that("Specifying partitioning when hive_style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+
+  # If string and names match hive partition names, it's accepted silently
+  ds_with_chr <- open_dataset(hive_dir, partitioning = c("group", "other"))
+  expect_equal(ds_with_chr$schema, expected_schema)
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = c("asdf", "zxcv")),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # If schema and names match, the schema is used to specify the types
+  ds_with_sch <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int32(), other = utf8())
+  )
+  expect_equal(ds_with_sch$schema, expected_schema)
+
+  ds_with_int8 <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int8(), other = utf8())
+  )
+  expect_equal(ds_with_int8$schema[["group"]]$type, int8())
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = schema(a = int32(), b = utf8())),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # This can be disabled with hive_style = FALSE
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    partitioning = c("group", "other"),
+    hive_style = FALSE
+  )
+  # Since it's DirectoryPartitioning, the column values are all strings
+  # like "group=1"
+  expect_equal(ds_not_hive$schema[["group"]]$type, utf8())
+
+  # And if no partitioning is specified and hive_style = FALSE, we don't parse at all
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    hive_style = FALSE
+  )
+  expect_null(ds_not_hive$schema[["group"]])
+  expect_null(ds_not_hive$schema[["other"]])
+})
+
+test_that("Including partition columns in schema, hive style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+  # Specify a different type than what is autodetected
+  expected_schema$group <- float32()
+
+  ds <- open_dataset(hive_dir, schema = expected_schema)
+  expect_equal(ds$schema, expected_schema)
+
+  # Now also with specifying `partitioning`
+  ds2 <- open_dataset(hive_dir, schema = expected_schema, partitioning = c("group", "other"))
+  expect_equal(ds2$schema, expected_schema)
+})
+
+test_that("Including partition columns in schema and partitioning, hive style CSV (ARROW-14743)", {
+  mtcars_dir <- tempfile()
+  on.exit(unlink(mtcars_dir))
+
+  tab <- Table$create(mtcars)
+  # Writing is hive-style by default
+  write_dataset(tab, mtcars_dir, format = "csv", partitioning = "cyl")
+
+  mtcars_ds <- open_dataset(
+    mtcars_dir,
+    schema = tab$schema,
+    format = "csv",
+    partitioning = "cyl"
+  )
+  expect_equal(mtcars_ds$schema, tab$schema)
+})
+
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+})
+
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
@@ -485,11 +577,6 @@ test_that("map_batches", {
       arrange(int),
     tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
   )
-})
-
-test_that("partitioning = NULL to ignore partition information (but why?)", {
-  ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("head/tail", {
@@ -605,24 +692,22 @@ test_that("Scanner$ScanBatches", {
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 
-  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste0(
+  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
     "The function",
-    " 'UseAsync' is deprecated and will be removed in a future release."
+    "'UseAsync' is deprecated and will be removed in a future release."
   ))
-  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste0(
+  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
     "The function",
-    " 'UseAsync' is deprecated and will be removed in a future release."
+    "'UseAsync' is deprecated and will be removed in a future release."
   ))
 
-  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste0(
-    "The",
-    " parameter 'use_async' is deprecated and will be removed in a future",
-    " release."
+  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
+    "The parameter 'use_async' is deprecated and will be removed in a future",
+    "release."
   ))
-  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste0(
-    "The",
-    " parameter 'use_async' is deprecated and will be removed in a future",
-    " release."
+  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
+    "The parameter 'use_async' is deprecated and will be removed in a future",
+    "release."
   ))
 })
 

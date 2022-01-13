@@ -628,6 +628,18 @@ dataset___HivePartitioning__MakeFactory <- function(null_fallback, segment_encod
   .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback, segment_encoding)
 }
 
+dataset___PartitioningFactory__Inspect <- function(factory, paths) {
+  .Call(`_arrow_dataset___PartitioningFactory__Inspect`, factory, paths)
+}
+
+dataset___PartitioningFactory__Finish <- function(factory, schema) {
+  .Call(`_arrow_dataset___PartitioningFactory__Finish`, factory, schema)
+}
+
+dataset___PartitioningFactory__type_name <- function(factory) {
+  .Call(`_arrow_dataset___PartitioningFactory__type_name`, factory)
+}
+
 dataset___ScannerBuilder__ProjectNames <- function(sb, cols) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
 }
@@ -1831,4 +1843,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

@@ -78,8 +78,8 @@ Scanner$create <- function(dataset,
                            fragment_scan_options = NULL,
                            ...) {
   if (!is.null(use_async)) {
-    .Deprecated(msg = paste0(
-      "The parameter 'use_async' is deprecated ",
+    .Deprecated(msg = paste(
+      "The parameter 'use_async' is deprecated",
       "and will be removed in a future release."
     ))
   }
@@ -205,7 +205,7 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   }
 
   if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
-    res <- dplyr::bind_rows(map(res, collect))
+    res <- dplyr::bind_rows(map(res, dplyr::collect))
   } else if (.data.frame) {
     res <- dplyr::bind_rows(map(res, as.data.frame))
   }
@@ -243,8 +243,8 @@ ScannerBuilder <- R6Class("ScannerBuilder",
       self
     },
     UseAsync = function(use_async = TRUE) {
-      .Deprecated(msg = paste0(
-        "The function 'UseAsync' is deprecated and ",
+      .Deprecated(msg = paste(
+        "The function 'UseAsync' is deprecated and",
         "will be removed in a future release."
       ))
       self
