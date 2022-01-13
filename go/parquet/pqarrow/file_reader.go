@@ -284,13 +284,14 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 		return nil, err
 	}
 
-	// pre-buffer stuff?
+	// TODO(mtopol): add optimizations for pre-buffering data options
 
 	readers, sc, err := fr.GetFieldReaders(ctx, indices, rowGroups)
 	if err != nil {
 		return nil, err
 	}
 
+	// producer-consumer parallelization
 	var (
 		np      = 1
 		wg      sync.WaitGroup
@@ -305,7 +306,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	wg.Add(np)
+	wg.Add(np) // fan-out to np readers
 	for i := 0; i < np; i++ {
 		go func() {
 			defer wg.Done()
@@ -317,8 +318,10 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 					}
 
 					chnked, err := fr.ReadColumn(rowGroups, r.rdr)
+					// pass the result column data to the result channel
+					// for the consumer goroutine to process
 					results <- resultPair{r.idx, chnked, err}
-				case <-ctx.Done():
+				case <-ctx.Done(): // check if we cancelled
 					return
 				}
 			}
@@ -327,9 +330,11 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 
 	go func() {
 		wg.Wait()
-		close(results)
+		close(results) // close the result channel when there's no more
 	}()
 
+	// pass pairs of reader and column index to the channel for the
+	// goroutines to read the data
 	for idx, r := range readers {
 		defer func(r *ColumnReader) {
 			r.Release()
@@ -338,6 +343,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	}
 	close(ch)
 
+	// output slice of columns
 	columns := make([]arrow.Column, len(sc.Fields()))
 	for data := range results {
 		if data.err != nil {
@@ -351,6 +357,9 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	}
 
 	if err != nil {
+		// if we encountered an error, consume any waiting data on the channel
+		// so the goroutines don't leak and so memory can get cleaned up. we already
+		// cancelled the context so we're just consuming anything that was already queued up.
 		for data := range results {
 			defer data.data.Release()
 		}
@@ -414,7 +423,7 @@ func (fr *FileReader) GetRecordReader(ctx context.Context, colIndices, rowGroups
 		}
 	}
 
-	// pre-buffer stuff?
+	// TODO(mtopol): add optimizations to pre-buffer data from the file
 
 	readers, sc, err := fr.GetFieldReaders(ctx, colIndices, rowGroups)
 	if err != nil {
@@ -557,6 +566,8 @@ func (c *columnIterator) NextChunk() (file.PageReader, error) {
 
 func (c *columnIterator) Descr() *schema.Column { return c.schema.Column(c.index) }
 
+// implementation of arrio.Reader for streaming record batches
+// from the parquet data.
 type recordReader struct {
 	numRows      int64
 	batchSize    int64

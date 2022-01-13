@@ -34,6 +34,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// get the count of the number of leaf arrays for the type
 func calcLeafCount(dt arrow.DataType) int {
 	switch dt.ID() {
 	case arrow.EXTENSION, arrow.SPARSE_UNION, arrow.DENSE_UNION:
@@ -168,7 +169,7 @@ func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
 		} else {
 			cw, err = acw.rgw.(file.SerialRowGroupWriter).NextColumn()
 		}
-		// cw, err := acw.rgw.NextColumn()
+
 		if err != nil {
 			return err
 		}
@@ -240,7 +241,8 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 		if leafArr.DataType().ID() != arrow.BOOL {
 			return xerrors.Errorf("type mismatch, column is %s, array is %s", cw.Type(), leafArr.DataType().ID())
 		}
-
+		// TODO(mtopol): optimize this so that we aren't converting from
+		// the bitmap -> []bool -> bitmap anymore
 		if leafArr.Len() == 0 {
 			wr.WriteBatch(nil, defLevels, repLevels)
 			break
@@ -269,7 +271,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			if leafArr.DataType().(*arrow.Time32Type).Unit != arrow.Second {
 				data = arrow.Int32Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
-			} else {
+			} else { // coerce time32 if necessary by multiplying by 1000
 				ctx.dataBuffer.ResizeNoShrink(arrow.Int32Traits.BytesRequired(leafArr.Len()))
 				data = arrow.Int32Traits.CastFromBytes(ctx.dataBuffer.Bytes())
 				for idx, val := range leafArr.(*array.Time32).Time32Values() {
@@ -278,6 +280,9 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			}
 
 		default:
+			// simple integral cases, parquet physical storage is int32 or int64
+			// so we have to create a new array of int32's for anything smaller than
+			// 32-bits
 			ctx.dataBuffer.ResizeNoShrink(arrow.Int32Traits.BytesRequired(leafArr.Len()))
 			data = arrow.Int32Traits.CastFromBytes(ctx.dataBuffer.Bytes())
 			switch leafArr.DataType().ID() {
@@ -299,7 +304,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 			case arrow.DATE64:
 				for idx, val := range leafArr.(*array.Date64).Date64Values() {
-					data[idx] = int32(val / 86400000)
+					data[idx] = int32(val / 86400000) // coerce date64 values
 				}
 			default:
 				return xerrors.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())

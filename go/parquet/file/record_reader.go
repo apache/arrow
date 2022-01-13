@@ -32,30 +32,62 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// RecordReader is an interface for reading entire records/rows at a time
+// from a parquet file for both flat and nested columns. Properly delimiting
+// semantic records according to the def and repetition levels.
 type RecordReader interface {
+	// DefLevels returns the current crop of definition levels for this record
 	DefLevels() []int16
+	// LevelsPos is the number of definition / repetition levels (from the decoded ones)
+	// which the reader has already consumed.
 	LevelsPos() int64
+	// RepLevels returns the current decoded repetition levels
 	RepLevels() []int16
+	// Reset resets the state, clearing consumed values and repetition/definition
+	// levels as the result of calling ReadRecords
 	Reset()
+	// Reserve pre-allocates space for data
 	Reserve(int64) error
+	// HasMore returns true if there is more internal data which hasn't been
+	// processed yet.
 	HasMore() bool
+	// ReadRecords attempts to read the provided number of records from the
+	// column chunk, returning the number of records read and any error.
 	ReadRecords(num int64) (int64, error)
+	// ValuesWritten is the number of values written internally including any nulls
 	ValuesWritten() int
+	// ReleaseValidBits transfers the buffer of bits for the validity bitmap
+	// to the caller, subsequent calls will allocate a new one in the reader.
 	ReleaseValidBits() *memory.Buffer
+	// ReleaseValues transfers the buffer of data with the values to the caller,
+	// a new buffer will be allocated on subsequent calls.
 	ReleaseValues() *memory.Buffer
+	// NullCount returns the number of nulls decoded
 	NullCount() int64
+	// Type returns the parquet physical type of the column
 	Type() parquet.Type
+	// Values returns the decoded data buffer, including any nulls, without
+	// transferring ownership
 	Values() []byte
+	// SetPageReader allows progressing to the next column chunk while reusing
+	// this record reader by providing the page reader for the next chunk.
 	SetPageReader(PageReader)
+	// Retain increments the ref count by one
 	Retain()
+	// Release decrements the ref count by one, releasing the internal buffers when
+	// the ref count is 0.
 	Release()
 }
 
+// BinaryRecordReader provides an extra GetBuilderChunks function above and beyond
+// the plain RecordReader to allow for efficiently building chunked arrays.
 type BinaryRecordReader interface {
 	RecordReader
 	GetBuilderChunks() []arrow.Array
 }
 
+// recordReaderImpl is the internal interface implemented for different types
+// enabling reuse of the higher level record reader logic.
 type recordReaderImpl interface {
 	ColumnChunkReader
 	ReadValuesDense(int64) error
@@ -79,6 +111,7 @@ type binaryRecordReaderImpl interface {
 	GetBuilderChunks() []arrow.Array
 }
 
+// primitiveRecordReader is a record reader for primitive types, ie: not byte array or fixed len byte array
 type primitiveRecordReader struct {
 	ColumnChunkReader
 
@@ -285,6 +318,7 @@ type recordReader struct {
 	refCount int64
 }
 
+// binaryRecordReader is the recordReaderImpl for non-primitive data
 type binaryRecordReader struct {
 	*recordReader
 }
@@ -615,6 +649,8 @@ func (rr *recordReader) ReleaseValidBits() *memory.Buffer {
 	return nil
 }
 
+// flbaRecordReader is the specialization for optimizing reading fixed-length
+// byte array records.
 type flbaRecordReader struct {
 	primitiveRecordReader
 
@@ -707,6 +743,7 @@ func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Alloca
 	}}
 }
 
+// byteArrayRecordReader is the specialization impl for byte-array columns
 type byteArrayRecordReader struct {
 	primitiveRecordReader
 

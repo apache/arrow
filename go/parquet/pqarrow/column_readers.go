@@ -35,6 +35,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// column reader for leaf columns (non-nested)
 type leafReader struct {
 	out       *arrow.Chunked
 	rctx      *readerCtx
@@ -130,6 +131,8 @@ func (lr *leafReader) nextRowGroup() error {
 	return nil
 }
 
+// column reader for struct arrays, has readers for each child which could
+// themselves be nested or leaf columns.
 type structReader struct {
 	rctx             *readerCtx
 	filtered         *arrow.Field
@@ -293,6 +296,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	return arrow.NewChunked(sr.filtered.Type, []arrow.Array{arr}), nil
 }
 
+// column reader for repeated columns specifically for list arrays
 type listReader struct {
 	rctx    *readerCtx
 	field   *arrow.Field
@@ -407,6 +411,7 @@ func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	return arrow.NewChunked(lr.field.Type, []arrow.Array{out}), nil
 }
 
+// column reader logic for fixed size lists instead of variable length ones.
 type fixedSizeListReader struct {
 	listReader
 }
@@ -416,17 +421,21 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, 1}}}
 }
 
+// helper function to combine chunks into a single array.
+//
+// nested data conversion for chunked array outputs not yet implemented
 func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 	switch len(chunked.Chunks()) {
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
 	case 1:
 		return chunked.Chunk(0).Data(), nil
-	default:
+	default: // if an item reader yields a chunked array, this is not yet implemented
 		return nil, xerrors.New("not implemented")
 	}
 }
 
+// create a chunked arrow array from the raw record data
 func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
 	var data arrow.ArrayData
 	switch valueType.ID() {
@@ -434,7 +443,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	case arrow.NULL:
 		return arrow.NewChunked(arrow.Null, []arrow.Array{array.NewNull(rdr.ValuesWritten())}), nil
 	case arrow.INT32, arrow.INT64, arrow.FLOAT32, arrow.FLOAT64:
-		data = transferZeroCopy(rdr, valueType)
+		data = transferZeroCopy(rdr, valueType) // can just reference the raw data without copying
 	case arrow.BOOL:
 		data = transferBool(rdr)
 	case arrow.UINT8,
@@ -504,7 +513,8 @@ func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
 	if dt == arrow.BinaryTypes.String {
-		// convert chunks from binary to string without copying data
+		// convert chunks from binary to string without copying data,
+		// just changing the interpretation of the metadata
 		for idx := range chunks {
 			chunks[idx] = array.MakeFromData(chunks[idx].Data())
 			defer chunks[idx].Data().Release()
@@ -520,6 +530,9 @@ func transferInt(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	)
 
 	signed := true
+	// create buffer for proper type since parquet only has int32 and int64
+	// physical representations, but we want the correct type representation
+	// for Arrow's in memory buffer.
 	data := make([]byte, rdr.ValuesWritten()*int(bitutil.BytesForBits(int64(dt.(arrow.FixedWidthDataType).BitWidth()))))
 	switch dt.ID() {
 	case arrow.INT8:
@@ -547,6 +560,7 @@ func transferInt(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	}
 
 	length := rdr.ValuesWritten()
+	// copy the values semantically with the correct types
 	switch rdr.Type() {
 	case parquet.Types.Int32:
 		values := arrow.Int32Traits.CastFromBytes(rdr.Values())
@@ -606,6 +620,8 @@ func transferBool(rdr file.RecordReader) arrow.ArrayData {
 
 var milliPerDay = time.Duration(24 * time.Hour).Milliseconds()
 
+// parquet equivalent for date64 is a 32-bit integer of the number of days
+// since the epoch. Convert each value to milliseconds for date64
 func transferDate64(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 	values := arrow.Int32Traits.CastFromBytes(rdr.Values())
@@ -625,6 +641,7 @@ func transferDate64(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	}, nil, int(rdr.NullCount()), 0)
 }
 
+// coerce int96 to nanosecond timestamp
 func transferInt96(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 	values := parquet.Int96Traits.CastFromBytes(rdr.Values())
@@ -649,6 +666,7 @@ func transferInt96(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	}, nil, int(rdr.NullCount()), 0)
 }
 
+// convert physical integer storage of a decimal logical type to a decimal128 typed array
 func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 
@@ -684,6 +702,8 @@ func uint64FromBigEndianShifted(buf []byte) uint64 {
 	return binary.BigEndian.Uint64(bytes[:])
 }
 
+// parquet's defined encoding for decimal data is for it to be written as big
+// endian bytes, so convert a bit endian byte order to a decimal128
 func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	const (
 		minDecimalBytes = 1
@@ -742,6 +762,7 @@ type varOrFixedBin interface {
 	Value(i int) []byte
 }
 
+// convert physical byte storage, instead of integers, to decimal128
 func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
 	convert := func(arr arrow.Array) (arrow.Array, error) {
 		length := arr.Len()
