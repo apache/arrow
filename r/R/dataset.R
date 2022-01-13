@@ -25,7 +25,7 @@
 #'
 #' @section Partitioning:
 #'
-#' Data is often split into multiple files based on the value of one or more
+#' Data is often split into multiple files and nested in subdirectories based on the value of one or more
 #' columns in the data. It may be a column that is commonly referenced in
 #' queries, or it may be time-based, for some examples. Data that is divided
 #' this way is "partitioned," and the values for those partitioning columns are
