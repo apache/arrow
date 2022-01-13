@@ -76,7 +76,7 @@ class ARROW_EXPORT Fingerprintable {
   }
 
  protected:
-  Fingerprintable() : fingerprint_(NULLPTR), metadata_fingerprint_(NULLPTR) {}
+  Fingerprintable() = default;
 
   Fingerprintable(Fingerprintable&& other) { MoveFrom(std::move(other)); }
 
@@ -98,8 +98,8 @@ class ARROW_EXPORT Fingerprintable {
   virtual std::string ComputeFingerprint() const = 0;
   virtual std::string ComputeMetadataFingerprint() const = 0;
 
-  mutable std::atomic<std::string*> fingerprint_;
-  mutable std::atomic<std::string*> metadata_fingerprint_;
+  mutable std::atomic<std::string*> fingerprint_{NULLPTR};
+  mutable std::atomic<std::string*> metadata_fingerprint_{NULLPTR};
 };
 
 }  // namespace detail
