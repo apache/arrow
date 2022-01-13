@@ -54,7 +54,7 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& 
   auto serachable =
       ArrayFromJSON(int32(), R"([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])");
   auto unsigned_attribute =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
   auto fixed_prec_scale =
       ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
   auto auto_unique_value =
