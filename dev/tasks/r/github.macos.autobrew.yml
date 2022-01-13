@@ -21,10 +21,16 @@
 
 jobs:
   autobrew:
-    name: "Autobrew"
-    runs-on: macOS-10.15
+    name: "Autobrew {{ "${{ matrix.platform }}" }}"
+    runs-on: {{ "${{ matrix.platform }}" }}
+    matrix:
+        platform:
+          - macos-11
+          - macos-10.15
+
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+
 
       - name: Configure autobrew script
         run: |
