@@ -780,8 +780,16 @@ Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
 }
 
+DayTimeInterval__initialize <- function() {
+  .Call(`_arrow_DayTimeInterval__initialize`)
+}
+
 FixedSizeBinary__initialize <- function(byte_width) {
   .Call(`_arrow_FixedSizeBinary__initialize`, byte_width)
+}
+
+FixedSizeBinary__byte_width <- function(type) {
+  .Call(`_arrow_FixedSizeBinary__byte_width`, type)
 }
 
 Timestamp__initialize <- function(unit, timezone) {

@@ -3062,6 +3062,20 @@ extern "C" SEXP _arrow_Decimal256Type__initialize(SEXP precision_sexp, SEXP scal
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> DayTimeInterval__initialize();
+extern "C" SEXP _arrow_DayTimeInterval__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(DayTimeInterval__initialize());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_DayTimeInterval__initialize(){
+	Rf_error("Cannot call DayTimeInterval__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width);
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 BEGIN_CPP11
@@ -3072,6 +3086,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 	Rf_error("Cannot call FixedSizeBinary__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int FixedSizeBinary__byte_width(const std::shared_ptr<arrow::FixedSizeBinaryType>& type);
+extern "C" SEXP _arrow_FixedSizeBinary__byte_width(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeBinaryType>&>::type type(type_sexp);
+	return cpp11::as_sexp(FixedSizeBinary__byte_width(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_FixedSizeBinary__byte_width(SEXP type_sexp){
+	Rf_error("Cannot call FixedSizeBinary__byte_width(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7256,11 +7285,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7456,7 +7485,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
+		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
+		{ "_arrow_FixedSizeBinary__byte_width", (DL_FUNC) &_arrow_FixedSizeBinary__byte_width, 1}, 
 		{ "_arrow_Timestamp__initialize", (DL_FUNC) &_arrow_Timestamp__initialize, 2}, 
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 

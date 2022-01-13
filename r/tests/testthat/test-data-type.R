@@ -487,3 +487,78 @@ test_that("DataType to C-interface", {
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
 })
+
+test_that("DataType$code()", {
+  expect_code_roundtrip(int8())
+  expect_code_roundtrip(uint8())
+  expect_code_roundtrip(int16())
+  expect_code_roundtrip(uint16())
+  expect_code_roundtrip(int32())
+  expect_code_roundtrip(uint32())
+  expect_code_roundtrip(int64())
+  expect_code_roundtrip(uint64())
+
+  expect_code_roundtrip(float16())
+  expect_code_roundtrip(float32())
+  expect_code_roundtrip(float64())
+
+  expect_code_roundtrip(null())
+
+  expect_code_roundtrip(boolean())
+  expect_code_roundtrip(utf8())
+  expect_code_roundtrip(large_utf8())
+
+  expect_code_roundtrip(binary())
+  expect_code_roundtrip(large_binary())
+  expect_code_roundtrip(fixed_size_binary(byte_width = 91))
+
+  expect_code_roundtrip(date32())
+  expect_code_roundtrip(date64())
+
+  expect_code_roundtrip(time32())
+  expect_code_roundtrip(time32(unit = "ms"))
+  expect_code_roundtrip(time32(unit = "s"))
+
+  expect_code_roundtrip(time64())
+  expect_code_roundtrip(time64(unit = "ns"))
+  expect_code_roundtrip(time64(unit = "us"))
+
+  expect_code_roundtrip(timestamp())
+  expect_code_roundtrip(timestamp(unit = "s"))
+  expect_code_roundtrip(timestamp(unit = "ms"))
+  expect_code_roundtrip(timestamp(unit = "ns"))
+  expect_code_roundtrip(timestamp(unit = "us"))
+
+  expect_code_roundtrip(timestamp(unit = "s", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ms", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ns", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "us", timezone = "CET"))
+
+  expect_code_roundtrip(decimal(precision = 3, scale = 5))
+
+  expect_code_roundtrip(
+    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())
+  )
+
+  expect_code_roundtrip(list_of(int32()))
+  expect_code_roundtrip(large_list_of(int32()))
+  expect_code_roundtrip(
+    fixed_size_list_of(int32(), list_size = 7L)
+  )
+
+  expect_code_roundtrip(dictionary())
+  expect_code_roundtrip(dictionary(index_type = int8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
+
+  skip("until rlang 1.0")
+  expect_snapshot({
+    (expect_error(
+      DayTimeInterval__initialize()$code()
+    ))
+    (expect_error(
+      struct(a = DayTimeInterval__initialize())$code()
+    ))
+  })
+
+})
