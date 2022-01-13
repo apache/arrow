@@ -57,16 +57,21 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 	dataDir := getDataDir()
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
+			mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+			defer mem.AssertSize(t, 0)
+
 			filename := filepath.Join(dataDir, tt.file+".parquet")
 			require.FileExists(t, filename)
 
 			rdr, err := file.OpenParquetFile(filename, false)
 			require.NoError(t, err)
-			arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, memory.DefaultAllocator)
+			defer rdr.Close()
+			arrowRdr, err := pqarrow.NewFileReader(rdr, pqarrow.ArrowReadProperties{}, mem)
 			require.NoError(t, err)
 
 			tbl, err := arrowRdr.ReadTable(context.Background())
 			require.NoError(t, err)
+			defer tbl.Release()
 
 			assert.EqualValues(t, 1, tbl.NumCols())
 			assert.Truef(t, arrow.TypeEqual(tbl.Schema().Field(0).Type, tt.typ), "expected: %s\ngot: %s", tbl.Schema().Field(0).Type, tt.typ)
@@ -78,7 +83,7 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 			assert.Len(t, valCol.Data().Chunks(), 1)
 
 			chunk := valCol.Data().Chunk(0)
-			bldr := array.NewDecimal128Builder(memory.DefaultAllocator, tt.typ)
+			bldr := array.NewDecimal128Builder(mem, tt.typ)
 			defer bldr.Release()
 			for i := 0; i < expectedLen; i++ {
 				bldr.Append(decimal128.FromI64(int64((i + 1) * 100)))
@@ -93,14 +98,19 @@ func TestArrowReaderAdHocReadDecimals(t *testing.T) {
 }
 
 func TestRecordReaderParallel(t *testing.T) {
-	tbl := makeDateTimeTypesTable(true, true)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, true, true)
+	defer tbl.Release()
+
 	var buf bytes.Buffer
-	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.DefaultWriterProps(), memory.DefaultAllocator))
+	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))))
 
 	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
 
-	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 3, Parallel: true}, memory.DefaultAllocator)
+	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 3, Parallel: true}, mem)
 	require.NoError(t, err)
 
 	sc, err := reader.Schema()
@@ -112,7 +122,7 @@ func TestRecordReaderParallel(t *testing.T) {
 	assert.NotNil(t, rr)
 	defer rr.Release()
 
-	records := make([]array.Record, 0)
+	records := make([]arrow.Record, 0)
 	for rr.Next() {
 		rec := rr.Record()
 		defer rec.Release()
@@ -134,14 +144,19 @@ func TestRecordReaderParallel(t *testing.T) {
 }
 
 func TestRecordReaderSerial(t *testing.T) {
-	tbl := makeDateTimeTypesTable(true, true)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, true, true)
+	defer tbl.Release()
+
 	var buf bytes.Buffer
-	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.DefaultWriterProps(), memory.DefaultAllocator))
+	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))))
 
 	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	require.NoError(t, err)
 
-	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 2}, memory.DefaultAllocator)
+	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: 2}, mem)
 	require.NoError(t, err)
 
 	sc, err := reader.Schema()

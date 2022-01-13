@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/apache/arrow/go/v7/arrow"
@@ -50,7 +51,7 @@ func makeSimpleTable(values *arrow.Chunked, nullable bool) arrow.Table {
 	return array.NewTable(sc, []arrow.Column{*column}, -1)
 }
 
-func makeDateTimeTypesTable(expected bool, addFieldMeta bool) arrow.Table {
+func makeDateTimeTypesTable(mem memory.Allocator, expected bool, addFieldMeta bool) arrow.Table {
 	isValid := []bool{true, true, true, false, true, true}
 
 	// roundtrip without modification
@@ -88,7 +89,7 @@ func makeDateTimeTypesTable(expected bool, addFieldMeta bool) arrow.Table {
 
 	builders := make([]array.Builder, 0, len(fieldList))
 	for _, f := range fieldList {
-		bldr := array.NewBuilder(memory.DefaultAllocator, f.Type)
+		bldr := array.NewBuilder(mem, f.Type)
 		defer bldr.Release()
 		builders = append(builders, bldr)
 	}
@@ -110,17 +111,24 @@ func makeDateTimeTypesTable(expected bool, addFieldMeta bool) arrow.Table {
 		arr := builders[idx].NewArray()
 		defer arr.Release()
 
-		cols = append(cols, *arrow.NewColumn(field, arrow.NewChunked(field.Type, []arrow.Array{arr})))
+		chunked := arrow.NewChunked(field.Type, []arrow.Array{arr})
+		defer chunked.Release()
+		col := arrow.NewColumn(field, chunked)
+		defer col.Release()
+		cols = append(cols, *col)
 	}
 
 	return array.NewTable(arrsc, cols, int64(len(isValid)))
 }
 
 func TestWriteArrowCols(t *testing.T) {
-	tbl := makeDateTimeTypesTable(false, false)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
-	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, pqarrow.DefaultWriterProps())
+	psc, err := pqarrow.ToParquet(tbl.Schema(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem)))
 	require.NoError(t, err)
 
 	manifest, err := pqarrow.NewSchemaManifest(psc, nil, nil)
@@ -140,7 +148,7 @@ func TestWriteArrowCols(t *testing.T) {
 	require.NoError(t, srgw.Close())
 	require.NoError(t, writer.Close())
 
-	expected := makeDateTimeTypesTable(true, false)
+	expected := makeDateTimeTypesTable(mem, true, false)
 	defer expected.Release()
 
 	reader, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
@@ -211,7 +219,10 @@ func TestWriteArrowCols(t *testing.T) {
 }
 
 func TestWriteArrowInt96(t *testing.T) {
-	tbl := makeDateTimeTypesTable(false, false)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, false, false)
 	defer tbl.Release()
 
 	props := pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true))
@@ -235,7 +246,7 @@ func TestWriteArrowInt96(t *testing.T) {
 	require.NoError(t, srgw.Close())
 	require.NoError(t, writer.Close())
 
-	expected := makeDateTimeTypesTable(false, false)
+	expected := makeDateTimeTypesTable(mem, false, false)
 	defer expected.Release()
 
 	reader, err := file.NewParquetReader(bytes.NewReader(sink.Bytes()))
@@ -641,7 +652,10 @@ func (ps *ParquetIOTestSuite) checkSingleColumnRead(typ arrow.DataType, numChunk
 }
 
 func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
-	toWrite := makeDateTimeTypesTable(false, true)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	toWrite := makeDateTimeTypesTable(mem, false, true)
 	defer toWrite.Release()
 	buf := writeTableToBuffer(ps.T(), toWrite, toWrite.NumRows(), pqarrow.DefaultWriterProps())
 	defer buf.Release()
@@ -650,7 +664,7 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
 	tbl := ps.readTable(reader)
 	defer tbl.Release()
 
-	expected := makeDateTimeTypesTable(true, true)
+	expected := makeDateTimeTypesTable(mem, true, true)
 	defer expected.Release()
 
 	ps.Equal(expected.NumCols(), tbl.NumCols())
@@ -667,7 +681,10 @@ func (ps *ParquetIOTestSuite) TestDateTimeTypesReadWriteTable() {
 }
 
 func (ps *ParquetIOTestSuite) TestDateTimeTypesWithInt96ReadWriteTable() {
-	expected := makeDateTimeTypesTable(false, true)
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(ps.T(), 0)
+
+	expected := makeDateTimeTypesTable(mem, false, true)
 	defer expected.Release()
 	buf := writeTableToBuffer(ps.T(), expected, expected.NumRows(), pqarrow.NewArrowWriterProperties(pqarrow.WithDeprecatedInt96Timestamps(true)))
 	defer buf.Release()
@@ -864,7 +881,7 @@ func (ps *ParquetIOTestSuite) roundTripTable(expected arrow.Table, storeSchema b
 		props = pqarrow.DefaultWriterProps()
 	}
 
-	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), nil, props, memory.DefaultAllocator))
+	ps.Require().NoError(pqarrow.WriteTable(expected, &buf, expected.NumRows(), nil, props))
 
 	reader := ps.createReader(buf.Bytes())
 	tbl := ps.readTable(reader)
@@ -1202,74 +1219,27 @@ func (ps *ParquetIOTestSuite) TestCanonicalNestedRoundTrip() {
 	nameField := arrow.Field{Name: "Name", Type: arrow.ListOf(nameStruct)}
 	sc := arrow.NewSchema([]arrow.Field{docIdField, linksField, nameField}, nil)
 
-	docBldr := array.NewInt64Builder(memory.DefaultAllocator)
-	defer docBldr.Release()
+	docIDArr, _, err := array.FromJSON(memory.DefaultAllocator, docIdField.Type, strings.NewReader("[10, 20]"))
+	ps.Require().NoError(err)
+	defer docIDArr.Release()
 
-	docBldr.AppendValues([]int64{10, 20}, nil)
-	docIdArr := docBldr.NewArray()
+	linksIDArr, _, err := array.FromJSON(memory.DefaultAllocator, linksField.Type, strings.NewReader(`[{"Backward":[], "Forward":[20, 40, 60]}, {"Backward":[10, 30], "Forward": [80]}]`))
+	ps.Require().NoError(err)
+	defer linksIDArr.Release()
 
-	linkBldr := array.NewStructBuilder(memory.DefaultAllocator, linksField.Type.(*arrow.StructType))
-	defer linkBldr.Release()
-
-	backBldr := linkBldr.FieldBuilder(0).(*array.ListBuilder)
-	forwBldr := linkBldr.FieldBuilder(1).(*array.ListBuilder)
-
-	backVb := backBldr.ValueBuilder().(*array.Int64Builder)
-	forwVb := forwBldr.ValueBuilder().(*array.Int64Builder)
-
-	linkBldr.Append(true)
-	backBldr.Append(true)
-	forwBldr.Append(true)
-	forwVb.AppendValues([]int64{20, 40, 60}, nil)
-
-	linkBldr.Append(true)
-	backBldr.Append(true)
-	backVb.AppendValues([]int64{10, 30}, nil)
-	forwBldr.Append(true)
-	forwVb.AppendValues([]int64{80}, nil)
-
-	linkArr := linkBldr.NewArray()
-
-	nameBldr := array.NewBuilder(memory.DefaultAllocator, nameField.Type).(*array.ListBuilder)
-	nameStructBldr := nameBldr.ValueBuilder().(*array.StructBuilder)
-	langListBldr := nameStructBldr.FieldBuilder(0).(*array.ListBuilder)
-	urlBldr := nameStructBldr.FieldBuilder(1).(*array.StringBuilder)
-	langStructBldr := langListBldr.ValueBuilder().(*array.StructBuilder)
-	codeBldr := langStructBldr.FieldBuilder(0).(*array.StringBuilder)
-	countryBldr := langStructBldr.FieldBuilder(1).(*array.StringBuilder)
-
-	nameBldr.Append(true)
-	nameStructBldr.Append(true)
-	langListBldr.Append(true)
-	langStructBldr.Append(true)
-	codeBldr.Append("en_us")
-	countryBldr.Append("us")
-	langStructBldr.Append(true)
-	codeBldr.Append("en_us")
-	countryBldr.AppendNull()
-	urlBldr.Append("http://A")
-
-	nameStructBldr.Append(true)
-	langListBldr.AppendNull()
-	urlBldr.Append("http://B")
-
-	nameStructBldr.Append(true)
-	langListBldr.Append(true)
-	langStructBldr.Append(true)
-	codeBldr.Append("en-gb")
-	countryBldr.Append("gb")
-	urlBldr.AppendNull()
-
-	nameBldr.Append(true)
-	nameStructBldr.Append(true)
-	langListBldr.AppendNull()
-	urlBldr.Append("http://C")
-
-	nameArr := nameBldr.NewArray()
+	nameArr, _, err := array.FromJSON(memory.DefaultAllocator, nameField.Type, strings.NewReader(`
+			[[{"Language": [{"Code": "en_us", "Country": "us"},
+							{"Code": "en_us", "Country": null}],
+			   "Url": "http://A"},
+			  {"Url": "http://B", "Language": null},
+			  {"Language": [{"Code": "en-gb", "Country": "gb"}], "Url": null}],
+			  [{"Url": "http://C", "Language": null}]]`))
+	ps.Require().NoError(err)
+	defer nameArr.Release()
 
 	expected := array.NewTable(sc, []arrow.Column{
-		*arrow.NewColumn(docIdField, arrow.NewChunked(docIdField.Type, []arrow.Array{docIdArr})),
-		*arrow.NewColumn(linksField, arrow.NewChunked(linksField.Type, []arrow.Array{linkArr})),
+		*arrow.NewColumn(docIdField, arrow.NewChunked(docIdField.Type, []arrow.Array{docIDArr})),
+		*arrow.NewColumn(linksField, arrow.NewChunked(linksField.Type, []arrow.Array{linksIDArr})),
 		*arrow.NewColumn(nameField, arrow.NewChunked(nameField.Type, []arrow.Array{nameArr})),
 	}, 2)
 

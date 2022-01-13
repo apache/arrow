@@ -22,9 +22,7 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/flight"
-	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/apache/arrow/go/v7/parquet"
 	"github.com/apache/arrow/go/v7/parquet/file"
 	"github.com/apache/arrow/go/v7/parquet/internal/utils"
@@ -35,7 +33,7 @@ import (
 // WriteTable is a convenience function to create and write a full array.Table to a parquet file. The schema
 // and columns will be determined by the schema of the table, writing the file out to the the provided writer.
 // The chunksize will be utilized in order to determine the size of the row groups.
-func WriteTable(tbl array.Table, w io.Writer, chunkSize int64, props *parquet.WriterProperties, arrprops ArrowWriterProperties, mem memory.Allocator) error {
+func WriteTable(tbl arrow.Table, w io.Writer, chunkSize int64, props *parquet.WriterProperties, arrprops ArrowWriterProperties) error {
 	writer, err := NewFileWriter(tbl.Schema(), w, props, arrprops)
 	if err != nil {
 		return err
@@ -135,13 +133,13 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 	return 0
 }
 
-func (fw *FileWriter) WriteBuffered(rec array.Record) error {
+func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return xerrors.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
 	}
 
 	var (
-		recList []array.Record
+		recList []arrow.Record
 		maxRows = fw.wr.Properties().MaxRowGroupLength()
 		curRows int
 		err     error
@@ -155,9 +153,9 @@ func (fw *FileWriter) WriteBuffered(rec array.Record) error {
 	}
 
 	if int64(curRows)+rec.NumRows() <= maxRows {
-		recList = []array.Record{rec}
+		recList = []arrow.Record{rec}
 	} else {
-		recList = []array.Record{rec.NewSlice(0, maxRows-int64(curRows))}
+		recList = []arrow.Record{rec.NewSlice(0, maxRows-int64(curRows))}
 		defer recList[0].Release()
 		for offset := maxRows - int64(curRows); offset < rec.NumRows(); offset += maxRows {
 			s := rec.NewSlice(offset, offset+utils.Min(maxRows, rec.NumRows()-offset))
@@ -183,22 +181,22 @@ func (fw *FileWriter) WriteBuffered(rec array.Record) error {
 
 // Write an arrow Record Batch to the file, respecting the MaxRowGroupLength in the writer
 // properties to determine whether or not a new row group is created while writing.
-func (fw *FileWriter) Write(rec array.Record) error {
+func (fw *FileWriter) Write(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return xerrors.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
 	}
 
-	var recList []array.Record
+	var recList []arrow.Record
 	rowgroupLen := fw.wr.Properties().MaxRowGroupLength()
 	if rec.NumRows() > rowgroupLen {
-		recList = make([]array.Record, 0)
+		recList = make([]arrow.Record, 0)
 		for offset := int64(0); offset < rec.NumRows(); offset += rowgroupLen {
 			s := rec.NewSlice(offset, offset+utils.Min(rowgroupLen, rec.NumRows()-offset))
 			defer s.Release()
 			recList = append(recList, s)
 		}
 	} else {
-		recList = []array.Record{rec}
+		recList = []arrow.Record{rec}
 	}
 
 	for _, r := range recList {
@@ -218,7 +216,7 @@ func (fw *FileWriter) Write(rec array.Record) error {
 // the size to break at for making row groups. Writing a table will always create a new
 // row group for each chunk of chunkSize rows in the table. Calling this with 0 rows will
 // still write a 0 length Row Group to the file.
-func (fw *FileWriter) WriteTable(tbl array.Table, chunkSize int64) error {
+func (fw *FileWriter) WriteTable(tbl arrow.Table, chunkSize int64) error {
 	if chunkSize <= 0 && tbl.NumRows() > 0 {
 		return xerrors.New("chunk size per row group must be greater than 0")
 	} else if !tbl.Schema().Equal(fw.schema) {
@@ -274,7 +272,7 @@ func (fw *FileWriter) Close() error {
 // column in the underlying row group writer as the starting point, allowing progressive
 // building of writing columns to a file via arrow data without needing to already have
 // a record or table.
-func (fw *FileWriter) WriteColumnChunked(data *array.Chunked, offset, size int64) error {
+func (fw *FileWriter) WriteColumnChunked(data *arrow.Chunked, offset, size int64) error {
 	acw, err := NewArrowColumnWriter(data, offset, size, fw.manifest, fw.rgw, fw.colIdx)
 	if err != nil {
 		return err
@@ -286,6 +284,8 @@ func (fw *FileWriter) WriteColumnChunked(data *array.Chunked, offset, size int64
 // WriteColumnData writes the entire array to the file as the next columns. Like WriteColumnChunked
 // it is based on the current column of the row group writer allowing progressive building
 // of the file by columns without needing a full record or table to write.
-func (fw *FileWriter) WriteColumnData(data array.Interface) error {
-	return fw.WriteColumnChunked(array.NewChunked(data.DataType(), []array.Interface{data}), 0, int64(data.Len()))
+func (fw *FileWriter) WriteColumnData(data arrow.Array) error {
+	chunked := arrow.NewChunked(data.DataType(), []arrow.Array{data})
+	defer chunked.Release()
+	return fw.WriteColumnChunked(chunked, 0, int64(data.Len()))
 }

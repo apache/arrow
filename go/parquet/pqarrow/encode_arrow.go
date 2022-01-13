@@ -19,6 +19,7 @@ package pqarrow
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"time"
 	"unsafe"
 
@@ -80,7 +81,7 @@ type ArrowColumnWriter struct {
 //
 // Using an arrow column writer is a convenience to avoid having to process the arrow array yourself
 // and determine the correct definition and repetition levels manually.
-func NewArrowColumnWriter(data *array.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, col int) (ArrowColumnWriter, error) {
+func NewArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *SchemaManifest, rgw file.RowGroupWriter, col int) (ArrowColumnWriter, error) {
 	if data.Len() == 0 {
 		return ArrowColumnWriter{leafCount: calcLeafCount(data.DataType()), rgw: rgw}, nil
 	}
@@ -203,7 +204,7 @@ func (acw *ArrowColumnWriter) Write(ctx context.Context) error {
 // leafArr is always a primitive (possibly dictionary encoded type).
 // Leaf_field_nullable indicates whether the leaf array is considered nullable
 // according to its schema in a Table or its parent array.
-func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr array.Interface, defLevels, repLevels []int16, leafFieldNullable bool) error {
+func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr arrow.Array, defLevels, repLevels []int16, leafFieldNullable bool) error {
 	// Leaf nulls are canonical when there is only a single null element after a list
 	// and it is at the leaf.
 	colLevelInfo := cw.LevelInfo()
@@ -218,6 +219,7 @@ func WriteArrowToColumn(ctx context.Context, cw file.ColumnChunkWriter, leafArr 
 
 	if leafArr.DataType().ID() == arrow.DICTIONARY {
 		// TODO(mtopol): write arrow dictionary ARROW-7283
+		return errors.New("parquet/pqarrow: dictionary columns not yet implemented for WriteArrowToColumn")
 	}
 	return writeDenseArrow(arrowCtxFromContext(ctx), cw, leafArr, defLevels, repLevels, maybeParentNulls)
 }
@@ -226,7 +228,7 @@ type binaryarr interface {
 	ValueOffsets() []int32
 }
 
-func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr array.Interface, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
+func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr arrow.Array, defLevels, repLevels []int16, maybeParentNulls bool) (err error) {
 	noNulls := cw.Descr().SchemaNode().RepetitionType() == parquet.Repetitions.Required || leafArr.NullN() == 0
 
 	if ctx.dataBuffer == nil {
@@ -451,7 +453,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			// parquet decimal are stored with FixedLength values where the length is
 			// proportional to the precision. Arrow's Decimal are always stored with 16/32
 			// bytes. thus the internal FLBA must be adjusted by the offset calculation
-			offset := dt.BitWidth() - int(DecimalSize(dt.Precision))
+			offset := int(bitutil.BytesForBits(int64(dt.BitWidth()))) - int(DecimalSize(dt.Precision))
 			ctx.dataBuffer.ResizeNoShrink((leafArr.Len() - leafArr.NullN()) * dt.BitWidth())
 			scratch := ctx.dataBuffer.Bytes()
 			typeLen := wr.Descr().TypeLength()

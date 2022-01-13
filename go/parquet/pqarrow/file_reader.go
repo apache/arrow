@@ -55,7 +55,7 @@ func (r readerCtx) includesLeaf(idx int) bool {
 // function. This just encapsulates the logic of creating a separate file.Reader and
 // pqarrow.FileReader to make a single easy function when you just want to construct
 // a table from the entire parquet file rather than reading it piecemeal.
-func ReadTable(ctx context.Context, r parquet.ReaderAtSeeker, props *parquet.ReaderProperties, arrProps ArrowReadProperties, mem memory.Allocator) (array.Table, error) {
+func ReadTable(ctx context.Context, r parquet.ReaderAtSeeker, props *parquet.ReaderProperties, arrProps ArrowReadProperties, mem memory.Allocator) (arrow.Table, error) {
 	pf, err := file.NewParquetReader(r, file.WithReadProps(props))
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (fr *FileReader) Schema() (*arrow.Schema, error) {
 
 type colReaderImpl interface {
 	LoadBatch(nrecs int64) error
-	BuildArray(boundedLen int64) (*array.Chunked, error)
+	BuildArray(boundedLen int64) (*arrow.Chunked, error)
 	GetDefLevels() ([]int16, error)
 	GetRepLevels() ([]int16, error)
 	Field() *arrow.Field
@@ -125,7 +125,7 @@ type ColumnReader struct {
 
 // NextBatch returns a chunked array after reading `size` values, potentially
 // across multiple row groups.
-func (c *ColumnReader) NextBatch(size int64) (*array.Chunked, error) {
+func (c *ColumnReader) NextBatch(size int64) (*arrow.Chunked, error) {
 	if err := c.LoadBatch(size); err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (fr *FileReader) RowGroup(idx int) RowGroupReader {
 }
 
 // ReadColumn reads data to create a chunked array only from the requested row groups.
-func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*array.Chunked, error) {
+func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*arrow.Chunked, error) {
 	recs := int64(0)
 	for _, rg := range rowGroups {
 		recs += fr.rdr.MetaData().RowGroups[rg].GetNumRows()
@@ -229,7 +229,7 @@ func (fr *FileReader) ReadColumn(rowGroups []int, rdr *ColumnReader) (*array.Chu
 }
 
 // ReadTable reads the entire file into an array.Table
-func (fr *FileReader) ReadTable(ctx context.Context) (array.Table, error) {
+func (fr *FileReader) ReadTable(ctx context.Context) (arrow.Table, error) {
 	var (
 		cols = []int{}
 		rgs  = []int{}
@@ -270,13 +270,13 @@ type readerInfo struct {
 
 type resultPair struct {
 	idx  int
-	data *array.Chunked
+	data *arrow.Chunked
 	err  error
 }
 
 // ReadRowGroups is for generating an array.Table from the file but filtering to only read the requested
 // columns and row groups rather than the entire file which ReadTable does.
-func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []int) (array.Table, error) {
+func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []int) (arrow.Table, error) {
 	if err := fr.checkRowGroups(rowGroups); err != nil {
 		return nil, err
 	}
@@ -331,21 +331,23 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	}()
 
 	for idx, r := range readers {
+		defer func(r *ColumnReader) {
+			r.Release()
+		}(r)
 		ch <- readerInfo{r, idx}
 	}
 	close(ch)
 
-	columns := make([]array.Column, len(sc.Fields()))
+	columns := make([]arrow.Column, len(sc.Fields()))
 	for data := range results {
-		defer data.data.Release()
-
 		if data.err != nil {
 			err = data.err
 			cancel()
 			break
 		}
-
-		columns[data.idx] = *array.NewColumn(sc.Field(data.idx), data.data)
+		defer data.data.Release()
+		col := arrow.NewColumn(sc.Field(data.idx), data.data)
+		columns[data.idx] = *col
 	}
 
 	if err != nil {
@@ -359,6 +361,7 @@ func (fr *FileReader) ReadRowGroups(ctx context.Context, indices, rowGroups []in
 	if len(columns) > 0 {
 		nrows = columns[0].Len()
 	}
+
 	return array.NewTable(sc, columns, int64(nrows)), nil
 }
 
@@ -510,7 +513,7 @@ type RowGroupReader struct {
 }
 
 // ReadTable provides an array.Table consisting only of the columns requested for this rowgroup
-func (rgr RowGroupReader) ReadTable(ctx context.Context, colIndices []int) (array.Table, error) {
+func (rgr RowGroupReader) ReadTable(ctx context.Context, colIndices []int) (arrow.Table, error) {
 	return rgr.impl.ReadRowGroups(ctx, colIndices, []int{rgr.idx})
 }
 
@@ -527,7 +530,7 @@ type ColumnChunkReader struct {
 	rowGroup int
 }
 
-func (ccr ColumnChunkReader) Read(ctx context.Context) (*array.Chunked, error) {
+func (ccr ColumnChunkReader) Read(ctx context.Context) (*arrow.Chunked, error) {
 	rdr, err := ccr.impl.getColumnReader(ctx, ccr.idx, rowGroupFactory([]int{ccr.rowGroup}))
 	if err != nil {
 		return nil, err
@@ -560,7 +563,7 @@ type recordReader struct {
 	parallel     bool
 	sc           *arrow.Schema
 	fieldReaders []*ColumnReader
-	cur          array.Record
+	cur          arrow.Record
 	err          error
 
 	refCount int64
@@ -589,7 +592,14 @@ func (r *recordReader) Release() {
 func (r *recordReader) Schema() *arrow.Schema { return r.sc }
 
 func (r *recordReader) next() bool {
-	cols := make([]array.Interface, len(r.sc.Fields()))
+	cols := make([]arrow.Array, len(r.sc.Fields()))
+	defer func() {
+		for _, c := range cols {
+			if c != nil {
+				c.Release()
+			}
+		}
+	}()
 	readField := func(idx int, rdr *ColumnReader) error {
 		data, err := rdr.NextBatch(r.batchSize)
 		if err != nil {
@@ -670,9 +680,9 @@ func (r *recordReader) Next() bool {
 	return r.next()
 }
 
-func (r *recordReader) Record() array.Record { return r.cur }
+func (r *recordReader) Record() arrow.Record { return r.cur }
 
-func (r *recordReader) Read() (array.Record, error) {
+func (r *recordReader) Read() (arrow.Record, error) {
 	if r.cur != nil {
 		r.cur.Release()
 		r.cur = nil

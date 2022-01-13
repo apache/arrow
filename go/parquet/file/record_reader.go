@@ -53,7 +53,7 @@ type RecordReader interface {
 
 type BinaryRecordReader interface {
 	RecordReader
-	GetBuilderChunks() []array.Interface
+	GetBuilderChunks() []arrow.Array
 }
 
 type recordReaderImpl interface {
@@ -76,7 +76,7 @@ type recordReaderImpl interface {
 
 type binaryRecordReaderImpl interface {
 	recordReaderImpl
-	GetBuilderChunks() []array.Interface
+	GetBuilderChunks() []arrow.Array
 }
 
 type primitiveRecordReader struct {
@@ -282,13 +282,14 @@ type recordReader struct {
 	repLevels *memory.Buffer
 
 	readDict bool
+	refCount int64
 }
 
 type binaryRecordReader struct {
 	*recordReader
 }
 
-func (b *binaryRecordReader) GetBuilderChunks() []array.Interface {
+func (b *binaryRecordReader) GetBuilderChunks() []arrow.Array {
 	return b.recordReaderImpl.(binaryRecordReaderImpl).GetBuilderChunks()
 }
 
@@ -299,10 +300,24 @@ func newRecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator)
 
 	pr := createPrimitiveRecordReader(descr, mem)
 	return &recordReader{
+		refCount:         1,
 		recordReaderImpl: &pr,
 		leafInfo:         info,
 		defLevels:        memory.NewResizableBuffer(mem),
 		repLevels:        memory.NewResizableBuffer(mem),
+	}
+}
+
+func (rr *recordReader) Retain() {
+	atomic.AddInt64(&rr.refCount, 1)
+}
+
+func (rr *recordReader) Release() {
+	if atomic.AddInt64(&rr.refCount, -1) == 0 {
+		rr.recordReaderImpl.Release()
+		rr.defLevels.Release()
+		rr.repLevels.Release()
+		rr.defLevels, rr.repLevels = nil, nil
 	}
 }
 
@@ -668,8 +683,8 @@ func (fr *flbaRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int64) e
 	return nil
 }
 
-func (fr *flbaRecordReader) GetBuilderChunks() []array.Interface {
-	return []array.Interface{fr.bldr.NewArray()}
+func (fr *flbaRecordReader) GetBuilderChunks() []arrow.Array {
+	return []arrow.Array{fr.bldr.NewArray()}
 }
 
 func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Allocator) RecordReader {
@@ -688,6 +703,7 @@ func newFLBARecordReader(descr *schema.Column, info LevelInfo, mem memory.Alloca
 		leafInfo:  info,
 		defLevels: memory.NewResizableBuffer(mem),
 		repLevels: memory.NewResizableBuffer(mem),
+		refCount:  1,
 	}}
 }
 
@@ -717,6 +733,7 @@ func newByteArrayRecordReader(descr *schema.Column, info LevelInfo, mem memory.A
 		leafInfo:  info,
 		defLevels: memory.NewResizableBuffer(mem),
 		repLevels: memory.NewResizableBuffer(mem),
+		refCount:  1,
 	}}
 }
 
@@ -781,8 +798,8 @@ func (br *byteArrayRecordReader) ReadValuesSpaced(valuesWithNulls, nullCount int
 	return nil
 }
 
-func (br *byteArrayRecordReader) GetBuilderChunks() []array.Interface {
-	return []array.Interface{br.bldr.NewArray()}
+func (br *byteArrayRecordReader) GetBuilderChunks() []arrow.Array {
+	return []arrow.Array{br.bldr.NewArray()}
 }
 
 // TODO(mtopol): create optimized readers for dictionary types after ARROW-7286 is done

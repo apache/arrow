@@ -36,7 +36,7 @@ import (
 )
 
 type leafReader struct {
-	out       *array.Chunked
+	out       *arrow.Chunked
 	rctx      *readerCtx
 	field     *arrow.Field
 	input     *columnIterator
@@ -115,7 +115,7 @@ func (lr *leafReader) LoadBatch(nrecords int64) (err error) {
 	return
 }
 
-func (lr *leafReader) BuildArray(_ int64) (*array.Chunked, error) {
+func (lr *leafReader) BuildArray(_ int64) (*arrow.Chunked, error) {
 	return lr.out, nil
 }
 
@@ -222,7 +222,7 @@ func (sr *structReader) LoadBatch(nrecords int64) error {
 
 func (sr *structReader) Field() *arrow.Field { return sr.filtered }
 
-func (sr *structReader) BuildArray(lenBound int64) (*array.Chunked, error) {
+func (sr *structReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	validityIO := file.ValidityBitmapInputOutput{
 		ReadUpperBound: lenBound,
 		Read:           lenBound,
@@ -290,7 +290,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*array.Chunked, error) {
 	defer data.Release()
 	arr := array.MakeFromData(data)
 	defer arr.Release()
-	return array.NewChunked(sr.filtered.Type, []array.Interface{arr}), nil
+	return arrow.NewChunked(sr.filtered.Type, []arrow.Array{arr}), nil
 }
 
 type listReader struct {
@@ -336,7 +336,7 @@ func (lr *listReader) LoadBatch(nrecords int64) error {
 	return lr.itemRdr.LoadBatch(nrecords)
 }
 
-func (lr *listReader) BuildArray(lenBound int64) (*array.Chunked, error) {
+func (lr *listReader) BuildArray(lenBound int64) (*arrow.Chunked, error) {
 	var (
 		defLevels      []int16
 		repLevels      []int16
@@ -402,7 +402,9 @@ func (lr *listReader) BuildArray(lenBound int64) (*array.Chunked, error) {
 		}
 		data.Buffers()[1] = nil
 	}
-	return array.NewChunked(lr.field.Type, []array.Interface{array.MakeFromData(data)}), nil
+	out := array.MakeFromData(data)
+	defer out.Release()
+	return arrow.NewChunked(lr.field.Type, []arrow.Array{out}), nil
 }
 
 type fixedSizeListReader struct {
@@ -414,7 +416,7 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, 1}}}
 }
 
-func chunksToSingle(chunked *array.Chunked) (arrow.ArrayData, error) {
+func chunksToSingle(chunked *arrow.Chunked) (arrow.ArrayData, error) {
 	switch len(chunked.Chunks()) {
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
@@ -425,12 +427,12 @@ func chunksToSingle(chunked *array.Chunked) (arrow.ArrayData, error) {
 	}
 }
 
-func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*array.Chunked, error) {
-	var data array.Interface
+func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *schema.Column, mem memory.Allocator) (*arrow.Chunked, error) {
+	var data arrow.ArrayData
 	switch valueType.ID() {
 	// case arrow.DICTIONARY:
 	case arrow.NULL:
-		return array.NewChunked(arrow.Null, []array.Interface{array.NewNull(rdr.ValuesWritten())}), nil
+		return arrow.NewChunked(arrow.Null, []arrow.Array{array.NewNull(rdr.ValuesWritten())}), nil
 	case arrow.INT32, arrow.INT64, arrow.FLOAT32, arrow.FLOAT64:
 		data = transferZeroCopy(rdr, valueType)
 	case arrow.BOOL:
@@ -477,28 +479,42 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 	}
 
 	defer data.Release()
-	return array.NewChunked(valueType, []array.Interface{data}), nil
+	arr := array.MakeFromData(data)
+	defer arr.Release()
+	return arrow.NewChunked(valueType, []arrow.Array{arr}), nil
 }
 
-func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) array.Interface {
-	return array.MakeFromData(array.NewData(dt, rdr.ValuesWritten(), []*memory.Buffer{
-		rdr.ReleaseValidBits(), rdr.ReleaseValues(),
-	}, nil, int(rdr.NullCount()), 0))
+func transferZeroCopy(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
+	bitmap := rdr.ReleaseValidBits()
+	values := rdr.ReleaseValues()
+	defer func() {
+		if bitmap != nil {
+			bitmap.Release()
+		}
+		if values != nil {
+			values.Release()
+		}
+	}()
+
+	return array.NewData(dt, rdr.ValuesWritten(), []*memory.Buffer{
+		bitmap, values}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferBinary(rdr file.RecordReader, dt arrow.DataType) *array.Chunked {
+func transferBinary(rdr file.RecordReader, dt arrow.DataType) *arrow.Chunked {
 	brdr := rdr.(file.BinaryRecordReader)
 	chunks := brdr.GetBuilderChunks()
 	if dt == arrow.BinaryTypes.String {
 		// convert chunks from binary to string without copying data
 		for idx := range chunks {
 			chunks[idx] = array.MakeFromData(chunks[idx].Data())
+			defer chunks[idx].Data().Release()
+			defer chunks[idx].Release()
 		}
 	}
-	return array.NewChunked(dt, chunks)
+	return arrow.NewChunked(dt, chunks)
 }
 
-func transferInt(rdr file.RecordReader, dt arrow.DataType) array.Interface {
+func transferInt(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	var (
 		output reflect.Value
 	)
@@ -556,12 +572,17 @@ func transferInt(rdr file.RecordReader, dt arrow.DataType) array.Interface {
 		}
 	}
 
-	return array.MakeFromData(array.NewData(dt, rdr.ValuesWritten(), []*memory.Buffer{
-		rdr.ReleaseValidBits(), memory.NewBufferBytes(data),
-	}, nil, int(rdr.NullCount()), 0))
+	bitmap := rdr.ReleaseValidBits()
+	if bitmap != nil {
+		defer bitmap.Release()
+	}
+
+	return array.NewData(dt, rdr.ValuesWritten(), []*memory.Buffer{
+		bitmap, memory.NewBufferBytes(data),
+	}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferBool(rdr file.RecordReader) array.Interface {
+func transferBool(rdr file.RecordReader) arrow.ArrayData {
 	// TODO(mtopol): optimize this so we don't convert bitmap to []bool back to bitmap
 	length := rdr.ValuesWritten()
 	data := make([]byte, int(bitutil.BytesForBits(int64(length))))
@@ -574,14 +595,18 @@ func transferBool(rdr file.RecordReader) array.Interface {
 		}
 	}
 
-	return array.MakeFromData(array.NewData(&arrow.BooleanType{}, length, []*memory.Buffer{
-		rdr.ReleaseValidBits(), memory.NewBufferBytes(data),
-	}, nil, int(rdr.NullCount()), 0))
+	bitmap := rdr.ReleaseValidBits()
+	if bitmap != nil {
+		defer bitmap.Release()
+	}
+	return array.NewData(&arrow.BooleanType{}, length, []*memory.Buffer{
+		bitmap, memory.NewBufferBytes(data),
+	}, nil, int(rdr.NullCount()), 0)
 }
 
 var milliPerDay = time.Duration(24 * time.Hour).Milliseconds()
 
-func transferDate64(rdr file.RecordReader, dt arrow.DataType) array.Interface {
+func transferDate64(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 	values := arrow.Int32Traits.CastFromBytes(rdr.Values())
 
@@ -591,12 +616,16 @@ func transferDate64(rdr file.RecordReader, dt arrow.DataType) array.Interface {
 		out[idx] = int64(val) * milliPerDay
 	}
 
-	return array.MakeFromData(array.NewData(dt, length, []*memory.Buffer{
-		rdr.ReleaseValidBits(), memory.NewBufferBytes(data),
-	}, nil, int(rdr.NullCount()), 0))
+	bitmap := rdr.ReleaseValidBits()
+	if bitmap != nil {
+		defer bitmap.Release()
+	}
+	return array.NewData(dt, length, []*memory.Buffer{
+		bitmap, memory.NewBufferBytes(data),
+	}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferInt96(rdr file.RecordReader, dt arrow.DataType) array.Interface {
+func transferInt96(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 	values := parquet.Int96Traits.CastFromBytes(rdr.Values())
 
@@ -611,12 +640,16 @@ func transferInt96(rdr file.RecordReader, dt arrow.DataType) array.Interface {
 		}
 	}
 
-	return array.MakeFromData(array.NewData(dt, length, []*memory.Buffer{
-		rdr.ReleaseValidBits(), memory.NewBufferBytes(data),
-	}, nil, int(rdr.NullCount()), 0))
+	bitmap := rdr.ReleaseValidBits()
+	if bitmap != nil {
+		defer bitmap.Release()
+	}
+	return array.NewData(dt, length, []*memory.Buffer{
+		bitmap, memory.NewBufferBytes(data),
+	}, nil, int(rdr.NullCount()), 0)
 }
 
-func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) array.Interface {
+func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) arrow.ArrayData {
 	length := rdr.ValuesWritten()
 
 	var values reflect.Value
@@ -636,10 +669,11 @@ func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) array.Inte
 	var nullmap *memory.Buffer
 	if rdr.NullCount() > 0 {
 		nullmap = rdr.ReleaseValidBits()
+		defer nullmap.Release()
 	}
-	return array.MakeFromData(array.NewData(dt, length, []*memory.Buffer{
+	return array.NewData(dt, length, []*memory.Buffer{
 		nullmap, memory.NewBufferBytes(data),
-	}, nil, int(rdr.NullCount()), 0))
+	}, nil, int(rdr.NullCount()), 0)
 }
 
 func uint64FromBigEndianShifted(buf []byte) uint64 {
@@ -704,12 +738,12 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 }
 
 type varOrFixedBin interface {
-	array.Interface
+	arrow.Array
 	Value(i int) []byte
 }
 
-func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*array.Chunked, error) {
-	convert := func(arr array.Interface) (array.Interface, error) {
+func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
+	convert := func(arr arrow.Array) (arrow.Array, error) {
 		length := arr.Len()
 		data := make([]byte, arrow.Decimal128Traits.BytesRequired(length))
 		out := arrow.Decimal128Traits.CastFromBytes(data)
@@ -733,9 +767,11 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arra
 			}
 		}
 
-		return array.MakeFromData(array.NewData(dt, length, []*memory.Buffer{
+		ret := array.NewData(dt, length, []*memory.Buffer{
 			input.Data().Buffers()[0], memory.NewBufferBytes(data),
-		}, nil, nullCount, 0)), nil
+		}, nil, nullCount, 0)
+		defer ret.Release()
+		return array.MakeFromData(ret), nil
 	}
 
 	chunks := rdr.GetBuilderChunks()
@@ -745,6 +781,7 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arra
 		if chunks[idx], err = convert(chunk); err != nil {
 			return nil, err
 		}
+		defer chunks[idx].Release()
 	}
-	return array.NewChunked(dt, chunks), nil
+	return arrow.NewChunked(dt, chunks), nil
 }

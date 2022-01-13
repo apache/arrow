@@ -280,7 +280,7 @@ func (n *nullableNode) run(rng, childRng *elemRange, ctx *pathWriteCtx) iterResu
 
 type pathInfo struct {
 	path           []pathNode
-	primitiveArr   array.Interface
+	primitiveArr   arrow.Array
 	maxDefLevel    int16
 	maxRepLevel    int16
 	leafIsNullable bool
@@ -320,11 +320,11 @@ func (p *pathBuilder) Release() {
 // if we have "UnknownNullCount", calling NullN on the data
 // object directly will just return the value the data has.
 // thus we might bet array.UnknownNullCount as the result here.
-func lazyNullCount(arr array.Interface) int64 {
+func lazyNullCount(arr arrow.Array) int64 {
 	return int64(arr.Data().NullN())
 }
 
-func lazyNoNulls(arr array.Interface) bool {
+func lazyNoNulls(arr arrow.Array) bool {
 	nulls := lazyNullCount(arr)
 	return nulls == 0 || (nulls == array.UnknownNullCount && arr.NullBitmapBytes() == nil)
 }
@@ -375,7 +375,7 @@ func fixup(info pathInfo) pathInfo {
 	return info
 }
 
-func (p *pathBuilder) Visit(arr array.Interface) error {
+func (p *pathBuilder) Visit(arr arrow.Array) error {
 	switch arr.DataType().ID() {
 	case arrow.LIST, arrow.MAP:
 		p.maybeAddNullable(arr)
@@ -435,7 +435,7 @@ func (p *pathBuilder) Visit(arr array.Interface) error {
 	}
 }
 
-func (p *pathBuilder) addTerminalInfo(arr array.Interface) {
+func (p *pathBuilder) addTerminalInfo(arr arrow.Array) {
 	p.info.leafIsNullable = p.nullableInParent
 	if p.nullableInParent {
 		p.info.maxDefLevel++
@@ -457,7 +457,7 @@ func (p *pathBuilder) addTerminalInfo(arr array.Interface) {
 	p.paths = append(p.paths, fixup(p.info.clone()))
 }
 
-func (p *pathBuilder) maybeAddNullable(arr array.Interface) {
+func (p *pathBuilder) maybeAddNullable(arr arrow.Array) {
 	if !p.nullableInParent {
 		return
 	}
@@ -500,7 +500,7 @@ func (m *multipathLevelBuilder) Release() {
 	}
 }
 
-func newMultipathLevelBuilder(arr array.Interface, fieldNullable bool) (*multipathLevelBuilder, error) {
+func newMultipathLevelBuilder(arr arrow.Array, fieldNullable bool) (*multipathLevelBuilder, error) {
 	ret := &multipathLevelBuilder{
 		refCount:  1,
 		rootRange: elemRange{int64(0), int64(arr.Data().Len())},
@@ -534,7 +534,7 @@ func (m *multipathLevelBuilder) writeAll(ctx *arrowWriteContext) (res []multipat
 }
 
 type multipathLevelResult struct {
-	leafArr         array.Interface
+	leafArr         arrow.Array
 	defLevels       []int16
 	defLevelsBuffer encoding.Buffer
 	repLevels       []int16

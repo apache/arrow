@@ -140,7 +140,7 @@ type ValidityBitmapInputOutput struct {
 func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) (count uint64) {
 	const maxbatch = 8 * int(unsafe.Sizeof(uint64(0)))
 
-	if int64(len(defLevels)) > remainingUpperBound {
+	if !hasRepeatedParent && int64(len(defLevels)) > remainingUpperBound {
 		panic("values read exceed upper bound")
 	}
 

@@ -871,7 +871,7 @@ func getOriginSchema(meta metadata.KeyValueMetadata, mem memory.Allocator) (*arr
 		return nil, nil
 	}
 
-	decoded, err := base64.StdEncoding.DecodeString(*serialized)
+	decoded, err := base64.RawStdEncoding.DecodeString(*serialized)
 	if err != nil {
 		return nil, err
 	}

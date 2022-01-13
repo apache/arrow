@@ -151,7 +151,7 @@ func BenchmarkWriteColumn(b *testing.B) {
 
 			for i := 0; i < b.N; i++ {
 				buf.Reset()
-				err := pqarrow.WriteTable(tbl, &buf, SIZELEN, props, arrProps, memory.DefaultAllocator)
+				err := pqarrow.WriteTable(tbl, &buf, SIZELEN, props, arrProps)
 				if err != nil {
 					b.Error(err)
 				}
@@ -165,7 +165,7 @@ func benchReadTable(b *testing.B, name string, tbl array.Table, nbytes int64) {
 	arrProps := pqarrow.DefaultWriterProps()
 
 	var buf bytes.Buffer
-	if err := pqarrow.WriteTable(tbl, &buf, SIZELEN, props, arrProps, memory.DefaultAllocator); err != nil {
+	if err := pqarrow.WriteTable(tbl, &buf, SIZELEN, props, arrProps); err != nil {
 		b.Error(err)
 	}
 	ctx := context.Background()
