@@ -136,12 +136,30 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
     case substrait::Expression::kIfThen: {
       const auto& if_then = expr.if_then();
       if (!if_then.has_else_()) break;
-      if (if_then.ifs_size() != 1) break;
-      ARROW_ASSIGN_OR_RAISE(auto if_, FromProto(if_then.ifs(0).if_()));
-      ARROW_ASSIGN_OR_RAISE(auto then, FromProto(if_then.ifs(0).then()));
-      ARROW_ASSIGN_OR_RAISE(auto else_, FromProto(if_then.else_()));
-      return compute::call("if_else",
-                           {std::move(if_), std::move(then), std::move(else_)});
+      if (if_then.ifs_size() == 0) break;
+
+      if (if_then.ifs_size() == 1) {
+        ARROW_ASSIGN_OR_RAISE(auto if_, FromProto(if_then.ifs(0).if_()));
+        ARROW_ASSIGN_OR_RAISE(auto then, FromProto(if_then.ifs(0).then()));
+        ARROW_ASSIGN_OR_RAISE(auto else_, FromProto(if_then.else_()));
+        return compute::call("if_else",
+                             {std::move(if_), std::move(then), std::move(else_)});
+      }
+
+      std::vector<compute::Expression> ifs, args;
+      ifs.reserve(if_then.ifs_size());
+      args.reserve(if_then.ifs_size() + 2);
+      args.emplace_back();
+      for (auto if_ : if_then.ifs()) {
+        ARROW_ASSIGN_OR_RAISE(auto compute_if, FromProto(if_.if_()));
+        ARROW_ASSIGN_OR_RAISE(auto compute_then, FromProto(if_.then()));
+        ifs.emplace_back(std::move(compute_if));
+        args.emplace_back(std::move(compute_then));
+      }
+      ARROW_ASSIGN_OR_RAISE(auto compute_else, FromProto(if_then.else_()));
+      args.emplace_back(std::move(compute_else));
+      args.emplace(args.begin(), compute::call("make_struct", std::move(ifs)));
+      return compute::call("case_when", std::move(args));
     }
 
     case substrait::Expression::kScalarFunction: {
@@ -841,29 +859,29 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     return std::move(out);
   }
 
-  /*
   if (call->function_name == "case_when") {
     auto conditions = call->arguments[0].call();
     if (conditions && conditions->function_name == "make_struct") {
-      // catch the special case of calls convertible to SwitchExpression
-      auto switch_ = internal::make_unique<substrait::Expression::SwitchExpression>();
+      // catch the special case of calls convertible to IfThen
+      auto if_then_ = internal::make_unique<substrait::Expression::IfThen>();
 
+      size_t arg_idx = 1;
       for (auto& cond : conditions->arguments) {
-        auto if_value =
-            internal::make_unique<substrait::Expression::SwitchExpression::IfValue>();
-        if_value->set_allocated_if_(arguments[0].release());
-        if_value->set_allocated_then(arguments[1].release());
-
-        switch_->mutable_ifs()->AddAllocated(if_value.release());
+        ARROW_ASSIGN_OR_RAISE(auto cond_substrait, ToProto(cond));
+        auto clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
+        clause->set_allocated_if_(cond_substrait.release());
+        clause->set_allocated_then(arguments[arg_idx++].release());
+        if_then_->mutable_ifs()->AddAllocated(clause.release());
       }
 
-      switch_->set_allocated_else_(arguments[2].release());
+      if_then_->set_allocated_else_(arguments[arg_idx].release());
 
-      auto out = std::move(arguments[0]);  // reuse an emptied substrait::Expression
-      out->set_allocated_switch_expression(switch_.release());
+      out->set_allocated_if_then(if_then_.release());
       return std::move(out);
     }
   }
+
+  /*
   // other expression types dive into extensions immediately
   ExtensionSet* ext_set = nullptr;
   ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction({"", call->function_name}));

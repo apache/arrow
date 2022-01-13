@@ -516,6 +516,17 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                              compute::field_ref("str"),
                          }),
 
+           compute::call(
+               "case_when",
+               {
+                   compute::call("make_struct",
+                                 {compute::literal(false), compute::literal(true)},
+                                 compute::MakeStructOptions({"a", "b"})),
+                   compute::field_ref({"struct", "str"}),
+                   compute::field_ref({"struct", "struct_i32_str", "str"}),
+                   compute::field_ref("str"),
+               }),
+
            compute::call("list_element",
                          {
                              compute::field_ref("list_i32"),
