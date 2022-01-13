@@ -153,7 +153,13 @@ running on a remote S3 bucket.
 As mentioned above, it is possible to make use of environment variables to 
 configure access.  However, if you wish to pass in connection details via a URI
 or alternative methods but also have existing AWS environment variables defined,
-these may interfere with your session.  You can unset these environment 
+these may interfere with your session.  For example, you may see an erro message like:
+
+```r
+Error: IOError: When resolving region for bucket 'analysis': AWS Error [code 99]: curlCode: 6, Couldn't resolve host name 
+```
+
+You can unset these environment 
 variables using `Sys.unsetenv()`, for example:
 
 ```{r, eval = FALSE}
