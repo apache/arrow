@@ -800,9 +800,9 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   if (call->function_name == "struct_field") {
     // catch the special case of calls convertible to a StructField
-    out.reset(arguments[0].release());
+    out = std::move(arguments[0]);
     for (int index :
-         std::static_pointer_cast<arrow::compute::StructFieldOptions>(call->options)
+         checked_cast<const arrow::compute::StructFieldOptions&>(*call->options)
              ->indices) {
       ARROW_ASSIGN_OR_RAISE(out, MakeStructFieldReference(std::move(out), index));
     }
@@ -816,7 +816,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
         arguments[0]->selection().has_direct_reference()) {
       if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
         return MakeListElementReference(
-            std::unique_ptr<substrait::Expression>(arguments[0].release()),
+            std::move(arguments[0]),
             arguments[1]->literal().i32());
       }
     }
