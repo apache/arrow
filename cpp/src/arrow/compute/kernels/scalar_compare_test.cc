@@ -2310,8 +2310,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
 
   BetweenOptions InclusiveBoth(BetweenOptions::Inclusive::BOTH);
   ValidateBetween<TypeParam>(
-      InclusiveBoth, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      InclusiveBoth, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
@@ -2333,8 +2332,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
                     "[false,true,true,null,false,false]"));
   BetweenOptions InclusiveLeft(BetweenOptions::Inclusive::LEFT);
   ValidateBetween<TypeParam>(
-      InclusiveLeft, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      InclusiveLeft, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
@@ -2356,8 +2354,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
                     "[false,true,true,null,false,false]"));
   BetweenOptions InclusiveRight(BetweenOptions::Inclusive::RIGHT);
   ValidateBetween<TypeParam>(
-      InclusiveRight, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      InclusiveRight, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
@@ -2379,8 +2376,7 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
                     "[false,true,false,null,false,false]"));
   BetweenOptions InclusiveNeither(BetweenOptions::Inclusive::NEITHER);
   ValidateBetween<TypeParam>(
-      InclusiveNeither, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
+      InclusiveNeither, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
       ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
   ValidateBetween<TypeParam>(
@@ -2514,7 +2510,8 @@ struct BetweenRandomNumeric {
     const int64_t length = 1000;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusive :
-           {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT, BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+           {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+            BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
         auto data1 =
             rand.Numeric<typename Type::PhysicalType>(length, 0, 100, null_probability);
         auto data2 =
@@ -2556,7 +2553,8 @@ TEST(TestStringBetweenKernel, RandomBetween) {
   for (size_t i = 3; i < 10; i++) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusive :
-           {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT, BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+           {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+            BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
         const int64_t length = static_cast<int64_t>(1ULL << i);
         auto array1 = Datum(rand.String(length, 0, 16, null_probability));
         auto array2 = Datum(rand.String(length, 0, 16, null_probability));
@@ -2666,7 +2664,6 @@ TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
 }
 
 TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
-  
   const std::string arr_json = R"(["1970-01-01","2000-02-02","1900-02-28"])";
   const std::string lhs_json = R"(["1970-01-01","2000-02-01","1900-02-28"])";
   const std::string rhs_json = R"(["1970-01-02","2000-02-02","1900-02-28"])";
