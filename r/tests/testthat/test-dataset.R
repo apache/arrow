@@ -407,8 +407,10 @@ test_that("Specifying partitioning when hive_style", {
   # If they don't match, we get an error
   expect_error(
     open_dataset(hive_dir, partitioning = c("asdf", "zxcv")),
-    '"partitioning" does not match the detected Hive-style partitions: c("group", "other")',
-    fixed = TRUE
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
   )
 
   # If schema and names match, the schema is used to specify the types
@@ -427,8 +429,10 @@ test_that("Specifying partitioning when hive_style", {
   # If they don't match, we get an error
   expect_error(
     open_dataset(hive_dir, partitioning = schema(a = int32(), b = utf8())),
-    '"partitioning" does not match the detected Hive-style partitions: c("group", "other")',
-    fixed = TRUE
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
   )
 
   # This can be disabled with hive_style = FALSE
@@ -461,6 +465,11 @@ test_that("Including partition columns in schema, hive style", {
   # Now also with specifying `partitioning`
   ds2 <- open_dataset(hive_dir, schema = expected_schema, partitioning = c("group", "other"))
   expect_equal(ds2$schema, expected_schema)
+})
+
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("Dataset with multiple file formats", {
@@ -551,11 +560,6 @@ test_that("map_batches", {
       arrange(int),
     tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
   )
-})
-
-test_that("partitioning = NULL to ignore partition information (but why?)", {
-  ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("head/tail", {

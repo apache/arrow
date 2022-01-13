@@ -83,22 +83,30 @@ DatasetFactory$create <- function(x,
         # These are not needed, the user probably provided them because they
         # thought they needed to. Just make sure they aren't invalid.
         if (!identical(names(hive_schema), partitioning)) {
-          stop(
-            '"partitioning" does not match the detected Hive-style partitions: ',
-            deparse1(names(hive_schema)),
-            call. = FALSE
-          )
+          abort(c(
+            paste(
+              '"partitioning" does not match the detected Hive-style partitions:',
+              deparse1(names(hive_schema))
+            ),
+            i = 'Omit "partitioning" to use the Hive partitions',
+            i = "Set `hive_style = FALSE` to override what was detected",
+            i = "Or, to rename partition columns, call `select()` or `rename()` after opening the dataset"
+          ))
         }
         partitioning <- hive_factory$Finish(hive_schema)
       } else if (inherits(partitioning, "Schema")) {
         # This means we want to set the types of the hive-style partitions
         # to be exactly what we want them to be
         if (!identical(names(hive_schema), names(partitioning))) {
-          stop(
-            '"partitioning" does not match the detected Hive-style partitions: ',
-            deparse1(names(hive_schema)),
-            call. = FALSE
-          )
+          abort(c(
+            paste(
+              '"partitioning" does not match the detected Hive-style partitions:',
+              deparse1(names(hive_schema))
+            ),
+            i = 'Omit "partitioning" to use the Hive partitions',
+            i = "Set `hive_style = FALSE` to override what was detected",
+            i = "Or, to rename partition columns, call `select()` or `rename()` after opening the dataset"
+          ))
         }
         partitioning <- HivePartitioning$create(partitioning)
       }
