@@ -363,6 +363,7 @@ template <typename T, typename ArrayType = typename TypeTraits<T>::ArrayType,
           typename ValueType =
               typename ::arrow::stl::detail::DefaultValueAccessor<ArrayType>::ValueType>
 DataEqMatcher DataEqArray(T type, const std::vector<util::optional<ValueType>>& values) {
+  // FIXME(bkietz) broken until DataType is move constructible
   BuilderType builder(std::make_shared<T>(std::move(type)), default_memory_pool());
   DCHECK_OK(builder.Reserve(static_cast<int64_t>(values.size())));
 

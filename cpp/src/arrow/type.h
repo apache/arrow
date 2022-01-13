@@ -76,22 +76,6 @@ class ARROW_EXPORT Fingerprintable {
   }
 
  protected:
-  Fingerprintable() = default;
-
-  Fingerprintable(Fingerprintable&& other) { MoveFrom(std::move(other)); }
-
-  Fingerprintable& operator=(Fingerprintable&& other) {
-    MoveFrom(std::move(other));
-    return *this;
-  }
-
-  void MoveFrom(Fingerprintable&& other) {
-    fingerprint_.store(other.fingerprint_.load());
-    other.fingerprint_.store(NULLPTR);
-    metadata_fingerprint_.store(other.fingerprint_.load());
-    other.metadata_fingerprint_.store(NULLPTR);
-  }
-
   const std::string& LoadFingerprintSlow() const;
   const std::string& LoadMetadataFingerprintSlow() const;
 
@@ -144,6 +128,7 @@ struct ARROW_EXPORT DataTypeLayout {
 /// complex datatypes are usually parametric.
 class ARROW_EXPORT DataType : public detail::Fingerprintable {
  public:
+  explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
   ~DataType() override;
 
   /// \brief Return whether the types are equal
@@ -189,9 +174,6 @@ class ARROW_EXPORT DataType : public detail::Fingerprintable {
   virtual Type::type storage_id() const { return id_; }
 
  protected:
-  explicit DataType(Type::type id) : detail::Fingerprintable(), id_(id) {}
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(DataType);
-
   // Dummy version that returns a null string (indicating not implemented).
   // Subclasses should override for fast equality checks.
   std::string ComputeFingerprint() const override;
