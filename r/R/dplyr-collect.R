@@ -94,19 +94,33 @@ collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- funct
   arrow_dplyr_query(x)
 }
 
+add_suffix <- function(fields, by, suffix) {
+  # TODO: this method is adding suffixes
+  # but the current C++ code in this branch does prefixes
+  # so the code mimics a prefix but need to replace it with suffix
+  # when merging with ARROW-15212 update. 
+  col_names = names(fields)
+  new_colnames = col_names %>% map(function(x) {paste(suffix,x, sep="")})
+  rlang::set_names(fields, new_colnames)
+}
+
 implicit_schema <- function(.data) {
   .data <- ensure_group_vars(.data)
   old_schm <- .data$.data$schema
 
   if (is.null(.data$aggregations)) {
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
+    
     if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
-      new_fields <- c(new_fields, map(
+      right_fields <- map(
         right_cols[setdiff(names(right_cols), .data$join$by)],
         ~ .$type(.data$join$right_data$.data$schema)
-      ))
+      )
+      left_fields = add_suffix(new_fields, .data$join$by, .data$join$suffix[[1]])
+      right_fields = add_suffix(right_fields, .data$join$by, .data$join$suffix[[2]])
+      new_fields <- c(left_fields, right_fields)
     }
   } else {
     new_fields <- map(summarize_projection(.data), ~ .$type(old_schm))
