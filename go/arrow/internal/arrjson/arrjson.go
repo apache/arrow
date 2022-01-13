@@ -1046,7 +1046,6 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) arrow.Arr
 	default:
 		panic(fmt.Errorf("unknown data type %v %T", dt, dt))
 	}
-	panic("impossible")
 }
 
 func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
@@ -1320,7 +1319,6 @@ func arrayToJSON(field arrow.Field, arr arrow.Array) Array {
 	default:
 		panic(fmt.Errorf("unknown array type %T", arr))
 	}
-	panic("impossible")
 }
 
 func validsFromJSON(vs []int) []bool {
