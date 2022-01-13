@@ -97,6 +97,8 @@ ipython_mplbackend = ''
 numpydoc_xref_param_type = True
 numpydoc_show_class_members = False
 numpydoc_xref_ignore = {"or", "and", "of", ",", "default", "optional"}
+numpydoc_xref_aliases = {"array-like": ":func:`array-like <pyarrow.array>`"}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

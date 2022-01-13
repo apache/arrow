@@ -121,7 +121,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Parameters
     ----------
-    obj : sequence, iterable, ndarray or Series
+    obj : sequence, iterable, ndarray or pandas.Series
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array.
     type : pyarrow.DataType

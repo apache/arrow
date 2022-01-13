@@ -513,7 +513,7 @@ def chunked_array(arrays, type=None):
 
     Parameters
     ----------
-    arrays : Array, list of Array, or values coercible to arrays
+    arrays : Array, list of Array, or array-like
         Must all be the same data type. Can be empty only if type also passed.
     type : DataType or string coercible to DataType
 
