@@ -770,4 +770,23 @@ TEST_F(TestTableBatchReader, Chunksize) {
   ASSERT_EQ(nullptr, batch);
 }
 
+TEST_F(TestTableBatchReader, NoColumns) {
+  std::shared_ptr<Table> table =
+      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100);
+  TableBatchReader reader(*table);
+  reader.set_chunksize(60);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(60, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(40, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
 }  // namespace arrow

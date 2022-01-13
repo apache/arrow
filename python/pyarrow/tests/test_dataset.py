@@ -1697,6 +1697,32 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         ds.write_dataset(table, tempdir, format='ipc', partitioning=part)
 
 
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_read_partition_keys_only(tempdir):
+    # This is a regression test for ARROW-15318 which saw issues
+    # reading only the partition keys from files with batches larger
+    # than the default batch size (e.g. so we need to return two chunks)
+    table = pa.table({
+        'key': pa.repeat(0, 2 ** 20 + 1),
+        'value': np.arange(2 ** 20 + 1)})
+    pq.write_to_dataset(
+        table[:2 ** 20],
+        tempdir / 'one', partition_cols=['key'])
+    pq.write_to_dataset(
+        table[:2 ** 20 + 1],
+        tempdir / 'two', partition_cols=['key'])
+
+    table = pq.read_table(tempdir / 'one', columns=['key'])
+    assert table['key'].num_chunks == 1
+
+    table = pq.read_table(tempdir / 'two', columns=['key', 'value'])
+    assert table['key'].num_chunks == 2
+
+    table = pq.read_table(tempdir / 'two', columns=['key'])
+    assert table['key'].num_chunks == 2
+
+
 def _has_subdirs(basedir):
     elements = os.listdir(basedir)
     return any([os.path.isdir(os.path.join(basedir, el)) for el in elements])
