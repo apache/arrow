@@ -1722,8 +1722,8 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     arr_smaller = in2;
   }
 
-  int* ptr =
-      reinterpret_cast<int*>(gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2));
+  int* ptr = reinterpret_cast<int*>(
+      gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2 * sizeof(int)));
   if (ptr == nullptr) {
     gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
     return 0;
