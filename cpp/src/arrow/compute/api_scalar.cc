@@ -101,20 +101,22 @@ struct EnumTraits<compute::CompareOperator>
 };
 
 template <>
-struct EnumTraits<compute::Inclusive>
-    : BasicEnumTraits<compute::Inclusive, compute::Inclusive::BOTH,
-                      compute::Inclusive::LEFT, compute::Inclusive::RIGHT,
-                      compute::Inclusive::NEITHER> {
+struct EnumTraits<compute::BetweenOptions::Inclusive>
+    : BasicEnumTraits<compute::BetweenOptions::Inclusive,
+                      compute::BetweenOptions::Inclusive::BOTH,
+                      compute::BetweenOptions::Inclusive::LEFT,
+                      compute::BetweenOptions::Inclusive::RIGHT,
+                      compute::BetweenOptions::Inclusive::NEITHER> {
   static std::string name() { return "Inclusive"; }
-  static std::string value_name(compute::Inclusive value) {
+  static std::string value_name(compute::BetweenOptions::Inclusive value) {
     switch (value) {
-      case compute::Inclusive::BOTH:
+      case compute::BetweenOptions::Inclusive::BOTH:
         return "BOTH";
-      case compute::Inclusive::LEFT:
+      case compute::BetweenOptions::Inclusive::LEFT:
         return "LEFT";
-      case compute::Inclusive::RIGHT:
+      case compute::BetweenOptions::Inclusive::RIGHT:
         return "RIGHT";
-      case compute::Inclusive::NEITHER:
+      case compute::BetweenOptions::Inclusive::NEITHER:
         return "NEITHER";
     }
     return "<INVALID>";

@@ -1965,11 +1965,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRoundMode round_mode
 
     ctypedef enum CInclusive \
-            "arrow::compute::Inclusive":
-        CInclusive_BOTH "arrow::compute::Inclusive::BOTH"
-        CInclusive_LEFT "arrow::compute::Inclusive::LEFT"
-        CInclusive_RIGHT "arrow::compute::Inclusive::RIGHT"
-        CInclusive_NEITHER "arrow::compute::Inclusive::NEITHER"
+            "arrow::compute::BetweenOptions::Inclusive":
+        CInclusive_BOTH "arrow::compute::BetweenOptions::Inclusive::BOTH"
+        CInclusive_LEFT "arrow::compute::BetweenOptions::Inclusive::LEFT"
+        CInclusive_RIGHT "arrow::compute::BetweenOptions::Inclusive::RIGHT"
+        CInclusive_NEITHER "arrow::compute::BetweenOptions::Inclusive::NEITHER"
 
     cdef cppclass CBetweenOptions \
             "arrow::compute::BetweenOptions"(CFunctionOptions):
