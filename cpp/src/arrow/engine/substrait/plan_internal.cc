@@ -24,12 +24,19 @@
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace engine {
+
+namespace internal {
+using ::arrow::internal::make_unique;
+}  // namespace internal
 
 Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan) {
   plan->clear_extension_uris();
 
-  std::unordered_map<util::string_view, int, internal::StringViewHash> map;
+  std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash> map;
 
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));

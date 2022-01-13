@@ -31,6 +31,11 @@
 
 namespace arrow {
 namespace engine {
+
+namespace internal {
+using ::arrow::internal::make_unique;
+}  // namespace internal
+
 namespace {
 
 template <typename TypeMessage>
