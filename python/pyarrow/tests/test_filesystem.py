@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 import pyarrow as pa
 from pyarrow import filesystem
 
@@ -31,10 +29,7 @@ def test_filesystem_deprecated():
         filesystem.LocalFileSystem.get_instance()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 7),
-                    reason="getattr needs Python 3.7")
 def test_filesystem_deprecated_toplevel():
-
     with pytest.warns(FutureWarning):
         pa.localfs
 

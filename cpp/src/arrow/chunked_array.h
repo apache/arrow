@@ -67,12 +67,6 @@ class MemoryPool;
 /// inputs should not expect the chunk layout to be the same in each input.
 class ARROW_EXPORT ChunkedArray {
  public:
-  /// \brief Construct a chunked array from a vector of arrays
-  ///
-  /// The vector must be non-empty and all its elements must have the same
-  /// data type.
-  explicit ChunkedArray(ArrayVector chunks);
-
   ChunkedArray(ChunkedArray&&) = default;
   ChunkedArray& operator=(ChunkedArray&&) = default;
 
@@ -80,10 +74,12 @@ class ARROW_EXPORT ChunkedArray {
   explicit ChunkedArray(std::shared_ptr<Array> chunk)
       : ChunkedArray(ArrayVector{std::move(chunk)}) {}
 
-  /// \brief Construct a chunked array from a vector of arrays and a data type
+  /// \brief Construct a chunked array from a vector of arrays and an optional data type
   ///
-  /// As the data type is passed explicitly, the vector may be empty.
-  ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type);
+  /// The vector elements must have the same data type.
+  /// If the data type is passed explicitly, the vector may be empty.
+  /// If the data type is omitted, the vector must be non-empty.
+  explicit ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type = NULLPTR);
 
   // \brief Constructor with basic input validation.
   static Result<std::shared_ptr<ChunkedArray>> Make(

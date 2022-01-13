@@ -39,7 +39,7 @@ jobs:
           name: Execute Docker Build
           command: |
             pyenv versions
-            pyenv global 3.6.10
+            pyenv global 3.8.12
             pip install -e arrow/dev/archery[docker]
             archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
           no_output_timeout: "1h"

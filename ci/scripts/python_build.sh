@@ -27,6 +27,21 @@ python_build_dir=${build_dir}/python
 
 : ${BUILD_DOCS_PYTHON:=OFF}
 
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  MINGW*)
+    n_jobs=${NUMBER_OF_PROCESSORS:-1}
+    ;;
+  *)
+    n_jobs=${NPROC:-1}
+    ;;
+esac
+
 if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
@@ -44,18 +59,18 @@ export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA:-OFF}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET:-OFF}
 export PYARROW_WITH_DATASET=${ARROW_DATASET:-OFF}
 
+export PYARROW_PARALLEL=${n_jobs}
+
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
 pushd ${source_dir}
-
-relative_build_dir=$(realpath --relative-to=. $python_build_dir)
-
-# not nice, but prevents mutating the mounted the source directory for docker
-${PYTHON:-python} \
-  setup.py build --build-base $python_build_dir \
-           install --single-version-externally-managed \
-                   --record $relative_build_dir/record.txt
-
+# - Cannot call setup.py as it may install in the wrong directory
+#   on Debian/Ubuntu (ARROW-15243).
+# - Cannot use build isolation as we want to use specific dependency versions
+#   (e.g. Numpy, Pandas) on some CI jobs.
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+# Remove build artifacts from source directory
+find build/ -user root -delete
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then

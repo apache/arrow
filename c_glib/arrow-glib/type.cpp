@@ -60,12 +60,8 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_DOUBLE;
   case arrow::Type::type::STRING:
     return GARROW_TYPE_STRING;
-  case arrow::Type::type::LARGE_STRING:
-    return GARROW_TYPE_LARGE_STRING;
   case arrow::Type::type::BINARY:
     return GARROW_TYPE_BINARY;
-  case arrow::Type::type::LARGE_BINARY:
-    return GARROW_TYPE_LARGE_BINARY;
   case arrow::Type::type::FIXED_SIZE_BINARY:
     return GARROW_TYPE_FIXED_SIZE_BINARY;
   case arrow::Type::type::DATE32:
@@ -79,29 +75,39 @@ garrow_type_from_raw(arrow::Type::type type)
   case arrow::Type::type::TIME64:
     return GARROW_TYPE_TIME64;
   case arrow::Type::type::INTERVAL_MONTHS:
-    return GARROW_TYPE_INTERVAL_MONTHS;
+    return GARROW_TYPE_MONTH_INTERVAL;
   case arrow::Type::type::INTERVAL_DAY_TIME:
-    return GARROW_TYPE_INTERVAL_DAY_TIME;
+    return GARROW_TYPE_DAY_TIME_INTERVAL;
   case arrow::Type::type::DECIMAL128:
     return GARROW_TYPE_DECIMAL128;
   case arrow::Type::type::DECIMAL256:
     return GARROW_TYPE_DECIMAL256;
   case arrow::Type::type::LIST:
     return GARROW_TYPE_LIST;
-  case arrow::Type::type::LARGE_LIST:
-    return GARROW_TYPE_LARGE_LIST;
   case arrow::Type::type::STRUCT:
     return GARROW_TYPE_STRUCT;
-  case arrow::Type::type::MAP:
-    return GARROW_TYPE_MAP;
-  case arrow::Type::type::EXTENSION:
-    return GARROW_TYPE_EXTENSION;
   case arrow::Type::type::SPARSE_UNION:
     return GARROW_TYPE_SPARSE_UNION;
   case arrow::Type::type::DENSE_UNION:
     return GARROW_TYPE_DENSE_UNION;
   case arrow::Type::type::DICTIONARY:
     return GARROW_TYPE_DICTIONARY;
+  case arrow::Type::type::MAP:
+    return GARROW_TYPE_MAP;
+  case arrow::Type::type::EXTENSION:
+    return GARROW_TYPE_EXTENSION;
+  case arrow::Type::type::FIXED_SIZE_LIST:
+    return GARROW_TYPE_FIXED_SIZE_LIST;
+  case arrow::Type::type::DURATION:
+    return GARROW_TYPE_DURATION;
+  case arrow::Type::type::LARGE_STRING:
+    return GARROW_TYPE_LARGE_STRING;
+  case arrow::Type::type::LARGE_BINARY:
+    return GARROW_TYPE_LARGE_BINARY;
+  case arrow::Type::type::LARGE_LIST:
+    return GARROW_TYPE_LARGE_LIST;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    return GARROW_TYPE_MONTH_DAY_NANO_INTERVAL;
   default:
     return GARROW_TYPE_NA;
   }
@@ -138,5 +144,20 @@ garrow_time_unit_to_raw(GArrowTimeUnit unit)
     return arrow::TimeUnit::type::NANO;
   default:
     return arrow::TimeUnit::type::SECOND;
+  }
+}
+
+GArrowIntervalType
+garrow_interval_type_from_raw(arrow::IntervalType::type type)
+{
+  switch (type) {
+  case arrow::IntervalType::type::MONTHS:
+    return GARROW_INTERVAL_TYPE_MONTH;
+  case arrow::IntervalType::type::DAY_TIME:
+    return GARROW_INTERVAL_TYPE_DAY_TIME;
+  case arrow::IntervalType::type::MONTH_DAY_NANO:
+    return GARROW_INTERVAL_TYPE_MONTH_DAY_NANO;
+  default:
+    return GARROW_INTERVAL_TYPE_MONTH;
   }
 }

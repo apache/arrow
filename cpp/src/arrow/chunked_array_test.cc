@@ -25,7 +25,7 @@
 
 #include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -34,7 +34,7 @@
 
 namespace arrow {
 
-class TestChunkedArray : public TestBase {
+class TestChunkedArray : public ::testing::Test {
  protected:
   virtual void Construct() {
     one_ = std::make_shared<ChunkedArray>(arrays_one_);
@@ -147,9 +147,11 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  random::RandomArrayGenerator gen(42);
+
+  arrays_one_.push_back(gen.Int32(100, -12345, 12345));
+  arrays_one_.push_back(gen.Int32(50, -12345, 12345));
+  arrays_one_.push_back(gen.Int32(50, -12345, 12345));
   Construct();
 
   std::shared_ptr<ChunkedArray> slice = one_->Slice(125, 50);
@@ -196,14 +198,21 @@ TEST_F(TestChunkedArray, Validate) {
   ASSERT_OK(no_chunks->ValidateFull());
 
   random::RandomArrayGenerator gen(0);
-  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
-  Construct();
-  ASSERT_OK(one_->ValidateFull());
+
+  // Valid if non-empty and ommitted type
+  ArrayVector arrays = {gen.Int64(50, 0, 100, 0.1), gen.Int64(50, 0, 100, 0.1)};
+  auto chunks_with_no_type = std::make_shared<ChunkedArray>(arrays, nullptr);
+  ASSERT_OK(chunks_with_no_type->ValidateFull());
 
   arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
   Construct();
   ASSERT_OK(one_->ValidateFull());
 
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->ValidateFull());
+
+  // Invalid if different chunk types
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
   Construct();
   ASSERT_RAISES(Invalid, one_->ValidateFull());

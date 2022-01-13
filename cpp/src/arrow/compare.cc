@@ -46,7 +46,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/memory.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_scalar_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

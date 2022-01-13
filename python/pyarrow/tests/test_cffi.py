@@ -239,6 +239,21 @@ def test_export_import_schema_with_extension():
     check_export_import_schema(make_extension_schema)
 
 
+@needs_cffi
+def test_export_import_schema_float_pointer():
+    # Previous versions of the R Arrow library used to pass pointer
+    # values as a double.
+    c_schema = ffi.new("struct ArrowSchema*")
+    ptr_schema = int(ffi.cast("uintptr_t", c_schema))
+
+    match = "Passing a pointer value as a float is unsafe"
+    with pytest.warns(UserWarning, match=match):
+        make_schema()._export_to_c(float(ptr_schema))
+    with pytest.warns(UserWarning, match=match):
+        schema_new = pa.Schema._import_from_c(float(ptr_schema))
+    assert schema_new == make_schema()
+
+
 def check_export_import_batch(batch_factory):
     c_schema = ffi.new("struct ArrowSchema*")
     ptr_schema = int(ffi.cast("uintptr_t", c_schema))

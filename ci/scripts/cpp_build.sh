@@ -46,6 +46,21 @@ if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
     exit 1
 fi
 
+case "$(uname)" in
+  Linux)
+    n_jobs=$(nproc)
+    ;;
+  Darwin)
+    n_jobs=$(sysctl -n hw.ncpu)
+    ;;
+  MINGW*)
+    n_jobs=${NUMBER_OF_PROCESSORS:-1}
+    ;;
+  *)
+    n_jobs=${NPROC:-1}
+    ;;
+esac
+
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
@@ -70,6 +85,7 @@ cmake \
   -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
   -DARROW_FILESYSTEM=${ARROW_FILESYSTEM:-ON} \
   -DARROW_FLIGHT=${ARROW_FLIGHT:-OFF} \
+  -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL:-OFF} \
   -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
   -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA:-OFF} \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${ARROW_GANDIVA_PC_CXX_FLAGS:-} \
@@ -142,11 +158,8 @@ cmake \
   ${CMAKE_ARGS} \
   ${source_dir}
 
-if [ ! -z "${CPP_MAKE_PARALLELISM}" ]; then
-  time cmake --build . --target install -- -j${CPP_MAKE_PARALLELISM}
-else
-  time cmake --build . --target install
-fi
+export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
+time cmake --build . --target install
 
 popd
 

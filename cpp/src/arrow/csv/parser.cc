@@ -22,6 +22,7 @@
 #include <limits>
 #include <utility>
 
+#include "arrow/csv/lexing_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -57,176 +58,6 @@ Status MismatchingColumns(const InvalidRow& row) {
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
-
-template <bool Quoting, bool Escaping>
-class SpecializedOptions {
- public:
-  static constexpr bool quoting = Quoting;
-  static constexpr bool escaping = Escaping;
-};
-
-//
-// Bulk filters for packed character matching.
-// These filters allow checking multiple CSV bytes at once for specific
-// characters (cell delimiter, line delimiter, escape char, etc.).
-//
-
-// Heuristic Bloom filters: 1, 2 or 4 bytes at a time.
-
-class BaseBloomFilter {
- public:
-  explicit BaseBloomFilter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
-
- protected:
-  using FilterType = uint64_t;
-  // 63 for uint64_t
-  static constexpr uint8_t kCharMask = static_cast<uint8_t>((8 * sizeof(FilterType)) - 1);
-
-  FilterType MakeFilter(const ParseOptions& options) {
-    FilterType filter = 0;
-    auto add_char = [&](char c) { filter |= CharFilter(c); };
-    add_char('\n');
-    add_char('\r');
-    add_char(options.delimiter);
-    if (options.escaping) {
-      add_char(options.escape_char);
-    }
-    if (options.quoting) {
-      add_char(options.quote_char);
-    }
-    return filter;
-  }
-
-  // A given character value will set/test one bit in the 64-bit filter,
-  // whose bit number is taken from low bits of the character value.
-  //
-  // For example 'b' (ASCII value 98) will set/test bit #34 in the filter.
-  // If the bit is set in the filter, the given character *may* be part
-  // of the matched characters.  If the bit is unset in the filter,
-  // the the given character *cannot* be part of the matched characters.
-  FilterType CharFilter(uint8_t c) const {
-    return static_cast<FilterType>(1) << (c & kCharMask);
-  }
-
-  FilterType MatchChar(uint8_t c) const { return CharFilter(c) & filter_; }
-
-  const FilterType filter_;
-};
-
-template <typename SpecializedOptions>
-class BloomFilter1B : public BaseBloomFilter {
- public:
-  using WordType = uint8_t;
-
-  using BaseBloomFilter::BaseBloomFilter;
-
-  bool Matches(uint8_t c) const { return (CharFilter(c) & filter_) != 0; }
-};
-
-template <typename SpecializedOptions>
-class BloomFilter2B : public BaseBloomFilter {
- public:
-  using WordType = uint16_t;
-
-  using BaseBloomFilter::BaseBloomFilter;
-
-  bool Matches(uint16_t w) const {
-    return (MatchChar(static_cast<uint8_t>(w >> 8)) |
-            MatchChar(static_cast<uint8_t>(w))) != 0;
-  }
-};
-
-template <typename SpecializedOptions>
-class BloomFilter4B : public BaseBloomFilter {
- public:
-  using WordType = uint32_t;
-
-  using BaseBloomFilter::BaseBloomFilter;
-
-  bool Matches(uint32_t w) const {
-    return (MatchChar(static_cast<uint8_t>(w >> 24)) |
-            MatchChar(static_cast<uint8_t>(w >> 16)) |
-            MatchChar(static_cast<uint8_t>(w >> 8)) |
-            MatchChar(static_cast<uint8_t>(w))) != 0;
-  }
-};
-
-#if defined(ARROW_HAVE_SSE4_2)
-
-// SSE4.2 filter: 8 bytes at a time, using packed compare instruction
-
-// NOTE: on SVE, could use svmatch[_u8] for similar functionality.
-
-template <typename SpecializedOptions>
-class SSE42Filter {
- public:
-  using WordType = uint64_t;
-
-  explicit SSE42Filter(const ParseOptions& options) : filter_(MakeFilter(options)) {}
-
-  bool Matches(WordType w) const {
-    // Look up every byte in `w` in the SIMD filter.
-    return _mm_cmpistrc(_mm_set1_epi64x(w), filter_,
-                        _SIDD_UBYTE_OPS | _SIDD_CMP_EQUAL_ANY);
-  }
-
- protected:
-  using BulkFilterType = __m128i;
-
-  BulkFilterType MakeFilter(const ParseOptions& options) {
-    // Make a SIMD word of the characters we want to match
-    const char cr = '\r';
-    const char lf = '\n';
-    const char delim = options.delimiter;
-    const char quote = options.quoting ? options.quote_char : cr;
-    const char escape = options.escaping ? options.escape_char : cr;
-
-    return _mm_set_epi8(delim, quote, escape, lf, cr, cr, cr, cr, cr, cr, cr, cr, cr, cr,
-                        cr, cr);
-  }
-
-  const BulkFilterType filter_;
-};
-
-#elif defined(ARROW_HAVE_NEON)
-
-// NEON filter: 8 bytes at a time, comparing with all special chars.
-// We could filter 16 bytes at a time but that actually decreases performance,
-// because the filter matches too often on mid-sized cell values.
-
-template <typename SpecializedOptions>
-class NeonFilter {
- public:
-  // NOTE we cannot use xsimd as it doesn't expose the 64-bit Neon types,
-  // only 128-bit.
-  using WordType = uint8x8_t;
-
-  explicit NeonFilter(const ParseOptions& options)
-      : delim_(vdup_n_u8(options.delimiter)),
-        quote_(vdup_n_u8(options.quoting ? options.quote_char : '\n')),
-        escape_(vdup_n_u8(options.escaping ? options.escape_char : '\n')) {}
-
-  bool Matches(WordType w) const {
-    uint8x8_t v;
-    v = vceq_u8(w, vdup_n_u8('\r'));
-    v = vorr_u8(v, vceq_u8(w, vdup_n_u8('\n')));
-    v = vorr_u8(v, vceq_u8(w, delim_));
-    if (SpecializedOptions::quoting) {
-      v = vorr_u8(v, vceq_u8(w, quote_));
-    }
-    if (SpecializedOptions::escaping) {
-      v = vorr_u8(v, vceq_u8(w, escape_));
-    }
-    uint64_t r;
-    vst1_u64(&r, vreinterpret_u64_u8(v));
-    return r != 0;
-  }
-
- private:
-  const uint8x8_t delim_, quote_, escape_;
-};
-
-#endif
 
 // A helper class allocating the buffer for parsed values and writing into it
 // without any further resizes, except at the end.
@@ -352,18 +183,6 @@ class PresizedValueDescWriter : public ValueDescWriter<PresizedValueDescWriter> 
 }  // namespace
 
 class BlockParserImpl {
-#if defined(ARROW_HAVE_SSE4_2) && (defined(__x86_64__) || defined(_M_X64))
-  // (the SSE4.2 filter seems to crash on RTools with 32-bit MinGW)
-  template <typename SpecializedOptions>
-  using BulkFilterType = SSE42Filter<SpecializedOptions>;
-#elif defined(ARROW_HAVE_NEON)
-  template <typename SpecializedOptions>
-  using BulkFilterType = NeonFilter<SpecializedOptions>;
-#else
-  template <typename SpecializedOptions>
-  using BulkFilterType = BloomFilter4B<SpecializedOptions>;
-#endif
-
  public:
   BlockParserImpl(MemoryPool* pool, ParseOptions options, int32_t num_cols,
                   int64_t first_row, int32_t max_num_rows)
@@ -414,11 +233,10 @@ class BlockParserImpl {
   }
 
   template <typename SpecializedOptions, bool UseBulkFilter, typename ValueDescWriter,
-            typename DataWriter>
+            typename DataWriter, typename BulkFilter>
   Status ParseLine(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                    const char* data, const char* data_end, bool is_final,
-                   const char** out_data,
-                   const BulkFilterType<SpecializedOptions>& bulk_filter) {
+                   const char** out_data, const BulkFilter& bulk_filter) {
     int32_t num_cols = 0;
     char c;
     const auto start = data;
@@ -476,7 +294,7 @@ class BlockParserImpl {
   InField:
     // Inside a non-quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = BulkFilter(parsed_writer, data, data_end, bulk_filter);
+      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         goto AbortLine;
       }
@@ -517,7 +335,7 @@ class BlockParserImpl {
   InQuotedField:
     // Inside a quoted part of a field
     if (UseBulkFilter) {
-      const char* bulk_end = BulkFilter(parsed_writer, data, data_end, bulk_filter);
+      const char* bulk_end = RunBulkFilter(parsed_writer, data, data_end, bulk_filter);
       if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
         goto AbortLine;
       }
@@ -602,8 +420,9 @@ class BlockParserImpl {
   }
 
   template <typename DataWriter, typename SpecializedBulkFilter>
-  const char* BulkFilter(DataWriter* data_writer, const char* data, const char* data_end,
-                         const SpecializedBulkFilter& bulk_filter) {
+  const char* RunBulkFilter(DataWriter* data_writer, const char* data,
+                            const char* data_end,
+                            const SpecializedBulkFilter& bulk_filter) {
     while (true) {
       using WordType = typename SpecializedBulkFilter::WordType;
 
@@ -624,11 +443,12 @@ class BlockParserImpl {
     }
   }
 
-  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter>
+  template <typename SpecializedOptions, typename ValueDescWriter, typename DataWriter,
+            typename BulkFilter>
   Status ParseChunk(ValueDescWriter* values_writer, DataWriter* parsed_writer,
                     const char* data, const char* data_end, bool is_final,
                     int32_t rows_in_chunk, const char** out_data, bool* finished_parsing,
-                    const BulkFilterType<SpecializedOptions>& bulk_filter) {
+                    const BulkFilter& bulk_filter) {
     const int32_t start_num_rows = batch_.num_rows_;
     const int32_t num_rows_deadline = batch_.num_rows_ + rows_in_chunk;
 
@@ -684,7 +504,7 @@ class BlockParserImpl {
   template <typename SpecializedOptions>
   Status ParseSpecialized(const std::vector<util::string_view>& views, bool is_final,
                           uint32_t* out_size) {
-    BulkFilterType<SpecializedOptions> bulk_filter(options_);
+    internal::PreferredBulkFilterType<SpecializedOptions> bulk_filter(options_);
 
     batch_ = DataBatch{batch_.num_cols_};
     values_size_ = 0;
@@ -782,18 +602,19 @@ class BlockParserImpl {
                uint32_t* out_size) {
     if (options_.quoting) {
       if (options_.escaping) {
-        return ParseSpecialized<SpecializedOptions<true, true>>(data, is_final, out_size);
+        return ParseSpecialized<internal::SpecializedOptions<true, true>>(data, is_final,
+                                                                          out_size);
       } else {
-        return ParseSpecialized<SpecializedOptions<true, false>>(data, is_final,
-                                                                 out_size);
+        return ParseSpecialized<internal::SpecializedOptions<true, false>>(data, is_final,
+                                                                           out_size);
       }
     } else {
       if (options_.escaping) {
-        return ParseSpecialized<SpecializedOptions<false, true>>(data, is_final,
-                                                                 out_size);
+        return ParseSpecialized<internal::SpecializedOptions<false, true>>(data, is_final,
+                                                                           out_size);
       } else {
-        return ParseSpecialized<SpecializedOptions<false, false>>(data, is_final,
-                                                                  out_size);
+        return ParseSpecialized<internal::SpecializedOptions<false, false>>(
+            data, is_final, out_size);
       }
     }
   }

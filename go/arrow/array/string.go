@@ -19,7 +19,6 @@ package array
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -27,10 +26,6 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/goccy/go-json"
-)
-
-const (
-	stringArrayMaximumCapacity = math.MaxInt32
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -41,16 +36,16 @@ type String struct {
 }
 
 // NewStringData constructs a new String array from data.
-func NewStringData(data *Data) *String {
+func NewStringData(data arrow.ArrayData) *String {
 	a := &String{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
 // Reset resets the String with a different set of Data.
-func (a *String) Reset(data *Data) {
-	a.setData(data)
+func (a *String) Reset(data arrow.ArrayData) {
+	a.setData(data.(*Data))
 }
 
 // Value returns the slice at index i. This value should not be mutated.
@@ -231,7 +226,7 @@ func (b *StringBuilder) Resize(n int) {
 
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
-func (b *StringBuilder) NewArray() Interface {
+func (b *StringBuilder) NewArray() arrow.Array {
 	return b.NewStringArray()
 }
 

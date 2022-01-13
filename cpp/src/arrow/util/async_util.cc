@@ -138,7 +138,7 @@ void SerializedAsyncTaskGroup::ConsumeAsMuchAsPossibleUnlocked(
     util::Mutex::Guard&& guard) {
   while (err_.ok() && !tasks_.empty() && TryDrainUnlocked()) {
   }
-  if (ended_ && tasks_.empty() && !processing_.is_valid()) {
+  if (ended_ && (!err_.ok() || tasks_.empty()) && !processing_.is_valid()) {
     guard.Unlock();
     on_finished_.MarkFinished(err_);
   }

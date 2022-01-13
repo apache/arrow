@@ -453,14 +453,37 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("map_batches", {
-  skip("map_batches() is broken (ARROW-14029)")
   ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # summarize returns arrow_dplyr_query, which gets collected into a tibble
   expect_equal(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ summarize(., min_int = min(int))),
+      map_batches(~ summarize(., min_int = min(int))) %>%
+      arrange(min_int),
     tibble(min_int = c(6L, 101L))
+  )
+
+  # $num_rows returns integer vector
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+      unlist() %>% # Returns list because .data.frame is FALSE
+      sort(),
+    c(5, 10)
+  )
+
+  # $Take returns RecordBatch, which gets binded into a tibble
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$Take(0)) %>%
+      arrange(int),
+    tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
   )
 })
 
@@ -578,9 +601,29 @@ test_that("Scanner$ScanBatches", {
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 
-  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
+
+  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste0(
+    "The function",
+    " 'UseAsync' is deprecated and will be removed in a future release."
+  ))
+  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste0(
+    "The function",
+    " 'UseAsync' is deprecated and will be removed in a future release."
+  ))
+
+  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste0(
+    "The",
+    " parameter 'use_async' is deprecated and will be removed in a future",
+    " release."
+  ))
+  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste0(
+    "The",
+    " parameter 'use_async' is deprecated and will be removed in a future",
+    " release."
+  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

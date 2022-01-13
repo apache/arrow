@@ -209,20 +209,19 @@ class DatasetWriterFileQueue : public util::AsyncDestroyable {
       std::shared_ptr<RecordBatch> batch;
     };
     // May want to prototype / measure someday pushing the async write down further
-    return DeferNotOk(
-        io::default_io_context().executor()->Submit(WriteTask{this, std::move(next)}));
+    return DeferNotOk(options_.filesystem->io_context().executor()->Submit(
+        WriteTask{this, std::move(next)}));
   }
 
-  Status DoFinish() {
+  Future<> DoFinish() {
     {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       RETURN_NOT_OK(options_.writer_pre_finish(writer_.get()));
     }
-    RETURN_NOT_OK(writer_->Finish());
-    {
+    return writer_->Finish().Then([this]() {
       std::lock_guard<std::mutex> lg(writer_state_->visitors_mutex);
       return options_.writer_post_finish(writer_.get());
-    }
+    });
   }
 
   const FileSystemDatasetWriteOptions& options_;
@@ -317,22 +316,25 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     auto file_queue = util::MakeSharedAsync<DatasetWriterFileQueue>(
         file_writer_fut, write_options_, writer_state_);
     RETURN_NOT_OK(task_group_.AddTask(file_queue->on_closed().Then(
-        [this] { writer_state_->open_files_throttle.Release(1); })));
+        [this] { writer_state_->open_files_throttle.Release(1); },
+        [this](const Status& err) {
+          writer_state_->open_files_throttle.Release(1);
+          return err;
+        })));
     return file_queue;
   }
 
   uint64_t rows_written() const { return rows_written_; }
 
   void PrepareDirectory() {
-    init_future_ =
-        DeferNotOk(write_options_.filesystem->io_context().executor()->Submit([this] {
-          RETURN_NOT_OK(write_options_.filesystem->CreateDir(directory_));
-          if (write_options_.existing_data_behavior ==
-              ExistingDataBehavior::kDeleteMatchingPartitions) {
-            return write_options_.filesystem->DeleteDirContents(directory_);
-          }
-          return Status::OK();
-        }));
+    init_future_ = DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
+        [this]() { return write_options_.filesystem->CreateDir(directory_); }));
+    if (write_options_.existing_data_behavior ==
+        ExistingDataBehavior::kDeleteMatchingPartitions) {
+      init_future_ = init_future_.Then([this]() {
+        return write_options_.filesystem->DeleteDirContentsAsync(directory_);
+      });
+    }
   }
 
   static Result<std::unique_ptr<DatasetWriterDirectoryQueue,

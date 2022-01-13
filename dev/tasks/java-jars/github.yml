@@ -80,7 +80,7 @@ jobs:
     runs-on: macos-latest
     needs: [build-cpp-macos, build-cpp-ubuntu]
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Linux C++ Libraries
         uses: actions/download-artifact@v2
         with:

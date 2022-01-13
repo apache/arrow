@@ -2039,6 +2039,16 @@ GList *
 garrow_struct_scalar_get_value(GArrowStructScalar *scalar)
 {
   auto priv = GARROW_STRUCT_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar =
+      std::static_pointer_cast<arrow::StructScalar>(
+        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    for (auto arrow_element : arrow_scalar->value) {
+      priv->value = g_list_prepend(priv->value,
+                                   garrow_scalar_new_raw(&arrow_element));
+    }
+    priv->value = g_list_reverse(priv->value);
+  }
   return priv->value;
 }
 

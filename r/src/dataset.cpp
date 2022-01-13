@@ -425,12 +425,6 @@ void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuild
 }
 
 // [[dataset::export]]
-void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb,
-                                        bool use_async) {
-  StopIfNotOk(sb->UseAsync(use_async));
-}
-
-// [[dataset::export]]
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                          int64_t batch_size) {
   StopIfNotOk(sb->BatchSize(batch_size));
@@ -495,20 +489,6 @@ std::shared_ptr<arrow::Table> dataset___Scanner__head(
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {
   return sc->options()->projected_schema;
-}
-
-// [[dataset::export]]
-cpp11::list dataset___ScanTask__get_batches(
-    const std::shared_ptr<ds::ScanTask>& scan_task) {
-  arrow::RecordBatchIterator rbi;
-  rbi = ValueOrStop(scan_task->Execute());
-  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  std::shared_ptr<arrow::RecordBatch> batch;
-  for (auto b : rbi) {
-    batch = ValueOrStop(b);
-    out.push_back(batch);
-  }
-  return arrow::r::to_r_list(out);
 }
 
 // [[dataset::export]]

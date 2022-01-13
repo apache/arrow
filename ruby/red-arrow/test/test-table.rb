@@ -922,4 +922,116 @@ visible: false
       TABLE
     end
   end
+
+  sub_test_case("#join") do
+    test("keys: String") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, "key"))
+    end
+
+    test("keys: Symbol") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, :key))
+    end
+
+    test("keys: [String, Symbol]") do
+      table1 = Arrow::Table.new(key1: [1, 1, 2, 2],
+                                key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(key1: [1, 2, 2],
+                                key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["key1", [1, 2]],
+                                      ["key2", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["key1", [1, 2]],
+                                      ["key2", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                   table1.join(table2, ["key1", :key2]))
+    end
+
+    test("keys: {left: String, right: Symbol}") do
+      table1 = Arrow::Table.new(left_key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(right_key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["left_key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["right_key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, {left: "left_key", right: :right_key}))
+    end
+
+    test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
+      table1 = Arrow::Table.new(left_key1: [1, 1, 2, 2],
+                                left_key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(right_key1: [1, 2, 2],
+                                right_key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["left_key1", [1, 2]],
+                                      ["left_key2", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["right_key1", [1, 2]],
+                                      ["right_key2", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                   table1.join(table2,
+                               {
+                                 left: ["left_key1", :left_key2],
+                                 right: [:right_key1, "right_key2"],
+                               }))
+    end
+
+    test("type:") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_outer))
+    end
+
+    test("left_outputs: & right_outputs:") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new(key: [1, 3],
+                                    number: [10, 30],
+                                    string: ["one", "three"]),
+                   table1.join(table2,
+                               "key",
+                               left_outputs: ["key", "number"],
+                               right_outputs: ["string"]))
+    end
+  end
 end

@@ -45,7 +45,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "arrow/compute/api_scalar.h"
 

@@ -38,6 +38,7 @@ CSV Files
    open_csv
    read_csv
    write_csv
+   InvalidRow
 
 .. _api.feather:
 

@@ -595,7 +595,7 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
 
@@ -608,12 +608,14 @@ cdef class RecordBatchReader(_Weakrefable):
         consumer, array memory will leak.  This is a low-level function
         intended for expert users.
         """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
         with nogil:
             check_status(ExportRecordBatchReader(
-                self.reader, <ArrowArrayStream*> out_ptr))
+                self.reader, <ArrowArrayStream*> c_ptr))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import RecordBatchReader from a C ArrowArrayStream struct,
         given its pointer.
@@ -626,12 +628,13 @@ cdef class RecordBatchReader(_Weakrefable):
         This is a low-level function intended for expert users.
         """
         cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
             shared_ptr[CRecordBatchReader] c_reader
             RecordBatchReader self
 
         with nogil:
             c_reader = GetResultValue(ImportRecordBatchReader(
-                <ArrowArrayStream*> in_ptr))
+                <ArrowArrayStream*> c_ptr))
 
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader

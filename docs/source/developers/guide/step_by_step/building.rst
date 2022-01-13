@@ -29,11 +29,11 @@
 .. documentation.
 
 
-.. _build-arrow:
+.. _build-arrow-guide:
 
-**********************************
+************************************
 Building the Arrow libraries 🏋🏿‍♀️
-**********************************
+************************************
 
 The Arrow project contains a number of libraries that enable
 work in many languages. Most libraries (C++, C#, Go, Java,
@@ -113,15 +113,8 @@ In general on Python side, the options are set with CMake flags and
 paths with environment variables. In R the environment variables are used
 for all things connected to the build, also for setting CMake flags.
 
-Building from source vs. using binaries
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Using binaries is a fast and simple way of working with the last release
-of Arrow. However, if you use these it means that you will be unable to
-make changes to the Arrow C++ library.
-
-**Note:** every language has its own way of dealing with binaries.
-To get more information navigate to the section of the language you are
-interested to find more information.
+Building other Arrow libraries
+==============================
 
 .. tabs::
 
@@ -145,9 +138,21 @@ interested to find more information.
          Follow the instructions to build PyArrow together with the C++ library
 
          - :ref:`build_pyarrow`
+
          Or
 
          - :ref:`build_pyarrow_win`
 
    .. tab:: Building the R package
 
+**Building from source vs. using binaries**
+
+Using binaries is a fast and simple way of working with the last release
+of Arrow. However, if you use these it means that you will be unable to
+make changes to the Arrow C++ library.
+
+.. note::
+
+   Every language has its own way of dealing with binaries.
+   To get more information navigate to the section of the language you are
+   interested to find more information.

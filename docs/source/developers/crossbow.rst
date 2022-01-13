@@ -125,7 +125,7 @@ to step 3:
    On Appveyor check the ``skip branches without appveyor.yml`` checkbox
    on the web UI under crossbow repository’s settings.
 
-7. Install Python (minimum supported version is 3.6):
+7. Install Python (minimum supported version is 3.7):
 
    Miniconda is preferred, see installation instructions:
    https://conda.io/docs/user-guide/install/index.html

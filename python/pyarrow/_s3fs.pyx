@@ -54,6 +54,36 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+def resolve_s3_region(bucket):
+    """
+    Resolve the S3 region of a bucket.
+
+    Parameters
+    ----------
+    bucket : str
+        A S3 bucket name
+
+    Returns
+    -------
+    region : str
+        A S3 region name
+
+    Examples
+    --------
+    >>> resolve_s3_region('ursa-labs-taxi-data')
+    'us-east-2'
+    """
+    cdef:
+        c_string c_bucket
+        c_string c_region
+
+    c_bucket = tobytes(bucket)
+    with nogil:
+        c_region = GetResultValue(ResolveS3BucketRegion(c_bucket))
+
+    return frombytes(c_region)
+
+
 cdef class S3FileSystem(FileSystem):
     """
     S3-backed FileSystem implementation

@@ -204,7 +204,7 @@ responsible for. Like:
 - ``cpp_build.sh``: build the C++ implementation without running the tests.
 - ``cpp_test.sh``: execute the C++ tests.
 - ``python_build.sh``: build the Python bindings without running the tests.
-- ``python_test.sh``: execute the python tests.
+- ``python_test.sh``: execute the Python tests.
 - ``docs_build.sh``: build the Sphinx documentation.
 - ``integration_dask.sh``: execute the dask integration tests.
 - ``integration_pandas.sh``: execute the pandas integration tests.

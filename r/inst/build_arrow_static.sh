@@ -47,12 +47,6 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
-# Snappy 1.1.9 is patched to implement https://github.com/google/snappy/pull/148 but some platforms don't have
-# patch available, so disable snappy in those cases. If the snappy version is bumped, we should remove this.
-if [ ! $(command -v patch) ]; then
-  ARROW_WITH_SNAPPY=OFF
-fi
-
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
@@ -62,7 +56,7 @@ ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
     -DARROW_COMPUTE=ON \
     -DARROW_CSV=ON \
     -DARROW_DATASET=${ARROW_DATASET:-ON} \
-    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-BUNDLED} \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
     -DAWSSDK_SOURCE=${AWSSDK_SOURCE:-} \
     -DARROW_FILESYSTEM=ON \
     -DARROW_JEMALLOC=${ARROW_JEMALLOC:-$ARROW_DEFAULT_PARAM} \

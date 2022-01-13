@@ -77,19 +77,5 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   fi
 fi
 
-# Install patch if it doesn't already exist
-if [ ! $(command -v patch) ]; then
-  if [ "`which dnf`" ]; then
-    dnf install -y patch
-  elif [ "`which yum`" ]; then
-    yum install -y patch
-  elif [ "`which zypper`" ]; then
-    zypper install -y patch
-  else
-    apt-get update
-    apt-get install -y patch
-  fi
-fi
-
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

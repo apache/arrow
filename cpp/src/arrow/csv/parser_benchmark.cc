@@ -88,6 +88,12 @@ static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const r
   state.SetBytesProcessed(state.iterations() * csv.length());
 }
 
+static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const reference
+                                 const Example& example, ParseOptions options) {
+  auto csv = BuildCSVData(example);
+  BenchmarkCSVChunking(state, csv, options);
+}
+
 static void ChunkCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
   auto csv = BuildCSVData(quoted_example);
   auto options = ParseOptions::Defaults();
@@ -120,6 +126,32 @@ static void ChunkCSVNoNewlinesBlock(
   // Provides better regression stability with timings rather than bogus
   // bandwidth.
   state.SetBytesProcessed(0);
+}
+
+static void ChunkCSVFlightsExample(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto options = ParseOptions::Defaults();
+  options.newlines_in_values = true;
+
+  BenchmarkCSVChunking(state, flights_example, options);
+}
+
+static void ChunkCSVVehiclesExample(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto options = ParseOptions::Defaults();
+  options.quoting = true;
+  options.escaping = false;
+  options.newlines_in_values = true;
+
+  BenchmarkCSVChunking(state, vehicles_example, options);
+}
+
+static void ChunkCSVStocksExample(
+    benchmark::State& state) {  // NOLINT non-const reference
+  auto options = ParseOptions::Defaults();
+  options.newlines_in_values = true;
+
+  BenchmarkCSVChunking(state, stocks_example, options);
 }
 
 static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const reference
@@ -194,6 +226,9 @@ static void ParseCSVStocksExample(
 BENCHMARK(ChunkCSVQuotedBlock);
 BENCHMARK(ChunkCSVEscapedBlock);
 BENCHMARK(ChunkCSVNoNewlinesBlock);
+BENCHMARK(ChunkCSVFlightsExample);
+BENCHMARK(ChunkCSVVehiclesExample);
+BENCHMARK(ChunkCSVStocksExample);
 
 BENCHMARK(ParseCSVQuotedBlock);
 BENCHMARK(ParseCSVEscapedBlock);

@@ -102,7 +102,7 @@ jobs:
           -e ARROW_PARQUET=OFF
           -e ARROW_S3=OFF
           -e CMAKE_UNITY_BUILD=ON
-          -e CPP_MAKE_PARALLELISM=2
+          -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED
@@ -154,7 +154,7 @@ jobs:
           -e ARROW_PYTHON=ON
           -e ARROW_S3=OFF
           -e CMAKE_UNITY_BUILD=ON
-          -e CPP_MAKE_PARALLELISM=2
+          -e CMAKE_BUILD_PARALLEL_LEVEL=2
           -e PARQUET_BUILD_EXAMPLES=OFF
           -e PARQUET_BUILD_EXECUTABLES=OFF
           -e Protobuf_SOURCE=BUNDLED

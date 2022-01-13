@@ -226,24 +226,15 @@ TEST_P(TestFeather, CategoryRoundtrip) {
 }
 
 TEST_P(TestFeather, TimeTypes) {
-  std::vector<bool> is_valid = {true, true, true, false, true, true, true};
   auto f0 = field("f0", date32());
   auto f1 = field("f1", time32(TimeUnit::MILLI));
   auto f2 = field("f2", timestamp(TimeUnit::NANO));
   auto f3 = field("f3", timestamp(TimeUnit::SECOND, "US/Los_Angeles"));
   auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::vector<int64_t> values64_vec = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> values64;
-  ArrayFromVector<Int64Type, int64_t>(is_valid, values64_vec, &values64);
-
-  std::vector<int32_t> values32_vec = {10, 11, 12, 13, 14, 15, 16};
-  std::shared_ptr<Array> values32;
-  ArrayFromVector<Int32Type, int32_t>(is_valid, values32_vec, &values32);
-
-  std::vector<int32_t> date_values_vec = {20, 21, 22, 23, 24, 25, 26};
-  std::shared_ptr<Array> date_array;
-  ArrayFromVector<Date32Type, int32_t>(is_valid, date_values_vec, &date_array);
+  auto values64 = ArrayFromJSON(int64(), "[0, 1, null, null, 4, 5, 6]");
+  auto values32 = ArrayFromJSON(int32(), "[10, null, 12, 13, 14, 15, null]");
+  auto date_array = ArrayFromJSON(date32(), "[20, 21, 22, 23, 24, null, 26]");
 
   const auto& prim_values64 = checked_cast<const PrimitiveArray&>(*values64);
   BufferVector buffers64 = {prim_values64.null_bitmap(), prim_values64.values()};

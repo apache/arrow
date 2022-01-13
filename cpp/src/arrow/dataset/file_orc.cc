@@ -24,8 +24,10 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
@@ -57,13 +59,13 @@ Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
 }
 
 /// \brief A ScanTask backed by an ORC file.
-class OrcScanTask : public ScanTask {
+class OrcScanTask {
  public:
   OrcScanTask(std::shared_ptr<FileFragment> fragment,
               std::shared_ptr<ScanOptions> options)
-      : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
+      : fragment_(std::move(fragment)), options_(std::move(options)) {}
 
-  Result<RecordBatchIterator> Execute() override {
+  Result<RecordBatchIterator> Execute() {
     struct Impl {
       static Result<RecordBatchIterator> Make(const FileSource& source,
                                               const FileFormat& format,
@@ -105,29 +107,32 @@ class OrcScanTask : public ScanTask {
       std::vector<std::string> included_fields_;
     };
 
-    return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
+    return Impl::Make(fragment_->source(),
+                      *checked_pointer_cast<FileFragment>(fragment_)->format(),
                       *options_);
   }
 
  private:
-  FileSource source_;
+  std::shared_ptr<FileFragment> fragment_;
+  std::shared_ptr<ScanOptions> options_;
 };
 
 class OrcScanTaskIterator {
  public:
-  static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
-                                       std::shared_ptr<FileFragment> fragment) {
-    return ScanTaskIterator(OrcScanTaskIterator(std::move(options), std::move(fragment)));
+  static Result<Iterator<std::shared_ptr<OrcScanTask>>> Make(
+      std::shared_ptr<ScanOptions> options, std::shared_ptr<FileFragment> fragment) {
+    return Iterator<std::shared_ptr<OrcScanTask>>(
+        OrcScanTaskIterator(std::move(options), std::move(fragment)));
   }
 
-  Result<std::shared_ptr<ScanTask>> Next() {
+  Result<std::shared_ptr<OrcScanTask>> Next() {
     if (once_) {
       // Iteration is done.
       return nullptr;
     }
 
     once_ = true;
-    return std::shared_ptr<ScanTask>(new OrcScanTask(fragment_, options_));
+    return std::make_shared<OrcScanTask>(fragment_, options_);
   }
 
  private:
@@ -152,10 +157,48 @@ Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source)
   return reader->ReadSchema();
 }
 
-Result<ScanTaskIterator> OrcFileFormat::ScanFile(
+Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  return OrcScanTaskIterator::Make(options, fragment);
+    const std::shared_ptr<FileFragment>& file) const {
+  // TODO investigate "true" async version
+  // (https://issues.apache.org/jira/browse/ARROW-13795)
+  ARROW_ASSIGN_OR_RAISE(auto task_iter, OrcScanTaskIterator::Make(options, file));
+  struct IterState {
+    Iterator<std::shared_ptr<OrcScanTask>> iter;
+    RecordBatchIterator curr_iter;
+    bool first;
+    ::arrow::internal::Executor* io_executor;
+  };
+  struct {
+    Future<std::shared_ptr<RecordBatch>> operator()() {
+      auto state = state_;
+      return ::arrow::DeferNotOk(
+          state->io_executor->Submit([state]() -> Result<std::shared_ptr<RecordBatch>> {
+            if (state->first) {
+              ARROW_ASSIGN_OR_RAISE(auto task, state->iter.Next());
+              ARROW_ASSIGN_OR_RAISE(state->curr_iter, task->Execute());
+              state->first = false;
+            }
+            while (!IsIterationEnd(state->curr_iter)) {
+              ARROW_ASSIGN_OR_RAISE(auto next_batch, state->curr_iter.Next());
+              if (IsIterationEnd(next_batch)) {
+                ARROW_ASSIGN_OR_RAISE(auto task, state->iter.Next());
+                if (IsIterationEnd(task)) {
+                  state->curr_iter = IterationEnd<RecordBatchIterator>();
+                } else {
+                  ARROW_ASSIGN_OR_RAISE(state->curr_iter, task->Execute());
+                }
+              } else {
+                return next_batch;
+              }
+            }
+            return IterationEnd<std::shared_ptr<RecordBatch>>();
+          }));
+    }
+    std::shared_ptr<IterState> state_;
+  } iter_to_gen{std::shared_ptr<IterState>(
+      new IterState{std::move(task_iter), {}, true, options->io_context.executor()})};
+  return iter_to_gen;
 }
 
 Future<util::optional<int64_t>> OrcFileFormat::CountRows(

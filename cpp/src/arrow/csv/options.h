@@ -179,7 +179,7 @@ enum class ARROW_EXPORT QuotingStyle {
   /// interpret all values as strings if schema is inferred.
   AllValid,
   /// Do not enclose any values in quotes. Prevents values from containing quotes ("),
-  /// cell delimiters (,) or line endings (\r, \n), (following RFC4180). If values
+  /// cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
   /// contain these characters, an error is caused when attempting to write.
   None
 };

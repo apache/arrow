@@ -21,6 +21,7 @@
 #include <mutex>
 #include <vector>
 
+#include "arrow/array/builder_primitive.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/test_util.h"

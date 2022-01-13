@@ -336,15 +336,17 @@ cdef class FileSystem(_Weakrefable):
         the FileSystem instance.
         """
         cdef:
-            c_string path
+            c_string c_path
+            c_string c_uri
             CResult[shared_ptr[CFileSystem]] result
 
         if isinstance(uri, pathlib.Path):
             # Make absolute
             uri = uri.resolve().absolute()
-        uri = _stringify_path(uri)
-        result = CFileSystemFromUriOrPath(tobytes(uri), &path)
-        return FileSystem.wrap(GetResultValue(result)), frombytes(path)
+        c_uri = tobytes(_stringify_path(uri))
+        with nogil:
+            result = CFileSystemFromUriOrPath(c_uri, &c_path)
+        return FileSystem.wrap(GetResultValue(result)), frombytes(c_path)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped

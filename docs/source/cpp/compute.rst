@@ -98,6 +98,9 @@ exact semantics of the function::
    min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
    max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
+However, :ref:`Grouped Aggregations <grouped-aggregations-group-by>` are
+not invocable via ``CallFunction``.
+
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
@@ -265,6 +268,8 @@ the input to a single output value.
   <https://github.com/tdunning/t-digest>`_ for details.
 
   Decimal arguments are cast to Float64 first.
+
+.. _grouped-aggregations-group-by:
 
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1247,15 +1252,21 @@ number of input and output types.  The type to cast to can be passed in a
 :struct:`CastOptions` instance.  As an alternative, the same service is
 provided by a concrete function :func:`~arrow::compute::Cast`.
 
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| Function name   | Arity      | Input types        | Output type      | Options class                | Notes |
-+=================+============+====================+==================+==============================+=======+
-| cast            | Unary      | Many               | Variable         | :struct:`CastOptions`        |       |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`    | \(1)  |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
-| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`    |       |
-+-----------------+------------+--------------------+------------------+------------------------------+-------+
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| Function name   | Arity      | Input types        | Output type      | Options class                  | Notes |
++=================+============+====================+==================+================================+=======+
+| ceil_temporal   | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| floor_temporal  | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| round_temporal  | Unary      | Temporal           | Temporal         | :struct:`RoundTemporalOptions` |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| cast            | Unary      | Many               | Variable         | :struct:`CastOptions`          |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
 null input value is converted into a null output value.
@@ -1388,13 +1399,15 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | second             | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
-| subsecond          | Unary      | Timestamp, Time   | Double        |                            |       |
+| subsecond          | Unary      | Timestamp, Time   | Float64       |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | us_week            | Unary      | Temporal          | Int64         |                            | \(4)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(5)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | year               | Unary      | Temporal          | Int64         |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| year_month_day     | Unary      | Temporal          | Struct        |                            | \(6)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 
 * \(1) Outputs the number of the day of the week. By default week begins on Monday
@@ -1418,6 +1431,8 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
   of the previous year are numbered as week 0, else week 52 or 53 if false.
   If :member:`WeekOptions::first_week_is_fully_in_year` is true, the first week (week 1) must fully be in January;
   else if false, a week that begins on December 29, 30, or 31 is considered the first week of the new year.
+
+* \(6) Output is a ``{"year": int64(), "month": int64(), "day": int64()}`` Struct.
 
 .. _ISO 8601 week date definition: https://en.wikipedia.org/wiki/ISO_week_date#First_week
 
@@ -1489,6 +1504,21 @@ An error is returned if the timestamps already have the timezone metadata set.
   allows choosing the behaviour when a timestamp is ambiguous or nonexistent
   in the given timezone (because of DST shifts).
 
+Random number generation
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates an array of uniformly-distributed double-precision numbers
+in range [0, 1). The options provide the length of the output and the algorithm for
+generating the random numbers, using either a seed or a system-provided, platform-specific
+random generator.
+
++--------------------+------------+---------------+-------------------------+
+| Function name      | Arity      | Output type   | Options class           |
++====================+============+===============+=========================+
+| random             | Nullary    | Float64       | :struct:`RandomOptions` |
++--------------------+------------+---------------+-------------------------+
+
+
 Array-wise ("vector") functions
 -------------------------------
 
@@ -1549,6 +1579,17 @@ These functions select and return a subset of their input.
 * \(4) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
 
+Containment tests
+~~~~~~~~~~~~~~~~~
+
+This function returns the indices at which array elements are non-null and non-zero.
+
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+| Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
++=======================+=======+===================================+================+=================================+=======+
+| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
++-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
+
 Sorts and partitions
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -1605,7 +1646,7 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int32 or Int64   |                              | \(3)   |
+| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
@@ -1619,8 +1660,7 @@ Structural transforms
 
 * \(3) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
-  LargeList.
+  are discarded.
 
 * \(4) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
@@ -1651,10 +1691,15 @@ replaced, based on the remaining inputs.
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 | Function name            | Arity      | Input type 1          | Input type 2 | Input type 3 | Output type  | Notes |
 +==========================+============+=======================+==============+==============+==============+=======+
-| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(1)  |
+| fill_null_backward       | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| fill_null_forward        | Unary      | Fixed-width or binary | N/A          | N/A          | N/A          | \(1)  |
++--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
+| replace_with_mask        | Ternary    | Fixed-width or binary | Boolean      | Input type 1 | Input type 1 | \(2)  |
 +--------------------------+------------+-----------------------+--------------+--------------+--------------+-------+
 
-* \(1) Each element in input 1 for which the corresponding Boolean in input 2
+* \(1) Valid values are carried forward/backward to fill null values.
+* \(2) Each element in input 1 for which the corresponding Boolean in input 2
   is true is replaced with the next value from input 3. A null in input 2
   results in a corresponding null in the output.
 

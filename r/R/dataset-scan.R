@@ -33,8 +33,8 @@
 #' * `filter`: A `Expression` to filter the scanned rows by, or `TRUE` (default)
 #'    to keep all rows.
 #' * `use_threads`: logical: should scanning use multithreading? Default `TRUE`
-#' * `use_async`: logical: should the async scanner (performs better on
-#'    high-latency/highly parallel filesystems like S3) be used? Default `FALSE`
+#' * `use_async`: logical: deprecated, this field no longer has any effect on
+#'    behavior.
 #' * `...`: Additional arguments, currently ignored
 #' @section Methods:
 #' `ScannerBuilder` has the following methods:
@@ -45,7 +45,7 @@
 #' - `$UseThreads(threads)`: logical: should the scan use multithreading?
 #' The method's default input is `TRUE`, but you must call the method to enable
 #' multithreading because the scanner default is `FALSE`.
-#' - `$UseAsync(use_async)`: logical: should the async scanner be used?
+#' - `$UseAsync(use_async)`: logical: deprecated, has no effect
 #' - `$BatchSize(batch_size)`: integer: Maximum row count of scanned record
 #' batches, default is 32K. If scanned record batches are overflowing memory
 #' then this method can be called to reduce their size.
@@ -73,10 +73,17 @@ Scanner$create <- function(dataset,
                            projection = NULL,
                            filter = TRUE,
                            use_threads = option_use_threads(),
-                           use_async = getOption("arrow.use_async", FALSE),
+                           use_async = NULL,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
+  if (!is.null(use_async)) {
+    .Deprecated(msg = paste0(
+      "The parameter 'use_async' is deprecated ",
+      "and will be removed in a future release."
+    ))
+  }
+
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (is_collapsed(dataset)) {
       # TODO: Is there a way to get a RecordBatchReader rather than evaluating?
@@ -107,7 +114,6 @@ Scanner$create <- function(dataset,
       proj,
       dataset$filtered_rows,
       use_threads,
-      use_async,
       batch_size,
       fragment_scan_options,
       ...
@@ -117,9 +123,6 @@ Scanner$create <- function(dataset,
   scanner_builder <- ScannerBuilder$create(dataset)
   if (use_threads) {
     scanner_builder$UseThreads()
-  }
-  if (use_async) {
-    scanner_builder$UseAsync()
   }
   if (!is.null(projection)) {
     scanner_builder$Project(projection)
@@ -159,13 +162,6 @@ tail.Scanner <- function(x, n = 6L, ...) {
   Table$create(!!!rev(result))
 }
 
-ScanTask <- R6Class("ScanTask",
-  inherit = ArrowObject,
-  public = list(
-    Execute = function() dataset___ScanTask__get_batches(self)
-  )
-)
-
 #' Apply a function to a stream of RecordBatches
 #'
 #' As an alternative to calling `collect()` on a `Dataset` query, you can
@@ -185,17 +181,36 @@ ScanTask <- R6Class("ScanTask",
 #' `data.frame`? Default `TRUE`
 #' @export
 map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
-  if (.data.frame) {
-    lapply <- map_dfr
-  }
-  scanner <- Scanner$create(ensure_group_vars(X))
+  # TODO: ARROW-15271 possibly refactor do_exec_plan to return a RecordBatchReader
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(X)
+  reader <- plan$Run(final_node)
   FUN <- as_mapper(FUN)
-  lapply(scanner$ScanBatches(), function(batch) {
-    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
-    # X$temp_columns, and X$group_by_vars
-    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-    FUN(batch, ...)
-  })
+
+  # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+  # X$temp_columns, and X$group_by_vars
+  # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+  batch <- reader$read_next_batch()
+  res <- vector("list", 1024)
+  i <- 0L
+  while (!is.null(batch)) {
+    i <- i + 1L
+    res[[i]] <- FUN(batch, ...)
+    batch <- reader$read_next_batch()
+  }
+
+  # Trim list back
+  if (i < length(res)) {
+    res <- res[seq_len(i)]
+  }
+
+  if (.data.frame & inherits(res[[1]], "arrow_dplyr_query")) {
+    res <- dplyr::bind_rows(map(res, collect))
+  } else if (.data.frame) {
+    res <- dplyr::bind_rows(map(res, as.data.frame))
+  }
+
+  res
 }
 
 #' @usage NULL
@@ -228,7 +243,10 @@ ScannerBuilder <- R6Class("ScannerBuilder",
       self
     },
     UseAsync = function(use_async = TRUE) {
-      dataset___ScannerBuilder__UseAsync(self, use_async)
+      .Deprecated(msg = paste0(
+        "The function 'UseAsync' is deprecated and ",
+        "will be removed in a future release."
+      ))
       self
     },
     BatchSize = function(batch_size) {

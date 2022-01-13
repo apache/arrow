@@ -26,6 +26,20 @@
 
 namespace gandiva {
 
+TEST(TestGdvFnStubs, TestCrc32) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "ABC", 3), 2743272264);
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "Hello", 5), 4157704578);
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "hive", 4), 3698179064);
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "372189372123", 12), 2607335846);
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "", 0), 0);
+
+  EXPECT_EQ(gdv_fn_crc_32_utf8(ctx_ptr, "-5", -5), 0);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Input length can't be negative"));
+  ctx.Reset();
+}
+
 TEST(TestGdvFnStubs, TestCastVarbinaryNumeric) {
   gandiva::ExecutionContext ctx;
 

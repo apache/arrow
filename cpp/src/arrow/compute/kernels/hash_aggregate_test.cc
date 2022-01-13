@@ -42,7 +42,6 @@
 #include "arrow/compute/registry.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"

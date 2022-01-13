@@ -96,17 +96,12 @@ library. Source folder includes:
 - **C++ documentation** section: ``docs/source/cpp``.
 - **Development** section: ``docs/source/developers``.
 - **Specificatons and protocols** section: ``docs/source/format``.
-- Other language documentation: **C (GLib), Java, JavaScript** and **Python**
+- **Language documentation**
+
+  **C (GLib), Java, JavaScript** and **Python** documentation is located
   in folders named by the language, for example: ``docs/source/c_glib``.
-- The documentation for the **R language** is located in the ``r/`` sub-directory.
 
-  - In the ``R/vignettes`` you can find the **Articles**, for example
-    `Working with Cloud Storage (S3) <https://arrow.apache.org/docs/r/articles/fs.html>`_.
-  - In the ``r/R`` you can edit reference documentation for example 
-    in the ``r/R/dataset.R`` you can find the docstrings for the
-    `open_dataset <https://arrow.apache.org/docs/r/reference/open_dataset.html>`_.
-
-- **Reference documentation**
+  **Reference documentation**
 
   To edit `API reference documentation for Python <https://arrow.apache.org/docs/python/api.html>`_,
   you will need to edit the docstrings of the functions and methods located in
@@ -115,6 +110,18 @@ library. Source folder includes:
   you will need to edit ``docstrings`` in `arrow/pyarrow/array.pxi <https://github.com/apache/arrow/blob/bc223c688add2f4f06be0c3569192178f1ca1091/python/pyarrow/array.pxi#L790-L796>`_.
 
   It is similar for C++.
+
+- The documentation for the **arrow R package** (which is published on
+  the pkgdown site at ``arrow.apache.org/docs/r/)`` is located within
+  the ``r/`` subdirectory.
+
+  .. seealso::
+
+     To read more about documentation in R please visit:
+
+     - `Object documentation from the R packages book <https://r-pkgs.org/man.html>`_
+     - `roxygen2 <https://roxygen2.r-lib.org/>`_
+     - `pkgdown <https://pkgdown.r-lib.org/>`_
 
 **Cookbooks** have their own repository `<https://github.com/apache/arrow-cookbook>`_
 and can be separately cloned and built.

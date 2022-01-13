@@ -35,7 +35,8 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/optional.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
+#include "arrow/visitor.h"
 
 namespace arrow {
 
@@ -1324,7 +1325,7 @@ const FunctionDoc select_k_unstable_doc(
      "Null values are considered greater than any other value and are\n"
      "therefore ordered at the end. For floating-point types, NaNs are considered\n"
      "greater than any other non-null value, but smaller than null values."),
-    {"input"}, "SelectKOptions");
+    {"input"}, "SelectKOptions", /*options_required=*/true);
 
 Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
     std::shared_ptr<DataType> out_type, int64_t length, MemoryPool* memory_pool) {
@@ -1916,6 +1917,14 @@ class SelectKUnstableMetaFunction : public MetaFunction {
 };
 
 }  // namespace
+
+Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+                        const ChunkedArray& values, SortOrder sort_order,
+                        NullPlacement null_placement) {
+  ChunkedArraySorter sorter{ctx,    indices_begin, indices_end,
+                            values, sort_order,    null_placement};
+  return sorter.Sort();
+}
 
 void RegisterVectorSort(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<SortIndicesMetaFunction>()));

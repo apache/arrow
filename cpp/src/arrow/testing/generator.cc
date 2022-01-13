@@ -26,9 +26,12 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/builder.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 
@@ -93,6 +96,75 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Float64(int64_t size,
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::String(int64_t size,
                                                              std::string value) {
   return ConstantArray<StringType>(size, value);
+}
+
+std::shared_ptr<arrow::Array> ConstantArrayGenerator::Zeroes(
+    int64_t size, const std::shared_ptr<DataType>& type) {
+  switch (type->id()) {
+    case Type::NA:
+      return std::make_shared<NullArray>(size);
+    case Type::BOOL:
+      return Boolean(size);
+    case Type::UINT8:
+      return UInt8(size);
+    case Type::INT8:
+      return Int8(size);
+    case Type::UINT16:
+      return UInt16(size);
+    case Type::INT16:
+      return Int16(size);
+    case Type::UINT32:
+      return UInt32(size);
+    case Type::INT32:
+      return Int32(size);
+    case Type::UINT64:
+      return UInt64(size);
+    case Type::INT64:
+      return Int64(size);
+    case Type::TIME64:
+    case Type::DATE64:
+    case Type::TIMESTAMP: {
+      EXPECT_OK_AND_ASSIGN(auto viewed, Int64(size)->View(type));
+      return viewed;
+    }
+    case Type::INTERVAL_DAY_TIME:
+    case Type::INTERVAL_MONTHS:
+    case Type::TIME32:
+    case Type::DATE32: {
+      EXPECT_OK_AND_ASSIGN(auto viewed, Int32(size)->View(type));
+      return viewed;
+    }
+    case Type::FLOAT:
+      return Float32(size);
+    case Type::DOUBLE:
+      return Float64(size);
+    case Type::STRING:
+      return String(size);
+    default:
+      return nullptr;
+  }
+}
+
+std::shared_ptr<RecordBatch> ConstantArrayGenerator::Zeroes(
+    int64_t size, const std::shared_ptr<Schema>& schema) {
+  std::vector<std::shared_ptr<Array>> arrays;
+
+  for (const auto& field : schema->fields()) {
+    arrays.emplace_back(Zeroes(size, field->type()));
+  }
+
+  return RecordBatch::Make(schema, size, arrays);
+}
+
+std::shared_ptr<RecordBatchReader> ConstantArrayGenerator::Repeat(
+    int64_t n_batch, const std::shared_ptr<RecordBatch> batch) {
+  std::vector<std::shared_ptr<RecordBatch>> batches(static_cast<size_t>(n_batch), batch);
+  return *RecordBatchReader::Make(batches);
+}
+
+std::shared_ptr<RecordBatchReader> ConstantArrayGenerator::Zeroes(
+    int64_t n_batch, int64_t batch_size, const std::shared_ptr<Schema>& schema) {
+  return Repeat(n_batch, Zeroes(batch_size, schema));
 }
 
 Result<std::shared_ptr<Array>> ScalarVectorToArray(const ScalarVector& scalars) {

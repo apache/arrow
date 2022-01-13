@@ -281,10 +281,6 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
 })
 
 test_that("median passes ... args to quantile", {
-  skip_if(
-    !"..." %in% names(formals(median)),
-    "The median generic lacks dots in R 3.3.0 and earlier"
-  )
   expect_equal(
     median(Array$create(c(1, 2)), interpolation = "higher"),
     Scalar$create(2)

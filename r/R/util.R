@@ -113,8 +113,9 @@ read_compressed_error <- function(e) {
       msg,
       "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
       "\nSet one of these environment variables before installing:",
-      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
-      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") ",
+      sprintf("(for all optional features, including '%s')", compression),
+      sprintf("\n * Sys.setenv(ARROW_WITH_%s = \"ON\") (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
   }

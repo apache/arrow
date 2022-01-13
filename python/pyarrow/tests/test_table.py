@@ -433,10 +433,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -796,10 +793,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     columns = []
     for col in table.itercolumns():
@@ -1477,6 +1471,98 @@ def test_table_from_pydict_schema(data, klass):
     assert table.num_columns == 1
     assert table.schema == schema
     assert table.column_names == ['strs']
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_from_pylist(cls):
+    table = cls.from_pylist([])
+    assert table.num_columns == 0
+    assert table.num_rows == 0
+    assert table.schema == pa.schema([])
+    assert table.to_pylist() == []
+
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+
+    # With lists as values
+    data = [{'strs': '', 'floats': 4.5},
+            {'strs': 'foo', 'floats': 5},
+            {'strs': 'bar', 'floats': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+    assert table.to_pylist() == data
+
+    # With metadata and inferred schema
+    metadata = {b'foo': b'bar'}
+    schema = schema.with_metadata(metadata)
+    table = cls.from_pylist(data, metadata=metadata)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # With explicit schema
+    table = cls.from_pylist(data, schema=schema)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # Cannot pass both schema and metadata
+    with pytest.raises(ValueError):
+        cls.from_pylist(data, schema=schema, metadata=metadata)
+
+    # Non-convertible values given schema
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'c0': 0}, {'c0': 1}, {'c0': 2}],
+                        schema=pa.schema([("c0", pa.string())]))
+
+    # Missing schema fields in the passed mapping translate to None
+    schema = pa.schema([('a', pa.int64()),
+                        ('c', pa.int32()),
+                        ('d', pa.int16())
+                        ])
+    table = cls.from_pylist(
+        [{'a': 1, 'b': 3}, {'a': 2, 'b': 4}, {'a': 3, 'b': 5}],
+        schema=schema
+    )
+    data = [{'a': 1, 'c': None, 'd': None},
+            {'a': 2, 'c': None, 'd': None},
+            {'a': 3, 'c': None, 'd': None}]
+    assert table.schema == schema
+    assert table.to_pylist() == data
+
+    # Passed wrong schema type
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'a': 1}, {'a': 2}, {'a': 3}], schema={})
+
+    # If the dictionaries of rows are not same length
+    data = [{'strs': '', 'floats': 4.5},
+            {'floats': 5},
+            {'strs': 'bar'}]
+    data2 = [{'strs': '', 'floats': 4.5},
+             {'strs': None, 'floats': 5},
+             {'strs': 'bar', 'floats': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.to_pylist() == data2
+
+    data = [{'strs': ''},
+            {'strs': 'foo', 'floats': 5},
+            {'floats': None}]
+    data2 = [{'strs': ''},
+             {'strs': 'foo'},
+             {'strs': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 1
+    assert table.num_rows == 3
+    assert table.to_pylist() == data2
 
 
 @pytest.mark.pandas

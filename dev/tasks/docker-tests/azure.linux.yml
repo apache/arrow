@@ -38,7 +38,7 @@ jobs:
 
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.6'
+      versionSpec: '3.8'
 
   - script: |
       git clone --no-checkout {{ arrow.remote }} arrow

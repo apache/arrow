@@ -251,28 +251,21 @@ _serialization_deprecatd = {
     "SerializedPyObject": _SerializedPyObject,
 }
 
-if _sys.version_info >= (3, 7):
-    def __getattr__(name):
-        if name in _deprecated:
-            obj, new_name = _deprecated[name]
-            _warnings.warn(_msg.format(name, new_name),
-                           FutureWarning, stacklevel=2)
-            return obj
-        elif name in _serialization_deprecatd:
-            _warnings.warn(_serialization_msg.format(name),
-                           FutureWarning, stacklevel=2)
-            return _serialization_deprecatd[name]
 
-        raise AttributeError(
-            "module 'pyarrow' has no attribute '{0}'".format(name)
-        )
-else:
-    localfs = _localfs
-    FileSystem = _FileSystem
-    LocalFileSystem = _LocalFileSystem
-    HadoopFileSystem = _HadoopFileSystem
-    SerializationContext = _SerializationContext
-    SerializedPyObject = _SerializedPyObject
+def __getattr__(name):
+    if name in _deprecated:
+        obj, new_name = _deprecated[name]
+        _warnings.warn(_msg.format(name, new_name),
+                       FutureWarning, stacklevel=2)
+        return obj
+    elif name in _serialization_deprecatd:
+        _warnings.warn(_serialization_msg.format(name),
+                       FutureWarning, stacklevel=2)
+        return _serialization_deprecatd[name]
+
+    raise AttributeError(
+        "module 'pyarrow' has no attribute '{0}'".format(name)
+    )
 
 
 # Entry point for starting the plasma store

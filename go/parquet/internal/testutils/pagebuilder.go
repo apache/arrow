@@ -188,9 +188,9 @@ func MakeDataPage(dataPageVersion parquet.DataPageVersion, d *schema.Column, val
 
 	buf := stream.Finish()
 	if dataPageVersion == parquet.DataPageV1 {
-		return file.NewDataPageV1(buf, int32(num), e, builder.defLvlEncoding, builder.repLvlEncoding, int64(buf.Len()))
+		return file.NewDataPageV1(buf, int32(num), e, builder.defLvlEncoding, builder.repLvlEncoding, int32(buf.Len()))
 	}
-	return file.NewDataPageV2(buf, int32(num), 0, int32(num), e, int32(builder.defLvlBytesLen), int32(builder.repLvlBytesLen), int64(buf.Len()), false)
+	return file.NewDataPageV2(buf, int32(num), 0, int32(num), e, int32(builder.defLvlBytesLen), int32(builder.repLvlBytesLen), int32(buf.Len()), false)
 }
 
 func MakeDictPage(d *schema.Column, values interface{}, valuesPerPage []int, e parquet.Encoding) (*file.DictionaryPage, []encoding.Buffer) {

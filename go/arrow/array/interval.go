@@ -30,16 +30,16 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func NewIntervalData(data *Data) Interface {
-	switch data.dtype.(type) {
+func NewIntervalData(data arrow.ArrayData) Interface {
+	switch data.DataType().(type) {
 	case *arrow.MonthIntervalType:
-		return NewMonthIntervalData(data)
+		return NewMonthIntervalData(data.(*Data))
 	case *arrow.DayTimeIntervalType:
-		return NewDayTimeIntervalData(data)
+		return NewDayTimeIntervalData(data.(*Data))
 	case *arrow.MonthDayNanoIntervalType:
-		return NewMonthDayNanoIntervalData(data)
+		return NewMonthDayNanoIntervalData(data.(*Data))
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.dtype))
+		panic(xerrors.Errorf("arrow/array: unknown interval data type %T", data.DataType()))
 	}
 }
 
@@ -49,10 +49,10 @@ type MonthInterval struct {
 	values []arrow.MonthInterval
 }
 
-func NewMonthIntervalData(data *Data) *MonthInterval {
+func NewMonthIntervalData(data arrow.ArrayData) *MonthInterval {
 	a := &MonthInterval{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -231,7 +231,7 @@ func (b *MonthIntervalBuilder) Resize(n int) {
 
 // NewArray creates a MonthInterval array from the memory buffers used by the builder and resets the MonthIntervalBuilder
 // so it can be used to build a new array.
-func (b *MonthIntervalBuilder) NewArray() Interface {
+func (b *MonthIntervalBuilder) NewArray() arrow.Array {
 	return b.NewMonthIntervalArray()
 }
 
@@ -308,10 +308,10 @@ type DayTimeInterval struct {
 	values []arrow.DayTimeInterval
 }
 
-func NewDayTimeIntervalData(data *Data) *DayTimeInterval {
+func NewDayTimeIntervalData(data arrow.ArrayData) *DayTimeInterval {
 	a := &DayTimeInterval{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -488,7 +488,7 @@ func (b *DayTimeIntervalBuilder) Resize(n int) {
 
 // NewArray creates a DayTimeInterval array from the memory buffers used by the builder and resets the DayTimeIntervalBuilder
 // so it can be used to build a new array.
-func (b *DayTimeIntervalBuilder) NewArray() Interface {
+func (b *DayTimeIntervalBuilder) NewArray() arrow.Array {
 	return b.NewDayTimeIntervalArray()
 }
 
@@ -564,10 +564,10 @@ type MonthDayNanoInterval struct {
 	values []arrow.MonthDayNanoInterval
 }
 
-func NewMonthDayNanoIntervalData(data *Data) *MonthDayNanoInterval {
+func NewMonthDayNanoIntervalData(data arrow.ArrayData) *MonthDayNanoInterval {
 	a := &MonthDayNanoInterval{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -746,7 +746,7 @@ func (b *MonthDayNanoIntervalBuilder) Resize(n int) {
 
 // NewArray creates a MonthDayNanoInterval array from the memory buffers used by the builder and resets the MonthDayNanoIntervalBuilder
 // so it can be used to build a new array.
-func (b *MonthDayNanoIntervalBuilder) NewArray() Interface {
+func (b *MonthDayNanoIntervalBuilder) NewArray() arrow.Array {
 	return b.NewMonthDayNanoIntervalArray()
 }
 

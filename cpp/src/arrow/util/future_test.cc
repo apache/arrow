@@ -23,6 +23,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <ostream>
 #include <random>
 #include <string>

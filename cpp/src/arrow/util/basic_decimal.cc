@@ -28,6 +28,7 @@
 #include <string>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/config.h"  // for ARROW_USE_NATIVE_INT128
 #include "arrow/util/endian.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/int_util_internal.h"

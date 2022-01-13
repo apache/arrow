@@ -26,6 +26,10 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"

@@ -370,7 +370,7 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
-cdef class MapArray(Array):
+cdef class MapArray(ListArray):
     pass
 
 
