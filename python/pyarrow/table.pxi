@@ -2753,7 +2753,8 @@ cdef class Table(_PandasConvertible):
         if preview_cols:
             pieces.append('----')
             for i in range(min(self.num_columns, preview_cols)):
-                col_string = self.column(i).to_string(indent=0, skip_new_lines=True)
+                col_string = self.column(i).to_string(
+                    indent=0, skip_new_lines=True)
                 if len(col_string) > cols_char_limit:
                     col_string = col_string[:(cols_char_limit - 3)] + '...'
                 pieces.append('{}: {}'.format(self.field(i).name, col_string))
