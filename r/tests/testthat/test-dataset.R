@@ -467,6 +467,23 @@ test_that("Including partition columns in schema, hive style", {
   expect_equal(ds2$schema, expected_schema)
 })
 
+test_that("Including partition columns in schema and partitioning, hive style CSV (ARROW-14743)", {
+  mtcars_dir <- tempfile()
+  on.exit(unlink(mtcars_dir))
+
+  tab <- Table$create(mtcars)
+  # Writing is hive-style by default
+  write_dataset(tab, mtcars_dir, format = "csv", partitioning = "cyl")
+
+  mtcars_ds <- open_dataset(
+    mtcars_dir,
+    schema = tab$schema,
+    format = "csv",
+    partitioning = "cyl"
+  )
+  expect_equal(mtcars_ds$schema, tab$schema)
+})
+
 test_that("partitioning = NULL to ignore partition information (but why?)", {
   ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
