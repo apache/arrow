@@ -352,6 +352,7 @@ func (f *FileWriter) Write(rec arrow.Record) error {
 		return xerrors.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}
 
+	enc.reset()
 	if err := enc.Encode(&data, rec); err != nil {
 		return fmt.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}

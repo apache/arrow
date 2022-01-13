@@ -520,6 +520,14 @@ func typeFromFB(field *flatbuf.Field, pos dictutils.FieldPos, children []arrow.F
 		dictValueType = dt
 		dt = &arrow.DictionaryType{IndexType: idxType, ValueType: dictValueType, Ordered: encoding.IsOrdered()}
 		dictID = encoding.Id()
+
+		if err = memo.Mapper.AddField(dictID, pos.Path()); err != nil {
+			return dt, err
+		}
+		if err = memo.AddType(dictID, dictValueType); err != nil {
+			return dt, err
+		}
+
 	}
 
 	// look for extension metadata in custom metadata field.
@@ -570,13 +578,6 @@ func typeFromFB(field *flatbuf.Field, pos dictutils.FieldPos, children []arrow.F
 			}
 			*md = arrow.NewMetadata(newkeys, newvals)
 		}
-	}
-
-	if dictID != -1 {
-		if err = memo.Mapper.AddField(dictID, pos.Path()); err != nil {
-			return dt, err
-		}
-		err = memo.AddType(dictID, dictValueType)
 	}
 
 	return dt, err

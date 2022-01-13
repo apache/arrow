@@ -195,6 +195,7 @@ func (d *dictCollector) visit(pos FieldPos, arr arrow.Array) error {
 		if err != nil {
 			return err
 		}
+		dict.Retain()
 		d.dictionaries = append(d.dictionaries, dictpair{ID: id, Dict: dict})
 		return nil
 	}

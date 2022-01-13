@@ -166,6 +166,7 @@ func (w *Writer) Write(rec arrow.Record) error {
 		return xerrors.Errorf("arrow/ipc: failure writing dictionary batches: %w", err)
 	}
 
+	enc.reset()
 	if err := enc.Encode(&data, rec); err != nil {
 		return fmt.Errorf("arrow/ipc: could not encode record to payload: %w", err)
 	}
@@ -178,9 +179,15 @@ func writeDictionaryPayloads(mem memory.Allocator, batch arrow.Record, isFileFor
 	if err != nil {
 		return err
 	}
+	defer func() {
+		for _, d := range dictionaries {
+			d.Dict.Release()
+		}
+	}()
 
 	eqopt := array.WithNaNsEqual(true)
 	for _, pair := range dictionaries {
+		encoder.reset()
 		var (
 			deltaStart int64
 			enc        = dictEncoder{encoder}
@@ -300,6 +307,11 @@ func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64
 		codec:      codec,
 		compressNP: compressNP,
 	}
+}
+
+func (w *recordEncoder) reset() {
+	w.start = 0
+	w.fields = make([]fieldMetadata, 0)
 }
 
 func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
@@ -443,6 +455,11 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		return nil
 	}
 
+	if arr.DataType().ID() == arrow.DICTIONARY {
+		arr := arr.(*array.Dictionary)
+		return w.visit(p, arr.Indices())
+	}
+
 	// add all common elements
 	w.fields = append(w.fields, fieldMetadata{
 		Len:    int64(arr.Len()),
@@ -487,10 +504,6 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			bitm = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[1])
 		}
 		p.body = append(p.body, bitm)
-
-	case *arrow.DictionaryType:
-		arr := arr.(*array.Dictionary)
-		return w.visit(p, arr.Indices())
 
 	case arrow.FixedWidthDataType:
 		data := arr.Data()

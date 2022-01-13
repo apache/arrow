@@ -134,6 +134,15 @@ func (f *FileReader) readFooter() error {
 func (f *FileReader) readSchema() error {
 	var err error
 
+	schema := f.footer.data.Schema(nil)
+	if schema == nil {
+		return fmt.Errorf("arrow/ipc: could not load schema from flatbuffer data")
+	}
+	f.schema, err = schemaFromFB(schema, &f.memo)
+	if err != nil {
+		return fmt.Errorf("arrow/ipc: could not read schema: %w", err)
+	}
+
 	for i := 0; i < f.NumDictionaries(); i++ {
 		blk, err := f.dict(i)
 		if err != nil {
@@ -153,18 +162,9 @@ func (f *FileReader) readSchema() error {
 			return err
 		}
 
-		if _, err = readDictionary(&f.memo, msg.meta, f.r, f.mem); err != nil {
+		if _, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem); err != nil {
 			return err
 		}
-	}
-
-	schema := f.footer.data.Schema(nil)
-	if schema == nil {
-		return fmt.Errorf("arrow/ipc: could not load schema from flatbuffer data")
-	}
-	f.schema, err = schemaFromFB(schema, &f.memo)
-	if err != nil {
-		return fmt.Errorf("arrow/ipc: could not read schema: %w", err)
 	}
 
 	return err
