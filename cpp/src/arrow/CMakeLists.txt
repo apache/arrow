@@ -421,7 +421,6 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_cast_temporal.cc
        compute/kernels/scalar_compare.cc
        compute/kernels/scalar_if_else.cc
-       compute/kernels/scalar_misbehave.cc
        compute/kernels/scalar_nested.cc
        compute/kernels/scalar_random.cc
        compute/kernels/scalar_set_lookup.cc
@@ -433,7 +432,6 @@ if(ARROW_COMPUTE)
        compute/kernels/util_internal.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_hash.cc
-       compute/kernels/vector_misbehave.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_selection.cc
