@@ -180,7 +180,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
     if doc_addition is not None:
         doc_pieces.append("\n{}\n".format(dedent(doc_addition).strip("\n")))
 
-    wrapper.__doc__ = "".join(s for s in doc_pieces)
+    wrapper.__doc__ = "".join(doc_pieces)
     return wrapper
 
 

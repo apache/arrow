@@ -697,17 +697,17 @@ class CastOptions(_CastOptions):
     ----------
     target_type : DataType, optional
         The PyArrow type to cast to.
-    allow_int_overflow : bool, optional
+    allow_int_overflow : bool, default False
         Whether integer overflow is allowed when casting.
-    allow_time_truncate : bool, optional
+    allow_time_truncate : bool, default False
         Whether time precision truncation is allowed when casting.
-    allow_time_overflow : bool, optional
+    allow_time_overflow : bool, default False
         Whether date/time range overflow is allowed when casting.
-    allow_decimal_truncate : bool, optional
+    allow_decimal_truncate : bool, default False
         Whether decimal precision truncation is allowed when casting.
-    allow_float_truncate : bool, optional
+    allow_float_truncate : bool, default False
         Whether floating-point precision truncation is allowed when casting.
-    allow_invalid_utf8 : bool, optional
+    allow_invalid_utf8 : bool, default False
         Whether producing invalid utf8 data is allowed when casting.
     """
 
@@ -1033,8 +1033,8 @@ class ReplaceSubstringOptions(_ReplaceSubstringOptions):
     replacement : str
         What to replace the pattern with.
     max_replacements : int or None, default None
-        If given, the maximum number of strings to replace in each
-        input value.
+        The maximum number of strings to replace in each
+        input value (unlimited if None).
     """
 
     def __init__(self, pattern, replacement, *, max_replacements=None):
@@ -1138,7 +1138,7 @@ class FilterOptions(_FilterOptions):
     Parameters
     ----------
     null_selection_behavior : str, default "drop"
-        How to handle nulls in the input.
+        How to handle nulls in the selection filter.
         Accepted values are "drop", "emit_null".
     """
 
@@ -1791,6 +1791,7 @@ class QuantileOptions(_QuantileOptions):
     interpolation : str, default "linear"
         How to break ties between competing data points for a given quantile.
         Accepted values are:
+
         - "linear": compute an interpolation
         - "lower": always use the smallest of the two data points
         - "higher": always use the largest of the two data points

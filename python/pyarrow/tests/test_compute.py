@@ -766,7 +766,7 @@ def test_generated_docstrings():
         selection_filter : Array-like or scalar-like
             Argument to compute function.
         null_selection_behavior : str, default "drop"
-            How to handle nulls in the input.
+            How to handle nulls in the selection filter.
             Accepted values are "drop", "emit_null".
         options : pyarrow.compute.FilterOptions, optional
             Alternative way of passing options.
