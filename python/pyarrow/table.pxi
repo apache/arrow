@@ -2726,7 +2726,7 @@ cdef class Table(_PandasConvertible):
         raise TypeError("Do not call Table's constructor directly, use one of "
                         "the `Table.from_*` functions instead.")
 
-    def to_string(self, *, show_metadata=False, preview_cols=0):
+    def to_string(self, *, show_metadata=False, preview_cols=0, cols_char_limit=120):
         """
         Return human-readable string representation of Table.
 
@@ -2736,6 +2736,8 @@ cdef class Table(_PandasConvertible):
             Display Field-level and Schema-level KeyValueMetadata.
         preview_cols : int, default 0
             Display values of the columns for the first N columns.
+        cols_char_limit : int, default 200
+            Max number of characters to show in each column preview
 
         Returns
         -------
@@ -2751,10 +2753,10 @@ cdef class Table(_PandasConvertible):
         if preview_cols:
             pieces.append('----')
             for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
+                col_string = self.column(i).to_string(indent=0, skip_new_lines=True)
+                if len(col_string) > cols_char_limit:
+                    col_string = col_string[:(cols_char_limit - 3)] + '...'
+                pieces.append('{}: {}'.format(self.field(i).name, col_string))
             if preview_cols < self.num_columns:
                 pieces.append('...')
         return '\n'.join(pieces)
