@@ -1648,6 +1648,9 @@ services:
       - impala:impala
     environment:
       <<: *ccache
+      ARROW_ENGINE: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_HDFS: "ON"
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020
