@@ -174,10 +174,9 @@ class ScalarAggregateNode : public ExecNode {
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function", aggs_[i].function},
-                  {"function.options",
+                 {{"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                  {"function.kind", "consume"}});
+                  {"function.kind", std::string(kind_name()) + "::Consume"}});
       KernelContext batch_ctx{plan()->exec_context()};
       batch_ctx.SetState(states_[i][thread_index].get());
 
@@ -225,12 +224,7 @@ class ScalarAggregateNode : public ExecNode {
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     // Scalar aggregates will only output a single batch
     outputs_[0]->InputFinished(this, 1);
     return Status::OK();
@@ -273,10 +267,9 @@ class ScalarAggregateNode : public ExecNode {
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function", aggs_[i].function},
-                  {"function.options",
+                 {{"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                  {"function.kind", "finalize"}});
+                  {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext ctx{plan()->exec_context()};
       ARROW_ASSIGN_OR_RAISE(auto merged, ScalarAggregateKernel::MergeAll(
                                              kernels_[i], &ctx, std::move(states_[i])));
@@ -423,10 +416,9 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function", aggs_[i].function},
-                  {"function.options",
+                 {{"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                  {"function.kind", "consume"}});
+                  {"function.kind", std::string(kind_name()) + "::Consume"}});
       KernelContext kernel_ctx{ctx_};
       kernel_ctx.SetState(state->agg_states[i].get());
 
@@ -458,10 +450,9 @@ class GroupByNode : public ExecNode {
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
         util::tracing::Span span;
         START_SPAN(span, aggs_[i].function,
-                   {{"function", aggs_[i].function},
-                    {"function.options",
+                   {{"function.options",
                      aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                    {"function.kind", "merge"}});
+                    {"function.kind", std::string(kind_name()) + "::Merge"}});
         KernelContext batch_ctx{ctx_};
         DCHECK(state0->agg_states[i]);
         batch_ctx.SetState(state0->agg_states[i].get());
@@ -491,10 +482,9 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function", aggs_[i].function},
-                  {"function.options",
+                 {{"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
-                  {"function.kind", "finalize"}});
+                  {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext batch_ctx{ctx_};
       batch_ctx.SetState(state->agg_states[i].get());
       RETURN_NOT_OK(agg_kernels_[i]->finalize(&batch_ctx, &out_data.values[i]));
@@ -596,12 +586,7 @@ class GroupByNode : public ExecNode {
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
 
     local_states_.resize(ThreadIndexer::Capacity());
     return Status::OK();

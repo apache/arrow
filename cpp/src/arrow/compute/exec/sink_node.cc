@@ -82,12 +82,8 @@ class SinkNode : public ExecNode {
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+
     return Status::OK();
   }
 
@@ -184,12 +180,7 @@ class ConsumingSinkNode : public ExecNode {
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 

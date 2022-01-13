@@ -134,6 +134,18 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
 
 #define END_SPAN(target_span) target_span.Get().span->End()
 
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture) \
+  target_future = target_future.Then(                                             \
+      [target_capture]() {                                                        \
+        MARK_SPAN(target_span, Status::OK());                                     \
+        END_SPAN(target_span);                                                    \
+      },                                                                          \
+      [target_capture](const Status& st) {                                        \
+        MARK_SPAN(target_span, st);                                               \
+        END_SPAN(target_span);                                                    \
+        return st;                                                                \
+      })
+
 #else
 
 class SpanImpl {};
@@ -143,6 +155,7 @@ class SpanImpl {};
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
+#define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
 
 #endif
 

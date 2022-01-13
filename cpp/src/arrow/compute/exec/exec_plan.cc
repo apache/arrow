@@ -112,12 +112,7 @@ struct ExecPlanImpl : public ExecPlan {
     }
 
     finished_ = AllFinished(futures);
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return st;
   }
 
@@ -350,12 +345,7 @@ Status MapNode::StartProducing() {
       span_, std::string(kind_name()) + ":" + label(),
       {{"node.label", label()}, {"node.detail", ToString()}, {"node.kind", kind_name()}});
   finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-  finished_.AddCallback([this](const Status& st) {
-    MARK_SPAN(span_, st);
-    END_SPAN(span_);
-  });
-#endif
+  END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
   return Status::OK();
 }
 

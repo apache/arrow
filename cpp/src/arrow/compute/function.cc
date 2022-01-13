@@ -215,15 +215,9 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
   }
 
   util::tracing::Span span;
-  START_SPAN(
-      span, name(),
-      {{"function.args", std::accumulate(std::begin(args), std::end(args), std::string(),
-                                         [](std::string& ss, const Datum& d) {
-                                           return ss.empty() ? d.ToString()
-                                                             : ss + "," + d.ToString();
-                                         })},
-       {"function.options", options ? options->ToString() : "<NULLPTR>"},
-       {"function.kind", kind()}});
+  START_SPAN(span, name(),
+             {{"function.options", options ? options->ToString() : "<NULLPTR>"},
+              {"function.kind", kind()}});
 
   // type-check Datum arguments here. Really we'd like to avoid this as much as
   // possible

@@ -547,12 +547,7 @@ class HashJoinNode : public ExecNode {
                 {"node.detail", ToString()},
                 {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
 
     bool use_sync_execution = !(plan_->exec_context()->executor());
     size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();

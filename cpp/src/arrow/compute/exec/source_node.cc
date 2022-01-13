@@ -146,12 +146,7 @@ struct SourceNode : ExecNode {
           outputs_[0]->InputFinished(this, total_batches);
           return task_group_.End();
         });
-#ifdef ARROW_WITH_OPENTELEMETRY
-    finished_.AddCallback([this](const Status& st) {
-      MARK_SPAN(span_, st);
-      END_SPAN(span_);
-    });
-#endif
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
