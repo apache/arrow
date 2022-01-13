@@ -36,7 +36,7 @@ const (
 type rawJSON struct {
 	Schema       Schema       `json:"schema"`
 	Records      []Record     `json:"batches"`
-	Dictionaries []Dictionary `json:"dictionaries"`
+	Dictionaries []Dictionary `json:"dictionaries,omitempty"`
 }
 
 type Writer struct {

@@ -638,8 +638,15 @@ func fieldsToJSON(fields []arrow.Field, parentPos dictutils.FieldPos, mapper *di
 			}
 		}
 
-		if n, ok := typ.(arrow.NestedType); ok {
-			o[i].Children = fieldsToJSON(n.Fields(), pos, mapper)
+		switch dt := typ.(type) {
+		case *arrow.ListType:
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
+		case *arrow.FixedSizeListType:
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ElemField()}, pos, mapper)
+		case *arrow.StructType:
+			o[i].Children = fieldsToJSON(dt.Fields(), pos, mapper)
+		case *arrow.MapType:
+			o[i].Children = fieldsToJSON([]arrow.Field{dt.ValueField()}, pos, mapper)
 		}
 	}
 	return o
