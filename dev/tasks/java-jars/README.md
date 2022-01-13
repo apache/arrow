@@ -16,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Jars.
+# Java Jars Task
 
 This directory is responsible to generate the jar files for the Arrow components that depend on C++ shared libraries to execute.
 
