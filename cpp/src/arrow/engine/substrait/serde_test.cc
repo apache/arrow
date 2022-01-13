@@ -472,6 +472,41 @@ TEST(Substrait, RecursiveFieldRef) {
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
+TEST(Substrait, FieldRefsInExpressions) {
+  ASSERT_OK_AND_ASSIGN(auto expr,
+                       compute::call("struct_field",
+                                     {compute::call("if_else",
+                                                    {
+                                                        compute::literal(true),
+                                                        compute::field_ref("struct"),
+                                                        compute::field_ref("struct"),
+                                                    })},
+                                     compute::StructFieldOptions({0}))
+                           .Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
+  auto expected = SubstraitFromJSON("Expression", R"({
+    "selection": {
+      "directReference": {
+        "structField": {
+          "field": 0
+        }
+      },
+      "expression": {
+        "if_then": {
+          "ifs": [
+            {
+              "if": {"literal": {"boolean": true}},
+              "then": {"selection": {"directReference": {"structField": {"field": 12}}}}
+            }
+          ],
+          "else": {"selection": {"directReference": {"structField": {"field": 12}}}}
+        }
+      }
+    }
+  })");
+  ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
+}
+
 TEST(Substrait, CallSpecialCaseRoundTrip) {
   for (compute::Expression expr : {
            compute::call("if_else",
@@ -502,6 +537,15 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                                             compute::literal(42),
                                         })},
                          arrow::compute::StructFieldOptions({2, 0})),
+
+           compute::call("struct_field",
+                         {compute::call("if_else",
+                                        {
+                                            compute::literal(true),
+                                            compute::field_ref("struct"),
+                                            compute::field_ref("struct"),
+                                        })},
+                         compute::StructFieldOptions({0})),
        }) {
     ARROW_SCOPED_TRACE(expr.ToString());
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
