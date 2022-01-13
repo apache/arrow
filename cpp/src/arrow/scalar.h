@@ -380,43 +380,33 @@ struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
       : DurationScalar(std::move(value), duration(unit)) {}
 };
 
-struct ARROW_EXPORT Decimal128Scalar : public internal::PrimitiveScalarBase {
+template <typename TYPE_CLASS, typename VALUE_TYPE>
+struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
   using internal::PrimitiveScalarBase::PrimitiveScalarBase;
-  using TypeClass = Decimal128Type;
-  using ValueType = Decimal128;
+  using TypeClass = TYPE_CLASS;
+  using ValueType = VALUE_TYPE;
 
-  Decimal128Scalar(Decimal128 value, std::shared_ptr<DataType> type)
+  DecimalScalar(ValueType value, std::shared_ptr<DataType> type)
       : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
 
   void* mutable_data() override {
     return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
   }
+
   util::string_view view() const override {
     return util::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
-                             16);
+                             ValueType::kByteWidth);
   }
 
-  Decimal128 value;
+  ValueType value;
 };
 
-struct ARROW_EXPORT Decimal256Scalar : public internal::PrimitiveScalarBase {
-  using internal::PrimitiveScalarBase::PrimitiveScalarBase;
-  using TypeClass = Decimal256Type;
-  using ValueType = Decimal256;
+struct ARROW_EXPORT Decimal128Scalar : public DecimalScalar<Decimal128Type, Decimal128> {
+  using DecimalScalar::DecimalScalar;
+};
 
-  Decimal256Scalar(Decimal256 value, std::shared_ptr<DataType> type)
-      : internal::PrimitiveScalarBase(std::move(type), true), value(value) {}
-
-  void* mutable_data() override {
-    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
-  }
-  util::string_view view() const override {
-    const std::array<uint64_t, 4>& bytes = value.native_endian_array();
-    return util::string_view(reinterpret_cast<const char*>(bytes.data()),
-                             bytes.size() * sizeof(uint64_t));
-  }
-
-  Decimal256 value;
+struct ARROW_EXPORT Decimal256Scalar : public DecimalScalar<Decimal256Type, Decimal256> {
+  using DecimalScalar::DecimalScalar;
 };
 
 struct ARROW_EXPORT BaseListScalar : public Scalar {
