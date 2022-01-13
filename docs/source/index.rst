@@ -44,7 +44,7 @@ target environment.**
    C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
-   Go <https://godoc.org/github.com/apache/arrow/go/arrow>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
