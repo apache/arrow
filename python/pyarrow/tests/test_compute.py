@@ -669,6 +669,7 @@ def test_is_valid():
 
 
 def test_generated_docstrings():
+    # With options
     assert pc.min_max.__doc__ == textwrap.dedent("""\
         Compute the minimum and maximum values of a numeric array.
 
@@ -678,18 +679,19 @@ def test_generated_docstrings():
         Parameters
         ----------
         array : Array-like
-            Argument to compute function
-        skip_nulls : optional
-            Parameter for ScalarAggregateOptions constructor. Either `options`
-            or `skip_nulls` can be passed, but not both at the same time.
-        min_count : optional
-            Parameter for ScalarAggregateOptions constructor. Either `options`
-            or `min_count` can be passed, but not both at the same time.
+            Argument to compute function.
+        skip_nulls : bool, default True
+            Whether to skip (ignore) nulls in the input.
+            If False, any null in the input forces the output to null.
+        min_count : int, default 1
+            Minimum number of non-null values in the input.  If the number
+            of non-null values is below `min_count`, the output is null.
         options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics.
+            Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
+    # Without options
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
 
@@ -700,30 +702,126 @@ def test_generated_docstrings():
         Parameters
         ----------
         x : Array-like or scalar-like
-            Argument to compute function
+            Argument to compute function.
         y : Array-like or scalar-like
-            Argument to compute function
+            Argument to compute function.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+        """)
+    # Varargs with options
+    assert pc.min_element_wise.__doc__ == textwrap.dedent("""\
+        Find the element-wise minimum value.
+
+        Nulls are ignored (by default) or propagated.
+        NaN is preferred over null, but not over any valid value.
+
+        Parameters
+        ----------
+        *args : Array-like or scalar-like
+            Argument to compute function.
+        skip_nulls : bool, default True
+            Whether to skip (ignore) nulls in the input.
+            If False, any null in the input forces the output to null.
+        options : pyarrow.compute.ElementWiseAggregateOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
+    # Nullary with options
+    assert pc.random.__doc__ == textwrap.dedent("""\
+        Generate numbers in the range [0, 1).
+
+        Generated values are uniformly-distributed, double-precision """ +
+                                                """in range [0, 1).
+        Length of generated data, algorithm and seed can be changed """ +
+                                                """via RandomOptions.
+
+        Parameters
+        ----------
+        length : int
+            Number of random values to generate.
+        initializer : int or str
+            How to initialize the underlying random generator.
+            If an integer is given, it is used as a seed.
+            If "system" is given, the random generator is initialized with
+            a system-specific source of (hopefully true) randomness.
+            Other values are invalid.
+        options : pyarrow.compute.RandomOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
+    # With custom examples
+    assert pc.filter.__doc__ == textwrap.dedent("""\
+        Filter with a boolean selection filter.
+
+        The output is populated with values from the input at positions
+        where the selection filter is non-zero.  Nulls in the selection filter
+        are handled based on FilterOptions.
+
+        Parameters
+        ----------
+        input : Array-like or scalar-like
+            Argument to compute function.
+        selection_filter : Array-like or scalar-like
+            Argument to compute function.
+        null_selection_behavior : str, default "drop"
+            How to handle nulls in the selection filter.
+            Accepted values are "drop", "emit_null".
+        options : pyarrow.compute.FilterOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          "e"
+        ]
+        >>> arr.filter(mask, null_selection_behavior='emit_null')
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
         """)
 
 
 def test_generated_signatures():
     # The self-documentation provided by signatures should show acceptable
     # options and their default values.
+
+    # Without options
     sig = inspect.signature(pc.add)
     assert str(sig) == "(x, y, /, *, memory_pool=None)"
+    # With options
     sig = inspect.signature(pc.min_max)
     assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, "
                         "options=None, memory_pool=None)")
+    # With positional options
     sig = inspect.signature(pc.quantile)
     assert str(sig) == ("(array, /, q=0.5, *, interpolation='linear', "
                         "skip_nulls=True, min_count=0, "
                         "options=None, memory_pool=None)")
+    # Varargs with options
     sig = inspect.signature(pc.binary_join_element_wise)
     assert str(sig) == ("(*strings, null_handling='emit_null', "
                         "null_replacement='', options=None, "
                         "memory_pool=None)")
+    # Varargs without options
+    sig = inspect.signature(pc.choose)
+    assert str(sig) == "(indices, /, *values, memory_pool=None)"
+    # Nullary with options
+    sig = inspect.signature(pc.random)
+    assert str(sig) == ("(length, *, initializer='system', "
+                        "options=None, memory_pool=None)")
 
 
 # We use isprintable to find about codepoints that Python doesn't know, but
