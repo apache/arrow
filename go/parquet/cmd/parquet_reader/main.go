@@ -79,7 +79,7 @@ func main() {
 	fileMetadata := rdr.MetaData()
 
 	fmt.Println("File name:", config.File)
-	fmt.Println("Version:", fileMetadata.Version)
+	fmt.Println("Version:", fileMetadata.Version())
 	fmt.Println("Created By:", fileMetadata.GetCreatedBy())
 	fmt.Println("Num Rows:", rdr.NumRows())
 

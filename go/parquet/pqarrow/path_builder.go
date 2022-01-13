@@ -481,7 +481,7 @@ func (p *pathBuilder) maybeAddNullable(arr array.Interface) {
 
 type multipathLevelBuilder struct {
 	rootRange elemRange
-	data      *array.Data
+	data      arrow.ArrayData
 	builder   pathBuilder
 
 	refCount int64

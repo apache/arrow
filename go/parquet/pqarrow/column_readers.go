@@ -263,7 +263,7 @@ func (sr *structReader) BuildArray(lenBound int64) (*array.Chunked, error) {
 		nullBitmap.Resize(int(bitutil.BytesForBits(validityIO.Read)))
 	}
 
-	childArrData := make([]*array.Data, 0)
+	childArrData := make([]arrow.ArrayData, 0)
 	// gather children arrays and def levels
 	for _, child := range sr.children {
 		field, err := child.BuildArray(validityIO.Read)
@@ -389,7 +389,7 @@ func (lr *listReader) BuildArray(lenBound int64) (*array.Chunked, error) {
 		buffers[0] = validityBuffer
 	}
 
-	data := array.NewData(lr.field.Type, int(validityIO.Read), buffers, []*array.Data{item}, int(validityIO.NullCount), 0)
+	data := array.NewData(lr.field.Type, int(validityIO.Read), buffers, []arrow.ArrayData{item}, int(validityIO.NullCount), 0)
 	defer data.Release()
 	if lr.field.Type.ID() == arrow.FIXED_SIZE_LIST {
 		defer data.Buffers()[1].Release()
@@ -414,7 +414,7 @@ func newFixedSizeListReader(rctx *readerCtx, field *arrow.Field, info file.Level
 	return &ColumnReader{&fixedSizeListReader{listReader{rctx, field, info, childRdr, 1}}}
 }
 
-func chunksToSingle(chunked *array.Chunked) (*array.Data, error) {
+func chunksToSingle(chunked *array.Chunked) (arrow.ArrayData, error) {
 	switch len(chunked.Chunks()) {
 	case 0:
 		return array.NewData(chunked.DataType(), 0, []*memory.Buffer{nil, nil}, nil, 0, 0), nil
