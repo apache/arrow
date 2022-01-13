@@ -137,6 +137,7 @@ In this section we outline steps needed for unit testing in Arrow.
 
       *Important*: Once the conditions for a ``skip_()`` statement is met, no other line of code in the same ``test_that()`` test block will get executed.
 
+      For more information about unit testing in R:
 
-
-
+      * the ``testthat`` `website <https://testthat.r-lib.org/index.html>`_
+      * the **R Packages** `book <https://r-pkgs.org>`_ by Hadley Wickham and Jenny Bryan
