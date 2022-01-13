@@ -609,6 +609,10 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(ARG_LABELS benchmark)
   endif()
 
+  if(ARROW_BUILD_DETAILED_BENCHMARKS)
+    target_compile_definitions(${BENCHMARK_NAME} PRIVATE ARROW_BUILD_DETAILED_BENCHMARKS)
+  endif()
+
   add_test(${BENCHMARK_NAME}
            ${BUILD_SUPPORT_DIR}/run-test.sh
            ${CMAKE_BINARY_DIR}
