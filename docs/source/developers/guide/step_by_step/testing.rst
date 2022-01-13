@@ -92,7 +92,8 @@ In this section we outline steps needed for unit testing in Arrow.
       **Structure**
 
       Expect the usual testthat folder structure:
-      .. TODO make sure the format the dir tree below is formatted nicely (maybe as a code block)
+
+      .. code-block:: R
       tests
         ├── testthat      # unit test files live here
         └── testthat.R    # runs tests when R CMD check runs (e.g. with `devtools::check()`)
@@ -117,7 +118,7 @@ In this section we outline steps needed for unit testing in Arrow.
       * Performance improvements should be reflected in benchmarks (which are also tests)
       * An exception could be refactoring functionality that is fully covered by unit tests
 
-      ** Testing helpers**
+      **Testing helpers**
 
       To complement the ``testthat`` functionality, the ``arrow`` R package has defined a series of specific utility functions (called helpers), such as:
 
