@@ -2525,8 +2525,13 @@ test_that("datetime rounding below 1sec", {
 #   )
 # })
 
-# lubridate coerces dates to datetimes on rounding, whereas arrow
-# is type stable. tests only check that results match on the date
+
+# lubridate::round_date() etc sometimes coerce output from Date to POSIXct.
+# this is not the default for the round_temporal() function in libarrow, which
+# is type stable: timestamps stay timestamps, and date32 stays date32. the
+# current implementation preserves the type stability property. consequently
+# there are edge cases where the arrow dplyr binding will not precisely mirror
+# the lubridate original.
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
@@ -2538,10 +2543,14 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
     test_df %>% arrow_table() %>% mutate(out = floor_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = floor_date(date, "1 day") %>% as.Date())
   )
-  # expect_equal(
-  #   test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(), # arrow fails to round up
-  #   test_df %>% mutate(out = ceiling_date(date, "1 day") %>% as.Date())
-  # )
+
+  # NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
+  # next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
+  # I'm not 100% sold on this implementation
+  expect_equal(
+    test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(),
+    test_df %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE) %>% as.Date())
+  )
 
 })
 
