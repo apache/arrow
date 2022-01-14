@@ -30,7 +30,8 @@ RUN vcpkg install --clean-after-build \
         boost-regex \
         boost-system \
         boost-variant \
-        llvm
+        # Use enable rtti to avoid link problems in Gandiva
+        llvm[clang,default-options,default-targets,lld,tools,enable-rtti]
 
 # Install Java
 ARG java=1.8.0
