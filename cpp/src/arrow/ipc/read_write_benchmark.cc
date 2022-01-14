@@ -313,13 +313,17 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   }                                                                                \
   BENCHMARK(NAME##Async)
 
+const std::vector<std::string> kArgNames = {"num_cols", "is_partial"};
+
 #define READ_BENCHMARK(NAME, GENERATE, READ) \
   READ_SYNC(NAME, GENERATE, READ)            \
       ->RangeMultiplier(8)                   \
       ->Ranges({{1, 1 << 12}, {0, 1}})       \
+      ->ArgNames(kArgNames)                  \
       ->UseRealTime();                       \
   READ_ASYNC(NAME, GENERATE, READ)           \
       ->RangeMultiplier(8)                   \
+      ->ArgNames(kArgNames)                  \
       ->Ranges({{1, 1 << 12}, {0, 1}})       \
       ->UseRealTime();
 
@@ -332,10 +336,12 @@ READ_BENCHMARK(ReadCachedFile, GENERATE_DATA_TEMP_FILE, READ_DATA_TEMP_FILE);
 // space as real files get quite large
 READ_SYNC(ReadUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_REAL_FILE)
     ->RangeMultiplier(8)
+    ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
 READ_ASYNC(ReadUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_REAL_FILE)
     ->RangeMultiplier(8)
+    ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
 #endif
@@ -343,10 +349,12 @@ READ_BENCHMARK(ReadMmapCachedFile, GENERATE_DATA_TEMP_FILE, READ_DATA_MMAP_FILE)
 #ifndef _WIN32
 READ_SYNC(ReadMmapUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_MMAP_REAL_FILE)
     ->RangeMultiplier(8)
+    ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
 READ_ASYNC(ReadMmapUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_MMAP_REAL_FILE)
     ->RangeMultiplier(8)
+    ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
 #endif

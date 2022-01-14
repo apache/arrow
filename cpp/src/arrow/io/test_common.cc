@@ -63,7 +63,8 @@ Status PurgeLocalFileFromOsCache(const std::string& path) {
   }
   int err = posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
   if (err != 0) {
-    return IOErrorFromErrno(err, "fadvise on ", path, " to clear from cache did not succeed");
+    return IOErrorFromErrno(err, "fadvise on ", path,
+                            " to clear from cache did not succeed");
   }
   err = close(fd);
   if (err == 0) {
