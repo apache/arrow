@@ -24,7 +24,7 @@ import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
 import { validateVector } from './utils.js';
 import * as generate from '../../generate-test-data.js';
 
-import { Type, DataType, util, Builder } from 'apache-arrow';
+import { Type, DataType, util, Builder, makeBuilder, builderThroughIterable } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';
@@ -237,13 +237,13 @@ type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apach
 type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
 
 function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    const builder = Builder.new(options);
+    const builder = makeBuilder(options);
     for (const x of values) builder.append(x);
     return builder.finish().toVector();
 }
 
 function encodeChunks<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
-    return [...Builder.throughIterable(options)(values)].reduce((a, b) => a.concat(b));
+    return [...builderThroughIterable(options)(values)].reduce((a, b) => a.concat(b));
 }
 
 async function encodeChunksDOM<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderTransformOptions<T, TNull>) {

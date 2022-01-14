@@ -19,6 +19,7 @@ import { Vector } from '../vector.js';
 import { IntBuilder } from './int.js';
 import { Dictionary, DataType } from '../type.js';
 import { Builder, BuilderOptions } from '../builder.js';
+import { makeBuilder } from '../factories.js';
 
 type DictionaryHashFunction = (x: any) => string | number;
 
@@ -40,8 +41,8 @@ export class DictionaryBuilder<T extends Dictionary, TNull = any> extends Builde
         this._nulls = <any>null;
         this._dictionaryOffset = 0;
         this._keysToIndices = Object.create(null);
-        this.indices = Builder.new({ 'type': this.type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
-        this.dictionary = Builder.new({ 'type': this.type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
+        this.indices = makeBuilder({ 'type': this.type.indices, 'nullValues': nulls }) as IntBuilder<T['indices']>;
+        this.dictionary = makeBuilder({ 'type': this.type.dictionary, 'nullValues': null }) as Builder<T['dictionary']>;
         if (typeof hashFn === 'function') {
             this.valueToKey = hashFn;
         }

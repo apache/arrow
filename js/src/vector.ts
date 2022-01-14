@@ -19,8 +19,7 @@ import { Type } from './enum.js';
 import { clampRange } from './util/vector.js';
 import { DataType, strideForType } from './type.js';
 import { Data, makeData, DataProps } from './data.js';
-import { Builder, IterableBuilderOptions } from './builder.js';
-import { ArrayDataType, BigIntArray, JavaScriptArrayDataType, TypedArray, TypedArrayDataType } from './interfaces.js';
+import { BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
 
 import {
     isChunkedValid,
@@ -448,96 +447,6 @@ export function makeVector(init: any) {
         }
     }
     throw new Error('Unrecognized input');
-}
-
-
-function inferType(value: readonly unknown[]): DataType {
-    if (value.length === 0) { return new dtypes.Null; }
-    let nullsCount = 0;
-    // @ts-ignore
-    let arraysCount = 0;
-    // @ts-ignore
-    let objectsCount = 0;
-    let numbersCount = 0;
-    let stringsCount = 0;
-    let bigintsCount = 0;
-    let booleansCount = 0;
-    let datesCount = 0;
-
-    for (const val of value) {
-        if (val == null) { ++nullsCount; continue; }
-        switch (typeof val) {
-            case 'bigint': ++bigintsCount; continue;
-            case 'boolean': ++booleansCount; continue;
-            case 'number': ++numbersCount; continue;
-            case 'string': ++stringsCount; continue;
-            case 'object':
-                if (Array.isArray(val)) {
-                    ++arraysCount;
-                } else if (Object.prototype.toString.call(val) === '[object Date]') {
-                    ++datesCount;
-                } else {
-                    ++objectsCount;
-                }
-                continue;
-        }
-        throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
-    }
-
-    if (numbersCount + nullsCount === value.length) {
-        return new dtypes.Float64;
-    } else if (stringsCount + nullsCount === value.length) {
-        return new dtypes.Dictionary(new dtypes.Utf8, new dtypes.Int32);
-    } else if (bigintsCount + nullsCount === value.length) {
-        return new dtypes.Int64;
-    } else if (booleansCount + nullsCount === value.length) {
-        return new dtypes.Bool;
-    } else if (datesCount + nullsCount === value.length) {
-        return new dtypes.DateMillisecond;
-    }
-    // TODO: add more types to infererence
-
-    throw new TypeError('Unable to infer Vector type from input values, explicit type declaration expected');
-}
-
-/**
- * Creates a Vector from a JavaScript array. Use {@link makeVector} if you only want to create a vector from a typed array.
- *
- * @example
- * ```ts
- * const vf64 = vectorFromArray([1, 2, 3]);
- * const vi8 = vectorFromArray([1, 2, 3], new Int8);
- * const vdict = vectorFromArray(['foo', 'bar']);
- * ```
- */
-export function vectorFromArray(values: readonly (null | undefined)[], type?: dtypes.Null): Vector<dtypes.Null>;
-export function vectorFromArray(values: readonly (null | undefined | boolean)[], type?: dtypes.Bool): Vector<dtypes.Bool>;
-export function vectorFromArray<T extends dtypes.Utf8 | dtypes.Dictionary<dtypes.Utf8> = dtypes.Dictionary<dtypes.Utf8, dtypes.Int32>>(values: readonly (null | undefined | string)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Date_>(values: readonly (null | undefined | Date)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Int>(values: readonly (null | undefined | number)[], type: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Int64 | dtypes.Uint64 = dtypes.Int64>(values: readonly (null | undefined | bigint)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends dtypes.Float = dtypes.Float64>(values: readonly (null | undefined | number)[], type?: T): Vector<T>;
-export function vectorFromArray<T extends DataType>(values: readonly (unknown)[], type: T): Vector<T>;
-export function vectorFromArray<T extends readonly unknown[]>(values: T): Vector<JavaScriptArrayDataType<T>>;
-/** Creates a Vector from a typed array via {@link makeVector}. */
-export function vectorFromArray<T extends TypedArray | BigIntArray>(data: T): Vector<TypedArrayDataType<T>>;
-
-export function vectorFromArray<T extends DataType>(data: Data<T>): Vector<T>;
-export function vectorFromArray<T extends DataType>(data: Vector<T>): Vector<T>;
-export function vectorFromArray<T extends DataType>(data: DataProps<T>): Vector<T>;
-export function vectorFromArray<T extends TypedArray | BigIntArray | readonly unknown[]>(data: T): Vector<ArrayDataType<T>>;
-
-export function vectorFromArray(init: any, type?: DataType) {
-    if (init instanceof Data || init instanceof Vector || init.type instanceof DataType || ArrayBuffer.isView(init)) {
-        return makeVector(init as any);
-    }
-    const options: IterableBuilderOptions = { type: type ?? inferType(init) };
-    const chunks = [...Builder.throughIterable(options)(init)];
-    const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
-    if (DataType.isDictionary(vector.type)) {
-        return vector.memoize();
-    }
-    return vector;
 }
 
 function unwrapInputs(x: any) {

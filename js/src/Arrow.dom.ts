@@ -16,7 +16,7 @@
 // under the License.
 
 import streamAdapters from './io/adapters.js';
-import { Builder } from './builder/index.js';
+import { Builder } from './builder.js';
 import { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, } from './ipc/reader.js';
 import { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, } from './ipc/writer.js';
 import { toDOMStream } from './io/whatwg/iterable.js';
@@ -38,6 +38,7 @@ export type {
     ReadableSource, WritableSink,
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
 } from './Arrow.js';
+
 export {
     DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data, makeData,
@@ -72,7 +73,10 @@ export {
     Message,
     RecordBatch,
     util,
-    Builder,
+    Builder, makeBuilder, builderThroughIterable, builderThroughAsyncIterable,
+} from './Arrow.js';
+
+export type {
     BinaryBuilder,
     BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,

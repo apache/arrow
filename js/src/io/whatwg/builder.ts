@@ -17,7 +17,8 @@
 
 import { DataType } from '../../type.js';
 import { Vector } from '../../vector.js';
-import { Builder, BuilderOptions } from '../../builder/index.js';
+import { Builder, BuilderOptions } from '../../builder.js';
+import { makeBuilder } from '../../factories.js';
 
 /** @ignore */
 export interface BuilderTransformOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
@@ -58,7 +59,7 @@ export class BuilderTransform<T extends DataType = any, TNull = any> {
         } = options;
 
         this._controller = null;
-        this._builder = Builder.new<T, TNull>(builderOptions);
+        this._builder = makeBuilder<T, TNull>(builderOptions);
         this._getSize = queueingStrategy !== 'bytes' ? chunkLength : chunkByteLength;
 
         const { ['highWaterMark']: readableHighWaterMark = queueingStrategy === 'bytes' ? 2 ** 14 : 1000 } = { ...readableStrategy };

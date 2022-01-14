@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data, makeData } from './data.js';
 import { Type } from './enum.js';
-import { makeVector, Vector, vectorFromArray } from './vector.js';
+import { Data, makeData } from './data.js';
+import { vectorFromArray } from './factories.js';
+import { makeVector, Vector } from './vector.js';
 import { Field, Schema } from './schema.js';
 import { DataType, Null, Struct, TypeMap } from './type.js';
 import { compareSchemas } from './visitor/typecomparator.js';

@@ -15,11 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Type } from './enum.js';
 import * as type from './type.js';
-import { DataType } from './type.js';
-import * as builders from './builder/index.js';
-import type { BuilderOptions } from './builder/index.js';
+import type { Type } from './enum.js';
+import type { DataType } from './type.js';
+import type { Builder } from './builder.js';
+import type { BuilderOptions } from './builder.js';
+import type { BoolBuilder } from './builder/bool.js';
+import type { NullBuilder } from './builder/null.js';
+import type { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './builder/date.js';
+import type { DecimalBuilder } from './builder/decimal.js';
+import type { DictionaryBuilder } from './builder/dictionary.js';
+import type { FixedSizeBinaryBuilder } from './builder/fixedsizebinary.js';
+import type { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './builder/float.js';
+import type { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './builder/int.js';
+import type { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
+import type { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
+import type { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+import type { Utf8Builder } from './builder/utf8.js';
+import type { BinaryBuilder } from './builder/binary.js';
+import type { ListBuilder } from './builder/list.js';
+import type { FixedSizeListBuilder } from './builder/fixedsizelist.js';
+import type { MapBuilder } from './builder/map.js';
+import type { StructBuilder } from './builder/struct.js';
+import type { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './builder/union.js';
 
 /** @ignore */ type FloatArray = Float32Array | Float64Array;
 /** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
@@ -110,14 +128,14 @@ export type BuilderCtorType<
 export type BuilderType<T extends Type | DataType = any, TNull = any> =
     T extends Type ? TypeToBuilder<T, TNull> :
     T extends DataType ? DataTypeToBuilder<T, TNull> :
-    builders.Builder<any, TNull>
+    Builder<any, TNull>
     ;
 
 /** @ignore */
 export type BuilderCtor<T extends Type | DataType = any> =
     T extends Type ? BuilderCtorType<BuilderType<T>> :
     T extends DataType ? BuilderCtorType<BuilderType<T>> :
-    BuilderCtorType<builders.Builder>
+    BuilderCtorType<Builder>
     ;
 
 /** @ignore */
@@ -208,96 +226,96 @@ export type TypeToDataType<T extends Type> = {
 
 /** @ignore */
 type TypeToBuilder<T extends Type = any, TNull = any> = {
-    [key: number]: builders.Builder;
-    [Type.Null]: builders.NullBuilder<TNull>;
-    [Type.Bool]: builders.BoolBuilder<TNull>;
-    [Type.Int8]: builders.Int8Builder<TNull>;
-    [Type.Int16]: builders.Int16Builder<TNull>;
-    [Type.Int32]: builders.Int32Builder<TNull>;
-    [Type.Int64]: builders.Int64Builder<TNull>;
-    [Type.Uint8]: builders.Uint8Builder<TNull>;
-    [Type.Uint16]: builders.Uint16Builder<TNull>;
-    [Type.Uint32]: builders.Uint32Builder<TNull>;
-    [Type.Uint64]: builders.Uint64Builder<TNull>;
-    [Type.Int]: builders.IntBuilder<any, TNull>;
-    [Type.Float16]: builders.Float16Builder<TNull>;
-    [Type.Float32]: builders.Float32Builder<TNull>;
-    [Type.Float64]: builders.Float64Builder<TNull>;
-    [Type.Float]: builders.FloatBuilder<any, TNull>;
-    [Type.Utf8]: builders.Utf8Builder<TNull>;
-    [Type.Binary]: builders.BinaryBuilder<TNull>;
-    [Type.FixedSizeBinary]: builders.FixedSizeBinaryBuilder<TNull>;
-    [Type.Date]: builders.DateBuilder<any, TNull>;
-    [Type.DateDay]: builders.DateDayBuilder<TNull>;
-    [Type.DateMillisecond]: builders.DateMillisecondBuilder<TNull>;
-    [Type.Timestamp]: builders.TimestampBuilder<any, TNull>;
-    [Type.TimestampSecond]: builders.TimestampSecondBuilder<TNull>;
-    [Type.TimestampMillisecond]: builders.TimestampMillisecondBuilder<TNull>;
-    [Type.TimestampMicrosecond]: builders.TimestampMicrosecondBuilder<TNull>;
-    [Type.TimestampNanosecond]: builders.TimestampNanosecondBuilder<TNull>;
-    [Type.Time]: builders.TimeBuilder<any, TNull>;
-    [Type.TimeSecond]: builders.TimeSecondBuilder<TNull>;
-    [Type.TimeMillisecond]: builders.TimeMillisecondBuilder<TNull>;
-    [Type.TimeMicrosecond]: builders.TimeMicrosecondBuilder<TNull>;
-    [Type.TimeNanosecond]: builders.TimeNanosecondBuilder<TNull>;
-    [Type.Decimal]: builders.DecimalBuilder<TNull>;
-    [Type.Union]: builders.UnionBuilder<any, TNull>;
-    [Type.DenseUnion]: builders.DenseUnionBuilder<any, TNull>;
-    [Type.SparseUnion]: builders.SparseUnionBuilder<any, TNull>;
-    [Type.Interval]: builders.IntervalBuilder<any, TNull>;
-    [Type.IntervalDayTime]: builders.IntervalDayTimeBuilder<TNull>;
-    [Type.IntervalYearMonth]: builders.IntervalYearMonthBuilder<TNull>;
-    [Type.Map]: builders.MapBuilder<any, any, TNull>;
-    [Type.List]: builders.ListBuilder<any, TNull>;
-    [Type.Struct]: builders.StructBuilder<any, TNull>;
-    [Type.Dictionary]: builders.DictionaryBuilder<any, TNull>;
-    [Type.FixedSizeList]: builders.FixedSizeListBuilder<any, TNull>;
+    [key: number]: Builder;
+    [Type.Null]: NullBuilder<TNull>;
+    [Type.Bool]: BoolBuilder<TNull>;
+    [Type.Int8]: Int8Builder<TNull>;
+    [Type.Int16]: Int16Builder<TNull>;
+    [Type.Int32]: Int32Builder<TNull>;
+    [Type.Int64]: Int64Builder<TNull>;
+    [Type.Uint8]: Uint8Builder<TNull>;
+    [Type.Uint16]: Uint16Builder<TNull>;
+    [Type.Uint32]: Uint32Builder<TNull>;
+    [Type.Uint64]: Uint64Builder<TNull>;
+    [Type.Int]: IntBuilder<any, TNull>;
+    [Type.Float16]: Float16Builder<TNull>;
+    [Type.Float32]: Float32Builder<TNull>;
+    [Type.Float64]: Float64Builder<TNull>;
+    [Type.Float]: FloatBuilder<any, TNull>;
+    [Type.Utf8]: Utf8Builder<TNull>;
+    [Type.Binary]: BinaryBuilder<TNull>;
+    [Type.FixedSizeBinary]: FixedSizeBinaryBuilder<TNull>;
+    [Type.Date]: DateBuilder<any, TNull>;
+    [Type.DateDay]: DateDayBuilder<TNull>;
+    [Type.DateMillisecond]: DateMillisecondBuilder<TNull>;
+    [Type.Timestamp]: TimestampBuilder<any, TNull>;
+    [Type.TimestampSecond]: TimestampSecondBuilder<TNull>;
+    [Type.TimestampMillisecond]: TimestampMillisecondBuilder<TNull>;
+    [Type.TimestampMicrosecond]: TimestampMicrosecondBuilder<TNull>;
+    [Type.TimestampNanosecond]: TimestampNanosecondBuilder<TNull>;
+    [Type.Time]: TimeBuilder<any, TNull>;
+    [Type.TimeSecond]: TimeSecondBuilder<TNull>;
+    [Type.TimeMillisecond]: TimeMillisecondBuilder<TNull>;
+    [Type.TimeMicrosecond]: TimeMicrosecondBuilder<TNull>;
+    [Type.TimeNanosecond]: TimeNanosecondBuilder<TNull>;
+    [Type.Decimal]: DecimalBuilder<TNull>;
+    [Type.Union]: UnionBuilder<any, TNull>;
+    [Type.DenseUnion]: DenseUnionBuilder<any, TNull>;
+    [Type.SparseUnion]: SparseUnionBuilder<any, TNull>;
+    [Type.Interval]: IntervalBuilder<any, TNull>;
+    [Type.IntervalDayTime]: IntervalDayTimeBuilder<TNull>;
+    [Type.IntervalYearMonth]: IntervalYearMonthBuilder<TNull>;
+    [Type.Map]: MapBuilder<any, any, TNull>;
+    [Type.List]: ListBuilder<any, TNull>;
+    [Type.Struct]: StructBuilder<any, TNull>;
+    [Type.Dictionary]: DictionaryBuilder<any, TNull>;
+    [Type.FixedSizeList]: FixedSizeListBuilder<any, TNull>;
 }[T];
 
 /** @ignore */
 type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
-    [key: number]: builders.Builder<any, TNull>;
-    [Type.Null]: T extends type.Null ? builders.NullBuilder<TNull> : never;
-    [Type.Bool]: T extends type.Bool ? builders.BoolBuilder<TNull> : never;
-    [Type.Int8]: T extends type.Int8 ? builders.Int8Builder<TNull> : never;
-    [Type.Int16]: T extends type.Int16 ? builders.Int16Builder<TNull> : never;
-    [Type.Int32]: T extends type.Int32 ? builders.Int32Builder<TNull> : never;
-    [Type.Int64]: T extends type.Int64 ? builders.Int64Builder<TNull> : never;
-    [Type.Uint8]: T extends type.Uint8 ? builders.Uint8Builder<TNull> : never;
-    [Type.Uint16]: T extends type.Uint16 ? builders.Uint16Builder<TNull> : never;
-    [Type.Uint32]: T extends type.Uint32 ? builders.Uint32Builder<TNull> : never;
-    [Type.Uint64]: T extends type.Uint64 ? builders.Uint64Builder<TNull> : never;
-    [Type.Int]: T extends type.Int ? builders.IntBuilder<T, TNull> : never;
-    [Type.Float16]: T extends type.Float16 ? builders.Float16Builder<TNull> : never;
-    [Type.Float32]: T extends type.Float32 ? builders.Float32Builder<TNull> : never;
-    [Type.Float64]: T extends type.Float64 ? builders.Float64Builder<TNull> : never;
-    [Type.Float]: T extends type.Float ? builders.FloatBuilder<T, TNull> : never;
-    [Type.Utf8]: T extends type.Utf8 ? builders.Utf8Builder<TNull> : never;
-    [Type.Binary]: T extends type.Binary ? builders.BinaryBuilder<TNull> : never;
-    [Type.FixedSizeBinary]: T extends type.FixedSizeBinary ? builders.FixedSizeBinaryBuilder<TNull> : never;
-    [Type.Date]: T extends type.Date_ ? builders.DateBuilder<T, TNull> : never;
-    [Type.DateDay]: T extends type.DateDay ? builders.DateDayBuilder<TNull> : never;
-    [Type.DateMillisecond]: T extends type.DateMillisecond ? builders.DateMillisecondBuilder<TNull> : never;
-    [Type.Timestamp]: T extends type.Timestamp ? builders.TimestampBuilder<T, TNull> : never;
-    [Type.TimestampSecond]: T extends type.TimestampSecond ? builders.TimestampSecondBuilder<TNull> : never;
-    [Type.TimestampMillisecond]: T extends type.TimestampMillisecond ? builders.TimestampMillisecondBuilder<TNull> : never;
-    [Type.TimestampMicrosecond]: T extends type.TimestampMicrosecond ? builders.TimestampMicrosecondBuilder<TNull> : never;
-    [Type.TimestampNanosecond]: T extends type.TimestampNanosecond ? builders.TimestampNanosecondBuilder<TNull> : never;
-    [Type.Time]: T extends type.Time ? builders.TimeBuilder<T, TNull> : never;
-    [Type.TimeSecond]: T extends type.TimeSecond ? builders.TimeSecondBuilder<TNull> : never;
-    [Type.TimeMillisecond]: T extends type.TimeMillisecond ? builders.TimeMillisecondBuilder<TNull> : never;
-    [Type.TimeMicrosecond]: T extends type.TimeMicrosecond ? builders.TimeMicrosecondBuilder<TNull> : never;
-    [Type.TimeNanosecond]: T extends type.TimeNanosecond ? builders.TimeNanosecondBuilder<TNull> : never;
-    [Type.Decimal]: T extends type.Decimal ? builders.DecimalBuilder<TNull> : never;
-    [Type.Union]: T extends type.Union ? builders.UnionBuilder<T, TNull> : never;
-    [Type.DenseUnion]: T extends type.DenseUnion ? builders.DenseUnionBuilder<T, TNull> : never;
-    [Type.SparseUnion]: T extends type.SparseUnion ? builders.SparseUnionBuilder<T, TNull> : never;
-    [Type.Interval]: T extends type.Interval ? builders.IntervalBuilder<T, TNull> : never;
-    [Type.IntervalDayTime]: T extends type.IntervalDayTime ? builders.IntervalDayTimeBuilder<TNull> : never;
-    [Type.IntervalYearMonth]: T extends type.IntervalYearMonth ? builders.IntervalYearMonthBuilder<TNull> : never;
-    [Type.Map]: T extends type.Map_ ? builders.MapBuilder<T['keyType'], T['valueType'], TNull> : never;
-    [Type.List]: T extends type.List ? builders.ListBuilder<T['valueType'], TNull> : never;
-    [Type.Struct]: T extends type.Struct ? builders.StructBuilder<T['dataTypes'], TNull> : never;
-    [Type.Dictionary]: T extends type.Dictionary ? builders.DictionaryBuilder<T, TNull> : never;
-    [Type.FixedSizeList]: T extends type.FixedSizeList ? builders.FixedSizeListBuilder<T['valueType'], TNull> : never;
+    [key: number]: Builder<any, TNull>;
+    [Type.Null]: T extends type.Null ? NullBuilder<TNull> : never;
+    [Type.Bool]: T extends type.Bool ? BoolBuilder<TNull> : never;
+    [Type.Int8]: T extends type.Int8 ? Int8Builder<TNull> : never;
+    [Type.Int16]: T extends type.Int16 ? Int16Builder<TNull> : never;
+    [Type.Int32]: T extends type.Int32 ? Int32Builder<TNull> : never;
+    [Type.Int64]: T extends type.Int64 ? Int64Builder<TNull> : never;
+    [Type.Uint8]: T extends type.Uint8 ? Uint8Builder<TNull> : never;
+    [Type.Uint16]: T extends type.Uint16 ? Uint16Builder<TNull> : never;
+    [Type.Uint32]: T extends type.Uint32 ? Uint32Builder<TNull> : never;
+    [Type.Uint64]: T extends type.Uint64 ? Uint64Builder<TNull> : never;
+    [Type.Int]: T extends type.Int ? IntBuilder<T, TNull> : never;
+    [Type.Float16]: T extends type.Float16 ? Float16Builder<TNull> : never;
+    [Type.Float32]: T extends type.Float32 ? Float32Builder<TNull> : never;
+    [Type.Float64]: T extends type.Float64 ? Float64Builder<TNull> : never;
+    [Type.Float]: T extends type.Float ? FloatBuilder<T, TNull> : never;
+    [Type.Utf8]: T extends type.Utf8 ? Utf8Builder<TNull> : never;
+    [Type.Binary]: T extends type.Binary ? BinaryBuilder<TNull> : never;
+    [Type.FixedSizeBinary]: T extends type.FixedSizeBinary ? FixedSizeBinaryBuilder<TNull> : never;
+    [Type.Date]: T extends type.Date_ ? DateBuilder<T, TNull> : never;
+    [Type.DateDay]: T extends type.DateDay ? DateDayBuilder<TNull> : never;
+    [Type.DateMillisecond]: T extends type.DateMillisecond ? DateMillisecondBuilder<TNull> : never;
+    [Type.Timestamp]: T extends type.Timestamp ? TimestampBuilder<T, TNull> : never;
+    [Type.TimestampSecond]: T extends type.TimestampSecond ? TimestampSecondBuilder<TNull> : never;
+    [Type.TimestampMillisecond]: T extends type.TimestampMillisecond ? TimestampMillisecondBuilder<TNull> : never;
+    [Type.TimestampMicrosecond]: T extends type.TimestampMicrosecond ? TimestampMicrosecondBuilder<TNull> : never;
+    [Type.TimestampNanosecond]: T extends type.TimestampNanosecond ? TimestampNanosecondBuilder<TNull> : never;
+    [Type.Time]: T extends type.Time ? TimeBuilder<T, TNull> : never;
+    [Type.TimeSecond]: T extends type.TimeSecond ? TimeSecondBuilder<TNull> : never;
+    [Type.TimeMillisecond]: T extends type.TimeMillisecond ? TimeMillisecondBuilder<TNull> : never;
+    [Type.TimeMicrosecond]: T extends type.TimeMicrosecond ? TimeMicrosecondBuilder<TNull> : never;
+    [Type.TimeNanosecond]: T extends type.TimeNanosecond ? TimeNanosecondBuilder<TNull> : never;
+    [Type.Decimal]: T extends type.Decimal ? DecimalBuilder<TNull> : never;
+    [Type.Union]: T extends type.Union ? UnionBuilder<T, TNull> : never;
+    [Type.DenseUnion]: T extends type.DenseUnion ? DenseUnionBuilder<T, TNull> : never;
+    [Type.SparseUnion]: T extends type.SparseUnion ? SparseUnionBuilder<T, TNull> : never;
+    [Type.Interval]: T extends type.Interval ? IntervalBuilder<T, TNull> : never;
+    [Type.IntervalDayTime]: T extends type.IntervalDayTime ? IntervalDayTimeBuilder<TNull> : never;
+    [Type.IntervalYearMonth]: T extends type.IntervalYearMonth ? IntervalYearMonthBuilder<TNull> : never;
+    [Type.Map]: T extends type.Map_ ? MapBuilder<T['keyType'], T['valueType'], TNull> : never;
+    [Type.List]: T extends type.List ? ListBuilder<T['valueType'], TNull> : never;
+    [Type.Struct]: T extends type.Struct ? StructBuilder<T['dataTypes'], TNull> : never;
+    [Type.Dictionary]: T extends type.Dictionary ? DictionaryBuilder<T, TNull> : never;
+    [Type.FixedSizeList]: T extends type.FixedSizeList ? FixedSizeListBuilder<T['valueType'], TNull> : never;
 }[T['TType']];

@@ -22,7 +22,7 @@ import { arange } from './utils.js';
 import {
     makeData, makeVector,
     Schema, Field, Table, RecordBatch,
-    Vector, Builder,
+    Vector, builderThroughIterable,
     Float32, Int32, Dictionary, Utf8, Int8,
     tableFromIPC, tableToIPC
 } from 'apache-arrow';
@@ -344,7 +344,7 @@ function getTestData(f32: number[], i32: number[], keys: number[]) {
 
     const i32Data = makeData({ type: new Int32, data: i32 });
     const f32Data = makeData({ type: new Float32, data: f32 });
-    const [dictionary] = Builder.throughIterable({ type: new Utf8 })(['a', 'b', 'c']);
+    const [dictionary] = builderThroughIterable({ type: new Utf8 })(['a', 'b', 'c']);
     const dictionaryData = makeData({ type: new Dictionary(dictionary.type, new Int8), data: keys, dictionary });
 
     return {

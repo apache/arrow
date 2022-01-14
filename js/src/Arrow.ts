@@ -53,34 +53,34 @@ export {
 } from './type.js';
 
 export { Table, makeTable, tableFromArrays } from './table.js';
-export { Vector, makeVector, vectorFromArray } from './vector.js';
+export { Vector, makeVector } from './vector.js';
 export { Visitor } from './visitor.js';
 export { Schema, Field } from './schema.js';
 
 export { MapRow } from './row/map.js';
 export { StructRow } from './row/struct.js';
 
-export {
-    Builder,
-    BinaryBuilder,
-    BoolBuilder,
-    DateBuilder, DateDayBuilder, DateMillisecondBuilder,
-    DecimalBuilder,
-    DictionaryBuilder,
-    FixedSizeBinaryBuilder,
-    FixedSizeListBuilder,
-    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
-    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
-    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
-    ListBuilder,
-    MapBuilder,
-    NullBuilder,
-    StructBuilder,
-    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
-    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
-    UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
-    Utf8Builder,
-} from './builder/index.js';
+export { Builder } from './builder.js';
+export { makeBuilder, vectorFromArray, builderThroughIterable, builderThroughAsyncIterable } from './factories.js';
+export type { BuilderOptions } from './builder.js';
+export type { BoolBuilder } from './builder/bool.js';
+export type { NullBuilder } from './builder/null.js';
+export type { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './builder/date.js';
+export type { DecimalBuilder } from './builder/decimal.js';
+export type { DictionaryBuilder } from './builder/dictionary.js';
+export type { FixedSizeBinaryBuilder } from './builder/fixedsizebinary.js';
+export type { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './builder/float.js';
+export type { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './builder/int.js';
+export type { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
+export type { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
+export type { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+export type { Utf8Builder } from './builder/utf8.js';
+export type { BinaryBuilder } from './builder/binary.js';
+export type { ListBuilder } from './builder/list.js';
+export type { FixedSizeListBuilder } from './builder/fixedsizelist.js';
+export type { MapBuilder } from './builder/map.js';
+export type { StructBuilder } from './builder/struct.js';
+export type { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './builder/union.js';
 
 export { ByteStream, AsyncByteStream, AsyncByteQueue } from './io/stream.js';
 export type { ReadableSource, WritableSink } from './io/stream.js';

@@ -16,7 +16,7 @@
 // under the License.
 
 import streamAdapters from './io/adapters.js';
-import { Builder } from './builder/index.js';
+import { Builder } from './builder.js';
 import { RecordBatchReader } from './ipc/reader.js';
 import { RecordBatchWriter } from './ipc/writer.js';
 import { toNodeStream } from './io/node/iterable.js';

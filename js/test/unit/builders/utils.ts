@@ -24,7 +24,7 @@ import randstr from 'randomatic';
 
 import '../../jest-extensions.js';
 
-import { Builder, DataType, util, Vector } from 'apache-arrow';
+import { Builder, makeBuilder, builderThroughIterable, DataType, util, Vector } from 'apache-arrow';
 
 const rand = Math.random.bind(Math);
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
@@ -106,7 +106,7 @@ export const duplicateItems = (n: number, xs: (any | null)[]) => {
 export function encodeAll<T extends DataType>(typeFactory: () => T) {
     return async function encodeAll<TNull = any>(values: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
-        const builder = Builder.new({ type, nullValues });
+        const builder = makeBuilder({ type, nullValues });
         for (const x of values) builder.append.bind(builder)(x);
         return builder.finish().toVector();
     };
@@ -116,7 +116,7 @@ export function encodeEach<T extends DataType>(typeFactory: () => T, chunkLen?: 
     return async function encodeEach<TNull = any>(vals: (T['TValue'] | TNull)[], nullValues?: TNull[]) {
         const type = typeFactory();
         const opts = { type, nullValues, highWaterMark: chunkLen };
-        const chunks = [...Builder.throughIterable(opts)(vals)];
+        const chunks = [...builderThroughIterable(opts)(vals)];
         return chunks.reduce((a, b) => a.concat(b)) as Vector<T>;
     };
 }
