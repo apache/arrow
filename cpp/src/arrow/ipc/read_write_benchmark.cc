@@ -257,20 +257,29 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   }                                                                               \
   int64_t total_size = kArraySize * kBatches * num_fields;
 
+#define PURGE_OR_SKIP(FILE)                                                          \
+  {                                                                                  \
+    auto status = io::PurgeLocalFileFromOsCache("/tmp/benchmark.arrow");             \
+    if (!status.ok()) {                                                              \
+      std::string err = "Cannot purge local files from cache: " + status.ToString(); \
+      state.SkipWithError(err.c_str());                                              \
+    }                                                                                \
+  }
+
 #define READ_DATA_IN_MEMORY() auto input = std::make_shared<io::BufferReader>(buffer);
 #define READ_DATA_TEMP_FILE() \
   ASSIGN_OR_ABORT(auto input, io::ReadableFile::Open("/tmp/benchmark.arrow"));
 // This will not be correct if your system mounts /tmp to RAM (using tmpfs
 // or ramfs).
-#define READ_DATA_REAL_FILE()                                          \
-  ABORT_NOT_OK(io::PurgeLocalFileFromOsCache("/tmp/benchmark.arrow")); \
+#define READ_DATA_REAL_FILE()            \
+  PURGE_OR_SKIP("/tmp/benchmark.arrow"); \
   ASSIGN_OR_ABORT(auto input, io::ReadableFile::Open("/tmp/benchmark.arrow"));
 
 #define READ_DATA_MMAP_FILE()                                                    \
   ASSIGN_OR_ABORT(auto input, io::MemoryMappedFile::Open("/tmp/benchmark.arrow", \
                                                          io::FileMode::type::READ));
 #define READ_DATA_MMAP_REAL_FILE()                                               \
-  ABORT_NOT_OK(io::PurgeLocalFileFromOsCache("/tmp/benchmark.arrow"));           \
+  PURGE_OR_SKIP("/tmp/benchmark.arrow");                                         \
   ASSIGN_OR_ABORT(auto input, io::MemoryMappedFile::Open("/tmp/benchmark.arrow", \
                                                          io::FileMode::type::READ));
 
@@ -329,9 +338,6 @@ const std::vector<std::string> kArgNames = {"num_cols", "is_partial"};
 
 READ_BENCHMARK(ReadBuffer, GENERATE_DATA_IN_MEMORY, READ_DATA_IN_MEMORY);
 READ_BENCHMARK(ReadCachedFile, GENERATE_DATA_TEMP_FILE, READ_DATA_TEMP_FILE);
-// Reading uncached files is only possible on Linux until we add support
-// for arrow::io::PurgeLocalFileFromOsCache to other environments
-#ifdef __linux__
 // We use READ_SYNC/READ_ASYNC directly here so we can reduce the parameter
 // space as real files get quite large
 READ_SYNC(ReadUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_REAL_FILE)
@@ -344,9 +350,7 @@ READ_ASYNC(ReadUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_REAL_FILE)
     ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
-#endif
 READ_BENCHMARK(ReadMmapCachedFile, GENERATE_DATA_TEMP_FILE, READ_DATA_MMAP_FILE);
-#ifndef _WIN32
 READ_SYNC(ReadMmapUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_MMAP_REAL_FILE)
     ->RangeMultiplier(8)
     ->ArgNames(kArgNames)
@@ -357,7 +361,6 @@ READ_ASYNC(ReadMmapUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_MMAP_REAL_FI
     ->ArgNames(kArgNames)
     ->Ranges({{1, 1 << 6}, {0, 1}})
     ->UseRealTime();
-#endif
 #ifdef ARROW_WITH_ZSTD
 READ_BENCHMARK(ReadCompressedBuffer, GENERATE_COMPRESSED_DATA_IN_MEMORY,
                READ_DATA_IN_MEMORY);

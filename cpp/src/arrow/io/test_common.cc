@@ -53,10 +53,7 @@ void AssertFileContents(const std::string& path, const std::string& contents) {
 bool FileExists(const std::string& path) { return std::ifstream(path.c_str()).good(); }
 
 Status PurgeLocalFileFromOsCache(const std::string& path) {
-#ifndef __linux__
-  return Status::NotImplemented(
-      "Currently, only Linux supports purging files from cache");
-#else
+#if defined(POSIX_FADV_WILLNEED)
   int fd = open(path.c_str(), O_WRONLY);
   if (fd < 0) {
     return IOErrorFromErrno(errno, "open on ", path,
@@ -72,6 +69,8 @@ Status PurgeLocalFileFromOsCache(const std::string& path) {
     return Status::OK();
   }
   return IOErrorFromErrno(err, "close on ", path, " to clear from cache did not succeed");
+#else
+  return Status::NotImplemented("posix_fadvise is not implemented on this machine");
 #endif
 }
 
