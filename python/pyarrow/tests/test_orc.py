@@ -20,6 +20,8 @@ import decimal
 import datetime
 
 import pyarrow as pa
+from pyarrow import fs
+from pyarrow.tests import util
 
 
 # Marks all of the tests in this module
@@ -168,6 +170,33 @@ def test_orcfile_empty(datadir):
     ])
     assert table.schema == expected_schema
 
+def test_readwrite(tmpdir):
+    from pyarrow import orc
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, "Arrow", None, "ORC"])
+    table = pa.table({"int64": a, "utf8": b})
+    file = tmpdir.join("test.orc")
+    orc.write_table(table, file)
+    output_table = orc.read_table(file)
+    assert table.equals(output_table)
+
+def test_filesystem_uri(tmpdir):
+    from pyarrow import orc
+    table = pa.table({"a": [1, 2, 3]})
+
+    directory = tmpdir / "data_dir"
+    directory.mkdir()
+    path = directory / "data.orc"
+    orc.write_table(table, str(path))
+
+    # filesystem object
+    result = orc.read_table(path, filesystem=fs.LocalFileSystem())
+    assert result.equals(table)
+
+    # filesystem URI
+    result = orc.read_table(
+        "data_dir/data.orc", filesystem=util._filesystem_uri(tmpdir))
+    assert result.equals(table)
 
 def test_orcfile_readwrite():
     from pyarrow import orc
