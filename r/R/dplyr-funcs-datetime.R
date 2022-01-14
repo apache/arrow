@@ -623,9 +623,13 @@ register_bindings_datetime_parsers <- function() {
     build_expr("assume_timezone", coalesce_output, options = list(timezone = tz))
   })
 
+  # TODO:
+  #  support week_start (essential)
+  #  support timezones correctly (essential)
+  #  support change_on_boundary argument to ceiling_date
   register_binding("round_date", function(x, unit = "second") {
     Expression$create("round_temporal", x, options = parse_period_unit(unit))
-  })
+  }
   register_binding("floor_date", function(x, unit = "second") {
     Expression$create("floor_temporal", x, options = parse_period_unit(unit))
   })

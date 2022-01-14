@@ -2455,8 +2455,9 @@ test_that("datetime rounding between 1sec and 1day", {
 })
 
 # lubridate doesn't accept millisecond, microsecond or nanosecond descriptors:
-# instead it supports corresponding fractions of 1 second. test that arrow
-# fractional seconds mirror lubridate
+# instead it supports corresponding fractions of 1 second. these tests added to
+# that arrow verify that fractional second inputs to arrow mirror lubridate
+
 test_that("datetime rounding below 1sec", {
 
   expect_equal(
@@ -2508,14 +2509,13 @@ test_that("datetime rounding below 1sec", {
 })
 
 
-# a simplified test case
+# a simplified test case using UTC timezone only
 test_df_v2 <- tibble::tibble(
   datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA),
   date = c(as.Date("2021-09-09"), NA),
   integer = 1:2
 )
 
-# TODO: fix so that round_date() etc handle timezones correctly
 test_that("datetime round/floor/ceil to month/quarter/year", {
 
   compare_dplyr_binding(
@@ -2550,11 +2550,15 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
       collect(),
     test_df_v2
   )
-
 })
 
-# TODO: need to support week_starts. rounding currently treats 1970-01-01
-# as the beginning of week 1, i.e., week_starts = 4, on a Thursday
+# NOTE: the hard coding of week_starts = 4 needs to be fixed. round_temporal()
+# treats 1970-01-01 as the beginning of week 1, i.e., week_starts on a Thursday
+
+# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
+# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
+# I'm not 100% sold on this implementation, but it's not obviously terrible
+
 test_that("datetime round/floor/ceil to week", {
 
   expect_equal(
@@ -2585,12 +2589,13 @@ test_that("datetime round/floor/ceil to week", {
   )
 })
 
-# lubridate::round_date() etc sometimes coerce output from Date to POSIXct.
+# NOTE: lubridate::round_date() sometimes coerces output from Date to POSIXct.
 # this is not the default for the round_temporal() function in libarrow, which
 # is type stable: timestamps stay timestamps, and date32 stays date32. the
 # current implementation preserves the type stability property. consequently
 # there are edge cases where the arrow dplyr binding will not precisely mirror
-# the lubridate original.
+# the lubridate original. with that in mind, all tests for date32 rounding coerce
+# the lubridate equivalent back to Date
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
@@ -2603,18 +2608,12 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
     test_df %>% mutate(out = floor_date(date, "1 day") %>% as.Date())
   )
 
-  # NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
-  # next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
-  # I'm not 100% sold on this implementation
   expect_equal(
     test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE) %>% as.Date())
   )
-
 })
 
-
-# TODO: need to support week_starts
 test_that("dates round/floor/ceil to week", {
 
   expect_equal(
@@ -2659,5 +2658,4 @@ test_that("date rounding below 1 day", {
     test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 hour")) %>% collect(),
     test_df_v2 %>% mutate(out = round_date(date, "1 hour") %>% as.Date())
   )
-
 })
