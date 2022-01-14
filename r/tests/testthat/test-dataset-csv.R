@@ -281,7 +281,6 @@ test_that("Error if no format specified and files are not parquet", {
 })
 
 test_that("Column names can be inferred from schema", {
-
   tbl <- df1[, c("int", "dbl")]
 
   # Data containing a header row
@@ -306,9 +305,11 @@ test_that("Column names can be inferred from schema", {
 
   expect_error(
     collect(ds),
-    regexp = paste0("If you have supplied a schema and your data contains a ",
-                    "header row, you should supply the argument `skip = 1` to ",
-                    "prevent the header being read in as data.")
+    regexp = paste0(
+      "If you have supplied a schema and your data contains a ",
+      "header row, you should supply the argument `skip = 1` to ",
+      "prevent the header being read in as data."
+    )
   )
 
   # Data with no header row
@@ -321,7 +322,6 @@ test_that("Column names can be inferred from schema", {
     schema = schema(int = int32(), dbl = float64())
   )
   expect_equal(ds %>% collect(), tbl)
-
 })
 
 test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
