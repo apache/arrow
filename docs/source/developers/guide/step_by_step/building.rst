@@ -158,10 +158,10 @@ make changes to the Arrow C++ library.
 
    .. tab:: Building the R package
 
-	  When working on code in the R package, you only need to build the Arrow C++
-	  library (often referred to in the R documentation as 'libarrow') from source
-	  if you wish to make changes to the code there; otherwise you can install a
-	  binary version of the C++ libary and then need to link it up with the R package.
+	  When working on code in the R package, depending on your OS and planned
+	  changes, you may or may not need to build the Arrow C++ library (often
+	  referred to in the R documentation as 'libarrow') from source.
 
-	  Full instructions on setting up the Arrow C++ library and Arrow R package
-	  can be found in the `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
+	  More information on this and full instructions on setting up the Arrow C++
+	  library and Arrow R package can be found in the
+	  `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
