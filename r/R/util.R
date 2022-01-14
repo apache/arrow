@@ -215,3 +215,36 @@ handle_csv_read_error <- function(e, schema, call) {
 is_compressed <- function(compression) {
   !identical(compression, "uncompressed")
 }
+
+
+parse_period_unit <- function(x) {
+
+  # match integer multiples of unit only
+  match_info <- regexpr(
+    pattern = " *(?<multiple>[0-9]+)? *(?<unit>[^ \t\n]+)",
+    text = x[[1]],
+    perl = TRUE
+  )
+
+  start <- attr(match_info, "capture.start")
+  end <- start + attr(match_info, "capture.length") - 1L
+
+  if(end[[1]] > start[[1]]) {
+    multiple <- as.integer(substr(x, start[[1]], end[[1]]))
+  } else {
+    multiple <- 1L
+  }
+
+  known_units <- c("nanosecond", "microsecond", "millisecond", "second",
+                   "minute", "hour", "day", "week", "month", "quarter", "year")
+
+  str_unit_input <- substr(x, start[[2]], end[[2]])
+  str_unit_start <- substr(str_unit_input, 1, 3)
+  unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
+
+  if(any(are_na(unit))) {
+    abort(sprintf("Unknown unit '%s'", str_unit_input))
+  }
+
+  return(list(unit = unit, multiple = multiple))
+}
