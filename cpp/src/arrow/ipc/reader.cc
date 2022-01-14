@@ -1049,13 +1049,6 @@ static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
                           io_context);
 }
 
-static Result<std::unique_ptr<Message>> ReadMessageFromCached(
-    std::shared_ptr<Buffer> cached_metadata, std::shared_ptr<Buffer> cached_data) {
-  ARROW_ASSIGN_OR_RAISE(auto message,
-                        ReadMessage(std::move(cached_metadata), std::move(cached_data)));
-  return std::move(message);
-}
-
 static Status ReadOneDictionary(Message* message, const IpcReadContext& context) {
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
@@ -1186,14 +1179,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       return ReadCachedRecordBatch(i, cached_metadata->second).result();
     }
 
-    // FIXME: What if they have prebuffered metadata and so the dictionary read has
-    // started but this batch wasn't prebuffered and so the dictionaries haven't been
-    // finished getting read yet.
-
-    if (!read_dictionaries_) {
-      RETURN_NOT_OK(ReadDictionaries());
-      read_dictionaries_ = true;
-    }
+    RETURN_NOT_OK(WaitForDictionaryReadFinished());
 
     FieldsLoaderFunction fields_loader = {};
     if (!field_inclusion_mask_.empty()) {
@@ -1340,9 +1326,12 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     for (int index : indices) {
       Future<std::shared_ptr<Message>> metadata_loaded =
           all_metadata_ready.Then([this, index]() -> Result<std::shared_ptr<Message>> {
-            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Message> message,
-                                  ReadCachedMessageFromBlock(GetRecordBatchBlock(index)));
-            return std::shared_ptr<Message>(std::move(message));
+            ++stats_.num_messages;
+            FileBlock block = GetRecordBatchBlock(index);
+            ARROW_ASSIGN_OR_RAISE(
+                std::shared_ptr<Buffer> metadata,
+                metadata_cache_->Read({block.offset, block.metadata_length}));
+            return ReadMessage(std::move(metadata), nullptr);
           });
       cached_metadata_.emplace(index, metadata_loaded);
     }
@@ -1380,14 +1369,6 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                           arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
     ++stats_.num_messages;
     return std::move(message);
-  }
-
-  Result<std::unique_ptr<Message>> ReadCachedMessageFromBlock(const FileBlock& block) {
-    ++stats_.num_messages;
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
-                          metadata_cache_->Read({block.offset, block.metadata_length}));
-    std::shared_ptr<Buffer> data;
-    return arrow::ipc::ReadMessageFromCached(std::move(metadata), std::move(data));
   }
 
   Status ReadDictionaries() {
@@ -1436,6 +1417,19 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
             return ReadDictionaries();
           });
     }
+  }
+
+  Status WaitForDictionaryReadFinished() {
+    if (!read_dictionaries_) {
+      RETURN_NOT_OK(ReadDictionaries());
+      read_dictionaries_ = true;
+      return Status::OK();
+    }
+    if (dictionary_load_finished_.is_valid()) {
+      return dictionary_load_finished_.status();
+    }
+    // Dictionaries were previously loaded synchronously
+    return Status::OK();
   }
 
   Future<> WaitForMetadatas(const std::vector<int>& indices) {
