@@ -72,7 +72,6 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::GetByteWidth;
-using internal::make_unique;
 
 namespace ipc {
 

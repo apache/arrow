@@ -51,7 +51,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/make_unique.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
 
@@ -60,7 +59,6 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::GetByteWidth;
-using internal::make_unique;
 using internal::TemporaryDir;
 
 namespace ipc {
@@ -2801,7 +2799,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
   }
 
   void OpenReader() {
-    buffer_reader_ = make_unique<io::BufferReader>(file_buffer_);
+    buffer_reader_ = std::make_shared<io::BufferReader>(file_buffer_);
     tracked_ = std::make_shared<TrackedRandomAccessFile>(buffer_reader_.get());
     auto read_options = IpcReadOptions::Defaults();
     if (ReadsArePlugged()) {
@@ -2843,7 +2841,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
   }
 
   std::vector<std::shared_ptr<RecordBatch>> LoadExpected() {
-    auto buffer_reader = make_unique<io::BufferReader>(file_buffer_);
+    auto buffer_reader = std::make_shared<io::BufferReader>(file_buffer_);
     auto read_options = IpcReadOptions::Defaults();
     EXPECT_OK_AND_ASSIGN(auto reader,
                          RecordBatchFileReader::Open(buffer_reader.get(), read_options));
@@ -2878,7 +2876,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
 
   std::vector<std::shared_ptr<RecordBatch>> batches_;
   std::shared_ptr<Buffer> file_buffer_;
-  std::unique_ptr<io::BufferReader> buffer_reader_;
+  std::shared_ptr<io::BufferReader> buffer_reader_;
   std::shared_ptr<TrackedRandomAccessFile> tracked_;
   std::shared_ptr<RecordBatchFileReader> reader_;
 };
