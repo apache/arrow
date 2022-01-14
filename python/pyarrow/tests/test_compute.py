@@ -2567,3 +2567,64 @@ def test_random():
                        match=r"initializer should be 'system', an integer, "
                              r"or a hashable object; got \[\]"):
         pc.random(100, initializer=[])
+
+
+def test_expression_serialization():
+    a = pc.scalar(1)
+    b = pc.scalar(1.1)
+    c = pc.scalar(True)
+    d = pc.scalar("string")
+    e = pc.scalar(None)
+    f = pc.scalar({'a': 1})
+    g = pc.scalar(pa.scalar(1))
+    h = pc.scalar(np.int64(2))
+
+    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
+                 d.is_valid(), a.cast(pa.int32(), safe=False),
+                 a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
+                 pc.field('i64') > 5, pc.field('i64') == 5,
+                 pc.field('i64') == 7, pc.field('i64').is_null()]
+    for expr in all_exprs:
+        assert isinstance(expr, pc.Expression)
+        restored = pickle.loads(pickle.dumps(expr))
+        assert expr.equals(restored)
+
+
+def test_expression_construction():
+    zero = pc.scalar(0)
+    one = pc.scalar(1)
+    true = pc.scalar(True)
+    false = pc.scalar(False)
+    string = pc.scalar("string")
+    field = pc.field("field")
+
+    zero | one == string
+    ~true == false
+    for typ in ("bool", pa.bool_()):
+        field.cast(typ) == true
+
+    field.isin([1, 2])
+
+    with pytest.raises(TypeError):
+        field.isin(1)
+
+    with pytest.raises(pa.ArrowInvalid):
+        field != object()
+
+
+def test_expression_boolean_operators():
+    # https://issues.apache.org/jira/browse/ARROW-11412
+    true = pc.scalar(True)
+    false = pc.scalar(False)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true and false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true or false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        bool(true)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        not true

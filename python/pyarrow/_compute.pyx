@@ -19,6 +19,7 @@
 
 import sys
 
+from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 from collections import namedtuple
@@ -1939,3 +1940,204 @@ def _group_by(args, keys, aggregations):
         )
 
     return wrap_datum(result)
+
+
+cdef class Expression(_Weakrefable):
+    """
+    A logical expression to be evaluated against some input.
+
+    To create an expression:
+
+    - Use the factory function ``pyarrow.compute.scalar()`` to create a
+      scalar (not necessary when combined, see example below).
+    - Use the factory function ``pyarrow.compute.field()`` to reference
+      a field (column in table).
+    - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
+    - Combine expressions using python operators ``&`` (logical and),
+      ``|`` (logical or) and ``~`` (logical not).
+      Note: python keywords ``and``, ``or`` and ``not`` cannot be used
+      to combine expressions.
+    - Check whether the expression is contained in a list of values with
+      the ``pyarrow.compute.Expression.isin()`` member function.
+
+    Examples
+    --------
+
+    >>> import pyarrow.compute as pc
+    >>> (pc.field("a") < pc.scalar(3)) | (pc.field("b") > 7)
+    <pyarrow.compute.Expression ((a < 3:int64) or (b > 7:int64))>
+    >>> ds.field('a') != 3
+    <pyarrow.compute.Expression (a != 3)>
+    >>> ds.field('a').isin([1, 2, 3])
+    <pyarrow.compute.Expression (a is in [
+      1,
+      2,
+      3
+    ])>
+    """
+
+    def __init__(self):
+        msg = 'Expression is an abstract class thus cannot be initialized.'
+        raise TypeError(msg)
+
+    cdef void init(self, const CExpression& sp):
+        self.expr = sp
+
+    @staticmethod
+    cdef wrap(const CExpression& sp):
+        cdef Expression self = Expression.__new__(Expression)
+        self.init(sp)
+        return self
+
+    cdef inline CExpression unwrap(self):
+        return self.expr
+
+    def equals(self, Expression other):
+        return self.expr.Equals(other.unwrap())
+
+    def __str__(self):
+        return frombytes(self.expr.ToString())
+
+    def __repr__(self):
+        return "<pyarrow.compute.{0} {1}>".format(
+            self.__class__.__name__, str(self)
+        )
+
+    @staticmethod
+    def _deserialize(Buffer buffer not None):
+        return Expression.wrap(GetResultValue(CDeserializeExpression(
+            pyarrow_unwrap_buffer(buffer))))
+
+    def __reduce__(self):
+        buffer = pyarrow_wrap_buffer(GetResultValue(
+            CSerializeExpression(self.expr)))
+        return Expression._deserialize, (buffer,)
+
+    @staticmethod
+    cdef Expression _expr_or_scalar(object expr):
+        if isinstance(expr, Expression):
+            return (<Expression> expr)
+        return (<Expression> Expression._scalar(expr))
+
+    @staticmethod
+    cdef Expression _call(str function_name, list arguments,
+                          shared_ptr[CFunctionOptions] options=(
+                              <shared_ptr[CFunctionOptions]> nullptr)):
+        cdef:
+            vector[CExpression] c_arguments
+
+        for argument in arguments:
+            c_arguments.push_back((<Expression> argument).expr)
+
+        return Expression.wrap(CMakeCallExpression(tobytes(function_name),
+                                                   move(c_arguments), options))
+
+    def __richcmp__(self, other, int op):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call({
+            Py_EQ: "equal",
+            Py_NE: "not_equal",
+            Py_GT: "greater",
+            Py_GE: "greater_equal",
+            Py_LT: "less",
+            Py_LE: "less_equal",
+        }[op], [self, other])
+
+    def __bool__(self):
+        raise ValueError(
+            "An Expression cannot be evaluated to python True or False. "
+            "If you are using the 'and', 'or' or 'not' operators, use '&', "
+            "'|' or '~' instead."
+        )
+
+    def __invert__(self):
+        return Expression._call("invert", [self])
+
+    def __and__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("and_kleene", [self, other])
+
+    def __or__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("or_kleene", [self, other])
+
+    def __add__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("add_checked", [self, other])
+
+    def __mul__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("multiply_checked", [self, other])
+
+    def __sub__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("subtract_checked", [self, other])
+
+    def __truediv__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("divide_checked", [self, other])
+
+    def is_valid(self):
+        """Checks whether the expression is not-null (valid)"""
+        return Expression._call("is_valid", [self])
+
+    def is_null(self, bint nan_is_null=False):
+        """Checks whether the expression is null"""
+        cdef:
+            shared_ptr[CFunctionOptions] c_options
+
+        c_options.reset(new CNullOptions(nan_is_null))
+        return Expression._call("is_null", [self], c_options)
+
+    def cast(self, type, bint safe=True):
+        """Explicitly change the expression's data type"""
+        cdef shared_ptr[CCastOptions] c_options
+        c_options.reset(new CCastOptions(safe))
+        c_options.get().to_type = pyarrow_unwrap_data_type(ensure_type(type))
+        return Expression._call("cast", [self],
+                                <shared_ptr[CFunctionOptions]> c_options)
+
+    def isin(self, values):
+        """Checks whether the expression is contained in values"""
+        cdef:
+            shared_ptr[CFunctionOptions] c_options
+            CDatum c_values
+
+        if not isinstance(values, Array):
+            values = lib.array(values)
+
+        c_values = CDatum(pyarrow_unwrap_array(values))
+        c_options.reset(new CSetLookupOptions(c_values, True))
+        return Expression._call("is_in", [self], c_options)
+
+    @staticmethod
+    def _field(str name not None):
+        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+
+    @staticmethod
+    def _scalar(value):
+        cdef:
+            Scalar scalar
+
+        if isinstance(value, Scalar):
+            scalar = value
+        else:
+            scalar = lib.scalar(value)
+
+        return Expression.wrap(CMakeScalarExpression(scalar.unwrap()))
+
+
+_deserialize = Expression._deserialize
+cdef CExpression _true = CMakeScalarExpression(
+    <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+)
+
+
+cdef CExpression _bind(Expression filter, Schema schema) except *:
+    assert schema is not None
+
+    if filter is None:
+        return _true
+
+    return GetResultValue(filter.unwrap().Bind(
+        deref(pyarrow_unwrap_schema(schema).get())))

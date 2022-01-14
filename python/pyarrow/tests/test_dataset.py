@@ -567,67 +567,6 @@ def test_partitioning():
             partitioning.parse(shouldfail)
 
 
-def test_expression_serialization():
-    a = ds.scalar(1)
-    b = ds.scalar(1.1)
-    c = ds.scalar(True)
-    d = ds.scalar("string")
-    e = ds.scalar(None)
-    f = ds.scalar({'a': 1})
-    g = ds.scalar(pa.scalar(1))
-    h = ds.scalar(np.int64(2))
-
-    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
-                 d.is_valid(), a.cast(pa.int32(), safe=False),
-                 a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
-                 ds.field('i64') > 5, ds.field('i64') == 5,
-                 ds.field('i64') == 7, ds.field('i64').is_null()]
-    for expr in all_exprs:
-        assert isinstance(expr, ds.Expression)
-        restored = pickle.loads(pickle.dumps(expr))
-        assert expr.equals(restored)
-
-
-def test_expression_construction():
-    zero = ds.scalar(0)
-    one = ds.scalar(1)
-    true = ds.scalar(True)
-    false = ds.scalar(False)
-    string = ds.scalar("string")
-    field = ds.field("field")
-
-    zero | one == string
-    ~true == false
-    for typ in ("bool", pa.bool_()):
-        field.cast(typ) == true
-
-    field.isin([1, 2])
-
-    with pytest.raises(TypeError):
-        field.isin(1)
-
-    with pytest.raises(pa.ArrowInvalid):
-        field != object()
-
-
-def test_expression_boolean_operators():
-    # https://issues.apache.org/jira/browse/ARROW-11412
-    true = ds.scalar(True)
-    false = ds.scalar(False)
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true and false
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true or false
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        bool(true)
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        not true
-
-
 def test_expression_arithmetic_operators():
     dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
     a = ds.field("a")

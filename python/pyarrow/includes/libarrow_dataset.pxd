@@ -31,55 +31,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
 
-cdef extern from * namespace "arrow::compute":
-    # inlined from expression_internal.h to avoid
-    # proliferation of #include <unordered_map>
-    """
-    #include <unordered_map>
-
-    #include "arrow/type.h"
-    #include "arrow/datum.h"
-
-    namespace arrow {
-    namespace compute {
-    struct KnownFieldValues {
-      std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
-    };
-    } //  namespace compute
-    } //  namespace arrow
-    """
-    cdef struct CKnownFieldValues "arrow::compute::KnownFieldValues":
-        unordered_map[CFieldRef, CDatum, CFieldRefHash] map
-
-cdef extern from "arrow/compute/exec/expression.h" \
-        namespace "arrow::compute" nogil:
-
-    cdef cppclass CExpression "arrow::compute::Expression":
-        c_bool Equals(const CExpression& other) const
-        c_string ToString() const
-        CResult[CExpression] Bind(const CSchema&)
-
-    cdef CExpression CMakeScalarExpression \
-        "arrow::compute::literal"(shared_ptr[CScalar] value)
-
-    cdef CExpression CMakeFieldExpression \
-        "arrow::compute::field_ref"(c_string name)
-
-    cdef CExpression CMakeCallExpression \
-        "arrow::compute::call"(c_string function,
-                               vector[CExpression] arguments,
-                               shared_ptr[CFunctionOptions] options)
-
-    cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
-        "arrow::compute::Serialize"(const CExpression&)
-
-    cdef CResult[CExpression] CDeserializeExpression \
-        "arrow::compute::Deserialize"(shared_ptr[CBuffer])
-
-    cdef CResult[CKnownFieldValues] \
-        CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
-            const CExpression& partition_expression)
-
 ctypedef CStatus cb_writer_finish_internal(CFileWriter*)
 ctypedef void cb_writer_finish(dict, CFileWriter*)
 

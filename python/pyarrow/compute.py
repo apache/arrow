@@ -74,7 +74,9 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
-    _group_by
+    _group_by,
+    # Expressions
+    Expression,
 )
 
 from collections import namedtuple
@@ -581,3 +583,37 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
+
+
+def field(name):
+    """Reference a named column of the dataset.
+
+    Stores only the field's name. Type and other information is known only when
+    the expression is bound to a dataset having an explicit scheme.
+
+    Parameters
+    ----------
+    name : string
+        The name of the field the expression references to.
+
+    Returns
+    -------
+    field_expr : Expression
+    """
+    return Expression._field(name)
+
+
+def scalar(value):
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : Expression
+    """
+    return Expression._scalar(value)
