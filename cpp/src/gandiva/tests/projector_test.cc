@@ -2170,6 +2170,7 @@ TEST_F(TestProjector, TestToHex) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_numerical, outputs.at(1));
 }
+
 TEST_F(TestProjector, TestAesEncryptDecrypt) {
   auto field0 = field("f0", arrow::utf8());
   auto field1 = field("f1", arrow::utf8());
@@ -2184,9 +2185,7 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
       TreeExprBuilder::MakeExpression("aes_decrypt", {field0, field1}, plain_res);
 
   std::shared_ptr<Projector> projector_en;
-  auto status =
-      Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en);
-  ASSERT_OK(status);
+  ASSERT_OK(Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en));
 
   int num_records = 4;
 
@@ -2214,12 +2213,10 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
 
   // Evaluate expression
   arrow::ArrayVector outputs_en;
-  status = projector_en->Evaluate(*in_batch, pool_, &outputs_en);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(projector_en->Evaluate(*in_batch, pool_, &outputs_en));
 
   std::shared_ptr<Projector> projector_de;
-  status = Projector::Make(schema, {decrypt_expr}, TestConfiguration(), &projector_de);
-  ASSERT_OK(status);
+  ASSERT_OK(Projector::Make(schema, {decrypt_expr}, TestConfiguration(), &projector_de));
 
   array_holder_en = outputs_en.at(0);
 
@@ -2227,8 +2224,7 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
       arrow::RecordBatch::Make(schema, num_records, {array_holder_en, array_key});
 
   arrow::ArrayVector outputs_de;
-  status = projector_de->Evaluate(*in_batch_de, pool_, &outputs_de);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(projector_de->Evaluate(*in_batch_de, pool_, &outputs_de));
   EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
 }
 
