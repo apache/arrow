@@ -246,5 +246,17 @@ parse_period_unit <- function(x) {
     abort(sprintf("Unknown unit '%s'", str_unit_input))
   }
 
-  return(list(unit = unit, multiple = multiple))
+  opts <- list(unit = unit, multiple = multiple)
+
+  if(opts$unit == 5L & opts$multiple > 24) {
+    abort("Rounding with hour > 24 is not supported")
+  }
+  if(opts$unit == 4L & opts$multiple > 60) {
+    abort("Rounding with minute > 60 is not supported")
+  }
+  if(opts$unit == 3L & opts$multiple > 60) {
+    abort("Rounding with second > 60 is not supported")
+  }
+
+  return(opts)
 }
