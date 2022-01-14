@@ -19,15 +19,53 @@
 
 # arrow 6.0.1.9000
 
-* Added `decimal256()`. Updated `decimal()`, which now calls `decimal256()` or `decimal128()` based on the value of the `precision` argument.
-* updated `write_csv_arrow()` to follow the signature of `readr::write_csv()`. The following arguments are supported:
+## New features
+* Code to generate schemas (and individual data type specficiations) are now accessible with the `$code()` on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Arrow `Duration` type is now mapped to base R `difftime`.
+* Updated `write_csv_arrow()` to follow the signature of `readr::write_csv()`. The following arguments are supported:
   * `file` identical to `sink`
   * `col_names` identical to `include_header`
   * other arguments are currently unsupported, but the function errors with a meaningful message.
-* Added `decimal128()` (~~identical to `decimal()`~~) as the name is more explicit and updated docs to encourage its use. 
+* `lubridate::week()` is now supported in dplyr queries.
+* Added `decimal256()`. Updated `decimal()`, which now calls `decimal256()` or `decimal128()` based on the value of the `precision` argument.
+* When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
+* More of `lubridate`'s `is.*` functions are natively supported in Arrow.
+* Dictionaries (base R's factors) are now supported inside of `coalesce()`.
+
+## Breaking changes
+* R 3.3 is no longer supported (`glue`, which we depend on transitively has dropped support for 3.3 so we did as well).
+
+## Quality of life enhancements 
+* Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
 * Source builds now by default use `pkg-config` to search for system dependencies (such as `libz`) and link to them 
-if present. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`. 
+if present. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`.
+* `open_dataset()` now accepts (though ignores) partitioning column names with hive-style partitioned data. 
+* `write_parquet()` now uses a reasonable guess at `chunk_size` instead of always writing a single chunk.
+* S3 file systems can now be created with `proxy_options` for helping specify a proxy.
+* There is an improved error message when reading CSVs and there is a conflict between a header in the file and schema/column names are provided as arguments.
+* Delimited files (including CSVs) with encodings other than UTF can now be read (using the `encoding` argument when reading).
+* Integer division in Arrow now more closely matches R's behavior.
+* Snappy and lz4 compression libraries are now built (and enabled) by default. 
+* The `label` argument is now supported in the `lubridate::month` binding.
+* Conditionals insides of `group_by` aggregations are now supported.
 * Opening datasets now use async scanner by default which resolves a deadlock issues related to reading in large multi-CSV datasets
+* brotli compression is now possible on Windows builds.
+* Building Arrow on Windows can now find a locally built libarrow library.
+
+## Bug fixes
+* The experimental `map_batches()` is working once more.
+* `write_parquet()` no longer drops attributes for grouped data.frames.
+* `head()` no longer hangs on CSV datasets > 600MB.
+* `open_dataset()` now faithfully ignores `BOM`s (like we already did with reading single files).
+* Fixed a bug with altrep that could change the underlying data when it was reordered.
+* Resolved a segfault when creating S3 file systems.
+
+## Under-the-hood changes
+* Chunked arrays are now supported using altrep.
+* The pointers used to pass data between R and Python have been improved to be more reliable. Backwards compatibility with older versions of pyarrow has been maintained. 
+* The method of registering new bindings for use in dplyr queries has changed (see the new vignette about writing bindings for more information about how that works).
+* We no longer vendor `cpp11` and are using cpp11 as a standard (linked to) dependency.
+
 
 # arrow 6.0.1
 
