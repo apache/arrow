@@ -2455,20 +2455,60 @@ test_that("datetime rounding between 1sec and 1day", {
   )
 })
 
-# test_that("datetime rounding below 1sec", {
-#
-#   # fails: arrow knows these units, lubridate doesn't
-#   compare_dplyr_binding(
-#     .input %>%
-#       mutate(
-#         out_1 = round_date(datetime, "millisecond"),
-#         out_2 = round_date(datetime, "microsecond"),
-#         out_3 = round_date(datetime, "nanosecond")
-#       ) %>%
-#       collect(),
-#     test_df
-#   )
-# })
+# unlike arrow, lubridate doesn't know millisecond, microsecond or nanosecond
+# and instead supports corresponding fractions of 1 second. test that arrow
+# fractional seconds mirror lubridate
+test_that("datetime rounding below 1sec", {
+
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, ".001 second")) %>%
+      collect(),
+
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, "1 millisecond")) %>%
+      collect()
+  )
+
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, ".000001 second")) %>%
+      collect(),
+
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, "1 microsecond")) %>%
+      collect()
+  )
+
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, ".000000001 second")) %>%
+      collect(),
+
+    test_df %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, "1 nanosecond")) %>%
+      collect()
+  )
+
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, ".01 second"),
+        out_2 = round_date(datetime, ".001 second"),
+        out_3 = round_date(datetime, ".00001 second")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
 # test_that("datetime rounding above 1day", {
 #
 #   # fails: arrow doesn't give sensible answers

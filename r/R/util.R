@@ -219,44 +219,70 @@ is_compressed <- function(compression) {
 
 parse_period_unit <- function(x) {
 
-  # match integer multiples of unit only
+  # the regexp matches against fractional units, but per lubridate
+  # supports integer multiples of a known unit only
   match_info <- regexpr(
-    pattern = " *(?<multiple>[0-9]+)? *(?<unit>[^ \t\n]+)",
+    pattern = " *(?<multiple>[0-9.,]+)? *(?<unit>[^ \t\n]+)",
     text = x[[1]],
     perl = TRUE
   )
 
-  start <- attr(match_info, "capture.start")
-  end <- start + attr(match_info, "capture.length") - 1L
+  capture_start <- attr(match_info, "capture.start")
+  capture_length <- attr(match_info, "capture.length")
+  capture_end <- capture_start + capture_length - 1L
 
-  if(end[[1]] > start[[1]]) {
-    multiple <- as.integer(substr(x, start[[1]], end[[1]]))
-  } else {
-    multiple <- 1L
-  }
+  str_unit <- substr(x, capture_start[[2]], capture_end[[2]])
+  str_multiple <- substr(x, capture_start[[1]], capture_end[[1]])
 
   known_units <- c("nanosecond", "microsecond", "millisecond", "second",
                    "minute", "hour", "day", "week", "month", "quarter", "year")
 
-  str_unit_input <- substr(x, start[[2]], end[[2]])
-  str_unit_start <- substr(str_unit_input, 1, 3)
+  # match the period unit
+  str_unit_start <- substr(str_unit, 1, 3)
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
   if(any(is.na(unit))) {
-    abort(sprintf("Unknown unit '%s'", str_unit_input))
+    abort(sprintf("Unknown unit '%s'", str_unit))
   }
 
-  opts <- list(unit = unit, multiple = multiple)
+  # empty string in multiple interpreted as 1
+  if(capture_length[[1]] == 0) {
+    multiple <- 1L
 
-  if(opts$unit == 5L & opts$multiple > 24) {
-    abort("Rounding with hour > 24 is not supported")
+  } else {
+
+    # special cases: interpret fractions of 1 second as integer
+    # multiples of nanoseconds, microseconds, or milliseconds
+    # to mirror lubridate syntax
+    multiple <- as.numeric(str_multiple)
+
+    if(unit == 3L & multiple < 10^-6) {
+      unit <- 0L
+      multiple <- 10^9 * multiple
+    }
+    if(unit == 3L & multiple < 10^-3) {
+      unit <- 1L
+      multiple <- 10^6 * multiple
+    }
+    if(unit == 3L & multiple < 1) {
+      unit <- 2L
+      multiple <- 10^3 * multiple
+    }
+
+    multiple <- as.integer(multiple)
   }
-  if(opts$unit == 4L & opts$multiple > 60) {
-    abort("Rounding with minute > 60 is not supported")
-  }
-  if(opts$unit == 3L & opts$multiple > 60) {
+
+  # more special cases: lubridate imposes sensible maximum
+  # values on the number of seconds, minutes and hours
+  if(unit == 3L & multiple > 60) {
     abort("Rounding with second > 60 is not supported")
   }
+  if(unit == 4L & multiple > 60) {
+    abort("Rounding with minute > 60 is not supported")
+  }
+  if(unit == 5L & multiple > 24) {
+    abort("Rounding with hour > 24 is not supported")
+  }
 
-  return(opts)
+  return(list(unit = unit, multiple = multiple))
 }
