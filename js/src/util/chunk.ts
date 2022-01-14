@@ -67,7 +67,7 @@ export function computeChunkOffsets<T extends DataType>(chunks: ReadonlyArray<Da
 }
 
 /** @ignore */
-export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, offsets: Uint32Array, begin: number, end: number) {
+export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, offsets: Uint32Array | Array<number>, begin: number, end: number) {
     const slices: Data<T>[] = [];
     for (let i = -1, n = chunks.length; ++i < n;) {
         const chunk = chunks[i];

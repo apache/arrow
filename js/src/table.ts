@@ -80,19 +80,19 @@ export class Table<T extends TypeMap = any> {
         if (args.length === 0) {
             this.batches = [];
             this.schema = new Schema([]);
-            this._offsets = new Uint32Array([0]);
+            this._offsets = [0];
             return this;
         }
 
         let schema: Schema<T> | undefined;
-        let offsets: Uint32Array | undefined;
+        let offsets: Uint32Array | number[] | undefined;
 
         if (args[0] instanceof Schema) {
             schema = args.shift() as Schema<T>;
         }
 
         if (args[args.length - 1] instanceof Uint32Array) {
-            offsets = args.pop() as Uint32Array;
+            offsets = args.pop();
         }
 
         const unwrap = (x: any): RecordBatch<T>[] => {
@@ -142,7 +142,7 @@ export class Table<T extends TypeMap = any> {
         this._offsets = offsets ?? computeChunkOffsets(this.data);
     }
 
-    declare protected _offsets: Uint32Array;
+    declare protected _offsets: Uint32Array | number[];
     declare protected _nullCount: number;
 
     declare public readonly schema: Schema<T>;

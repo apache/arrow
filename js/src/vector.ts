@@ -69,8 +69,8 @@ export class Vector<T extends DataType = any> {
         this.data = data;
         this.type = data[0]?.type;
         switch (data.length) {
-            case 0: this._offsets = new Uint32Array([0]); break;
-            case 1: this._offsets = new Uint32Array([0, data[0].length]); break;
+            case 0: this._offsets = [0]; break;
+            case 1: this._offsets = [0, data[0].length]; break;
             default: this._offsets = computeChunkOffsets(data); break;
         }
         this.stride = strideForType(this.type);
@@ -79,7 +79,7 @@ export class Vector<T extends DataType = any> {
         Object.setPrototypeOf(this, vectorPrototypesByTypeId[this.type.typeId]);
     }
 
-    declare protected _offsets: Uint32Array;
+    declare protected _offsets: number[] | Uint32Array;
     declare protected _nullCount: number;
     declare protected _byteLength: number;
 
