@@ -55,7 +55,7 @@ describe(`FloatVector`, () => {
         const f16s = valuesArray(Uint16Array).map(x => uint16ToFloat64(x));
         const f32s = valuesTyped(Float32Array);
         const f64s = valuesTyped(Float64Array);
-        const f16Vec = new Vector(makeData({ type: new Float16, data: u16s }));
+        const f16Vec = new Vector([makeData({ type: new Float16, data: u16s })]);
         const f32Vec = makeVector(valuesTyped(Float32Array));
         const f64Vec = makeVector(valuesTyped(Float64Array));
 
@@ -240,9 +240,9 @@ function testIntVector<T extends Int>(DataType: new () => T, values?: Array<any>
 
     const typed: TypedArray | BigIntArray = new ArrayType(testValuesBuffer);
     const jsArray = values || [...typed];
-    const vector = new Vector(makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed }));
+    const vector = new Vector([makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed })]);
     const chunked = testValueBuffers.map((b) => new ArrayType(b))
-        .map((b) => new Vector(makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })))
+        .map((b) => new Vector([makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })]))
         .reduce((v: any, v2) => v.concat(v2));
 
     const vectorBegin = Math.trunc(vector.length * .25);
@@ -287,9 +287,9 @@ function testFloatVector<T extends Float>(DataType: new () => T, values?: Array<
 
     const typed = valuesTyped(ArrayType);
     const jsArray = values || [...typed];
-    const vector = new Vector(makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed }));
+    const vector = new Vector([makeData({ type, offset: 0, length: typed.length, nullCount: 0, nullBitmap: null, data: typed })]);
     const chunked = testValueBuffers.map((b) => new ArrayType(b))
-        .map((b) => new Vector(makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })))
+        .map((b) => new Vector([makeData({ type, offset: 0, length: b.length, nullCount: 0, nullBitmap: null, data: b })]))
         .reduce((v: any, v2) => v.concat(v2));
 
     const begin = Math.trunc(vector.length * .25);

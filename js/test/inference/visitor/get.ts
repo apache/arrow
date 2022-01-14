@@ -27,7 +27,7 @@ const data_List_Bool = new Data(new List<Bool>(null as any), 0, 0);
 const data_Dictionary_Bool = new Data(new Dictionary<Bool>(null!, null!), 0, 0);
 const data_Dictionary_List_Bool = new Data(new Dictionary<List<Bool>>(null!, null!), 0, 0);
 
-const boolVec = new Vector(data_Bool);
+const boolVec = new Vector([data_Bool]);
 // @ts-ignore
 const boolVec_getRaw = boolVec.get(0);
 // @ts-ignore
@@ -39,7 +39,7 @@ const boolVec_getFactoryData = getVisitor.getVisitFn(boolVec.data[0])(boolVec.da
 // @ts-ignore
 const boolVec_getFactoryType = getVisitor.getVisitFn(boolVec.type)(boolVec.data[0], 0);
 
-const listVec = new Vector(data_List_Bool);
+const listVec = new Vector([data_List_Bool]);
 // @ts-ignore
 const listVec_getRaw = listVec.get(0);
 // @ts-ignore
@@ -51,7 +51,7 @@ const listVec_getFactoryData = getVisitor.getVisitFn(listVec.data[0])(listVec.da
 // @ts-ignore
 const listVec_getFactoryType = getVisitor.getVisitFn(listVec.type)(listVec.data[0], 0);
 
-const dictVec = new Vector(data_Dictionary_Bool);
+const dictVec = new Vector([data_Dictionary_Bool]);
 // @ts-ignore
 const dictVec_getRaw = dictVec.get(0);
 // @ts-ignore
@@ -63,7 +63,7 @@ const dictVec_getFactoryData = getVisitor.getVisitFn(dictVec.data[0])(dictVec.da
 // @ts-ignore
 const dictVec_getFactoryType = getVisitor.getVisitFn(dictVec.type)(dictVec.data[0], 0);
 
-const dictOfListVec = new Vector(data_Dictionary_List_Bool);
+const dictOfListVec = new Vector([data_Dictionary_List_Bool]);
 // @ts-ignore
 const dictOfListVec_getRaw = dictOfListVec.get(0);
 // @ts-ignore

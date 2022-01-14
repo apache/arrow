@@ -59,14 +59,10 @@ const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
  */
 export class Vector<T extends DataType = any> {
 
-    constructor(...args: Data<T>[]);
-    constructor(...args: Vector<T>[]);
-    constructor(...args: (readonly (Data<T> | Vector<T>)[])[]);
-    constructor(...args: any[]) {
-        const data = args.flat(1).flatMap(
-            /** Specialized version of {@link unwrapInputs} so we don't need makeVector and prevent treeshaking. */
-            arg => arg instanceof Data ? arg : arg.data
-        );
+    constructor(input: readonly (Data<T> | Vector<T>)[]) {
+        const data: Data<T>[] = input[0] instanceof Vector
+            ? (input as Vector<T>[]).flatMap(x => x.data)
+            : input as Data<T>[];
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
@@ -422,7 +418,7 @@ export function makeVector<T extends DataType>(data: DataProps<T> | readonly Dat
 
 export function makeVector(init: any) {
     if (init) {
-        if (init instanceof Data) { return new Vector(init); }
+        if (init instanceof Data) { return new Vector([init]); }
         if (init instanceof Vector) { return new Vector(init.data); }
         if (init.type instanceof DataType) { return new Vector([makeData(init)]); }
         if (Array.isArray(init)) {
@@ -447,6 +443,10 @@ export function makeVector(init: any) {
         }
     }
     throw new Error('Unrecognized input');
+}
+
+export function getData<T extends DataType>(x: Data<T> | Vector<T>): readonly Data<T>[] {
+    return x instanceof Data ? [x] : x.data;
 }
 
 function unwrapInputs(x: any) {

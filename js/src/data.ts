@@ -333,7 +333,7 @@ class MakeDataVisitor extends Visitor {
         const { ['type']: type, ['offset']: offset = 0 } = props;
         const nullBitmap = toUint8Array(props['nullBitmap']);
         const data = toArrayBufferView(type.indices.ArrayType, props['data']);
-        const { ['dictionary']: dictionary = new Vector(new MakeDataVisitor().visit({ type: type.dictionary })) } = props;
+        const { ['dictionary']: dictionary = new Vector([new MakeDataVisitor().visit({ type: type.dictionary })]) } = props;
         const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0 } = props;
         return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap], [], dictionary);
     }

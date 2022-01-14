@@ -258,7 +258,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
 
     protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
-        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector(dictionary));
+        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector([dictionary]));
         const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
         const message = Message.from(dictionaryBatch, byteLength);

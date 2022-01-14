@@ -30,12 +30,12 @@ import {
 } from 'apache-arrow';
 
 const boolType = new Bool();
-const boolVector = new Vector(makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) }));
+const boolVector = new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]);
 
 const boolColumn = new Vector([
-    new Vector(makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })),
-    new Vector(makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })),
-    new Vector(makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })),
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
 ]);
 
 expect(typeof boolVector.get(0) === 'boolean').toBe(true);
@@ -54,11 +54,11 @@ const structChildFields = [
 ].map(({ name, type }) => new Field('' + name, type));
 
 const structType = new Struct<IndexSchema>(structChildFields);
-const structVector = new Vector(makeData({ type: structType, length: 0, nullCount: 0, children: [] }));
+const structVector = new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]);
 const structColumn = new Vector([
-    new Vector(makeData({ type: structType, length: 0, nullCount: 0, children: [] })),
-    new Vector(makeData({ type: structType, length: 0, nullCount: 0, children: [] })),
-    new Vector(makeData({ type: structType, length: 0, nullCount: 0, children: [] })),
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
 ]);
 
 const [x1, y1, z1] = structVector.get(0)!;
