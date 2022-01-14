@@ -59,8 +59,7 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 		err error
 
 		f = FileReader{
-			r: r,
-			// fields: make(dictTypeMap),
+			r:    r,
 			memo: dictutils.NewMemo(),
 			mem:  cfg.alloc,
 		}
