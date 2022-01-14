@@ -170,6 +170,7 @@ def test_orcfile_empty(datadir):
     ])
     assert table.schema == expected_schema
 
+
 def test_readwrite(tmpdir):
     from pyarrow import orc
     a = pa.array([1, None, 3, None])
@@ -179,6 +180,7 @@ def test_readwrite(tmpdir):
     orc.write_table(table, file)
     output_table = orc.read_table(file)
     assert table.equals(output_table)
+
 
 def test_filesystem_uri(tmpdir):
     from pyarrow import orc
@@ -197,6 +199,7 @@ def test_filesystem_uri(tmpdir):
     result = orc.read_table(
         "data_dir/data.orc", filesystem=util._filesystem_uri(tmpdir))
     assert result.equals(table)
+
 
 def test_orcfile_readwrite():
     from pyarrow import orc
