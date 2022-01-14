@@ -782,7 +782,6 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
 
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
 
-
     if (preallocate_contiguous_) {
       // Some kernels may like to simply nullify the validity bitmap when
       // they know the output will have 0 nulls.  However, this is not compatible
@@ -797,8 +796,9 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // (instead of using the preallocated ones)
       bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
       if (insertion_occured) {
-        return Status::ExecutionError("Unauthorized memory allocations "
-                                      "in function kernel");
+        return Status::ExecutionError(
+            "Unauthorized memory allocations "
+            "in function kernel");
       }
 #endif  // NDEBUG
     } else {
@@ -990,8 +990,9 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       // (instead of using the preallocated ones)
       bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
       if (insertion_occured) {
-        return Status::ExecutionError("Unauthorized memory allocations "
-                                      "in function kernel");
+        return Status::ExecutionError(
+            "Unauthorized memory allocations "
+            "in function kernel");
       }
     }
 #endif  // NDEBUG

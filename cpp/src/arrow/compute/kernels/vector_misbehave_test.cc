@@ -25,21 +25,18 @@
 
 namespace arrow {
 namespace compute {
-namespace {
 
-template <typename AllocateMem>
 struct VectorMisbehaveExec {
-    static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // allocate new buffers even though we've promised not to
-      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->AllocateBitmap(8));
-      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
-      return Status::OK();
-    }
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // allocate new buffers even though we've promised not to
+    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->AllocateBitmap(8));
+    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+    return Status::OK();
+  }
 };
 
 void AddVectorMisbehaveKernels(const std::shared_ptr<VectorFunction>& Vector_function) {
-  VectorKernel kernel({int32()}, int32(),
-                      VectorMisbehaveExec</*AllocateMem=*/std::false_type>::Exec);
+  VectorKernel kernel({int32()}, int32(), VectorMisbehaveExec::Exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = true;
@@ -48,15 +45,14 @@ void AddVectorMisbehaveKernels(const std::shared_ptr<VectorFunction>& Vector_fun
 
   DCHECK_OK(Vector_function->AddKernel(std::move(kernel)));
 }
-}  // namespace
 
 const FunctionDoc misbehave_doc{
-        "Test kernel that does nothing but allocate memory "
-        "while it shouldn't",
-        "This Kernel only exists for testing purposes.\n"
-        "It allocates memory while it promised not to \n"
-        "(because of MemAllocation::PREALLOCATE).",
-        {}};
+    "Test kernel that does nothing but allocate memory "
+    "while it shouldn't",
+    "This Kernel only exists for testing purposes.\n"
+    "It allocates memory while it promised not to \n"
+    "(because of MemAllocation::PREALLOCATE).",
+    {}};
 
 std::shared_ptr<const VectorFunction> CreateVectorMisbehaveFunction() {
   auto func = std::make_shared<VectorFunction>("vector_misbehave", Arity::Unary(),
@@ -69,13 +65,12 @@ TEST(Misbehave, MisbehavingVectorKernel) {
   ExecContext ctx;
   auto func = CreateVectorMisbehaveFunction();
   Datum datum(ChunkedArray(ArrayVector{}, int32()));
-  const std::vector<Datum> &args = {datum};
-  const FunctionOptions *options = nullptr;
+  const std::vector<Datum>& args = {datum};
+  const FunctionOptions* options = nullptr;
   EXPECT_RAISES_WITH_MESSAGE_THAT(ExecutionError,
-                                  testing::HasSubstr(
-                                          "ExecutionError in Gandiva: "
-                                          "Unauthorized memory allocations "
-                                          "in function kernel"),
+                                  testing::HasSubstr("ExecutionError in Gandiva: "
+                                                     "Unauthorized memory allocations "
+                                                     "in function kernel"),
                                   func->Execute(args, options, &ctx));
 }
 }  // namespace compute
