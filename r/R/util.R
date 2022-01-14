@@ -242,7 +242,7 @@ parse_period_unit <- function(x) {
   str_unit_start <- substr(str_unit_input, 1, 3)
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
-  if(any(are_na(unit))) {
+  if(any(is.na(unit))) {
     abort(sprintf("Unknown unit '%s'", str_unit_input))
   }
 
