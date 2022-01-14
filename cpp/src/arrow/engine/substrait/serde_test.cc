@@ -521,7 +521,7 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
                {
                    compute::call("make_struct",
                                  {compute::literal(false), compute::literal(true)},
-                                 compute::MakeStructOptions({"a", "b"})),
+                                 compute::MakeStructOptions({"cond1", "cond2"})),
                    compute::field_ref({"struct", "str"}),
                    compute::field_ref({"struct", "struct_i32_str", "str"}),
                    compute::field_ref("str"),

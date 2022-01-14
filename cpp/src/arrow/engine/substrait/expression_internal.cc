@@ -146,19 +146,24 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr) {
                              {std::move(if_), std::move(then), std::move(else_)});
       }
 
-      std::vector<compute::Expression> ifs, args;
-      ifs.reserve(if_then.ifs_size());
+      std::vector<compute::Expression> conditions, args;
+      std::vector<std::string> condition_names;
+      conditions.reserve(if_then.ifs_size());
+      condition_names.reserve(if_then.ifs_size());
+      size_t name_counter = 0;
       args.reserve(if_then.ifs_size() + 2);
       args.emplace_back();
       for (auto if_ : if_then.ifs()) {
         ARROW_ASSIGN_OR_RAISE(auto compute_if, FromProto(if_.if_()));
         ARROW_ASSIGN_OR_RAISE(auto compute_then, FromProto(if_.then()));
-        ifs.emplace_back(std::move(compute_if));
+        conditions.emplace_back(std::move(compute_if));
         args.emplace_back(std::move(compute_then));
+        condition_names.emplace_back("cond" + std::to_string(++name_counter));
       }
       ARROW_ASSIGN_OR_RAISE(auto compute_else, FromProto(if_then.else_()));
       args.emplace_back(std::move(compute_else));
-      args.emplace(args.begin(), compute::call("make_struct", std::move(ifs)));
+      args[0] = compute::call("make_struct", std::move(conditions),
+                              compute::MakeStructOptions(condition_names));
       return compute::call("case_when", std::move(args));
     }
 
@@ -816,7 +821,37 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   auto call = CallNotNull(expr);
 
-  // convert all arguments first
+  if (call->function_name == "case_when") {
+    auto conditions = call->arguments[0].call();
+    if (conditions && conditions->function_name == "make_struct") {
+      // catch the special case of calls convertible to IfThen
+      auto if_then_ = internal::make_unique<substrait::Expression::IfThen>();
+
+      // don't try to convert argument 0 of the case_when; we have to convert the elements
+      // of make_struct individually
+      std::vector<std::unique_ptr<substrait::Expression>> arguments(
+          call->arguments.size() - 1);
+      for (size_t i = 1; i < call->arguments.size(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(arguments[i - 1], ToProto(call->arguments[i]));
+      }
+
+      for (size_t i = 0; i < conditions->arguments.size(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto cond_substrait, ToProto(conditions->arguments[i]));
+        auto clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
+        clause->set_allocated_if_(cond_substrait.release());
+        clause->set_allocated_then(arguments[i].release());
+        if_then_->mutable_ifs()->AddAllocated(clause.release());
+      }
+
+      if_then_->set_allocated_else_(arguments.back().release());
+
+      out->set_allocated_if_then(if_then_.release());
+      return std::move(out);
+    }
+  }
+
+  // the remaining function pattern matchers only convert the function itself, so we
+  // should be able to convert all its arguments first here
   std::vector<std::unique_ptr<substrait::Expression>> arguments(call->arguments.size());
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(arguments[i], ToProto(call->arguments[i]));
@@ -857,28 +892,6 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
     out->set_allocated_if_then(if_then.release());
     return std::move(out);
-  }
-
-  if (call->function_name == "case_when") {
-    auto conditions = call->arguments[0].call();
-    if (conditions && conditions->function_name == "make_struct") {
-      // catch the special case of calls convertible to IfThen
-      auto if_then_ = internal::make_unique<substrait::Expression::IfThen>();
-
-      size_t arg_idx = 1;
-      for (auto& cond : conditions->arguments) {
-        ARROW_ASSIGN_OR_RAISE(auto cond_substrait, ToProto(cond));
-        auto clause = internal::make_unique<substrait::Expression::IfThen::IfClause>();
-        clause->set_allocated_if_(cond_substrait.release());
-        clause->set_allocated_then(arguments[arg_idx++].release());
-        if_then_->mutable_ifs()->AddAllocated(clause.release());
-      }
-
-      if_then_->set_allocated_else_(arguments[arg_idx].release());
-
-      out->set_allocated_if_then(if_then_.release());
-      return std::move(out);
-    }
   }
 
   /*
