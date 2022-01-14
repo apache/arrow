@@ -519,7 +519,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
-  if (func_name == "round_temporal") {
+  if (func_name == "round_temporal" || func_name == "floor_temporal" ||
+      func_name == "ceil_temporal") {
     using Options = arrow::compute::RoundTemporalOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     SEXP unit = options["unit"];
