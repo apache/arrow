@@ -34,6 +34,8 @@ void AssertFileContents(const std::string& path, const std::string& contents);
 
 ARROW_TESTING_EXPORT bool FileExists(const std::string& path);
 
+ARROW_TESTING_EXPORT Status PurgeLocalFileFromOsCache(const std::string& path);
+
 ARROW_TESTING_EXPORT bool FileIsClosed(int fd);
 
 ARROW_TESTING_EXPORT
