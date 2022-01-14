@@ -2259,6 +2259,31 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
       collect(),
     test_df
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        b = parse_date_time("2022-12-31 12:59:59", orders = "ymd_HMS")
+      ) %>%
+      collect(),
+    tibble(
+      a = 1
+    )
+  )
+})
+
+
+test_that("round/floor/ceiling on datetime (to nearest second)", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime),
+        out_2 = floor_date(datetime),
+        out_3 = ceiling_date(datetime),
+      ) %>%
+      collect(),
+    test_df
+  )
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2360,4 +2385,146 @@ test_that("build_formats() and build_format_from_order()", {
       "%y%b%d%H%M%S", "%Y%b%d%H%M%S"
     )
   )
+})
+
+test_that("period unit abbreviation", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "minute"),
+        out_2 = round_date(datetime, "minutes"),
+        out_3 = round_date(datetime, "mins"),
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("period unit extracts integer multiples", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "1 minute"),
+        out_2 = round_date(datetime, "2 minutes"),
+        out_3 = round_date(datetime, "10 minutes")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("period unit maxima are enforced", {
+
+  # lubridate errors when 60 sec/60 min/24 hour thresholds exceeded
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "61 seconds"),
+        out_2 = round_date(datetime, "61 minutes"),
+        out_3 = round_date(datetime, "25 hours")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("datetime rounding between 1sec and 1day", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "second"),
+        out_2 = round_date(datetime, "minute"),
+        out_3 = round_date(datetime, "hour"),
+        out_4 = round_date(datetime, "day")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("datetime rounding below 1sec", {
+
+  # fails: arrow knows these units, lubridate doesn't
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "millisecond"),
+        out_2 = round_date(datetime, "microsecond"),
+        out_3 = round_date(datetime, "nanosecond")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("datetime rounding above 1day", {
+
+  # fails: arrow doesn't give sensible answers
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "week"),
+        out_2 = round_date(datetime, "month"),
+        out_3 = round_date(datetime, "quarter"),
+        out_4 = round_date(datetime, "year"),
+      ) %>%
+      collect(),
+    test_df
+  )
+})
+
+# lubridate coerces dates to datetimes on rounding, whereas arrow
+# is type stable. tests only check that results match on the date
+
+test_that("round/floor/ceiling on dates (to nearest day)", {
+
+  expect_equal(
+    test_df %>% arrow_table() %>% mutate(out = round_date(date, "1 day")) %>% collect(),
+    test_df %>% mutate(out = round_date(date, "1 day") %>% as.Date())
+  )
+  expect_equal(
+    test_df %>% arrow_table() %>% mutate(out = floor_date(date, "1 day")) %>% collect(),
+    test_df %>% mutate(out = floor_date(date, "1 day") %>% as.Date())
+  )
+  expect_equal(
+    test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(), # arrow fails to round up
+    test_df %>% mutate(out = ceiling_date(date, "1 day") %>% as.Date())
+  )
+
+})
+
+
+test_that("date rounding above 1 day", {
+
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 week")) %>% collect(), # arrow does nothing?
+    test_df %>% mutate(out = round_date(date, "1 week") %>% as.Date())
+  )
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 month")) %>% collect(),
+    test_df %>% mutate(out = round_date(date, "1 month") %>% as.Date())
+  )
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 year")) %>% collect(), # arrow rounds up to 2022
+    test_df %>% mutate(out = round_date(date, "1 year") %>% as.Date()) # lubridate rounds down (seems wrong?)
+  )
+
+})
+
+
+test_that("date rounding below 1 day", {
+
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 second")) %>% collect(),
+    test_df %>% mutate(out = round_date(date, "1 second") %>% as.Date())
+  )
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 millisecond")) %>% collect(),
+    test_df %>% mutate(out = round_date(date, ".001 second") %>% as.Date())
+  )
+  expect_equal(
+    test_table %>% mutate(out = round_date(date, "1 hour")) %>% collect(),
+    test_df %>% mutate(out = round_date(date, "1 hour") %>% as.Date())
+  )
+
 })
