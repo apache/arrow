@@ -30,6 +30,8 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -2907,6 +2909,50 @@ INSTANTIATE_TEST_SUITE_P(PreBufferingTests, PreBufferingTest,
                              return "not_plugged";
                            }
                          });
+
+Result<std::shared_ptr<RecordBatch>> MakeBatchWithDictionaries(const int length) {
+  auto schema_ = ::arrow::schema({::arrow::field("i32", int32()),
+                                  ::arrow::field("i32d", dictionary(int8(), int32()))});
+  std::shared_ptr<Array> a0, a1;
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a0));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a1));
+  EXPECT_OK_AND_ASSIGN(auto encoded_datum, compute::DictionaryEncode(a1));
+  a1 = encoded_datum.make_array();
+  return RecordBatch::Make(std::move(schema_), length, {a0, a1});
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> MakeFileWithDictionaries(
+    const std::unique_ptr<TemporaryDir>& tempdir, int rows_per_batch, int num_batches) {
+  EXPECT_OK_AND_ASSIGN(auto temppath, tempdir->path().Join("testfile"));
+  auto fs = fs::LocalFileSystem();
+  EXPECT_OK_AND_ASSIGN(auto batch, MakeBatchWithDictionaries(rows_per_batch));
+  EXPECT_OK_AND_ASSIGN(auto sink, fs.OpenOutputStream(temppath.ToString()));
+  EXPECT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink.get(), batch->schema()));
+
+  for (int i = 0; i < num_batches; i++) {
+    ARROW_EXPECT_OK(writer->WriteRecordBatch(*batch));
+  }
+
+  ARROW_EXPECT_OK(writer->Close());
+  ARROW_EXPECT_OK(sink->Close());
+  return fs.OpenInputFile(temppath.ToString());
+}
+
+TEST(PreBuffering, MixedAccess) {
+  ASSERT_OK_AND_ASSIGN(auto tempdir, TemporaryDir::Make("arrow-ipc-read-write-test-"));
+  ASSERT_OK_AND_ASSIGN(auto readable_file, MakeFileWithDictionaries(tempdir, 50, 2));
+  auto read_options = IpcReadOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(readable_file, read_options));
+  ASSERT_OK(reader->PreBufferMetadata({0}));
+  ASSERT_OK_AND_ASSIGN(auto batch, reader->ReadRecordBatch(1));
+  ASSERT_EQ(50, batch->num_rows());
+  ASSERT_OK_AND_ASSIGN(batch, reader->ReadRecordBatch(0));
+  ASSERT_EQ(50, batch->num_rows());
+  auto stats = reader->stats();
+  ASSERT_EQ(1, stats.num_dictionary_batches);
+  ASSERT_EQ(2, stats.num_record_batches);
+}
 
 }  // namespace test
 }  // namespace ipc
