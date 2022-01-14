@@ -19,21 +19,19 @@
 
 #pragma once
 
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 
-#include "generated/substrait/plan.pb.h"  // IWYU pragma: export
+#include "generated/substrait/relations.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {
 
 ARROW_ENGINE_EXPORT
-Status AddExtensionSetToPlan(const ExtensionSet&, substrait::Plan*);
-
-ARROW_ENGINE_EXPORT
-Result<ExtensionSet> GetExtensionSetFromPlan(
-    const substrait::Plan&, ExtensionIdRegistry* = default_extension_id_registry());
+Result<compute::Declaration> FromProto(const substrait::Rel&, const ExtensionSet&);
 
 }  // namespace engine
 }  // namespace arrow

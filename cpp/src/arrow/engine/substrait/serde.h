@@ -34,9 +34,10 @@
 namespace arrow {
 namespace engine {
 
+using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
+
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
-    const Buffer&,
-    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory);
+    const Buffer&, const ConsumerFactory&);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&, const ExtensionSet&);
@@ -56,9 +57,8 @@ Result<compute::Expression> DeserializeExpression(const Buffer&);
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&);
 
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(
-    const Buffer&,
-    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory);
+ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(const Buffer&,
+                                                                     const ExtensionSet&);
 
 namespace internal {
 

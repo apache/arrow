@@ -18,6 +18,8 @@
 #include "arrow/engine/substrait/serde.h"
 
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/plan_internal.h"
+#include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_internal.h"
 #include "arrow/util/string_view.h"
 
@@ -27,8 +29,6 @@
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/message_differencer.h>
 #include <google/protobuf/util/type_resolver_util.h>
-
-#include "generated/substrait/plan.pb.h"
 
 namespace arrow {
 namespace engine {
@@ -56,13 +56,14 @@ Result<compute::Declaration> Convert(const substrait::PlanRel& relation) {
   return Status::NotImplemented("");
 }
 
-Result<compute::Declaration> DeserializeRelation(
-    const Buffer& buf, std::function<std::shared_ptr<compute::SinkNodeConsumer>()>) {
-  return Status::NotImplemented("");
+Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
+                                                 const ExtensionSet& ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
+  return FromProto(rel, ext_set);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(
-    const Buffer& buf, std::function<std::shared_ptr<compute::SinkNodeConsumer>()>) {
+Result<std::vector<compute::Declaration>> DeserializePlan(const Buffer& buf,
+                                                          const ConsumerFactory&) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   std::vector<compute::Declaration> decls;

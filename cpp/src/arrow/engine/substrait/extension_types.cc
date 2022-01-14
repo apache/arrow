@@ -161,9 +161,9 @@ struct IdHashEq {
   using Id = ExtensionSet::Id;
 
   size_t operator()(Id id) const {
-    constexpr internal::StringViewHash hash = {};
+    constexpr ::arrow::internal::StringViewHash hash = {};
     auto out = hash(id.uri);
-    internal::hash_combine(out, hash(id.name));
+    ::arrow::internal::hash_combine(out, hash(id.name));
     return out;
   }
 
@@ -204,7 +204,7 @@ struct ExtensionSet::Impl {
     return it_success.first->second;
   }
 
-  std::unordered_set<util::string_view, internal::StringViewHash> uris_;
+  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
   std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_;
 };
 

@@ -30,6 +30,7 @@ set(ARROW_ENGINE_SRCS
     substrait/extension_types.cc
     substrait/serde.cc
     substrait/plan_internal.cc
+    substrait/relation_internal.cc
     substrait/type_internal.cc)
 
 set(SUBSTRAIT_LOCAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
@@ -103,9 +104,11 @@ add_arrow_lib(arrow_engine
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
+              arrow_dataset_shared
               ${ARROW_ENGINE_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static
+              arrow_dataset_static
               ${ARROW_ENGINE_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
