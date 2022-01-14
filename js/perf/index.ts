@@ -22,6 +22,9 @@
 // import * as Arrow from '../targets/es2015/umd/Arrow.js';
 // import * as Arrow from '../targets/es2015/esm/Arrow.js';
 // import * as Arrow from '../targets/es2015/cjs/Arrow.js';
+// import * as Arrow from '../targets/esnext/umd/Arrow.js';
+// import * as Arrow from '../targets/esnext/esm/Arrow.js';
+// import * as Arrow from '../targets/esnext/cjs/Arrow.js';
 
 import * as Arrow from '../src/Arrow.js';
 
@@ -29,6 +32,7 @@ import config, { arrays, typedArrays, vectors } from './config.js';
 import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';
+export { Arrow };
 
 const { RecordBatchReader, RecordBatchStreamWriter } = Arrow;
 
@@ -83,6 +87,11 @@ b.suite(
             for (let i = -1, n = vector.length; ++i < n;) {
                 vector.get(i);
             }
+        })),
+
+    ...Object.entries(vectors).map(([name, vector]) =>
+        b.add(`iterator vector ${name}`, () => {
+            for (const _value of vector) { }
         })),
 
     b.cycle(cycle)

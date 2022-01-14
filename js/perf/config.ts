@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as Arrow from '../src/Arrow.dom.js';
+import { Arrow } from './index.js';
 
 // from https://stackoverflow.com/a/19303725/214950
 let seed = 1;
@@ -59,24 +59,24 @@ const batches = Array.from({ length: NUM_BATCHES }).map(() => {
 });
 
 export const typedArrays = {
-    uint8Array: Uint8Array.from({ length: LENGTH }, () => Math.random() * 255),
-    uint16Array: Uint16Array.from({ length: LENGTH }, () => Math.random() * 255),
-    uint32Array: Uint32Array.from({ length: LENGTH }, () => Math.random() * 255),
+    uint8Array: Uint8Array.from({ length: LENGTH }, () => random() * 255),
+    uint16Array: Uint16Array.from({ length: LENGTH }, () => random() * 255),
+    uint32Array: Uint32Array.from({ length: LENGTH }, () => random() * 255),
     uint64Array: BigUint64Array.from({ length: LENGTH }, () => 42n),
 
-    int8Array: Int8Array.from({ length: LENGTH }, () => Math.random() * 255),
-    int16Array: Int16Array.from({ length: LENGTH }, () => Math.random() * 255),
-    int32Array: Int32Array.from({ length: LENGTH }, () => Math.random() * 255),
+    int8Array: Int8Array.from({ length: LENGTH }, () => random() * 255),
+    int16Array: Int16Array.from({ length: LENGTH }, () => random() * 255),
+    int32Array: Int32Array.from({ length: LENGTH }, () => random() * 255),
     int64Array: BigInt64Array.from({ length: LENGTH }, () => 42n),
 
-    float32Array: Float32Array.from({ length: LENGTH }, () => Math.random() * 255),
-    float64Array: Float64Array.from({ length: LENGTH }, () => Math.random() * 255)
+    float32Array: Float32Array.from({ length: LENGTH }, () => random() * 255),
+    float64Array: Float64Array.from({ length: LENGTH }, () => random() * 255)
 };
 
 export const arrays = {
-    numbers: Array.from({ length: LENGTH }, () => Math.random() * 255),
-    booleans: Array.from({ length: LENGTH }, () => Math.random() > 0.5),
-    dictionary: Array.from({ length: LENGTH }, () => cities[Math.floor(Math.random() * cities.length)])
+    numbers: Array.from({ length: LENGTH }, () => random() * 255),
+    booleans: Array.from({ length: LENGTH }, () => random() > 0.5),
+    dictionary: Array.from({ length: LENGTH }, () => cities[Math.floor(random() * cities.length)])
 };
 
 export const vectors: { [k: string]: Arrow.Vector } = Object.fromEntries([

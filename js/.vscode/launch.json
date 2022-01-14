@@ -120,6 +120,20 @@
       "type": "node"
     },
     {
+      "name": "Debug Benchmarks",
+      "program": "${workspaceFolder}/perf/index.ts",
+      "request": "launch",
+      "skipFiles": [
+        "<node_internals>/**",
+        "${workspaceFolder}/node_modules/**/*.js"
+      ],
+      "runtimeArgs": [
+        "--loader",
+        "ts-node/esm/transpile-only"
+      ],
+      "type": "node"
+    },
+    {
       "type": "node",
       "request": "launch",
       "name": "Debug bin/arrow2csv",
