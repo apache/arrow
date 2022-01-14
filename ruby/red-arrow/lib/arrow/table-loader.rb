@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "uri"
+require "open-uri"
 
 module Arrow
   class TableLoader
@@ -34,30 +34,47 @@ module Arrow
 
     def load
       if @input.is_a?(URI)
-        custom_load_method = "load_from_uri"
-      elsif @input.is_a?(String) and ::File.directory?(@input)
-        custom_load_method = "load_from_directory"
-      else
-        custom_load_method = "load_from_file"
-      end
-      unless respond_to?(custom_load_method, true)
-        available_schemes = []
-        (methods(true) | private_methods(true)).each do |name|
-          match_data = /\Aload_from_/.match(name.to_s)
-          if match_data
-            available_schemes << match_data.post_match
-          end
+        custom_load_method_candidates = []
+        if @input.scheme
+          custom_load_method_candidates << "load_from_uri_#{@input.scheme}"
         end
-        message = "Arrow::Table load source must be one of ["
-        message << available_schemes.join(", ")
-        message << "]: #{@input.inspect}"
-        raise ArgumentError, message
+        custom_load_method_candidates << "load_from_uri"
+      elsif @input.is_a?(String) and ::File.directory?(@input)
+        custom_load_method_candidates = ["load_from_directory"]
+      else
+        custom_load_method_candidates = ["load_from_file"]
       end
-      __send__(custom_load_method)
+      custom_load_method_candidates.each do |custom_load_method|
+        next unless respond_to?(custom_load_method, true)
+        return __send__(custom_load_method)
+      end
+      available_schemes = []
+      (methods(true) | private_methods(true)).each do |name|
+        match_data = /\Aload_from_/.match(name.to_s)
+        if match_data
+          available_schemes << match_data.post_match
+        end
+      end
+      message = "Arrow::Table load source must be one of ["
+      message << available_schemes.join(", ")
+      message << "]: #{@input.inspect}"
+      raise ArgumentError, message
     end
 
     private
+    def load_from_uri_http
+      load_by_reader
+    end
+
+    def load_from_uri_https
+      load_by_reader
+    end
+
     def load_from_file
+      load_by_reader
+    end
+
+    def load_by_reader
       format = @options[:format]
       custom_load_method = "load_as_#{format}"
       unless respond_to?(custom_load_method, true)
@@ -111,10 +128,29 @@ module Arrow
     end
 
     def open_input_stream
-      if @input.is_a?(Buffer)
-        BufferInputStream.new(@input)
+      case @input
+      when Buffer
+        yield(BufferInputStream.new(@input))
+      when URI
+        @input.open do |ruby_input|
+          case @options[:format]
+          when :stream, :arrow_streaming
+            Gio::RubyInputStream.open(ruby_input) do |gio_input|
+              GIOInputStream.open(gio_input) do |input|
+                yield(input)
+              end
+            end
+          else
+            # TODO: We need to consider Ruby's GVL carefully to use
+            # Ruby object directly for input with other formats. We
+            # read data and use it as Buffer for now.
+            data = GLib::Bytes.new(ruby_input.read.freeze)
+            buffer = Buffer.new(data)
+            yield(BufferInputStream.new(buffer))
+          end
+        end
       else
-        MemoryMappedInputStream.new(@input)
+        yield(MemoryMappedInputStream.new(@input))
       end
     end
 
@@ -130,32 +166,19 @@ module Arrow
     end
 
     def load_as_arrow
-      input = nil
-      reader = nil
-      error = nil
-      reader_class_candidates = [
-        RecordBatchFileReader,
-        RecordBatchStreamReader,
-      ]
-      reader_class_candidates.each do |reader_class_candidate|
-        input = open_input_stream
-        begin
-          reader = reader_class_candidate.new(input)
-        rescue Arrow::Error
-          error = $!
-        else
-          break
-        end
+      begin
+        load_as_arrow_file
+      rescue
+        load_as_arrow_streaming
       end
-      raise error if reader.nil?
-      load_raw(input, reader)
     end
 
     # @since 1.0.0
     def load_as_arrow_file
-      input = open_input_stream
-      reader = RecordBatchFileReader.new(input)
-      load_raw(input, reader)
+      open_input_stream do |input|
+        reader = RecordBatchFileReader.new(input)
+        load_raw(input, reader)
+      end
     end
 
     # @deprecated Use `format: :arrow_file` instead.
@@ -165,9 +188,10 @@ module Arrow
 
     # @since 1.0.0
     def load_as_arrow_streaming
-      input = open_input_stream
-      reader = RecordBatchStreamReader.new(input)
-      load_raw(input, reader)
+      open_input_stream do |input|
+        reader = RecordBatchStreamReader.new(input)
+        load_raw(input, reader)
+      end
     end
 
     # @deprecated Use `format: :arrow_streaming` instead.
@@ -177,20 +201,26 @@ module Arrow
 
     if Arrow.const_defined?(:ORCFileReader)
       def load_as_orc
-        input = open_input_stream
-        reader = ORCFileReader.new(input)
-        field_indexes = @options[:field_indexes]
-        reader.set_field_indexes(field_indexes) if field_indexes
-        table = reader.read_stripes
-        table.instance_variable_set(:@input, input)
-        table
+        open_input_stream do |input|
+          reader = ORCFileReader.new(input)
+          field_indexes = @options[:field_indexes]
+          reader.set_field_indexes(field_indexes) if field_indexes
+          table = reader.read_stripes
+          table.instance_variable_set(:@input, input)
+          table
+        end
       end
     end
 
     def csv_load(options)
       options.delete(:format)
-      if @input.is_a?(Buffer)
+      case @input
+      when Buffer
         CSVLoader.load(@input.data.to_s, **options)
+      when URI
+        @input.open do |input|
+          CSVLoader.load(input.read, **options)
+        end
       else
         CSVLoader.load(Pathname.new(@input), **options)
       end
@@ -207,19 +237,21 @@ module Arrow
     end
 
     def load_as_feather
-      input = open_input_stream
-      reader = FeatherFileReader.new(input)
-      table = reader.read
-      table.instance_variable_set(:@input, input)
-      table
+      open_input_stream do |input|
+        reader = FeatherFileReader.new(input)
+        table = reader.read
+        table.instance_variable_set(:@input, input)
+        table
+      end
     end
 
     def load_as_json
-      input = open_input_stream
-      reader = JSONReader.new(input)
-      table = reader.read
-      table.instance_variable_set(:@input, input)
-      table
+      open_input_stream do |input|
+        reader = JSONReader.new(input)
+        table = reader.read
+        table.instance_variable_set(:@input, input)
+        table
+      end
     end
   end
 end
