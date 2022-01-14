@@ -526,6 +526,9 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     if (!Rf_isNull(unit)) {
       out->unit = cpp11::as_cpp<enum arrow::compute::CalendarUnit>(unit);
     }
+    if (!Rf_isNull(options["multiple"])) {
+      out->multiple = cpp11::as_cpp<int64_t>(options["multiple"]);
+    }
     return out;
   }
 
