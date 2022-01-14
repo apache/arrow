@@ -30,8 +30,6 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/api_vector.h"
-#include "arrow/filesystem/localfs.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -2911,22 +2909,25 @@ INSTANTIATE_TEST_SUITE_P(PreBufferingTests, PreBufferingTest,
                          });
 
 Result<std::shared_ptr<RecordBatch>> MakeBatchWithDictionaries(const int length) {
-  auto schema_ = ::arrow::schema({::arrow::field("i32", int32()),
-                                  ::arrow::field("i32d", dictionary(int8(), int32()))});
-  std::shared_ptr<Array> a0, a1;
-  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a0));
-  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &a1));
-  EXPECT_OK_AND_ASSIGN(auto encoded_datum, compute::DictionaryEncode(a1));
-  a1 = encoded_datum.make_array();
-  return RecordBatch::Make(std::move(schema_), length, {a0, a1});
+  auto dict_type = dictionary(int32(), int32());
+  auto schema_ = ::arrow::schema(
+      {::arrow::field("i32", int32()), ::arrow::field("i32d", dict_type)});
+  std::shared_ptr<Array> i32, i32d_values, i32d_indices;
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &i32));
+  RETURN_NOT_OK(
+      MakeRandomInt32Array(length, false, arrow::default_memory_pool(), &i32d_values));
+  RETURN_NOT_OK(MakeRandomInt32Array(length, false, arrow::default_memory_pool(),
+                                     &i32d_indices, 0, 0, length));
+  std::shared_ptr<Array> i32d =
+      std::make_shared<DictionaryArray>(dict_type, i32d_indices, i32d_values);
+  return RecordBatch::Make(std::move(schema_), length, {i32, i32d});
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> MakeFileWithDictionaries(
     const std::unique_ptr<TemporaryDir>& tempdir, int rows_per_batch, int num_batches) {
   EXPECT_OK_AND_ASSIGN(auto temppath, tempdir->path().Join("testfile"));
-  auto fs = fs::LocalFileSystem();
   EXPECT_OK_AND_ASSIGN(auto batch, MakeBatchWithDictionaries(rows_per_batch));
-  EXPECT_OK_AND_ASSIGN(auto sink, fs.OpenOutputStream(temppath.ToString()));
+  EXPECT_OK_AND_ASSIGN(auto sink, io::FileOutputStream::Open(temppath.ToString()));
   EXPECT_OK_AND_ASSIGN(auto writer, MakeFileWriter(sink.get(), batch->schema()));
 
   for (int i = 0; i < num_batches; i++) {
@@ -2935,7 +2936,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> MakeFileWithDictionaries(
 
   ARROW_EXPECT_OK(writer->Close());
   ARROW_EXPECT_OK(sink->Close());
-  return fs.OpenInputFile(temppath.ToString());
+  return io::ReadableFile::Open(temppath.ToString());
 }
 
 TEST(PreBuffering, MixedAccess) {

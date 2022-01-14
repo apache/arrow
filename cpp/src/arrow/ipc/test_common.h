@@ -42,7 +42,8 @@ void CompareBatchColumnsDetailed(const RecordBatch& result, const RecordBatch& e
 
 ARROW_TESTING_EXPORT
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out, uint32_t seed = 0);
+                            std::shared_ptr<Array>* out, uint32_t seed = 0,
+                            int32_t min = 0, int32_t max = 1000);
 
 ARROW_TESTING_EXPORT
 Status MakeRandomInt64Array(int64_t length, bool include_nulls, MemoryPool* pool,
