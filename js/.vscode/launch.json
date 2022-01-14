@@ -56,15 +56,6 @@
   ],
   "configurations": [
     {
-      "name": "Attach",
-      "port": 9229,
-      "request": "attach",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "type": "pwa-node"
-    },
-    {
       "type": "node",
       "request": "launch",
       "name": "Debug Gulp Build",
@@ -278,6 +269,15 @@
         "TEST_NODE_STREAMS": "true",
         "TEST_TS_SOURCE": "true"
       },
+    },
+    {
+      "name": "Attach",
+      "port": 9229,
+      "request": "attach",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "type": "pwa-node"
     }
   ]
 }
