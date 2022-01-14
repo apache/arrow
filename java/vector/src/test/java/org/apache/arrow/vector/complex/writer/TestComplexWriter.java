@@ -41,6 +41,8 @@ import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
+import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -1330,6 +1332,73 @@ public class TestComplexWriter {
           }
         }
       }
+    }
+  }
+
+  @Test
+  public void testStructOfList() {
+    try (StructVector structVector = StructVector.empty("struct1", allocator)) {
+      structVector.addOrGetList("childList1");
+      NullableStructReaderImpl structReader = structVector.getReader();
+      FieldReader childListReader = structReader.reader("childList1");
+      Assert.assertNotNull(childListReader);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct2", allocator)) {
+      structVector.addOrGetList("childList2");
+      NullableStructWriter structWriter = structVector.getWriter();
+      structWriter.start();
+      ListWriter listWriter = structWriter.list("childList2");
+      listWriter.startList();
+      listWriter.integer().writeInt(10);
+      listWriter.endList();
+      structWriter.end();
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      FieldReader childListReader = structReader.reader("childList2");
+      int size = childListReader.size();
+      Assert.assertEquals(1, size);
+      int data = childListReader.reader().readInteger();
+      Assert.assertEquals(10, data);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct3", allocator)) {
+      structVector.addOrGetList("childList3");
+      NullableStructWriter structWriter = structVector.getWriter();
+      for (int i = 0; i < 5; ++i) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        ListWriter listWriter = structWriter.list("childList3");
+        listWriter.startList();
+        listWriter.integer().writeInt(i);
+        listWriter.endList();
+        structWriter.end();
+      }
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      structReader.setPosition(3);
+      FieldReader childListReader = structReader.reader("childList3");
+      int size = childListReader.size();
+      Assert.assertEquals(1, size);
+      int data = ((List<Integer>) childListReader.readObject()).get(0);
+      Assert.assertEquals(3, data);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct4", allocator)) {
+      structVector.addOrGetList("childList4");
+      NullableStructWriter structWriter = structVector.getWriter();
+      for (int i = 0; i < 5; ++i) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        structWriter.writeNull();
+        structWriter.end();
+      }
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      structReader.setPosition(3);
+      FieldReader childListReader = structReader.reader("childList4");
+      int size = childListReader.size();
+      Assert.assertEquals(0, size);
     }
   }
 }
