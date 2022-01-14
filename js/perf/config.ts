@@ -30,7 +30,7 @@ const LENGTH = 100_000;
 const NUM_BATCHES = 10;
 const cities = ['Charlottesville', 'New York', 'San Francisco', 'Seattle', 'Terre Haute', 'Washington, DC'];
 
-const values = Arrow.vectorFromArray(cities, new Arrow.Utf8);
+const values = Arrow.vectorFromArray(cities, new Arrow.Utf8).memoize();
 
 const batches = Array.from({ length: NUM_BATCHES }).map(() => {
     const lat = Float32Array.from(

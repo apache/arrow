@@ -63,35 +63,35 @@ b.suite(
     `Vector`,
 
     ...Object.entries(typedArrays).map(([name, array]) =>
-        b.add(`make vector from ${name}`, () => {
+        b.add(`makeVector(${name})`, () => {
             Arrow.makeVector(array);
         })),
 
     ...Object.entries(arrays).map(([name, array]) =>
-        b.add(`make vector from ${name}`, () => {
+        b.add(`vectorFromArray(${name})`, () => {
             Arrow.vectorFromArray(array as any);
         })),
 
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`[...vector] ${name}`, () => {
+        b.add(`Iterate vector ${name}`, () => {
+            for (const _value of vector) { }
+        })),
+
+    ...Object.entries(vectors).map(([name, vector]) =>
+        b.add(`Spread ${name}`, () => {
             [...vector];
         })),
 
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`vector.toArray() ${name}`, () => {
+        b.add(`toArray ${name}`, () => {
             vector.toArray();
         })),
 
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`vector.get() ${name}`, () => {
+        b.add(`get ${name}`, () => {
             for (let i = -1, n = vector.length; ++i < n;) {
                 vector.get(i);
             }
-        })),
-
-    ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`iterator vector ${name}`, () => {
-            for (const _value of vector) { }
         })),
 
     b.cycle(cycle)
@@ -154,18 +154,24 @@ for (const { name, ipc, table } of config) {
 
 for (const { name, table, counts } of config) {
     b.suite(
-        `Table Iterate`,
+        `Table`,
 
-        b.add(`dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+        b.add(`Iterate, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             for (const _value of table) { }
         }),
 
-        b.add(`[...table] dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+        b.add(`Spread, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             [...table];
         }),
 
-        b.add(`table.toArray() dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+        b.add(`toArray, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
             table.toArray();
+        }),
+
+        b.add(`get, dataset: ${name}, numRows: ${formatNumber(table.numRows)}`, () => {
+            for (let i = -1, n = table.numRows; ++i < n;) {
+                table.get(i);
+            }
         }),
 
         b.cycle(cycle)

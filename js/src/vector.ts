@@ -445,10 +445,6 @@ export function makeVector(init: any) {
     throw new Error('Unrecognized input');
 }
 
-export function getData<T extends DataType>(x: Data<T> | Vector<T>): readonly Data<T>[] {
-    return x instanceof Data ? [x] : x.data;
-}
-
 function unwrapInputs(x: any) {
     return x instanceof Data ? [x] : (x instanceof Vector ? x.data : makeVector(x).data);
 }
