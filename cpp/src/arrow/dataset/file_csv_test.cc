@@ -393,9 +393,8 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
-  // The CSV reader rejects duplicate columns
-}
+// The CSV reader rejects duplicate columns, so skip
+// ScanRecordBatchReaderWithDuplicateColumn
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
   TestScanWithDuplicateColumnError();
 }
