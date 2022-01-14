@@ -96,8 +96,10 @@ In this section we outline steps needed for unit testing in Arrow.
       .. code-block:: R
 
          tests
-          ├── testthat      # unit test files live here
+          ├── testthat      # test files live here
           └── testthat.R    # runs tests when R CMD check runs (e.g. with devtools::check())
+
+      This is the fundamental structure of testing in R with ``testthat``. Files such as ``testthat.R`` are not expected to change very often. For the ``arrow`` R package ``testthat.R`` also defines how the results of the various tests are displayed / reported in the console.
 
       Usually, most files in the ``R/`` sub-folder have a corresponding test file in ``tests/testthat``.
 
@@ -125,6 +127,8 @@ In this section we outline steps needed for unit testing in Arrow.
 
       All tests are also run as part of our continuous integration (CI) pipelines.
 
+      The Arrow R Developer guide also has a section on running tests. You can check it out `here <https://arrow.apache.org/docs/r/articles/developing.html#running-tests>`_.
+
       **Good practice**
 
       In general any change to source code needs to be accompanied by unit tests. All tests are expected to pass before a pull request is merged.
@@ -135,20 +139,14 @@ In this section we outline steps needed for unit testing in Arrow.
       * Performance improvements should be reflected in benchmarks (which are also tests)
       * An exception could be refactoring functionality that is fully covered by unit tests
 
+      If the new functionality is a user-facing or API change, you will almost certainly need to change tests — if no tests need to be changed it might mean the tests aren't right! If the new functionality is a refactor and no APIs are changing, there might not need to be test changes.
+
       **Testing helpers**
 
       To complement the ``testthat`` functionality, the ``arrow`` R package has defined a series of specific utility functions (called helpers), such as:
 
-      * Expectations - these start with ``expect_`` and are used to compare objects
-            - for example, ``expect_altrep_roundtrip()`` compares the result
-            of a function ``fn`` run on a vector ``x`` with the result of the
-            same function run on the altrep version of ``x``. More generally,
-            expect_…_roundtrip() functions do …
-
-            .. TODO _fill in the blanks_
-            .. TODO
-
-            - Expect
+      * expectations - these start with ``expect_`` and are used to compare objects
+            - for example, ``expect_altrep_roundtrip()`` compares the result of a function ``fn`` run on a vector ``x`` with the result of the same function run on the altrep version of ``x``. More generally, ``expect_…_roundtrip()`` functions take an input, convert it to some other format (e.g. arrow) and then convert it back, confirming that the values are the same.
       * ``skip_`` - skips a unit test - think of them as acceptable fails. Situations in which we might want to skip unit tests:
 
         - ``skip_if_r_version()`` - this is a specific ``arrow`` skip. For example, we use this to skip a unit test when the R version is 3.5.0 and below (``skip_if_r_version(“3.5.0”)``). You will likely see it used when the functionality we are testing depends on features introduced after version 3.5.0 of R (such as the alternative representation of vectors, Altrep, introduced in R 3.5.0, but with significant additions in subsequent releases). As part of our CI workflow we test against different versions of R and this is where this feature comes in.
@@ -156,9 +154,9 @@ In this section we outline steps needed for unit testing in Arrow.
         - ``skip_if_offline()`` - will not run tests that require an internet connection
         - ``skip_on_os()`` - for unit tests that are OS specific.
 
-      *Important*: Once the conditions for a ``skip_()`` statement is met, no other line of code in the same ``test_that()`` test block will get executed.
+      *Important*: Once the conditions for a ``skip_()`` statement is met, no other line of code in the same ``test_that()`` test block will get executed. If the ``skip`` is outside of a ``test_that()`` code block, it will skip the rest of the file.
 
-      For more information about unit testing in R:
+      For more information about unit testing in R in general:
 
       * the ``testthat`` `website <https://testthat.r-lib.org/index.html>`_
       * the **R Packages** `book <https://r-pkgs.org>`_ by Hadley Wickham and Jenny Bryan
