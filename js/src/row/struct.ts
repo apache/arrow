@@ -17,9 +17,10 @@
 
 import { Data } from '../data.js';
 import { Field } from '../schema.js';
-import { Vector } from '../vector.js';
 import { Struct, TypeMap } from '../type.js';
 import { valueToString } from '../util/pretty.js';
+import { instance as getVisitor } from '../visitor/get';
+import { instance as setVisitor } from '../visitor/set';
 
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');
@@ -31,10 +32,10 @@ export type StructRowProxy<T extends TypeMap = any> = StructRow<T> & {
 export class StructRow<T extends TypeMap = any> {
 
     declare private [kRowIndex]: number;
-    declare private [kParent]: Vector<Struct<T>>;
+    declare private [kParent]: Data<Struct<T>>;
 
     constructor(parent: Data<Struct<T>>, rowIndex: number) {
-        this[kParent] = new Vector([parent]);
+        this[kParent] = parent;
         this[kRowIndex] = rowIndex;
         return new Proxy(this, new StructRowProxyHandler());
     }
@@ -47,7 +48,7 @@ export class StructRow<T extends TypeMap = any> {
         const keys = parent.type.children;
         const json = {} as { [P in string & keyof T]: T[P]['TValue'] };
         for (let j = -1, n = keys.length; ++j < n;) {
-            json[keys[j].name as string & keyof T] = parent.getChildAt(j)!.get(i);
+            json[keys[j].name as string & keyof T] = getVisitor.visit(parent.children[j], i);
         }
         return json;
     }
@@ -78,14 +79,14 @@ class StructRowIterator<T extends TypeMap = any>
     declare private rowIndex: number;
     declare private childIndex: number;
     declare private numChildren: number;
-    declare private parent: Vector<Struct<T>>;
+    declare private children: Data<any>[];
     declare private childFields: Field<T[keyof T]>[];
 
-    constructor(parent: Vector<Struct<T>>, rowIndex: number) {
+    constructor(data: Data<Struct<T>>, rowIndex: number) {
         this.childIndex = 0;
-        this.parent = parent;
+        this.children = data.children;
         this.rowIndex = rowIndex;
-        this.childFields = parent.type.children;
+        this.childFields = data.type.children;
         this.numChildren = this.childFields.length;
     }
 
@@ -99,7 +100,7 @@ class StructRowIterator<T extends TypeMap = any>
                 done: false,
                 value: [
                     this.childFields[i].name,
-                    this.parent.getChildAt(i)!.get(this.rowIndex)
+                    getVisitor.visit(this.children[i], this.rowIndex)
                 ]
             } as IteratorYieldResult<[any, any]>;
         }
@@ -136,7 +137,7 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
         }
         const idx = row[kParent].type.children.findIndex((f) => f.name === key);
         if (idx !== -1) {
-            const val = row[kParent].getChildAt(idx)!.get(row[kRowIndex]);
+            const val = getVisitor.visit(row[kParent].children[idx], row[kRowIndex]);
             // Cache key/val lookups
             Reflect.set(row, key, val);
             return val;
@@ -145,7 +146,7 @@ class StructRowProxyHandler<T extends TypeMap = any> implements ProxyHandler<Str
     set(row: StructRow<T>, key: string, val: any) {
         const idx = row[kParent].type.children.findIndex((f) => f.name === key);
         if (idx !== -1) {
-            row[kParent].getChildAt(idx)!.set(row[kRowIndex], val);
+            setVisitor.visit(row[kParent].children[idx], row[kRowIndex], val);
             // Cache key/val lookups
             return Reflect.set(row, key, val);
         } else if (Reflect.has(row, key)) {

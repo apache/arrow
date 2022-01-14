@@ -19,6 +19,8 @@ import { Data } from '../data.js';
 import { Vector } from '../vector.js';
 import { DataType, Struct } from '../type.js';
 import { valueToString } from '../util/pretty.js';
+import { instance as getVisitor } from '../visitor/get';
+import { instance as setVisitor } from '../visitor/set';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
 /** @ignore */ export const kVals = Symbol.for('vals');
@@ -28,11 +30,11 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
     [key: string]: V['TValue'];
 
     declare private [kKeys]: Vector<K>;
-    declare private [kVals]: Vector<V>;
+    declare private [kVals]: Data<V>;
 
     constructor(slice: Data<Struct<{ key: K; value: V }>>) {
-        this[kKeys] = new Vector([slice.children[0] as Data<K>]);
-        this[kVals] = new Vector([slice.children[1] as Data<V>]);
+        this[kKeys] = new Vector([slice.children[0]]).memoize() as Vector<K>;
+        this[kVals] = slice.children[1] as Data<V>;
         return new Proxy(this, new MapRowProxyHandler<K, V>());
     }
 
@@ -49,7 +51,7 @@ export class MapRow<K extends DataType = any, V extends DataType = any> {
         const vals = this[kVals];
         const json = {} as { [P in K['TValue']]: V['TValue'] };
         for (let i = -1, n = keys.length; ++i < n;) {
-            json[keys.get(i)] = vals.get(i);
+            json[keys.get(i)] = getVisitor.visit(vals, i);
         }
         return json;
     }
@@ -70,11 +72,11 @@ class MapRowIterator<K extends DataType = any, V extends DataType = any>
     implements IterableIterator<[K['TValue'], V['TValue'] | null]> {
 
     private keys: Vector<K>;
-    private vals: Vector<V>;
+    private vals: Data<V>;
     private numKeys: number;
     private keyIndex: number;
 
-    constructor(keys: Vector<K>, vals: Vector<V>) {
+    constructor(keys: Vector<K>, vals: Data<V>) {
         this.keys = keys;
         this.vals = vals;
         this.keyIndex = 0;
@@ -93,7 +95,7 @@ class MapRowIterator<K extends DataType = any, V extends DataType = any>
             done: false,
             value: [
                 this.keys.get(i),
-                this.vals.get(i),
+                getVisitor.visit(this.vals, i),
             ] as [K['TValue'], V['TValue'] | null]
         };
     }
@@ -124,7 +126,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
         }
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            const val = row[kVals].get(idx);
+            const val = getVisitor.visit(Reflect.get(row, kVals), idx);
             // Cache key/val lookups
             Reflect.set(row, key, val);
             return val;
@@ -133,7 +135,7 @@ class MapRowProxyHandler<K extends DataType = any, V extends DataType = any> imp
     set(row: MapRow<K, V>, key: string | symbol, val: V) {
         const idx = row[kKeys].indexOf(key);
         if (idx !== -1) {
-            row[kVals].set(idx, val);
+            setVisitor.visit(Reflect.get(row, kVals), idx, val);
             // Cache key/val lookups
             return Reflect.set(row, key, val);
         } else if (Reflect.has(row, key)) {
