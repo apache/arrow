@@ -1034,6 +1034,21 @@ static Result<std::unique_ptr<Message>> ReadMessageFromBlock(
   return std::move(message);
 }
 
+static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
+    const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
+  if (!bit_util::IsMultipleOf8(block.offset) ||
+      !bit_util::IsMultipleOf8(block.metadata_length) ||
+      !bit_util::IsMultipleOf8(block.body_length)) {
+    return Status::Invalid("Unaligned block in IPC file");
+  }
+
+  // TODO(wesm): this breaks integration tests, see ARROW-3256
+  // DCHECK_EQ((*out)->body_length(), block.body_length);
+
+  return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
+                          io_context);
+}
+
 static Result<std::unique_ptr<Message>> ReadMessageFromCached(
     std::shared_ptr<Buffer> cached_metadata, std::shared_ptr<Buffer> cached_data) {
   ARROW_ASSIGN_OR_RAISE(auto message,
@@ -1059,11 +1074,49 @@ class RecordBatchFileReaderImpl;
 /// A generator of record batches.
 ///
 /// All batches are yielded in order.
-class ARROW_EXPORT IpcFileRecordBatchGenerator {
+class ARROW_EXPORT WholeIpcFileRecordBatchGenerator {
  public:
   using Item = std::shared_ptr<RecordBatch>;
 
-  explicit IpcFileRecordBatchGenerator(std::shared_ptr<RecordBatchFileReaderImpl> state)
+  explicit WholeIpcFileRecordBatchGenerator(
+      std::shared_ptr<RecordBatchFileReaderImpl> state,
+      std::shared_ptr<io::internal::ReadRangeCache> cached_source,
+      const io::IOContext& io_context, arrow::internal::Executor* executor)
+      : state_(std::move(state)),
+        cached_source_(std::move(cached_source)),
+        io_context_(io_context),
+        executor_(executor),
+        index_(0) {}
+
+  Future<Item> operator()();
+  Future<std::shared_ptr<Message>> ReadBlock(const FileBlock& block);
+
+  static Status ReadDictionaries(
+      RecordBatchFileReaderImpl* state,
+      std::vector<std::shared_ptr<Message>> dictionary_messages);
+  static Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+      RecordBatchFileReaderImpl* state, Message* message);
+
+ private:
+  std::shared_ptr<RecordBatchFileReaderImpl> state_;
+  std::shared_ptr<io::internal::ReadRangeCache> cached_source_;
+  io::IOContext io_context_;
+  arrow::internal::Executor* executor_;
+  int index_;
+  // Odd Future type, but this lets us use All() easily
+  Future<> read_dictionaries_;
+};
+
+/// A generator of record batches for use when reading
+/// a subset of columns from the file.
+///
+/// All batches are yielded in order.
+class ARROW_EXPORT SelectiveIpcFileRecordBatchGenerator {
+ public:
+  using Item = std::shared_ptr<RecordBatch>;
+
+  explicit SelectiveIpcFileRecordBatchGenerator(
+      std::shared_ptr<RecordBatchFileReaderImpl> state)
       : state_(std::move(state)), index_(0) {}
 
   Future<Item> operator()();
@@ -1256,8 +1309,28 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       const io::CacheOptions cache_options,
       arrow::internal::Executor* executor) override {
     auto state = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
-    RETURN_NOT_OK(state->PreBufferMetadata({}));
-    return IpcFileRecordBatchGenerator(std::move(state));
+    // Prebuffering causes us to use a lot of futures which, at the moment,
+    // can only slow things down when we are doing zero-copy in-memory reads.
+    //
+    // Prebuffering's read patterns are also slightly worse than the alternative
+    // when doing whole-file reads because the logic is not in place to recognize
+    // we can just read the entire file up-front
+    if (options_.included_fields.size() != 0 &&
+        options_.included_fields.size() != schema_->fields().size() &&
+        !file_->supports_zero_copy()) {
+      RETURN_NOT_OK(state->PreBufferMetadata({}));
+      return SelectiveIpcFileRecordBatchGenerator(std::move(state));
+    }
+
+    std::shared_ptr<io::internal::ReadRangeCache> cached_source;
+    if (coalesce && file_->supports_zero_copy()) {
+      if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
+      // Since the user is asking for all fields then we can cache the entire
+      // file (up to the footer)
+      return cached_source->Cache({{0, footer_offset_}});
+    }
+    return WholeIpcFileRecordBatchGenerator(std::move(state), std::move(cached_source),
+                                            io_context, executor);
   }
 
   Status DoPreBufferMetadata(const std::vector<int>& indices) {
@@ -1291,7 +1364,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
  private:
-  friend class IpcFileRecordBatchGenerator;
+  friend class WholeIpcFileRecordBatchGenerator;
 
   FileBlock GetRecordBatchBlock(int i) const {
     return FileBlockFromFlatbuffer(footer_->recordBatches()->Get(i));
@@ -1681,12 +1754,90 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
       .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
-Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator()() {
+Future<SelectiveIpcFileRecordBatchGenerator::Item> SelectiveIpcFileRecordBatchGenerator::
+operator()() {
   int index = index_++;
   if (index >= state_->num_record_batches()) {
-    return IterationEnd<IpcFileRecordBatchGenerator::Item>();
+    return IterationEnd<SelectiveIpcFileRecordBatchGenerator::Item>();
   }
   return state_->ReadRecordBatchAsync(index);
+}
+
+Future<WholeIpcFileRecordBatchGenerator::Item> WholeIpcFileRecordBatchGenerator::
+operator()() {
+  auto state = state_;
+  if (!read_dictionaries_.is_valid()) {
+    std::vector<Future<std::shared_ptr<Message>>> messages(state->num_dictionaries());
+    for (int i = 0; i < state->num_dictionaries(); i++) {
+      auto block = FileBlockFromFlatbuffer(state->footer_->dictionaries()->Get(i));
+      messages[i] = ReadBlock(block);
+    }
+    auto read_messages = All(std::move(messages));
+    if (executor_) read_messages = executor_->Transfer(read_messages);
+    read_dictionaries_ = read_messages.Then(
+        [=](const std::vector<Result<std::shared_ptr<Message>>>& maybe_messages)
+            -> Status {
+          ARROW_ASSIGN_OR_RAISE(auto messages,
+                                arrow::internal::UnwrapOrRaise(maybe_messages));
+          return ReadDictionaries(state.get(), std::move(messages));
+        });
+  }
+  if (index_ >= state_->num_record_batches()) {
+    return Future<Item>::MakeFinished(IterationTraits<Item>::End());
+  }
+  auto block = FileBlockFromFlatbuffer(state->footer_->recordBatches()->Get(index_++));
+  auto read_message = ReadBlock(block);
+  auto read_messages = read_dictionaries_.Then([read_message]() { return read_message; });
+  // Force transfer. This may be wasteful in some cases, but ensures we get off the
+  // I/O threads as soon as possible, and ensures we don't decode record batches
+  // synchronously in the case that the message read has already finished.
+  if (executor_) {
+    auto executor = executor_;
+    return read_messages.Then(
+        [=](const std::shared_ptr<Message>& message) -> Future<Item> {
+          return DeferNotOk(executor->Submit(
+              [=]() { return ReadRecordBatch(state.get(), message.get()); }));
+        });
+  }
+  return read_messages.Then([=](const std::shared_ptr<Message>& message) -> Result<Item> {
+    return ReadRecordBatch(state.get(), message.get());
+  });
+}
+
+Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
+    const FileBlock& block) {
+  if (cached_source_) {
+    auto cached_source = cached_source_;
+    io::ReadRange range{block.offset, block.metadata_length + block.body_length};
+    auto pool = state_->options_.memory_pool;
+    return cached_source->WaitFor({range}).Then(
+        [cached_source, pool, range]() -> Result<std::shared_ptr<Message>> {
+          ARROW_ASSIGN_OR_RAISE(auto buffer, cached_source->Read(range));
+          io::BufferReader stream(std::move(buffer));
+          return ReadMessage(&stream, pool);
+        });
+  } else {
+    return ReadMessageFromBlockAsync(block, state_->file_, io_context_);
+  }
+}
+
+Status WholeIpcFileRecordBatchGenerator::ReadDictionaries(
+    RecordBatchFileReaderImpl* state,
+    std::vector<std::shared_ptr<Message>> dictionary_messages) {
+  IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
+  for (const auto& message : dictionary_messages) {
+    RETURN_NOT_OK(ReadOneDictionary(message.get(), context));
+  }
+  return Status::OK();
+}
+
+Result<std::shared_ptr<RecordBatch>> WholeIpcFileRecordBatchGenerator::ReadRecordBatch(
+    RecordBatchFileReaderImpl* state, Message* message) {
+  CHECK_HAS_BODY(*message);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+  IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
+  return ReadRecordBatchInternal(*message->metadata(), state->schema_,
+                                 state->field_inclusion_mask_, context, reader.get());
 }
 
 Status Listener::OnEOS() { return Status::OK(); }
