@@ -329,9 +329,9 @@ const std::vector<std::string> kArgNames = {"num_cols", "is_partial"};
 
 READ_BENCHMARK(ReadBuffer, GENERATE_DATA_IN_MEMORY, READ_DATA_IN_MEMORY);
 READ_BENCHMARK(ReadCachedFile, GENERATE_DATA_TEMP_FILE, READ_DATA_TEMP_FILE);
-// Reading uncached files is not possible on Windows until we add support
-// for arrow::io::PurgeLocalFileFromOsCache
-#ifndef _WIN32
+// Reading uncached files is only possible on Linux until we add support
+// for arrow::io::PurgeLocalFileFromOsCache to other environments
+#ifdef __linux__
 // We use READ_SYNC/READ_ASYNC directly here so we can reduce the parameter
 // space as real files get quite large
 READ_SYNC(ReadUncachedFile, GENERATE_DATA_REAL_FILE, READ_DATA_REAL_FILE)

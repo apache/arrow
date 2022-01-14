@@ -53,8 +53,9 @@ void AssertFileContents(const std::string& path, const std::string& contents) {
 bool FileExists(const std::string& path) { return std::ifstream(path.c_str()).good(); }
 
 Status PurgeLocalFileFromOsCache(const std::string& path) {
-#ifdef _WIN32
-  return Status::NotImplemented("Cannot yet purge files from cache on Windows");
+#ifndef __linux__
+  return Status::NotImplemented(
+      "Currently, only Linux supports purging files from cache");
 #else
   int fd = open(path.c_str(), O_WRONLY);
   if (fd < 0) {
