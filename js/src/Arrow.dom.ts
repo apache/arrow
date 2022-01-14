@@ -76,7 +76,7 @@ export {
     Builder, makeBuilder, builderThroughIterable, builderThroughAsyncIterable,
 } from './Arrow.js';
 
-export type {
+export {
     BinaryBuilder,
     BoolBuilder,
     DateBuilder, DateDayBuilder, DateMillisecondBuilder,

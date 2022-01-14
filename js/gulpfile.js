@@ -88,7 +88,7 @@ gulp.task(`bundle:webpack:analyze`, webpackTask({ analyze: true }));
 gulp.task(`bundle:clean`, () => del(`test/bundle/**/*-bundle.js`));
 gulp.task(`bundle:exec`, execBundleTask());
 
-gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`));
+gulp.task(`bundle`, gulp.series(`bundle:clean`, `bundle:esbuild`, `bundle:rollup`, `bundle:webpack`, `bundle:exec`));
 
 function gulpConcurrent(tasks, numCPUs = Math.max(1, os.cpus().length * 0.5) | 0) {
     return () => ObservableFrom(tasks.map((task) => gulp.series(task)))
