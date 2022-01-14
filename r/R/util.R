@@ -209,5 +209,5 @@ handle_csv_read_error <- function(e, schema) {
     ))
   }
 
-  stop(e)
+  abort(msg)
 }
