@@ -645,7 +645,7 @@ func (r *recordReader) next() bool {
 		wg    sync.WaitGroup
 		np    = len(cols)
 		ch    = make(chan int, np)
-		errch = make(chan error, 2)
+		errch = make(chan error, np)
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -664,6 +664,7 @@ func (r *recordReader) next() bool {
 
 					if err := readField(idx, r.fieldReaders[idx]); err != nil {
 						errch <- err
+						cancel()
 						return
 					}
 
@@ -674,13 +675,6 @@ func (r *recordReader) next() bool {
 		}()
 	}
 
-	go func() {
-		for e := range errch {
-			r.err = e
-			cancel()
-		}
-	}()
-
 	for idx := range r.fieldReaders {
 		ch <- idx
 	}
@@ -688,7 +682,13 @@ func (r *recordReader) next() bool {
 	wg.Wait()
 	close(errch)
 
-	if r.err != nil {
+	var ok bool
+	// check for any errors
+	if r.err, ok = <-errch; ok {
+		// return the first error that was reported and drain
+		// any remaining errors from the channel before returning.
+		for range errch {
+		}
 		return false
 	}
 
