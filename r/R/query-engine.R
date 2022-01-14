@@ -23,7 +23,7 @@ do_exec_plan <- function(.data) {
   # TODO (ARROW-14289): make the head/tail methods return RBR not Table
   if (inherits(tab, "RecordBatchReader")) {
     tryCatch(
-      tab = tab$read_table(),
+      tab <- tab$read_table(),
       error = function(e) {
         handle_csv_read_error(e, tab$schema)
       }
