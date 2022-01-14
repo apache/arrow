@@ -19,11 +19,13 @@
 
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/result.h"
@@ -32,7 +34,9 @@
 namespace arrow {
 namespace engine {
 
-ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer&);
+ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer&,
+    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&, const ExtensionSet&);
@@ -51,6 +55,10 @@ Result<compute::Expression> DeserializeExpression(const Buffer&);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&);
+
+ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(
+    const Buffer&,
+    std::function<std::shared_ptr<compute::SinkNodeConsumer>()> consumer_factory);
 
 namespace internal {
 

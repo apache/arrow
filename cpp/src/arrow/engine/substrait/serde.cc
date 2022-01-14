@@ -56,7 +56,13 @@ Result<compute::Declaration> Convert(const substrait::PlanRel& relation) {
   return Status::NotImplemented("");
 }
 
-Result<std::vector<compute::Declaration>> ConvertPlan(const Buffer& buf) {
+Result<compute::Declaration> DeserializeRelation(
+    const Buffer& buf, std::function<std::shared_ptr<compute::SinkNodeConsumer>()>) {
+  return Status::NotImplemented("");
+}
+
+Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, std::function<std::shared_ptr<compute::SinkNodeConsumer>()>) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
   std::vector<compute::Declaration> decls;
@@ -133,8 +139,27 @@ Status CheckMessagesEquivalent(util::string_view message_name, const Buffer& l_b
     return CheckMessagesEquivalent<substrait::Type>(l_buf, r_buf);
   }
 
+  if (message_name == "NamedStruct") {
+    return CheckMessagesEquivalent<substrait::NamedStruct>(l_buf, r_buf);
+  }
+
+  if (message_name == "Schema") {
+    return Status::Invalid(
+        "There is no substrait message named Schema. The substrait message type which "
+        "corresponds to Schemas is NamedStruct");
+  }
+
   if (message_name == "Expression") {
     return CheckMessagesEquivalent<substrait::Expression>(l_buf, r_buf);
+  }
+
+  if (message_name == "Rel") {
+    return CheckMessagesEquivalent<substrait::Rel>(l_buf, r_buf);
+  }
+
+  if (message_name == "Relation") {
+    return Status::Invalid(
+        "There is no substrait message named Relation. You probably meant \"Rel\"");
   }
 
   return Status::Invalid("Unsupported message name ", message_name,
