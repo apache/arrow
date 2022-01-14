@@ -176,5 +176,3 @@ variables, you can set environment variable `AWS_EC2_METADATA_DISABLED` to
 ```{r, eval = FALSE}
 Sys.setenv(AWS_EC2_METADATA_DISABLED = TRUE)
 ```
-
-
