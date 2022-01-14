@@ -127,7 +127,7 @@ In this section we outline steps needed for unit testing in Arrow.
 
       All tests are also run as part of our continuous integration (CI) pipelines.
 
-      The Arrow R Developer guide also has a section on running tests. You can check it out `here <https://arrow.apache.org/docs/r/articles/developing.html#running-tests>`_.
+      The `Arrow R Developer guide also has a section <https://arrow.apache.org/docs/r/articles/developing.html#running-tests>`_ on running tests.
 
       **Good practice**
 
@@ -139,18 +139,23 @@ In this section we outline steps needed for unit testing in Arrow.
       * Performance improvements should be reflected in benchmarks (which are also tests)
       * An exception could be refactoring functionality that is fully covered by unit tests
 
-      If the new functionality is a user-facing or API change, you will almost certainly need to change tests — if no tests need to be changed it might mean the tests aren't right! If the new functionality is a refactor and no APIs are changing, there might not need to be test changes.
+      A good rule of thumb is: If the new functionality is a user-facing or API change, you will almost certainly need to change tests — if no tests need to be changed, it might mean the tests aren't right! If the new functionality is a refactor and no APIs are changing, there might not need to be test changes.
 
       **Testing helpers**
 
       To complement the ``testthat`` functionality, the ``arrow`` R package has defined a series of specific utility functions (called helpers), such as:
 
       * expectations - these start with ``expect_`` and are used to compare objects
-            - for example, ``expect_altrep_roundtrip()`` compares the result of a function ``fn`` run on a vector ``x`` with the result of the same function run on the altrep version of ``x``. More generally, ``expect_…_roundtrip()`` functions take an input, convert it to some other format (e.g. arrow) and then convert it back, confirming that the values are the same.
+            - for example, the ``expect_…_roundtrip()`` functions take an input, convert it to some other format (e.g. arrow, altrep) and then convert it back, confirming that the values are the same.
+
+      .. code-block:: R
+         x <- c(1, 2, 3, NA_real_)
+         expect_altrep_roundtrip(x, min, na.rm = TRUE)
+
       * ``skip_`` - skips a unit test - think of them as acceptable fails. Situations in which we might want to skip unit tests:
 
         - ``skip_if_r_version()`` - this is a specific ``arrow`` skip. For example, we use this to skip a unit test when the R version is 3.5.0 and below (``skip_if_r_version(“3.5.0”)``). You will likely see it used when the functionality we are testing depends on features introduced after version 3.5.0 of R (such as the alternative representation of vectors, Altrep, introduced in R 3.5.0, but with significant additions in subsequent releases). As part of our CI workflow we test against different versions of R and this is where this feature comes in.
-        - ``skip_if_not_available()`` - another specific {arrow} skip. Arrow (libarrow) has a series of additional features that can be switched on or off (but this needs to happen at build time). If a unit test depends on such a feature and this feature is not available (i.e. was not selected when libarrow was built) the test is skipped, as opposed to having a failed test.
+        - ``skip_if_not_available()`` - another specific {arrow} skip. Arrow (libarrow) has a number of optional features that can be switched on or off (which happens at build time). If a unit test depends on such a feature and this feature is not available (i.e. was not selected when libarrow was built) the test is skipped, as opposed to having a failed test.
         - ``skip_if_offline()`` - will not run tests that require an internet connection
         - ``skip_on_os()`` - for unit tests that are OS specific.
 
