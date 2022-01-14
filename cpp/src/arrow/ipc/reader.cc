@@ -1754,8 +1754,8 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
       .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
 }
 
-Future<SelectiveIpcFileRecordBatchGenerator::Item> SelectiveIpcFileRecordBatchGenerator::
-operator()() {
+Future<SelectiveIpcFileRecordBatchGenerator::Item>
+SelectiveIpcFileRecordBatchGenerator::operator()() {
   int index = index_++;
   if (index >= state_->num_record_batches()) {
     return IterationEnd<SelectiveIpcFileRecordBatchGenerator::Item>();
@@ -1763,8 +1763,8 @@ operator()() {
   return state_->ReadRecordBatchAsync(index);
 }
 
-Future<WholeIpcFileRecordBatchGenerator::Item> WholeIpcFileRecordBatchGenerator::
-operator()() {
+Future<WholeIpcFileRecordBatchGenerator::Item>
+WholeIpcFileRecordBatchGenerator::operator()() {
   auto state = state_;
   if (!read_dictionaries_.is_valid()) {
     std::vector<Future<std::shared_ptr<Message>>> messages(state->num_dictionaries());
