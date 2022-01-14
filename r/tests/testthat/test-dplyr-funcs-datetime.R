@@ -2417,8 +2417,7 @@ test_that("period unit extracts integer multiples", {
 # this test checks that arrow does too.
 test_that("period unit maxima are enforced", {
 
-  # ugly hack! surely I can do this with compare_dplyr_error() ???
-  expect_error(suppressWarnings(
+  expect_error(suppressWarnings( # <- hack
     test_df %>%
       arrow_table() %>%
       mutate(out = round_date(datetime, "61 seconds")) %>%
@@ -2455,8 +2454,8 @@ test_that("datetime rounding between 1sec and 1day", {
   )
 })
 
-# unlike arrow, lubridate doesn't know millisecond, microsecond or nanosecond
-# and instead supports corresponding fractions of 1 second. test that arrow
+# lubridate doesn't accept millisecond, microsecond or nanosecond descriptors:
+# instead it supports corresponding fractions of 1 second. test that arrow
 # fractional seconds mirror lubridate
 test_that("datetime rounding below 1sec", {
 
@@ -2496,7 +2495,6 @@ test_that("datetime rounding below 1sec", {
       collect()
   )
 
-
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2509,22 +2507,83 @@ test_that("datetime rounding below 1sec", {
   )
 })
 
-# test_that("datetime rounding above 1day", {
-#
-#   # fails: arrow doesn't give sensible answers
-#   compare_dplyr_binding(
-#     .input %>%
-#       mutate(
-#         out_1 = round_date(datetime, "week"),
-#         out_2 = round_date(datetime, "month"),
-#         out_3 = round_date(datetime, "quarter"),
-#         out_4 = round_date(datetime, "year"),
-#       ) %>%
-#       collect(),
-#     test_df
-#   )
-# })
 
+# a simplified test case
+test_df_v2 <- tibble::tibble(
+  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA),
+  date = c(as.Date("2021-09-09"), NA),
+  integer = 1:2
+)
+
+# TODO: fix so that round_date() etc handle timezones correctly
+test_that("datetime round/floor/ceil to month/quarter/year", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = round_date(datetime, "month"),
+        out_2 = round_date(datetime, "quarter"),
+        out_3 = round_date(datetime, "year"),
+      ) %>%
+      collect(),
+    test_df_v2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = floor_date(datetime, "month"),
+        out_2 = floor_date(datetime, "quarter"),
+        out_3 = floor_date(datetime, "year"),
+      ) %>%
+      collect(),
+    test_df_v2
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = ceiling_date(datetime, "month"),
+        out_2 = ceiling_date(datetime, "quarter"),
+        out_3 = ceiling_date(datetime, "year"),
+      ) %>%
+      collect(),
+    test_df_v2
+  )
+
+})
+
+# TODO: need to support week_starts. rounding currently treats 1970-01-01
+# as the beginning of week 1, i.e., week_starts = 4, on a Thursday
+test_that("datetime round/floor/ceil to week", {
+
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = round_date(datetime, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = round_date(datetime, "1 week", week_start = 4))
+  )
+
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = ceiling_date(datetime, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = ceiling_date(datetime, "1 week", week_start = 4, change_on_boundary = FALSE))
+  )
+
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = floor_date(datetime, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = floor_date(datetime, "1 week", week_start = 4))
+  )
+})
 
 # lubridate::round_date() etc sometimes coerce output from Date to POSIXct.
 # this is not the default for the round_temporal() function in libarrow, which
@@ -2555,36 +2614,50 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
 })
 
 
-# test_that("date rounding above 1 day", {
-#
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 week")) %>% collect(), # arrow does nothing?
-#     test_df %>% mutate(out = round_date(date, "1 week") %>% as.Date())
-#   )
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 month")) %>% collect(),
-#     test_df %>% mutate(out = round_date(date, "1 month") %>% as.Date())
-#   )
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 year")) %>% collect(), # arrow rounds up to 2022
-#     test_df %>% mutate(out = round_date(date, "1 year") %>% as.Date()) # lubridate rounds down (seems wrong?)
-#   )
-#
-# })
+# TODO: need to support week_starts
+test_that("dates round/floor/ceil to week", {
 
-# test_that("date rounding below 1 day", {
-#
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 second")) %>% collect(),
-#     test_df %>% mutate(out = round_date(date, "1 second") %>% as.Date())
-#   )
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 millisecond")) %>% collect(),
-#     test_df %>% mutate(out = round_date(date, ".001 second") %>% as.Date())
-#   )
-#   expect_equal(
-#     test_table %>% mutate(out = round_date(date, "1 hour")) %>% collect(),
-#     test_df %>% mutate(out = round_date(date, "1 hour") %>% as.Date())
-#   )
-#
-# })
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = round_date(date, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = round_date(date, "1 week", week_start = 4) %>% as.Date())
+  )
+
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = ceiling_date(date, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = ceiling_date(date, "1 week", week_start = 4, change_on_boundary = FALSE) %>% as.Date())
+  )
+
+  expect_equal(
+    test_df_v2 %>%
+      arrow_table() %>%
+      mutate(out = floor_date(date, "1 week")) %>%
+      collect(),
+    test_df_v2 %>%
+      mutate(out = floor_date(date, "1 week", week_start = 4) %>% as.Date())
+  )
+})
+
+test_that("date rounding below 1 day", {
+
+  expect_equal(
+    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 second")) %>% collect(),
+    test_df_v2 %>% mutate(out = round_date(date, "1 second") %>% as.Date())
+  )
+  expect_equal(
+    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 millisecond")) %>% collect(),
+    test_df_v2 %>% mutate(out = round_date(date, ".001 second") %>% as.Date())
+  )
+  expect_equal(
+    test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 hour")) %>% collect(),
+    test_df_v2 %>% mutate(out = round_date(date, "1 hour") %>% as.Date())
+  )
+
+})
