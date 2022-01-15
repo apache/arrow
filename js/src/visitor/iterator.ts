@@ -106,15 +106,34 @@ function vectorIterator<T extends DataType>(vector: Vector<T>): IterableIterator
 
     // Otherwise, iterate manually
     let offset = 0;
-    return new ChunkedIterator(vector.data.length, function* (chunkIndex) {
+    return new ChunkedIterator(vector.data.length, (chunkIndex) => {
         const data = vector.data[chunkIndex];
         const length = data.length;
         const inner = vector.slice(offset, offset + length);
-        for (let index = -1; ++index < length;) {
-            yield inner.get(index);
-        }
         offset += length;
+        return new VectorIterator(inner);
     });
+}
+
+/** @ignore */
+class VectorIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
+    private index = 0;
+
+    constructor(private vector: Vector<T>) { }
+
+    next(): IteratorResult<T['TValue'] | null> {
+        if (this.index < this.vector.length) {
+            return {
+                value: this.vector.get(this.index++)
+            };
+        }
+
+        return { done: true, value: null };
+    }
+
+    [Symbol.iterator]() {
+        return this;
+    }
 }
 
 IteratorVisitor.prototype.visitNull = vectorIterator;
