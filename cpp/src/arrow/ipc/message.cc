@@ -311,6 +311,50 @@ Status ReadFieldsSubset(int64_t offset, int32_t metadata_length,
   return Status::OK();
 }
 
+Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
+                                             std::shared_ptr<Buffer> body) {
+  std::unique_ptr<Message> result;
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
+  // If the user does not pass in a body buffer then we assume they are skipping it
+  MessageDecoder decoder(listener, default_memory_pool(), body == nullptr);
+
+  if (metadata->size() < decoder.next_required_size()) {
+    return Status::Invalid("metadata_length should be at least ",
+                           decoder.next_required_size());
+  }
+
+  ARROW_RETURN_NOT_OK(decoder.Consume(metadata));
+
+  switch (decoder.state()) {
+    case MessageDecoder::State::INITIAL:
+      // Metadata did not request a body so we better not have provided one
+      DCHECK_EQ(body, nullptr);
+      return std::move(result);
+    case MessageDecoder::State::METADATA_LENGTH:
+      return Status::Invalid("metadata length is missing from the metadata buffer");
+    case MessageDecoder::State::METADATA:
+      return Status::Invalid("flatbuffer size ", decoder.next_required_size(),
+                             " invalid. Buffer size: ", metadata->size());
+    case MessageDecoder::State::BODY: {
+      if (body == nullptr) {
+        // Caller didn't give a body so just give them a message without body
+        return std::move(result);
+      }
+      if (body->size() != decoder.next_required_size()) {
+        return Status::IOError("Expected body buffer to be ",
+                               decoder.next_required_size(),
+                               " bytes for message body, got ", body->size());
+      }
+      RETURN_NOT_OK(decoder.Consume(body));
+      return std::move(result);
+    }
+    case MessageDecoder::State::EOS:
+      return Status::Invalid("Unexpected empty message in IPC file format");
+    default:
+      return Status::Invalid("Unexpected state: ", decoder.state());
+  }
+}
+
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
                                              io::RandomAccessFile* file,
                                              const FieldsLoaderFunction& fields_loader) {
@@ -560,14 +604,15 @@ class MessageDecoder::MessageDecoderImpl {
  public:
   explicit MessageDecoderImpl(std::shared_ptr<MessageDecoderListener> listener,
                               State initial_state, int64_t initial_next_required_size,
-                              MemoryPool* pool)
+                              MemoryPool* pool, bool skip_body)
       : listener_(std::move(listener)),
         pool_(pool),
         state_(initial_state),
         next_required_size_(initial_next_required_size),
         chunks_(),
         buffered_size_(0),
-        metadata_(nullptr) {}
+        metadata_(nullptr),
+        skip_body_(skip_body) {}
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
     if (buffered_size_ == 0) {
@@ -798,7 +843,7 @@ class MessageDecoder::MessageDecoderImpl {
     RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata_, &body_length));
 
     state_ = State::BODY;
-    next_required_size_ = body_length;
+    next_required_size_ = skip_body_ ? 0 : body_length;
     RETURN_NOT_OK(listener_->OnBody());
     if (next_required_size_ == 0) {
       ARROW_ASSIGN_OR_RAISE(auto body, AllocateBuffer(0, pool_));
@@ -894,19 +939,21 @@ class MessageDecoder::MessageDecoderImpl {
   std::vector<std::shared_ptr<Buffer>> chunks_;
   int64_t buffered_size_;
   std::shared_ptr<Buffer> metadata_;  // Must be CPU buffer
+  bool skip_body_;
 };
 
 MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
-                               MemoryPool* pool) {
+                               MemoryPool* pool, bool skip_body) {
   impl_.reset(new MessageDecoderImpl(std::move(listener), State::INITIAL,
-                                     kMessageDecoderNextRequiredSizeInitial, pool));
+                                     kMessageDecoderNextRequiredSizeInitial, pool,
+                                     skip_body));
 }
 
 MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
                                State initial_state, int64_t initial_next_required_size,
-                               MemoryPool* pool) {
+                               MemoryPool* pool, bool skip_body) {
   impl_.reset(new MessageDecoderImpl(std::move(listener), initial_state,
-                                     initial_next_required_size, pool));
+                                     initial_next_required_size, pool, skip_body));
 }
 
 MessageDecoder::~MessageDecoder() {}
