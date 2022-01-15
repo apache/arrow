@@ -470,6 +470,30 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   uint64_t seed;
 };
 
+/// Options for map_array_lookup function
+class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
+ public:
+  enum Occurence {
+    /// Return the first matching value
+    First,
+    /// Return the last matching value
+    Last,
+    /// Return all matching values
+    All
+  };
+
+  MapArrayLookupOptions(std::shared_ptr<Scalar> query_key, Occurence occurence = All);
+  MapArrayLookupOptions();
+
+  constexpr static char const kTypeName[] = "MapArrayLookupOptions";
+
+  /// The key to lookup in the map
+  std::shared_ptr<Scalar> query_key;
+
+  /// Whether to return the first, last, or all matching values
+  Occurence occurence;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.

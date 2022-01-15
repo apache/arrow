@@ -254,6 +254,26 @@ struct EnumTraits<compute::RandomOptions::Initializer>
   }
 };
 
+template <>
+struct EnumTraits<compute::MapArrayLookupOptions::Occurence>
+    : BasicEnumTraits<compute::MapArrayLookupOptions::Occurence,
+                      compute::MapArrayLookupOptions::Occurence::First,
+                      compute::MapArrayLookupOptions::Occurence::Last,
+                      compute::MapArrayLookupOptions::Occurence::All> {
+  static std::string name() { return "MapArrayLookupOptions::Occurence"; }
+  static std::string value_name(compute::MapArrayLookupOptions::Occurence value) {
+    switch (value) {
+      case compute::MapArrayLookupOptions::Occurence::First:
+        return "First";
+      case compute::MapArrayLookupOptions::Occurence::Last:
+        return "Last";
+      case compute::MapArrayLookupOptions::Occurence::All:
+        return "All";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -344,6 +364,9 @@ static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
     DataMember("length", &RandomOptions::length),
     DataMember("initializer", &RandomOptions::initializer),
     DataMember("seed", &RandomOptions::seed));
+static auto kMapArrayLookupOptionsType = GetFunctionOptionsType<MapArrayLookupOptions>(
+    DataMember("occurence", &MapArrayLookupOptions::occurence),
+    DataMember("query_key", &MapArrayLookupOptions::query_key));
 }  // namespace
 }  // namespace internal
 
@@ -545,6 +568,15 @@ RandomOptions::RandomOptions(int64_t length, Initializer initializer, uint64_t s
 RandomOptions::RandomOptions() : RandomOptions(0, SystemRandom, 0) {}
 constexpr char RandomOptions::kTypeName[];
 
+MapArrayLookupOptions::MapArrayLookupOptions(std::shared_ptr<Scalar> query_key,
+                                             Occurence occurence)
+    : FunctionOptions(internal::kMapArrayLookupOptionsType),
+      query_key(query_key),
+      occurence(occurence) {}
+MapArrayLookupOptions::MapArrayLookupOptions()
+    : MapArrayLookupOptions(std::make_shared<NullScalar>(), Occurence::First) {}
+constexpr char MapArrayLookupOptions::kTypeName[];
+
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
@@ -573,6 +605,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kUtf8NormalizeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kWeekOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRandomOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMapArrayLookupOptionsType));
 }
 }  // namespace internal
 

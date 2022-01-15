@@ -17,6 +17,7 @@
 
 // Vector kernels involving nested types
 
+#include <iostream>
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
@@ -429,6 +430,97 @@ const FunctionDoc make_struct_doc{"Wrap Arrays into a StructArray",
                                   {"*args"},
                                   "MakeStructOptions"};
 
+struct MapArrayLookupFunctor {
+  static Status ExecMapArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = OptionsWrapper<MapArrayLookupOptions>::Get(ctx);
+
+    MapArray map_array(batch[0].array());
+
+    // Offset differences will tell the number of Strcut = {key, value} pairs
+    // present in the current list.
+    // const std::shared_ptr<arrow::Buffer> offsets = map_array.value_offsets();
+
+    std::shared_ptr<arrow::Array> keys = map_array.keys();
+    std::shared_ptr<arrow::Array> items = map_array.items();
+
+    const auto& query_key = options.query_key;
+    const auto& occurence = options.occurence;
+
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(
+        MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(), &builder));
+
+    int32_t last_key_idx_checked = 0;
+
+    // aka, number of {key, value} pairs in the current map
+    int32_t list_struct_len;
+    bool found_one_key = false;
+    for (int32_t map_array_idx = 0; map_array_idx < map_array.length(); ++map_array_idx) {
+      // Number of Struct('s) = {key, value} in the list at the current index
+      list_struct_len = map_array.value_length(map_array_idx);
+      for (int32_t key_idx_to_check = last_key_idx_checked;
+           key_idx_to_check < last_key_idx_checked + list_struct_len;
+           ++key_idx_to_check) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key,
+                              keys->GetScalar(key_idx_to_check));
+        if (key->Equals(*query_key)) {
+          std::cout << "Key being checked: " << key->ToString() << "\n";
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> item,
+                                items->GetScalar(key_idx_to_check));
+          std::cout << "Value at key: " << item->ToString() << "\n";
+          ARROW_ASSIGN_OR_RAISE(auto value,
+                                item->CastTo(map_array.map_type()->item_type()));
+
+          std::cout << "Item being appended: " << value->ToString() << "\n";
+          RETURN_NOT_OK(builder->AppendScalar(*value));
+
+          if (occurence == MapArrayLookupOptions::First) {
+            found_one_key = true;
+            break;
+          }
+        }
+      }
+      if (found_one_key && occurence == MapArrayLookupOptions::First) break;
+
+      // new index from where to start checking
+      last_key_idx_checked += list_struct_len;
+    }
+    // For now, handling 'Last' and 'All' occurence options as same
+    // TODO: Handle 'Last' option.
+    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+    out->value = result->data();
+    return Status::OK();
+  }
+};
+
+Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
+                                             const std::vector<ValueDescr>& descrs) {
+  std::shared_ptr<DataType> type = descrs.front().type;
+  std::shared_ptr<DataType> value_type;
+  std::shared_ptr<DataType> key_type;
+  if (type->id() == Type::MAP) {
+    std::cout << "map type found!\n";
+    key_type = type->field(0)->type()->field(0)->type();
+    value_type = type->field(0)->type()->field(1)->type();
+
+    std::cout << "Value type: " << value_type->ToString() << "\n";
+  }
+  return ValueDescr(value_type, descrs.front().shape);
+}
+
+void AddMapArrayLookupKernels(ScalarFunction* func) {
+  ScalarKernel kernel(
+      {InputType(Type::MAP, ValueDescr::ARRAY)}, OutputType(ResolveMapArrayLookupType),
+      MapArrayLookupFunctor::ExecMapArray, OptionsWrapper<MapArrayLookupOptions>::Init);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+const FunctionDoc map_array_lookup_doc(
+    "Find the items corresponding to a given key in a MapArray", ("More doc"),
+    {"container"}, "MapArrayLookupOptions");
+
 }  // namespace
 
 void RegisterScalarNested(FunctionRegistry* registry) {
@@ -452,6 +544,11 @@ void RegisterScalarNested(FunctionRegistry* registry) {
       std::make_shared<ScalarFunction>("struct_field", Arity::Unary(), &struct_field_doc);
   AddStructFieldKernels(struct_field.get());
   DCHECK_OK(registry->AddFunction(std::move(struct_field)));
+
+  auto map_array_lookup = std::make_shared<ScalarFunction>(
+      "map_array_lookup", Arity::Unary(), &map_array_lookup_doc);
+  AddMapArrayLookupKernels(map_array_lookup.get());
+  DCHECK_OK(registry->AddFunction(std::move(map_array_lookup)));
 
   static MakeStructOptions kDefaultMakeStructOptions;
   auto make_struct_function = std::make_shared<ScalarFunction>(

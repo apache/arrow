@@ -225,6 +225,30 @@ TEST(TestScalarNested, StructField) {
   }
 }
 
+TEST(TestScalarNested, MapArrayLookup) {
+  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::All);
+  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::First);
+  auto type = map(utf8(), int32());
+
+  auto keys = ArrayFromJSON(utf8(), R"([
+    "foo", "bar", "hello", "foo", "lesgo", "whatnow",
+    "nothing", "hat", "foo", "sorry", "dip", "foo"
+  ])");
+  auto items = ArrayFromJSON(int16(), R"([
+    99,    1,    2,  3,  5,    8,
+    null, null, 101,  1,  null, 22
+  ])");
+  auto offsets = ArrayFromJSON(int32(), "[0, 6, 6, 12, 12]")->data()->buffers[1];
+  auto null_bitmap = ArrayFromJSON(boolean(), "[1, 0, 1, 1]")->data()->buffers[1];
+
+  MapArray map_array(type, 4, offsets, keys, items, null_bitmap, 1, 0);
+
+  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99, 3, 101, 22]"),
+              &foo_all);
+  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99]"),
+              &foo_first);
+}
+
 struct {
   Result<Datum> operator()(std::vector<Datum> args) {
     return CallFunction("make_struct", args);
