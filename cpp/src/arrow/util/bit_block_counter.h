@@ -46,7 +46,6 @@ inline uint64_t ShiftWord(uint64_t current, uint64_t next, int64_t shift) {
 }
 
 // These templates are here to help with unit tests
-// Two Arguments
 template <typename T>
 constexpr T BitNot(T x) {
   return ~x;
@@ -85,7 +84,6 @@ struct BitBlockOrNot {
   }
 };
 
-// Three Arguments
 template <typename T>
 struct BitBlockAndAnd {
   static constexpr T Call(T left, T mid, T right) { return left & mid & right; }
