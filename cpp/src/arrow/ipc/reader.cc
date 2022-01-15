@@ -1054,10 +1054,8 @@ static Status ReadOneDictionary(Message* message, const IpcReadContext& context)
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   DictionaryKind kind;
   RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
-  if (kind != DictionaryKind::New) {
-    return Status::Invalid(
-        "Unsupported dictionary replacement or "
-        "dictionary delta in IPC file");
+  if (kind == DictionaryKind::Replacement) {
+    return Status::Invalid("Unsupported dictionary replacement in IPC file");
   }
   return Status::OK();
 }

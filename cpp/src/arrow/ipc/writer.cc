@@ -1080,12 +1080,6 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
           //  for the IPC file format)
           continue;
         }
-        if (is_file_format_) {
-          return Status::Invalid(
-              "Dictionary replacement detected when writing IPC file format. "
-              "Arrow IPC files only support a single dictionary for a given field "
-              "across all batches.");
-        }
 
         // (the read path doesn't support outer dictionary deltas, don't emit them)
         if (new_length > last_length && options_.emit_dictionary_deltas &&
@@ -1094,6 +1088,13 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
                  ->RangeEquals(dictionary, 0, last_length, 0, equal_options))) {
           // New dictionary starts with the current dictionary
           delta_start = last_length;
+        }
+
+        if (is_file_format_ && !delta_start) {
+          return Status::Invalid(
+              "Dictionary replacement detected when writing IPC file format. "
+              "Arrow IPC files only support a single non-delta dictionary for "
+              "a given field across all batches.");
         }
       }
 
