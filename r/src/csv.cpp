@@ -76,13 +76,6 @@ SEXP csv___ReadOptions__column_names(
 }
 
 // [[arrow::export]]
-SEXP csv___ReadOptions__skip_rows(
-    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
-
-  return cpp11::as_sexp(options->skip_rows);
-}
-
-// [[arrow::export]]
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(

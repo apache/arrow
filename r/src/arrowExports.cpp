@@ -1841,21 +1841,6 @@ extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP csv___ReadOptions__skip_rows(const std::shared_ptr<arrow::csv::ReadOptions>& options);
-extern "C" SEXP _arrow_csv___ReadOptions__skip_rows(SEXP options_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
-	return cpp11::as_sexp(csv___ReadOptions__skip_rows(options));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_csv___ReadOptions__skip_rows(SEXP options_sexp){
-	Rf_error("Cannot call csv___ReadOptions__skip_rows(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// csv.cpp
-#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ConvertOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
@@ -7561,7 +7546,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
-		{ "_arrow_csv___ReadOptions__skip_rows", (DL_FUNC) &_arrow_csv___ReadOptions__skip_rows, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
