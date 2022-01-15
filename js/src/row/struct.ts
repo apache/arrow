@@ -19,8 +19,8 @@ import { Data } from '../data.js';
 import { Field } from '../schema.js';
 import { Struct, TypeMap } from '../type.js';
 import { valueToString } from '../util/pretty.js';
-import { instance as getVisitor } from '../visitor/get';
-import { instance as setVisitor } from '../visitor/set';
+import { instance as getVisitor } from '../visitor/get.js';
+import { instance as setVisitor } from '../visitor/set.js';
 
 /** @ignore */ const kParent = Symbol.for('parent');
 /** @ignore */ const kRowIndex = Symbol.for('rowIndex');

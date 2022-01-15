@@ -19,8 +19,8 @@ import { Data } from '../data.js';
 import { Vector } from '../vector.js';
 import { DataType, Struct } from '../type.js';
 import { valueToString } from '../util/pretty.js';
-import { instance as getVisitor } from '../visitor/get';
-import { instance as setVisitor } from '../visitor/set';
+import { instance as getVisitor } from '../visitor/get.js';
+import { instance as setVisitor } from '../visitor/set.js';
 
 /** @ignore */ export const kKeys = Symbol.for('keys');
 /** @ignore */ export const kVals = Symbol.for('vals');
