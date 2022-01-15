@@ -471,6 +471,12 @@ TEST(TestCompareTimestamps, DifferentParameters) {
       CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
     }
     {
+      // Different units should be fine
+      auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
+      auto rhs = ArrayFromJSON(timestamp(TimeUnit::NANO), rhs_json);
+      CheckScalarBinary(function, lhs, rhs, ArrayFromJSON(boolean(), expected));
+    }
+    {
       // So are different time zones
       auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
       auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
@@ -2664,91 +2670,139 @@ TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
 }
 
 TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
-  const std::string arr_json = R"(["1970-01-01","2000-02-02","1900-02-28"])";
-  const std::string lhs_json = R"(["1970-01-01","2000-02-01","1900-02-28"])";
-  const std::string rhs_json = R"(["1970-01-02","2000-02-02","1900-02-28"])";
+  const std::string arr_json = R"(["1970-01-01","1980-02-02","1970-02-28"])";
+  const std::string lhs_json = R"(["1970-01-01","1980-02-01","1970-02-28"])";
+  const std::string rhs_json = R"(["1970-01-02","1980-02-02","1970-02-28"])";
   // Between Options
   BetweenOptions both(BetweenOptions::Inclusive::BOTH);
   BetweenOptions left(BetweenOptions::Inclusive::LEFT);
   BetweenOptions right(BetweenOptions::Inclusive::RIGHT);
   BetweenOptions neither(BetweenOptions::Inclusive::NEITHER);
   // Same units should be fine
-  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json);
-  auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
-  auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
-  // BOTH
-  ValidateBetween<TimestampType>(both, arr, lhs, rhs);
-  // LEFT
-  ValidateBetween<TimestampType>(left, arr, lhs, rhs);
-  // RIGHT
-  ValidateBetween<TimestampType>(right, arr, lhs, rhs);
-  // NEITHER
-  ValidateBetween<TimestampType>(neither, arr, lhs, rhs);
-/*  // So are same time zones
-  arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), arr_json);
-  lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json);
-  rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), rhs_json);
-  // BOTH
-  ValidateBetween<TimestampType>(both, arr, lhs, rhs);
-  // LEFT
-  ValidateBetween<TimestampType>(left, arr, lhs, rhs);
-  // RIGHT
-  ValidateBetween<TimestampType>(right, arr, lhs, rhs);
-  // NEITHER
-  ValidateBetween<TimestampType>(neither, arr, lhs, rhs);
+  ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
+  ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
+  // Different timezones should be fine
+  ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
+   ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
+  ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
+  ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
   // Different units should be fine
-  auto arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json);
-  auto lhs = ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json);
-  auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
-  // BOTH
-  ValidateBetween<TimestampType>(both, arr, lhs, rhs);
-  // LEFT
-  ValidateBetween<TimestampType>(left, arr, lhs, rhs);
-  // RIGHT
-  ValidateBetween<TimestampType>(right, arr, lhs, rhs);
-  // NEITHER
-  ValidateBetween<TimestampType>(neither, arr, lhs, rhs);
-   // So are different time zones
-  arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), arr_json);
-  lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), lhs_json);
-  rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), rhs_json);
-  // BOTH
-  ValidateBetween<TimestampType>(both, arr, lhs, rhs);
-  // LEFT
-  ValidateBetween<TimestampType>(left, arr, lhs, rhs);
-  // RIGHT
-  ValidateBetween<TimestampType>(right, arr, lhs, rhs);
-  // NEITHER
-  ValidateBetween<TimestampType>(neither, arr, lhs, rhs);
-
+  ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+   ValidateBetween<TimestampType>(both,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(left,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json), 
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(right,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
+  ValidateBetween<TimestampType>(neither,
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json), 
+    ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
+    ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
   // But comparing naive to zoned is not OK
-  arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json);
-  lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
-  rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(arr, lhs, rhs, neither, nullptr));
-  arr = ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json);
-  lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
-  rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
+              ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
+              ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json),
+              neither, nullptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(arr, lhs, rhs, neither, nullptr));
-  arr = ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), arr_json);
-  lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
-  rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
+      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
+	      ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json),
+	      ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), rhs_json),
+              neither, nullptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(arr, lhs, rhs, neither, nullptr));
-*/
+      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), arr_json),
+              ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
+              ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json),
+              neither, nullptr));
 }
-
 
 }  // namespace compute
 }  // namespace arrow
