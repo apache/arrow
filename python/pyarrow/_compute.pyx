@@ -820,6 +820,30 @@ class ElementWiseAggregateOptions(_ElementWiseAggregateOptions):
         self._set_options(skip_nulls)
 
 
+cdef CInclusive unwrap_inclusive(inclusive) except *:
+    if inclusive == "both":
+        return CInclusive_BOTH
+    elif inclusive == "left":
+        return CInclusive_LEFT
+    elif inclusive == "right":
+        return CInclusive_RIGHT
+    elif inclusive == "neither":
+        return CInclusive_NEITHER
+    _raise_invalid_function_option(inclusive, "inclusive")
+
+
+cdef class _BetweenOptions(FunctionOptions):
+    def _set_options(self, inclusive):
+        self.wrapped.reset(
+            new CBetweenOptions(unwrap_inclusive(inclusive))
+        )
+
+
+class BetweenOptions(_BetweenOptions):
+    def __init__(self, inclusive="both"):
+        self._set_options(inclusive)
+
+
 cdef CRoundMode unwrap_round_mode(round_mode) except *:
     if round_mode == "down":
         return CRoundMode_DOWN
@@ -870,31 +894,7 @@ class RoundOptions(_RoundOptions):
         self._set_options(ndigits, round_mode)
 
 
-cdef CInclusive unwrap_inclusive(inclusive) except *:
-    if inclusive == "both":
-        return CInclusive_BOTH
-    elif inclusive == "left":
-        return CInclusive_LEFT
-    elif inclusive == "right":
-        return CInclusive_RIGHT
-    elif inclusive == "neither":
-        return CInclusive_NEITHER
-    _raise_invalid_function_option(inclusive, "inclusive")
-
-
-cdef class _BetweenOptions(FunctionOptions):
-    def _set_options(self, inclusive):
-        self.wrapped.reset(
-            new CBetweenOptions(unwrap_inclusive(inclusive))
-        )
-
-
-class BetweenOptions(_BetweenOptions):
-    def __init__(self, inclusive="both"):
-        self._set_options(inclusive)
-
-
-cdef CCalendarUnit unwrap_round_unit(unit) except *:
+cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
     if unit == "nanosecond":
         return CCalendarUnit_NANOSECOND
     elif unit == "microsecond":
