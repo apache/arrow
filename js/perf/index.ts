@@ -40,6 +40,8 @@ const { RecordBatchReader, RecordBatchStreamWriter } = Arrow;
 const args = process.argv.slice(2);
 const json = args[0] === '--json';
 
+if (json) console.log(kleur.red('JSON output is on!'));
+
 const formatter = new Intl.NumberFormat();
 function formatNumber(number: number, precision = 0) {
     const rounded = number > precision * 10 ? Math.round(number) : Number.parseFloat((number).toPrecision(precision));
@@ -54,41 +56,75 @@ function cycle(result: CaseResult, _summary: Summary) {
         (<any>result).suite = _summary.name;
         results.push(result);
     }
-    console.log(
-        `${kleur.cyan(result.name)} ${formatNumber(result.ops, 3)} ops/s ±${result.margin.toPrecision(2)}%, ${formatNumber(duration, 2)} ms, ${kleur.gray(`${result.samples} samples`)}`,
+
+    const numbers = `${`${formatNumber(result.ops, 3)} ops/s ±${`${result.margin.toPrecision(2)}%,`.padEnd(6)}`.padStart(27)
+        } ${formatNumber(duration, 2).padStart(4)} ms, ${kleur.gray(`${result.samples} samples`.padStart(10))}`;
+    console.log(result.name.length >= 30 ?
+        `${kleur.cyan(result.name)} \n${numbers}` :
+        `${kleur.cyan(result.name.padEnd(20))} ${numbers}`,
     );
 }
 
 b.suite(
-    `Vector`,
+    `makeVector`,
 
     ...Object.entries(typedArrays).map(([name, array]) =>
-        b.add(`makeVector(${name})`, () => {
+        b.add.skip(`from ${name}`, () => {
             Arrow.makeVector(array);
         })),
 
+    b.cycle(cycle)
+);
+
+b.suite(
+    `vectorFromArray`,
+
     ...Object.entries(arrays).map(([name, array]) =>
-        b.add(`vectorFromArray(${name})`, () => {
+        b.add(`from: ${name}`, () => {
             Arrow.vectorFromArray(array as any);
         })),
 
+    b.cycle(cycle),
+);
+
+b.suite(
+    `Iterate Vector`,
+
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`Iterate vector ${name}`, () => {
+        b.add(`from: ${name}`, () => {
             for (const _value of vector) { }
         })),
 
+    b.cycle(cycle),
+);
+
+b.suite(
+    `Spread Vector`,
+
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`Spread ${name}`, () => {
+        b.add(`from: ${name}`, () => {
             [...vector];
         })),
 
+    b.cycle(cycle)
+);
+
+b.suite(
+    `toArray Vector`,
+
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`toArray ${name}`, () => {
+        b.add(`from: ${name}`, () => {
             vector.toArray();
         })),
 
+    b.cycle(cycle)
+);
+
+b.suite(
+    `get Vector`,
+
     ...Object.entries(vectors).map(([name, vector]) =>
-        b.add(`get ${name}`, () => {
+        b.add(`from: ${name}`, () => {
             for (let i = -1, n = vector.length; ++i < n;) {
                 vector.get(i);
             }
@@ -228,6 +264,6 @@ for (const { name, table, counts } of config) {
         b.complete(() => {
             // last benchmark finished
             json && process.stderr.write(JSON.stringify(results, null, 2));
-        })
+        }),
     );
 }
