@@ -44,7 +44,7 @@
 #'   you encounter one that `arrow` should support. Also, the following options are
 #'   supported. From [CsvReadOptions]:
 #'   * `skip_rows`
-#'   * `column_names`
+#'   * `column_names`. Note that if a [Schema] is specified, `column_names` must match those specified in the schema.
 #'   * `autogenerate_column_names`
 #'   From [CsvFragmentScanOptions] (these values can be overridden at scan time):
 #'   * `convert_options`: a [CsvConvertOptions]
@@ -122,6 +122,18 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+
+  options <- list(...)
+  schema  <- options[["schema"]]
+
+  if (length(read_options$column_names) > 0 & !is.null(schema) & !identical(names(schema), read_options$column_names)) {
+    abort(c(
+        '"column_names" in read_options do not match the schema.',
+      i = "Set column_names in read_options to match the schema",
+      i = "Omit the read_options argument"
+    ))
+  }
+
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
