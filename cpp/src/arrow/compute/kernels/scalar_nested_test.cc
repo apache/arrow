@@ -243,10 +243,10 @@ TEST(TestScalarNested, MapArrayLookup) {
 
   MapArray map_array(type, 4, offsets, keys, items, null_bitmap, 1, 0);
 
-  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99, 3, 101, 22]"),
-              &foo_all);
-  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99]"),
-              &foo_first);
+  CheckScalarNonRecursive("map_array_lookup", {map_array},
+                          ArrayFromJSON(int32(), "[99, 3, 101, 22]"), &foo_all);
+  CheckScalarNonRecursive("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99]"),
+                          &foo_first);
 }
 
 struct {
