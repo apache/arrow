@@ -19,6 +19,20 @@ import {
     DateDay, DateMillisecond, Dictionary, Field, Int32, List, makeVector, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
 
+describe(`makeVectorFromArray`, () => {
+    describe(`works with null values`, () => {
+        const values = [1, 2, 3, 4, null, 5];
+        const vector = vectorFromArray(values);
+        basicVectorTests(vector, values, []);
+        test(`toArray returns typed array for numbers`, () => {
+            expect(vector.toArray()).toEqual(Float64Array.from(values.map(n => n === null ? 0 : n)));
+        });
+        test(`toJSON retains null`, () => {
+            expect(vector.toJSON()).toEqual(values);
+        });
+    });
+});
+
 describe(`DateVector`, () => {
     const extras = [
         new Date(2000, 0, 1),

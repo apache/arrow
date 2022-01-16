@@ -48,7 +48,8 @@ export function makeBuilder<T extends dtypes.DataType = any, TNull = any>(option
 }
 
 /**
- * Creates a Vector from a JavaScript array. Use {@link makeVector} if you only want to create a vector from a typed array.
+ * Creates a Vector from a JavaScript array via a {@link Builder}.
+ * Use {@link makeVector} if you only want to create a vector from a typed array.
  *
  * @example
  * ```ts
@@ -78,7 +79,7 @@ export function vectorFromArray(init: any, type?: dtypes.DataType) {
     if (init instanceof Data || init instanceof Vector || init.type instanceof dtypes.DataType || ArrayBuffer.isView(init)) {
         return makeVector(init as any);
     }
-    const options: IterableBuilderOptions = { type: type ?? inferType(init) };
+    const options: IterableBuilderOptions = { type: type ?? inferType(init), nullValues: [null] };
     const chunks = [...builderThroughIterable(options)(init)];
     const vector = chunks.length === 1 ? chunks[0] : chunks.reduce((a, b) => a.concat(b));
     if (dtypes.DataType.isDictionary(vector.type)) {
