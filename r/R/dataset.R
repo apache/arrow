@@ -123,6 +123,7 @@
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
 #' @seealso `vignette("dataset", package = "arrow")`
+#' See [read_csv_arrow()] on how to specify column names and types for "csv"/"text" and "tsv" -formats.
 #' @include arrow-package.R
 #' @examplesIf arrow_with_dataset() & arrow_with_parquet()
 #' # Set up directory for examples
