@@ -241,12 +241,12 @@ parse_period_unit <- function(x) {
   str_unit_start <- substr(str_unit, 1, 3)
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
-  if(any(is.na(unit))) {
+  if (any(is.na(unit))) {
     abort(sprintf("Unknown unit '%s'", str_unit))
   }
 
   # empty string in multiple interpreted as 1
-  if(capture_length[[1]] == 0) {
+  if (capture_length[[1]] == 0) {
     multiple <- 1L
 
   } else {
@@ -256,15 +256,15 @@ parse_period_unit <- function(x) {
     # to mirror lubridate syntax
     multiple <- as.numeric(str_multiple)
 
-    if(unit == 3L & multiple < 10^-6) {
+    if (unit == 3L & multiple < 10^-6) {
       unit <- 0L
       multiple <- 10^9 * multiple
     }
-    if(unit == 3L & multiple < 10^-3) {
+    if (unit == 3L & multiple < 10^-3) {
       unit <- 1L
       multiple <- 10^6 * multiple
     }
-    if(unit == 3L & multiple < 1) {
+    if (unit == 3L & multiple < 1) {
       unit <- 2L
       multiple <- 10^3 * multiple
     }
