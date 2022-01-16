@@ -38,7 +38,7 @@ Building the Arrow libraries 🏋🏿‍♀️
 The Arrow project contains a number of libraries that enable
 work in many languages. Most libraries (C++, C#, Go, Java,
 JavaScript, Julia, and Rust) already contain distinct implementations
-of Arrow. 
+of Arrow.
 
 This is different for C (Glib), MATLAB, Python, R, and Ruby as they
 are built on top of the C++ library. In this section of the guide
@@ -52,9 +52,9 @@ may or may not have experience with. If not, this section of the
 guide will help you better understand CMake and the process
 of building Arrow's C++ code.
 
-This content is intended to help explain the concepts related to 
+This content is intended to help explain the concepts related to
 and tools required for building Arrow's C++ library from source.
-If you are looking for the specific required steps, or already feel comfortable 
+If you are looking for the specific required steps, or already feel comfortable
 with compiling Arrow's C++ library, then feel free to proceed
 to the :ref:`C++ <building-arrow-cpp>`, :ref:`PyArrow <build_pyarrow>` or
 `R package build section <https://arrow.apache.org/docs/r/articles/developing.html>`_.
@@ -143,7 +143,6 @@ Building other Arrow libraries
 
          - :ref:`build_pyarrow_win`
 
-   .. tab:: Building the R package
 
 **Building from source vs. using binaries**
 
@@ -156,3 +155,13 @@ make changes to the Arrow C++ library.
    Every language has its own way of dealing with binaries.
    To get more information navigate to the section of the language you are
    interested to find more information.
+
+   .. tab:: Building the R package
+
+	  When working on code in the R package, depending on your OS and planned
+	  changes, you may or may not need to build the Arrow C++ library (often
+	  referred to in the R documentation as 'libarrow') from source.
+
+	  More information on this and full instructions on setting up the Arrow C++
+	  library and Arrow R package can be found in the
+	  `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
