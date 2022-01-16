@@ -28,7 +28,7 @@ import {
     sliceChunks,
     wrapChunkedCall1,
     wrapChunkedCall2,
-    wrapChunkedIndexOf,
+    wrapChunkedIndexOf
 } from './util/chunk.js';
 
 import { instance as getVisitor } from './visitor/get.js';
@@ -52,7 +52,7 @@ export interface Vector<T extends DataType = any> {
     [Symbol.isConcatSpreadable]: true;
 }
 
-const vectorPrototypesByTypeId = {} as { [typeId: number]: any };
+const visitorsByTypeId = {} as { [typeId: number]: { get: any; set: any; indexOf: any; byteLength: any } };
 
 /**
  * Array-like data structure. Use the convenience method {@link makeVector} and {@link vectorFromArray} to create vectors.
@@ -66,17 +66,34 @@ export class Vector<T extends DataType = any> {
         if (data.some((x) => !(x instanceof Data))) {
             throw new TypeError('Vector constructor expects an Array of Data instances.');
         }
+        const type = data[0]?.type;
         this.data = data;
-        this.type = data[0]?.type;
+        this.type = type;
+        const { get, set, indexOf, byteLength } = visitorsByTypeId[type.typeId];
         switch (data.length) {
             case 0: this._offsets = [0]; break;
-            case 1: this._offsets = [0, data[0].length]; break;
-            default: this._offsets = computeChunkOffsets(data); break;
+            case 1: {
+                const data = this.data[0];
+                this.isValid = (index: number) => isChunkedValid(data, index);
+                this.get = (index: number) => get(data, index);
+                this.set = (index: number, value: T) => set(data, index, value);
+                this.indexOf = (index: number) => indexOf(data, index);
+                this.getByteLength = (index: number) => byteLength(data, index);
+                this._offsets = [0, data.length];
+                break;
+            }
+            default:
+                this.isValid = wrapChunkedCall1(isChunkedValid);
+                this.get = wrapChunkedCall1(get);
+                this.set = wrapChunkedCall2(set);
+                this.indexOf = wrapChunkedIndexOf(indexOf);
+                this.getByteLength = wrapChunkedCall1(byteLength);
+                this._offsets = computeChunkOffsets(data);
+                break;
         }
-        this.stride = strideForType(this.type);
-        this.numChildren = this.type.children?.length ?? 0;
+        this.stride = strideForType(type);
+        this.numChildren = type.children?.length ?? 0;
         this.length = this._offsets[this._offsets.length - 1];
-        Object.setPrototypeOf(this, vectorPrototypesByTypeId[this.type.typeId]);
     }
 
     declare protected _offsets: number[] | Uint32Array;
@@ -337,16 +354,16 @@ export class Vector<T extends DataType = any> {
         (proto as any)._byteLength = -1;
         (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
-        Object.assign(vectorPrototypesByTypeId, Object.fromEntries(Object
+
+        Object.assign(visitorsByTypeId, Object.fromEntries(Object
             .keys(Type).map((T: any) => Type[T] as any)
             .filter((T: any) => typeof T === 'number' && T !== Type.NONE)
-            .map((typeId) => [typeId, Object.create(proto, {
-                ['isValid']: { value: wrapChunkedCall1(isChunkedValid) },
-                ['get']: { value: wrapChunkedCall1(getVisitor.getVisitFnByTypeId(typeId)) },
-                ['set']: { value: wrapChunkedCall2(setVisitor.getVisitFnByTypeId(typeId)) },
-                ['indexOf']: { value: wrapChunkedIndexOf(indexOfVisitor.getVisitFnByTypeId(typeId)) },
-                ['getByteLength']: { value: wrapChunkedCall1(byteLengthVisitor.getVisitFnByTypeId(typeId)) },
-            })])));
+            .map((typeId) => [typeId, {
+                get: getVisitor.getVisitFnByTypeId(typeId),
+                set: setVisitor.getVisitFnByTypeId(typeId),
+                indexOf: indexOfVisitor.getVisitFnByTypeId(typeId),
+                byteLength: byteLengthVisitor.getVisitFnByTypeId(typeId)
+            }])));
 
         return 'Vector';
     })(Vector.prototype);
@@ -363,40 +380,23 @@ class MemoizedVector<T extends DataType = any> extends Vector<T> {
 
         const cache = new Array<T['TValue'] | null>(this.length);
 
-        Object.defineProperty(this, 'get', {
-            value: (index: number) => {
-                const cachedValue = cache[index];
-                if (cachedValue !== undefined) {
-                    return cachedValue;
-                }
-                const value = get.call(this, index);
-                cache[index] = value;
-                return value;
+        this.get = (index: number) => {
+            const cachedValue = cache[index];
+            if (cachedValue !== undefined) {
+                return cachedValue;
             }
-        });
-
-        Object.defineProperty(this, 'set', {
-            value: (index: number, value: T['TValue'] | null) => {
-                set.call(this, index, value);
-                cache[index] = value;
-            }
-        });
-
+            const value = get.call(this, index);
+            cache[index] = value;
+            return value;
+        };
+        this.set = (index: number, value: T['TValue'] | null) => {
+            set.call(this, index, value);
+            cache[index] = value;
+        };
         Object.defineProperty(this, 'isMemoized', { value: true });
-
-        Object.defineProperty(this, 'unmemoize', {
-            value: () => new Vector(this.data)
-        });
-
-        Object.defineProperty(this, 'memoize', {
-            value: () => this
-        });
-
-        Object.defineProperty(this, 'slice', {
-            value(begin?: number, end?: number) {
-                return new MemoizedVector(slice.call(this, begin, end));
-            }
-        });
+        this.unmemoize = () => new Vector(this.data);
+        this.memoize = () => this;
+        this.slice = (begin?: number, end?: number) => new MemoizedVector(slice.call(this, begin, end));
     }
 }
 

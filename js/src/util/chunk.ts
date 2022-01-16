@@ -95,7 +95,7 @@ export function sliceChunks<T extends DataType>(chunks: ReadonlyArray<Data<T>>, 
 export function binarySearch<
     T extends DataType,
     F extends (chunks: ReadonlyArray<Data<T>>, _1: number, _2: number) => any
->(chunks: ReadonlyArray<Data<T>>, offsets: Uint32Array, idx: number, fn: F) {
+>(chunks: ReadonlyArray<Data<T>>, offsets: Uint32Array | number[], idx: number, fn: F) {
     let lhs = 0, mid = 0, rhs = offsets.length - 1;
     do {
         if (lhs >= rhs - 1) {
@@ -116,11 +116,7 @@ export function wrapChunkedCall1<T extends DataType>(fn: (c: Data<T>, _1: number
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j); }
     return function (this: any, index: number) {
         const data = this.data as ReadonlyArray<Data<T>>;
-        switch (data.length) {
-            case 0: return;
-            case 1: return fn(data[0], index);
-            default: return binarySearch(data, this._offsets, index, chunkedFn);
-        }
+        return binarySearch(data, this._offsets, index, chunkedFn);
     };
 }
 
@@ -130,16 +126,10 @@ export function wrapChunkedCall2<T extends DataType>(fn: (c: Data<T>, _1: number
     function chunkedFn(chunks: ReadonlyArray<Data<T>>, i: number, j: number) { return fn(chunks[i], j, _2); }
     return function (this: any, index: number, value: any) {
         const data = this.data as ReadonlyArray<Data<T>>;
-        switch (data.length) {
-            case 0: return;
-            case 1: return fn(data[0], index, value);
-            default: {
-                _2 = value;
-                const result = binarySearch(data, this._offsets, index, chunkedFn);
-                _2 = undefined;
-                return result;
-            }
-        }
+        _2 = value;
+        const result = binarySearch(data, this._offsets, index, chunkedFn);
+        _2 = undefined;
+        return result;
     };
 }
 
