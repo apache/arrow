@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
+export default {
   verbose: false,
   testEnvironment: "node",
   globals: {
@@ -31,7 +31,7 @@ module.exports = {
   moduleFileExtensions: ["mjs", "js", "ts"],
   coverageReporters: ["lcov", "json"],
   coveragePathIgnorePatterns: [
-    "fb\\/(File|Message|Schema|Tensor)\\.(js|ts)$",
+    "fb\\/.*\\.(js|ts)$",
     "test\\/.*\\.(ts|js)$",
     "/node_modules/",
   ],
@@ -48,6 +48,6 @@ module.exports = {
   moduleNameMapper: {
     "^apache-arrow$": "<rootDir>/src/Arrow.node",
     "^apache-arrow(.*)": "<rootDir>/src$1",
-    flatbuffers: "flatbuffers/js/flatbuffers.mjs",
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
 };

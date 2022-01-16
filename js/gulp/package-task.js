@@ -15,25 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {
-    metadataFiles, packageJSONFields,
-    mainExport, npmPkgName, npmOrgName,
-    targetDir, packageName, observableFromStreams
-} = require('./util');
+import { metadataFiles, packageJSONFields, mainExport, npmPkgName, npmOrgName, targetDir, packageName, observableFromStreams } from "./util.js";
 
-const gulp = require('gulp');
-const { memoizeTask } = require('./memoize-task');
-const {
-    ReplaySubject,
-    EMPTY: ObservableEmpty,
-    forkJoin: ObservableForkJoin,
-} = require('rxjs');
-const {
-    share
-} = require('rxjs/operators');
-const gulpJsonTransform = require('gulp-json-transform');
+import gulp from "gulp";
+import { memoizeTask } from "./memoize-task.js";
+import { ReplaySubject, EMPTY as ObservableEmpty, forkJoin as ObservableForkJoin } from "rxjs";
+import { share } from "rxjs/operators";
+import gulpJsonTransform from "gulp-json-transform";
 
-const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
+export const packageTask = ((cache) => memoizeTask(cache, function bundle(target, format) {
     if (target === `src`) return ObservableEmpty();
     const out = targetDir(target, format);
     const jsonTransform = gulpJsonTransform(target === npmPkgName ? createMainPackageJson(target, format) :
@@ -41,16 +31,12 @@ const packageTask = ((cache) => memoizeTask(cache, function bundle(target, forma
                                                                   : createScopedPackageJSON(target, format),
                                             2);
     return ObservableForkJoin([
-      observableFromStreams(gulp.src(metadataFiles), gulp.dest(out)), // copy metadata files
-      observableFromStreams(gulp.src(`package.json`), jsonTransform, gulp.dest(out)) // write packageJSONs
+        observableFromStreams(gulp.src(metadataFiles), gulp.dest(out)), // copy metadata files
+        observableFromStreams(gulp.src(`package.json`), jsonTransform, gulp.dest(out)) // write packageJSONs
     ]).pipe(share({ connector: () => new ReplaySubject(), resetOnError: false, resetOnComplete: false, resetOnRefCountZero: false }));
 }))({});
 
-module.exports = packageTask;
-module.exports.packageTask = packageTask;
-
-// FIXME: set this to false when we have no side effects
-const sideEffects = true;
+export default packageTask;
 
 const createMainPackageJson = (target, format) => (orig) => ({
     ...createTypeScriptPackageJson(target, format)(orig),
@@ -64,17 +50,23 @@ const createMainPackageJson = (target, format) => (orig) => ({
         [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
     },
     exports: {
-        node: {
-            import: `./${mainExport}.node.mjs`,
-            require: `./${mainExport}.node.js`,
+        ".": {
+            node: {
+                import: `./${mainExport}.node.mjs`,
+                require: `./${mainExport}.node.js`,
+            },
+            import: `./${mainExport}.dom.mjs`,
+            require: `./${mainExport}.dom.js`,
         },
-        import: `./${mainExport}.dom.mjs`,
-        require: `./${mainExport}.dom.js`,
+        "./*": {
+            import: `./*.mjs`,
+            require: `./*.js`
+        }
     },
     types: `${mainExport}.node.d.ts`,
     unpkg: `${mainExport}.es2015.min.js`,
     jsdelivr: `${mainExport}.es2015.min.js`,
-    sideEffects: sideEffects,
+    sideEffects: false,
     esm: { mode: `all`, sourceMap: true }
 });
 
@@ -86,7 +78,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
     types: `${mainExport}.node.ts`,
     browser: `${mainExport}.dom.ts`,
     type: "module",
-    sideEffects: sideEffects,
+    sideEffects: false,
     esm: { mode: `auto`, sourceMap: true },
     dependencies: {
         '@types/flatbuffers': '*',
@@ -115,7 +107,7 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             // set "module" if building scoped ESM target
             module:   format === 'esm' ? `${mainExport}.node.js` : undefined,
             // set "sideEffects" to false as a hint to Webpack that it's safe to tree-shake the ESM target
-            sideEffects: format === 'esm' ? sideEffects : undefined,
+            sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
             // set "types" (for TypeScript/VSCode)

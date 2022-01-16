@@ -15,22 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const del = require('del');
-const path = require('path');
-const mkdirp = require('mkdirp');
-const cpy = require('cpy');
-const { argv } = require('./argv');
-const { promisify } = require('util');
-const glob = promisify(require('glob'));
-const child_process = require(`child_process`);
-const { memoizeTask } = require('./memoize-task');
-const readFile = promisify(require('fs').readFile);
-const asyncDone = promisify(require('async-done'));
-const exec = promisify(require('child_process').exec);
-const parseXML = promisify(require('xml2js').parseString);
-const { targetAndModuleCombinations, npmPkgName } = require('./util');
+import del from "del";
+import path from "path";
+import mkdirp from "mkdirp";
+import { argv } from "./argv.js";
+import { promisify } from "util";
+import globSync from "glob";
+const glob = promisify(globSync);
+import child_process from "child_process";
+import { memoizeTask } from "./memoize-task.js";
+import fs from "fs";
+const readFile = promisify(fs.readFile);
+import asyncDoneSync from "async-done";
+const asyncDone = promisify(asyncDoneSync);
+const exec = promisify(child_process.exec);
+import xml2js from "xml2js";
+const parseXML = promisify(xml2js.parseString);
+import { targetAndModuleCombinations, npmPkgName } from "./util.js";
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const jestArgv = [`--reporters=jest-silent-reporter`];
+const testFiles = [
+    `test/unit/`,
+    // `test/unit/bit-tests.ts`,
+    // `test/unit/int-tests.ts`,
+    // `test/unit/math-tests.ts`,
+    // `test/unit/table-tests.ts`,
+    // `test/unit/generated-data-tests.ts`,
+    // `test/unit/builders/`,
+    // `test/unit/recordbatch/`,
+    // `test/unit/table/`,
+    // `test/unit/ipc/`,
+];
 
 if (argv.verbose) {
     jestArgv.push(`--verbose`);
@@ -50,7 +68,7 @@ const testOptions = {
     },
 };
 
-const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
+export const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function test(target, format) {
     const opts = { ...testOptions };
     const args = [...execArgv];
     if (format === 'esm' || target === 'ts' || target === 'src' || target === npmPkgName) {
@@ -60,29 +78,24 @@ const testTask = ((cache, execArgv, testOptions) => memoizeTask(cache, function 
         args.push(`-c`, `jestconfigs/jest.coverage.config.js`);
     } else {
         const cfgname = [target, format].filter(Boolean).join('.');
-        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, `test/unit/`);
+        args.push(`-c`, `jestconfigs/jest.${cfgname}.config.js`, ...testFiles);
     }
     opts.env = {
         ...opts.env,
         TEST_TARGET: target,
         TEST_MODULE: format,
-        TEST_DOM_STREAMS: (target ==='src' || format === 'umd').toString(),
-        TEST_NODE_STREAMS: (target ==='src' || format !== 'umd').toString(),
+        TEST_DOM_STREAMS: (target === 'src' || format === 'umd').toString(),
+        TEST_NODE_STREAMS: (target === 'src' || format !== 'umd').toString(),
         TEST_TS_SOURCE: !!argv.coverage || (target === 'src') || (opts.env.TEST_TS_SOURCE === 'true')
     };
     return asyncDone(() => child_process.spawn(`node`, args, opts));
 }))({}, [jest, ...jestArgv], testOptions);
 
-module.exports = testTask;
-module.exports.testTask = testTask;
-module.exports.cleanTestData = cleanTestData;
-module.exports.createTestData = createTestData;
-
 // Pull C++ and Java paths from environment vars first, otherwise sane defaults
 const ARROW_HOME = process.env.ARROW_HOME || path.resolve('../');
 const ARROW_JAVA_DIR = process.env.ARROW_JAVA_DIR || path.join(ARROW_HOME, 'java');
 const CPP_EXE_PATH = process.env.ARROW_CPP_EXE_PATH || path.join(ARROW_HOME, 'cpp/build/debug');
-const ARROW_INTEGRATION_DIR = process.env.ARROW_INTEGRATION_DIR || path.join(ARROW_HOME, 'integration');
+const ARROW_ARCHERY_DIR = process.env.ARROW_ARCHERY_DIR || path.join(ARROW_HOME, 'dev/archery');
 const CPP_JSON_TO_ARROW = path.join(CPP_EXE_PATH, 'arrow-json-integration-test');
 const CPP_FILE_TO_STREAM = path.join(CPP_EXE_PATH, 'arrow-file-to-stream');
 
@@ -92,7 +105,7 @@ const cppFilesDir = path.join(testFilesDir, 'cpp');
 const javaFilesDir = path.join(testFilesDir, 'java');
 const jsonFilesDir = path.join(testFilesDir, 'json');
 
-async function cleanTestData() {
+export async function cleanTestData() {
     return await del([
         `${cppFilesDir}/**`,
         `${javaFilesDir}/**`,
@@ -103,11 +116,15 @@ async function cleanTestData() {
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
-    await cpy(`cp ${ARROW_INTEGRATION_DIR}/data/*.json`, jsonFilesDir);
-    await exec(`python3 ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
+    await exec(`python3 -B -c '\
+import sys\n\
+sys.path.append("${ARROW_ARCHERY_DIR}")\n\
+sys.argv.append("--write_generated_json=${jsonFilesDir}")\n\
+from archery.cli import integration\n\
+integration()'`);
 }
 
-async function createTestData() {
+export async function createTestData() {
 
     let JAVA_TOOLS_JAR = process.env.ARROW_JAVA_INTEGRATION_JAR;
     if (!JAVA_TOOLS_JAR) {
@@ -127,7 +144,7 @@ async function createTestData() {
     const errors = [];
     const names = await glob(path.join(jsonFilesDir, '*.json'));
 
-    for (let jsonPath of names) {
+    for (const jsonPath of names) {
         const name = path.parse(path.basename(jsonPath)).name;
         const arrowCppFilePath = path.join(cppFilesDir, 'file', `${name}.arrow`);
         const arrowJavaFilePath = path.join(javaFilesDir, 'file', `${name}.arrow`);
@@ -150,9 +167,7 @@ async function createTestData() {
     async function generateCPPFile(jsonPath, filePath) {
         await del(filePath);
         return await exec(
-            `${CPP_JSON_TO_ARROW} ${
-            `--integration --mode=JSON_TO_ARROW`} ${
-            `--json=${jsonPath} --arrow=${filePath}`}`,
+            `${CPP_JSON_TO_ARROW} ${`--integration --mode=JSON_TO_ARROW`} ${`--json=${jsonPath} --arrow=${filePath}`}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
@@ -168,9 +183,7 @@ async function createTestData() {
     async function generateJavaFile(jsonPath, filePath) {
         await del(filePath);
         return await exec(
-            `java -cp ${JAVA_TOOLS_JAR} ${
-            `org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${
-            `-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
+            `java -cp ${JAVA_TOOLS_JAR} ${`org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${`-j ${path.resolve(jsonPath)} -a ${filePath}`}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
@@ -178,8 +191,7 @@ async function createTestData() {
     async function generateJavaStream(filePath, streamPath) {
         await del(streamPath);
         return await exec(
-            `java -cp ${JAVA_TOOLS_JAR} ${
-            `org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
+            `java -cp ${JAVA_TOOLS_JAR} ${`org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }

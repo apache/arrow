@@ -15,167 +15,167 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../jest-extensions';
+import '../jest-extensions.js';
 import {
     GeneratedTable,
     GeneratedRecordBatch,
     GeneratedVector
-} from '../generate-test-data';
+} from '../generate-test-data.js';
 
-import { util } from 'apache-arrow';
+import { RecordBatch, Schema, Vector, util } from 'apache-arrow';
+
 const { createElementComparator: compare } = util;
 
-type DeferredTest = { description: string; tests?: DeferredTest[]; run: (...args: any[]) => any };
-
-function deferTest(description: string, run: (...args: any[]) => any) {
-    return { description, run: () => test(description, run) } as DeferredTest;
-}
-
-function deferDescribe(description: string, tests: DeferredTest | DeferredTest[]) {
-    const t = (Array.isArray(tests) ? tests : [tests]).filter(Boolean);
-    return { description, tests: t, run: () => describe(description, () => { t.forEach((x) => x.run()); } ) };
-}
-
 export function validateTable({ keys, rows, cols, rowBatches, colBatches, keyBatches, table }: GeneratedTable) {
-    return deferDescribe(`Table: ${table.schema}`, ([] as DeferredTest[]).concat(
-        validateVector({ values: rows, vector: table }),
-        table.chunks.map((recordBatch, i) =>
-            deferDescribe(`recordBatch ${i}`, validateRecordBatch({
-                keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i], recordBatch
-            }))
-        ),
-        table.schema.fields.map((field, i) =>
-            deferDescribe(`column ${i}: ${field}`, validateVector({
-                keys: keys()[i],
-                values: () => cols()[i],
-                vector: table.getColumnAt(i)!
-            }))
-        )
-    ));
+    describe(`Table: ${table.schema}`, () => {
+        validateVector({ values: rows, vector: new Vector(table.data) });
+        for (const [i, data] of table.data.entries()) {
+            describe(`recordBatch ${i}`, () => {
+                validateRecordBatch({
+                    keys: keyBatches[i], rows: rowBatches[i], cols: colBatches[i],
+                    recordBatch: new RecordBatch(new Schema(data.type.children), data)
+                });
+            });
+        }
+        for (const [i, field] of table.schema.fields.entries()) {
+            describe(`column ${i}: ${field}`, () => {
+                validateVector({
+                    keys: keys()[i],
+                    values: () => cols()[i],
+                    vector: table.getChildAt(i)!
+                });
+            });
+        }
+    });
 }
 
 export function validateRecordBatch({ rows, cols, keys, recordBatch }: GeneratedRecordBatch) {
-    return deferDescribe(`RecordBatch: ${recordBatch.schema}`, ([] as DeferredTest[]).concat(
-        validateVector({ values: rows, vector: recordBatch }),
-        recordBatch.schema.fields.map((field, i) =>
-            deferDescribe(`Field: ${field}`, validateVector({
-                keys: keys()[i],
-                values: () => cols()[i],
-                vector: recordBatch.getChildAt(i)!
-            }))
-        )
-    ));
+    describe(`RecordBatch: ${recordBatch.schema}`, () => {
+        validateVector({ values: rows, vector: new Vector([recordBatch.data]) });
+        for (const [i, field] of recordBatch.schema.fields.entries()) {
+            describe(`Field: ${field}`, () => {
+                validateVector({
+                    keys: keys()[i],
+                    values: () => cols()[i],
+                    vector: recordBatch.getChildAt(i)!
+                });
+            });
+        }
+    });
 }
 
-export function validateVector({ values: createTestValues, vector, keys }: GeneratedVector, sliced = false) {
+export function validateVector({ values: createTestValues, vector, keys }: GeneratedVector<any>) {
 
     const values = createTestValues();
-    const suites = [
-        deferDescribe(`Validate ${vector.type} (sliced=${sliced})`, [
-            deferTest(`length is correct`, () => {
-                expect(vector).toHaveLength(values.length);
-            }),
-            deferTest(`gets expected values`, () => {
-                expect.hasAssertions();
-                let i = -1, n = vector.length, actual, expected;
-                try {
-                    while (++i < n) {
-                        actual = vector.get(i);
-                        expected = values[i];
-                        expect(actual).toArrowCompare(expected);
-                    }
-                } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-            }),
-            (keys && keys.length > 0) && deferTest(`dictionary indices should match`, () => {
-                expect.hasAssertions();
-                let indices = (vector as any).indices;
-                let i = -1, n = indices.length;
-                try {
-                    while (++i < n) {
-                        indices.isValid(i)
-                            ? expect(indices.get(i)).toBe(keys[i])
-                            : expect(indices.get(i)).toBeNull();
-                    }
-                } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
-            }) || null as any as DeferredTest,
-            deferTest(`sets expected values`, () => {
-                expect.hasAssertions();
-                let i = -1, n = vector.length, actual, expected;
-                try {
-                    while (++i < n) {
-                        expected = vector.get(i);
-                        vector.set(i, expected);
-                        actual = vector.get(i);
-                        expect(actual).toArrowCompare(expected);
-                    }
-                } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-            }),
-            deferTest(`iterates expected values`, () => {
-                expect.hasAssertions();
-                let i = -1, actual, expected;
-                try {
-                    for (actual of vector) {
-                        expected = values[++i];
-                        expect(actual).toArrowCompare(expected);
-                    }
-                } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-            }),
-            deferTest(`indexOf returns expected values`, () => {
-                expect.hasAssertions();
-                let i = -1, n = vector.length;
-                const shuffled = shuffle(values);
-                let value: any, actual, expected;
-                try {
-                    while (++i < n) {
-                        value = shuffled[i];
-                        actual = vector.indexOf(value);
-                        expected = values.findIndex(compare(value));
-                        expect(actual).toBe(expected);
-                    }
-                    // I would be pretty surprised if randomatic ever generates these values
-                    expect(vector.indexOf('purple elephants')).toBe(-1);
-                    expect(vector.indexOf('whistling wombats')).toBe(-1);
-                    expect(vector.indexOf('carnivorous novices')).toBe(-1);
-                } catch (e) { throw new Error(`${vector}[${i}]: ${e}`); }
-            })
-        ])
-    ] as DeferredTest[];
+    const begin = Math.trunc(values.length * .25);
+    const end = Math.trunc(values.length * .75);
 
-    if (!sliced) {
-        const begin = (values.length * .25) | 0;
-        const end = (values.length * .75) | 0;
-        suites.push(
-            // test slice with no args
-            validateVector({
-                vector: vector.slice(),
-                values: () => values.slice(),
-                keys: keys ? keys.slice() : undefined
-            }, true),
-            // test slicing half the array
-            validateVector({
-                vector: vector.slice(begin, end),
-                values: () => values.slice(begin, end),
-                keys: keys ? keys.slice(begin, end) : undefined
-            }, true),
-            // test concat each end together
-            validateVector({
-                vector: vector.slice(0, begin).concat(vector.slice(end)),
-                values: () => values.slice(0, begin).concat(values.slice(end)),
-                keys: keys ? [...keys.slice(0, begin), ...keys.slice(end)] : undefined
-            }, true)
-        );
+    describe(`Vector<${vector.type}>`, () => {
+        // test no slice
+        describe(`sliced=false`, () => { vectorTests(values, vector, keys); });
+        // test slice with no args
+        describe(`sliced=true, begin=, end=`, () => {
+            vectorTests(
+                values.slice(), // values,
+                vector.slice(), // vector,
+                keys ? keys.slice() : undefined // keys
+            );
+        });
+        // test slicing half the array
+        describe(`sliced=true, begin=${begin}, end=${end}`, () => {
+            vectorTests(
+                values.slice(begin, end), // values,
+                vector.slice(begin, end), // vector,
+                keys ? keys.slice(begin, end) : undefined // keys
+            );
+        });
+        // test concat each end together
+        describe(`sliced=true, begin=${end}, end=${begin}, concat=true`, () => {
+            vectorTests(
+                values.slice(0, begin).concat(values.slice(end)), // values,
+                vector.slice(0, begin).concat(vector.slice(end)), // vector,
+                keys ? [...keys.slice(0, begin), ...keys.slice(end)] : undefined // keys
+            );
+        });
+    });
+}
 
-        return deferDescribe(`Vector`, suites);
+function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
+    test(`length is correct`, () => {
+        expect(vector).toHaveLength(values.length);
+    });
+    test(`gets expected values`, () => {
+        expect.hasAssertions();
+        let i = -1, n = vector.length, actual, expected;
+        try {
+            while (++i < n) {
+                actual = vector.get(i);
+                expected = values[i];
+                expect(actual).toArrowCompare(expected);
+            }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+    });
+    if (keys && keys.length > 0) {
+        test(`dictionary indices should match`, () => {
+            expect.hasAssertions();
+            const indices = new Vector(vector.data.map((data) => data.clone(vector.type.indices)));
+            let i = -1, n = indices.length;
+            try {
+                while (++i < n) {
+                    indices.isValid(i)
+                        ? expect(indices.get(i)).toBe(keys[i])
+                        : expect(indices.get(i)).toBeNull();
+                }
+            } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
+        });
     }
-
-    return suites[0];
+    test(`sets expected values`, () => {
+        expect.hasAssertions();
+        let i = -1, n = vector.length, actual, expected;
+        try {
+            while (++i < n) {
+                expected = values[i];
+                vector.set(i, expected);
+                actual = vector.get(i);
+                expect(actual).toArrowCompare(expected);
+            }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+    });
+    test(`iterates expected values`, () => {
+        expect.hasAssertions();
+        let i = -1, actual, expected;
+        try {
+            for (actual of vector) {
+                expected = values[++i];
+                expect(actual).toArrowCompare(expected);
+            }
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+    });
+    test(`indexOf returns expected values`, () => {
+        expect.hasAssertions();
+        let i = -1, n = vector.length;
+        const shuffled = shuffle(values);
+        let value: any, actual, expected;
+        try {
+            while (++i < n) {
+                value = shuffled[i];
+                actual = vector.indexOf(value);
+                expected = values.findIndex(compare(value));
+                expect(actual).toBe(expected);
+            }
+            // I would be pretty surprised if randomatic ever generates these values
+            expect(vector.indexOf('purple elephants')).toBe(-1);
+            expect(vector.indexOf('whistling wombats')).toBe(-1);
+            expect(vector.indexOf('carnivorous novices')).toBe(-1);
+        } catch (e: any) { throw new Error(`${vector}[${i}]:\n\t${e && e.stack || e}`); }
+    });
 }
 
 function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

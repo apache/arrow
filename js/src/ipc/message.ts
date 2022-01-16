@@ -15,19 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { MessageHeader } from '../enum';
-import { flatbuffers } from 'flatbuffers';
-import ByteBuffer = flatbuffers.ByteBuffer;
-import { Message } from './metadata/message';
-import { isFileHandle } from '../util/compat';
-import { AsyncRandomAccessFile } from '../io/file';
-import { toUint8Array, ArrayBufferViewInput } from '../util/buffer';
-import { ByteStream, ReadableSource, AsyncByteStream } from '../io/stream';
-import { ArrowJSON, ArrowJSONLike, ITERATOR_DONE, FileHandle } from '../io/interfaces';
+import { MessageHeader } from '../enum.js';
+import { ByteBuffer } from 'flatbuffers';
+import { Message } from './metadata/message.js';
+import { isFileHandle } from '../util/compat.js';
+import { AsyncRandomAccessFile } from '../io/file.js';
+import { toUint8Array, ArrayBufferViewInput } from '../util/buffer.js';
+import { ByteStream, ReadableSource, AsyncByteStream } from '../io/stream.js';
+import { ArrowJSON, ArrowJSONLike, ITERATOR_DONE, FileHandle } from '../io/interfaces.js';
 
-/** @ignore */ const invalidMessageType       = (type: MessageHeader) => `Expected ${MessageHeader[type]} Message in stream, but was null or length 0.`;
-/** @ignore */ const nullMessage              = (type: MessageHeader) => `Header pointer of flatbuffer-encoded ${MessageHeader[type]} Message is null or length 0.`;
-/** @ignore */ const invalidMessageMetadata   = (expected: number, actual: number) => `Expected to read ${expected} metadata bytes, but only read ${actual}.`;
+/** @ignore */ const invalidMessageType = (type: MessageHeader) => `Expected ${MessageHeader[type]} Message in stream, but was null or length 0.`;
+/** @ignore */ const nullMessage = (type: MessageHeader) => `Header pointer of flatbuffer-encoded ${MessageHeader[type]} Message is null or length 0.`;
+/** @ignore */ const invalidMessageMetadata = (expected: number, actual: number) => `Expected to read ${expected} metadata bytes, but only read ${actual}.`;
 /** @ignore */ const invalidMessageBodyLength = (expected: number, actual: number) => `Expected to read ${expected} bytes for message body, but only read ${actual}.`;
 
 /** @ignore */
@@ -46,7 +45,7 @@ export class MessageReader implements IterableIterator<Message> {
         if ((r.value === -1) &&
             (r = this.readMetadataLength()).done) { return ITERATOR_DONE; }
         if ((r = this.readMetadata(r.value)).done) { return ITERATOR_DONE; }
-        return (<any> r) as IteratorResult<Message>;
+        return (<any>r) as IteratorResult<Message>;
     }
     public throw(value?: any) { return this.source.throw(value); }
     public return(value?: any) { return this.source.return(value); }
@@ -102,8 +101,8 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
     constructor(source: any, byteLength?: number) {
         this.source = source instanceof AsyncByteStream ? source
             : isFileHandle(source)
-            ? new AsyncRandomAccessFile(source, byteLength!)
-            : new AsyncByteStream(source);
+                ? new AsyncRandomAccessFile(source, byteLength!)
+                : new AsyncByteStream(source);
     }
     public [Symbol.asyncIterator](): AsyncIterableIterator<Message> { return this as AsyncIterableIterator<Message>; }
     public async next(): Promise<IteratorResult<Message>> {
@@ -115,7 +114,7 @@ export class AsyncMessageReader implements AsyncIterableIterator<Message> {
         if ((r.value === -1) &&
             (r = await this.readMetadataLength()).done) { return ITERATOR_DONE; }
         if ((r = await this.readMetadata(r.value)).done) { return ITERATOR_DONE; }
-        return (<any> r) as IteratorResult<Message>;
+        return (<any>r) as IteratorResult<Message>;
     }
     public async throw(value?: any) { return await this.source.throw(value); }
     public async return(value?: any) { return await this.source.return(value); }
@@ -235,8 +234,8 @@ export const MAGIC_STR = 'ARROW1';
 /** @ignore */
 export const MAGIC = new Uint8Array(MAGIC_STR.length);
 
-for (let i = 0; i < MAGIC_STR.length; i += 1 | 0) {
-    MAGIC[i] = MAGIC_STR.charCodeAt(i);
+for (let i = 0; i < MAGIC_STR.length; i += 1) {
+    MAGIC[i] = MAGIC_STR.codePointAt(i)!;
 }
 
 /** @ignore */

@@ -15,27 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {
-    targetDir,
-    mainExport,
-    esmRequire,
-    gCCLanguageNames,
-    publicModulePaths,
-    observableFromStreams,
-    shouldRunInChildProcess,
-    spawnGulpCommandInChildProcess,
-} = require('./util');
+import { targetDir, mainExport, esmRequire, gCCLanguageNames, publicModulePaths, observableFromStreams, shouldRunInChildProcess, spawnGulpCommandInChildProcess } from "./util.js";
 
-const fs = require('fs');
-const gulp = require('gulp');
-const path = require('path');
-const mkdirp = require('mkdirp');
-const sourcemaps = require('gulp-sourcemaps');
-const { memoizeTask } = require('./memoize-task');
-const { compileBinFiles } = require('./typescript-task');
-const closureCompiler = require('google-closure-compiler').gulp();
+import fs from "fs";
+import gulp from "gulp";
+import path from "path";
+import mkdirp from "mkdirp";
+import sourcemaps from "gulp-sourcemaps";
+import { memoizeTask } from "./memoize-task.js";
+import { compileBinFiles } from "./typescript-task.js";
 
-const closureTask = ((cache) => memoizeTask(cache, async function closure(target, format) {
+import closureCompiler from 'google-closure-compiler';
+const compiler = closureCompiler.gulp();
+
+export const closureTask = ((cache) => memoizeTask(cache, async function closure(target, format) {
 
     if (shouldRunInChildProcess(target, format)) {
         return spawnGulpCommandInChildProcess('compile', target, format);
@@ -71,11 +64,11 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
             gulp.src([
                 /* external libs first */
                 `node_modules/flatbuffers/package.json`,
-                `node_modules/flatbuffers/js/flatbuffers.mjs`,
+                `node_modules/flatbuffers/**/*.js`,
                 `${src}/**/*.js` /* <-- then source globs */
             ], { base: `./` }),
             sourcemaps.init(),
-            closureCompiler(createClosureArgs(entry_point, externs, target), {
+            compiler(createClosureArgs(entry_point, externs, target), {
                 platform: ['native', 'java', 'javascript']
             }),
             // rename the sourcemaps from *.js.map files to *.min.js.map
@@ -85,8 +78,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
     }
 }))({});
 
-module.exports = closureTask;
-module.exports.closureTask = closureTask;
+export default closureTask;
 
 const createClosureArgs = (entry_point, externs, target) => ({
     externs,
@@ -104,7 +96,7 @@ const createClosureArgs = (entry_point, externs, target) => ({
     js_output_file: `${mainExport}.js`,
     language_in: gCCLanguageNames[`esnext`],
     language_out: gCCLanguageNames[target],
-    output_wrapper:`${apacheHeader()}
+    output_wrapper: `${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
     typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -160,11 +152,21 @@ Symbol.iterator;
 Symbol.toPrimitive;
 /** @type {symbol} */
 Symbol.asyncIterator;
+
+var Encoding = function() {};
+/** @type {?} */
+Encoding[1] = function() {};
+/** @type {?} */
+Encoding[2] = function() {};
+/** @type {?} */
+Encoding.UTF8_BYTES = function() {};
+/** @type {?} */
+Encoding.UTF16_STRING = function() {};
 `);
 }
 
 function getPublicExportedNames(entryModule) {
-    const fn = function() {};
+    const fn = function () { };
     const isStaticOrProtoName = (x) => (
         !(x in fn) &&
         (x !== `default`) &&

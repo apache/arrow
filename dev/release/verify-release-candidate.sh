@@ -440,6 +440,7 @@ test_js() {
   yarn lint
   yarn build
   yarn test
+  yarn test:bundle
   popd
 }
 

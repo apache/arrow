@@ -15,16 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedWidthBuilder } from '../builder';
-import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type';
+import { FixedWidthBuilder } from '../builder.js';
+import { Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond } from '../type.js';
+import { setTime, setTimeSecond, setTimeMillisecond, setTimeMicrosecond, setTimeNanosecond } from '../visitor/set.js';
 
 /** @ignore */
-export class TimeBuilder<T extends Time = Time, TNull = any> extends FixedWidthBuilder<T, TNull> {}
+export class TimeBuilder<T extends Time = Time, TNull = any> extends FixedWidthBuilder<T, TNull> { }
+
+(TimeBuilder.prototype as any)._setValue = setTime;
+
 /** @ignore */
-export class TimeSecondBuilder<TNull = any> extends TimeBuilder<TimeSecond, TNull> {}
+export class TimeSecondBuilder<TNull = any> extends TimeBuilder<TimeSecond, TNull> { }
+
+(TimeSecondBuilder.prototype as any)._setValue = setTimeSecond;
+
 /** @ignore */
-export class TimeMillisecondBuilder<TNull = any> extends TimeBuilder<TimeMillisecond, TNull> {}
+export class TimeMillisecondBuilder<TNull = any> extends TimeBuilder<TimeMillisecond, TNull> { }
+
+(TimeMillisecondBuilder.prototype as any)._setValue = setTimeMillisecond;
+
 /** @ignore */
-export class TimeMicrosecondBuilder<TNull = any> extends TimeBuilder<TimeMicrosecond, TNull> {}
+export class TimeMicrosecondBuilder<TNull = any> extends TimeBuilder<TimeMicrosecond, TNull> { }
+
+(TimeMicrosecondBuilder.prototype as any)._setValue = setTimeMicrosecond;
+
 /** @ignore */
-export class TimeNanosecondBuilder<TNull = any> extends TimeBuilder<TimeNanosecond, TNull> {}
+export class TimeNanosecondBuilder<TNull = any> extends TimeBuilder<TimeNanosecond, TNull> { }
+
+(TimeNanosecondBuilder.prototype as any)._setValue = setTimeNanosecond;
