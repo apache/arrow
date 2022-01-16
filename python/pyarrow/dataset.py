@@ -23,7 +23,6 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
     CsvFragmentScanOptions,
-    Expression,
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
@@ -47,6 +46,9 @@ from pyarrow._dataset import (  # noqa
     _get_partition_keys,
     _filesystemdataset_write,
 )
+# keep Expression functionality exposed here for backwards compatibility
+from pyarrow.compute import Expression, scalar, field  # noqa
+
 
 _orc_available = False
 _orc_msg = (
@@ -92,40 +94,6 @@ def __getattr__(name):
     raise AttributeError(
         "module 'pyarrow.dataset' has no attribute '{0}'".format(name)
     )
-
-
-def field(name):
-    """Reference a named column of the dataset.
-
-    Stores only the field's name. Type and other information is known only when
-    the expression is bound to a dataset having an explicit scheme.
-
-    Parameters
-    ----------
-    name : string
-        The name of the field the expression references to.
-
-    Returns
-    -------
-    field_expr : Expression
-    """
-    return Expression._field(name)
-
-
-def scalar(value):
-    """Expression representing a scalar value.
-
-    Parameters
-    ----------
-    value : bool, int, float or string
-        Python value of the scalar. Note that only a subset of types are
-        currently supported.
-
-    Returns
-    -------
-    scalar_expr : Expression
-    """
-    return Expression._scalar(value)
 
 
 def partitioning(schema=None, field_names=None, flavor=None,
@@ -866,7 +834,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         schema = schema or data.schema
         data = InMemoryDataset(data, schema=schema)
     elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
-        data = Scanner.from_batches(data, schema=schema, use_async=True)
+        data = Scanner.from_batches(data, schema=schema)
         schema = None
     elif not isinstance(data, (Dataset, Scanner)):
         raise ValueError(
@@ -920,7 +888,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     filesystem, base_dir = _resolve_filesystem_and_path(base_dir, filesystem)
 
     if isinstance(data, Dataset):
-        scanner = data.scanner(use_threads=use_threads, use_async=True)
+        scanner = data.scanner(use_threads=use_threads)
     else:
         # scanner was passed directly by the user, in which case a schema
         # cannot be passed

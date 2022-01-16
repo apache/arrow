@@ -27,18 +27,18 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// Concatenate creates a new array.Interface which is the concatenation of the
+// Concatenate creates a new arrow.Array which is the concatenation of the
 // passed in arrays. Returns nil if an error is encountered.
 //
 // The passed in arrays still need to be released manually, and will not be
 // released by this function.
-func Concatenate(arrs []Interface, mem memory.Allocator) (Interface, error) {
+func Concatenate(arrs []arrow.Array, mem memory.Allocator) (arrow.Array, error) {
 	if len(arrs) == 0 {
 		return nil, xerrors.New("array/concat: must pass at least one array")
 	}
 
 	// gather Data of inputs
-	data := make([]*Data, len(arrs))
+	data := make([]arrow.ArrayData, len(arrs))
 	for i, ar := range arrs {
 		if !arrow.TypeEqual(ar.DataType(), arrs[0].DataType()) {
 			return nil, xerrors.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
@@ -69,14 +69,14 @@ type bitmap struct {
 }
 
 // gather up the bitmaps from the passed in data objects
-func gatherBitmaps(data []*Data, idx int) []bitmap {
+func gatherBitmaps(data []arrow.ArrayData, idx int) []bitmap {
 	out := make([]bitmap, len(data))
 	for i, d := range data {
-		if d.buffers[idx] != nil {
-			out[i].data = d.buffers[idx].Bytes()
+		if d.Buffers()[idx] != nil {
+			out[i].data = d.Buffers()[idx].Bytes()
 		}
-		out[i].rng.offset = d.offset
-		out[i].rng.len = d.length
+		out[i].rng.offset = d.Offset()
+		out[i].rng.len = d.Len()
 	}
 	return out
 }
@@ -85,32 +85,32 @@ func gatherBitmaps(data []*Data, idx int) []bitmap {
 // returning only the slices of the buffers which are relevant to the passed in arrays
 // in case they are themselves slices of other arrays. nil buffers are ignored and not
 // in the output slice.
-func gatherFixedBuffers(data []*Data, idx, byteWidth int) []*memory.Buffer {
+func gatherFixedBuffers(data []arrow.ArrayData, idx, byteWidth int) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for _, d := range data {
-		buf := d.buffers[idx]
+		buf := d.Buffers()[idx]
 		if buf == nil {
 			continue
 		}
 
-		out = append(out, memory.NewBufferBytes(buf.Bytes()[d.offset*byteWidth:(d.offset+d.length)*byteWidth]))
+		out = append(out, memory.NewBufferBytes(buf.Bytes()[d.Offset()*byteWidth:(d.Offset()+d.Len())*byteWidth]))
 	}
 	return out
 }
 
 // gatherBuffersFixedWidthType is like gatherFixedBuffers, but uses a datatype to determine the size
 // to use for determining the byte slice rather than a passed in bytewidth.
-func gatherBuffersFixedWidthType(data []*Data, idx int, fixed arrow.FixedWidthDataType) []*memory.Buffer {
+func gatherBuffersFixedWidthType(data []arrow.ArrayData, idx int, fixed arrow.FixedWidthDataType) []*memory.Buffer {
 	return gatherFixedBuffers(data, idx, fixed.BitWidth()/8)
 }
 
 // gatherBufferRanges requires that len(ranges) == len(data) and returns a list of buffers
 // which represent the corresponding range of each buffer in the specified index of each
 // data object.
-func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
+func gatherBufferRanges(data []arrow.ArrayData, idx int, ranges []rng) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for i, d := range data {
-		buf := d.buffers[idx]
+		buf := d.Buffers()[idx]
 		if buf == nil {
 			debug.Assert(ranges[i].len == 0, "misaligned buffer value ranges")
 			continue
@@ -122,28 +122,28 @@ func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
 }
 
 // gatherChildren gathers the children data objects for child of index idx for all of the data objects.
-func gatherChildren(data []*Data, idx int) []*Data {
+func gatherChildren(data []arrow.ArrayData, idx int) []arrow.ArrayData {
 	return gatherChildrenMultiplier(data, idx, 1)
 }
 
 // gatherChildrenMultiplier gathers the full data slice of the underlying values from the children data objects
 // such as the values data for a list array so that it can return a slice of the buffer for a given
 // index into the children.
-func gatherChildrenMultiplier(data []*Data, idx, multiplier int) []*Data {
-	out := make([]*Data, len(data))
+func gatherChildrenMultiplier(data []arrow.ArrayData, idx, multiplier int) []arrow.ArrayData {
+	out := make([]arrow.ArrayData, len(data))
 	for i, d := range data {
-		out[i] = NewSliceData(d.childData[idx], int64(d.offset*multiplier), int64(d.offset+d.length)*int64(multiplier))
+		out[i] = NewSliceData(d.Children()[idx], int64(d.Offset()*multiplier), int64(d.Offset()+d.Len())*int64(multiplier))
 	}
 	return out
 }
 
 // gatherChildrenRanges returns a slice of Data objects which each represent slices of the given ranges from the
 // child in the specified index from each data object.
-func gatherChildrenRanges(data []*Data, idx int, ranges []rng) []*Data {
+func gatherChildrenRanges(data []arrow.ArrayData, idx int, ranges []rng) []arrow.ArrayData {
 	debug.Assert(len(data) == len(ranges), "mismatched children ranges for concat")
-	out := make([]*Data, len(data))
+	out := make([]arrow.ArrayData, len(data))
 	for i, d := range data {
-		out[i] = NewSliceData(d.childData[idx], int64(ranges[i].offset), int64(ranges[i].offset+ranges[i].len))
+		out[i] = NewSliceData(d.Children()[idx], int64(ranges[i].offset), int64(ranges[i].offset+ranges[i].len))
 	}
 	return out
 }
@@ -221,20 +221,20 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 	return out, valuesRanges, nil
 }
 
-// concat is the implementation for actually performing the concatenation of the *array.Data
+// concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
-func concat(data []*Data, mem memory.Allocator) (*Data, error) {
-	out := &Data{refCount: 1, dtype: data[0].dtype, nulls: 0}
+func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, error) {
+	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
 	for _, d := range data {
-		out.length += d.length
-		if out.nulls == UnknownNullCount || d.nulls == UnknownNullCount {
+		out.length += d.Len()
+		if out.nulls == UnknownNullCount || d.NullN() == UnknownNullCount {
 			out.nulls = UnknownNullCount
 			continue
 		}
-		out.nulls += d.nulls
+		out.nulls += d.NullN()
 	}
 
-	out.buffers = make([]*memory.Buffer, len(data[0].buffers))
+	out.buffers = make([]*memory.Buffer, len(data[0].Buffers()))
 	if out.nulls != 0 && out.dtype.ID() != arrow.NULL {
 		bm, err := concatBitmaps(gatherBitmaps(data, 0), mem)
 		if err != nil {
@@ -271,7 +271,7 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		}
 
 		out.buffers[1] = offsetBuffer
-		out.childData = make([]*Data, 1)
+		out.childData = make([]arrow.ArrayData, 1)
 		out.childData[0], err = concat(childData, mem)
 		if err != nil {
 			return nil, err
@@ -286,9 +286,9 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.childData = []*Data{children}
+		out.childData = []arrow.ArrayData{children}
 	case *arrow.StructType:
-		out.childData = make([]*Data, len(dt.Fields()))
+		out.childData = make([]arrow.ArrayData, len(dt.Fields()))
 		for i := range dt.Fields() {
 			children := gatherChildren(data, i)
 			for _, c := range children {
@@ -312,7 +312,7 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		}
 
 		out.buffers[1] = offsetBuffer
-		out.childData = make([]*Data, 1)
+		out.childData = make([]arrow.ArrayData, 1)
 		out.childData[0], err = concat(childData, mem)
 		if err != nil {
 			return nil, err

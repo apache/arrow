@@ -509,7 +509,7 @@ func Example_recordReader() {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	itr, err := array.NewRecordReader(schema, []array.Record{rec1, rec2})
+	itr, err := array.NewRecordReader(schema, []arrow.Record{rec1, rec2})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -558,7 +558,7 @@ func Example_table() {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	tbl := array.NewTableFromRecords(schema, []array.Record{rec1, rec2})
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1, rec2})
 	defer tbl.Release()
 
 	tr := array.NewTableReader(tbl, 5)

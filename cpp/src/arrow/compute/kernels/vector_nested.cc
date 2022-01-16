@@ -48,27 +48,21 @@ struct ListParentIndicesArray {
     const offset_type* offsets = list.raw_value_offsets();
     offset_type values_length = offsets[list.length()] - offsets[0];
 
-    ARROW_ASSIGN_OR_RAISE(auto indices,
-                          ctx->Allocate(values_length * sizeof(offset_type)));
-    auto out_indices = reinterpret_cast<offset_type*>(indices->mutable_data());
+    ARROW_ASSIGN_OR_RAISE(auto indices, ctx->Allocate(values_length * sizeof(int64_t)));
+    auto out_indices = reinterpret_cast<int64_t*>(indices->mutable_data());
     for (int64_t i = 0; i < list.length(); ++i) {
       // Note: In most cases, null slots are empty, but when they are non-empty
       // we write out the indices so make sure they are accounted for. This
       // behavior could be changed if needed in the future.
       for (offset_type j = offsets[i]; j < offsets[i + 1]; ++j) {
-        *out_indices++ = static_cast<offset_type>(i + base_output_offset);
+        *out_indices++ = i + base_output_offset;
       }
     }
 
     BufferVector buffers{nullptr, std::move(indices)};
     int64_t null_count = 0;
-    if (sizeof(offset_type) == 4) {
-      out = std::make_shared<ArrayData>(int32(), values_length, std::move(buffers),
-                                        null_count);
-    } else {
-      out = std::make_shared<ArrayData>(int64(), values_length, std::move(buffers),
-                                        null_count);
-    }
+    out = std::make_shared<ArrayData>(int64(), values_length, std::move(buffers),
+                                      null_count);
     return Status::OK();
   }
 
@@ -111,19 +105,6 @@ struct ListParentIndicesArray {
   }
 };
 
-Result<std::shared_ptr<DataType>> ListParentIndicesType(const DataType& input_type) {
-  switch (input_type.id()) {
-    case Type::LIST:
-      return int32();
-    case Type::FIXED_SIZE_LIST:
-    case Type::LARGE_LIST:
-      return int64();
-    default:
-      return Status::TypeError("Function 'list_parent_indices' expects list input, got ",
-                               input_type.ToString());
-  }
-}
-
 const FunctionDoc list_flatten_doc(
     "Flatten list values",
     ("`lists` must have a list-like type.\n"
@@ -152,7 +133,6 @@ class ListParentIndicesFunction : public MetaFunction {
         return ListParentIndicesArray::Exec(&kernel_ctx, args[0].array());
       case Datum::CHUNKED_ARRAY: {
         const auto& input = args[0].chunked_array();
-        ARROW_ASSIGN_OR_RAISE(auto out_ty, ListParentIndicesType(*input->type()));
 
         int64_t base_output_offset = 0;
         ArrayVector out_chunks;
@@ -163,7 +143,7 @@ class ListParentIndicesFunction : public MetaFunction {
           out_chunks.push_back(MakeArray(std::move(out_chunk)));
           base_output_offset += chunk->length();
         }
-        return std::make_shared<ChunkedArray>(std::move(out_chunks), std::move(out_ty));
+        return std::make_shared<ChunkedArray>(std::move(out_chunks), int64());
       }
       default:
         return Status::NotImplemented(

@@ -38,7 +38,7 @@ func TestRecord(t *testing.T) {
 		},
 		nil,
 	)
-	col1 := func() array.Interface {
+	col1 := func() arrow.Array {
 		ib := array.NewInt32Builder(mem)
 		defer ib.Release()
 
@@ -47,7 +47,7 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col1.Release()
 
-	col2 := func() array.Interface {
+	col2 := func() arrow.Array {
 		b := array.NewFloat64Builder(mem)
 		defer b.Release()
 
@@ -56,7 +56,7 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col2.Release()
 
-	cols := []array.Interface{col1, col2}
+	cols := []arrow.Array{col1, col2}
 	rec := array.NewRecord(schema, cols, -1)
 	defer rec.Release()
 
@@ -128,7 +128,7 @@ func TestRecord(t *testing.T) {
 
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		cols   []array.Interface
+		cols   []arrow.Array
 		rows   int64
 		err    error
 	}{
@@ -233,8 +233,8 @@ func TestRecordReader(t *testing.T) {
 		},
 		nil,
 	)
-	rec1 := func() array.Record {
-		col1 := func() array.Interface {
+	rec1 := func() arrow.Record {
+		col1 := func() arrow.Array {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -243,7 +243,7 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col1.Release()
 
-		col2 := func() array.Interface {
+		col2 := func() arrow.Array {
 			b := array.NewFloat64Builder(mem)
 			defer b.Release()
 
@@ -252,13 +252,13 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col2.Release()
 
-		cols := []array.Interface{col1, col2}
+		cols := []arrow.Array{col1, col2}
 		return array.NewRecord(schema, cols, -1)
 	}()
 	defer rec1.Release()
 
-	rec2 := func() array.Record {
-		col1 := func() array.Interface {
+	rec2 := func() arrow.Record {
+		col1 := func() arrow.Array {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -267,7 +267,7 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col1.Release()
 
-		col2 := func() array.Interface {
+		col2 := func() arrow.Array {
 			b := array.NewFloat64Builder(mem)
 			defer b.Release()
 
@@ -276,12 +276,12 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col2.Release()
 
-		cols := []array.Interface{col1, col2}
+		cols := []arrow.Array{col1, col2}
 		return array.NewRecord(schema, cols, -1)
 	}()
 	defer rec2.Release()
 
-	recs := []array.Record{rec1, rec2}
+	recs := []arrow.Record{rec1, rec2}
 	itr, err := array.NewRecordReader(schema, recs)
 	if err != nil {
 		t.Fatal(err)
@@ -473,7 +473,7 @@ var testMessageSchema = arrow.NewSchema(
 	nil,
 )
 
-func (m *testMessage) Fill(rec array.Record, row int) error {
+func (m *testMessage) Fill(rec arrow.Record, row int) error {
 	m.Reset()
 
 	// foo
@@ -572,7 +572,7 @@ type testMessageArrowRecordBuilder struct {
 	rb *array.RecordBuilder
 }
 
-func (b *testMessageArrowRecordBuilder) Build() array.Record {
+func (b *testMessageArrowRecordBuilder) Build() arrow.Record {
 	return b.rb.NewRecord()
 }
 

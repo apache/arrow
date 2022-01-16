@@ -612,7 +612,8 @@ Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   }
 
   // Determine the minimum contiguous slice across all columns
-  int64_t chunksize = std::min(table_.num_rows(), max_chunksize_);
+  int64_t chunksize =
+      std::min(table_.num_rows() - absolute_row_position_, max_chunksize_);
   std::vector<const Array*> chunks(table_.num_columns());
   for (int i = 0; i < table_.num_columns(); ++i) {
     auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();

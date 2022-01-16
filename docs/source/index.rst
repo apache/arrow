@@ -44,7 +44,7 @@ target environment.**
    C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
-   Go <https://godoc.org/github.com/apache/arrow/go/arrow>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
@@ -77,7 +77,7 @@ target environment.**
    format/Integration
    format/CDataInterface
    format/CStreamInterface
-   format/Other   
+   format/Other
 
 .. _toc.development:
 
@@ -90,9 +90,7 @@ target environment.**
    developers/reviewing
    developers/cpp/index
    developers/python
-   developers/archery
-   developers/crossbow
-   developers/docker
+   developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
    developers/computeir

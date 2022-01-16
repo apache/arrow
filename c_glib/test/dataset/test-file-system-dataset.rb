@@ -60,7 +60,6 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
                         count: build_int32_array([1, 10, 2, 3]))
     table_reader = Arrow::TableBatchReader.new(table)
     scanner_builder = ArrowDataset::ScannerBuilder.new(table_reader)
-    scanner_builder.use_async = true
     scanner = scanner_builder.finish
     options = ArrowDataset::FileSystemDatasetWriteOptions.new
     options.file_write_options = @format.default_write_options

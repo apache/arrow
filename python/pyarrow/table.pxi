@@ -671,9 +671,58 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> pa.RecordBatch.from_pydict(pydict)
+        pyarrow.RecordBatch
+        int: int64
+        str: string
         """
 
         return _from_pydict(cls=RecordBatch,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a RecordBatch from list of rows / dictionaries.
+
+        Parameters
+        ----------
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
+        schema : Schema, default None
+            If not passed, will be inferred from the first row of the
+            mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> pa.RecordBatch.from_pylist(pylist)
+        pyarrow.RecordBatch
+        int: int64
+        str: string
+        >>> pa.RecordBatch.from_pylist(pylist)[0]
+        <pyarrow.lib.Int64Array object at 0x1256b08e0>
+        [
+          1,
+          2
+        ]
+        """
+
+        return _from_pylist(cls=RecordBatch,
                             mapping=mapping,
                             schema=schema,
                             metadata=metadata)
@@ -1015,6 +1064,21 @@ cdef class RecordBatch(_PandasConvertible):
             column = self[i].to_pylist()
             entries.append((name, column))
         return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the RecordBatch to a list of rows / dictionaries.
+
+        Returns
+        -------
+        list
+        """
+
+        pydict = self.to_pydict()
+        names = self.schema.names
+        pylist = [{column: pydict[column][row] for column in names}
+                  for row in range(self.num_rows)]
+        return pylist
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -1725,9 +1789,58 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> pa.Table.from_pydict(pydict)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
         """
 
         return _from_pydict(cls=Table,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a Table from list of rows / dictionaries.
+
+        Parameters
+        ----------
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
+        schema : Schema, default None
+            If not passed, will be inferred from the first row of the
+            mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> pa.Table.from_pylist(pylist)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
+        """
+
+        return _from_pylist(cls=Table,
                             mapping=mapping,
                             schema=schema,
                             metadata=metadata)
@@ -1831,6 +1944,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pydict()
+        {'int': [1, 2], 'str': ['a', 'b']}
         """
         cdef:
             size_t i
@@ -1843,6 +1966,30 @@ cdef class Table(_PandasConvertible):
             entries.append((self.field(i).name, column.to_pylist()))
 
         return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the Table to a list of rows / dictionaries.
+
+        Returns
+        -------
+        list
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pylist()
+        [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        """
+        pydict = self.to_pydict()
+        names = self.schema.names
+        pylist = [{column: pydict[column][row] for column in names}
+                  for row in range(self.num_rows)]
+        return pylist
 
     @property
     def schema(self):
@@ -2440,6 +2587,46 @@ def _from_pydict(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+def _from_pylist(cls, mapping, schema, metadata):
+    """
+    Construct a Table/RecordBatch from list of rows / dictionaries.
+
+    Parameters
+    ----------
+    cls : Class Table/RecordBatch
+    mapping : list of dicts of rows
+        A mapping of strings to row values.
+    schema : Schema, default None
+        If not passed, will be inferred from the first row of the
+        mapping values.
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if inferred).
+
+    Returns
+    -------
+    Table/RecordBatch
+    """
+
+    arrays = []
+    if schema is None:
+        names = []
+        if mapping:
+            names = list(mapping[0].keys())
+        for n in names:
+            v = [row[n] if n in row else None for row in mapping]
+            arrays.append(v)
+        return cls.from_arrays(arrays, names, metadata=metadata)
+    else:
+        if isinstance(schema, Schema):
+            for n in schema.names:
+                v = [row[n] if n in row else None for row in mapping]
+                arrays.append(v)
+            # Will raise if metadata is not None
+            return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            raise TypeError('Schema must be an instance of pyarrow.Schema')
 
 
 class TableGroupBy:

@@ -537,17 +537,36 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _latest_prefix_date(self, prefix):
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
+        else:
+            latest = -1
+        return latest
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
     def latest_for_prefix(self, prefix):
-        latest_id = self._latest_prefix_id(prefix)
-        if latest_id < 0:
-            raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
-            )
+        if prefix == "nightly":
+            latest_id = self._latest_prefix_date(prefix)
+            if not latest_id:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}'' yet"
+                )
+            latest_id += "-0"
+        else:
+            latest_id = self._latest_prefix_id(prefix)
+            if latest_id < 0:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}' yet"
+                )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 

@@ -19,7 +19,6 @@
 
 """Dataset is currently unstable. APIs subject to change without notice."""
 
-from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 import collections
@@ -30,6 +29,7 @@ import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import ArrowTypeError, frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow._compute cimport Expression, _bind
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport (
     ConvertOptions, ParseOptions, ReadOptions, WriteOptions)
@@ -136,191 +136,6 @@ cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
 
 
-cdef class Expression(_Weakrefable):
-    """
-    A logical expression to be evaluated against some input.
-
-    To create an expression:
-
-    - Use the factory function ``pyarrow.dataset.scalar()`` to create a
-      scalar (not necessary when combined, see example below).
-    - Use the factory function ``pyarrow.dataset.field()`` to reference
-      a field (column in table).
-    - Compare fields and scalars with ``<``, ``<=``, ``==``, ``>=``, ``>``.
-    - Combine expressions using python operators ``&`` (logical and),
-      ``|`` (logical or) and ``~`` (logical not).
-      Note: python keywords ``and``, ``or`` and ``not`` cannot be used
-      to combine expressions.
-    - Check whether the expression is contained in a list of values with
-      the ``pyarrow.dataset.Expression.isin()`` member function.
-
-    Examples
-    --------
-
-    >>> import pyarrow.dataset as ds
-    >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
-    <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
-    >>> ds.field('a') != 3
-    <pyarrow.dataset.Expression (a != 3)>
-    >>> ds.field('a').isin([1, 2, 3])
-    <pyarrow.dataset.Expression (a is in [
-      1,
-      2,
-      3
-    ])>
-    """
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
-
-    cdef void init(self, const CExpression& sp):
-        self.expr = sp
-
-    @staticmethod
-    cdef wrap(const CExpression& sp):
-        cdef Expression self = Expression.__new__(Expression)
-        self.init(sp)
-        return self
-
-    cdef inline CExpression unwrap(self):
-        return self.expr
-
-    def equals(self, Expression other):
-        return self.expr.Equals(other.unwrap())
-
-    def __str__(self):
-        return frombytes(self.expr.ToString())
-
-    def __repr__(self):
-        return "<pyarrow.dataset.{0} {1}>".format(
-            self.__class__.__name__, str(self)
-        )
-
-    @staticmethod
-    def _deserialize(Buffer buffer not None):
-        return Expression.wrap(GetResultValue(CDeserializeExpression(
-            pyarrow_unwrap_buffer(buffer))))
-
-    def __reduce__(self):
-        buffer = pyarrow_wrap_buffer(GetResultValue(
-            CSerializeExpression(self.expr)))
-        return Expression._deserialize, (buffer,)
-
-    @staticmethod
-    cdef Expression _expr_or_scalar(object expr):
-        if isinstance(expr, Expression):
-            return (<Expression> expr)
-        return (<Expression> Expression._scalar(expr))
-
-    @staticmethod
-    cdef Expression _call(str function_name, list arguments,
-                          shared_ptr[CFunctionOptions] options=(
-                              <shared_ptr[CFunctionOptions]> nullptr)):
-        cdef:
-            vector[CExpression] c_arguments
-
-        for argument in arguments:
-            c_arguments.push_back((<Expression> argument).expr)
-
-        return Expression.wrap(CMakeCallExpression(tobytes(function_name),
-                                                   move(c_arguments), options))
-
-    def __richcmp__(self, other, int op):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call({
-            Py_EQ: "equal",
-            Py_NE: "not_equal",
-            Py_GT: "greater",
-            Py_GE: "greater_equal",
-            Py_LT: "less",
-            Py_LE: "less_equal",
-        }[op], [self, other])
-
-    def __bool__(self):
-        raise ValueError(
-            "An Expression cannot be evaluated to python True or False. "
-            "If you are using the 'and', 'or' or 'not' operators, use '&', "
-            "'|' or '~' instead."
-        )
-
-    def __invert__(self):
-        return Expression._call("invert", [self])
-
-    def __and__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("and_kleene", [self, other])
-
-    def __or__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("or_kleene", [self, other])
-
-    def __add__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("add_checked", [self, other])
-
-    def __mul__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("multiply_checked", [self, other])
-
-    def __sub__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("subtract_checked", [self, other])
-
-    def __truediv__(Expression self, other):
-        other = Expression._expr_or_scalar(other)
-        return Expression._call("divide_checked", [self, other])
-
-    def is_valid(self):
-        """Checks whether the expression is not-null (valid)"""
-        return Expression._call("is_valid", [self])
-
-    def is_null(self, bint nan_is_null=False):
-        """Checks whether the expression is null"""
-        cdef:
-            shared_ptr[CFunctionOptions] c_options
-
-        c_options.reset(new CNullOptions(nan_is_null))
-        return Expression._call("is_null", [self], c_options)
-
-    def cast(self, type, bint safe=True):
-        """Explicitly change the expression's data type"""
-        cdef shared_ptr[CCastOptions] c_options
-        c_options.reset(new CCastOptions(safe))
-        c_options.get().to_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression._call("cast", [self],
-                                <shared_ptr[CFunctionOptions]> c_options)
-
-    def isin(self, values):
-        """Checks whether the expression is contained in values"""
-        cdef:
-            shared_ptr[CFunctionOptions] c_options
-            CDatum c_values
-
-        if not isinstance(values, pa.Array):
-            values = pa.array(values)
-
-        c_values = CDatum(pyarrow_unwrap_array(values))
-        c_options.reset(new CSetLookupOptions(c_values, True))
-        return Expression._call("is_in", [self], c_options)
-
-    @staticmethod
-    def _field(str name not None):
-        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
-
-    @staticmethod
-    def _scalar(value):
-        cdef:
-            Scalar scalar
-
-        if isinstance(value, Scalar):
-            scalar = value
-        else:
-            scalar = pa.scalar(value)
-
-        return Expression.wrap(CMakeScalarExpression(scalar.unwrap()))
-
-
-_deserialize = Expression._deserialize
 cdef Expression _true = Expression._scalar(True)
 
 
@@ -446,11 +261,10 @@ cdef class Dataset(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
-
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -812,16 +626,6 @@ cdef class FileSystemDataset(Dataset):
     def format(self):
         """The FileFormat of this source."""
         return FileFormat.wrap(self.filesystem_dataset.format())
-
-
-cdef CExpression _bind(Expression filter, Schema schema) except *:
-    assert schema is not None
-
-    if filter is None:
-        return _true.unwrap()
-
-    return GetResultValue(filter.unwrap().Bind(
-        deref(pyarrow_unwrap_schema(schema).get())))
 
 
 cdef class FileWriteOptions(_Weakrefable):
@@ -2162,8 +1966,7 @@ _DEFAULT_BATCH_SIZE = 2**20
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
-                            bint use_threads=True, bint use_async=False,
-                            MemoryPool memory_pool=None,
+                            bint use_threads=True, MemoryPool memory_pool=None,
                             FragmentScanOptions fragment_scan_options=None)\
         except *:
     cdef:
@@ -2198,7 +2001,6 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
 
     check_status(builder.BatchSize(batch_size))
     check_status(builder.UseThreads(use_threads))
-    check_status(builder.UseAsync(use_async))
     if memory_pool:
         check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
     if fragment_scan_options:
@@ -2239,10 +2041,9 @@ cdef class Scanner(_Weakrefable):
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
-    use_async : bool, default False
-        If enabled, an async scanner will be used that should offer
-        better performance with high-latency/highly-parallel filesystems
-        (e.g. S3)
+    use_async : bool, default True
+        This flag is deprecated and is being kept for this release for
+        backwards compatibility.  It will be removed in the next release.
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -2270,7 +2071,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_dataset(Dataset dataset not None,
-                     bint use_threads=True, bint use_async=False,
+                     bint use_threads=True, object use_async=None,
                      MemoryPool memory_pool=None,
                      object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2292,10 +2093,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
+        use_async : bool, default N/A
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2307,10 +2108,15 @@ cdef class Scanner(_Weakrefable):
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
+        if use_async is not None:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
+
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
@@ -2318,7 +2124,7 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
-                      bint use_threads=True, bint use_async=False,
+                      bint use_threads=True, object use_async=None,
                       MemoryPool memory_pool=None,
                       object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
@@ -2342,10 +2148,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
+        use_async : bool, default N/A
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2359,11 +2165,16 @@ cdef class Scanner(_Weakrefable):
 
         schema = schema or fragment.physical_schema
 
+        if use_async is not None:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
+
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
@@ -2371,9 +2182,8 @@ cdef class Scanner(_Weakrefable):
 
     @staticmethod
     def from_batches(source, Schema schema=None, bint use_threads=True,
-                     bint use_async=False,
-                     MemoryPool memory_pool=None, object columns=None,
-                     Expression filter=None,
+                     object use_async=None, MemoryPool memory_pool=None,
+                     object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
         """
@@ -2399,10 +2209,10 @@ cdef class Scanner(_Weakrefable):
         use_threads : bool, default True
             If enabled, then maximum parallelism will be used determined by
             the number of available CPU cores.
-        use_async : bool, default False
-            If enabled, an async scanner will be used that should offer
-            better performance with high-latency/highly-parallel filesystems
-            (e.g. S3)
+        use_async : bool, default True
+            This flag is deprecated and is being kept for this release for
+            backwards compatibility.  It will be removed in the next
+            release.
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
@@ -2429,9 +2239,15 @@ cdef class Scanner(_Weakrefable):
                             'batches instead of the given type: ' +
                             type(source).__name__)
         builder = CScannerBuilder.FromRecordBatchReader(reader.reader)
+
+        if use_async is not None:
+            warnings.warn('The use_async flag is deprecated and has no '
+                          'effect.  It will be removed in the next release.',
+                          FutureWarning)
+
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          use_async=use_async, memory_pool=memory_pool,
+                          memory_pool=memory_pool,
                           fragment_scan_options=fragment_scan_options)
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -2506,7 +2322,12 @@ cdef class Scanner(_Weakrefable):
         table : Table
         """
         cdef CResult[shared_ptr[CTable]] result
-        cdef shared_ptr[CArray] c_indices = pyarrow_unwrap_array(indices)
+        cdef shared_ptr[CArray] c_indices
+
+        if not isinstance(indices, pa.Array):
+            indices = pa.array(indices)
+        c_indices = pyarrow_unwrap_array(indices)
+
         with nogil:
             result = self.scanner.TakeRows(deref(c_indices))
         return pyarrow_wrap_table(GetResultValue(result))

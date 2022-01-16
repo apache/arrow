@@ -101,6 +101,10 @@ register_bindings_datetime <- function() {
     Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
   })
 
+  register_binding("week", function(x) {
+    (call_binding("yday", x) - 1) %/% 7 + 1
+  })
+
   register_binding("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
     if (label) {
       if (abbr) {

@@ -201,9 +201,11 @@ handle_csv_read_error <- function(e, schema) {
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     abort(c(
       msg,
-      i = paste("If you have supplied a schema and your data contains a header",
-                "row, you should supply the argument `skip = 1` to prevent the",
-                "header being read in as data.")
+      i = paste(
+        "If you have supplied a schema and your data contains a header",
+        "row, you should supply the argument `skip = 1` to prevent the",
+        "header being read in as data."
+      )
     ))
   }
 

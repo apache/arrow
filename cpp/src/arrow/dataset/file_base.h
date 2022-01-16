@@ -147,15 +147,10 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
 
-  /// \brief Open a FileFragment for scanning.
-  /// May populate lazy properties of the FileFragment.
-  virtual Result<ScanTaskIterator> ScanFile(
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
-  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const;
   virtual Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options);
@@ -186,7 +181,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) override;
   Future<util::optional<int64_t>> CountRows(
@@ -319,7 +313,7 @@ class ARROW_DS_EXPORT FileWriter {
   Status Write(RecordBatchReader* batches);
 
   /// \brief Indicate that writing is done.
-  virtual Status Finish();
+  virtual Future<> Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -335,7 +329,7 @@ class ARROW_DS_EXPORT FileWriter {
         destination_(std::move(destination)),
         destination_locator_(std::move(destination_locator)) {}
 
-  virtual Status FinishInternal() = 0;
+  virtual Future<> FinishInternal() = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<FileWriteOptions> options_;

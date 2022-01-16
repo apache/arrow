@@ -98,6 +98,9 @@ exact semantics of the function::
    min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
    max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
+However, :ref:`Grouped Aggregations <grouped-aggregations-group-by>` are
+not invocable via ``CallFunction``.
+
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
@@ -265,6 +268,8 @@ the input to a single output value.
   <https://github.com/tdunning/t-digest>`_ for details.
 
   Decimal arguments are cast to Float64 first.
+
+.. _grouped-aggregations-group-by:
 
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1641,7 +1646,7 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int32 or Int64   |                              | \(3)   |
+| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
@@ -1655,8 +1660,7 @@ Structural transforms
 
 * \(3) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
-  are discarded.  Output type is Int32 for List and FixedSizeList, Int64 for
-  LargeList.
+  are discarded.
 
 * \(4) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the

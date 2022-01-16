@@ -28,7 +28,6 @@ if (!file.exists(sprintf("windows/arrow-%s/include/arrow/api.h", VERSION))) {
     file.copy(localfile, "lib.zip")
   } else {
     # Download static arrow from rwinlib
-    if (getRversion() < "3.3.0") setInternet2()
     quietly <- !identical(tolower(Sys.getenv("ARROW_R_DEV")), "true")
     get_file <- function(template, version) {
       try(

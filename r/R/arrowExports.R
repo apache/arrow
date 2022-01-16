@@ -628,6 +628,18 @@ dataset___HivePartitioning__MakeFactory <- function(null_fallback, segment_encod
   .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback, segment_encoding)
 }
 
+dataset___PartitioningFactory__Inspect <- function(factory, paths) {
+  .Call(`_arrow_dataset___PartitioningFactory__Inspect`, factory, paths)
+}
+
+dataset___PartitioningFactory__Finish <- function(factory, schema) {
+  .Call(`_arrow_dataset___PartitioningFactory__Finish`, factory, schema)
+}
+
+dataset___PartitioningFactory__type_name <- function(factory) {
+  .Call(`_arrow_dataset___PartitioningFactory__type_name`, factory)
+}
+
 dataset___ScannerBuilder__ProjectNames <- function(sb, cols) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
 }
@@ -642,10 +654,6 @@ dataset___ScannerBuilder__Filter <- function(sb, expr) {
 
 dataset___ScannerBuilder__UseThreads <- function(sb, threads) {
   invisible(.Call(`_arrow_dataset___ScannerBuilder__UseThreads`, sb, threads))
-}
-
-dataset___ScannerBuilder__UseAsync <- function(sb, use_async) {
-  invisible(.Call(`_arrow_dataset___ScannerBuilder__UseAsync`, sb, use_async))
 }
 
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size) {
@@ -686,10 +694,6 @@ dataset___Scanner__head <- function(scanner, n) {
 
 dataset___Scanner__schema <- function(sc) {
   .Call(`_arrow_dataset___Scanner__schema`, sc)
-}
-
-dataset___ScanTask__get_batches <- function(scan_task) {
-  .Call(`_arrow_dataset___ScanTask__get_batches`, scan_task)
 }
 
 dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions) {
@@ -788,8 +792,16 @@ Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
 }
 
+DayTimeInterval__initialize <- function() {
+  .Call(`_arrow_DayTimeInterval__initialize`)
+}
+
 FixedSizeBinary__initialize <- function(byte_width) {
   .Call(`_arrow_FixedSizeBinary__initialize`, byte_width)
+}
+
+FixedSizeBinary__byte_width <- function(type) {
+  .Call(`_arrow_FixedSizeBinary__byte_width`, type)
 }
 
 Timestamp__initialize <- function(unit, timezone) {
@@ -1254,6 +1266,10 @@ io___BufferOutputStream__Tell <- function(stream) {
 
 io___BufferOutputStream__Write <- function(stream, bytes) {
   invisible(.Call(`_arrow_io___BufferOutputStream__Write`, stream, bytes))
+}
+
+MakeReencodeInputStream <- function(wrapped, from) {
+  .Call(`_arrow_MakeReencodeInputStream`, wrapped, from)
 }
 
 json___ReadOptions__initialize <- function(use_threads, block_size) {
@@ -1827,4 +1843,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

@@ -385,6 +385,15 @@ test_that("extract epiweek from timestamp", {
   )
 })
 
+test_that("extract week from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = week(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract day from timestamp", {
   compare_dplyr_binding(
     .input %>%
@@ -524,6 +533,15 @@ test_that("extract epiweek from date", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = epiweek(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract week from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = week(date)) %>%
       collect(),
     test_df
   )

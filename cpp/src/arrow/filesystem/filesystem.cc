@@ -190,6 +190,12 @@ Status ValidateInputFileInfo(const FileInfo& info) {
 
 }  // namespace
 
+Future<> FileSystem::DeleteDirContentsAsync(const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->DeleteDirContents(path); });
+}
+
 Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
     const FileInfo& info) {
   RETURN_NOT_OK(ValidateInputFileInfo(info));

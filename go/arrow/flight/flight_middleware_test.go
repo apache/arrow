@@ -19,6 +19,7 @@ package flight_test
 import (
 	"context"
 	"io"
+	sync "sync"
 	"testing"
 
 	"github.com/apache/arrow/go/v7/arrow/flight"
@@ -180,6 +181,7 @@ func TestServerUnaryMiddleware(t *testing.T) {
 type ClientTestSendHeaderMiddleware struct {
 	ctx context.Context
 	md  metadata.MD
+	mx  sync.Mutex
 }
 
 func (c *ClientTestSendHeaderMiddleware) StartCall(ctx context.Context) context.Context {
@@ -200,6 +202,8 @@ func (c *ClientTestSendHeaderMiddleware) HeadersReceived(ctx context.Context, md
 		panic("invalid context client middleware")
 	}
 
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	c.md = md
 }
 
@@ -246,6 +250,8 @@ func TestClientStreamMiddleware(t *testing.T) {
 		assert.True(t, recs[0].Schema().Equal(sc))
 	}
 
+	middleware.mx.Lock()
+	defer middleware.mx.Unlock()
 	assert.Equal(t, []string{"bar"}, middleware.md.Get("foo"))
 	assert.Equal(t, []string{"duper"}, middleware.md.Get("super"))
 }

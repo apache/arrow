@@ -970,6 +970,14 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   // Read dictionary indices.
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
   int64_t total_indices = std::max(num_def_levels, *indices_read);
+  // Some callers use a batch size of 0 just to get the dictionary.
+  int64_t expected_values =
+      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  if (total_indices == 0 && expected_values > 0) {
+    std::stringstream ss;
+    ss << "Read 0 values, expected " << expected_values;
+    ParquetException::EofException(ss.str());
+  }
   this->ConsumeBufferedValues(total_indices);
 
   return total_indices;
@@ -993,6 +1001,13 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
 
   *values_read = this->ReadValues(values_to_read, values);
   int64_t total_values = std::max(num_def_levels, *values_read);
+  int64_t expected_values =
+      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  if (total_values == 0 && expected_values > 0) {
+    std::stringstream ss;
+    ss << "Read 0 values, expected " << expected_values;
+    ParquetException::EofException(ss.str());
+  }
   this->ConsumeBufferedValues(total_values);
 
   return total_values;
