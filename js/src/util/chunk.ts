@@ -53,9 +53,7 @@ export class ChunkedIterator<T extends DataType> implements IterableIterator<T['
 
 /** @ignore */
 export function computeChunkNullCounts<T extends DataType>(chunks: ReadonlyArray<Data<T>>) {
-    return chunks.reduce((nullCount, chunk) => {
-        return nullCount + chunk.nullCount;
-    }, 0);
+    return chunks.reduce((nullCount, chunk) => nullCount + chunk.nullCount, 0);
 }
 
 /** @ignore */
