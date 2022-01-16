@@ -2421,31 +2421,24 @@ test_that("period unit extracts integer multiples", {
   )
 })
 
-
 # lubridate errors when 60 sec/60 min/24 hour thresholds exceeded.
 # this test checks that arrow does too.
 test_that("period unit maxima are enforced", {
 
-  expect_error(suppressWarnings( # <- hack
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "61 seconds")) %>%
-      collect()
-  ))
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
+    "Rounding with second > 60 is not supported"
+  )
 
-  expect_error(suppressWarnings(
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "61 minutes")) %>%
-      collect()
-  ))
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "61 minutes"),
+    "Rounding with minute > 60 is not supported"
+  )
 
-  expect_error(suppressWarnings(
-    test_df %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "25 hours")) %>%
-      collect()
-  ))
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "25 hours"),
+    "Rounding with hour > 24 is not supported"
+  )
 
 })
 
