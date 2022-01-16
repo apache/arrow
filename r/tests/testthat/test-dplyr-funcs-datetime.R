@@ -45,6 +45,14 @@ test_df <- tibble::tibble(
   integer = 1:2
 )
 
+# a simplified test case using UTC timezone only
+test_df_v2 <- tibble::tibble(
+  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA),
+  date = c(as.Date("2021-09-09"), NA),
+  integer = 1:2
+)
+
+
 
 test_that("strptime", {
   t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
@@ -2507,14 +2515,6 @@ test_that("datetime rounding below 1sec", {
     test_df
   )
 })
-
-
-# a simplified test case using UTC timezone only
-test_df_v2 <- tibble::tibble(
-  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA),
-  date = c(as.Date("2021-09-09"), NA),
-  integer = 1:2
-)
 
 test_that("datetime round/floor/ceil to month/quarter/year", {
 
