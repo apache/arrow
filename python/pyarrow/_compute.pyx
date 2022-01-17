@@ -841,7 +841,7 @@ cdef class _BetweenOptions(FunctionOptions):
 
 class BetweenOptions(_BetweenOptions):
     """
-    Option to include endpoints
+    Options for the `between` function.
 
     Parameters
     ----------
