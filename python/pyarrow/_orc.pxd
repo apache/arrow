@@ -27,54 +27,45 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
                                         CResult, CTable, CMemoryPool,
                                         CKeyValueMetadata,
                                         CRecordBatch,
-                                        CTable,
+                                        CTable, CCompressionType,
                                         CRandomAccessFile, COutputStream,
                                         TimeUnit)
 
-cdef extern from "arrow/adapters/orc/adapter_common.h" \
+cdef extern from "arrow/adapters/orc/options.h" \
         namespace "arrow::adapters::orc" nogil:
-    enum CompressionKind" arrow::adapters::orc::CompressionKind":
-        _CompressionKind_NONE" arrow::adapters::orc::CompressionKind::CompressionKind_NONE"
-        _CompressionKind_ZLIB" arrow::adapters::orc::CompressionKind::CompressionKind_ZLIB"
-        _CompressionKind_SNAPPY" arrow::adapters::orc::CompressionKind::CompressionKind_SNAPPY"
-        _CompressionKind_LZO" arrow::adapters::orc::CompressionKind::CompressionKind_LZO"
-        _CompressionKind_LZ4" arrow::adapters::orc::CompressionKind::CompressionKind_LZ4"
-        _CompressionKind_ZSTD" arrow::adapters::orc::CompressionKind::CompressionKind_ZSTD"
-        _CompressionKind_MAX" arrow::adapters::orc::CompressionKind::CompressionKind_MAX"
+    cpdef enum class CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
+        _CompressionStrategy_SPEED" arrow::adapters::orc::CompressionStrategy::kSpeed"
+        _CompressionStrategy_COMPRESSION" arrow::adapters::orc::CompressionStrategy::kCompression"
 
-    enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
-        _CompressionStrategy_SPEED" arrow::adapters::orc::CompressionStrategy::CompressionStrategy_SPEED"
-        _CompressionStrategy_COMPRESSION" arrow::adapters::orc::CompressionStrategy::CompressionStrategy_COMPRESSION"
+    cpdef enum class RleVersion" arrow::adapters::orc::RleVersion":
+        _RleVersion_1" arrow::adapters::orc::RleVersion::k1"
+        _RleVersion_2" arrow::adapters::orc::RleVersion::k2"
 
-    enum RleVersion" arrow::adapters::orc::RleVersion":
-        _RleVersion_1" arrow::adapters::orc::RleVersion::RleVersion_1"
-        _RleVersion_2" arrow::adapters::orc::RleVersion::RleVersion_2"
+    cpdef enum class BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
+        _BloomFilterVersion_ORIGINAL" arrow::adapters::orc::BloomFilterVersion::kOriginal"
+        _BloomFilterVersion_UTF8" arrow::adapters::orc::BloomFilterVersion::kUtf8"
+        _BloomFilterVersion_FUTURE" arrow::adapters::orc::BloomFilterVersion::kFuture"
 
-    enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
-        _BloomFilterVersion_ORIGINAL" arrow::adapters::orc::BloomFilterVersion::ORIGINAL"
-        _BloomFilterVersion_UTF8" arrow::adapters::orc::BloomFilterVersion::UTF8"
-        _BloomFilterVersion_FUTURE" arrow::adapters::orc::BloomFilterVersion::FUTURE"
+    cpdef enum class WriterId" arrow::adapters::orc::WriterId":
+        _WriterId_ORC_JAVA_WRITER" arrow::adapters::orc::WriterId::kOrcJava"
+        _WriterId_ORC_CPP_WRITER" arrow::adapters::orc::WriterId::kOrcCpp"
+        _WriterId_PRESTO_WRITER" arrow::adapters::orc::WriterId::kPresto"
+        _WriterId_SCRITCHLEY_GO" arrow::adapters::orc::WriterId::kScritchleyGo"
+        _WriterId_TRINO_WRITER" arrow::adapters::orc::WriterId::kTrino"
+        _WriterId_UNKNOWN_WRITER" arrow::adapters::orc::WriterId::kUnknown"
 
-    enum WriterId" arrow::adapters::orc::WriterId":
-        _WriterId_ORC_JAVA_WRITER" arrow::adapters::orc::WriterId::ORC_JAVA_WRITER"
-        _WriterId_ORC_CPP_WRITER" arrow::adapters::orc::WriterId::ORC_CPP_WRITER"
-        _WriterId_PRESTO_WRITER" arrow::adapters::orc::WriterId::PRESTO_WRITER"
-        _WriterId_SCRITCHLEY_GO" arrow::adapters::orc::WriterId::SCRITCHLEY_GO"
-        _WriterId_TRINO_WRITER" arrow::adapters::orc::WriterId::TRINO_WRITER"
-        _WriterId_UNKNOWN_WRITER" arrow::adapters::orc::WriterId::UNKNOWN_WRITER"
-
-    enum WriterVersion" arrow::adapters::orc::WriterVersion":
-        _WriterVersion_ORIGINAL" arrow::adapters::orc::WriterVersion::WriterVersion_ORIGINAL"
-        _WriterVersion_HIVE_8732" arrow::adapters::orc::WriterVersion::WriterVersion_HIVE_8732"
-        _WriterVersion_HIVE_4243" arrow::adapters::orc::WriterVersion::WriterVersion_HIVE_4243"
-        _WriterVersion_HIVE_12055" arrow::adapters::orc::WriterVersion::WriterVersion_HIVE_12055"
-        _WriterVersion_HIVE_13083" arrow::adapters::orc::WriterVersion::WriterVersion_HIVE_13083"
-        _WriterVersion_ORC_101" arrow::adapters::orc::WriterVersion::WriterVersion_ORC_101"
-        _WriterVersion_ORC_135" arrow::adapters::orc::WriterVersion::WriterVersion_ORC_135"
-        _WriterVersion_ORC_517" arrow::adapters::orc::WriterVersion::WriterVersion_ORC_517"
-        _WriterVersion_ORC_203" arrow::adapters::orc::WriterVersion::WriterVersion_ORC_203"
-        _WriterVersion_ORC_14" arrow::adapters::orc::WriterVersion::WriterVersion_ORC_14"
-        _WriterVersion_MAX" arrow::adapters::orc::WriterVersion::WriterVersion_MAX"
+    cpdef enum class WriterVersion" arrow::adapters::orc::WriterVersion":
+        _WriterVersion_ORIGINAL" arrow::adapters::orc::WriterVersion::kOriginal"
+        _WriterVersion_HIVE_8732" arrow::adapters::orc::WriterVersion::kHive8732"
+        _WriterVersion_HIVE_4243" arrow::adapters::orc::WriterVersion::kHive4243"
+        _WriterVersion_HIVE_12055" arrow::adapters::orc::WriterVersion::kHive12055"
+        _WriterVersion_HIVE_13083" arrow::adapters::orc::WriterVersion::kHive13083"
+        _WriterVersion_ORC_101" arrow::adapters::orc::WriterVersion::kOrc101"
+        _WriterVersion_ORC_135" arrow::adapters::orc::WriterVersion::kOrc135"
+        _WriterVersion_ORC_517" arrow::adapters::orc::WriterVersion::kOrc517"
+        _WriterVersion_ORC_203" arrow::adapters::orc::WriterVersion::kOrc203"
+        _WriterVersion_ORC_14" arrow::adapters::orc::WriterVersion::kOrc14"
+        _WriterVersion_MAX" arrow::adapters::orc::WriterVersion::kMax"
 
     cdef cppclass FileVersion" arrow::adapters::orc::FileVersion":
         FileVersion(uint32_t major, uint32_t minor)
@@ -82,38 +73,18 @@ cdef extern from "arrow/adapters/orc/adapter_common.h" \
         uint32_t minor()
         c_string ToString()
 
-
-cdef extern from "arrow/adapters/orc/adapter_options.h" \
-        namespace "arrow::adapters::orc" nogil:
-    cdef cppclass WriteOptions" arrow::adapters::orc::WriteOptions":
-        WriteOptions()
-        WriteOptions& SetBatchSize(uint64_t size)
-        uint64_t GetBatchSize()
-        WriteOptions& SetStripeSize(uint64_t size)
-        uint64_t GetStripeSize()
-        WriteOptions& SetCompressionBlockSize(uint64_t size)
-        uint64_t GetCompressionBlockSize()
-        WriteOptions& SetRowIndexStride(uint64_t stride)
-        uint64_t GetRowIndexStride()
-        WriteOptions& SetDictionaryKeySizeThreshold(double val)
-        double GetDictionaryKeySizeThreshold()
-        WriteOptions& SetFileVersion(const FileVersion& version)
-        FileVersion GetFileVersion()
-        WriteOptions& SetCompression(CompressionKind comp)
-        CompressionKind GetCompression()
-        WriteOptions& SetCompressionStrategy(CompressionStrategy strategy)
-        CompressionStrategy GetCompressionStrategy()
-        c_bool GetAlignedBitpacking()
-        WriteOptions& SetPaddingTolerance(double tolerance)
-        double GetPaddingTolerance()
-        RleVersion GetRleVersion()
-        c_bool GetEnableIndex()
-        c_bool GetEnableDictionary()
-        WriteOptions& SetColumnsUseBloomFilter(const std_set[uint64_t]& columns)
-        c_bool IsColumnUseBloomFilter(uint64_t column)
-        WriteOptions& SetBloomFilterFpp(double fpp)
-        double GetBloomFilterFpp()
-        BloomFilterVersion GetBloomFilterVersion()
+    cdef struct WriteOptions" arrow::adapters::orc::WriteOptions":
+        int64_t batch_size
+        FileVersion file_version
+        int64_t stripe_size
+        CCompressionType compression
+        int64_t compression_block_size
+        CompressionStrategy compression_strategy
+        int64_t row_index_stride
+        double padding_tolerance
+        double dictionary_key_size_threshold
+        std_set[int64_t] bloom_filter_columns
+        double bloom_filter_fpp
 
 
 cdef extern from "arrow/adapters/orc/adapter.h" \
@@ -144,29 +115,29 @@ cdef extern from "arrow/adapters/orc/adapter.h" \
 
         c_string GetSoftwareVersion()
 
-        CompressionKind GetCompression()
+        CResult[CCompressionType] GetCompression()
 
-        uint64_t GetCompressionSize()
+        int64_t GetCompressionSize()
 
-        uint64_t GetRowIndexStride()
+        int64_t GetRowIndexStride()
 
         WriterId GetWriterId()
 
-        uint32_t GetWriterIdValue()
+        int32_t GetWriterIdValue()
 
         WriterVersion GetWriterVersion()
 
-        uint64_t GetNumberOfStripeStatistics()
+        int64_t GetNumberOfStripeStatistics()
 
-        uint64_t GetContentLength()
+        int64_t GetContentLength()
 
-        uint64_t GetStripeStatisticsLength()
+        int64_t GetStripeStatisticsLength()
 
-        uint64_t GetFileFooterLength()
+        int64_t GetFileFooterLength()
 
-        uint64_t GetFilePostscriptLength()
+        int64_t GetFilePostscriptLength()
 
-        uint64_t GetFileLength()
+        int64_t GetFileLength()
 
         c_string GetSerializedFileTail()
 
