@@ -27,7 +27,6 @@ on:
       - 'ci/docker/ubuntu-20.04-cpp.dockerfile'
       - 'ci/scripts/c_glib_build.sh'
       - 'ci/scripts/cpp_build.sh'
-      - 'ci/scripts/docs_build.sh'
       - 'ci/scripts/java_build.sh'
       - 'ci/scripts/js_build.sh'
       - 'ci/scripts/python_build.sh'
