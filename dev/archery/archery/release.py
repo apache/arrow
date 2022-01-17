@@ -151,15 +151,7 @@ class CommitTitle:
         self.summary = summary
 
     def __str__(self):
-        out = ""
-        if self.issue:
-            out += "{}: ".format(self.issue)
-        if self.components:
-            for component in self.components:
-                out += "[{}]".format(component)
-            out += " "
-        out += self.summary
-        return out
+        return self.to_string()
 
     def __eq__(self, other):
         return (
@@ -193,6 +185,17 @@ class CommitTitle:
             issue=values.get('issue'),
             components=components
         )
+
+    def to_string(self, with_issue=True, with_components=True):
+        out = ""
+        if with_issue and self.issue:
+            out += "{}: ".format(self.issue)
+        if with_components and self.components:
+            for component in self.components:
+                out += "[{}]".format(component)
+            out += " "
+        out += self.summary
+        return out
 
 
 class Commit:
@@ -399,22 +402,19 @@ class Release:
                                nojira=nojira, parquet=parquet, nopatch=nopatch)
 
     def changelog(self):
-        release_issues = []
+        issue_commit_pairs = []
 
         # get organized report for the release
         curation = self.curate()
 
         # jira tickets having patches in the release
-        for issue, _ in curation.within:
-            release_issues.append(issue)
+        issue_commit_pairs.extend(curation.within)
+        # parquet patches in the release
+        issue_commit_pairs.extend(curation.parquet)
 
         # jira tickets without patches
         for issue in curation.nopatch:
-            release_issues.append(issue)
-
-        # parquet patches in the release
-        for issue, _ in curation.parquet:
-            release_issues.append(issue)
+            issue_commit_pairs.append((issue, None))
 
         # organize issues into categories
         issue_types = {
@@ -427,12 +427,12 @@ class Release:
             'Wish': 'New Features and Improvements',
         }
         categories = defaultdict(list)
-        for issue in release_issues:
-            categories[issue_types[issue.type]].append(issue)
+        for issue, commit in issue_commit_pairs:
+            categories[issue_types[issue.type]].append((issue, commit))
 
         # sort issues by the issue key in ascending order
         for name, issues in categories.items():
-            issues.sort(key=lambda issue: (issue.project, issue.number))
+            issues.sort(key=lambda pair: (pair[0].project, pair[0].number))
 
         return JiraChangelog(release=self, categories=categories)
 
