@@ -2638,9 +2638,9 @@ def test_expression_call_function():
 
     # default options
     assert str(pc.round(field)) == "round(field)"
-    # TODO
     # specified options
-    # pc.round(field, ndigits=1)
+    assert str(pc.round(field, ndigits=1)) == \
+        "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
 
     # mixed types are not (yet) allowed
     with pytest.raises(TypeError):

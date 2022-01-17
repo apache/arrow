@@ -2523,9 +2523,8 @@ def test_filter_compute_expression(tempdir, dataset_reader):
     _, path = _create_single_file(tempdir, table)
     dataset = ds.dataset(str(path))
 
-    # TODO needs options
-    # filter_ = pc.is_in(ds.field('A'), ["a", "b"])
-    # assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 3
+    filter_ = pc.is_in(ds.field('A'), pa.array(["a", "b"]))
+    assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 3
 
     filter_ = pc.hour(ds.field('B')) >= 3
     assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 2

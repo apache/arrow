@@ -227,8 +227,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                     f"{func_name} takes {arity} positional argument(s), "
                     f"but {len(args)} were given"
                 )
-            if isinstance(args[0], Expression):
-                return Expression._call_function(func_name, args)
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
@@ -244,10 +244,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 option_args = ()
             options = _handle_options(func_name, options_class, options,
                                       option_args, kwargs)
-            if isinstance(args[0], Expression):
-                return Expression._call_function(
-                    func_name, args, options
-                )
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args), options)
             return func.call(args, options, memory_pool)
     return wrapper
 

@@ -537,8 +537,11 @@ cdef class FunctionOptions(_Weakrefable):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.wrapped.get()
 
-    cdef void init(self, unique_ptr[CFunctionOptions] options):
-        self.wrapped = move(options)
+    cdef void init(self, const shared_ptr[CFunctionOptions]& sp):
+        self.wrapped = sp
+
+    cdef inline shared_ptr[CFunctionOptions] unwrap(self):
+        return self.wrapped
 
     def serialize(self):
         cdef:
@@ -560,15 +563,15 @@ cdef class FunctionOptions(_Weakrefable):
             shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
             CResult[unique_ptr[CFunctionOptions]] maybe_options = \
                 DeserializeFunctionOptions(deref(c_buf))
-            unique_ptr[CFunctionOptions] c_options
-        c_options = move(GetResultValue(move(maybe_options)))
+            shared_ptr[CFunctionOptions] c_options
+        c_options = to_shared(GetResultValue(move(maybe_options)))
         type_name = frombytes(c_options.get().options_type().type_name())
         module = globals()
         if type_name not in module:
             raise ValueError(f'Cannot deserialize "{type_name}"')
         klass = module[type_name]
         options = klass.__new__(klass)
-        (<FunctionOptions> options).init(move(c_options))
+        (<FunctionOptions> options).init(c_options)
         return options
 
     def __repr__(self):
@@ -597,15 +600,17 @@ def _raise_invalid_function_option(value, description, *,
 cdef class _CastOptions(FunctionOptions):
     cdef CCastOptions* options
 
-    cdef void init(self, unique_ptr[CFunctionOptions] options):
-        FunctionOptions.init(self, move(options))
+    cdef void init(self, const shared_ptr[CFunctionOptions]& sp):
+        FunctionOptions.init(self, sp)
         self.options = <CCastOptions*> self.wrapped.get()
 
     def _set_options(self, DataType target_type, allow_int_overflow,
                      allow_time_truncate, allow_time_overflow,
                      allow_decimal_truncate, allow_float_truncate,
                      allow_invalid_utf8):
-        self.init(unique_ptr[CFunctionOptions](new CCastOptions()))
+        cdef:
+            shared_ptr[CCastOptions] wrapped = make_shared[CCastOptions]()
+        self.init(<shared_ptr[CFunctionOptions]> wrapped)
         self._set_type(target_type)
         if allow_int_overflow is not None:
             self.allow_int_overflow = allow_int_overflow
@@ -626,11 +631,11 @@ cdef class _CastOptions(FunctionOptions):
                 (<DataType> ensure_type(target_type)).sp_type
 
     def _set_safe(self):
-        self.init(unique_ptr[CFunctionOptions](
+        self.init(shared_ptr[CFunctionOptions](
             new CCastOptions(CCastOptions.Safe())))
 
     def _set_unsafe(self):
-        self.init(unique_ptr[CFunctionOptions](
+        self.init(shared_ptr[CFunctionOptions](
             new CCastOptions(CCastOptions.Unsafe())))
 
     def is_safe(self):
@@ -2020,8 +2025,7 @@ cdef class Expression(_Weakrefable):
         return (<Expression> Expression._scalar(expr))
 
     @staticmethod
-    def _call_function(str function_name, arguments,
-                       FunctionOptions options=None):
+    def _call(str function_name, list arguments, FunctionOptions options=None):
         cdef:
             vector[CExpression] c_arguments
             shared_ptr[CFunctionOptions] c_options=(
@@ -2032,24 +2036,11 @@ cdef class Expression(_Weakrefable):
                 raise TypeError("only other expressions allowed as arguments")
             c_arguments.push_back((<Expression> argument).expr)
 
-        # if options is not None:
-        #     c_options = make_shared[CFunctionOptions](options.get_options())
+        if options is not None:
+            c_options = options.unwrap()
 
         return Expression.wrap(CMakeCallExpression(
             tobytes(function_name), move(c_arguments), c_options))
-
-    @staticmethod
-    cdef Expression _call(str function_name, list arguments,
-                          shared_ptr[CFunctionOptions] options=(
-                              <shared_ptr[CFunctionOptions]> nullptr)):
-        cdef:
-            vector[CExpression] c_arguments
-
-        for argument in arguments:
-            c_arguments.push_back((<Expression> argument).expr)
-
-        return Expression.wrap(CMakeCallExpression(tobytes(function_name),
-                                                   move(c_arguments), options))
 
     def __richcmp__(self, other, int op):
         other = Expression._expr_or_scalar(other)
@@ -2102,32 +2093,21 @@ cdef class Expression(_Weakrefable):
 
     def is_null(self, bint nan_is_null=False):
         """Checks whether the expression is null"""
-        cdef:
-            shared_ptr[CFunctionOptions] c_options
-
-        c_options.reset(new CNullOptions(nan_is_null))
-        return Expression._call("is_null", [self], c_options)
+        options = NullOptions(nan_is_null=nan_is_null)
+        return Expression._call("is_null", [self], options)
 
     def cast(self, type, bint safe=True):
         """Explicitly change the expression's data type"""
-        cdef shared_ptr[CCastOptions] c_options
-        c_options.reset(new CCastOptions(safe))
-        c_options.get().to_type = pyarrow_unwrap_data_type(ensure_type(type))
-        return Expression._call("cast", [self],
-                                <shared_ptr[CFunctionOptions]> c_options)
+        options = CastOptions.safe(ensure_type(type))
+        return Expression._call("cast", [self], options)
 
     def isin(self, values):
         """Checks whether the expression is contained in values"""
-        cdef:
-            shared_ptr[CFunctionOptions] c_options
-            CDatum c_values
-
         if not isinstance(values, Array):
             values = lib.array(values)
 
-        c_values = CDatum(pyarrow_unwrap_array(values))
-        c_options.reset(new CSetLookupOptions(c_values, True))
-        return Expression._call("is_in", [self], c_options)
+        options = SetLookupOptions(values)
+        return Expression._call("is_in", [self], options)
 
     @staticmethod
     def _field(str name not None):

@@ -24,10 +24,12 @@ from pyarrow.includes.libarrow cimport *
 
 cdef class FunctionOptions(_Weakrefable):
     cdef:
-        unique_ptr[CFunctionOptions] wrapped
+        shared_ptr[CFunctionOptions] wrapped
 
     cdef const CFunctionOptions* get_options(self) except NULL
-    cdef void init(self, unique_ptr[CFunctionOptions] options)
+    cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
+
+    cdef inline shared_ptr[CFunctionOptions] unwrap(self)
 
 
 cdef CExpression _bind(Expression filter, Schema schema) except *
@@ -47,7 +49,3 @@ cdef class Expression(_Weakrefable):
 
     @staticmethod
     cdef Expression _expr_or_scalar(object expr)
-
-    @staticmethod
-    cdef Expression _call(str function_name, list arguments,
-                          shared_ptr[CFunctionOptions] options=*)
