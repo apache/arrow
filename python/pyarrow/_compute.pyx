@@ -840,7 +840,17 @@ cdef class _BetweenOptions(FunctionOptions):
 
 
 class BetweenOptions(_BetweenOptions):
-    def __init__(self, inclusive="both"):
+    """
+    Option to include endpoints
+
+    Parameters
+    ----------
+    inclusive : str, default "both"
+        Choices are, "both" ( a <= val <= b), "left" ( a <= value < b ),
+        "right" ( a < value <= b ), and "neither" ( a < value < b )
+    """
+
+   def __init__(self, inclusive="both"):
         self._set_options(inclusive)
 
 
