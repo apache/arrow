@@ -697,7 +697,7 @@ output element is null. Decimal arguments will be promoted in the same way as
 for ``add`` and ``subtract``.
 
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
-| Function names | Arity   | Input types                                 | Output type | Options Class            | Notes |
+| Function names | Arity   | Input types                                 | Output type | Options class            | Notes |
 +================+=========+=============================================+=============+==========================+=======+
 | between        | Ternary | Numeric, Temporal, Binary- and String-like  | Boolean     | :struct:`BetweenOptions` | \(1)  |
 +----------------+---------+---------------------------------------------+-------------+--------------------------+-------+
