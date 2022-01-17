@@ -174,7 +174,8 @@ class ScalarAggregateNode : public ExecNode {
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function.options",
+                 {{"function.name", aggs_[i].function},
+                  {"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                   {"function.kind", std::string(kind_name()) + "::Consume"}});
       KernelContext batch_ctx{plan()->exec_context()};
@@ -267,7 +268,8 @@ class ScalarAggregateNode : public ExecNode {
     for (size_t i = 0; i < kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function.options",
+                 {{"function.name", aggs_[i].function},
+                  {"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                   {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext ctx{plan()->exec_context()};
@@ -416,7 +418,8 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function.options",
+                 {{"function.name", aggs_[i].function},
+                  {"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                   {"function.kind", std::string(kind_name()) + "::Consume"}});
       KernelContext kernel_ctx{ctx_};
@@ -450,7 +453,8 @@ class GroupByNode : public ExecNode {
       for (size_t i = 0; i < agg_kernels_.size(); ++i) {
         util::tracing::Span span;
         START_SPAN(span, aggs_[i].function,
-                   {{"function.options",
+                   {{"function.name", aggs_[i].function},
+                    {"function.options",
                      aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                     {"function.kind", std::string(kind_name()) + "::Merge"}});
         KernelContext batch_ctx{ctx_};
@@ -482,7 +486,8 @@ class GroupByNode : public ExecNode {
     for (size_t i = 0; i < agg_kernels_.size(); ++i) {
       util::tracing::Span span;
       START_SPAN(span, aggs_[i].function,
-                 {{"function.options",
+                 {{"function.name", aggs_[i].function},
+                  {"function.options",
                    aggs_[i].options ? aggs_[i].options->ToString() : "<NULLPTR>"},
                   {"function.kind", std::string(kind_name()) + "::Finalize"}});
       KernelContext batch_ctx{ctx_};
