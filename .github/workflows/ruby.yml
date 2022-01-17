@@ -230,9 +230,9 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_system_upgrade.sh
           taskkill /F /FI "MODULES eq msys-2.0.dll"
-      # - name: Clean MSYS2
-      #   run: |
-      #     ridk exec bash ci\scripts\msys2_system_clean.sh
+      - name: Clean MSYS2
+        run: |
+          ridk exec bash ci\scripts\msys2_system_clean.sh
       - name: Setup MSYS2
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
