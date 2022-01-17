@@ -20,7 +20,10 @@
 set -eux
 
 case "${MINGW_PACKAGE_PREFIX}" in
-  mingw*)
+  mingw-w64-urcrt-x86_64)
+    :
+    ;;
+  *)
     pacman \
       --cascade \
       --noconfirm \
