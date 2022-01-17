@@ -522,6 +522,16 @@ test_that("write_dataset checks for format-specific arguments", {
     write_dataset(df, dst_dir, format = "feather", nonsensical_arg = "blah-blah"),
     "The following argument is not valid for your chosen 'format': \"nonsensical_arg\""
   )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "arrow", nonsensical_arg = "blah-blah"),
+    "The following argument is not valid for your chosen 'format': \"nonsensical_arg\""
+  )
+  expect_error(
+    write_dataset(df, dst_dir, format = "ipc", nonsensical_arg = "blah-blah"),
+    "The following argument is not valid for your chosen 'format': \"nonsensical_arg\""
+  )
+
   expect_error(
     write_dataset(df, dst_dir, format = "csv", nonsensical_arg = "blah-blah"),
     "nonsensical_arg = \"blah-blah\""
