@@ -76,16 +76,15 @@
       }
 
       // Load the versions JSON and construct the select items
-      // You can test with $pathStart() + "/_static/versions.json"
-      $.getJSON("./versions.json", function( data ) {
+      // Delete below line before merging
+      // You can test with https://raw.githubusercontent.com/thisisnic/arrow/ARROW-14338_pkgdown_versioning/r/pkgdown/assets/versions.json
+      //$.getJSON("./versions.json", function( data ) {
+      $.getJSON("https://raw.githubusercontent.com/thisisnic/arrow/ec8c60d97eb489f0c19297e8d9b3f48e44db5afb/r/pkgdown/assets/versions.json", function( data ) {
 
         var items = [];
         // get the current page's version number:
 				var displayed_version = $('.version').text();
 				$.each( data, function( key, val ) {
-
-					// need an extra slash if it's the dev docs
-					var dev_path_string = (val.version == "dev" ? "/" : "");
 
 					var selected_string = (
 						val.name.match("[0-9.]*")[0] === displayed_version ?
@@ -93,12 +92,9 @@
 						""
 					 );
 
-					items.push(
-						"<option value='" + $pathStart() + val.version +
-						dev_path_string + "r" + $pathEnd() + "'" +
-						selected_string +
-						">" + val.name + "</option>"
-					);
+          var item_path = $pathStart() + val.version + "r" + $pathEnd();
+
+					items.push("<option value='" + item_path +  "'" + selected_string +	">" + val.name + "</option>");
 				});
 
 				// Replace the version button with a selector with the doc versions
