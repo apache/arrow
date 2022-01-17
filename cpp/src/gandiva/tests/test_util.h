@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"

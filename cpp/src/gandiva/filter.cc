@@ -24,7 +24,6 @@
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
 #include "gandiva/expr_validator.h"
-#include "gandiva/expression_cache_key.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
 
@@ -77,13 +76,10 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Set the object cache for LLVM
   llvm_gen->SetLLVMObjectCache(obj_cache);
 
-  ARROW_RETURN_NOT_OK(llvm_gen->Build(
-      {condition},
-      SelectionVector::Mode::MODE_NONE));  // to use when caching only the obj code
+  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-
   filter->get()->SetBuiltFromCache(is_cached);
 
   return Status::OK();

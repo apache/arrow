@@ -17,10 +17,11 @@
 
 # based on mcr.microsoft.com/windows/servercore:ltsc2019
 # contains choco and vs2017 preinstalled
-FROM abrarov/msvc-2017:2.12.1
+FROM abrarov/msvc-2017:2.11.0
 
 # Install CMake and Ninja
-RUN choco install --no-progress -r -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' && \
+ARG cmake=3.21.4
+RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System' && \
     choco install --no-progress -r -y gzip wget ninja
 
 # Add unix tools to path
@@ -77,25 +78,29 @@ RUN vcpkg install --clean-after-build \
         zstd
 
 # Remove previous installations of python from the base image
+# NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
+# and the msi installers are failing to remove pip and tcl/tk "products" making
+# the subsequent choco python installation step failing for installing python
+# version 3.9.* due to existing python version
 RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
     rm -rf Python*
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
-ARG python=3.6
-RUN (if "%python%"=="3.6" setx PYTHON_VERSION 3.6.8) & \
-    (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.4) & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.6) & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.1) & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.0)
+ARG python=3.8
+RUN (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.12) & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.11) & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.9) & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.1)
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN python -m pip install -U pip
+RUN pip install -U pip
 
 COPY python/requirements-wheel-build.txt arrow/python/
 RUN pip install -r arrow/python/requirements-wheel-build.txt
 
-# TODO(kszucs): set clcache as the compiler
 ENV CLCACHE_DIR="C:\clcache"
-RUN if "%python%" NEQ "3.10" pip install clcache
+ENV CLCACHE_COMPRESS=1
+ENV CLCACHE_COMPRESSLEVEL=6
+RUN pip install git+https://github.com/Nuitka/clcache.git
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip

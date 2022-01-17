@@ -15,7 +15,9 @@
 
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Xunit;
@@ -155,5 +157,19 @@ namespace Apache.Arrow.Tests
                 ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch3);
             }
         }
+
+        [Fact]
+        public void TestRecordBatchBasics()
+        {
+            RecordBatch recordBatch = TestData.CreateSampleRecordBatch(length: 1);
+            Assert.Throws<ArgumentOutOfRangeException>(() => new RecordBatch(recordBatch.Schema, recordBatch.Arrays, -1));
+
+            var col1 = recordBatch.Column(0);
+            var col2 = recordBatch.Column("list0");
+            ArrowReaderVerifier.CompareArrays(col1, col2);
+
+            recordBatch.Dispose();
+        }
+
     }
 }

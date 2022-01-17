@@ -34,26 +34,37 @@ release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
 pushd "${ARROW_SITE_DIR}"
-git checkout asf-site
+git fetch --all --prune --tags --force -j$(nproc)
+git checkout .
+git checkout master
+git clean -d -f -x
+git branch -D asf-site || :
+git checkout -b asf-site origin/asf-site
+git rebase apache/asf-site
+git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
+versioned_paths=()
+for versioned_path in docs/*.0/; do
+  versioned_paths+=(${versioned_path})
+done
 rm -rf docs/*
+git checkout "${versioned_paths[@]}"
+curl \
+  --fail \
+  --location \
+  --remote-name \
+  https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
+tar xvf docs.tar.gz
+rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
+git add docs
+git commit -m "[Website] Update documentations for ${version}"
 popd
-
-pushd "${ARROW_DIR}"
-git checkout "${release_tag}"
-
-archery docker run \
-  -v "${ARROW_SITE_DIR}/docs:/build/docs" \
-  -e ARROW_DOCS_VERSION="${version}" \
-  ubuntu-docs
 
 : ${PUSH:=1}
 
 if [ ${PUSH} -gt 0 ]; then
   pushd "${ARROW_SITE_DIR}"
-  git add docs
-  git commit -m "[Website] Update documentations for ${version}"
   git push -u origin ${branch_name}
   github_url=$(git remote get-url origin | \
                  sed \

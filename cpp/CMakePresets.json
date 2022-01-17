@@ -40,6 +40,8 @@
       "cacheVariables": {
         "ARROW_BUILD_BENCHMARKS": "ON",
         "ARROW_BUILD_BENCHMARKS_REFERENCE": "ON",
+        "ARROW_BUILD_OPENMP_BENCHMARKS": "ON",
+        "ARROW_BUILD_DETAILED_BENCHMARKS": "OFF",
         "CMAKE_BUILD_TYPE": "RelWithDebInfo"
       }
     },

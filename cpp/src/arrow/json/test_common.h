@@ -24,6 +24,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
 #include "arrow/io/memory.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/options.h"
@@ -33,7 +35,8 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
+
 #include "rapidjson/document.h"
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/reader.h"

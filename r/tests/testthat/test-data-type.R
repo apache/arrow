@@ -287,6 +287,30 @@ test_that("time64 types work as expected", {
   expect_equal(x$unit(), unclass(TimeUnit$NANO))
 })
 
+test_that("duration types work as expected", {
+  x <- duration(TimeUnit$MICRO)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[us]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$MICRO))
+
+  x <- duration(TimeUnit$SECOND)
+  expect_equal(x$id, Type$DURATION)
+  expect_equal(x$name, "duration")
+  expect_equal(x$ToString(), "duration[s]")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+  expect_equal(x$bit_width, 64L)
+  expect_equal(x$unit(), unclass(TimeUnit$SECOND))
+})
+
 test_that("time type unit validation", {
   expect_equal(time32(TimeUnit$SECOND), time32("s"))
   expect_equal(time32(TimeUnit$MILLI), time32("ms"))
@@ -301,6 +325,13 @@ test_that("time type unit validation", {
   expect_error(time64(4), '"unit" should be one of 3 or 2')
   expect_error(time64(NULL), '"unit" should be one of "ns" or "us"')
   expect_match_arg_error(time64("years"))
+
+  expect_equal(duration(TimeUnit$NANO), duration("n"))
+  expect_equal(duration(TimeUnit$MICRO), duration("us"))
+  expect_equal(duration(), duration(TimeUnit$SECOND))
+  expect_error(duration(4), '"unit" should be one of 0, 1, 2, or 3')
+  expect_error(duration(NULL), '"unit" should be one of "s", "ms", "us", or "ns"')
+  expect_match_arg_error(duration("years"))
 })
 
 test_that("timestamp type input validation", {
@@ -386,20 +417,44 @@ test_that("DictionaryType validation", {
 
 test_that("decimal type and validation", {
   expect_r6_class(decimal(4, 2), "Decimal128Type")
+  expect_r6_class(decimal(39, 2), "Decimal256Type")
 
-  expect_error(decimal("four"), '"precision" must be an integer')
-  expect_error(decimal(4, "two"), '"scale" must be an integer')
-  expect_error(decimal(NA, 2), '"precision" must be an integer')
-  expect_error(decimal(4, NA), '"scale" must be an integer')
+  expect_error(decimal("four"), "`precision` must be an integer")
+  expect_error(decimal(4, "two"), "`scale` must be an integer")
+  expect_error(decimal(NA, 2), "`precision` must be an integer")
+  expect_error(decimal(4, NA), "`scale` must be an integer")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
+  expect_error(decimal(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
 
-  # decimal() is just an alias for decimal128() for backwards compatibility
+  # decimal() creates either decimal128 or decimal256 based on precision
+  expect_identical(class(decimal(38, 2)), class(decimal128(38, 2)))
+  expect_identical(class(decimal(39, 2)), class(decimal256(38, 2)))
+
   expect_r6_class(decimal128(4, 2), "Decimal128Type")
-  expect_identical(class(decimal(2, 4)), class(decimal128(2, 4)))
 
-  expect_error(decimal128("four"), '"precision" must be an integer')
-  expect_error(decimal128(4, "two"), '"scale" must be an integer')
-  expect_error(decimal128(NA, 2), '"precision" must be an integer')
-  expect_error(decimal128(4, NA), '"scale" must be an integer')
+  expect_error(decimal128("four"), "`precision` must be an integer")
+  expect_error(decimal128(4, "two"), "`scale` must be an integer")
+  expect_error(decimal128(NA, 2), "`precision` must be an integer")
+  expect_error(decimal128(4, NA), "`scale` must be an integer")
+  expect_error(decimal128(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal128(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal128(0, 2), "Invalid: Decimal precision out of range [1, 38]: 0", fixed = TRUE)
+  expect_error(decimal128(100, 2), "Invalid: Decimal precision out of range [1, 38]: 100", fixed = TRUE)
+
+
+  expect_r6_class(decimal256(4, 2), "Decimal256Type")
+
+  expect_error(decimal256("four"), "`precision` must be an integer")
+  expect_error(decimal256(4, "two"), "`scale` must be an integer")
+  expect_error(decimal256(NA, 2), "`precision` must be an integer")
+  expect_error(decimal256(4, NA), "`scale` must be an integer")
+  expect_error(decimal256(3:4, NA), "`precision` must have size 1. not size 2")
+  expect_error(decimal256(4, 2:3), "`scale` must have size 1. not size 2")
+  # TODO remove precision range tests below once functionality is tested in C++ (ARROW-15162)
+  expect_error(decimal256(0, 2), "Invalid: Decimal precision out of range [1, 76]: 0", fixed = TRUE)
+  expect_error(decimal256(100, 2), "Invalid: Decimal precision out of range [1, 76]: 100", fixed = TRUE)
 })
 
 test_that("Binary", {
@@ -431,4 +486,79 @@ test_that("DataType to C-interface", {
 
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
+})
+
+test_that("DataType$code()", {
+  expect_code_roundtrip(int8())
+  expect_code_roundtrip(uint8())
+  expect_code_roundtrip(int16())
+  expect_code_roundtrip(uint16())
+  expect_code_roundtrip(int32())
+  expect_code_roundtrip(uint32())
+  expect_code_roundtrip(int64())
+  expect_code_roundtrip(uint64())
+
+  expect_code_roundtrip(float16())
+  expect_code_roundtrip(float32())
+  expect_code_roundtrip(float64())
+
+  expect_code_roundtrip(null())
+
+  expect_code_roundtrip(boolean())
+  expect_code_roundtrip(utf8())
+  expect_code_roundtrip(large_utf8())
+
+  expect_code_roundtrip(binary())
+  expect_code_roundtrip(large_binary())
+  expect_code_roundtrip(fixed_size_binary(byte_width = 91))
+
+  expect_code_roundtrip(date32())
+  expect_code_roundtrip(date64())
+
+  expect_code_roundtrip(time32())
+  expect_code_roundtrip(time32(unit = "ms"))
+  expect_code_roundtrip(time32(unit = "s"))
+
+  expect_code_roundtrip(time64())
+  expect_code_roundtrip(time64(unit = "ns"))
+  expect_code_roundtrip(time64(unit = "us"))
+
+  expect_code_roundtrip(timestamp())
+  expect_code_roundtrip(timestamp(unit = "s"))
+  expect_code_roundtrip(timestamp(unit = "ms"))
+  expect_code_roundtrip(timestamp(unit = "ns"))
+  expect_code_roundtrip(timestamp(unit = "us"))
+
+  expect_code_roundtrip(timestamp(unit = "s", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ms", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ns", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "us", timezone = "CET"))
+
+  expect_code_roundtrip(decimal(precision = 3, scale = 5))
+
+  expect_code_roundtrip(
+    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())
+  )
+
+  expect_code_roundtrip(list_of(int32()))
+  expect_code_roundtrip(large_list_of(int32()))
+  expect_code_roundtrip(
+    fixed_size_list_of(int32(), list_size = 7L)
+  )
+
+  expect_code_roundtrip(dictionary())
+  expect_code_roundtrip(dictionary(index_type = int8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
+
+  skip("until rlang 1.0")
+  expect_snapshot({
+    (expect_error(
+      DayTimeInterval__initialize()$code()
+    ))
+    (expect_error(
+      struct(a = DayTimeInterval__initialize())$code()
+    ))
+  })
+
 })

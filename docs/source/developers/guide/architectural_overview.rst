@@ -32,9 +32,13 @@ Architectural Overview
 A general overview of Apache Arrow project can be found on the 
 `front page <https://arrow.apache.org/>`_ and in the 
 `Apache Arrow Overview <https://arrow.apache.org/overview/>`_.
+You can also have a look at the
+`Frequently Asked Questions <https://arrow.apache.org/faq/>`_.
 
 For an Architectural Overview of Arrow's libraries please
 refer to:
 
-- PyArrow Architectural Overview
-- R-Arrow Architectural Overview
+- PyArrow Architectural Overview (in progress, see
+  `issue ARROW-14280 <https://issues.apache.org/jira/browse/ARROW-14280>`_)
+- R package Architectural Overview (in progress, see
+  `issue ARROW-14279 <https://issues.apache.org/jira/browse/ARROW-14279>`_)

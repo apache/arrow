@@ -20,7 +20,6 @@ import (
 	"bytes"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/ipc"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 )
@@ -69,7 +68,7 @@ func (w *Writer) SetFlightDescriptor(descr *FlightDescriptor) {
 }
 
 // Write writes a recordbatch payload and returns any error, implementing the arrio.Writer interface
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	if w.pw.fd.FlightDescriptor != nil {
 		defer func() {
 			w.pw.fd.FlightDescriptor = nil
@@ -80,7 +79,7 @@ func (w *Writer) Write(rec array.Record) error {
 
 // WriteWithAppMetadata will write this record with the supplied application
 // metadata attached in the flightData message.
-func (w *Writer) WriteWithAppMetadata(rec array.Record, appMeta []byte) error {
+func (w *Writer) WriteWithAppMetadata(rec arrow.Record, appMeta []byte) error {
 	w.pw.fd.AppMetadata = appMeta
 	defer func() {
 		w.pw.fd.AppMetadata = nil

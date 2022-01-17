@@ -797,6 +797,29 @@ Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
   return std::make_shared<SmallintType>();
 }
 
+bool ListExtensionType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> ListExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("list-ext", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<ListExtensionArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> ListExtensionType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "list-ext") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*list(int32()))) {
+    return Status::Invalid("Invalid storage type for ListExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<ListExtensionType>();
+}
+
 bool DictExtensionType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -846,6 +869,10 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
 std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
+
+std::shared_ptr<DataType> list_extension_type() {
+  return std::make_shared<ListExtensionType>();
+}
 
 std::shared_ptr<DataType> dict_extension_type() {
   return std::make_shared<DictExtensionType>();

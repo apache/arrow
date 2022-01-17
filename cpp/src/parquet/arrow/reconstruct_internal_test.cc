@@ -25,6 +25,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/io/memory.h"

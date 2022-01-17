@@ -639,7 +639,7 @@ def test_compression_level(compression):
         pytest.skip("{} support is not built".format(compression))
 
     # These codecs do not support a compression level
-    no_level = ['snappy', 'lz4']
+    no_level = ['snappy']
     if compression in no_level:
         assert not Codec.supports_compression_level(compression)
         with pytest.raises(ValueError):

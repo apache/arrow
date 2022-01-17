@@ -205,6 +205,17 @@ def _git_ssh_to_https(url):
     return url.replace('git@github.com:', 'https://github.com/')
 
 
+def _parse_github_user_repo(remote_url):
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    if m is None:
+        raise CrossbowError(
+            "Unable to parse the github owner and repository from the "
+            "repository's remote url '{}'".format(remote_url)
+        )
+    user, repo = m.group(1), m.group(2)
+    return user, repo
+
+
 class Repo:
     """
     Base class for interaction with local git repositories
@@ -388,23 +399,13 @@ class Repo:
         blob = self.repo[entry.id]
         return blob.data
 
-    def _parse_github_user_repo(self):
-        m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
-        if m is None:
-            raise CrossbowError(
-                "Unable to parse the github owner and repository from the "
-                "repository's remote url '{}'".format(self.remote_url)
-            )
-        user, repo = m.group(1), m.group(2)
-        return user, repo
-
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
             if not _have_github3:
                 raise ImportError('Must install github3.py')
             github_token = github_token or self.github_token
-            username, reponame = self._parse_github_user_repo()
+            username, reponame = _parse_github_user_repo(self.remote_url)
             session = github3.session.GitHubSession(
                 default_connect_timeout=10,
                 default_read_timeout=30
@@ -536,17 +537,36 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _latest_prefix_date(self, prefix):
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
+        else:
+            latest = -1
+        return latest
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
     def latest_for_prefix(self, prefix):
-        latest_id = self._latest_prefix_id(prefix)
-        if latest_id < 0:
-            raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
-            )
+        if prefix == "nightly":
+            latest_id = self._latest_prefix_date(prefix)
+            if not latest_id:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}'' yet"
+                )
+            latest_id += "-0"
+        else:
+            latest_id = self._latest_prefix_id(prefix)
+            if latest_id < 0:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}' yet"
+                )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
@@ -679,6 +699,7 @@ class Target(Serializable):
         self.email = email
         self.branch = branch
         self.remote = remote
+        self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html

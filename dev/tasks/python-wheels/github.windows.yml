@@ -45,14 +45,9 @@ jobs:
         shell: cmd
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
 
-      # Two layers of the official python 3.6 windows image are not available for download.
-      # Docker pull returns with unexpected status resolving reader: 403 Forbidden.
-      # See https://issues.apache.org/jira/browse/ARROW-14424
-      {% if python_version != "3.6" %}
       - name: Test wheel
         shell: cmd
         run: archery docker run python-wheel-windows-test
-      {% endif %}
 
       {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
       {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

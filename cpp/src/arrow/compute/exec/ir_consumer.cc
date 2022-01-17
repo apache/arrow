@@ -27,7 +27,7 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/util/unreachable.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/Plan_generated.h"
 

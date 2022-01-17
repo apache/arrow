@@ -27,9 +27,8 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array/array_base.h"
-#include "arrow/array/array_dict.h"
-#include "arrow/array/array_primitive.h"
+#include "arrow/array.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -44,7 +43,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -457,19 +456,19 @@ class NullArrayFactory {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     out_->buffers.resize(2, buffer_);
-    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(0, /*length=*/0));
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
   }
 
   Status Visit(const FixedSizeListType& type) {
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0],
-                          CreateChild(0, length_ * type.list_size()));
+                          CreateChild(type, 0, length_ * type.list_size()));
     return Status::OK();
   }
 
   Status Visit(const StructType& type) {
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, length_));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();
   }
@@ -499,7 +498,7 @@ class NullArrayFactory {
       child_length = 1;
     }
     for (int i = 0; i < type_->num_fields(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(i, child_length));
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, child_length));
     }
     return Status::OK();
   }
@@ -512,6 +511,7 @@ class NullArrayFactory {
   }
 
   Status Visit(const ExtensionType& type) {
+    out_->child_data.resize(type.storage_type()->num_fields());
     RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
     return Status::OK();
   }
@@ -520,8 +520,9 @@ class NullArrayFactory {
     return Status::NotImplemented("construction of all-null ", type);
   }
 
-  Result<std::shared_ptr<ArrayData>> CreateChild(int i, int64_t length) {
-    NullArrayFactory child_factory(pool_, type_->field(i)->type(), length);
+  Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
+                                                 int64_t length) {
+    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
@@ -789,6 +790,14 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
     return MakeArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();
+}
+
+Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
+                                              MemoryPool* memory_pool) {
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
+  RETURN_NOT_OK(builder->Resize(0));
+  return builder->Finish();
 }
 
 namespace internal {

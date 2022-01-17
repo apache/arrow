@@ -38,10 +38,6 @@ jobs:
         run: |
           git clone --depth=50 https://github.com/google/oss-fuzz.git
 
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
-
       - name: Install dependencies
         working-directory: oss-fuzz
         run: |

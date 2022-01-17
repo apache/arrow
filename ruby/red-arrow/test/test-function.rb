@@ -116,12 +116,13 @@ class FunctionTest < Test::Unit::TestCase
       cast_function = Arrow::Function.find("cast")
       date = Date.new(2021, 6, 12)
       args = [date]
-      options = Arrow::CastOptions.new
-      options.to_data_type = Arrow::TimestampDataType.new(:second)
+      options = {
+        to_data_type: Arrow::TimestampDataType.new(:second),
+      }
       time = Time.utc(date.year,
                       date.month,
                       date.day)
-      assert_equal(Arrow::TimestampScalar.new(options.to_data_type,
+      assert_equal(Arrow::TimestampScalar.new(options[:to_data_type],
                                               time.to_i),
                    cast_function.execute(args, options).value)
     end
@@ -132,9 +133,10 @@ class FunctionTest < Test::Unit::TestCase
                                    # 00:10:00
                                    60 * 10)
       args = [arrow_time]
-      options = Arrow::CastOptions.new
-      options.to_data_type = Arrow::Time64DataType.new(:micro)
-      assert_equal(Arrow::Time64Scalar.new(options.to_data_type,
+      options = {
+        to_data_type: Arrow::Time64DataType.new(:micro),
+      }
+      assert_equal(Arrow::Time64Scalar.new(options[:to_data_type],
                                            # 00:10:00.000000
                                            60 * 10 * 1000 * 1000),
                    cast_function.execute(args, options).value)
@@ -146,10 +148,11 @@ class FunctionTest < Test::Unit::TestCase
                                    # 00:10:00.000000
                                    60 * 10 * 1000 * 1000)
       args = [arrow_time]
-      options = Arrow::CastOptions.new
-      options.to_data_type = Arrow::Time32DataType.new(:second)
-      options.allow_time_truncate = true
-      assert_equal(Arrow::Time32Scalar.new(options.to_data_type,
+      options = {
+        to_data_type: Arrow::Time32DataType.new(:second),
+        allow_time_truncate: true,
+      }
+      assert_equal(Arrow::Time32Scalar.new(options[:to_data_type],
                                            # 00:10:00
                                            60 * 10),
                    cast_function.execute(args, options).value)
@@ -159,18 +162,41 @@ class FunctionTest < Test::Unit::TestCase
       cast_function = Arrow::Function.find("cast")
       time = Time.utc(2021, 6, 12, 1, 2, 3, 1)
       args = [time]
-      options = Arrow::CastOptions.new
-      options.to_data_type = Arrow::TimestampDataType.new(:second)
-      options.allow_time_truncate = true
+      options = {
+        to_data_type: Arrow::TimestampDataType.new(:second),
+        allow_time_truncate: true,
+      }
       time = Time.utc(time.year,
                       time.month,
                       time.day,
                       time.hour,
                       time.min,
                       time.sec)
-      assert_equal(Arrow::TimestampScalar.new(options.to_data_type,
+      assert_equal(Arrow::TimestampScalar.new(options[:to_data_type],
                                               time.to_i),
                    cast_function.execute(args, options).value)
     end
+
+    test("SetLookupOptions") do
+      is_in_function = Arrow::Function.find("is_in")
+      args = [
+        Arrow::Int16Array.new([1, 0, 1, 2]),
+      ]
+      options = {
+        value_set: Arrow::Int16Array.new([2, 0]),
+      }
+      assert_equal(Arrow::BooleanArray.new([false, true, false, true]),
+                   is_in_function.execute(args, options).value)
+    end
+  end
+
+  def test_call
+      or_function = Arrow::Function.find("or")
+      args = [
+        Arrow::BooleanArray.new([true, false, false]),
+        Arrow::BooleanArray.new([true, false, true]),
+      ]
+      assert_equal([true, false, true],
+                   or_function.call(args).value.to_a)
   end
 end

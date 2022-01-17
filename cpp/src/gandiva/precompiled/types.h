@@ -772,4 +772,7 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
     int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
     bool word5_validity, bool* out_valid, int32_t* out_len);
 
+int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
+                   int32_t substring_len);
+
 }  // extern "C"

@@ -39,6 +39,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 
@@ -85,7 +86,11 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        util::string_view view{reinterpret_cast<const char*>(data), size};
+        // Skip BOM when reading column names (ARROW-14644)
+        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+        size = size - static_cast<uint32_t>(data_no_bom - data);
+
+        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
@@ -193,42 +198,6 @@ static RecordBatchGenerator GeneratorFromReader(
   return MakeFromFuture(std::move(gen_fut));
 }
 
-/// \brief A ScanTask backed by an Csv file.
-class CsvScanTask : public ScanTask {
- public:
-  CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options,
-              std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), fragment),
-        format_(std::move(format)),
-        source_(fragment->source()) {}
-
-  Result<RecordBatchIterator> Execute() override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(),
-                                      ::arrow::internal::GetCpuThreadPool());
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return MakeGeneratorIterator(std::move(reader_gen));
-  }
-
-  Future<RecordBatchVector> SafeExecute(Executor* executor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return CollectAsyncGenerator(reader_gen);
-  }
-
-  Future<> SafeVisit(
-      Executor* executor,
-      std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return VisitAsyncGenerator(reader_gen, visitor);
-  }
-
- private:
-  std::shared_ptr<const CsvFileFormat> format_;
-  FileSource source_;
-};
-
 bool CsvFileFormat::Equals(const FileFormat& format) const {
   if (type_name() != format.type_name()) return false;
 
@@ -253,15 +222,6 @@ Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, *this));
   return reader->schema();
-}
-
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), options, fragment);
-
-  return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }
 
 Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
@@ -329,7 +289,11 @@ Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> CsvFileWriter::FinishInternal() {
+  // The CSV writer's Close() is a no-op, so just treat it as synchronous
+  RETURN_NOT_OK(batch_writer_->Close());
+  return Status::OK();
+}
 
 }  // namespace dataset
 }  // namespace arrow

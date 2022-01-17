@@ -1,6 +1,10 @@
+#
+# Note: keep this file in sync with conda_env_sphinx.txt !
+#
+
 breathe
 ipython
 numpydoc
-sphinx==2.4.4
 pydata-sphinx-theme
 sphinx-tabs
+sphinx>=4.2

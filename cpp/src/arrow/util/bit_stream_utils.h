@@ -324,11 +324,12 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   int max_bytes = max_bytes_;
   const uint8_t* buffer = buffer_;
 
-  uint64_t needed_bits = num_bits * batch_size;
+  const int64_t needed_bits = num_bits * static_cast<int64_t>(batch_size);
   constexpr uint64_t kBitsPerByte = 8;
-  uint64_t remaining_bits = (max_bytes - byte_offset) * kBitsPerByte - bit_offset;
+  const int64_t remaining_bits =
+      static_cast<int64_t>(max_bytes - byte_offset) * kBitsPerByte - bit_offset;
   if (remaining_bits < needed_bits) {
-    batch_size = static_cast<int>(remaining_bits) / num_bits;
+    batch_size = static_cast<int>(remaining_bits / num_bits);
   }
 
   int i = 0;

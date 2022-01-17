@@ -246,6 +246,34 @@ ARROW_EXPORT
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx = NULLPTR);
 
+/// \brief FillNullForward fill null values in forward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in forward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "c", "c", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief FillNullBackward fill null values in backward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in backward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "f", "f", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullBackward(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief Take from an array of values at indices in another array
 ///
 /// The output array will be of the same type as the input values

@@ -651,14 +651,9 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   Datum WrapResults(const std::vector<Datum>& inputs,
                     const std::vector<Datum>& outputs) override {
     if (output_descr_.shape == ValueDescr::SCALAR) {
-      DCHECK_GT(outputs.size(), 0);
-      if (outputs.size() == 1) {
-        // Return as SCALAR
-        return outputs[0];
-      } else {
-        // Return as COLLECTION
-        return outputs;
-      }
+      DCHECK_EQ(outputs.size(), 1);
+      // Return as SCALAR
+      return outputs[0];
     } else {
       // If execution yielded multiple chunks (because large arrays were split
       // based on the ExecContext parameters, then the result is a ChunkedArray

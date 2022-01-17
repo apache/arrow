@@ -67,20 +67,15 @@ RUN /arrow/ci/scripts/util_download_apache.sh \
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
-ARG node=14
+ARG node=16
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     npm install -g yarn
 
-RUN pip install \
-        breathe \
-        ipython \
-        meson \
-        pydata-sphinx-theme \
-        sphinx-tabs \
-        sphinx>=4.2
+COPY docs/requirements.txt /arrow/docs/
+RUN pip install -r arrow/docs/requirements.txt meson
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \

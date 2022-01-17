@@ -392,6 +392,15 @@ TYPED_TEST(TestBinaryKernels, NonUtf8WithNullRegex) {
 }
 #endif
 
+TYPED_TEST(TestBinaryKernels, BinaryReverse) {
+  this->CheckUnary(
+      "binary_reverse",
+      this->template MakeArray<std::string>(
+          {{"abc123", 6}, {"\x00\x00\x42\xfe\xff", 5}, {"\xf0", 1}, {"", 0}}),
+      this->template MakeArray<std::string>(
+          {{"321cba", 6}, {"\xff\xfe\x42\x00\x00", 5}, {"\xf0", 1}, {"", 0}}));
+}
+
 TYPED_TEST(TestBaseBinaryKernels, BinaryReplaceSlice) {
   ReplaceSliceOptions options{0, 1, "XX"};
   this->CheckUnary("binary_replace_slice", "[]", this->type(), "[]", &options);
@@ -2015,7 +2024,8 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsBasic) {
   auto input = ArrayFromJSON(this->type(), R"(["𝑓öõḍš"])");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Attempted to initialize KernelState from null FunctionOptions"),
+      testing::HasSubstr(
+          "Function 'utf8_slice_codeunits' cannot be called without options"),
       CallFunction("utf8_slice_codeunits", {input}));
 
   SliceOptions options_invalid{2, 4, 0};

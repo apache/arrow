@@ -1021,6 +1021,7 @@ def _is_generated_index_name(name):
 _pandas_logical_type_map = {
     'date': 'datetime64[D]',
     'datetime': 'datetime64[ns]',
+    'datetimetz': 'datetime64[ns]',
     'unicode': np.unicode_,
     'bytes': np.bytes_,
     'string': np.str_,
@@ -1109,10 +1110,16 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # convert them back to bytes to preserve metadata.
         if dtype == np.bytes_:
             level = level.map(encoder)
+        # ARROW-13756: if index is timezone aware DataTimeIndex
+        if pandas_dtype == "datetimetz":
+            tz = pa.lib.string_to_tzinfo(
+                column_indexes[0]['metadata']['timezone'])
+            dt = level.astype(numpy_dtype)
+            level = dt.tz_localize('utc').tz_convert(tz)
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
-        if level.dtype != numpy_dtype:
+        if level.dtype != numpy_dtype and pandas_dtype != "datetimetz":
             level = level.astype(numpy_dtype)
 
         new_levels.append(level)

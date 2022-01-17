@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <numeric>
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"

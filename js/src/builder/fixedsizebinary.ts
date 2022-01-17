@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { FixedSizeBinary } from '../type';
-import { FixedWidthBuilder } from '../builder';
+import { FixedSizeBinary } from '../type.js';
+import { FixedWidthBuilder } from '../builder.js';
+import { setFixedSizeBinary } from '../visitor/set.js';
 
 /** @ignore */
-export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> {}
+export class FixedSizeBinaryBuilder<TNull = any> extends FixedWidthBuilder<FixedSizeBinary, TNull> { }
+
+(FixedSizeBinaryBuilder.prototype as any)._setValue = setFixedSizeBinary;

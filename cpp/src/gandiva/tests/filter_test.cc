@@ -26,6 +26,7 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
+using arrow::utf8;
 
 class TestFilter : public ::testing::Test {
  public:
@@ -84,6 +85,40 @@ TEST_F(TestFilter, TestFilterCache) {
   status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
   EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+}
+
+TEST_F(TestFilter, TestFilterCacheNullTreatment) {
+  // schema for input fields
+  auto field0 = field("f0", utf8());
+  auto field1 = field("f1", utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // Build condition 'null' == 'null'
+  auto node_f0 = TreeExprBuilder::MakeStringLiteral("null");
+  auto node_f1 = TreeExprBuilder::MakeStringLiteral("null");
+  auto equal_func =
+      TreeExprBuilder::MakeFunction("equal", {node_f0, node_f1}, arrow::boolean());
+  auto condition = TreeExprBuilder::MakeCondition(equal_func);
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, configuration, &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Build condition null == null
+  auto string_type = std::make_shared<arrow::StringType>();
+  node_f0 = TreeExprBuilder::MakeNull(string_type);
+  node_f1 = TreeExprBuilder::MakeNull(string_type);
+  equal_func =
+      TreeExprBuilder::MakeFunction("equal", {node_f0, node_f1}, arrow::boolean());
+  condition = TreeExprBuilder::MakeCondition(equal_func);
+
+  // 'null' vs. null, should return a new filter.
+  std::shared_ptr<Filter> should_be_new_filter;
+  status = Filter::Make(schema, condition, &should_be_new_filter);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_TRUE(filter.get() != should_be_new_filter.get());
 }
 
 TEST_F(TestFilter, TestSimple) {

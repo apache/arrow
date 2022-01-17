@@ -33,11 +33,11 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 

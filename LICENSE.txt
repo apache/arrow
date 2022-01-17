@@ -2178,6 +2178,14 @@ which is made available under the Apache License 2.0.
 
 --------------------------------------------------------------------------------
 
+The file python/pyarrow/vendored/docscrape.py contains code from
+
+https://github.com/numpy/numpydoc/
+
+which is made available under the BSD 2-clause license.
+
+--------------------------------------------------------------------------------
+
 The file python/pyarrow/vendored/version.py contains code from
 
 https://github.com/pypa/packaging/

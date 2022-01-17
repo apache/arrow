@@ -215,6 +215,57 @@ test_that("URI-decoding with hive partitioning", {
   )
 })
 
+test_that("URI-decoding with hive partitioning with key encoded", {
+  root <- make_temp_dir()
+  fmt <- FileFormat$create("feather")
+  fs <- LocalFileSystem$create()
+  selector <- FileSelector$create(root, recursive = TRUE)
+  dir1 <- file.path(root, "test%20key=2021-05-04 00%3A00%3A00", "test%20key1=%24")
+  dir.create(dir1, recursive = TRUE)
+  write_feather(df1, file.path(dir1, "data.feather"))
+
+  partitioning <- hive_partition(
+    `test key` = timestamp(unit = "s"), `test key1` = utf8(), segment_encoding = "uri"
+  )
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt,
+    partitioning = partitioning
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_scan_result(ds, schm)
+
+  # segment encoding for both key and values
+  partitioning_factory <- hive_partition(segment_encoding = "uri")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test key` == "2021-05-04 00:00:00", `test key1` == "$") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+
+  # no segment encoding
+  partitioning_factory <- hive_partition(segment_encoding = "none")
+  factory <- FileSystemDatasetFactory$create(
+    fs, selector, NULL, fmt, partitioning_factory
+  )
+  schm <- factory$Inspect()
+  ds <- factory$Finish(schm)
+  expect_equal(
+    ds %>%
+      filter(`test%20key` == "2021-05-04 00%3A00%3A00", `test%20key1` == "%24") %>%
+      select(int) %>%
+      collect(),
+    df1 %>% select(int) %>% collect()
+  )
+})
+
 # Everything else below here is using parquet files
 skip_if_not_available("parquet")
 
@@ -346,6 +397,98 @@ test_that("Partitioning inference", {
   )
 })
 
+test_that("Specifying partitioning when hive_style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+
+  # If string and names match hive partition names, it's accepted silently
+  ds_with_chr <- open_dataset(hive_dir, partitioning = c("group", "other"))
+  expect_equal(ds_with_chr$schema, expected_schema)
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = c("asdf", "zxcv")),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # If schema and names match, the schema is used to specify the types
+  ds_with_sch <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int32(), other = utf8())
+  )
+  expect_equal(ds_with_sch$schema, expected_schema)
+
+  ds_with_int8 <- open_dataset(
+    hive_dir,
+    partitioning = schema(group = int8(), other = utf8())
+  )
+  expect_equal(ds_with_int8$schema[["group"]]$type, int8())
+
+  # If they don't match, we get an error
+  expect_error(
+    open_dataset(hive_dir, partitioning = schema(a = int32(), b = utf8())),
+    paste(
+      '"partitioning" does not match the detected Hive-style partitions:',
+      'c\\("group", "other"\\).*after opening the dataset'
+    )
+  )
+
+  # This can be disabled with hive_style = FALSE
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    partitioning = c("group", "other"),
+    hive_style = FALSE
+  )
+  # Since it's DirectoryPartitioning, the column values are all strings
+  # like "group=1"
+  expect_equal(ds_not_hive$schema[["group"]]$type, utf8())
+
+  # And if no partitioning is specified and hive_style = FALSE, we don't parse at all
+  ds_not_hive <- open_dataset(
+    hive_dir,
+    hive_style = FALSE
+  )
+  expect_null(ds_not_hive$schema[["group"]])
+  expect_null(ds_not_hive$schema[["other"]])
+})
+
+test_that("Including partition columns in schema, hive style", {
+  expected_schema <- open_dataset(hive_dir)$schema
+  # Specify a different type than what is autodetected
+  expected_schema$group <- float32()
+
+  ds <- open_dataset(hive_dir, schema = expected_schema)
+  expect_equal(ds$schema, expected_schema)
+
+  # Now also with specifying `partitioning`
+  ds2 <- open_dataset(hive_dir, schema = expected_schema, partitioning = c("group", "other"))
+  expect_equal(ds2$schema, expected_schema)
+})
+
+test_that("Including partition columns in schema and partitioning, hive style CSV (ARROW-14743)", {
+  mtcars_dir <- tempfile()
+  on.exit(unlink(mtcars_dir))
+
+  tab <- Table$create(mtcars)
+  # Writing is hive-style by default
+  write_dataset(tab, mtcars_dir, format = "csv", partitioning = "cyl")
+
+  mtcars_ds <- open_dataset(
+    mtcars_dir,
+    schema = tab$schema,
+    format = "csv",
+    partitioning = "cyl"
+  )
+  expect_equal(mtcars_ds$schema, tab$schema)
+})
+
+test_that("partitioning = NULL to ignore partition information (but why?)", {
+  ds <- open_dataset(hive_dir, partitioning = NULL)
+  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+})
+
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
   ds <- open_dataset(list(
@@ -402,20 +545,38 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("map_batches", {
-  skip("map_batches() is broken (ARROW-14029)")
   ds <- open_dataset(dataset_dir, partitioning = "part")
+
+  # summarize returns arrow_dplyr_query, which gets collected into a tibble
   expect_equal(
     ds %>%
       filter(int > 5) %>%
       select(int, lgl) %>%
-      map_batches(~ summarize(., min_int = min(int))),
+      map_batches(~ summarize(., min_int = min(int))) %>%
+      arrange(min_int),
     tibble(min_int = c(6L, 101L))
   )
-})
 
-test_that("partitioning = NULL to ignore partition information (but why?)", {
-  ds <- open_dataset(hive_dir, partitioning = NULL)
-  expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
+  # $num_rows returns integer vector
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+      unlist() %>% # Returns list because .data.frame is FALSE
+      sort(),
+    c(5, 10)
+  )
+
+  # $Take returns RecordBatch, which gets binded into a tibble
+  expect_equal(
+    ds %>%
+      filter(int > 5) %>%
+      select(int, lgl) %>%
+      map_batches(~ .$Take(0)) %>%
+      arrange(int),
+    tibble(int = c(6, 101), lgl = c(TRUE, TRUE))
+  )
 })
 
 test_that("head/tail", {
@@ -527,9 +688,27 @@ test_that("Scanner$ScanBatches", {
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
 
-  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal(as.data.frame(table), rbind(df1, df2))
+
+  expect_deprecated(ds$NewScan()$UseAsync(TRUE), paste(
+    "The function",
+    "'UseAsync' is deprecated and will be removed in a future release."
+  ))
+  expect_deprecated(ds$NewScan()$UseAsync(FALSE), paste(
+    "The function",
+    "'UseAsync' is deprecated and will be removed in a future release."
+  ))
+
+  expect_deprecated(Scanner$create(ds, use_async = TRUE), paste(
+    "The parameter 'use_async' is deprecated and will be removed in a future",
+    "release."
+  ))
+  expect_deprecated(Scanner$create(ds, use_async = FALSE), paste(
+    "The parameter 'use_async' is deprecated and will be removed in a future",
+    "release."
+  ))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {

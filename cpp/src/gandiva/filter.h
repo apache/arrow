@@ -79,6 +79,7 @@ class GANDIVA_EXPORT Filter {
   std::string DumpIR();
 
   void SetBuiltFromCache(bool flag);
+
   bool GetBuiltFromCache();
 
  private:

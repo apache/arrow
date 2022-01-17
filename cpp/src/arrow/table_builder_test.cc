@@ -31,17 +31,18 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table_builder.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 
-class TestRecordBatchBuilder : public TestBase {
- public:
+class TestRecordBatchBuilder : public ::testing::Test {
+ protected:
+  MemoryPool* pool_ = default_memory_pool();
 };
 
 std::shared_ptr<Schema> ExampleSchema1() {

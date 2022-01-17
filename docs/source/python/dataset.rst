@@ -514,6 +514,26 @@ batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller
 The default batch size is one million rows and this is typically a good default but
 you may want to customize it if you are reading a large number of columns.
 
+A note on transactions & ACID guarantees
+----------------------------------------
+
+The dataset API offers no transaction support or any ACID guarantees.  This affects
+both reading and writing.  Concurrent reads are fine.  Concurrent writes or writes
+concurring with reads may have unexpected behavior.  Various approaches can be used
+to avoid operating on the same files such as using a unique basename template for
+each writer, a temporary directory for new files, or separate storage of the file
+list instead of relying on directory discovery.
+
+Unexpectedly killing the process while a write is in progress can leave the system
+in an inconsistent state.  Write calls generally return as soon as the bytes to be
+written have been completely delivered to the OS page cache.  Even though a write
+operation has been completed it is possible for part of the file to be lost if
+there is a sudden power loss immediately after the write call.
+
+Most file formats have magic numbers which are written at the end.  This means a
+partial file write can safely be detected and discarded.  The CSV file format does
+not have any such concept and a partially written CSV file may be detected as valid.
+
 Writing Datasets
 ----------------
 
@@ -555,6 +575,44 @@ dataset to be partitioned.  For example:
 This will create two files.  Half our data will be in the dataset_root/c=1 directory and
 the other half will be in the dataset_root/c=2 directory.
 
+Partitioning performance considerations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Partitioning datasets has two aspects that affect performance: it increases the number of
+files and it creates a directory structure around the files. Both of these have benefits
+as well as costs. Depending on the configuration and the size of your dataset, the costs 
+can outweigh the benefits. 
+
+Because partitions split up the dataset into multiple files, partitioned datasets can be 
+read and written with parallelism. However, each additional file adds a little overhead in 
+processing for filesystem interaction. It also increases the overall dataset size since 
+each file has some shared metadata. For example, each parquet file contains the schema and
+group-level statistics. The number of partitions is a floor for the number of files. If 
+you partition a dataset by date with a year of data, you will have at least 365 files. If 
+you further partition by another dimension with 1,000 unique values, you will have up to 
+365,000 files. This fine of partitioning often leads to small files that mostly consist of
+metadata.
+
+Partitioned datasets create nested folder structures, and those allow us to prune which 
+files are loaded in a scan. However, this adds overhead to discovering files in the dataset,
+as we'll need to recursively "list directory" to find the data files. Too fine
+partitions can cause problems here: Partitioning a dataset by date for a years worth
+of data will require 365 list calls to find all the files; adding another column with 
+cardinality 1,000 will make that 365,365 calls.
+
+The most optimal partitioning layout will depend on your data, access patterns, and which
+systems will be reading the data. Most systems, including Arrow, should work across a 
+range of file sizes and partitioning layouts, but there are extremes you should avoid. These
+guidelines can help avoid some known worst cases:
+
+* Avoid files smaller than 20MB and larger than 2GB.
+* Avoid partitioning layouts with more than 10,000 distinct partitions.
+
+For file formats that have a notion of groups within a file, such as Parquet, similar
+guidelines apply. Row groups can provide parallelism when reading and allow data skipping
+based on statistics, but very small groups can cause metadata to be a significant portion
+of file size. Arrow's file writer provides sensible defaults for group sizing in most cases.
+
 Writing large amounts of data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -578,7 +636,7 @@ into memory:
     # other method that yields record batches.  In addition, you can pass a dataset
     # into write_dataset directly but this method is useful if you want to customize
     # the scanner (e.g. to filter the input dataset or set a maximum batch size)
-    scanner = input_dataset.scanner(use_async=True)
+    scanner = input_dataset.scanner()
 
     ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
 

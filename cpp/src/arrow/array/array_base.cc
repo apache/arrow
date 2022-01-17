@@ -39,8 +39,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 

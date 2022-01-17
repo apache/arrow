@@ -22,7 +22,6 @@ import (
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/internal/debug"
 )
 
@@ -56,7 +55,7 @@ type Interface interface {
 	DimNames() []string
 
 	DataType() arrow.DataType
-	Data() *array.Data
+	Data() arrow.ArrayData
 
 	// IsMutable returns whether the underlying data buffer is mutable.
 	IsMutable() bool
@@ -69,7 +68,7 @@ type tensorBase struct {
 	refCount int64
 	dtype    arrow.DataType
 	bw       int64 // bytes width
-	data     *array.Data
+	data     arrow.ArrayData
 	shape    []int64
 	strides  []int64
 	names    []string
@@ -106,7 +105,7 @@ func (tb *tensorBase) Strides() []int64         { return tb.strides }
 func (tb *tensorBase) NumDims() int             { return len(tb.shape) }
 func (tb *tensorBase) DimName(i int) string     { return tb.names[i] }
 func (tb *tensorBase) DataType() arrow.DataType { return tb.dtype }
-func (tb *tensorBase) Data() *array.Data        { return tb.data }
+func (tb *tensorBase) Data() arrow.ArrayData    { return tb.data }
 func (tb *tensorBase) DimNames() []string       { return tb.names }
 
 // IsMutable returns whether the underlying data buffer is mutable.
@@ -139,7 +138,7 @@ func (tb *tensorBase) offset(index []int64) int64 {
 // If names is nil, a slice of empty strings will be created.
 //
 // New panics if the backing data is not a numerical type.
-func New(data *array.Data, shape, strides []int64, names []string) Interface {
+func New(data arrow.ArrayData, shape, strides []int64, names []string) Interface {
 	dt := data.DataType()
 	switch dt.ID() {
 	case arrow.INT8:
@@ -171,7 +170,7 @@ func New(data *array.Data, shape, strides []int64, names []string) Interface {
 	}
 }
 
-func newTensor(dtype arrow.DataType, data *array.Data, shape, strides []int64, names []string) *tensorBase {
+func newTensor(dtype arrow.DataType, data arrow.ArrayData, shape, strides []int64, names []string) *tensorBase {
 	tb := tensorBase{
 		refCount: 1,
 		dtype:    dtype,

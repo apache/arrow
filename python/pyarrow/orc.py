@@ -279,7 +279,7 @@ where : str or pyarrow.io.NativeFile
 
         Parameters
         ----------
-        schema : pyarrow.lib.Table
+        table : pyarrow.lib.Table
             The table to be written into the ORC file
         """
         assert self.is_open

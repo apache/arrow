@@ -2,7 +2,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "esnext",
+    "target": "ES2020",
     "module": "es2015",
     "declaration": false,
     "declarationMap": false,

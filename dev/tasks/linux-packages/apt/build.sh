@@ -111,7 +111,6 @@ run \
   -maxdepth 1 \
   -type f \
   -not -path '*.build' \
-  -not -path '*.buildinfo' \
   -exec cp '{}' "${pool_dir}/" ';'
 
 run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"

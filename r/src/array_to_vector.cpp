@@ -886,6 +886,61 @@ class Converter_Time : public Converter {
   }
 };
 
+template <typename value_type, typename unit_type = DurationType>
+class Converter_Duration : public Converter {
+ public:
+  explicit Converter_Duration(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    cpp11::writable::doubles data(n);
+    data.attr("class") = "difftime";
+
+    // difftime is always stored as "seconds"
+    data.attr("units") = cpp11::writable::strings({"secs"});
+    return data;
+  }
+
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    std::fill_n(REAL(data) + start, n, NA_REAL);
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    int multiplier = TimeUnit_multiplier(array);
+
+    auto p_data = REAL(data) + start;
+    auto p_values = array->data()->GetValues<value_type>(1);
+    auto ingest_one = [&](R_xlen_t i) {
+      p_data[i] = static_cast<double>(p_values[i]) / multiplier;
+      return Status::OK();
+    };
+    auto null_one = [&](R_xlen_t i) {
+      p_data[i] = NA_REAL;
+      return Status::OK();
+    };
+    return IngestSome(array, n, ingest_one, null_one);
+  }
+
+ private:
+  int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
+    // difftime is always "seconds", so multiply based on the Array's TimeUnit
+    switch (static_cast<unit_type*>(array->type().get())->unit()) {
+      case TimeUnit::SECOND:
+        return 1;
+      case TimeUnit::MILLI:
+        return 1000;
+      case TimeUnit::MICRO:
+        return 1000000;
+      case TimeUnit::NANO:
+        return 1000000000;
+      default:
+        return 0;
+    }
+  }
+};
+
 template <typename value_type>
 class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
  public:
@@ -905,6 +960,7 @@ class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
   }
 };
 
+template <typename Type>
 class Converter_Decimal : public Converter {
  public:
   explicit Converter_Decimal(const std::shared_ptr<ChunkedArray>& chunked_array)
@@ -919,8 +975,9 @@ class Converter_Decimal : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    using DecimalArray = typename TypeTraits<Type>::ArrayType;
     auto p_data = REAL(data) + start;
-    const auto& decimals_arr = checked_cast<const arrow::Decimal128Array&>(*array);
+    const auto& decimals_arr = checked_cast<const DecimalArray&>(*array);
 
     auto ingest_one = [&](R_xlen_t i) {
       p_data[i] = std::stod(decimals_arr.FormatValue(i).c_str());
@@ -1204,6 +1261,9 @@ std::shared_ptr<Converter> Converter::Make(
     case Type::TIME64:
       return std::make_shared<arrow::r::Converter_Time<int64_t>>(chunked_array);
 
+    case Type::DURATION:
+      return std::make_shared<arrow::r::Converter_Duration<int64_t>>(chunked_array);
+
     case Type::TIMESTAMP:
       return std::make_shared<arrow::r::Converter_Timestamp<int64_t>>(chunked_array);
 
@@ -1217,7 +1277,10 @@ std::shared_ptr<Converter> Converter::Make(
       }
 
     case Type::DECIMAL128:
-      return std::make_shared<arrow::r::Converter_Decimal>(chunked_array);
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal128Type>>(chunked_array);
+
+    case Type::DECIMAL256:
+      return std::make_shared<arrow::r::Converter_Decimal<Decimal256Type>>(chunked_array);
 
       // nested
     case Type::STRUCT:
@@ -1245,7 +1308,7 @@ std::shared_ptr<Converter> Converter::Make(
       break;
   }
 
-  cpp11::stop("cannot handle Array of type ", type->name().c_str());
+  cpp11::stop("cannot handle Array of type <%s>", type->name().c_str());
 }
 
 std::shared_ptr<ChunkedArray> to_chunks(const std::shared_ptr<Array>& array) {

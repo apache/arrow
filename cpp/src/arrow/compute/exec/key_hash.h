@@ -83,6 +83,8 @@ class Hashing {
                                    uint32_t& acc4);
   static inline uint32_t helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
                                      uint32_t acc);
+  static inline uint32_t helper_tail(uint32_t offset, uint64_t mask, const uint8_t* keys,
+                                     uint32_t acc, uint32_t key_length);
 #if defined(ARROW_HAVE_AVX2)
   static void helper_stripes_avx2(uint32_t num_keys, uint32_t key_length,
                                   const uint8_t* keys, uint32_t* hash);

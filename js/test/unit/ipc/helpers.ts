@@ -15,24 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions';
-
-import {
-    Table,
-    RecordBatchWriter,
-    RecordBatchFileWriter,
-    RecordBatchJSONWriter,
-    RecordBatchStreamWriter,
-} from 'apache-arrow';
+import '../../jest-extensions.js';
 
 import * as fs from 'fs';
 import { fs as memfs } from 'memfs';
-import { Readable, PassThrough } from 'stream';
 import randomatic from 'randomatic';
+import { PassThrough, Readable } from 'stream';
+
+import {
+    RecordBatchFileWriter,
+    RecordBatchJSONWriter,
+    RecordBatchStreamWriter,
+    RecordBatchWriter,
+    Table
+} from 'apache-arrow';
 
 export abstract class ArrowIOTestHelper {
 
-    constructor(public table: Table) {}
+    constructor(public table: Table) { }
 
     public static file(table: Table) { return new ArrowFileIOTestHelper(table); }
     public static json(table: Table) { return new ArrowJsonIOTestHelper(table); }
@@ -68,7 +68,7 @@ export abstract class ArrowIOTestHelper {
         return async () => {
             expect.hasAssertions();
             const path = await this.filepath(this.table);
-            await testFn(<any> await memfs.promises.open(path, 'r'));
+            await testFn(<any>await memfs.promises.open(path, 'r'));
             await memfs.promises.unlink(path);
         };
     }
@@ -76,7 +76,7 @@ export abstract class ArrowIOTestHelper {
         return async () => {
             expect.hasAssertions();
             const path = await this.filepath(this.table);
-            await testFn(<any> memfs.createReadStream(path));
+            await testFn(<any>memfs.createReadStream(path));
             await memfs.promises.unlink(path);
         };
     }
@@ -131,7 +131,7 @@ export function* chunkedIterable(buffer: Uint8Array) {
     let offset = 0, size = 0;
     while (offset < buffer.byteLength) {
         size = yield buffer.subarray(offset, offset +=
-            (isNaN(+size) ? buffer.byteLength - offset : size));
+            (Number.isNaN(+size) ? buffer.byteLength - offset : size));
     }
 }
 
@@ -139,7 +139,7 @@ export async function* asyncChunkedIterable(buffer: Uint8Array) {
     let offset = 0, size = 0;
     while (offset < buffer.byteLength) {
         size = yield buffer.subarray(offset, offset +=
-            (isNaN(+size) ? buffer.byteLength - offset : size));
+            (Number.isNaN(+size) ? buffer.byteLength - offset : size));
     }
 }
 
@@ -172,7 +172,7 @@ export async function* readableDOMStreamToAsyncIterator<T>(stream: ReadableStrea
             yield value as T;
         }
     } finally {
-        try { stream.locked && reader.releaseLock(); } catch (e) {}
+        try { stream.locked && reader.releaseLock(); } catch { }
     }
 }
 

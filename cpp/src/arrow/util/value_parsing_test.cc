@@ -794,7 +794,7 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
   for (auto unit : TimeUnit::values()) {
-    for (const std::string& value :
+    for (const std::string value :
          {"2018-01-01 00:00:00+0000", "2018-01-01 00:00:00+0100",
           "2018-01-01 00:00:00+0130", "2018-01-01 00:00:00-0117"}) {
       SCOPED_TRACE(value);
@@ -804,7 +804,7 @@ TEST(TimestampParser, StrptimeZoneOffset) {
       ASSERT_TRUE(ParseTimestampISO8601(value.c_str(), value.size(), unit, &expected));
       ASSERT_EQ(expected, converted);
     }
-    for (const std::string& value : {"2018-01-01 00:00:00", "2018-01-01 00:00:00EST"}) {
+    for (const std::string value : {"2018-01-01 00:00:00", "2018-01-01 00:00:00EST"}) {
       SCOPED_TRACE(value);
       int64_t converted = 0;
       ASSERT_FALSE((*parser)(value.c_str(), value.size(), unit, &converted));

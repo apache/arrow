@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/filesystem/path_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
@@ -256,6 +257,10 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     result->Append("kmsKeyName", m.kms_key_name());
   }
   return result;
+}
+
+std::int64_t Depth(arrow::util::string_view path) {
+  return std::count(path.begin(), path.end(), fs::internal::kSep);
 }
 
 }  // namespace internal

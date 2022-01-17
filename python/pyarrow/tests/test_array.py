@@ -108,6 +108,22 @@ def test_long_array_format():
     assert result == expected
 
 
+def test_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(indent=1)
+    expected = '[\n "",\n null,\n "foo"\n]'
+
+    assert result == expected
+
+
+def test_top_level_indented_string_format():
+    arr = pa.array(['', None, 'foo'])
+    result = arr.to_string(top_level_indent=1)
+    expected = ' [\n   "",\n   null,\n   "foo"\n ]'
+
+    assert result == expected
+
+
 def test_binary_format():
     arr = pa.array([b'\x00', b'', None, b'\x01foo', b'\x80\xff'])
     result = arr.to_string()
@@ -889,6 +905,15 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     result = list_array_type.from_arrays(offsets, values)
     with pytest.raises(ValueError):
         result.validate(full=True)
+
+
+def test_map_labelled():
+    #  ARROW-13735
+    t = pa.map_(pa.field("name", "string", nullable=False), "int64")
+    arr = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=t)
+    assert arr.type.key_field == pa.field("name", pa.utf8(), nullable=False)
+    assert arr.type.item_field == pa.field("value", pa.int64())
+    assert len(arr) == 2
 
 
 def test_map_from_arrays():
@@ -2523,9 +2548,8 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr2.values.values.equals(arr0)
 
 
-@pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
-def test_list_value_parent_indices(offset_type, list_type_factory):
+@pytest.mark.parametrize('list_type_factory', [pa.list_, pa.large_list])
+def test_list_value_parent_indices(list_type_factory):
     arr = pa.array(
         [
             [0, 1, 2],
@@ -2533,7 +2557,7 @@ def test_list_value_parent_indices(offset_type, list_type_factory):
             [],
             [3, 4]
         ], type=list_type_factory(pa.int32()))
-    expected = pa.array([0, 0, 0, 3, 3], type=offset_type)
+    expected = pa.array([0, 0, 0, 3, 3], type=pa.int64())
     assert arr.value_parent_indices().equals(expected)
 
 
@@ -2625,6 +2649,30 @@ def test_fixed_size_list_array_flatten():
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+
+
+def test_map_array_values_offsets():
+    ty = pa.map_(pa.utf8(), pa.int32())
+    ty_values = pa.struct([pa.field("key", pa.utf8(), nullable=False),
+                           pa.field("value", pa.int32())])
+    a = pa.array([[('a', 1), ('b', 2)], [('c', 3)]], type=ty)
+
+    assert a.values.type.equals(ty_values)
+    assert a.values == pa.array([
+        {'key': 'a', 'value': 1},
+        {'key': 'b', 'value': 2},
+        {'key': 'c', 'value': 3},
+    ], type=ty_values)
+    assert a.keys.equals(pa.array(['a', 'b', 'c']))
+    assert a.items.equals(pa.array([1, 2, 3], type=pa.int32()))
+
+    assert pa.ListArray.from_arrays(a.offsets, a.keys).equals(
+        pa.array([['a', 'b'], ['c']]))
+    assert pa.ListArray.from_arrays(a.offsets, a.items).equals(
+        pa.array([[1, 2], [3]], type=pa.list_(pa.int32())))
+
+    with pytest.raises(NotImplementedError):
+        a.flatten()
 
 
 def test_struct_array_flatten():

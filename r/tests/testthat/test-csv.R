@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+library(tibble)
+
 # Not all types round trip via CSV 100% identical by default
 tbl <- example_data[, c("dbl", "lgl", "false", "chr")]
 tbl_no_dates <- tbl
@@ -290,6 +292,50 @@ test_that("more informative error when reading a CSV with headers and schema", {
   )
 })
 
+test_that("CSV reader works on files with non-UTF-8 encoding", {
+  strings <- c("a", "\u00e9", "\U0001f4a9")
+  file_string <- paste0(
+    "col1,col2\n",
+    paste(strings, 1:30, sep = ",", collapse = "\n")
+  )
+  file_bytes_utf16 <- iconv(
+    file_string,
+    from = Encoding(file_string),
+    to = "UTF-16LE",
+    toRaw = TRUE
+  )[[1]]
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  con <- file(tf, open = "wb")
+  writeBin(file_bytes_utf16, con)
+  close(con)
+
+  fs <- LocalFileSystem$create()
+  reader <- CsvTableReader$create(
+    fs$OpenInputStream(tf),
+    read_options = CsvReadOptions$create(encoding = "UTF-16LE")
+  )
+
+  table <- reader$Read()
+
+  # check that the CSV reader didn't create a binary column because of
+  # invalid bytes
+  expect_true(table$col1$type == string())
+
+  # check that the bytes are correct
+  expect_identical(
+    lapply(as.vector(table$col1$cast(binary())), as.raw),
+    rep(
+      list(as.raw(0x61), as.raw(c(0xc3, 0xa9)), as.raw(c(0xf0, 0x9f, 0x92, 0xa9))),
+      10
+    )
+  )
+
+  # check that the strings are correct
+  expect_identical(as.vector(table$col1), rep(strings, 10))
+})
+
 test_that("Write a CSV file with header", {
   tbl_out <- write_csv_arrow(tbl_no_dates, csv_file)
   expect_true(file.exists(csv_file))
@@ -377,4 +423,83 @@ test_that("time mapping work as expected (ARROW-13624)", {
   )
 
   expect_equal(df, tbl, ignore_attr = "tzone")
+})
+
+test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
+  expect_error(
+    write_csv_arrow(tbl, csv_file, append = FALSE),
+    "The following argument is not yet supported in Arrow: \"append\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, quote = "all"),
+    "The following argument is not yet supported in Arrow: \"quote\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, escape = "double"),
+    "The following argument is not yet supported in Arrow: \"escape\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, eol = "\n"),
+    "The following argument is not yet supported in Arrow: \"eol\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, num_threads = 8),
+    "The following argument is not yet supported in Arrow: \"num_threads\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, progress = FALSE),
+    "The following argument is not yet supported in Arrow: \"progress\""
+  )
+  expect_error(
+    write_csv_arrow(tbl, csv_file, append = FALSE, eol = "\n"),
+    "The following arguments are not yet supported in Arrow: \"append\" and \"eol\""
+  )
+  expect_error(
+    write_csv_arrow(
+      tbl,
+      csv_file,
+      append = FALSE,
+      quote = "all",
+      escape = "double",
+      eol = "\n", ),
+    paste("The following arguments are not yet supported in Arrow: \"append\",",
+          "\"quote\", \"escape\", and \"eol\"")
+  )
+})
+
+test_that("write_csv_arrow deals with duplication in sink/file", {
+  # errors when both file and sink are supplied
+  expect_error(
+    write_csv_arrow(tbl, file = csv_file, sink = csv_file),
+    paste("You have supplied both \"file\" and \"sink\" arguments. Please",
+          "supply only one of them")
+  )
+})
+
+test_that("write_csv_arrow deals with duplication in include_headers/col_names", {
+  expect_error(
+    write_csv_arrow(
+      tbl,
+      file = csv_file,
+      include_header = TRUE,
+      col_names = TRUE
+    ),
+    paste("You have supplied both \"col_names\" and \"include_header\"",
+          "arguments. Please supply only one of them")
+  )
+
+  written_tbl <- suppressMessages(
+    write_csv_arrow(tbl_no_dates, file = csv_file, col_names = FALSE)
+  )
+  expect_true(file.exists(csv_file))
+  expect_identical(tbl_no_dates, written_tbl)
+})
+
+test_that("read_csv_arrow() deals with BOMs (byte-order-marks) correctly", {
+  writeLines("\xef\xbb\xbfa,b\n1,2\n", con = csv_file)
+
+  expect_equal(
+    read_csv_arrow(csv_file),
+    tibble(a = 1, b = 2)
+  )
 })

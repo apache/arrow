@@ -38,7 +38,7 @@ RUN apt-get update -y && \
     # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
     # for trusty, xenial, bionic, and eoan (as of May 2020)
     # -cran40 has 4.0 versions for bionic and focal
-    # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
+    # R 3.4 is available without the suffix but only for trusty and xenial
     # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
     # This is a hack to turn 3.6 into 35, and 4.0/4.1 into 40:
     add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5 | tr 1 0)'/' && \
@@ -89,6 +89,8 @@ RUN ln -s /usr/bin/python3 /usr/local/bin/python && \
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
+
+RUN pip install -U pip setuptools wheel
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

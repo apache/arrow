@@ -197,15 +197,15 @@ struct BinaryValueDecoder : public ValueDecoder {
 
 template <typename T, typename Enable = void>
 struct StringConverterFromOptions {
-  static internal::StringConverter<T> Make(const ConvertOptions&) {
-    return internal::StringConverter<T>{};
+  static arrow::internal::StringConverter<T> Make(const ConvertOptions&) {
+    return arrow::internal::StringConverter<T>{};
   }
 };
 
 template <typename T>
 struct StringConverterFromOptions<T, enable_if_floating_point<T>> {
-  static internal::StringConverter<T> Make(const ConvertOptions& options) {
-    return internal::StringConverter<T>{options.decimal_point};
+  static arrow::internal::StringConverter<T> Make(const ConvertOptions& options) {
+    return arrow::internal::StringConverter<T>{options.decimal_point};
   }
 };
 
@@ -231,7 +231,7 @@ struct NumericValueDecoder : public ValueDecoder {
 
  protected:
   const T& concrete_type_;
-  internal::StringConverter<T> string_converter_;
+  arrow::internal::StringConverter<T> string_converter_;
 };
 
 //

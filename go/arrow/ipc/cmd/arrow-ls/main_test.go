@@ -24,7 +24,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
 	"github.com/apache/arrow/go/v7/arrow/ipc"
 	"github.com/apache/arrow/go/v7/arrow/memory"
@@ -293,7 +293,7 @@ records: 3
 
 				var w interface {
 					io.Closer
-					Write(array.Record) error
+					Write(arrow.Record) error
 				}
 
 				switch {

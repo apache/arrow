@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <sstream>
 
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
@@ -95,7 +94,7 @@ class ProjectNode : public MapNode {
   }
 
  protected:
-  std::string ToStringExtra() const override {
+  std::string ToStringExtra(int indent) const override {
     std::stringstream ss;
     ss << "projection=[";
     for (int i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {

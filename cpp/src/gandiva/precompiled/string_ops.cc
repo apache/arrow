@@ -1722,8 +1722,8 @@ gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const c
     arr_smaller = in2;
   }
 
-  int* ptr =
-      reinterpret_cast<int*>(gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2));
+  int* ptr = reinterpret_cast<int*>(
+      gdv_fn_context_arena_malloc(context, (len_smaller + 1) * 2 * sizeof(int)));
   if (ptr == nullptr) {
     gdv_fn_context_set_error_msg(context, "String length must be greater than 0");
     return 0;
@@ -2853,5 +2853,27 @@ const char* soundex_utf8(gdv_int64 ctx, const char* in, gdv_int32 in_len,
   }
   *out_len = 4;
   return ret;
+}
+
+FORCE_INLINE
+int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
+                   int32_t substring_len) {
+  if (substring_len == 0) {
+    return 1;
+  }
+
+  if (string_len < substring_len) {
+    return 0;
+  }
+
+  int32_t end_idx = string_len - substring_len;
+
+  for (int i = 0; i <= end_idx; i++) {
+    if (string[i] == substring[0] &&
+        memcmp((void*)(string + i), substring, substring_len) == 0) {
+      return (i + 1);
+    }
+  }
+  return 0;
 }
 }  // extern "C"

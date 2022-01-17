@@ -24,6 +24,7 @@
 #include "arrow/array/builder_union.h"
 // TODO ipc shouldn't be included here
 #include "arrow/ipc/test_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"

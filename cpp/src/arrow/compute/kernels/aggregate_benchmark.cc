@@ -19,6 +19,7 @@
 
 #include <vector>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

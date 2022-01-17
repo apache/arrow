@@ -29,7 +29,7 @@ dask=$1
 if [ "${dask}" = "master" ]; then
   pip install https://github.com/dask/dask/archive/main.tar.gz#egg=dask[dataframe]
 elif [ "${dask}" = "latest" ]; then
-  pip install dask
+  pip install dask[dataframe]
 else
-  pip install dask==${dask}
+  pip install dask[dataframe]==${dask}
 fi

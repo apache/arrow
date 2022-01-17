@@ -33,6 +33,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -74,11 +75,12 @@ void CompareBatchColumnsDetailed(const RecordBatch& result, const RecordBatch& e
 }
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out, uint32_t seed) {
+                            std::shared_ptr<Array>* out, uint32_t seed, int32_t min,
+                            int32_t max) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
-  *out = rand.Int32(length, 0, 1000, null_probability);
+  *out = rand.Int32(length, min, max, null_probability);
 
   return Status::OK();
 }

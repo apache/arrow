@@ -55,6 +55,9 @@ using gdv_month_interval = int32_t;
 #endif
 #endif
 
+GANDIVA_EXPORT
+int64_t gdv_fn_crc_32_utf8(int64_t ctx, const char* input, int32_t input_len);
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
@@ -178,4 +181,23 @@ float gdv_fn_castFLOAT4_varbinary(gdv_int64 context, const char* in, int32_t in_
 
 GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_len,
+                               const char* key_data, int32_t key_data_len,
+                               int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
+                                        int32_t data_len, int32_t n_to_mask,
+                                        int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
+                                       int32_t data_len, int32_t n_to_mask,
+                                       int32_t* out_len);
 }

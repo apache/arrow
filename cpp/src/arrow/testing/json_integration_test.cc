@@ -38,11 +38,13 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/json_integration.h"
 #include "arrow/testing/json_internal.h"
 #include "arrow/testing/random.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/io_util.h"
@@ -858,15 +860,8 @@ TEST(TestJsonArrayWriter, PrimitiveTypes) {
 TEST(TestJsonArrayWriter, NestedTypes) {
   auto value_type = int32();
 
-  std::vector<bool> values_is_valid = {true, false, true, true, false, true, true};
-
-  std::vector<int32_t> values = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> values_array;
-  ArrayFromVector<Int32Type, int32_t>(values_is_valid, values, &values_array);
-
-  std::vector<int16_t> i16_values = {0, 1, 2, 3, 4, 5, 6};
-  std::shared_ptr<Array> i16_values_array;
-  ArrayFromVector<Int16Type, int16_t>(values_is_valid, i16_values, &i16_values_array);
+  auto values_array = ArrayFromJSON(int32(), "[0, null, 2, 3, null, 5, 6]");
+  auto i16_values_array = ArrayFromJSON(int32(), "[0, null, 2, 3, null, 5, 6]");
 
   // List
   std::vector<bool> list_is_valid = {true, false, true, true, true};
@@ -1016,16 +1011,10 @@ TEST(TestJsonFileReadWrite, JsonExample1) {
   std::shared_ptr<RecordBatch> batch;
   ReadOneBatchJson(json_example1, ex_schema, &batch);
 
-  std::vector<bool> foo_valid = {true, false, true, true, true};
-  std::vector<int32_t> foo_values = {1, 2, 3, 4, 5};
-  std::shared_ptr<Array> foo;
-  ArrayFromVector<Int32Type, int32_t>(foo_valid, foo_values, &foo);
+  auto foo = ArrayFromJSON(int32(), "[1, null, 3, 4, 5]");
   ASSERT_TRUE(batch->column(0)->Equals(foo));
 
-  std::vector<bool> bar_valid = {true, false, false, true, true};
-  std::vector<double> bar_values = {1, 2, 3, 4, 5};
-  std::shared_ptr<Array> bar;
-  ArrayFromVector<DoubleType, double>(bar_valid, bar_values, &bar);
+  auto bar = ArrayFromJSON(float64(), "[1, null, null, 4, 5]");
   ASSERT_TRUE(batch->column(1)->Equals(bar));
 }
 

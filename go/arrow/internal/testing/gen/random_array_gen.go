@@ -63,7 +63,7 @@ func (r *RandomArrayGenerator) GenerateBitmap(buffer []byte, n int64, prob float
 	return count
 }
 
-func (r *RandomArrayGenerator) Boolean(size int64, prob, nullProb float64) array.Interface {
+func (r *RandomArrayGenerator) Boolean(size int64, prob, nullProb float64) arrow.Array {
 	buffers := make([]*memory.Buffer, 2)
 	nullcount := int64(0)
 
@@ -96,7 +96,7 @@ func (r *RandomArrayGenerator) baseGenPrimitive(size int64, prob float64, byteWi
 	return buffers, nullCount
 }
 
-func (r *RandomArrayGenerator) Int8(size int64, min, max int8, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int8(size int64, min, max int8, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int8SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -114,7 +114,7 @@ func (r *RandomArrayGenerator) Int8(size int64, min, max int8, prob float64) arr
 	return array.NewInt8Data(data)
 }
 
-func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint8SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -132,7 +132,7 @@ func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) a
 	return array.NewUint8Data(data)
 }
 
-func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int16SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -150,7 +150,7 @@ func (r *RandomArrayGenerator) Int16(size int64, min, max int16, prob float64) a
 	return array.NewInt16Data(data)
 }
 
-func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint16SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -168,7 +168,7 @@ func (r *RandomArrayGenerator) Uint16(size int64, min, max uint16, prob float64)
 	return array.NewUint16Data(data)
 }
 
-func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int32SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -186,7 +186,7 @@ func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) a
 	return array.NewInt32Data(data)
 }
 
-func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint32SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -204,7 +204,7 @@ func (r *RandomArrayGenerator) Uint32(size int64, min, max uint32, prob float64)
 	return array.NewUint32Data(data)
 }
 
-func (r *RandomArrayGenerator) Int64(size int64, min, max int64, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int64(size int64, min, max int64, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Int64SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -222,7 +222,7 @@ func (r *RandomArrayGenerator) Int64(size int64, min, max int64, prob float64) a
 	return array.NewInt64Data(data)
 }
 
-func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Uint64SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -240,7 +240,7 @@ func (r *RandomArrayGenerator) Uint64(size int64, min, max uint64, prob float64)
 	return array.NewUint64Data(data)
 }
 
-func (r *RandomArrayGenerator) Float32(size int64, min, max float32, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Float32(size int64, min, max float32, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Float32SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -258,7 +258,7 @@ func (r *RandomArrayGenerator) Float32(size int64, min, max float32, prob float6
 	return array.NewFloat32Data(data)
 }
 
-func (r *RandomArrayGenerator) Float64(size int64, min, max float64, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Float64(size int64, min, max float64, prob float64) arrow.Array {
 	buffers, nullcount := r.baseGenPrimitive(size, prob, arrow.Float64SizeBytes)
 	for _, b := range buffers {
 		defer b.Release()
@@ -276,7 +276,7 @@ func (r *RandomArrayGenerator) Float64(size int64, min, max float64, prob float6
 	return array.NewFloat64Data(data)
 }
 
-func (r *RandomArrayGenerator) String(size int64, minLength, maxLength int, nullprob float64) array.Interface {
+func (r *RandomArrayGenerator) String(size int64, minLength, maxLength int, nullprob float64) arrow.Array {
 	lengths := r.Int32(size, int32(minLength), int32(maxLength), nullprob).(*array.Int32)
 	defer lengths.Release()
 

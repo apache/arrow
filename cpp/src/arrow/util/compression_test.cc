@@ -376,9 +376,10 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
   };
   constexpr CombinationOption combinations[] = {
       {Compression::GZIP, 2, true},     {Compression::BROTLI, 10, true},
-      {Compression::ZSTD, 4, true},     {Compression::LZ4, -10, false},
+      {Compression::ZSTD, 4, true},     {Compression::LZ4, 10, true},
       {Compression::LZO, -22, false},   {Compression::UNCOMPRESSED, 10, false},
-      {Compression::SNAPPY, 16, false}, {Compression::GZIP, -992, false}};
+      {Compression::SNAPPY, 16, false}, {Compression::GZIP, -992, false},
+      {Compression::LZ4_FRAME, 9, true}};
 
   std::vector<uint8_t> data = MakeRandomData(2000);
   for (const auto& combination : combinations) {

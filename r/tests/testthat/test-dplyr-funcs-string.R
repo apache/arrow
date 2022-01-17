@@ -121,7 +121,7 @@ test_that("paste, paste0, and str_c", {
   # sep is literal NA
   # errors in paste() (consistent with base::paste())
   expect_error(
-    nse_funcs$paste(x, y, sep = NA_character_),
+    call_binding("paste", x, y, sep = NA_character_),
     "Invalid separator"
   )
   # emits null in str_c() (consistent with stringr::str_c())
@@ -156,25 +156,25 @@ test_that("paste, paste0, and str_c", {
 
   # collapse argument not supported
   expect_error(
-    nse_funcs$paste(x, y, collapse = ""),
+    call_binding("paste", x, y, collapse = ""),
     "collapse"
   )
   expect_error(
-    nse_funcs$paste0(x, y, collapse = ""),
+    call_binding("paste0", x, y, collapse = ""),
     "collapse"
   )
   expect_error(
-    nse_funcs$str_c(x, y, collapse = ""),
+    call_binding("str_c", x, y, collapse = ""),
     "collapse"
   )
 
   # literal vectors of length != 1 not supported
   expect_error(
-    nse_funcs$paste(x, character(0), y),
+    call_binding("paste", x, character(0), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
   expect_error(
-    nse_funcs$paste(x, c(",", ";"), y),
+    call_binding("paste", x, c(",", ";"), y),
     "Literal vectors of length != 1 not supported in string concatenation"
   )
 })
@@ -501,7 +501,7 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
 
   # Error checking a single function because they all use the same code path.
   expect_error(
-    nse_funcs$str_to_lower("Apache Arrow", locale = "sp"),
+    call_binding("str_to_lower", "Apache Arrow", locale = "sp"),
     "Providing a value for 'locale' other than the default ('en') is not supported in Arrow",
     fixed = TRUE
   )
@@ -565,27 +565,27 @@ test_that("errors and warnings in string splitting", {
 
   x <- Expression$field_ref("x")
   expect_error(
-    nse_funcs$str_split(x, fixed("and", ignore_case = TRUE)),
+    call_binding("str_split", x, fixed("and", ignore_case = TRUE)),
     "Case-insensitive string splitting not supported in Arrow"
   )
   expect_error(
-    nse_funcs$str_split(x, coll("and.?")),
+    call_binding("str_split", x, coll("and.?")),
     "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_split(x, boundary(type = "word")),
+    call_binding("str_split", x, boundary(type = "word")),
     "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_split(x, "and", n = 0),
+    call_binding("str_split", x, "and", n = 0),
     "Splitting strings into zero parts not supported in Arrow"
   )
 
   # This condition generates a warning
   expect_warning(
-    nse_funcs$str_split(x, fixed("and"), simplify = TRUE),
+    call_binding("str_split", x, fixed("and"), simplify = TRUE),
     "Argument 'simplify = TRUE' will be ignored"
   )
 })
@@ -594,19 +594,19 @@ test_that("errors and warnings in string detection and replacement", {
   x <- Expression$field_ref("x")
 
   expect_error(
-    nse_funcs$str_detect(x, boundary(type = "character")),
+    call_binding("str_detect", x, boundary(type = "character")),
     "Pattern modifier `boundary()` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    nse_funcs$str_replace_all(x, coll("o", locale = "en"), "ó"),
+    call_binding("str_replace_all", x, coll("o", locale = "en"), "ó"),
     "Pattern modifier `coll()` not supported in Arrow",
     fixed = TRUE
   )
 
   # This condition generates a warning
   expect_warning(
-    nse_funcs$str_replace_all(x, regex("o", multiline = TRUE), "u"),
+    call_binding("str_replace_all", x, regex("o", multiline = TRUE), "u"),
     "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
 })
@@ -689,232 +689,6 @@ test_that("edge cases in string detection and replacement", {
       transmute(x = sub("(?i)^[abc]{3}$", "123", x, ignore.case = TRUE, fixed = FALSE)) %>%
       collect(),
     tibble(x = c("ABC"))
-  )
-})
-
-test_that("strptime", {
-  # base::strptime() defaults to local timezone
-  # but arrow's strptime defaults to UTC.
-  # So that tests are consistent, set the local timezone to UTC
-  # TODO: consider reevaluating this workaround after ARROW-12980
-  withr::local_timezone("UTC")
-
-  t_string <- tibble(x = c("2018-10-07 19:04:05", NA))
-  t_stamp <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05"), NA))
-
-  expect_equal(
-    t_string %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x)
-      ) %>%
-      collect(),
-    t_stamp,
-    ignore_attr = "tzone"
-  )
-
-  expect_equal(
-    t_string %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S")
-      ) %>%
-      collect(),
-    t_stamp,
-    ignore_attr = "tzone"
-  )
-
-  expect_equal(
-    t_string %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "ns")
-      ) %>%
-      collect(),
-    t_stamp,
-    ignore_attr = "tzone"
-  )
-
-  expect_equal(
-    t_string %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x, format = "%Y-%m-%d %H:%M:%S", unit = "s")
-      ) %>%
-      collect(),
-    t_stamp,
-    ignore_attr = "tzone"
-  )
-
-  tstring <- tibble(x = c("08-05-2008", NA))
-  tstamp <- strptime(c("08-05-2008", NA), format = "%m-%d-%Y")
-
-  expect_equal(
-    tstring %>%
-      Table$create() %>%
-      mutate(
-        x = strptime(x, format = "%m-%d-%Y")
-      ) %>%
-      pull(),
-    # R's strptime returns POSIXlt (list type)
-    as.POSIXct(tstamp),
-    ignore_attr = "tzone"
-  )
-})
-
-test_that("errors in strptime", {
-  # Error when tz is passed
-  x <- Expression$field_ref("x")
-  expect_error(
-    nse_funcs$strptime(x, tz = "PDT"),
-    "Time zone argument not supported in Arrow"
-  )
-})
-
-test_that("strftime", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-
-  times <- tibble(
-    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
-    date = c(as.Date("2021-01-01"), NA)
-  )
-  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
-  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = strftime(datetime, format = formats)) %>%
-      collect(),
-    times
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = strftime(date, format = formats_date)) %>%
-      collect(),
-    times
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = strftime(datetime, format = formats, tz = "Pacific/Marquesas")) %>%
-      collect(),
-    times
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = strftime(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
-      collect(),
-    times
-  )
-
-  withr::with_timezone(
-    "Pacific/Marquesas",
-    {
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            x = strftime(datetime, format = formats, tz = "EST"),
-            x_date = strftime(date, format = formats_date, tz = "EST")
-          ) %>%
-          collect(),
-        times
-      )
-
-      compare_dplyr_binding(
-        .input %>%
-          mutate(
-            x = strftime(datetime, format = formats),
-            x_date = strftime(date, format = formats_date)
-          ) %>%
-          collect(),
-        times
-      )
-    }
-  )
-
-  # This check is due to differences in the way %c currently works in Arrow and R's strftime.
-  # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
-  expect_error(
-    times %>%
-      Table$create() %>%
-      mutate(x = strftime(datetime, format = "%c")) %>%
-      collect(),
-    "%c flag is not supported in non-C locales."
-  )
-
-  # Output precision of %S depends on the input timestamp precision.
-  # Timestamps with second precision are represented as integers while
-  # milliseconds, microsecond and nanoseconds are represented as fixed floating
-  # point numbers with 3, 6 and 9 decimal places respectively.
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = strftime(datetime, format = "%S")) %>%
-      transmute(as.double(substr(x, 1, 2))) %>%
-      collect(),
-    times,
-    tolerance = 1e-6
-  )
-})
-
-test_that("format_ISO8601", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
-  times <- tibble(x = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA))
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = format_ISO8601(x, precision = "ymd", usetz = FALSE)) %>%
-      collect(),
-    times
-  )
-
-  if (getRversion() < "3.5") {
-    # before 3.5, times$x will have no timezone attribute, so Arrow faithfully
-    # errors that there is no timezone to format:
-    expect_error(
-      times %>%
-        Table$create() %>%
-        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
-        collect(),
-      "Timezone not present, cannot convert to string with timezone: %Y-%m-%d%z"
-    )
-
-    # See comment regarding %S flag in strftime tests
-    expect_error(
-      times %>%
-        Table$create() %>%
-        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
-        mutate(x = gsub("\\.0*", "", x)) %>%
-        collect(),
-      "Timezone not present, cannot convert to string with timezone: %Y-%m-%dT%H:%M:%S%z"
-    )
-  } else {
-    compare_dplyr_binding(
-      .input %>%
-        mutate(x = format_ISO8601(x, precision = "ymd", usetz = TRUE)) %>%
-        collect(),
-      times
-    )
-
-    # See comment regarding %S flag in strftime tests
-    compare_dplyr_binding(
-      .input %>%
-        mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = TRUE)) %>%
-        mutate(x = gsub("\\.0*", "", x)) %>%
-        collect(),
-      times
-    )
-  }
-
-
-  # See comment regarding %S flag in strftime tests
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = format_ISO8601(x, precision = "ymdhms", usetz = FALSE)) %>%
-      mutate(x = gsub("\\.0*", "", x)) %>%
-      collect(),
-    times
   )
 })
 
@@ -1163,18 +937,19 @@ test_that("substr", {
   )
 
   expect_error(
-    nse_funcs$substr("Apache Arrow", c(1, 2), 3),
+    call_binding("substr", "Apache Arrow", c(1, 2), 3),
     "`start` must be length 1 - other lengths are not supported in Arrow"
   )
 
   expect_error(
-    nse_funcs$substr("Apache Arrow", 1, c(2, 3)),
+    call_binding("substr", "Apache Arrow", 1, c(2, 3)),
     "`stop` must be length 1 - other lengths are not supported in Arrow"
   )
 })
 
 test_that("substring", {
-  # nse_funcs$substring just calls nse_funcs$substr, tested extensively above
+  # binding for substring just calls call_binding("substr", ...),
+  # tested extensively above
   df <- tibble(x = "Apache Arrow")
 
   compare_dplyr_binding(
@@ -1259,12 +1034,12 @@ test_that("str_sub", {
   )
 
   expect_error(
-    nse_funcs$str_sub("Apache Arrow", c(1, 2), 3),
+    call_binding("str_sub", "Apache Arrow", c(1, 2), 3),
     "`start` must be length 1 - other lengths are not supported in Arrow"
   )
 
   expect_error(
-    nse_funcs$str_sub("Apache Arrow", 1, c(2, 3)),
+    call_binding("str_sub", "Apache Arrow", 1, c(2, 3)),
     "`end` must be length 1 - other lengths are not supported in Arrow"
   )
 })
@@ -1393,7 +1168,7 @@ test_that("str_count", {
     df
   )
 
-  # nse_funcs$str_count() is not vectorised over pattern
+  # call_binding("str_count", ) is not vectorised over pattern
   compare_dplyr_binding(
     .input %>%
       mutate(let_count = str_count(cities, pattern = c("a", "b", "e", "g", "p", "n", "s"))) %>%

@@ -25,6 +25,7 @@
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
 # - Go >= 1.15
+# - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
 # LD_LIBRARY_PATH.
@@ -55,7 +56,6 @@ set -x
 set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-ARROW_DIR="$(dirname $(dirname ${SOURCE_DIR}))"
 
 detect_cuda() {
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
@@ -191,9 +191,7 @@ test_yum() {
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
-                "centos:7" \
-                "centos:8" \
-                "arm64v8/centos:8"; do
+                "centos:7"; do
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -442,6 +440,7 @@ test_js() {
   yarn lint
   yarn build
   yarn test
+  yarn test:bundle
   popd
 }
 
@@ -471,7 +470,7 @@ test_ruby() {
 }
 
 test_go() {
-  local VERSION=1.15.14
+  local VERSION=1.16.12
 
   local ARCH="$(uname -m)"
   if [ "$ARCH" == "x86_64" ]; then
@@ -533,16 +532,34 @@ test_integration() {
               $INTEGRATION_TEST_ARGS
 }
 
-clone_testing_repositories() {
-  # Clone testing repositories if not cloned already
-  if [ ! -d "arrow-testing" ]; then
-    git clone https://github.com/apache/arrow-testing.git
+ensure_source_directory() {
+  dist_name="apache-arrow-${VERSION}"
+  if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
+    import_gpg_keys
+    if [ ! -d "${dist_name}" ]; then
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+    fi
+  else
+    mkdir -p ${dist_name}
+    if [ ! -f ${TEST_ARCHIVE} ]; then
+      echo "${TEST_ARCHIVE} not found"
+      exit 1
+    fi
+    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
   fi
-  if [ ! -d "parquet-testing" ]; then
-    git clone https://github.com/apache/parquet-testing.git
+  # clone testing repositories
+  pushd ${dist_name}
+  if [ ! -d "testing/data" ]; then
+    git clone https://github.com/apache/arrow-testing.git testing
   fi
-  export ARROW_TEST_DATA=$PWD/arrow-testing/data
-  export PARQUET_TEST_DATA=$PWD/parquet-testing/data
+  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
+    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+  fi
+  export ARROW_DIR=$PWD
+  export ARROW_TEST_DATA=$PWD/testing/data
+  export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
+  popd
 }
 
 test_source_distribution() {
@@ -556,8 +573,6 @@ test_source_distribution() {
   else
     NPROC=$(nproc)
   fi
-
-  clone_testing_repositories
 
   if [ ${TEST_JAVA} -gt 0 ]; then
     test_package_java
@@ -607,7 +622,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local py_arches="3.7m 3.8 3.9 3.10"
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for py_arch in ${py_arches}; do
@@ -632,7 +647,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.6m 3.7m 3.8 3.9 3.10"
+  local py_arches="3.7m 3.8 3.9 3.10"
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 
@@ -702,8 +717,6 @@ test_macos_wheels() {
 }
 
 test_wheels() {
-  clone_testing_repositories
-
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -748,7 +761,15 @@ test_jars() {
 
 # Install NodeJS locally for running the JavaScript tests rather than using the
 # system Node installation, which may be too old.
-: ${INSTALL_NODE:=1}
+node_major_version=$( \
+  node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
+required_node_major_version=14
+if [ -n "${node_major_version}" -a \
+     "${node_major_version}" -ge ${required_node_major_version} ]; then
+  : ${INSTALL_NODE:=0}
+else
+  : ${INSTALL_NODE:=1}
+fi
 
 case "${ARTIFACT}" in
   source)
@@ -846,22 +867,8 @@ fi
 
 case "${ARTIFACT}" in
   source)
-    dist_name="apache-arrow-${VERSION}"
-    if [ ${TEST_SOURCE} -gt 0 ]; then
-      import_gpg_keys
-      if [ ! -d "${dist_name}" ]; then
-        fetch_archive ${dist_name}
-        tar xf ${dist_name}.tar.gz
-      fi
-    else
-      mkdir -p ${dist_name}
-      if [ ! -f ${TEST_ARCHIVE} ]; then
-        echo "${TEST_ARCHIVE} not found"
-        exit 1
-      fi
-      tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
-    fi
-    pushd ${dist_name}
+    ensure_source_directory
+    pushd ${ARROW_DIR}
     test_source_distribution
     popd
     ;;
@@ -870,7 +877,7 @@ case "${ARTIFACT}" in
     test_binary_distribution
     ;;
   wheels)
-    import_gpg_keys
+    ensure_source_directory
     test_wheels
     ;;
   jars)

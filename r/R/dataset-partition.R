@@ -107,7 +107,16 @@ hive_partition <- function(..., null_fallback = NULL, segment_encoding = "uri") 
   }
 }
 
-PartitioningFactory <- R6Class("PartitioningFactory", inherit = ArrowObject)
+PartitioningFactory <- R6Class("PartitioningFactory",
+  inherit = ArrowObject,
+  public = list(
+    Inspect = function(paths) dataset___PartitioningFactory__Inspect(self, paths),
+    Finish = function(schema) dataset___PartitioningFactory__Finish(self, schema)
+  ),
+  active = list(
+    type_name = function() dataset___PartitioningFactory__type_name(self)
+  )
+)
 
 #' @usage NULL
 #' @format NULL

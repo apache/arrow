@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { BN } from '../util/bn';
-import { Visitor } from '../visitor';
-import { decodeUtf8 } from '../util/utf8';
-import { VectorType } from '../interfaces';
-import { uint16ToFloat64 } from '../util/math';
-import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum';
+import { Data } from '../data.js';
+import { BN } from '../util/bn.js';
+import { Vector } from '../vector.js';
+import { Visitor } from '../visitor.js';
+import { MapRow } from '../row/map.js';
+import { StructRow } from '../row/struct.js';
+import { decodeUtf8 } from '../util/utf8.js';
+import { TypeToDataType } from '../interfaces.js';
+import { uint16ToFloat64 } from '../util/math.js';
+import { Type, UnionMode, Precision, DateUnit, TimeUnit, IntervalUnit } from '../enum.js';
 import {
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
@@ -32,61 +35,66 @@ import {
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
     Union, DenseUnion, SparseUnion,
-} from '../type';
+} from '../type.js';
 
 /** @ignore */
 export interface GetVisitor extends Visitor {
-    visit<T extends VectorType>  (node: T, index: number): T['TValue'];
-    visitMany<T extends VectorType>  (nodes: T[], indices: number[]): T['TValue'][];
-    getVisitFn<T extends Type>    (node: T): (vector: VectorType<T>, index: number) => VectorType<T>['TValue'];
-    getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): (vector: VectorType<T>, index: number) => VectorType<T>['TValue'];
-    visitNull                 <T extends Null>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitBool                 <T extends Bool>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitInt                  <T extends Int>                  (vector: VectorType<T>, index: number): T['TValue'];
-    visitInt8                 <T extends Int8>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitInt16                <T extends Int16>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitInt32                <T extends Int32>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitInt64                <T extends Int64>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitUint8                <T extends Uint8>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitUint16               <T extends Uint16>               (vector: VectorType<T>, index: number): T['TValue'];
-    visitUint32               <T extends Uint32>               (vector: VectorType<T>, index: number): T['TValue'];
-    visitUint64               <T extends Uint64>               (vector: VectorType<T>, index: number): T['TValue'];
-    visitFloat                <T extends Float>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitFloat16              <T extends Float16>              (vector: VectorType<T>, index: number): T['TValue'];
-    visitFloat32              <T extends Float32>              (vector: VectorType<T>, index: number): T['TValue'];
-    visitFloat64              <T extends Float64>              (vector: VectorType<T>, index: number): T['TValue'];
-    visitUtf8                 <T extends Utf8>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitBinary               <T extends Binary>               (vector: VectorType<T>, index: number): T['TValue'];
-    visitFixedSizeBinary      <T extends FixedSizeBinary>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitDate                 <T extends Date_>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitDateDay              <T extends DateDay>              (vector: VectorType<T>, index: number): T['TValue'];
-    visitDateMillisecond      <T extends DateMillisecond>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimestamp            <T extends Timestamp>            (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimestampSecond      <T extends TimestampSecond>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimestampMillisecond <T extends TimestampMillisecond> (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimestampMicrosecond <T extends TimestampMicrosecond> (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimestampNanosecond  <T extends TimestampNanosecond>  (vector: VectorType<T>, index: number): T['TValue'];
-    visitTime                 <T extends Time>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimeSecond           <T extends TimeSecond>           (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimeMillisecond      <T extends TimeMillisecond>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimeMicrosecond      <T extends TimeMicrosecond>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitTimeNanosecond       <T extends TimeNanosecond>       (vector: VectorType<T>, index: number): T['TValue'];
-    visitDecimal              <T extends Decimal>              (vector: VectorType<T>, index: number): T['TValue'];
-    visitList                 <T extends List>                 (vector: VectorType<T>, index: number): T['TValue'];
-    visitStruct               <T extends Struct>               (vector: VectorType<T>, index: number): T['TValue'];
-    visitUnion                <T extends Union>                (vector: VectorType<T>, index: number): T['TValue'];
-    visitDenseUnion           <T extends DenseUnion>           (vector: VectorType<T>, index: number): T['TValue'];
-    visitSparseUnion          <T extends SparseUnion>          (vector: VectorType<T>, index: number): T['TValue'];
-    visitDictionary           <T extends Dictionary>           (vector: VectorType<T>, index: number): T['TValue'];
-    visitInterval             <T extends Interval>             (vector: VectorType<T>, index: number): T['TValue'];
-    visitIntervalDayTime      <T extends IntervalDayTime>      (vector: VectorType<T>, index: number): T['TValue'];
-    visitIntervalYearMonth    <T extends IntervalYearMonth>    (vector: VectorType<T>, index: number): T['TValue'];
-    visitFixedSizeList        <T extends FixedSizeList>        (vector: VectorType<T>, index: number): T['TValue'];
-    visitMap                  <T extends Map_>                 (vector: VectorType<T>, index: number): T['TValue'];
+    visit<T extends DataType>(node: Data<T>, index: number): T['TValue'] | null;
+    visitMany<T extends DataType>(nodes: Data<T>[], indices: number[]): (T['TValue'] | null)[];
+    getVisitFn<T extends DataType>(node: Vector<T> | Data<T> | T): (data: Data<T>, index: number) => T['TValue'] | null;
+    getVisitFn<T extends Type>(node: T): (data: Data<TypeToDataType<T>>, index: number) => TypeToDataType<T>['TValue'];
+    visitNull<T extends Null>(data: Data<T>, index: number): T['TValue'] | null;
+    visitBool<T extends Bool>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInt<T extends Int>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInt8<T extends Int8>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInt16<T extends Int16>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInt32<T extends Int32>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInt64<T extends Int64>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUint8<T extends Uint8>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUint16<T extends Uint16>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUint32<T extends Uint32>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUint64<T extends Uint64>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat<T extends Float>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat16<T extends Float16>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat32<T extends Float32>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFloat64<T extends Float64>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUtf8<T extends Utf8>(data: Data<T>, index: number): T['TValue'] | null;
+    visitBinary<T extends Binary>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDate<T extends Date_>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDateDay<T extends DateDay>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDateMillisecond<T extends DateMillisecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestamp<T extends Timestamp>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampSecond<T extends TimestampSecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampMillisecond<T extends TimestampMillisecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampMicrosecond<T extends TimestampMicrosecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimestampNanosecond<T extends TimestampNanosecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTime<T extends Time>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeSecond<T extends TimeSecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeMillisecond<T extends TimeMillisecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeMicrosecond<T extends TimeMicrosecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitTimeNanosecond<T extends TimeNanosecond>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDecimal<T extends Decimal>(data: Data<T>, index: number): T['TValue'] | null;
+    visitList<T extends List>(data: Data<T>, index: number): T['TValue'] | null;
+    visitStruct<T extends Struct>(data: Data<T>, index: number): T['TValue'] | null;
+    visitUnion<T extends Union>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDenseUnion<T extends DenseUnion>(data: Data<T>, index: number): T['TValue'] | null;
+    visitSparseUnion<T extends SparseUnion>(data: Data<T>, index: number): T['TValue'] | null;
+    visitDictionary<T extends Dictionary>(data: Data<T>, index: number): T['TValue'] | null;
+    visitInterval<T extends Interval>(data: Data<T>, index: number): T['TValue'] | null;
+    visitIntervalDayTime<T extends IntervalDayTime>(data: Data<T>, index: number): T['TValue'] | null;
+    visitIntervalYearMonth<T extends IntervalYearMonth>(data: Data<T>, index: number): T['TValue'] | null;
+    visitFixedSizeList<T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] | null;
+    visitMap<T extends Map_>(data: Data<T>, index: number): T['TValue'] | null;
 }
 
 /** @ignore */
-export class GetVisitor extends Visitor {}
+export class GetVisitor extends Visitor { }
+
+/** @ignore */
+function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
+    return (data: Data<T>, _1: any) => data.getValid(_1) ? fn(data, _1) : null;
+}
 
 /** @ignore */const epochDaysToMs = (data: Int32Array, index: number) => 86400000 * data[index];
 /** @ignore */const epochMillisecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1]) + (data[index] >>> 0);
@@ -98,7 +106,7 @@ export class GetVisitor extends Visitor {}
 /** @ignore */const epochMillisecondsLongToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochMillisecondsLongToMs(data, index));
 
 /** @ignore */
-const getNull = <T extends Null>(_vector: VectorType<T>, _index: number): T['TValue'] => null;
+const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
 const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number) => {
     const { [index]: x, [index + 1]: y } = valueOffsets;
@@ -106,7 +114,7 @@ const getVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, ind
 };
 
 /** @ignore */
-const getBool = <T extends Bool>({ offset, values }: VectorType<T>, index: number): T['TValue'] => {
+const getBool = <T extends Bool>({ offset, values }: Data<T>, index: number): T['TValue'] => {
     const idx = offset + index;
     const byte = values[idx >> 3];
     return (byte & 1 << (idx % 8)) !== 0;
@@ -118,204 +126,208 @@ type Numeric1X = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32 | Float32 | Floa
 type Numeric2X = Int64 | Uint64;
 
 /** @ignore */
-const getDateDay         = <T extends DateDay>        ({ values         }: VectorType<T>, index: number): T['TValue'] => epochDaysToDate(values, index);
+const getDateDay = <T extends DateDay>({ values }: Data<T>, index: number): T['TValue'] => epochDaysToDate(values, index);
 /** @ignore */
-const getDateMillisecond = <T extends DateMillisecond>({ values         }: VectorType<T>, index: number): T['TValue'] => epochMillisecondsLongToDate(values, index * 2);
+const getDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToDate(values, index * 2);
 /** @ignore */
-const getNumeric         = <T extends Numeric1X>      ({ stride, values }: VectorType<T>, index: number): T['TValue'] => values[stride * index];
+const getNumeric = <T extends Numeric1X>({ stride, values }: Data<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */
-const getFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number): T['TValue'] => uint16ToFloat64(values[stride * index]);
+const getFloat16 = <T extends Float16>({ stride, values }: Data<T>, index: number): T['TValue'] => uint16ToFloat64(values[stride * index]);
 /** @ignore */
-const getBigInts         = <T extends Numeric2X>({ stride, values, type }: VectorType<T>, index: number): T['TValue'] => <any> BN.new(values.subarray(stride * index, stride * (index + 1)), type.isSigned);
+const getBigInts = <T extends Numeric2X>({ values }: Data<T>, index: number): T['TValue'] => values[index];
 /** @ignore */
-const getFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: VectorType<T>, index: number): T['TValue'] => values.subarray(stride * index, stride * (index + 1));
+const getFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Data<T>, index: number): T['TValue'] => values.subarray(stride * index, stride * (index + 1));
 
 /** @ignore */
-const getBinary = <T extends Binary>({ values, valueOffsets }: VectorType<T>, index: number): T['TValue'] => getVariableWidthBytes(values, valueOffsets, index);
+const getBinary = <T extends Binary>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => getVariableWidthBytes(values, valueOffsets, index);
 /** @ignore */
-const getUtf8 = <T extends Utf8>({ values, valueOffsets }: VectorType<T>, index: number): T['TValue'] => {
+const getUtf8 = <T extends Utf8>({ values, valueOffsets }: Data<T>, index: number): T['TValue'] => {
     const bytes = getVariableWidthBytes(values, valueOffsets, index);
     return bytes !== null ? decodeUtf8(bytes) : null as any;
 };
 
 /* istanbul ignore next */
 /** @ignore */
-const getInt = <T extends Int>(vector: VectorType<T>, index: number): T['TValue'] => (
-    vector.type.bitWidth < 64
-        ? getNumeric(vector as VectorType<Numeric1X>, index)
-        : getBigInts(vector as VectorType<Numeric2X>, index)
+const getInt = <T extends Int>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+
+/* istanbul ignore next */
+/** @ignore */
+const getFloat = <T extends Float>({ type, values }: Data<T>, index: number): T['TValue'] => (
+    type.precision !== Precision.HALF ? values[index] : uint16ToFloat64(values[index])
 );
 
 /* istanbul ignore next */
 /** @ignore */
-const getFloat = <T extends Float> (vector: VectorType<T>, index: number): T['TValue'] => (
-    vector.type.precision !== Precision.HALF
-        ? getNumeric(vector as VectorType<Numeric1X>, index)
-        : getFloat16(vector as VectorType<Float16>, index)
-);
-
-/* istanbul ignore next */
-/** @ignore */
-const getDate = <T extends Date_> (vector: VectorType<T>, index: number): T['TValue'] => (
-    vector.type.unit === DateUnit.DAY
-        ? getDateDay(vector as VectorType<DateDay>, index)
-        : getDateMillisecond(vector as VectorType<DateMillisecond>, index)
+const getDate = <T extends Date_>(data: Data<T>, index: number): T['TValue'] => (
+    data.type.unit === DateUnit.DAY
+        ? getDateDay(data as Data<DateDay>, index)
+        : getDateMillisecond(data as Data<DateMillisecond>, index)
 );
 
 /** @ignore */
-const getTimestampSecond      = <T extends TimestampSecond>     ({ values }: VectorType<T>, index: number): T['TValue'] => 1000 * epochMillisecondsLongToMs(values, index * 2);
+const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000 * epochMillisecondsLongToMs(values, index * 2);
 /** @ignore */
-const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: VectorType<T>, index: number): T['TValue'] => epochMillisecondsLongToMs(values, index * 2);
+const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToMs(values, index * 2);
 /** @ignore */
-const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: VectorType<T>, index: number): T['TValue'] => epochMicrosecondsLongToMs(values, index * 2);
+const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => epochMicrosecondsLongToMs(values, index * 2);
 /** @ignore */
-const getTimestampNanosecond  = <T extends TimestampNanosecond> ({ values }: VectorType<T>, index: number): T['TValue'] => epochNanosecondsLongToMs(values, index * 2);
+const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => epochNanosecondsLongToMs(values, index * 2);
 /* istanbul ignore next */
 /** @ignore */
-const getTimestamp            = <T extends Timestamp>(vector: VectorType<T>, index: number): T['TValue'] => {
-    switch (vector.type.unit) {
-        case TimeUnit.SECOND:      return      getTimestampSecond(vector as VectorType<TimestampSecond>, index);
-        case TimeUnit.MILLISECOND: return getTimestampMillisecond(vector as VectorType<TimestampMillisecond>, index);
-        case TimeUnit.MICROSECOND: return getTimestampMicrosecond(vector as VectorType<TimestampMicrosecond>, index);
-        case TimeUnit.NANOSECOND:  return  getTimestampNanosecond(vector as VectorType<TimestampNanosecond>, index);
+const getTimestamp = <T extends Timestamp>(data: Data<T>, index: number): T['TValue'] => {
+    switch (data.type.unit) {
+        case TimeUnit.SECOND: return getTimestampSecond(data as Data<TimestampSecond>, index);
+        case TimeUnit.MILLISECOND: return getTimestampMillisecond(data as Data<TimestampMillisecond>, index);
+        case TimeUnit.MICROSECOND: return getTimestampMicrosecond(data as Data<TimestampMicrosecond>, index);
+        case TimeUnit.NANOSECOND: return getTimestampNanosecond(data as Data<TimestampNanosecond>, index);
     }
 };
 
 /** @ignore */
-const getTimeSecond      = <T extends TimeSecond>     ({ values, stride }: VectorType<T>, index: number): T['TValue'] => values[stride * index];
+const getTimeSecond = <T extends TimeSecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
 /** @ignore */
-const getTimeMillisecond = <T extends TimeMillisecond>({ values, stride }: VectorType<T>, index: number): T['TValue'] => values[stride * index];
+const getTimeMillisecond = <T extends TimeMillisecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
 /** @ignore */
-const getTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: VectorType<T>, index: number): T['TValue'] => BN.signed(values.subarray(2 * index, 2 * (index + 1)));
+const getTimeMicrosecond = <T extends TimeMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
 /** @ignore */
-const getTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: VectorType<T>, index: number): T['TValue'] => BN.signed(values.subarray(2 * index, 2 * (index + 1)));
+const getTimeNanosecond = <T extends TimeNanosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
 /* istanbul ignore next */
 /** @ignore */
-const getTime            = <T extends Time>(vector: VectorType<T>, index: number): T['TValue'] => {
-    switch (vector.type.unit) {
-        case TimeUnit.SECOND:      return      getTimeSecond(vector as VectorType<TimeSecond>, index);
-        case TimeUnit.MILLISECOND: return getTimeMillisecond(vector as VectorType<TimeMillisecond>, index);
-        case TimeUnit.MICROSECOND: return getTimeMicrosecond(vector as VectorType<TimeMicrosecond>, index);
-        case TimeUnit.NANOSECOND:  return  getTimeNanosecond(vector as VectorType<TimeNanosecond>, index);
+const getTime = <T extends Time>(data: Data<T>, index: number): T['TValue'] => {
+    switch (data.type.unit) {
+        case TimeUnit.SECOND: return getTimeSecond(data as Data<TimeSecond>, index);
+        case TimeUnit.MILLISECOND: return getTimeMillisecond(data as Data<TimeMillisecond>, index);
+        case TimeUnit.MICROSECOND: return getTimeMicrosecond(data as Data<TimeMicrosecond>, index);
+        case TimeUnit.NANOSECOND: return getTimeNanosecond(data as Data<TimeNanosecond>, index);
     }
 };
 
 /** @ignore */
-const getDecimal = <T extends Decimal>({ values }: VectorType<T>, index: number): T['TValue'] => BN.decimal(values.subarray(4 * index, 4 * (index + 1)));
+const getDecimal = <T extends Decimal>({ values, stride }: Data<T>, index: number): T['TValue'] => BN.decimal(values.subarray(stride * index, stride * (index + 1)));
 
 /** @ignore */
-const getList = <T extends List>(vector: VectorType<T>, index: number): T['TValue'] => {
-    const child = vector.getChildAt(0)!, { valueOffsets, stride } = vector;
-    return child.slice(valueOffsets[index * stride], valueOffsets[(index * stride) + 1]) as T['TValue'];
+const getList = <T extends List>(data: Data<T>, index: number): T['TValue'] => {
+    const { valueOffsets, stride } = data;
+    const { [index * stride]: begin } = valueOffsets;
+    const { [index * stride + 1]: end } = valueOffsets;
+    const child: Data<T['valueType']> = data.children[0];
+    const slice = child.slice(begin, end - begin);
+    return new Vector([slice]) as T['TValue'];
 };
 
 /** @ignore */
-const getMap = <T extends Map_>(vector: VectorType<T>, index: number): T['TValue'] => {
-    return vector.bind(index) as T['TValue'];
+const getMap = <T extends Map_>(data: Data<T>, index: number): T['TValue'] => {
+    const { valueOffsets } = data;
+    const { [index]: begin } = valueOffsets;
+    const { [index + 1]: end } = valueOffsets;
+    const child = data.children[0] as Data<T['childType']>;
+    return new MapRow(child.slice(begin, end - begin));
 };
 
 /** @ignore */
-const getStruct = <T extends Struct>(vector: VectorType<T>, index: number): T['TValue'] => {
-    return vector.bind(index) as T['TValue'];
+const getStruct = <T extends Struct>(data: Data<T>, index: number): T['TValue'] => {
+    return new StructRow(data, index);
 };
 
 /* istanbul ignore next */
 /** @ignore */
 const getUnion = <
-    V extends VectorType<Union> | VectorType<DenseUnion> | VectorType<SparseUnion>
->(vector: V, index: number): V['TValue'] => {
-    return vector.type.mode === UnionMode.Dense ?
-        getDenseUnion(vector as VectorType<DenseUnion>, index) :
-        getSparseUnion(vector as VectorType<SparseUnion>, index);
+    D extends Data<Union> | Data<DenseUnion> | Data<SparseUnion>
+>(data: D, index: number): D['TValue'] => {
+    return data.type.mode === UnionMode.Dense ?
+        getDenseUnion(data as Data<DenseUnion>, index) :
+        getSparseUnion(data as Data<SparseUnion>, index);
 };
 
 /** @ignore */
-const getDenseUnion = <T extends DenseUnion>(vector: VectorType<T>, index: number): T['TValue'] => {
-    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
-    const child = vector.getChildAt(childIndex);
-    return child ? child.get(vector.valueOffsets[index]) : null;
+const getDenseUnion = <T extends DenseUnion>(data: Data<T>, index: number): T['TValue'] => {
+    const childIndex = data.type.typeIdToChildIndex[data.typeIds[index]];
+    const child = data.children[childIndex];
+    return instance.visit(child, data.valueOffsets[index]);
 };
 
 /** @ignore */
-const getSparseUnion = <T extends SparseUnion>(vector: VectorType<T>, index: number): T['TValue'] => {
-    const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
-    const child = vector.getChildAt(childIndex);
-    return child ? child.get(index) : null;
+const getSparseUnion = <T extends SparseUnion>(data: Data<T>, index: number): T['TValue'] => {
+    const childIndex = data.type.typeIdToChildIndex[data.typeIds[index]];
+    const child = data.children[childIndex];
+    return instance.visit(child, index);
 };
 
 /** @ignore */
-const getDictionary = <T extends Dictionary>(vector: VectorType<T>, index: number): T['TValue'] => {
-    return vector.getValue(vector.getKey(index)!);
+const getDictionary = <T extends Dictionary>(data: Data<T>, index: number): T['TValue'] => {
+    return data.dictionary?.get(data.values[index]);
 };
 
 /* istanbul ignore next */
 /** @ignore */
-const getInterval = <T extends Interval>(vector: VectorType<T>, index: number): T['TValue'] =>
-    (vector.type.unit === IntervalUnit.DAY_TIME)
-        ? getIntervalDayTime(vector as VectorType<IntervalDayTime>, index)
-        : getIntervalYearMonth(vector as VectorType<IntervalYearMonth>, index);
+const getInterval = <T extends Interval>(data: Data<T>, index: number): T['TValue'] =>
+    (data.type.unit === IntervalUnit.DAY_TIME)
+        ? getIntervalDayTime(data as Data<IntervalDayTime>, index)
+        : getIntervalYearMonth(data as Data<IntervalYearMonth>, index);
 
 /** @ignore */
-const getIntervalDayTime = <T extends IntervalDayTime>({ values }: VectorType<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));
+const getIntervalDayTime = <T extends IntervalDayTime>({ values }: Data<T>, index: number): T['TValue'] => values.subarray(2 * index, 2 * (index + 1));
 
 /** @ignore */
-const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: VectorType<T>, index: number): T['TValue'] => {
+const getIntervalYearMonth = <T extends IntervalYearMonth>({ values }: Data<T>, index: number): T['TValue'] => {
     const interval = values[index];
     const int32s = new Int32Array(2);
-    int32s[0] = interval / 12 | 0; /* years */
-    int32s[1] = interval % 12 | 0; /* months */
+    int32s[0] = Math.trunc(interval / 12); /* years */
+    int32s[1] = Math.trunc(interval % 12); /* months */
     return int32s;
 };
 
 /** @ignore */
-const getFixedSizeList = <T extends FixedSizeList>(vector: VectorType<T>, index: number): T['TValue'] => {
-    const child = vector.getChildAt(0)!, { stride } = vector;
-    return child.slice(index * stride, (index + 1) * stride) as T['TValue'];
+const getFixedSizeList = <T extends FixedSizeList>(data: Data<T>, index: number): T['TValue'] => {
+    const { stride } = data;
+    const child: Data<T['valueType']> = data.children[0];
+    const slice = child.slice(index * stride, stride);
+    return new Vector([slice]);
 };
 
-GetVisitor.prototype.visitNull                 =                 getNull;
-GetVisitor.prototype.visitBool                 =                 getBool;
-GetVisitor.prototype.visitInt                  =                  getInt;
-GetVisitor.prototype.visitInt8                 =              getNumeric;
-GetVisitor.prototype.visitInt16                =              getNumeric;
-GetVisitor.prototype.visitInt32                =              getNumeric;
-GetVisitor.prototype.visitInt64                =              getBigInts;
-GetVisitor.prototype.visitUint8                =              getNumeric;
-GetVisitor.prototype.visitUint16               =              getNumeric;
-GetVisitor.prototype.visitUint32               =              getNumeric;
-GetVisitor.prototype.visitUint64               =              getBigInts;
-GetVisitor.prototype.visitFloat                =                getFloat;
-GetVisitor.prototype.visitFloat16              =              getFloat16;
-GetVisitor.prototype.visitFloat32              =              getNumeric;
-GetVisitor.prototype.visitFloat64              =              getNumeric;
-GetVisitor.prototype.visitUtf8                 =                 getUtf8;
-GetVisitor.prototype.visitBinary               =               getBinary;
-GetVisitor.prototype.visitFixedSizeBinary      =      getFixedSizeBinary;
-GetVisitor.prototype.visitDate                 =                 getDate;
-GetVisitor.prototype.visitDateDay              =              getDateDay;
-GetVisitor.prototype.visitDateMillisecond      =      getDateMillisecond;
-GetVisitor.prototype.visitTimestamp            =            getTimestamp;
-GetVisitor.prototype.visitTimestampSecond      =      getTimestampSecond;
-GetVisitor.prototype.visitTimestampMillisecond = getTimestampMillisecond;
-GetVisitor.prototype.visitTimestampMicrosecond = getTimestampMicrosecond;
-GetVisitor.prototype.visitTimestampNanosecond  =  getTimestampNanosecond;
-GetVisitor.prototype.visitTime                 =                 getTime;
-GetVisitor.prototype.visitTimeSecond           =           getTimeSecond;
-GetVisitor.prototype.visitTimeMillisecond      =      getTimeMillisecond;
-GetVisitor.prototype.visitTimeMicrosecond      =      getTimeMicrosecond;
-GetVisitor.prototype.visitTimeNanosecond       =       getTimeNanosecond;
-GetVisitor.prototype.visitDecimal              =              getDecimal;
-GetVisitor.prototype.visitList                 =                 getList;
-GetVisitor.prototype.visitStruct               =               getStruct;
-GetVisitor.prototype.visitUnion                =                getUnion;
-GetVisitor.prototype.visitDenseUnion           =           getDenseUnion;
-GetVisitor.prototype.visitSparseUnion          =          getSparseUnion;
-GetVisitor.prototype.visitDictionary           =           getDictionary;
-GetVisitor.prototype.visitInterval             =             getInterval;
-GetVisitor.prototype.visitIntervalDayTime      =      getIntervalDayTime;
-GetVisitor.prototype.visitIntervalYearMonth    =    getIntervalYearMonth;
-GetVisitor.prototype.visitFixedSizeList        =        getFixedSizeList;
-GetVisitor.prototype.visitMap                  =                  getMap;
+GetVisitor.prototype.visitNull = wrapGet(getNull);
+GetVisitor.prototype.visitBool = wrapGet(getBool);
+GetVisitor.prototype.visitInt = wrapGet(getInt);
+GetVisitor.prototype.visitInt8 = wrapGet(getNumeric);
+GetVisitor.prototype.visitInt16 = wrapGet(getNumeric);
+GetVisitor.prototype.visitInt32 = wrapGet(getNumeric);
+GetVisitor.prototype.visitInt64 = wrapGet(getBigInts);
+GetVisitor.prototype.visitUint8 = wrapGet(getNumeric);
+GetVisitor.prototype.visitUint16 = wrapGet(getNumeric);
+GetVisitor.prototype.visitUint32 = wrapGet(getNumeric);
+GetVisitor.prototype.visitUint64 = wrapGet(getBigInts);
+GetVisitor.prototype.visitFloat = wrapGet(getFloat);
+GetVisitor.prototype.visitFloat16 = wrapGet(getFloat16);
+GetVisitor.prototype.visitFloat32 = wrapGet(getNumeric);
+GetVisitor.prototype.visitFloat64 = wrapGet(getNumeric);
+GetVisitor.prototype.visitUtf8 = wrapGet(getUtf8);
+GetVisitor.prototype.visitBinary = wrapGet(getBinary);
+GetVisitor.prototype.visitFixedSizeBinary = wrapGet(getFixedSizeBinary);
+GetVisitor.prototype.visitDate = wrapGet(getDate);
+GetVisitor.prototype.visitDateDay = wrapGet(getDateDay);
+GetVisitor.prototype.visitDateMillisecond = wrapGet(getDateMillisecond);
+GetVisitor.prototype.visitTimestamp = wrapGet(getTimestamp);
+GetVisitor.prototype.visitTimestampSecond = wrapGet(getTimestampSecond);
+GetVisitor.prototype.visitTimestampMillisecond = wrapGet(getTimestampMillisecond);
+GetVisitor.prototype.visitTimestampMicrosecond = wrapGet(getTimestampMicrosecond);
+GetVisitor.prototype.visitTimestampNanosecond = wrapGet(getTimestampNanosecond);
+GetVisitor.prototype.visitTime = wrapGet(getTime);
+GetVisitor.prototype.visitTimeSecond = wrapGet(getTimeSecond);
+GetVisitor.prototype.visitTimeMillisecond = wrapGet(getTimeMillisecond);
+GetVisitor.prototype.visitTimeMicrosecond = wrapGet(getTimeMicrosecond);
+GetVisitor.prototype.visitTimeNanosecond = wrapGet(getTimeNanosecond);
+GetVisitor.prototype.visitDecimal = wrapGet(getDecimal);
+GetVisitor.prototype.visitList = wrapGet(getList);
+GetVisitor.prototype.visitStruct = wrapGet(getStruct);
+GetVisitor.prototype.visitUnion = wrapGet(getUnion);
+GetVisitor.prototype.visitDenseUnion = wrapGet(getDenseUnion);
+GetVisitor.prototype.visitSparseUnion = wrapGet(getSparseUnion);
+GetVisitor.prototype.visitDictionary = wrapGet(getDictionary);
+GetVisitor.prototype.visitInterval = wrapGet(getInterval);
+GetVisitor.prototype.visitIntervalDayTime = wrapGet(getIntervalDayTime);
+GetVisitor.prototype.visitIntervalYearMonth = wrapGet(getIntervalYearMonth);
+GetVisitor.prototype.visitFixedSizeList = wrapGet(getFixedSizeList);
+GetVisitor.prototype.visitMap = wrapGet(getMap);
 
 /** @ignore */
 export const instance = new GetVisitor();

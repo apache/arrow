@@ -31,7 +31,7 @@ New Contributor's Guide
 ***********************
 
 This guide is meant to be a resource for contributing to
-`Arrow <https://arrow.apache.org>`_ for new contributors.
+Apache Arrow for new contributors.
 
 No matter what your current skills are, you can try and make
 your first time contribution to Arrow.
@@ -53,6 +53,8 @@ to Arrow:
   to implement a new feature or fix a bug you encountered.
 
 Read more about the project in the :ref:`architectural_overview` section.
+
+.. _quick-ref-guide:
 
 Quick Reference
 ===============
@@ -81,15 +83,16 @@ of adding a basic feature.
    appropriate :ref:`communication` channel.
 
    See a short description about the building process of 
-   :ref:`PyArrow or R-Arrow<build-arrow>` or go straight to detailed
+   :ref:`PyArrow or the R package<build-arrow-guide>` or go straight to detailed
    instructions on how to build one of Arrow libraries in the
    `documentation <https://arrow.apache.org/docs/>`_ .
  
 #. **Run the tests**
    
-   Run the tests from a terminal for Python
+   We should run the tests to check if everything is working correctly. For example,
+   you can run the tests from a terminal for Python
 
-   .. code-block::
+   .. code-block:: console
 
       $ pytest pyarrow
 
