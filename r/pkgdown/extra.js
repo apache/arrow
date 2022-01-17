@@ -79,37 +79,37 @@
       // You can test with $pathStart() + "/_static/versions.json"
       $.getJSON("./versions.json", function( data ) {
 
-      	var items = [];
-      	// get the current page's version number:
-      	var displayed_version = $('.version').text();
-      	$.each( data, function( key, val ) {
+        var items = [];
+        // get the current page's version number:
+				var displayed_version = $('.version').text();
+				$.each( data, function( key, val ) {
 
-      		// need an extra slash if it's the dev docs
-      		var dev_path_string = (val.version == "dev" ? "/" : "");
+					// need an extra slash if it's the dev docs
+					var dev_path_string = (val.version == "dev" ? "/" : "");
 
-      	  var selected_string = (
-      	    val.name.match("[0-9.]*")[0] === displayed_version ?
-      	    "selected" :
-      	    ""
-      	   );
+					var selected_string = (
+						val.name.match("[0-9.]*")[0] === displayed_version ?
+						"selected" :
+						""
+					 );
 
-      		items.push(
-      			"<option value='" + $pathStart() + val.version +
-      			dev_path_string + "r" + $pathEnd() + "'" +
-      			selected_string +
-      			">" + val.name + "</option>"
-      		);
-      	});
+					items.push(
+						"<option value='" + $pathStart() + val.version +
+						dev_path_string + "r" + $pathEnd() + "'" +
+						selected_string +
+						">" + val.name + "</option>"
+					);
+				});
 
-      	// Replace the version button with a selector with the doc versions
-      	$("span.version").replaceWith(
-      		'<select name="version-selector" class = "navbar-default" '+
-      		'onchange="location = this.value;"> ' + items.join("") + '</select> '
-      	);
-      });
-    });
+				// Replace the version button with a selector with the doc versions
+				$("span.version").replaceWith(
+					'<select name="version-selector" class = "navbar-default" '+
+					'onchange="location = this.value;"> ' + items.join("") + '</select> '
+				);
+			});
+		});
 
-  };
+	};
 
-  document.head.appendChild(script);
+	document.head.appendChild(script);
 })();
