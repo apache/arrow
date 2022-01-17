@@ -38,24 +38,7 @@ namespace red_arrow {
   ID id_to_datetime;
 }
 
-#ifdef _WIN32
-extern "C" BOOL WINAPI
-DllMain(G_GNUC_UNUSED HINSTANCE hinstDLL,
-        G_GNUC_UNUSED DWORD fdwReason,
-        G_GNUC_UNUSED LPVOID lpvReserved);
-
-extern "C" BOOL WINAPI
-DllMain(G_GNUC_UNUSED HINSTANCE hinstDLL,
-        G_GNUC_UNUSED DWORD fdwReason,
-        G_GNUC_UNUSED LPVOID lpvReserved)
-{
-  return TRUE;
-}
-#endif
-
-extern "C"
-void Init_arrow()
-{
+extern "C" void Init_arrow() {
   auto mArrow = rb_const_get_at(rb_cObject, rb_intern("Arrow"));
 
   auto cArrowArray = rb_const_get_at(mArrow, rb_intern("Array"));
