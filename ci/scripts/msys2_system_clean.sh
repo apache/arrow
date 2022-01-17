@@ -20,7 +20,7 @@
 set -eux
 
 case "${MINGW_PACKAGE_PREFIX}" in
-  mingw-w64-urcrt-x86_64)
+  mingw-w64-ucrt-x86_64)
     :
     ;;
   *)
