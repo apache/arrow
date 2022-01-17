@@ -56,7 +56,7 @@
 #'   versions 0.14 and lower can read it. Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
 #' - `metadata_version`: A string like "V5" or the equivalent integer indicating
-#'   the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+#'   the Arrow IPC MetadataVersion. Default (`NULL`) will use the latest version,
 #'   unless the environment variable `ARROW_PRE_1_0_METADATA_VERSION=1`, in
 #'   which case it will be V4.
 #' - `codec`: A [Codec] which will be used to compress body buffers of written
