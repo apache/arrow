@@ -719,11 +719,12 @@ will be cast to the :ref:`common numeric type <common-numeric-type>` before
 comparison) or of temporal types. If any input is dictionary encoded it will be
 expanded for the purposes of comparison.
 
-* \(1) The default is `BetweenOptions::Inclusive::BOTH`, other options are
-  `BetweenOptions::Inclusive::LEFT`, `BetweenOptions::Inclusive::RIGHT` and
-  `BetweenOptions::Inlcusive::NEITHER` corresponding to a <= value <= b,
-  a <= value < b, a < value <= b and a < value < b.  Strings are presently
-  compared by their UTF8 codepoint values.
+* \(1) Options are used to control whether either comparison endpoint is inclusive.
+  The default is ``BetweenOptions::Inclusive::BOTH``, other possible value are
+  ``BetweenOptions::Inclusive::LEFT``, ``BetweenOptions::Inclusive::RIGHT`` and
+  ``BetweenOptions::Inlcusive::NEITHER`` corresponding to ``a <= value <= b``,
+  ``a <= value < b``, ``a < value <= b`` and ``a < value < b`` (respectively).
+  Strings are presently compared by their UTF8 codepoint values.
 
 +------------------+------------+---------------------------------------------+---------------------+---------------------------------------+-------+
 | Function names   | Arity      | Input types                                 | Output type         | Options class                         | Notes |
