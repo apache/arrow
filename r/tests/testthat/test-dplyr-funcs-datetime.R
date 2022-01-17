@@ -2282,6 +2282,9 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
 
 
 test_that("round/floor/ceiling on datetime (to nearest second)", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2409,6 +2412,9 @@ test_that("period unit abbreviation", {
 })
 
 test_that("period unit extracts integer multiples", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2443,6 +2449,9 @@ test_that("period unit maxima are enforced", {
 })
 
 test_that("datetime rounding between 1sec and 1day", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2461,6 +2470,8 @@ test_that("datetime rounding between 1sec and 1day", {
 # that arrow verify that fractional second inputs to arrow mirror lubridate
 
 test_that("datetime rounding below 1sec", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_equal(
     test_df %>%
