@@ -31,7 +31,7 @@ New Contributor's Guide
 ***********************
 
 This guide is meant to be a resource for contributing to
-`Arrow <https://arrow.apache.org>`_ for new contributors.
+Apache Arrow for new contributors.
 
 No matter what your current skills are, you can try and make
 your first time contribution to Arrow.
