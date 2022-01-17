@@ -32,6 +32,7 @@ on:
       - 'ci/scripts/js_build.sh'
       - 'ci/scripts/python_build.sh'
       - 'ci/scripts/r_build.sh'
+      - 'docs/**'
 
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
@@ -41,7 +42,34 @@ env:
 
 jobs:
 
-  docker:
+  light:
+    name: AMD64 Ubuntu 20.04 Sphinx Documentation
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 30
+    env:
+      UBUNTU: "20.04"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: ubuntu-docs-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-docs-
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run conda-python-docs
+
+  complete:
     name: AMD64 Ubuntu 20.04 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
