@@ -130,8 +130,10 @@ CsvFileFormat$create <- function(...,
 
     # Element wise comparison of column_names and names in schema
     column_names    <- read_options$column_names
-    mismatches_bool <- suppressWarnings(column_names != names(schema))[seq_len(length(column_names))]
-    mismatches      <- column_names[mismatches_bool]
+    schema_names    <- names(schema)
+
+    mismatches_bool <- suppressWarnings(column_names != schema_names)[seq_len(length(column_names))]
+    mismatches      <- c(column_names[mismatches_bool], setdiff(schema_names, column_names))
 
     abort(c(
             paste(
