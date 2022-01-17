@@ -180,7 +180,7 @@ jobs:
         mingw-n-bits:
           - 64
         ruby-version:
-          - "3.0"
+          - "3.1"
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
