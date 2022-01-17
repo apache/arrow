@@ -47,7 +47,7 @@ test_df <- tibble::tibble(
 
 # a simplified test case using UTC timezone only
 test_df_v2 <- tibble::tibble(
-  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA),
+  datetime = c(as.POSIXct("2017-01-01 00:00:11.3456789", tz = "UTC"), NA) + 1,
   date = c(as.Date("2021-09-09"), NA),
   integer = 1:2
 )
