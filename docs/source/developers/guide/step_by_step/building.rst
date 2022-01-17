@@ -103,7 +103,7 @@ be changed with adding optional components from the
 :ref:`list <cpp_build_optional_components>`.
 
 .. seealso::
-	Full list of optional flags: :ref:`cpp_build_optional_components`
+   Full list of optional flags: :ref:`cpp_build_optional_components`
 
 R and Python have specific lists of flags in their respective builds
 that need to be included. You can find the links at the end
@@ -143,6 +143,16 @@ Building other Arrow libraries
 
          - :ref:`build_pyarrow_win`
 
+   .. tab:: Building the R package
+
+     When working on code in the R package, depending on your OS and planned
+     changes, you may or may not need to build the Arrow C++ library (often
+     referred to in the R documentation as 'libarrow') from source.
+
+     More information on this and full instructions on setting up the Arrow C++
+     library and Arrow R package can be found in the
+     `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
+
 
 **Building from source vs. using binaries**
 
@@ -156,12 +166,3 @@ make changes to the Arrow C++ library.
    To get more information navigate to the section of the language you are
    interested to find more information.
 
-   .. tab:: Building the R package
-
-	  When working on code in the R package, depending on your OS and planned
-	  changes, you may or may not need to build the Arrow C++ library (often
-	  referred to in the R documentation as 'libarrow') from source.
-
-	  More information on this and full instructions on setting up the Arrow C++
-	  library and Arrow R package can be found in the
-	  `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
