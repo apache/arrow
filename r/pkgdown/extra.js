@@ -59,6 +59,57 @@
       var empty_ul = $("#toc").find("ul").filter(":empty");
       empty_ul.remove();
     });
+
+    $(document).ready(function () {
+      /**
+       * This replaces the package version number in the docs with a
+       * dropdown where you can select the version of the docs to view.
+       */
+
+      $pathStart = function(){
+    	  return window.location.origin + "/docs/";
+      }
+
+      $pathEnd  = function(){
+      	var current_path = window.location.pathname;
+      	return current_path.match("(?<=\/r).*");
+      }
+
+      /**
+       * Load the versions JSON and construct the select items
+      */
+      $.getJSON("./versions.json", function( data ) {
+
+      	var items = [];
+      	// get the current page's version number:
+      	var current_version = $('.version').text();
+      	$.each( data, function( key, val ) {
+
+      		//get the two item version number
+      		var version_array = current_version.split(".");
+      		var version_major_minor = version_array[0] + "." + version_array[1];
+
+      		// need an extra slash if it's the dev docs
+      		var dev_path_string = (val.version == "dev" ? "/" : "");
+
+      		var selected_string = (val.name.match("[0-9.*]\.[0-9.*]") == version_major_minor ? "selected" : "");
+
+      		items.push(
+      			"<option value='" + $pathStart() + val.version +
+      			dev_path_string + "r" + $pathEnd() + "'" +
+      			selected_string +
+      			">" + val.name + "</option>"
+      		);
+      	});
+
+      	// Replace the version button with a selector with the doc versions
+      	$("span.version").replaceWith(
+      		'<select name="version-selector" class = "navbar-default" '+
+      		'onchange="location = this.value;"> ' + items.join("") + '</select> '
+      	);
+      });
+    });
+
   };
 
   document.head.appendChild(script);
