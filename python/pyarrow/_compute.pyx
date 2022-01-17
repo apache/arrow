@@ -2020,13 +2020,16 @@ cdef class Expression(_Weakrefable):
         return (<Expression> Expression._scalar(expr))
 
     @staticmethod
-    def _call_function(str function_name, arguments, options=None):
+    def _call_function(str function_name, arguments,
+                       FunctionOptions options=None):
         cdef:
             vector[CExpression] c_arguments
             shared_ptr[CFunctionOptions] c_options=(
                 <shared_ptr[CFunctionOptions]> nullptr)
 
         for argument in arguments:
+            if not isinstance(argument, Expression):
+                raise TypeError("only other expressions allowed as arguments")
             c_arguments.push_back((<Expression> argument).expr)
 
         # if options is not None:
