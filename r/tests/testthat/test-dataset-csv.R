@@ -299,3 +299,21 @@ test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
     tibble(a = c(1, 3), b = c(2, 4))
   )
 })
+
+test_that("Error if read_options$column_names and schema-names differ (ARROW-14744)", {
+
+  dst_dir  <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "file.csv")
+  df <- df1[, c("int", "dbl")]
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  # Mismatch of column names vs schema given via read_options should raise an error
+  opts <- CsvReadOptions$create(column_names = c("i", "d"))
+  schema             <- schema(int = int32(), dbl = float64())
+
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema, read_options = opts),
+    '"column_names" do not match the schema'
+  )
+
+})
