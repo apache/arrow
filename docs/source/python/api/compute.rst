@@ -164,7 +164,7 @@ Comparisons
 -----------
 
 These functions expect two or three inputs of the same type. If one of the inputs is 
-`null` they return ``null``.
+``null`` they return ``null``.
 
 .. autosummary::
    :toctree: ../generated/
