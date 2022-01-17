@@ -89,7 +89,8 @@ of adding a basic feature.
  
 #. **Run the tests**
    
-   Run the tests from a terminal for Python
+   We should run the tests to check if everything is working correctly. For example,
+   you can run the tests from a terminal for Python
 
    .. code-block:: console
 
