@@ -21,7 +21,7 @@
 #include <memory>
 #include <vector>
 
-#include "arrow/adapters/orc/adapter_options.h"
+#include "arrow/adapters/orc/options.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -260,17 +260,17 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Get the compression kind of the file.
   ///
   /// \return The kind of compression in the ORC file.
-  CompressionKind GetCompression();
+  Result<Compression::type> GetCompression();
 
   /// \brief Get the buffer size for the compression.
   ///
   /// \return Number of bytes to buffer for the compression codec.
-  uint64_t GetCompressionSize();
+  int64_t GetCompressionSize();
 
   /// \brief Get the number of rows per an entry in the row index.
   /// \return the number of rows per an entry in the row index or 0 if there
   ///          is no row index.
-  uint64_t GetRowIndexStride();
+  int64_t GetRowIndexStride();
 
   /// \brief Get ID of writer that generated the file.
   ///
@@ -280,7 +280,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Get the writer id value when getWriterId() returns an unknown writer.
   ///
   /// \return the integer value of the writer ID.
-  uint32_t GetWriterIdValue();
+  int32_t GetWriterIdValue();
 
   /// \brief Get the version of the writer.
   ///
@@ -291,32 +291,32 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief Get the number of stripe statistics in the file.
   ///
   /// \return the number of stripe statistics
-  uint64_t GetNumberOfStripeStatistics();
+  int64_t GetNumberOfStripeStatistics();
 
   /// \brief Get the length of the data stripes in the file.
   ///
   /// \return return the number of bytes in stripes
-  uint64_t GetContentLength();
+  int64_t GetContentLength();
 
   /// \brief Get the length of the file stripe statistics.
   ///
   /// \return the number of compressed bytes in the file stripe statistics
-  uint64_t GetStripeStatisticsLength();
+  int64_t GetStripeStatisticsLength();
 
   /// \brief Get the length of the file footer.
   ///
   /// \return the number of compressed bytes in the file footer
-  uint64_t GetFileFooterLength();
+  int64_t GetFileFooterLength();
 
   /// \brief Get the length of the file postscript.
   ///
   /// \return the number of bytes in the file postscript
-  uint64_t GetFilePostscriptLength();
+  int64_t GetFilePostscriptLength();
 
   /// \brief Get the total length of the file.
   ///
   /// \return the number of bytes in the file
-  uint64_t GetFileLength();
+  int64_t GetFileLength();
 
   /// \brief Get the serialized file tail.
   ///         Usefull if another reader of the same file wants to avoid re-reading

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/adapters/orc/util.h"
 
 #include <cmath>
 #include <string>

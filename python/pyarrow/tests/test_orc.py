@@ -185,6 +185,7 @@ def test_orcfile_readwrite():
     assert orc_file.compression == 'ZLIB'
     assert orc_file.file_version == '0.12'
     assert orc_file.row_index_stride == 10000
+    assert orc_file.compression_size == 65536
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -198,6 +199,7 @@ def test_orcfile_readwrite():
     assert orc_file.compression == 'ZLIB'
     assert orc_file.file_version == '0.12'
     assert orc_file.row_index_stride == 10000
+    assert orc_file.compression_size == 65536
 
 
 def test_orcfile_readwrite_with_writeoptions():
@@ -212,7 +214,8 @@ def test_orcfile_readwrite_with_writeoptions():
         buffer_output_stream,
         compression='snappy',
         file_version='0.11',
-        row_index_stride=5000
+        row_index_stride=5000,
+        compression_block_size=32768,
     )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -222,6 +225,7 @@ def test_orcfile_readwrite_with_writeoptions():
     assert orc_file.compression == 'SNAPPY'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 5000
+    assert orc_file.compression_size == 32768
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -231,7 +235,8 @@ def test_orcfile_readwrite_with_writeoptions():
             table,
             compression='uncompressed',
             file_version='0.11',
-            row_index_stride=20000
+            row_index_stride=20000,
+            compression_block_size=16384,
         )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -241,6 +246,7 @@ def test_orcfile_readwrite_with_writeoptions():
     assert orc_file.compression == 'UNCOMPRESSED'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 20000
+    assert orc_file.compression_size == 16384
 
 
 def test_orcfile_readwrite_with_bad_writeoptions():
@@ -438,21 +444,21 @@ def test_orcfile_readwrite_with_bad_writeoptions():
         orc.write_table(
             buffer_output_stream,
             table,
-            dictionary_key_size_threshold='arrow',
+            bloom_filter_fpp='arrow',
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             buffer_output_stream,
             table,
-            dictionary_key_size_threshold=1.1,
+            bloom_filter_fpp=1.1,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             buffer_output_stream,
             table,
-            dictionary_key_size_threshold=-0.1,
+            bloom_filter_fpp=-0.1,
         )
 
 

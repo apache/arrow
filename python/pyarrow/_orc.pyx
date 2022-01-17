@@ -188,7 +188,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             deref(options).SetCompression(
                 compression_kind_from_name(compression))
         else:
-            raise ValueError("Unsupported ORC compression kind: {0}"
+            raise TypeError("Unsupported ORC compression kind: {0}"
                              .format(compression))
 
     # compression_block_size
@@ -207,7 +207,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             deref(options).SetCompressionStrategy(
                 compression_strategy_from_name(compression_strategy))
         else:
-            raise ValueError("Unsupported ORC compression strategy: {0}"
+            raise TypeError("Unsupported ORC compression strategy: {0}"
                              .format(compression_strategy))
 
     # row_index_stride

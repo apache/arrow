@@ -470,6 +470,13 @@ ARROW_TESTING_EXPORT
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
 
+/// \brief Generate a single integer, enum or enum class element within a given range
+///
+/// If enum or enum class is used the int value will be used
+///
+/// \param[in] lower the lower bound of the range
+/// \param[in] upper the upper bound of the range
+/// \return a generated integer, enum or enum class element
 template <typename T, typename U>
 U random_single_int(T lower, T upper) {
   const int random_seed = 0;
