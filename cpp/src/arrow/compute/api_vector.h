@@ -172,6 +172,7 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+  NullPlacement null_placement = NullPlacement::AtEnd;
 };
 
 /// \brief Partitioning options for NthToIndices

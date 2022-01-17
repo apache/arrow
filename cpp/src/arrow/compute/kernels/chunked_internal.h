@@ -41,6 +41,8 @@ struct ResolvedChunk {
   // The index in the target array.
   const int64_t index;
 
+  ResolvedChunk() : index(-1) {}
+
   ResolvedChunk(const ArrayType* array, int64_t index) : array(array), index(index) {}
 
   bool IsNull() const { return array->IsNull(index); }
@@ -139,9 +141,18 @@ struct ChunkedArrayResolver : protected ChunkResolver {
 
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
-    const auto loc = ChunkResolver::Resolve(index);
+    const auto loc = ResolveChunkLocation(index);
+    return Resolve<ArrayType>(loc);
+  }
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> Resolve(ChunkLocation loc) const {
     return ResolvedChunk<ArrayType>(
         checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+  }
+
+  ChunkLocation ResolveChunkLocation(int64_t index) const {
+    return ChunkResolver::Resolve(index);
   }
 
  protected:

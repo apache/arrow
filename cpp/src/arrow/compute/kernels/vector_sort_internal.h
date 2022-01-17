@@ -342,6 +342,11 @@ struct MergeImpl {
       std::function<void(uint64_t* range_begin, uint64_t* range_middle,
                          uint64_t* range_end, uint64_t* temp_indices)>;
 
+  using MergeGeneralFunc =
+      std::function<void(uint64_t* range_begin, uint64_t* range_middle,
+                         uint64_t* range_end, uint64_t* temp_indices)>;
+
+
   MergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
             MergeNonNullsFunc&& merge_non_nulls)
       : null_placement_(null_placement),
