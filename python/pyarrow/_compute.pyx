@@ -850,7 +850,7 @@ class BetweenOptions(_BetweenOptions):
         "right" ( a < value <= b ) and "neither" ( a < value < b ).
     """
 
-    def __init__(self, inclusive="both"):
+    def __init__(self, *, inclusive="both"):
         self._set_options(inclusive)
 
 
