@@ -627,14 +627,21 @@ register_bindings_datetime_parsers <- function() {
   #  support week_start (essential)
   #  support timezones correctly (essential)
   #  support change_on_boundary argument to ceiling_date
-  register_binding("round_date", function(x, unit = "second") {
-    Expression$create("round_temporal", x, options = parse_period_unit(unit))
+  register_binding("round_date", function(x, unit = "second",
+                                          week_start = getOption("lubridate.week.start", 7)) {
+    opts <- parse_period_unit(unit)
+    Expression$create("round_temporal", x, options = opts)
   })
-  register_binding("floor_date", function(x, unit = "second") {
-    Expression$create("floor_temporal", x, options = parse_period_unit(unit))
+  register_binding("floor_date", function(x, unit = "second",
+                                          week_start = getOption("lubridate.week.start", 7)) {
+    opts <- parse_period_unit(unit)
+    Expression$create("floor_temporal", x, options = opts)
   })
-  register_binding("ceiling_date", function(x, unit = "second") {
-    Expression$create("ceil_temporal", x, options = parse_period_unit(unit))
+  register_binding("ceiling_date", function(x, unit = "second",
+                                            change_on_boundary = NULL,
+                                            week_start = getOption("lubridate.week.start", 7)) {
+    opts <- parse_period_unit(unit)
+    Expression$create("ceil_temporal", x, options = opts)
   })
 
 }
