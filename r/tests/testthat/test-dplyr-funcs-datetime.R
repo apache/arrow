@@ -2546,41 +2546,18 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
   )
 })
 
-# NOTE: the hard coding of week_starts = 4 needs to be fixed. round_temporal()
-# treats 1970-01-01 as the beginning of week 1, i.e., week_starts on a Thursday
 
-# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
-# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
-# I'm not 100% sold on this implementation, but it's not obviously terrible
+test_that("do not attempt to round to week units", {
 
-test_that("datetime round/floor/ceil to week", {
-
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = round_date(datetime, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = round_date(datetime, "1 week", week_start = 4))
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.time()), "week"),
+    "Date/time rounding to week units"
+  )
+  expect_error(
+    call_binding("round_date", Expression$scalar(Sys.Date()), "week"),
+    "Date/time rounding to week units"
   )
 
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = ceiling_date(datetime, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = ceiling_date(datetime, "1 week", week_start = 4, change_on_boundary = FALSE))
-  )
-
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = floor_date(datetime, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = floor_date(datetime, "1 week", week_start = 4))
-  )
 })
 
 # NOTE: lubridate::round_date() sometimes coerces output from Date to POSIXct.
@@ -2590,6 +2567,12 @@ test_that("datetime round/floor/ceil to week", {
 # there are edge cases where the arrow dplyr binding will not precisely mirror
 # the lubridate original. with that in mind, all tests for date32 rounding coerce
 # the lubridate equivalent back to Date
+
+# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
+# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
+# I'm not 100% sold on this implementation, but it's not obviously terrible.
+# The bigger concern is that it introduces minor discrepancies between arrow and
+# lubridate in some edge cases with ceiling_date()
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
@@ -2605,36 +2588,6 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
   expect_equal(
     test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE) %>% as.Date())
-  )
-})
-
-test_that("dates round/floor/ceil to week", {
-
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = round_date(date, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = round_date(date, "1 week", week_start = 4) %>% as.Date())
-  )
-
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = ceiling_date(date, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = ceiling_date(date, "1 week", week_start = 4, change_on_boundary = FALSE) %>% as.Date())
-  )
-
-  expect_equal(
-    test_df_v2 %>%
-      arrow_table() %>%
-      mutate(out = floor_date(date, "1 week")) %>%
-      collect(),
-    test_df_v2 %>%
-      mutate(out = floor_date(date, "1 week", week_start = 4) %>% as.Date())
   )
 })
 
