@@ -505,3 +505,30 @@ test_that("Max partitions fails with non-integer values and less than required p
     "max_partitions must be a positive, non-missing integer"
   )
 })
+
+test_that("write_dataset checks for format-specific arguments", {
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "feather", compression = "snappy"),
+    "The following argument is not valid for your chosen 'format': \"compression\""
+  )
+  expect_error(
+    write_dataset(df, dst_dir, format = "feather", nonsensical_arg = "blah-blah"),
+    "The following argument is not valid for your chosen 'format': \"nonsensical_arg\""
+  )
+  expect_error(
+    write_dataset(df, dst_dir, format = "csv", nonsensical_arg = "blah-blah"),
+    "nonsensical_arg = \"blah-blah\""
+  )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "parquet", nonsensical_arg = "blah-blah"),
+    "The following argument is not valid for your chosen 'format': \"non_sensical_arg\""
+  )
+})

@@ -317,6 +317,30 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         )
       } else if (self$type == "ipc") {
         args <- list(...)
+        supported_args <- c(
+          "use_legacy_format",
+          "metadata_version",
+          "codec",
+          "null_fallback"
+        )
+
+        unsupported_passed_args <- setdiff(
+          names(args),
+          supported_args
+        )
+
+        if (length(unsupported_passed_args)) {
+          stop(
+            "The following ",
+            ngettext(length(unsupported_passed_args),
+                     "argument is ",
+                     "arguments are "),
+            "not valid for your chosen 'format': ",
+            oxford_paste(unsupported_passed_args),
+            call. = FALSE
+          )
+        }
+
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
             self,
