@@ -60,7 +60,7 @@
       empty_ul.remove();
     });
 
-    $(document).ready(function () {
+  $(document).ready(function () {
       /**
        * This replaces the package version number in the docs with a
        * dropdown where you can select the version of the docs to view.
@@ -75,24 +75,23 @@
       	return current_path.match("(?<=\/r).*");
       }
 
-      /**
-       * Load the versions JSON and construct the select items
-      */
+      // Load the versions JSON and construct the select items
+      // You can test with $pathStart() + "/_static/versions.json"
       $.getJSON("./versions.json", function( data ) {
 
       	var items = [];
       	// get the current page's version number:
-      	var current_version = $('.version').text();
+      	var displayed_version = $('.version').text();
       	$.each( data, function( key, val ) {
-
-      		//get the two item version number
-      		var version_array = current_version.split(".");
-      		var version_major_minor = version_array[0] + "." + version_array[1];
 
       		// need an extra slash if it's the dev docs
       		var dev_path_string = (val.version == "dev" ? "/" : "");
 
-      		var selected_string = (val.name.match("[0-9.*]\.[0-9.*]") == version_major_minor ? "selected" : "");
+      	  var selected_string = (
+      	    val.name.match("[0-9.]*")[0] === displayed_version ?
+      	    "selected" :
+      	    ""
+      	   );
 
       		items.push(
       			"<option value='" + $pathStart() + val.version +
