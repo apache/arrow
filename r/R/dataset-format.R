@@ -127,11 +127,21 @@ CsvFileFormat$create <- function(...,
   schema  <- options[["schema"]]
 
   if (length(read_options$column_names) > 0 & !is.null(schema) & !identical(names(schema), read_options$column_names)) {
+
+    # Element wise comparison of column_names and names in schema
+    column_names    <- read_options$column_names
+    mismatches_bool <- suppressWarnings(column_names != names(schema))[seq_len(length(column_names))]
+    mismatches      <- column_names[mismatches_bool]
+
     abort(c(
-        '"column_names" in read_options do not match the schema.',
-      i = "Set column_names in read_options to match the schema",
-      i = "Omit the read_options argument"
-    ))
+            paste(
+                '"column_names" do not match the schema:',
+                deparse1(mismatches)
+            ),
+            i = "Set column_names to match names of schema",
+            i = "Omit the column_names argument"
+          )
+    )
   }
 
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
