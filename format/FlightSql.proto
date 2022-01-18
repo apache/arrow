@@ -967,7 +967,8 @@ enum Searchable {
  *                         data types where a literal prefix is not applicable.),
  *   literal_suffix: utf8 (Character or characters used to terminate a literal,
  *                         NULL is returned for data types where a literal suffix is not applicable.),
- *   create_params: utf8 (A list of keywords, separated by commas, corresponding
+ *   create_params: list<utf8 not null>
+                          (A list of keywords, separated by commas, corresponding
  *                        to each parameter that the application may specify in parentheses
  *                        when using the name that is returned in the TYPE_NAME field.
  *                        NULL is returned if there are no parameters for the data type definition.),
