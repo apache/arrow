@@ -149,6 +149,7 @@ In this section we outline steps needed for unit testing in Arrow.
             - for example, the ``expect_…_roundtrip()`` functions take an input, convert it to some other format (e.g. arrow, altrep) and then convert it back, confirming that the values are the same.
 
       .. code-block:: R
+
          x <- c(1, 2, 3, NA_real_)
          expect_altrep_roundtrip(x, min, na.rm = TRUE)
 
