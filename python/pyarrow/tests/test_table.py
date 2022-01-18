@@ -340,6 +340,19 @@ def test_chunked_array_to_pandas_preserve_name():
 
 
 @pytest.mark.pandas
+def test_table_roundtrip_to_pandas_empty_dataframe():
+    # https://issues.apache.org/jira/browse/ARROW-10643
+    import pandas as pd
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
+    table = pa.table(data)
+    result = table.to_pandas()
+
+    assert data.shape == (10, 0)
+    assert result.shape == (10, 0)
+
+
+@pytest.mark.pandas
 @pytest.mark.nopandas
 def test_chunked_array_asarray():
     # ensure this is tested both when pandas is present or not (ARROW-6564)
