@@ -473,16 +473,16 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
 /// Options for map_array_lookup function
 class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
  public:
-  enum Occurence {
+  enum Occurrence {
     /// Return the first matching value
-    First,
+    FIRST,
     /// Return the last matching value
-    Last,
+    LAST,
     /// Return all matching values
-    All
+    ALL
   };
 
-  MapArrayLookupOptions(std::shared_ptr<Scalar> query_key, Occurence occurence = All);
+  MapArrayLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence = ALL);
   MapArrayLookupOptions();
 
   constexpr static char const kTypeName[] = "MapArrayLookupOptions";
@@ -491,7 +491,7 @@ class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
   std::shared_ptr<Scalar> query_key;
 
   /// Whether to return the first, last, or all matching values
-  Occurence occurence;
+  Occurrence occurrence;
 };
 
 /// @}

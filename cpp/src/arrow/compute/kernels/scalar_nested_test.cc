@@ -225,28 +225,54 @@ TEST(TestScalarNested, StructField) {
   }
 }
 
-TEST(TestScalarNested, MapArrayLookup) {
-  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::All);
-  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::First);
+TEST(TestScalarNested, MapArrayLookupNonRecursive) {
+  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
+
   auto type = map(utf8(), int32());
+  const char* input = R"(
+[
+    [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
+    null,
+    [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null], ["foo", 22]],
+    []
+  ]
+)";
+  auto map_array = ArrayFromJSON(type, input);
 
-  auto keys = ArrayFromJSON(utf8(), R"([
-    "foo", "bar", "hello", "foo", "lesgo", "whatnow",
-    "nothing", "hat", "foo", "sorry", "dip", "foo"
-  ])");
-  auto items = ArrayFromJSON(int16(), R"([
-    99,    1,    2,  3,  5,    8,
-    null, null, 101,  1,  null, 22
-  ])");
-  auto offsets = ArrayFromJSON(int32(), "[0, 6, 6, 12, 12]")->data()->buffers[1];
-  auto null_bitmap = ArrayFromJSON(boolean(), "[1, 0, 1, 1]")->data()->buffers[1];
-
-  MapArray map_array(type, 4, offsets, keys, items, null_bitmap, 1, 0);
-
+  CheckScalarNonRecursive(
+      "map_array_lookup", {map_array},
+      ArrayFromJSON(list(int32()), "[[99, 3], null, [101, 22], null]"), &foo_all);
   CheckScalarNonRecursive("map_array_lookup", {map_array},
-                          ArrayFromJSON(int32(), "[99, 3, 101, 22]"), &foo_all);
-  CheckScalarNonRecursive("map_array_lookup", {map_array}, ArrayFromJSON(int32(), "[99]"),
-                          &foo_first);
+                          ArrayFromJSON(int32(), "[99, null, 101, null]"), &foo_first);
+  CheckScalarNonRecursive("map_array_lookup", {map_array},
+                          ArrayFromJSON(int32(), "[3, null, 22, null]"), &foo_last);
+}
+
+TEST(TestScalarNested, MapArrayLookup) {
+  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
+
+  auto type = map(utf8(), int32());
+  const char* input = R"(
+[
+     [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
+     null,
+     [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null],
+     ["foo", 22]],
+     []
+   ]
+)";
+  auto map_array = ArrayFromJSON(type, input);
+
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(list(int32()), "[[99, 3], null, [101, 22], null]"), &foo_all);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(int32(), "[99, null, 101, null]"), &foo_first);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(int32(), "[3, null, 22, null]"), &foo_last);
 }
 
 struct {
