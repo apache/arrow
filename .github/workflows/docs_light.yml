@@ -18,7 +18,15 @@
 name: Docs
 
 on:
-  push:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+      - 'ci/docker/conda.dockerfile'
+      - 'ci/docker/conda-cpp.dockerfile'
+      - 'ci/docker/conda-python.dockerfile'
+      - 'ci/scripts/cpp_build.sh'
+      - 'ci/scripts/python_build.sh'
 
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
@@ -28,11 +36,11 @@ env:
 
 jobs:
 
-  complete:
-    name: AMD64 Ubuntu 20.04 Complete Documentation
+  light:
+    name: AMD64 Ubuntu 20.04 Sphinx Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 150
+    timeout-minutes: 30
     env:
       UBUNTU: "20.04"
     steps:
@@ -53,8 +61,4 @@ jobs:
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
-        run: archery docker run ubuntu-docs
-      - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
-        continue-on-error: true
-        run: archery docker push ubuntu-docs
+        run: archery docker run conda-python-docs
