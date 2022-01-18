@@ -16,8 +16,8 @@
 // under the License.
 
 #include "arrow/flight/sql/example/sqlite_type_info.h"
-#include <arrow/flight/sql/server.h>
 
+#include "arrow/flight/sql/server.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
