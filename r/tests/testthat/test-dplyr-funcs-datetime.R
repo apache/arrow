@@ -2523,6 +2523,8 @@ test_that("datetime rounding below 1sec", {
 
 test_that("datetime round/floor/ceil to month/quarter/year", {
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2561,11 +2563,14 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 test_that("do not attempt to round to week units", {
 
   expect_error(
-    call_binding("round_date", Expression$scalar(Sys.time()), "week"),
+    call_binding("round_date", Expression$scalar(Sys.Date()), "week"),
     "Date/time rounding to week units"
   )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   expect_error(
-    call_binding("round_date", Expression$scalar(Sys.Date()), "week"),
+    call_binding("round_date", Expression$scalar(Sys.time()), "week"),
     "Date/time rounding to week units"
   )
 
