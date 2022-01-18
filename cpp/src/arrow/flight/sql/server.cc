@@ -806,7 +806,7 @@ std::shared_ptr<Schema> SqlSchema::GetTypeInfoSchema() {
       field("minimum_scale", int32()),
       field("maximum_scale", int32()),
       field("sql_data_type", int32(), false),
-      field("sql_datetime_sub", int32()),
+      field("datetime_subcode", int32()),
       field("num_prec_radix", int32()),
       field("interval_precision", int32()),
   });
