@@ -631,6 +631,7 @@ register_bindings_datetime_parsers <- function() {
     }
     Expression$create("round_temporal", x, options = opts)
   })
+
   register_binding("floor_date", function(x, unit = "second",
                                           week_start = getOption("lubridate.week.start", 7)) {
     opts <- parse_period_unit(unit)
@@ -639,6 +640,7 @@ register_bindings_datetime_parsers <- function() {
     }
     Expression$create("floor_temporal", x, options = opts)
   })
+
   register_binding("ceiling_date", function(x, unit = "second",
                                             change_on_boundary = NULL,
                                             week_start = getOption("lubridate.week.start", 7)) {
@@ -647,6 +649,11 @@ register_bindings_datetime_parsers <- function() {
       arrow_not_supported("Date/time rounding to week units")
     }
     Expression$create("ceil_temporal", x, options = opts)
+  })
+
+  register_binding("leap_year", function(date) {
+    year <- Expression$create("year", date)
+    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
   })
 
 }

@@ -2399,6 +2399,9 @@ test_that("build_formats() and build_format_from_order()", {
 })
 
 test_that("period unit abbreviation", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -2430,6 +2433,8 @@ test_that("period unit extracts integer multiples", {
 # lubridate errors when 60 sec/60 min/24 hour thresholds exceeded.
 # this test checks that arrow does too.
 test_that("period unit maxima are enforced", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_error(
     call_binding("round_date", Expression$scalar(Sys.time()), "61 seconds"),
@@ -2562,12 +2567,12 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 
 test_that("do not attempt to round to week units", {
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   expect_error(
     call_binding("round_date", Expression$scalar(Sys.Date()), "week"),
     "Date/time rounding to week units"
   )
-
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_error(
     call_binding("round_date", Expression$scalar(Sys.time()), "week"),
@@ -2592,6 +2597,8 @@ test_that("do not attempt to round to week units", {
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
   expect_equal(
     test_df %>% arrow_table() %>% mutate(out = round_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = round_date(date, "1 day") %>% as.Date())
@@ -2608,6 +2615,8 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
 })
 
 test_that("date rounding below 1 day", {
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   expect_equal(
     test_df_v2 %>% arrow_table() %>% mutate(out = round_date(date, "1 second")) %>% collect(),
