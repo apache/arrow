@@ -487,7 +487,7 @@ TEST(TestCompareTimestamps, DifferentParameters) {
       auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json);
       auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"), rhs_json);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
-          Invalid,
+          TypeError,
           ::testing::HasSubstr(
               "Cannot compare timestamp with timezone to timestamp without timezone"),
           CallFunction(function, {lhs, rhs}));
@@ -496,7 +496,7 @@ TEST(TestCompareTimestamps, DifferentParameters) {
       auto lhs = ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json);
       auto rhs = ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json);
       EXPECT_RAISES_WITH_MESSAGE_THAT(
-          Invalid,
+          TypeError,
           ::testing::HasSubstr(
               "Cannot compare timestamp with timezone to timestamp without timezone"),
           CallFunction(function, {lhs, rhs}));
@@ -2779,7 +2779,7 @@ TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
                                  ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
   // But comparing naive to zoned is not OK
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
+      TypeError,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
       Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
@@ -2787,7 +2787,7 @@ TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
               ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json), neither,
               nullptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
+      TypeError,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
       Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
@@ -2795,7 +2795,7 @@ TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
               ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), rhs_json),
               neither, nullptr));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
+      TypeError,
       ::testing::HasSubstr(
           "Cannot compare timestamp with timezone to timestamp without timezone"),
       Between(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), arr_json),

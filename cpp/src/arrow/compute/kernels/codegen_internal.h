@@ -449,29 +449,6 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
                         std::move(visit_null));
 }
 
-template <typename Arg0Type, typename Arg1Type, typename Arg2Type, typename VisitFunc,
-          typename NullFunc>
-static void VisitThreeArrayValuesInline(const ArrayData& arr0, const ArrayData& arr1,
-                                        const ArrayData& arr2, VisitFunc&& valid_func,
-                                        NullFunc&& null_func) {
-  ArrayIterator<Arg0Type> arr0_it(arr0);
-  ArrayIterator<Arg1Type> arr1_it(arr1);
-  ArrayIterator<Arg2Type> arr2_it(arr2);
-  auto visit_valid = [&](int64_t i) {
-    valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
-               GetViewType<Arg1Type>::LogicalValue(arr1_it()),
-               GetViewType<Arg2Type>::LogicalValue(arr2_it()));
-  };
-  auto visit_null = [&]() {
-    arr0_it();
-    arr1_it();
-    arr2_it();
-    null_func();
-  };
-  VisitThreeBitBlocksVoid(arr0.buffers[0], arr0.offset, arr1.buffers[0], arr1.offset,
-                          arr2.buffers[0], arr2.offset, arr0.length,
-                          std::move(visit_valid), std::move(visit_null));
-}
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
