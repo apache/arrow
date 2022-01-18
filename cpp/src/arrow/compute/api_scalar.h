@@ -378,8 +378,8 @@ class ARROW_EXPORT BetweenOptions : public FunctionOptions {
   constexpr static char const kTypeName[] = "BetweenOptions";
 
   /// Indicate boundary points to include, both (a <= val <= b), 
-  //  left ( a <= value < b) , right ( a < value <= b)
-  //  or neither ( a < value < b )
+  /// left ( a <= value < b) , right ( a < value <= b)
+  /// or neither ( a < value < b )
   Inclusive inclusive;
 };
 
