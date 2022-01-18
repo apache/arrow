@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/example/sqlite_type_info.h"
+#include <arrow/flight/sql/server.h>
 
 #include "arrow/flight/sql/types.h"
 #include "arrow/record_batch.h"
@@ -26,7 +27,7 @@ namespace flight {
 namespace sql {
 namespace example {
 
-std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& schema) {
+std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
   auto type_name_array =
       ArrayFromJSON(utf8(), R"(["bit", "tinyint", "bigint", "longvarbinary",
                             "varbinary", "text", "longvarchar", "char",
@@ -79,16 +80,15 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& 
       ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
 
   return RecordBatch::Make(
-      schema, 17,
+      SqlSchema::GetTypeInfoSchema(), 17,
       {type_name_array, data_type, column_size, literal_prefix, literal_suffix,
        create_params, nullable, case_sensitive, serachable, unsigned_attribute,
        fixed_prec_scale, auto_unique_value, local_type_name, minimal_scale, maximum_scale,
        sql_data_type, sql_datetime_sub, num_prec_radix, interval_precision});
 }
 
-std::shared_ptr<RecordBatch> DoGetTypeInfoResult(const std::shared_ptr<Schema>& schema,
-                                                 int data_type_filter) {
-  auto record_batch = DoGetTypeInfoResult(schema);
+std::shared_ptr<RecordBatch> DoGetTypeInfoResult(int data_type_filter) {
+  auto record_batch = DoGetTypeInfoResult();
 
   std::vector<int16_t> data_type_vector{-7, -6, -5, -4, -3, -1, -1, 1, 4,
                                         5,  6,  8,  8,  12, 91, 92, 93};

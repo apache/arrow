@@ -388,10 +388,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  auto expected_schema = SqlSchema::GetTypeInfoSchema();
-
-  const std::shared_ptr<RecordBatch>& batch =
-      example::DoGetTypeInfoResult(expected_schema);
+  auto batch = example::DoGetTypeInfoResult();
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   std::shared_ptr<Table> table;
@@ -407,10 +404,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
 
-  auto expected_schema = SqlSchema::GetTypeInfoSchema();
-
-  const std::shared_ptr<RecordBatch>& batch =
-      example::DoGetTypeInfoResult(expected_schema, data_type);
+  auto batch = example::DoGetTypeInfoResult(data_type);
 
   ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch}));
   std::shared_ptr<Table> table;
