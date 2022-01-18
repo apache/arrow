@@ -30,9 +30,9 @@ For more information see the official page at https://arrow.apache.org
 """
 
 import gc as _gc
-import importlib
+import importlib as _importlib
 import os as _os
-import platform
+import platform as _platform
 import sys as _sys
 import warnings as _warnings
 
@@ -94,7 +94,7 @@ def show_versions():
 
 def _module_is_available(module):
     try:
-        importlib.import_module(f'pyarrow.{module}')
+        _importlib.import_module(f'pyarrow.{module}')
     except ImportError:
         return False
     else:
@@ -125,7 +125,7 @@ def show_info():
         print(f"  {label: <20}: {value: <8}")
 
     print("\nPlatform:")
-    print_entry("OS / Arch", f"{platform.system()} {platform.machine()}")
+    print_entry("OS / Arch", f"{_platform.system()} {_platform.machine()}")
     print_entry("SIMD Level", runtime_info().simd_level)
     print_entry("Detected SIMD Level", runtime_info().detected_simd_level)
 
