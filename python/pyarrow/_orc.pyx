@@ -146,122 +146,96 @@ cdef shared_ptr[WriteOptions] _create_write_options(
     """General writer options"""
     cdef:
         shared_ptr[WriteOptions] options
-
     options = make_shared[WriteOptions]()
-
     # batch_size
-
     if batch_size is not None:
         if isinstance(batch_size, int) and batch_size > 0:
             deref(options).batch_size = batch_size
         else:
-            raise ValueError("Invalid ORC writer batch size: {0}"
-                             .format(batch_size))
-
+            raise ValueError(f"Invalid ORC writer batch size: {batch_size}")
     # file_version
-
     if file_version is not None:
         if str(file_version) == "0.12":
             deref(options).file_version = FileVersion(0, 12)
         elif str(file_version) == "0.11":
             deref(options).file_version = FileVersion(0, 11)
         else:
-            raise ValueError("Unsupported ORC file version: {0}"
-                             .format(file_version))
-
+            raise ValueError(f"Unsupported ORC file version: {file_version}")
     # stripe_size
-
     if stripe_size is not None:
         if isinstance(stripe_size, int) and stripe_size > 0:
             deref(options).stripe_size = stripe_size
         else:
-            raise ValueError("Invalid ORC stripe size: {0}"
-                             .format(stripe_size))
-
+            raise ValueError(f"Invalid ORC stripe size: {stripe_size}")
     # compression
-
     if compression is not None:
-        if isinstance(compression, basestring):
+        if isinstance(compression, str):
             deref(options).compression = compression_type_from_name(
                 compression)
         else:
-            raise TypeError("Unsupported ORC compression type: {0}"
-                            .format(compression))
-
+            raise TypeError(("Unsupported ORC compression type: "
+                             f"{compression}"))
     # compression_block_size
-
     if compression_block_size is not None:
         if (isinstance(compression_block_size, int) and
                 compression_block_size > 0):
             deref(options).compression_block_size = compression_block_size
         else:
-            raise ValueError("Invalid ORC compression block size: {0}"
-                             .format(compression_block_size))
-
+            raise ValueError(("Invalid ORC compression block size: "
+                              f"{compression_block_size}"))
     # compression_strategy
-
     if compression_strategy is not None:
-        if isinstance(compression, basestring):
+        if isinstance(compression, str):
             deref(options).compression_strategy = \
                 compression_strategy_from_name(compression_strategy)
         else:
-            raise TypeError("Unsupported ORC compression strategy: {0}"
-                            .format(compression_strategy))
-
+            raise TypeError(("Unsupported ORC compression strategy: "
+                             f"{compression_strategy}"))
     # row_index_stride
-
     if row_index_stride is not None:
         if isinstance(row_index_stride, int) and row_index_stride > 0:
             deref(options).row_index_stride = row_index_stride
         else:
-            raise ValueError("Invalid ORC row index stride: {0}"
-                             .format(row_index_stride))
-
+            raise ValueError(("Invalid ORC row index stride: "
+                              f"{row_index_stride}"))
     # padding_tolerance
-
     if padding_tolerance is not None:
         try:
             padding_tolerance = float(padding_tolerance)
             deref(options).padding_tolerance = padding_tolerance
         except Exception:
-            raise ValueError("Invalid ORC padding tolerance: {0}"
-                             .format(padding_tolerance))
-
+            raise ValueError(("Invalid ORC padding tolerance: "
+                              f"{padding_tolerance}"))
     # dictionary_key_size_threshold
-
     if dictionary_key_size_threshold is not None:
         try:
             dictionary_key_size_threshold = float(
                 dictionary_key_size_threshold)
+            assert 0 <= dictionary_key_size_threshold <= 1
             deref(options).dictionary_key_size_threshold = \
                 dictionary_key_size_threshold
         except Exception:
-            raise ValueError("Invalid ORC dictionary key size threshold: {0}"
-                             .format(dictionary_key_size_threshold))
-
+            raise ValueError(("Invalid ORC dictionary key size threshold: "
+                              f"{dictionary_key_size_threshold}"))
     # bloom_filter_columns
-
     if bloom_filter_columns is not None:
         try:
-            bloom_filter_columns = set(bloom_filter_columns)
+            bloom_filter_columns = list(bloom_filter_columns)
             for col in bloom_filter_columns:
                 assert isinstance(col, int) and col >= 0
             deref(options).bloom_filter_columns = bloom_filter_columns
         except Exception:
-            raise ValueError("Invalid ORC BloomFilter columns: {0}"
-                             .format(bloom_filter_columns))
-
+            raise ValueError(("Invalid ORC BloomFilter columns: "
+                              f"{bloom_filter_columns}"))
     # False positive rate of the Bloom Filter
-
     if bloom_filter_fpp is not None:
         try:
             bloom_filter_fpp = float(bloom_filter_fpp)
-            assert bloom_filter_fpp >= 0 and bloom_filter_fpp <= 1
+            assert 0 <= bloom_filter_fpp <= 1
             deref(options).bloom_filter_fpp = bloom_filter_fpp
         except Exception:
-            raise ValueError("Invalid ORC BloomFilter false positive rate: {0}"
-                             .format(bloom_filter_fpp))
-
+            raise ValueError(("Invalid ORC BloomFilter false positive rate: "
+                              f"{bloom_filter_fpp}"))
     return options
 
 
@@ -371,7 +345,7 @@ cdef class ORCReader(_Weakrefable):
         return deref(self.reader).GetFileLength()
 
     def serialized_file_tail(self):
-        return frombytes(deref(self.reader).GetSerializedFileTail())
+        return deref(self.reader).GetSerializedFileTail()
 
     def read_stripe(self, n, columns=None):
         cdef:
@@ -418,7 +392,7 @@ cdef class ORCWriter(_Weakrefable):
         unique_ptr[ORCFileWriter] writer
         shared_ptr[COutputStream] rd_handle
 
-    def open(self, object sink, file_version=None,
+    def open(self, object sink, *, file_version=None,
              batch_size=None,
              stripe_size=None,
              compression=None,
@@ -449,8 +423,9 @@ cdef class ORCWriter(_Weakrefable):
         )
 
         with nogil:
-            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
-                ORCFileWriter.Open(self.rd_handle.get(), deref(write_options))))
+            self.writer = move(GetResultValue(
+                ORCFileWriter.Open(self.rd_handle.get(),
+                    deref(write_options))))
 
     def write(self, Table table):
         cdef:

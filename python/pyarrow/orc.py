@@ -186,34 +186,36 @@ class ORCFile:
 
 
 _orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
-    Determine which ORC file version to use. Hive 0.11 / ORC v0 is the older
-    version as defined `here <https://orc.apache.org/specification/ORCv0/>`
-    while Hive 0.12 / ORC v1 is the newer one as defined
-    `here <https://orc.apache.org/specification/ORCv1/>`.
+    Determine which ORC file version to use. 
+    `Hive 0.11 / ORC v0 <https://orc.apache.org/specification/ORCv0/>`_
+    is the older version
+    while `Hive 0.12 / ORC v1 <https://orc.apache.org/specification/ORCv1/>`_
+    is the newer one.
 batch_size : int, default 1024
     Number of rows the ORC writer writes at a time.
 stripe_size : int, default 64 * 1024 * 1024
     Size of each ORC stripe.
-compression : string, default 'zlib'
-    Specify the compression codec.
-    Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ0', 'LZ4', 'ZSTD'}
+compression : string, default 'uncompressed'
+    The compression codec.
+    Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ4', 'ZSTD'}
+    Note that LZ0 is currently not supported.
 compression_block_size : int, default 64 * 1024
-    Specify the size of each compression block.
+    Size of each compression block.
 compression_strategy : string, default 'speed'
-    Specify the compression strategy i.e. speed vs size reduction.
+    The compression strategy i.e. speed vs size reduction.
     Valid values: {'SPEED', 'COMPRESSION'}
 row_index_stride : int, default 10000
-    Specify the row index stride i.e. the number of rows per
+    The row index stride i.e. the number of rows per
     an entry in the row index.
 padding_tolerance : double, default 0.0
-    Set the padding tolerance.
+    The padding tolerance.
 dictionary_key_size_threshold : double, default 0.0
-    Set the dictionary key size threshold. 0 to disable dictionary encoding.
+    The dictionary key size threshold. 0 to disable dictionary encoding.
     1 to always enable dictionary encoding.
 bloom_filter_columns : None, set-like or list-like, default None
-    Set columns that use the bloom filter.
+    Columns that use the bloom filter.
 bloom_filter_fpp: double, default 0.05
-    Set false positive probability of the bloom filter.
+    Upper limit of the false-positive rate of the bloom filter.
 """
 
 
@@ -230,10 +232,12 @@ where : str or pyarrow.io.NativeFile
 {}
 """.format(_orc_writer_args_docs)
 
-    def __init__(self, where, file_version='0.12',
+    is_open = False
+
+    def __init__(self, where, *, file_version='0.12',
                  batch_size=1024,
-                 stripe_size=67108864,
-                 compression='zlib',
+                 stripe_size=64 * 1024 * 1024,
+                 compression='uncompressed',
                  compression_block_size=65536,
                  compression_strategy='speed',
                  row_index_stride=10000,
@@ -261,16 +265,13 @@ where : str or pyarrow.io.NativeFile
         self.is_open = True
 
     def __del__(self):
-        if getattr(self, 'is_open', False):
-            self.close()
+        self.close()
 
     def __enter__(self):
         return self
 
     def __exit__(self, *args, **kwargs):
         self.close()
-        # return false since we want to propagate exceptions
-        return False
 
     def write(self, table):
         """
@@ -294,10 +295,10 @@ where : str or pyarrow.io.NativeFile
             self.is_open = False
 
 
-def write_table(table, where, file_version='0.12',
+def write_table(table, where, *, file_version='0.12',
                 batch_size=1024,
-                stripe_size=67108864,
-                compression='zlib',
+                stripe_size=64 * 1024 * 1024,
+                compression='uncompressed',
                 compression_block_size=65536,
                 compression_strategy='speed',
                 row_index_stride=10000,

@@ -735,46 +735,45 @@ class ArrowOutputStream : public liborc::OutputStream {
 
 Result<liborc::WriterOptions> MakeOrcWriterOptions(
     arrow::adapters::orc::WriteOptions options) {
-  liborc::WriterOptions orc_options_;
-  orc_options_.setFileVersion(
+  liborc::WriterOptions orc_options;
+  orc_options.setFileVersion(
       liborc::FileVersion(static_cast<uint32_t>(options.file_version.major()),
                           static_cast<uint32_t>(options.file_version.minor())));
-  orc_options_.setStripeSize(static_cast<uint64_t>(options.stripe_size));
-  orc_options_.setCompressionBlockSize(
+  orc_options.setStripeSize(static_cast<uint64_t>(options.stripe_size));
+  orc_options.setCompressionBlockSize(
       static_cast<uint64_t>(options.compression_block_size));
-  orc_options_.setCompressionStrategy(static_cast<liborc::CompressionStrategy>(
+  orc_options.setCompressionStrategy(static_cast<liborc::CompressionStrategy>(
       static_cast<int8_t>(options.compression_strategy)));
-  orc_options_.setRowIndexStride(static_cast<uint64_t>(options.row_index_stride));
-  orc_options_.setPaddingTolerance(options.padding_tolerance);
-  orc_options_.setDictionaryKeySizeThreshold(options.dictionary_key_size_threshold);
-  orc_options_.setPaddingTolerance(options.padding_tolerance);
-  std::set<uint64_t> orc_bloom_filter_columns_;
+  orc_options.setRowIndexStride(static_cast<uint64_t>(options.row_index_stride));
+  orc_options.setPaddingTolerance(options.padding_tolerance);
+  orc_options.setDictionaryKeySizeThreshold(options.dictionary_key_size_threshold);
+  std::set<uint64_t> orc_bloom_filter_columns;
   std::for_each(options.bloom_filter_columns.begin(), options.bloom_filter_columns.end(),
-                [&orc_bloom_filter_columns_](const int64_t col) {
-                  orc_bloom_filter_columns_.insert(static_cast<uint64_t>(col));
+                [&orc_bloom_filter_columns](const int64_t col) {
+                  orc_bloom_filter_columns.insert(static_cast<uint64_t>(col));
                 });
-  orc_options_.setColumnsUseBloomFilter(orc_bloom_filter_columns_);
-  orc_options_.setBloomFilterFPP(options.bloom_filter_fpp);
+  orc_options.setColumnsUseBloomFilter(orc_bloom_filter_columns);
+  orc_options.setBloomFilterFPP(options.bloom_filter_fpp);
   switch (options.compression) {
     case Compression::UNCOMPRESSED:
-      orc_options_.setCompression(liborc::CompressionKind::CompressionKind_NONE);
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_NONE);
       break;
     case Compression::GZIP:
-      orc_options_.setCompression(liborc::CompressionKind::CompressionKind_ZLIB);
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZLIB);
       break;
     case Compression::SNAPPY:
-      orc_options_.setCompression(liborc::CompressionKind::CompressionKind_SNAPPY);
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_SNAPPY);
       break;
     case Compression::LZ4:
-      orc_options_.setCompression(liborc::CompressionKind::CompressionKind_LZ4);
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_LZ4);
       break;
     case Compression::ZSTD:
-      orc_options_.setCompression(liborc::CompressionKind::CompressionKind_ZSTD);
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZSTD);
       break;
     default:
       return Status::Invalid("Compression type not supported by ORC");
   }
-  return orc_options_;
+  return orc_options;
 }
 
 }  // namespace
@@ -790,29 +789,29 @@ class ORCFileWriter::Impl {
 
   Status Write(const Table& table) {
     ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
-    ARROW_ASSIGN_OR_RAISE(auto orc_options_, MakeOrcWriterOptions(write_options_));
-    auto batch_size_ = static_cast<uint64_t>(write_options_.batch_size);
+    ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+    auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
     ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), orc_options_))
+        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), orc_options))
 
     int64_t num_rows = table.num_rows();
-    const int num_cols_ = table.num_columns();
-    std::vector<int64_t> arrow_index_offset(num_cols_, 0);
-    std::vector<int> arrow_chunk_offset(num_cols_, 0);
+    const int num_cols = table.num_columns();
+    std::vector<int64_t> arrow_index_offset(num_cols, 0);
+    std::vector<int> arrow_chunk_offset(num_cols, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(batch_size_);
+        writer_->createRowBatch(batch_size);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
-      for (int i = 0; i < num_cols_; i++) {
+      for (int i = 0; i < num_cols; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), batch_size_, &(arrow_chunk_offset[i]),
+            *(table.column(i)), batch_size, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= batch_size_;
+      num_rows -= batch_size;
     }
     return Status::OK();
   }

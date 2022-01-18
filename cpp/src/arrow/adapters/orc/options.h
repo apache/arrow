@@ -31,7 +31,7 @@ namespace adapters {
 
 namespace orc {
 
-enum class WriterId {
+enum class WriterId : int32_t {
   kOrcJava = 0,
   kOrcCpp = 1,
   kPresto = 2,
@@ -40,7 +40,7 @@ enum class WriterId {
   kUnknown = INT32_MAX
 };
 
-enum class WriterVersion {
+enum class WriterVersion : int32_t {
   kOriginal = 0,
   kHive8732 = 1,
   kHive4243 = 2,
@@ -54,11 +54,11 @@ enum class WriterVersion {
   kMax = INT32_MAX
 };
 
-enum class CompressionStrategy { kSpeed = 0, kCompression };
+enum class CompressionStrategy : int32_t { kSpeed = 0, kCompression };
 
-enum class RleVersion { k1 = 0, k2 = 1 };
+enum class RleVersion : int32_t { k1 = 0, k2 = 1 };
 
-enum class BloomFilterVersion {
+enum class BloomFilterVersion : int32_t {
   // Include both the BLOOM_FILTER and BLOOM_FILTER_UTF8 streams to support
   // both old and new readers.
   kOriginal = 0,
@@ -109,10 +109,10 @@ struct ARROW_EXPORT WriteOptions {
   int64_t batch_size = 1024;
   /// Which ORC file version to use, default FileVersion(0, 12)
   FileVersion file_version = FileVersion(0, 12);
-  /// Size of each ORC stripe, default 67108864
-  int64_t stripe_size = 67108864;
-  /// The compression codec of the ORC file, default Compression::GZIP
-  Compression::type compression = Compression::GZIP;
+  /// Size of each ORC stripe, default 64 MiB
+  int64_t stripe_size = 64 * 1024 * 1024;
+  /// The compression codec of the ORC file, there is no compression by default
+  Compression::type compression = Compression::UNCOMPRESSED;
   /// The size of each compression block, default 65536
   int64_t compression_block_size = 65536;
   /// The compression strategy i.e. speed vs size reduction, default
@@ -127,7 +127,7 @@ struct ARROW_EXPORT WriteOptions {
   double dictionary_key_size_threshold = 0.0;
   /// The set of columns that use the bloom filter, default empty
   std::set<int64_t> bloom_filter_columns;
-  /// False positive probability of the bloom filter, default 0.05
+  /// The upper limit of the false-positive rate of the bloom filter, default 0.05
   double bloom_filter_fpp = 0.05;
 };
 
