@@ -384,12 +384,19 @@ class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestCsvFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+// NOTE(ARROW-14658): TestScanProjectedNested is ignored since CSV
+// doesn't have any nested types for us to work with
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols();
+// The CSV reader rejects duplicate columns, so skip
+// ScanRecordBatchReaderWithDuplicateColumn
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,

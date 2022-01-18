@@ -28,6 +28,10 @@
 
 namespace arrow {
 
+// A matcher that checks that the values pointed to are Equals().
+// Useful in conjunction with other googletest matchers.
+MATCHER(PointeesEquals, "") { return std::get<0>(arg)->Equals(*std::get<1>(arg)); }
+
 template <typename ResultMatcher>
 class FutureMatcher {
  public:
