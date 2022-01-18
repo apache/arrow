@@ -613,6 +613,60 @@ guidelines apply. Row groups can provide parallelism when reading and allow data
 based on statistics, but very small groups can cause metadata to be a significant portion
 of file size. Arrow's file writer provides sensible defaults for group sizing in most cases.
 
+Configuring files open during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing data to the disk, there are a few parameters that can be 
+important to optimize the writes, i.e number of rows per file and
+number of files open during write. 
+
+Set the maximum number of files opened with the ``max_open_files`` parameter of
+:meth:`write_dataset`.
+
+If  ``max_open_files`` is set greater than 0 then this will limit the maximum 
+number of files that can be left open. If an attempt is made to open too many 
+files then the least recently used file will be closed.  If this setting is set 
+too low you may end up fragmenting your data into many small files.
+
+The default value is 900 which also allows some number of files to be open 
+by the scannerbefore hitting the default Linux limit of 1024. Modify this value 
+depending on the nature of write operations associated with the usage. 
+
+Another important configuration used in `write_dataset` is ``max_rows_per_file``. 
+
+Set the maximum number of files opened with the ``max_rows_per_files`` parameter of
+:meth:`write_dataset`.
+
+If ``max_rows_per_file`` is set greater than 0 then this will limit how many 
+rows are placed in any single file. Otherwise there will be no limit and one 
+file will be created in each output directory unless files need to be closed to respect 
+``max_open_files``. 
+
+Configuring rows per group during a write
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When writing data to disk, depending on the volume of data obtained, 
+(in a mini-batch setting where, records are obtained in batch by batch)
+the volume of data written to disk per each group can be configured. 
+This can be configured using a minimum and maximum parameter. 
+
+Set the maximum number of files opened with the ``min_rows_per_group`` parameter of
+:meth:`write_dataset`.
+
+Note: if ``min_rows_per_group`` is set greater than 0 then this will cause the 
+dataset writer to batch incoming data and only write the row groups to the 
+disk when sufficient rows have accumulated. The final row group size may be 
+less than this value and other options such as ``max_open_files`` or 
+``max_rows_per_file`` lead to smaller row group sizes.
+
+Set the maximum number of files opened with the ``max_rows_per_group`` parameter of
+:meth:`write_dataset`.
+
+Note: if ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
+up large incoming batches into multiple row groups.  If this value is set then 
+``min_rows_per_group`` should also be set or else you may end up with very small 
+row groups (e.g. if the incoming row group size is just barely larger than this value).
+
 Writing large amounts of data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -699,46 +753,3 @@ Parquet files:
 
     # also clean-up custom base directory used in some examples
     shutil.rmtree(str(base), ignore_errors=True)
-
-
-Configuring files open during a write
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When writing data to the disk, there are a few parameters that can be 
-important to optimize the writes, i.e number of rows per file and
-number of files open during write. 
-
-The number of files opened at during the write time can be set as follows;
-
-.. ipython:: python
-
-    ds.write_dataset(data=table, base_dir="data_dir", max_open_files=max_open_files)
-
-The maximum number of rows per file can be set as follows;
-
-.. ipython:: pythoin
-    ds.write_dataset(record_batch, "data_dir", format="parquet",
-                     max_rows_per_file=10)
-
-
-Configuring rows per group during a write
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When writing data to disk, depending on the volume of data obtained, 
-(in a mini-batch setting where, records are obtained in batch by batch)
-the volume of data written to disk per each group can be configured. 
-This can be configured using a minimum and maximum parameter. 
-
-Set minimum rows per group;
-
-.. ipython:: python
-    ds.write_dataset(data=record_batches, base_dir="data_dir",
-                     min_rows_per_group=5,
-                     format="parquet")
-
-Set maximum rows per group;
-
-.. ipython:: python
-    ds.write_dataset(data=record_batches, base_dir="data_dir",
-                     max_rows_per_group=10,
-                     format="parquet")
