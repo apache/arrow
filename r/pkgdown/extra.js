@@ -94,11 +94,7 @@ function check_page_exists_and_redirect(event) {
       }
 
       // Load the versions JSON and construct the select items
-      // Delete below line before merging
-      // You can test with https://raw.githubusercontent.com/thisisnic/arrow/ARROW-14338_pkgdown_versioning/r/pkgdown/assets/versions.json
-      //$.getJSON("./versions.json", function( data ) {
-      $.getJSON("https://raw.githubusercontent.com/thisisnic/arrow/ec8c60d97eb489f0c19297e8d9b3f48e44db5afb/r/pkgdown/assets/versions.json", function( data ) {
-
+      $.getJSON("./versions.json", function( data ) {
         // get the current page's version number:
 				var displayed_version = $('.version').text();
 				const sel = document.createElement("select");
