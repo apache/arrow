@@ -78,44 +78,45 @@ function check_page_exists_and_redirect(event) {
       empty_ul.remove();
     });
 
-  $(document).ready(function () {
+    $(document).ready(function () {
+  
       /**
        * This replaces the package version number in the docs with a
        * dropdown where you can select the version of the docs to view.
        */
 
-      $pathStart = function(){
+        $pathStart = function(){
     	  return window.location.origin + "/docs/";
-      }
+        }
 
-      $pathEnd  = function(){
-      	var current_path = window.location.pathname;
-      	return current_path.match("(?<=\/r).*");
-      }
+        $pathEnd  = function(){
+      	  var current_path = window.location.pathname;
+      	  return current_path.match("(?<=\/r).*");
+        }
 
-      // Load the versions JSON and construct the select items
-      $.getJSON("./versions.json", function( data ) {
-        // get the current page's version number:
-				var displayed_version = $('.version').text();
-				const sel = document.createElement("select");
-				sel.name = "version-selector";
-				sel.id = "version-selector";
-				sel.class = "navbar-default";
-				sel.onchange = check_page_exists_and_redirect;
+        // Load the versions JSON and construct the select items
+        $.getJSON("./versions.json", function( data ) {
+          // get the current page's version number:
+		  var displayed_version = $('.version').text();
+          const sel = document.createElement("select");
+          sel.name = "version-selector";
+          sel.id = "version-selector";
+          sel.class = "navbar-default";
+          sel.onchange = check_page_exists_and_redirect;
 
-				$.each( data, function( key, val ) {
-          const opt = document.createElement("option");
-          opt.value = $pathStart() + val.version + "r" + $pathEnd();
-          opt.selected = val.name.match("[0-9.]*")[0] === displayed_version;
-          opt.text = val.name;
-          sel.append(opt);
-				});
+		  $.each( data, function( key, val ) {
+            const opt = document.createElement("option");
+            opt.value = $pathStart() + val.version + "r" + $pathEnd();
+            opt.selected = val.name.match("[0-9.]*")[0] === displayed_version;
+            opt.text = val.name;
+            sel.append(opt);
+		  });
 
-				$("span.version").replaceWith(sel);
-			});
-		});
+          $("span.version").replaceWith(sel);
+        });
+    });
 
-	};
+  };
 
-	document.head.appendChild(script);
+  document.head.appendChild(script);
 })();
