@@ -134,4 +134,9 @@ register_bindings_datetime <- function() {
     inherits(x, "POSIXct") ||
       (inherits(x, "Expression") && x$type_id() %in% Type[c("TIMESTAMP")])
   })
+
+  register_binding("leap_year", function(date) {
+    year <- Expression$create("year", date)
+    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
+  })
 }
