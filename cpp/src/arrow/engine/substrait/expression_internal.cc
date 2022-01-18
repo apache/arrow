@@ -692,42 +692,33 @@ static Status AddChildToReferenceSegment(
   auto status = Status::Invalid("Attempt to add child to incomplete reference segment");
   switch (segment.reference_type_case()) {
     case substrait::Expression::ReferenceSegment::kMapKey: {
-      auto map_key = segment.release_map_key();
+      auto map_key = segment.mutable_map_key();
       if (map_key->has_child()) {
-        auto intermediate_segment = map_key->release_child();
-        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
-        map_key->set_allocated_child(intermediate_segment);
+        status = AddChildToReferenceSegment(*map_key->mutable_child(), std::move(child));
       } else {
         map_key->set_allocated_child(child.release());
         status = Status::OK();
       }
-      segment.set_allocated_map_key(map_key);
       break;
     }
     case substrait::Expression::ReferenceSegment::kStructField: {
-      auto struct_field = segment.release_struct_field();
+      auto struct_field = segment.mutable_struct_field();
       if (struct_field->has_child()) {
-        auto intermediate_segment = struct_field->release_child();
-        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
-        struct_field->set_allocated_child(intermediate_segment);
+        status = AddChildToReferenceSegment(*struct_field->mutable_child(), std::move(child));
       } else {
         struct_field->set_allocated_child(child.release());
         status = Status::OK();
       }
-      segment.set_allocated_struct_field(struct_field);
       break;
     }
     case substrait::Expression::ReferenceSegment::kListElement: {
-      auto list_element = segment.release_list_element();
+      auto list_element = segment.mutable_list_element();
       if (list_element->has_child()) {
-        auto intermediate_segment = list_element->release_child();
-        status = AddChildToReferenceSegment(*intermediate_segment, std::move(child));
-        list_element->set_allocated_child(intermediate_segment);
+        status = AddChildToReferenceSegment(*list_element->mutable_child(), std::move(child));
       } else {
         list_element->set_allocated_child(child.release());
         status = Status::OK();
       }
-      segment.set_allocated_list_element(list_element);
       break;
     }
     default:
@@ -743,11 +734,9 @@ static Result<std::unique_ptr<substrait::Expression>> MakeDirectReference(
     std::unique_ptr<substrait::Expression::ReferenceSegment>&& ref_segment) {
   // If expr is already a selection expression, add the index to its index stack.
   if (expr && expr->has_selection() && expr->selection().has_direct_reference()) {
-    auto selection = expr->release_selection();
-    auto root_ref_segment = selection->release_direct_reference();
+    auto selection = expr->mutable_selection();
+    auto root_ref_segment = selection->mutable_direct_reference();
     auto status = AddChildToReferenceSegment(*root_ref_segment, std::move(ref_segment));
-    selection->set_allocated_direct_reference(root_ref_segment);
-    expr->set_allocated_selection(selection);
     if (status.ok()) {
       return std::move(expr);
     }
