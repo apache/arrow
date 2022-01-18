@@ -148,6 +148,10 @@ Array__Same <- function(x, y) {
   .Call(`_arrow_Array__Same`, x, y)
 }
 
+Array__ReferencedBufferSize <- function(x) {
+  .Call(`_arrow_Array__ReferencedBufferSize`, x)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }

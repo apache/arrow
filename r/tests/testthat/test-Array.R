@@ -985,3 +985,10 @@ test_that("Array to C-interface", {
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
 })
+
+test_that("Array$nbytes", {
+  vec <- 1:5
+  a <- Array$create(vec)
+  nbytes <- a$nbytes()
+  expect_equal(nbytes, 4 * 5)
+})
