@@ -148,7 +148,7 @@ test_that("as.data.frame(<Table>, <RecordBatch>) can create altrep vectors", {
   expect_true(is_arrow_altrep(df_batch$str))
 })
 
-expect_altrep_rountrip <- function(x, fn, ..., .expect_warning = NA) {
+expect_altrep_roundtrip <- function(x, fn, ..., .expect_warning = NA) {
   alt <- Array$create(x)$as_vector()
 
   expect_true(is_arrow_altrep(alt))
@@ -167,64 +167,64 @@ expect_altrep_rountrip <- function(x, fn, ..., .expect_warning = NA) {
 
 test_that("altrep min/max/sum identical to R versions for double", {
   x <- c(1, 2, 3)
-  expect_altrep_rountrip(x, min, na.rm = TRUE)
-  expect_altrep_rountrip(x, max, na.rm = TRUE)
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE)
+  expect_altrep_roundtrip(x, max, na.rm = TRUE)
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 
   x <- c(1, 2, NA_real_)
-  expect_altrep_rountrip(x, min, na.rm = TRUE)
-  expect_altrep_rountrip(x, max, na.rm = TRUE)
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE)
+  expect_altrep_roundtrip(x, max, na.rm = TRUE)
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 
   x <- rep(NA_real_, 3)
-  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
-  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_roundtrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 })
 
 test_that("altrep min/max/sum identical to R versions for int", {
   x <- c(1L, 2L, 3L)
-  expect_altrep_rountrip(x, min, na.rm = TRUE)
-  expect_altrep_rountrip(x, max, na.rm = TRUE)
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE)
+  expect_altrep_roundtrip(x, max, na.rm = TRUE)
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 
   x <- c(1L, 2L, NA_integer_)
-  expect_altrep_rountrip(x, min, na.rm = TRUE)
-  expect_altrep_rountrip(x, max, na.rm = TRUE)
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE)
+  expect_altrep_roundtrip(x, max, na.rm = TRUE)
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 
   x <- rep(NA_integer_, 3)
-  expect_altrep_rountrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
-  expect_altrep_rountrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
-  expect_altrep_rountrip(x, sum, na.rm = TRUE)
+  expect_altrep_roundtrip(x, min, na.rm = TRUE, .expect_warning = "no non-missing arguments to min")
+  expect_altrep_roundtrip(x, max, na.rm = TRUE, .expect_warning = "no non-missing arguments to max")
+  expect_altrep_roundtrip(x, sum, na.rm = TRUE)
 
-  expect_altrep_rountrip(x, min)
-  expect_altrep_rountrip(x, max)
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, min)
+  expect_altrep_roundtrip(x, max)
+  expect_altrep_roundtrip(x, sum)
 
   # sum(x) is INT_MIN -> convert to double.
   x <- as.integer(c(-2^31 + 1L, -1L))
-  expect_altrep_rountrip(x, sum)
+  expect_altrep_roundtrip(x, sum)
 })
 
 test_that("altrep vectors handle serialization", {
