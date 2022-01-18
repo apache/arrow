@@ -169,7 +169,7 @@ module Arrow
       begin
         load_as_arrow_file
       rescue
-        load_as_arrow_streaming
+        load_as_arrows
       end
     end
 
@@ -186,17 +186,22 @@ module Arrow
       load_as_arrow_file
     end
 
-    # @since 1.0.0
-    def load_as_arrow_streaming
+    # @since 7.0.0
+    def load_as_arrows
       open_input_stream do |input|
         reader = RecordBatchStreamReader.new(input)
         load_raw(input, reader)
       end
     end
 
+    # @since 1.0.0
+    def load_as_arrow_streaming
+      load_as_arrows
+    end
+
     # @deprecated Use `format: :arrow_streaming` instead.
     def load_as_stream
-      load_as_arrow_streaming
+      load_as_arrows
     end
 
     if Arrow.const_defined?(:ORCFileReader)
