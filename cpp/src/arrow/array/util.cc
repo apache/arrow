@@ -319,7 +319,7 @@ namespace {
 
 // get the maximum buffer length required, then allocate a single zeroed buffer
 // to use anywhere a buffer is required
-class NullArrayFactory {
+class ImmutableNullArrayFactory {
  public:
   struct GetBufferLength {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
@@ -415,8 +415,8 @@ class NullArrayFactory {
     int64_t length_, buffer_length_;
   };
 
-  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                   int64_t length)
+  ImmutableNullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                            int64_t length)
       : pool_(pool), type_(type), length_(length) {}
 
   Status CreateBuffer() {
@@ -521,7 +521,7 @@ class NullArrayFactory {
 
   Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
                                                  int64_t length) {
-    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
+    ImmutableNullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
@@ -531,6 +531,150 @@ class NullArrayFactory {
   int64_t length_;
   std::shared_ptr<ArrayData> out_;
   std::shared_ptr<Buffer> buffer_;
+};
+
+// mutable version of ImmutableNullArrayFactory
+class NullArrayFactory {
+ public:
+  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   int64_t length)
+      : pool_(pool), type_(type), length_(length) {}
+
+  Result<std::shared_ptr<ArrayData>> Create() {
+    std::vector<std::shared_ptr<ArrayData>> child_data(type_->num_fields());
+    ARROW_ASSIGN_OR_RAISE(auto validity, CreateZeroBitBuffer(1));
+    out_ = ArrayData::Make(type_, length_, {validity}, child_data, length_, 0);
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
+    return out_;
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateZeroByteBuffer(size_t scalar_size_bytes) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer(length_ * scalar_size_bytes, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return buffer;
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateZeroOffsetBuffer(size_t index_size_bytes) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer((length_ + 1) * index_size_bytes, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return buffer;
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateZeroBitBuffer(size_t scalar_size_bits) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer((length_ * scalar_size_bits + 7) / 8, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return buffer;
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0); }
+
+  Status Visit(const NullType&) {
+    out_->buffers.resize(1, nullptr);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedWidthType& type) {
+    out_->buffers.resize(2);
+    // values
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1], CreateZeroBitBuffer(type.bit_width()));
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    out_->buffers.resize(3);
+    // offsets
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
+                          CreateZeroOffsetBuffer(sizeof(typename T::offset_type)));
+    // values
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[2], CreateEmptyBuffer());
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_var_size_list<T, Status> Visit(const T& type) {
+    out_->buffers.resize(2);
+    // offsets
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
+                          CreateZeroOffsetBuffer(sizeof(typename T::offset_type)));
+    // values
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) {
+    ARROW_ASSIGN_OR_RAISE(out_->child_data[0],
+                          CreateChild(type, 0, length_ * type.list_size()));
+    return Status::OK();
+  }
+
+  Status Visit(const StructType& type) {
+    for (int i = 0; i < type_->num_fields(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const UnionType& type) {
+    out_->buffers.resize(2);
+
+    // First buffer is always null
+    out_->buffers[0] = nullptr;
+
+    // type ID buffer
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1], AllocateBuffer(length_, pool_));
+    std::memset(out_->buffers[1]->mutable_data(), type.type_codes()[0], length_);
+
+    // For sparse unions, we now create children with the same length as the
+    // parent
+    int64_t child_length = length_;
+    if (type.mode() == UnionMode::DENSE) {
+      // For dense unions, we set the offsets to all zero and create children
+      // with length 1
+      out_->buffers.resize(3);
+      ARROW_ASSIGN_OR_RAISE(out_->buffers[2], CreateZeroByteBuffer(sizeof(int32_t)));
+
+      child_length = 1;
+    }
+    for (int i = 0; i < type_->num_fields(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, child_length));
+    }
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& type) {
+    out_->buffers.resize(2);
+    // dictionary indices
+    ARROW_ASSIGN_OR_RAISE(out_->buffers[1], CreateZeroBitBuffer(type.bit_width()));
+    // dictionary data
+    ARROW_ASSIGN_OR_RAISE(auto typed_null_dict, MakeArrayOfNull(type.value_type(), 0));
+    out_->dictionary = typed_null_dict->data();
+    return Status::OK();
+  }
+
+  Status Visit(const ExtensionType& type) {
+    out_->child_data.resize(type.storage_type()->num_fields());
+    RETURN_NOT_OK(VisitTypeInline(*type.storage_type(), this));
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("construction of all-null ", type);
+  }
+
+  Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
+                                                 int64_t length) {
+    ImmutableNullArrayFactory child_factory(pool_, type.field(i)->type(), length);
+    return child_factory.Create();
+  }
+
+  MemoryPool* pool_;
+  std::shared_ptr<DataType> type_;
+  int64_t length_;
+  std::shared_ptr<ArrayData> out_;
 };
 
 class RepeatedArrayFactory {
@@ -782,11 +926,28 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
   return MakeArray(data);
 }
 
+Result<std::shared_ptr<Array>> MakeImmutableArrayOfNull(
+    const std::shared_ptr<DataType>& type, int64_t length, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto data,
+                        ImmutableNullArrayFactory(pool, type, length).Create());
+  return MakeArray(data);
+}
+
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
+  }
+  return RepeatedArrayFactory(pool, scalar, length).Create();
+}
+
+Result<std::shared_ptr<Array>> MakeImmutableArrayFromScalar(const Scalar& scalar,
+                                                            int64_t length,
+                                                            MemoryPool* pool) {
+  // Null union scalars still have a type code associated
+  if (!scalar.is_valid && !is_union(scalar.type->id())) {
+    return MakeImmutableArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();
 }

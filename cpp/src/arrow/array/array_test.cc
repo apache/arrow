@@ -368,25 +368,27 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       // clang-format on
   };
 
-  for (int64_t length : {0, 1, 16, 133}) {
-    for (auto type : types) {
-      ARROW_SCOPED_TRACE("type = ", type->ToString());
-      ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
-      ASSERT_EQ(array->type(), type);
-      ASSERT_OK(array->ValidateFull());
-      ASSERT_EQ(array->length(), length);
-      if (is_union(type->id())) {
-        // For unions, MakeArrayOfNull places the nulls in the children
-        ASSERT_EQ(array->null_count(), 0);
-        const auto& union_array = checked_cast<const UnionArray&>(*array);
-        for (int i = 0; i < union_array.num_fields(); ++i) {
-          ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
-        }
-      } else {
-        ASSERT_EQ(array->null_count(), length);
-        for (int64_t i = 0; i < length; ++i) {
-          ASSERT_TRUE(array->IsNull(i));
-          ASSERT_FALSE(array->IsValid(i));
+  for (auto fun : {MakeArrayOfNull, MakeImmutableArrayOfNull}) {
+    for (int64_t length : {0, 1, 16, 133}) {
+      for (auto type : types) {
+        ARROW_SCOPED_TRACE("type = ", type->ToString());
+        ASSERT_OK_AND_ASSIGN(auto array, fun(type, length, default_memory_pool()));
+        ASSERT_EQ(array->type(), type);
+        ASSERT_OK(array->ValidateFull());
+        ASSERT_EQ(array->length(), length);
+        if (is_union(type->id())) {
+          // For unions, MakeArrayOfNull places the nulls in the children
+          ASSERT_EQ(array->null_count(), 0);
+          const auto& union_array = checked_cast<const UnionArray&>(*array);
+          for (int i = 0; i < union_array.num_fields(); ++i) {
+            ASSERT_EQ(union_array.field(i)->null_count(), union_array.field(i)->length());
+          }
+        } else {
+          ASSERT_EQ(array->null_count(), length);
+          for (int64_t i = 0; i < length; ++i) {
+            ASSERT_TRUE(array->IsNull(i));
+            ASSERT_FALSE(array->IsValid(i));
+          }
         }
       }
     }
@@ -397,51 +399,56 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   // Unions need special checking -- the top level null count is 0 (per
   // ARROW-9222) so we check the first child to make sure is contains all nulls
   // and check that the type_ids all point to the first child
-  const int64_t union_length = 10;
-  auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
-  ASSERT_OK_AND_ASSIGN(auto s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
-  ASSERT_OK(s_union_nulls->ValidateFull());
-  ASSERT_EQ(s_union_nulls->null_count(), 0);
-  {
-    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
-    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+  for (auto fun : {MakeArrayOfNull, MakeImmutableArrayOfNull}) {
+    const int64_t union_length = 10;
+    auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
+    ASSERT_OK_AND_ASSIGN(auto s_union_nulls,
+                         fun(s_union_ty, union_length, default_memory_pool()));
+    ASSERT_OK(s_union_nulls->ValidateFull());
+    ASSERT_EQ(s_union_nulls->null_count(), 0);
+    {
+      const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+      ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
 
-    // Check type codes are all 0
-    for (int i = 0; i < union_length; ++i) {
-      ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
+      // Check type codes are all 0
+      for (int i = 0; i < union_length; ++i) {
+        ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
+      }
     }
-  }
 
-  s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {2, 7});
-  ASSERT_OK_AND_ASSIGN(s_union_nulls, MakeArrayOfNull(s_union_ty, union_length));
-  ASSERT_OK(s_union_nulls->ValidateFull());
-  ASSERT_EQ(s_union_nulls->null_count(), 0);
-  {
-    const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
-    ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
+    s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {2, 7});
+    ASSERT_OK_AND_ASSIGN(s_union_nulls,
+                         fun(s_union_ty, union_length, default_memory_pool()));
+    ASSERT_OK(s_union_nulls->ValidateFull());
+    ASSERT_EQ(s_union_nulls->null_count(), 0);
+    {
+      const auto& typed_union = checked_cast<const SparseUnionArray&>(*s_union_nulls);
+      ASSERT_EQ(typed_union.field(0)->null_count(), union_length);
 
-    // Check type codes are all 2
-    for (int i = 0; i < union_length; ++i) {
-      ASSERT_EQ(typed_union.raw_type_codes()[i], 2);
+      // Check type codes are all 2
+      for (int i = 0; i < union_length; ++i) {
+        ASSERT_EQ(typed_union.raw_type_codes()[i], 2);
+      }
     }
-  }
 
-  auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
-  ASSERT_OK_AND_ASSIGN(auto d_union_nulls, MakeArrayOfNull(d_union_ty, union_length));
-  ASSERT_OK(d_union_nulls->ValidateFull());
-  ASSERT_EQ(d_union_nulls->null_count(), 0);
-  {
-    const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);
+    auto d_union_ty = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
+    ASSERT_OK_AND_ASSIGN(auto d_union_nulls,
+                         fun(d_union_ty, union_length, default_memory_pool()));
+    ASSERT_OK(d_union_nulls->ValidateFull());
+    ASSERT_EQ(d_union_nulls->null_count(), 0);
+    {
+      const auto& typed_union = checked_cast<const DenseUnionArray&>(*d_union_nulls);
 
-    // Child field has length 1 which is a null element
-    ASSERT_EQ(typed_union.field(0)->length(), 1);
-    ASSERT_EQ(typed_union.field(0)->null_count(), 1);
+      // Child field has length 1 which is a null element
+      ASSERT_EQ(typed_union.field(0)->length(), 1);
+      ASSERT_EQ(typed_union.field(0)->null_count(), 1);
 
-    // Check type codes are all 0 and the offsets point to the first element of
-    // the first child
-    for (int i = 0; i < union_length; ++i) {
-      ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
-      ASSERT_EQ(typed_union.raw_value_offsets()[i], 0);
+      // Check type codes are all 0 and the offsets point to the first element of
+      // the first child
+      for (int i = 0; i < union_length; ++i) {
+        ASSERT_EQ(typed_union.raw_type_codes()[i], 0);
+        ASSERT_EQ(typed_union.raw_value_offsets()[i], 0);
+      }
     }
   }
 }
@@ -579,30 +586,32 @@ static ScalarVector GetScalars() {
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
-  ASSERT_OK_AND_ASSIGN(auto null_array, MakeArrayFromScalar(NullScalar(), 5));
-  ASSERT_OK(null_array->ValidateFull());
-  ASSERT_EQ(null_array->length(), 5);
-  ASSERT_EQ(null_array->null_count(), 5);
+  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+    ASSERT_OK_AND_ASSIGN(auto null_array, fun(NullScalar(), 5, default_memory_pool()));
+    ASSERT_OK(null_array->ValidateFull());
+    ASSERT_EQ(null_array->length(), 5);
+    ASSERT_EQ(null_array->null_count(), 5);
 
-  auto scalars = GetScalars();
+    auto scalars = GetScalars();
 
-  for (int64_t length : {16}) {
-    for (auto scalar : scalars) {
-      ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, length));
-      ASSERT_OK(array->ValidateFull());
-      ASSERT_EQ(array->length(), length);
-      ASSERT_EQ(array->null_count(), 0);
+    for (int64_t length : {16}) {
+      for (auto scalar : scalars) {
+        ASSERT_OK_AND_ASSIGN(auto array, fun(*scalar, length, default_memory_pool()));
+        ASSERT_OK(array->ValidateFull());
+        ASSERT_EQ(array->length(), length);
+        ASSERT_EQ(array->null_count(), 0);
 
-      // test case for ARROW-13321
-      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
-        ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
-        AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
+        // test case for ARROW-13321
+        for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+          ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
+          AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
+        }
       }
     }
-  }
 
-  for (auto scalar : scalars) {
-    AssertAppendScalar(pool_, scalar);
+    for (auto scalar : scalars) {
+      AssertAppendScalar(pool_, scalar);
+    }
   }
 }
 
@@ -610,13 +619,15 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
 
-  for (auto scalar : scalars) {
-    SCOPED_TRACE(scalar->type->ToString());
-    ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, 32));
-    auto sliced = array->Slice(1, 4);
-    ASSERT_EQ(sliced->length(), 4);
-    ASSERT_EQ(sliced->null_count(), 0);
-    ARROW_EXPECT_OK(sliced->ValidateFull());
+  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+    for (auto scalar : scalars) {
+      SCOPED_TRACE(scalar->type->ToString());
+      ASSERT_OK_AND_ASSIGN(auto array, fun(*scalar, 32, default_memory_pool()));
+      auto sliced = array->Slice(1, 4);
+      ASSERT_EQ(sliced->length(), 4);
+      ASSERT_EQ(sliced->null_count(), 0);
+      ARROW_EXPECT_OK(sliced->ValidateFull());
+    }
   }
 }
 
@@ -626,14 +637,16 @@ TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(int8(), 1));
   auto scalar = DictionaryScalar({value, dictionary}, type);
 
-  ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(scalar, 4));
-  ASSERT_OK(array->ValidateFull());
-  ASSERT_EQ(array->length(), 4);
-  ASSERT_EQ(array->null_count(), 0);
+  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+    ASSERT_OK_AND_ASSIGN(auto array, fun(scalar, 4, default_memory_pool()));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 4);
+    ASSERT_EQ(array->null_count(), 0);
 
-  for (int i = 0; i < 4; i++) {
-    ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
-    ASSERT_TRUE(item->Equals(scalar));
+    for (int i = 0; i < 4; i++) {
+      ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
+      ASSERT_TRUE(item->Equals(scalar));
+    }
   }
 }
 
@@ -643,17 +656,21 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
                     R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
   auto scalar = MapScalar(value);
 
-  ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(scalar, 11));
-  ASSERT_OK(array->ValidateFull());
-  ASSERT_EQ(array->length(), 11);
-  ASSERT_EQ(array->null_count(), 0);
+  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+    ASSERT_OK_AND_ASSIGN(auto array, fun(scalar, 11, default_memory_pool()));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 11);
+    ASSERT_EQ(array->null_count(), 0);
 
-  for (int i = 0; i < 11; i++) {
-    ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
-    ASSERT_TRUE(item->Equals(scalar));
+    for (int i = 0; i < 11; i++) {
+      ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
+      ASSERT_TRUE(item->Equals(scalar));
+    }
+
+    if (fun != MakeImmutableArrayFromScalar) {
+      AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
+    }
   }
-
-  AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
 TEST_F(TestArray, TestMakeEmptyArray) {
