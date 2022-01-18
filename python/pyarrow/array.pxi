@@ -1022,11 +1022,11 @@ cdef class Array(_PandasConvertible):
         window : int
             How many primitive items to preview at the begin and end
             of the array when the array is bigger than the window.
-            The other elements will be ellipsed.
+            The other items will be ellipsed.
         container_window : int
-            How many container elements (such as a list in a list array)
-            at the begin and end of the array when the array is bigger
-            than the window.
+            How many container items (such as a list in a list array)
+            to preview at the begin and end of the array when the array
+            is bigger than the window.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.

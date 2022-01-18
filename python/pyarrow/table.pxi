@@ -80,7 +80,8 @@ cdef class ChunkedArray(_PandasConvertible):
         container_window : int
             How many chunks to preview at the begin and end
             of the array when the arrays is bigger than the window.
-            The other elements will be ellipsed. Window also applies to list columns.
+            The other elements will be ellipsed.
+            This setting also applies to list columns.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.
