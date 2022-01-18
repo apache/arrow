@@ -31,6 +31,7 @@
 * When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
 * More of `lubridate`'s `is.*` functions are natively supported in Arrow.
 * Dictionaries (base R's factors) are now supported inside of `coalesce()`.
+* The package now compiles and installs on Raspberry Pi OS.
 
 ## Breaking changes
 * R 3.3 is no longer supported (`glue`, which we depend on transitively has dropped support for 3.3 so we did as well).
