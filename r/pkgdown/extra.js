@@ -15,20 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-function checkPageExistsAndRedirect(event) {
+function check_page_exists_and_redirect(event) {
 
-    console.log(event.target.getAttribute("value"));
-    console.log(event.target);
-
-    const path_to_try = event.target.selectedOptions()[0].getAttributes("value");
-    //$( "#version-selector" ).val();
+    const path_to_try = event.target.value;
 
     const base_path = path_to_try.match("(.*\/r\/)?")[0];
     let tryUrl = path_to_try;
     $.ajax({
         type: 'HEAD',
         url: tryUrl,
-        // if the page exists, go there
         success: function() {
             location.href = tryUrl;
         }
@@ -104,58 +99,22 @@ function checkPageExistsAndRedirect(event) {
       //$.getJSON("./versions.json", function( data ) {
       $.getJSON("https://raw.githubusercontent.com/thisisnic/arrow/ec8c60d97eb489f0c19297e8d9b3f48e44db5afb/r/pkgdown/assets/versions.json", function( data ) {
 
-        var items = [];
         // get the current page's version number:
 				var displayed_version = $('.version').text();
 				const sel = document.createElement("select");
 				sel.name = "version-selector";
 				sel.id = "version-selector";
 				sel.class = "navbar-default";
-				sel.onchange = checkPageExistsAndRedirect;
+				sel.onchange = check_page_exists_and_redirect;
 
 				$.each( data, function( key, val ) {
-
-					var selected_string = (
-						val.name.match("[0-9.]*")[0] === displayed_version ?
-						"selected" :
-						""
-					 );
-
-          var item_path = $pathStart() + val.version + "r" + $pathEnd();
-
-/***
-          var corrected_path = $.ajax({
-            type: 'GET',
-            url: item_path,
-            success: function() {
-              console.log("win")
-              return item_path;
-            },
-            error: function() {
-              // everything up to the /r/
-              console.log("fail")
-              return item_path.match("(.*\/r\/)?")[0];
-
-            }
-          });
-          console.log(corrected_path);
-          */
-
-          //root_path = $pathStart() + val.version + "r";
-
           const opt = document.createElement("option");
-          opt.value = item_path;
-          opt.selected = selected_string.length > 0;
+          opt.value = $pathStart() + val.version + "r" + $pathEnd();
+          opt.selected = val.name.match("[0-9.]*")[0] === displayed_version;
           opt.text = val.name;
-          // Argh!!!!  Options don't have hyperlinks!!!!
-          // Do them as list items with hyperlinks instead - see the code for e.g. the project docs dropdown and con
           sel.append(opt);
-          //items.push(opt);
-
-					//items.push("<option value='" + item_path +  "'" + selected_string +	">" + val.name + "</option>");
 				});
 
-				// Replace the version button with a selector with the doc versions
 				$("span.version").replaceWith(sel);
 			});
 		});
