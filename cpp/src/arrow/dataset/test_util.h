@@ -645,7 +645,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       row_count += batch->num_rows();
       ASSERT_THAT(
           batch->schema()->fields(),
-          ::testing::UnorderedPointwise(PointeesEquals(), expected_schema->fields()))
+          ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
           << "EXPECTED:\n"
           << expected_schema->ToString() << "\nACTUAL:\n"
           << batch->schema()->ToString();
@@ -690,7 +690,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
         row_count += batch->num_rows();
         ASSERT_THAT(
             batch->schema()->fields(),
-            ::testing::UnorderedPointwise(PointeesEquals(), physical_schema->fields()))
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
             << "EXPECTED:\n"
             << physical_schema->ToString() << "\nACTUAL:\n"
             << batch->schema()->ToString();
@@ -739,7 +739,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
         row_count += batch->num_rows();
         ASSERT_THAT(
             batch->schema()->fields(),
-            ::testing::UnorderedPointwise(PointeesEquals(), physical_schema->fields()))
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
             << "EXPECTED:\n"
             << physical_schema->ToString() << "\nACTUAL:\n"
             << batch->schema()->ToString();
@@ -787,7 +787,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
         row_count += batch->num_rows();
         ASSERT_THAT(
             batch->schema()->fields(),
-            ::testing::UnorderedPointwise(PointeesEquals(), expected_schema->fields()))
+            ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
             << "EXPECTED:\n"
             << expected_schema->ToString() << "\nACTUAL:\n"
             << batch->schema()->ToString();
