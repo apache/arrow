@@ -949,7 +949,7 @@ enum Searchable {
 }
 
 /*
- * Represents a request to retrieve information about data type supported ona Flight SQL enabled backend.
+ * Represents a request to retrieve information about data type supported on a Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
  *  - GetSchema: return the schema of the query.
  *  - GetFlightInfo: execute the catalog metadata request.
@@ -958,10 +958,10 @@ enum Searchable {
  * <
  *   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
  *   data_type: int not null (The SQL data type),
- *   column_size: int (The maximum column size that the server supports for this data type.
- *                     For numeric data, this is the maximum precision.
- *                     For string data, this is the length in characters.
- *                     For datetime data types, this is the length in characters of the string representation.
+ *   column_size: int (The maximum size supported by that column.
+ *                     In case of numeric types, this represents the maximum precision.
+ *                     In case of string types, this represents the character length.
+ *                     In case of datetime data types, this represents the length in characters of the string representation.
  *                     NULL is returned for data types where column size is not applicable.),
  *   literal_prefix: utf8 (Character or characters used to prefix a literal, NULL is returned for
  *                         data types where a literal prefix is not applicable.),
@@ -986,13 +986,13 @@ enum Searchable {
  *                       columns both contain this value. NULL is returned if scale is not applicable.),
  *   maximum_scale: int (The maximum scale of the data type on the data source.
  *                       NULL is returned if scale is not applicable.),
- *   sql_data_type: int not null (The value of the SQL data type as it appears in the
- *                                SQL_DESC_TYPE field of the descriptor. This column is
- *                                the same as the DATA_TYPE column, except for interval and
- *                                datetime data types.),
- *   sql_datetime_sub: int (When the value of SQL_DATA_TYPE is SQL_DATETIME or SQL_INTERVAL,
- *                          this column contains the datetime/interval subcode. For data types
- *                          other than datetime and interval, this field is NULL.),
+ *   sql_data_type: int not null (The value of the SQL DATA TYPE which has the same values
+ *                                as date_type value. Except for interval and datetime, which
+ *                                uses generic values. More info about those types can be
+ *                                obtained through datetime_subcode.),
+ *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
+ *                          its sub types. For type different from interval and datetime, this value
+ *                          is NULL.),
  *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
  *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
  *                        exact numeric types, this column contains the value 10 to indicate that
