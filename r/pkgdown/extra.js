@@ -15,6 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
+function checkPageExistsAndRedirect(event) {
+
+    console.log(event.target.getAttribute("value"));
+    console.log(event.target);
+
+    const path_to_try = event.target.selectedOptions()[0].getAttributes("value");
+    //$( "#version-selector" ).val();
+
+    const base_path = path_to_try.match("(.*\/r\/)?")[0];
+    let tryUrl = path_to_try;
+    $.ajax({
+        type: 'HEAD',
+        url: tryUrl,
+        // if the page exists, go there
+        success: function() {
+            location.href = tryUrl;
+        }
+    }).fail(function() {
+        location.href = base_path;
+    });
+    return false;
+}
+
 (function () {
   // Load the rmarkdown tabset script
   var script = document.createElement("script");
@@ -84,6 +107,12 @@
         var items = [];
         // get the current page's version number:
 				var displayed_version = $('.version').text();
+				const sel = document.createElement("select");
+				sel.name = "version-selector";
+				sel.id = "version-selector";
+				sel.class = "navbar-default";
+				sel.onchange = checkPageExistsAndRedirect;
+
 				$.each( data, function( key, val ) {
 
 					var selected_string = (
@@ -94,14 +123,40 @@
 
           var item_path = $pathStart() + val.version + "r" + $pathEnd();
 
-					items.push("<option value='" + item_path +  "'" + selected_string +	">" + val.name + "</option>");
+/***
+          var corrected_path = $.ajax({
+            type: 'GET',
+            url: item_path,
+            success: function() {
+              console.log("win")
+              return item_path;
+            },
+            error: function() {
+              // everything up to the /r/
+              console.log("fail")
+              return item_path.match("(.*\/r\/)?")[0];
+
+            }
+          });
+          console.log(corrected_path);
+          */
+
+          //root_path = $pathStart() + val.version + "r";
+
+          const opt = document.createElement("option");
+          opt.value = item_path;
+          opt.selected = selected_string.length > 0;
+          opt.text = val.name;
+          // Argh!!!!  Options don't have hyperlinks!!!!
+          // Do them as list items with hyperlinks instead - see the code for e.g. the project docs dropdown and con
+          sel.append(opt);
+          //items.push(opt);
+
+					//items.push("<option value='" + item_path +  "'" + selected_string +	">" + val.name + "</option>");
 				});
 
 				// Replace the version button with a selector with the doc versions
-				$("span.version").replaceWith(
-					'<select name="version-selector" class = "navbar-default" '+
-					'onchange="location = this.value;"> ' + items.join("") + '</select> '
-				);
+				$("span.version").replaceWith(sel);
 			});
 		});
 
