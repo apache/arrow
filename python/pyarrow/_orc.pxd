@@ -33,20 +33,20 @@ from pyarrow.includes.libarrow cimport (CArray, CSchema, CStatus,
 
 cdef extern from "arrow/adapters/orc/options.h" \
         namespace "arrow::adapters::orc" nogil:
-    cpdef enum class CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
+    cpdef enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
         _CompressionStrategy_SPEED" arrow::adapters::orc::CompressionStrategy::kSpeed"
         _CompressionStrategy_COMPRESSION" arrow::adapters::orc::CompressionStrategy::kCompression"
 
-    cpdef enum class RleVersion" arrow::adapters::orc::RleVersion":
+    cpdef enum RleVersion" arrow::adapters::orc::RleVersion":
         _RleVersion_1" arrow::adapters::orc::RleVersion::k1"
         _RleVersion_2" arrow::adapters::orc::RleVersion::k2"
 
-    cpdef enum class BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
+    cpdef enum BloomFilterVersion" arrow::adapters::orc::BloomFilterVersion":
         _BloomFilterVersion_ORIGINAL" arrow::adapters::orc::BloomFilterVersion::kOriginal"
         _BloomFilterVersion_UTF8" arrow::adapters::orc::BloomFilterVersion::kUtf8"
         _BloomFilterVersion_FUTURE" arrow::adapters::orc::BloomFilterVersion::kFuture"
 
-    cpdef enum class WriterId" arrow::adapters::orc::WriterId":
+    cpdef enum WriterId" arrow::adapters::orc::WriterId":
         _WriterId_ORC_JAVA_WRITER" arrow::adapters::orc::WriterId::kOrcJava"
         _WriterId_ORC_CPP_WRITER" arrow::adapters::orc::WriterId::kOrcCpp"
         _WriterId_PRESTO_WRITER" arrow::adapters::orc::WriterId::kPresto"
@@ -54,7 +54,7 @@ cdef extern from "arrow/adapters/orc/options.h" \
         _WriterId_TRINO_WRITER" arrow::adapters::orc::WriterId::kTrino"
         _WriterId_UNKNOWN_WRITER" arrow::adapters::orc::WriterId::kUnknown"
 
-    cpdef enum class WriterVersion" arrow::adapters::orc::WriterVersion":
+    cpdef enum WriterVersion" arrow::adapters::orc::WriterVersion":
         _WriterVersion_ORIGINAL" arrow::adapters::orc::WriterVersion::kOriginal"
         _WriterVersion_HIVE_8732" arrow::adapters::orc::WriterVersion::kHive8732"
         _WriterVersion_HIVE_4243" arrow::adapters::orc::WriterVersion::kHive4243"

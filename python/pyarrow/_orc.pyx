@@ -39,33 +39,30 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
 from pyarrow.lib import frombytes, tobytes
 
 
-cdef compression_kind_from_enum(CompressionKind compression_kind_):
+cdef compression_type_from_enum(CCompressionType compression_type_):
     return {
-        _CompressionKind_NONE: 'UNCOMPRESSED',
-        _CompressionKind_ZLIB: 'ZLIB',
-        _CompressionKind_SNAPPY: 'SNAPPY',
-        _CompressionKind_LZO: 'LZO',
-        _CompressionKind_LZ4: 'LZ4',
-        _CompressionKind_ZSTD: 'ZSTD',
-    }.get(compression_kind_, 'UNKNOWN')
+        CCompressionType_UNCOMPRESSED: 'UNCOMPRESSED',
+        CCompressionType_GZIP: 'ZLIB',
+        CCompressionType_SNAPPY: 'SNAPPY',
+        CCompressionType_LZ4: 'LZ4',
+        CCompressionType_ZSTD: 'ZSTD',
+    }.get(compression_type_, 'UNKNOWN')
 
 
-cdef CompressionKind compression_kind_from_name(name) except *:
+cdef CCompressionType compression_type_from_name(name) except *:
     if not isinstance(name, str):
         raise TypeError('compression must be a string')
     name = name.upper()
     if name == 'ZLIB':
-        return _CompressionKind_ZLIB
+        return CCompressionType_GZIP
     elif name == 'SNAPPY':
-        return _CompressionKind_SNAPPY
-    elif name == 'LZO':
-        return _CompressionKind_LZO
+        return CCompressionType_SNAPPY
     elif name == 'LZ4':
-        return _CompressionKind_LZ4
+        return CCompressionType_LZ4
     elif name == 'ZSTD':
-        return _CompressionKind_ZSTD
+        return CCompressionType_ZSTD
     elif name == 'UNCOMPRESSED':
-        return _CompressionKind_NONE
+        return CCompressionType_UNCOMPRESSED
     raise ValueError('Unknown CompressionKind: {0}'.format(name))
 
 
@@ -185,15 +182,17 @@ cdef shared_ptr[WriteOptions] _create_write_options(
 
     if compression is not None:
         if isinstance(compression, basestring):
-            deref(options).compression = compression_kind_from_name(compression)
+            deref(options).compression = compression_type_from_name(
+                compression)
         else:
-            raise TypeError("Unsupported ORC compression kind: {0}"
-                             .format(compression))
+            raise TypeError("Unsupported ORC compression type: {0}"
+                            .format(compression))
 
     # compression_block_size
 
     if compression_block_size is not None:
-        if isinstance(compression_block_size, int) and compression_block_size > 0:
+        if (isinstance(compression_block_size, int) and
+                compression_block_size > 0):
             deref(options).compression_block_size = compression_block_size
         else:
             raise ValueError("Invalid ORC compression block size: {0}"
@@ -207,7 +206,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
                 compression_strategy_from_name(compression_strategy)
         else:
             raise TypeError("Unsupported ORC compression strategy: {0}"
-                             .format(compression_strategy))
+                            .format(compression_strategy))
 
     # row_index_stride
 
@@ -334,7 +333,8 @@ cdef class ORCReader(_Weakrefable):
         return frombytes(deref(self.reader).GetSoftwareVersion())
 
     def compression(self):
-        return compression_kind_from_enum(deref(self.reader).GetCompression())
+        return compression_type_from_enum(
+            GetResultValue(deref(self.reader).GetCompression()))
 
     def compression_size(self):
         return deref(self.reader).GetCompressionSize()
