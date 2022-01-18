@@ -867,6 +867,87 @@ enum SqlSupportsConvert {
   SQL_CONVERT_VARCHAR = 19;
 }
 
+enum DATE_SUBCODE {
+  UNKNOWN_SUBCODE = 0;
+  SQL_CODE_DATE = 1;
+  SQL_CODE_TIME = 2;
+  SQL_CODE_TIMESTAMP = 3;
+}
+
+enum SQL_DATA_TYPE {
+  UNKNOWN = 0;
+  SQL_CODE_YEAR = 1;
+  SQL_CODE_MONTH = 2;
+  SQL_CODE_DAY = 3;
+  SQL_CODE_HOUR = 4;
+  SQL_CODE_MINUTE = 5;
+  SQL_CODE_SECOND = 6;
+  SQL_CODE_YEAR_TO_MONTH = 7;
+  SQL_CODE_DAY_TO_HOUR = 8;
+  SQL_CODE_DAY_TO_MINUTE = 9;
+  SQL_CODE_DAY_TO_SECOND = 10;
+  SQL_CODE_HOUR_TO_MINUTE = 11;
+  SQL_CODE_HOUR_TO_SECOND = 12;
+  SQL_CODE_MINUTE_TO_SECOND = 13;
+  SQL_INTERVAL_YEAR = 101;
+  SQL_INTERVAL_MONTH = 102;
+  SQL_INTERVAL_DAY = 103;
+  SQL_INTERVAL_HOUR = 104;
+  SQL_INTERVAL_MINUTE = 105;
+  SQL_INTERVAL_SECOND = 106;
+  SQL_INTERVAL_YEAR_TO_MONTH = 107;
+  SQL_INTERVAL_DAY_TO_HOUR = 108;
+  SQL_INTERVAL_DAY_TO_MINUTE = 109;
+  SQL_INTERVAL_DAY_TO_SECOND = 110;
+  SQL_INTERVAL_HOUR_TO_MINUTE = 111;
+  SQL_INTERVAL_HOUR_TO_SECOND = 112;
+  SQL_INTERVAL_MINUTE_TO_SECOND = 113;
+}
+
+enum Nullable {
+  /**
+   * Indicates that the fields does not allow the use of null values.
+   */
+  TYPE_NO_NULLS = 0;
+
+  /**
+   * Indicates that the fields allow the use of null values.
+   */
+  TYPE_NULLABLE = 1;
+
+  /**
+   * Indicates that nullability of the fields can not be determined.
+   */
+  TYPE_NULLABLE_UNKNOWN = 2;
+}
+
+enum Searchable {
+  /**
+   * Indicates that column can not be used in a WHERE clause.
+   */
+  TYPE_PRED_NONE = 0;
+
+  /**
+   * Indicates that the column can be used in a WHERE clause if it is using a
+   * LIKE predicate.
+   */
+  TYPE_PRED_CHAR = 1;
+
+  /**
+   * Indicates that the column can be used in a WHERE clause using other predicates
+   * except for LIKE.
+   *
+   * - Allowed operators: comparison, quantified comparison, BETWEEN,
+   *                      DISTINCT, IN, MATCH, and UNIQUE.
+   */
+  TYPE_PRED_BASIC = 2;
+
+  /**
+   * Indicates that the column can be used in a WHERE clause using any operator.
+   */
+  TYPE_SEARCHABLE = 3;
+}
+
 /*
  * Represents a request to retrieve information about data type supported ona Flight SQL enabled backend.
  * Used in the command member of FlightDescriptor for the following RPC calls:
