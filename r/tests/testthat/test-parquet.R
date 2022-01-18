@@ -324,3 +324,31 @@ test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow
   # but our max_chunks is respected
   expect_equal(calculate_chunk_size(101, 1, 25, 2), 51)
 })
+
+test_that("deprecated int96 timestamp unit can be specified when reading Parquet files", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  table <- Table$create(
+    some_datetime = as.POSIXct("2001-01-01 12:34:56.789")
+  )
+
+  write_parquet(
+    table,
+    tf,
+    use_deprecated_int96_timestamps = TRUE
+  )
+
+  props <- ParquetArrowReaderProperties$create()
+  props$set_coerce_int96_timestamp_unit(TimeUnit$MILLI)
+  expect_identical(props$coerce_int96_timestamp_unit(), TimeUnit$MILLI)
+
+  result <- read_parquet(
+    tf,
+    as_data_frame = FALSE,
+    props = props
+  )
+
+  expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
+  expect_true(result$some_datetime == table$some_datetime)
+})

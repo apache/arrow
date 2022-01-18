@@ -1380,6 +1380,14 @@ parquet___arrow___ArrowReaderProperties__set_read_dictionary <- function(propert
   invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary`, properties, column_index, read_dict))
 }
 
+parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit <- function(properties, unit) {
+  invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit`, properties, unit))
+}
+
+parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit`, properties)
+}
+
 parquet___arrow___FileReader__OpenFile <- function(file, props) {
   .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props)
 }

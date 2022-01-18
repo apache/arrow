@@ -5413,6 +5413,38 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_diction
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
+void parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, arrow::TimeUnit::type unit);
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(SEXP properties_sexp, SEXP unit_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(properties, unit);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(SEXP properties_sexp, SEXP unit_sexp){
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+arrow::TimeUnit::type parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(const std::shared_ptr<parquet::ArrowReaderProperties>& properties);
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(SEXP properties_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	return cpp11::as_sexp(parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(properties));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(SEXP properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
 BEGIN_CPP11
@@ -7682,6 +7714,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit, 2}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
