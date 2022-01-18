@@ -21,9 +21,11 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
+import static java.util.stream.IntStream.range;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
@@ -42,7 +44,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -143,6 +144,8 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -417,6 +420,29 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         } else if (vector instanceof BitVector) {
           final byte byteValue = data.getByte(columnName);
           saveToVector(data.wasNull() ? null : byteValue, (BitVector) vector, rows);
+        } else if (vector instanceof ListVector) {
+          String createParamsValues = data.getString(columnName);
+
+          UnionListWriter writer = ((ListVector) vector).getWriter();
+
+          BufferAllocator allocator = vector.getAllocator();
+          final ArrowBuf buf = allocator.buffer(1024);
+
+          writer.setPosition(rows);
+          writer.startList();
+
+          if (createParamsValues != null) {
+            String[] split = createParamsValues.split(",");
+
+            range(0, split.length)
+                .forEach(i -> {
+                  byte[] bytes = split[i].getBytes(UTF_8);
+                  buf.setBytes(0, bytes);
+                  buf.writerIndex(1);
+                  writer.varChar().writeVarChar(0, bytes.length, buf);
+                });
+          }
+          writer.endList();
         } else {
           throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
         }
@@ -481,7 +507,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     mapper.put(root.getVector("minimum_scale"), "MINIMUM_SCALE");
     mapper.put(root.getVector("maximum_scale"), "MAXIMUM_SCALE");
     mapper.put(root.getVector("sql_data_type"), "SQL_DATA_TYPE");
-    mapper.put(root.getVector("sql_datetime_sub"), "SQL_DATETIME_SUB");
+    mapper.put(root.getVector("datetime_subcode"), "SQL_DATETIME_SUB");
     mapper.put(root.getVector("num_prec_radix"), "NUM_PREC_RADIX");
 
     Predicate<ResultSet> predicate;
@@ -663,7 +689,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
 
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
@@ -740,7 +766,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),

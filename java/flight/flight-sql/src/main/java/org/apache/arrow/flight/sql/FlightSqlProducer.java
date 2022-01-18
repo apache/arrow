@@ -686,7 +686,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             Field.nullable("column_size", INT.getType()),
             Field.nullable("literal_prefix", VARCHAR.getType()),
             Field.nullable("literal_suffix", VARCHAR.getType()),
-            Field.nullable("create_params", VARCHAR.getType()),
+            new Field(
+                "create_params", FieldType.notNullable(LIST.getType()),
+                singletonList(Field.nullable("values", VARCHAR.getType()))),
             Field.notNullable("nullable", INT.getType()),
             Field.notNullable("case_sensitive", BIT.getType()),
             Field.notNullable("searchable", INT.getType()),
@@ -697,7 +699,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             Field.nullable("minimum_scale", INT.getType()),
             Field.nullable("maximum_scale", INT.getType()),
             Field.notNullable("sql_data_type", INT.getType()),
-            Field.nullable("sql_datetime_sub", INT.getType()),
+            Field.nullable("datetime_subcode", INT.getType()),
             Field.nullable("num_prec_radix", INT.getType()),
             Field.nullable("interval_precision", INT.getType())
         ));
