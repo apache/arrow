@@ -757,21 +757,21 @@ TEST_F(TestPrettyPrint, ListType) {
     return options;
   };
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/5),
-             ex);
+              ex);
   CheckStream(*array, make_options(/*indent=*/2, /*window=*/10, /*container_window=*/5),
-             ex_2);
+              ex_2);
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/1),
-             ex_3);
+              ex_3);
   CheckArray(*array, {0, 10}, ex_4);
 
   list_type = large_list(int64());
   array = ArrayFromJSON(list_type, "[[null], [], null, [4, 6, 7], [2, 3]]");
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/5),
-             ex);
+              ex);
   CheckStream(*array, make_options(/*indent=*/2, /*window=*/10, /*container_window=*/5),
-             ex_2);
+              ex_2);
   CheckStream(*array, make_options(/*indent=*/0, /*window=*/10, /*container_window=*/1),
-             ex_3);
+              ex_3);
   CheckArray(*array, {0, 10}, ex_4);
 }
 
