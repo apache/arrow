@@ -21,52 +21,47 @@
 
 ## New features
 * Code to generate schemas (and individual data type specficiations) are now accessible with the `$code()` on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Chunked arrays are now supported using altrep.
 * Arrow `Duration` type is now mapped to base R `difftime`.
-* Updated `write_csv_arrow()` to follow the signature of `readr::write_csv()`. The following arguments are supported:
-  * `file` identical to `sink`
-  * `col_names` identical to `include_header`
-  * other arguments are currently unsupported, but the function errors with a meaningful message.
-* `lubridate::week()` is now supported in dplyr queries.
 * Added `decimal256()`. Updated `decimal()`, which now calls `decimal256()` or `decimal128()` based on the value of the `precision` argument.
 * When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
+* `lubridate::week()` is now supported in dplyr queries.
 * More of `lubridate`'s `is.*` functions are natively supported in Arrow.
 * Dictionaries (base R's factors) are now supported inside of `coalesce()`.
 * The package now compiles and installs on Raspberry Pi OS.
 
-## Breaking changes
-* R 3.3 is no longer supported (`glue`, which we depend on transitively has dropped support for 3.3 so we did as well).
-
 ## Quality of life enhancements 
 * Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
 * Source builds now by default use `pkg-config` to search for system dependencies (such as `libz`) and link to them 
-if present. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`.
-* `open_dataset()` now accepts (though ignores) partitioning column names with hive-style partitioned data. 
-* `write_parquet()` now uses a reasonable guess at `chunk_size` instead of always writing a single chunk.
+if present. The new default will make building Arrow from source quicker on systems that have dependencies installed already. To retain the previous behaviour of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`.
+* Snappy and lz4 compression libraries are now built (and enabled) by default. This means that the default build of Arrow will be able to read and write snappy encoded parquet files.
+* brotli compression is now possible on Windows builds (and is the default in our binary builds).
+* Building Arrow on Windows can now find a locally built libarrow library.
+* `open_dataset()` accepts the `partitioning` argument when reading Hive-style partitioned files, even though it is not required.
+* `write_parquet()` now uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large parquet files.
 * S3 file systems can now be created with `proxy_options` for helping specify a proxy.
-* There is an improved error message when reading CSVs and there is a conflict between a header in the file and schema/column names are provided as arguments.
-* Delimited files (including CSVs) with encodings other than UTF can now be read (using the `encoding` argument when reading).
 * Integer division in Arrow now more closely matches R's behavior.
-* Snappy and lz4 compression libraries are now built (and enabled) by default. 
 * The `label` argument is now supported in the `lubridate::month` binding.
 * Conditionals insides of `group_by` aggregations are now supported.
+
+### Fixes for reading CSVs
+* Updated `write_csv_arrow()` to follow the signature of `readr::write_csv()`. 
+* There is an improved error message when reading CSVs and there is a conflict between a header in the file and schema/column names are provided as arguments.
+* Delimited files (including CSVs) with encodings other than UTF can now be read (using the `encoding` argument when reading).
 * Opening datasets now use async scanner by default which resolves a deadlock issues related to reading in large multi-CSV datasets
-* brotli compression is now possible on Windows builds.
-* Building Arrow on Windows can now find a locally built libarrow library.
+* `head()` no longer hangs on CSV datasets > 600MB.
 
 ## Bug fixes
 * The experimental `map_batches()` is working once more.
 * `write_parquet()` no longer drops attributes for grouped data.frames.
-* `head()` no longer hangs on CSV datasets > 600MB.
-* `open_dataset()` now faithfully ignores `BOM`s (like we already did with reading single files).
-* Fixed a bug with altrep that could change the underlying data when it was reordered.
+* `open_dataset()` now faithfully ignores Byte order marks (`BOM`s — like we already did with reading single files).
+* Fixed a bug in our ALTREP code that could change the underlying data when it was reordered.
 * Resolved a segfault when creating S3 file systems.
 
 ## Under-the-hood changes
-* Chunked arrays are now supported using altrep.
 * The pointers used to pass data between R and Python have been improved to be more reliable. Backwards compatibility with older versions of pyarrow has been maintained. 
 * The method of registering new bindings for use in dplyr queries has changed (see the new vignette about writing bindings for more information about how that works).
-* We no longer vendor `cpp11` and are using cpp11 as a standard (linked to) dependency.
-
+* R 3.3 is no longer supported (`glue`, which we depend on transitively has dropped support for 3.3 so we did as well).
 
 # arrow 6.0.1
 
