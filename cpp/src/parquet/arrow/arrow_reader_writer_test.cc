@@ -3719,6 +3719,73 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
+TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumn) {
+  // ARROW-14047
+  std::vector<std::shared_ptr<::arrow::Field>> fields{::arrow::field(
+      "s",
+      ::arrow::list(
+        ::arrow::struct_({
+          ::arrow::field("x", ::arrow::float64())
+        })
+      )
+  )};
+  auto array = ::arrow::ArrayFromJSON(
+    fields[0]->type(),
+    R"([[{"x": 12.7}, {"x": 12.8}, {}, {"x": 13}, {"x": 13.1}, {"x": 13.2}, {"x": 13.3}],
+        [{"x": 12.8}, {}, {"x": 13}, {}, {"x": 13.2}, {}, {"x": 13.4}, {}]
+    ])");
+
+  // auto batch = ::arrow::random::GenerateBatch(fields, /*batch_size=*/4096, /*seed=*/0);
+
+  auto expected = Table::Make(::arrow::schema(fields), {array});
+  // ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
+
+  auto pool = default_memory_pool();
+
+  // Write table
+  using ::arrow::io::BufferOutputStream;
+  ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
+  auto props = default_writer_properties();
+  std::unique_ptr<arrow::FileWriter> writer;
+  ASSERT_OK(
+      arrow::FileWriter::Open(*expected->schema().get(), pool, outs, props, &writer));
+  ASSERT_OK(writer->WriteTable(*expected.get(), 1));
+  ASSERT_OK(writer->Close());
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, outs->Finish());
+
+  // Read from table
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  ASSERT_OK(parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer), pool, &arrow_reader));
+
+  for (int i = 0; i < 20; ++i) {
+    std::shared_ptr<::arrow::Table> table_read;
+    ASSERT_OK(arrow_reader->ReadTable(&table_read));
+
+    ::arrow::AssertTablesEqual(*expected.get(), *table_read.get());
+  }
+}
+
+TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
+  auto pool = default_memory_pool();
+
+  auto file_path = test::get_data_file("writeReadRowGroup.parquet");
+  PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(file_path, pool));
+
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  ASSERT_OK(OpenFile(infile, pool, &arrow_reader));
+
+  std::shared_ptr<::arrow::Table> first_read;
+  ASSERT_OK(arrow_reader->ReadTable(&first_read));
+  
+  for (int i = 0; i < 20; ++i) {
+    std::shared_ptr<::arrow::Table> table_read;
+    ASSERT_OK(arrow_reader->ReadTable(&table_read));
+
+    ::arrow::AssertTablesEqual(*first_read.get(), *table_read.get());
+  }
+}
+
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
           std::tuple<std::string, std::shared_ptr<DataType>>> {};
