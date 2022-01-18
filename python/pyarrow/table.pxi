@@ -144,16 +144,18 @@ cdef class ChunkedArray(_PandasConvertible):
     @property
     def nbytes(self):
         """
-        Returns the sum of bytes from all buffer ranges referenced
+        Total number of bytes consumed by the elements of the chunked array.
 
-        Unlike TotalBufferSize this method will account for array
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
         offsets.
 
         If buffers are shared between arrays then the shared
         portion will only be counted multiple times.
 
-        Dictionary arrays will always be counted in their entirety
-        even if the array only references a portion of the dictionary.
+        The dictionary of dictionary arrays will always be counted in their 
+        entirety even if the array only references a portion of the dictionary.
         """
         cdef:
             shared_ptr[CChunkedArray] shd_ptr_c_array
@@ -168,7 +170,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def get_total_buffer_size(self):
         """
-        The sum of bytes in each buffer referenced by the array
+        The sum of bytes in each buffer referenced by the chunked array.
 
         An array may only reference a portion of a buffer.
         This method will overestimate in this case and return the
@@ -957,16 +959,18 @@ cdef class RecordBatch(_PandasConvertible):
     @property
     def nbytes(self):
         """
-        Returns the sum of bytes from all buffer ranges referenced
+        Total number of bytes consumed by the elements of the record batch.
 
-        Unlike TotalBufferSize this method will account for array
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
         offsets.
 
         If buffers are shared between arrays then the shared
         portion will only be counted multiple times.
 
-        Dictionary arrays will always be counted in their entirety
-        even if the array only references a portion of the dictionary.
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
         cdef:
             shared_ptr[CRecordBatch] shd_ptr_c_rb
@@ -981,7 +985,7 @@ cdef class RecordBatch(_PandasConvertible):
 
     def get_total_buffer_size(self):
         """
-        The sum of bytes in each buffer referenced by the array
+        The sum of bytes in each buffer referenced by the record batch
 
         An array may only reference a portion of a buffer.
         This method will overestimate in this case and return the
@@ -2210,16 +2214,18 @@ cdef class Table(_PandasConvertible):
     @property
     def nbytes(self):
         """
-        Returns the sum of bytes from all buffer ranges referenced
+        Total number of bytes consumed by the elements of the table.
 
-        Unlike TotalBufferSize this method will account for array
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
         offsets.
 
         If buffers are shared between arrays then the shared
         portion will only be counted multiple times.
 
-        Dictionary arrays will always be counted in their entirety
-        even if the array only references a portion of the dictionary.
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
         cdef:
             shared_ptr[CTable] shd_ptr_table
@@ -2234,7 +2240,7 @@ cdef class Table(_PandasConvertible):
 
     def get_total_buffer_size(self):
         """
-        The sum of bytes in each buffer referenced by the array
+        The sum of bytes in each buffer referenced by the table.
 
         An array may only reference a portion of a buffer.
         This method will overestimate in this case and return the
