@@ -2028,8 +2028,7 @@ cdef class Expression(_Weakrefable):
     def _call(str function_name, list arguments, FunctionOptions options=None):
         cdef:
             vector[CExpression] c_arguments
-            shared_ptr[CFunctionOptions] c_options=(
-                <shared_ptr[CFunctionOptions]> nullptr)
+            shared_ptr[CFunctionOptions] c_options
 
         for argument in arguments:
             if not isinstance(argument, Expression):
