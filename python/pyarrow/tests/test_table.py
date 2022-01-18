@@ -343,6 +343,33 @@ def test_chunked_array_to_pandas_preserve_name():
 
 
 @pytest.mark.pandas
+def test_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    import pandas as pd
+
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    data = pa.array([1, 2, 3], pa.int64())
+    result = data.to_pandas(types_mapper=types_mapper)
+
+    assert result.dtype == types_mapper(data.type)
+
+
+@pytest.mark.pandas
+def test_chunked_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    import pandas as pd
+
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    data = [pa.array([1, 2, 3], pa.int64())]
+    table = pa.table(data, names=['a'])
+    col = table.column(0)
+    result = col.to_pandas(types_mapper=types_mapper)
+
+    assert isinstance(col, pa.ChunkedArray)
+    assert result.dtype == types_mapper(col.type)
+
+
+@pytest.mark.pandas
 def test_table_roundtrip_to_pandas_empty_dataframe():
     # https://issues.apache.org/jira/browse/ARROW-10643
     # The conversion should not results in a table with 0 rows if the original
