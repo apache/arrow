@@ -1066,10 +1066,10 @@ const FunctionDoc between_doc{
     "Check if values are in the given range, val between a and b",
     ("A null on either side emits a null comparison result.\n"
      "options are used to specify if the endpoints are\n"
-     "inclusive, possible values are NEITHER (a < val < b),\n"
-     "LEFT (a <= val < b), RIGHT (a < val <= b), and \n"
-     "BOTH (a <= val <= b). Default is BOTH."),
-    {"val", "a", "b"},
+     "inclusive, possible values are NEITHER (left < values < right),\n"
+     "LEFT (left <= values < right), RIGHT (left < values <= right),\n"
+     "and BOTH (left <= values <= right). Default is BOTH."),
+    {"values", "left", "right"},
     "BetweenOptions"};
 
 const FunctionDoc min_element_wise_doc{
