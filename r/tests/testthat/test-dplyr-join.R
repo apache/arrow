@@ -90,9 +90,57 @@ test_that("Error handling", {
     left_tab %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
-    "all(names(by) %in% names(x)) is not TRUE",
-    fixed = TRUE
+    "Join column must be present in data"
   )
+  expect_snapshot({
+    (expect_error(
+      left_join(
+        arrow_table(example_data),
+        arrow_table(example_data),
+        by = "made_up_colname"
+      )
+    ))
+  })
+
+  expect_snapshot({
+    (expect_error(
+      left_join(
+        arrow_table(example_data),
+        arrow_table(example_data),
+        by = c("int" = "made_up_colname")
+      )
+    ))
+  })
+
+  expect_snapshot({
+    (expect_error(
+      left_join(
+        arrow_table(example_data),
+        arrow_table(example_data),
+        by = c("made_up_colname" = "int")
+      )
+    ))
+  })
+
+  expect_snapshot({
+    (expect_error(
+      left_join(
+        arrow_table(example_data),
+        arrow_table(example_data),
+        by = c("made_up_colname1", "made_up_colname2")
+      )
+    ))
+  })
+
+  expect_snapshot({
+    (expect_error(
+      left_join(
+        arrow_table(example_data),
+        arrow_table(example_data),
+        by = c("made_up_colname1" = "made_up_colname2")
+      )
+    ))
+  })
 })
 
 # TODO: test duplicate col names

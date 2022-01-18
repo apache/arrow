@@ -1,0 +1,50 @@
+# Error handling
+
+    Code
+      (expect_error(left_join(arrow_table(example_data), arrow_table(example_data),
+      by = "made_up_colname")))
+    Output
+      <error/rlang_error>
+      Join column must be present in data.
+      x `made_up_colname` not present in x.
+
+---
+
+    Code
+      (expect_error(left_join(arrow_table(example_data), arrow_table(example_data),
+      by = c(int = "made_up_colname"))))
+    Output
+      <error/rlang_error>
+      Join column must be present in data.
+      x `made_up_colname` not present in y.
+
+---
+
+    Code
+      (expect_error(left_join(arrow_table(example_data), arrow_table(example_data),
+      by = c(made_up_colname = "int"))))
+    Output
+      <error/rlang_error>
+      Join column must be present in data.
+      x `made_up_colname` not present in x.
+
+---
+
+    Code
+      (expect_error(left_join(arrow_table(example_data), arrow_table(example_data),
+      by = c("made_up_colname1", "made_up_colname2"))))
+    Output
+      <error/rlang_error>
+      Join columns must be present in data.
+      x `made_up_colname1` and `made_up_colname2` not present in x.
+
+---
+
+    Code
+      (expect_error(left_join(arrow_table(example_data), arrow_table(example_data),
+      by = c(made_up_colname1 = "made_up_colname2"))))
+    Output
+      <error/rlang_error>
+      Join column must be present in data.
+      x `made_up_colname1` not present in x.
+

@@ -117,10 +117,29 @@ handle_join_by <- function(by, x, y) {
   if (is.null(names(by))) {
     by <- set_names(by)
   }
-  # TODO: nicer messages?
-  stopifnot(
-    all(names(by) %in% names(x)),
-    all(by %in% names(y))
-  )
+
+  missing_x_cols <- setdiff(names(by), names(x))
+  if (length(missing_x_cols) > 0) {
+    message <- glue::glue(
+      "Join {ngettext(length(missing_x_cols), 'column', 'columns')} must be \\
+      present in data."
+    )
+    message_x <- glue::glue(
+      "{oxford_paste(missing_x_cols, quote_symbol = '`')} not present in x."
+      )
+    abort(c(message, x = message_x))
+  }
+
+  missing_y_cols <- setdiff(by, names(y))
+  if (length(missing_y_cols) > 0) {
+    message <- glue::glue(
+      "Join {ngettext(length(missing_y_cols), 'column', 'columns')} must be \\
+      present in data."
+    )
+    message_y <- glue::glue(
+      "{oxford_paste(missing_y_cols, quote_symbol = '`')} not present in y."
+    )
+    abort(c(message, x = message_y))
+  }
   by
 }
