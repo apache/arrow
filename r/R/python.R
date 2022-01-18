@@ -81,7 +81,7 @@ r_to_py.RecordBatch <- function(x, convert = FALSE) {
   pa <- reticulate::import("pyarrow", convert = FALSE)
   x$export_to_c(array_ptr, schema_ptr)
 
-  pa$RecordBatch$`_import_from_c`(
+  out <- pa$RecordBatch$`_import_from_c`(
     backwards_compatible_pointer_double(array_ptr),
     backwards_compatible_pointer_double(schema_ptr)
   )
