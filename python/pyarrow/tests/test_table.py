@@ -1815,12 +1815,12 @@ def test_table_repr_cols_char_limit():
     tab = pa.table([pa.array([1, 2, 3, 4]*10, type='int16'),
                     pa.array([10, 20, 30, 40]*10, type='int32')],
                    schema=schema)
-    assert tab.to_string(preview_cols=10, cols_char_limit=65) == """pyarrow.Table
+    assert tab.to_string(preview_cols=10, cols_char_limit=50) == """pyarrow.Table
 c0: int16
 c1: int32
 ----
 c0: [[1,2,3,4,1,2,3,4,1,2,...,3,4,1,2,3,4,1,2,3,4]]
-c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,40,10,20,30..."""
+c1: [[10,20,30,40,10,20,30,40,10,20,...,30,40,10,20,30,...]...]"""
 
 
 def test_table_function_unicode_schema():

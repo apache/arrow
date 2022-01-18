@@ -1408,6 +1408,24 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
     return converted_arrays
 
 
+cdef _truncate_array_string(arr_str, length):
+    delim_stack = []
+    partial_end = 0
+    
+    for pos, char in enumerate(arr_str):
+        if char == "[":
+            delim_stack.append("]")
+            continue
+        elif char == "]":
+            assert delim_stack[-1] == "]"
+            delim_stack.pop()
+        elif char != ",":
+            continue
+
+        if pos >= length:
+            return arr_str[:(pos + 1)] + "...]" * len(delim_stack)
+
+
 cdef class RecordBatch(_PandasConvertible):
     """
     Batch of rows of columns of equal length
@@ -2736,7 +2754,7 @@ cdef class Table(_PandasConvertible):
             Display Field-level and Schema-level KeyValueMetadata.
         preview_cols : int, default 0
             Display values of the columns for the first N columns.
-        cols_char_limit : int, default 200
+        cols_char_limit : int, default 120
             Max number of characters to show in each column preview
 
         Returns
@@ -2756,7 +2774,7 @@ cdef class Table(_PandasConvertible):
                 col_string = self.column(i).to_string(
                     indent=0, skip_new_lines=True)
                 if len(col_string) > cols_char_limit:
-                    col_string = col_string[:(cols_char_limit - 3)] + '...'
+                    col_string = _truncate_array_string(col_string, cols_char_limit)
                 pieces.append('{}: {}'.format(self.field(i).name, col_string))
             if preview_cols < self.num_columns:
                 pieces.append('...')
