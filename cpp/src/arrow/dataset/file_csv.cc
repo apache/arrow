@@ -116,9 +116,28 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
   if (!scan_options) return convert_options;
 
-  auto materialized = scan_options->MaterializedFields();
-  std::unordered_set<std::string> materialized_fields(materialized.begin(),
-                                                      materialized.end());
+  auto field_refs = scan_options->MaterializedFields();
+  std::unordered_set<std::string> materialized_fields;
+  materialized_fields.reserve(field_refs.size());
+  // Preprocess field refs. We try to avoid FieldRef::GetFoo here since that's
+  // quadratic (and this is significant overhead with 1000+ columns)
+  for (const auto& ref : field_refs) {
+    if (const std::string* name = ref.name()) {
+      // Common case
+      materialized_fields.emplace(*name);
+      continue;
+    }
+    // Currently CSV reader doesn't support reading any nested types, so this
+    // path shouldn't be hit. However, implement it in the same way as IPC/ORC:
+    // load the entire top-level field if a nested field is selected.
+    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOneOrNone(*scan_options->dataset_schema));
+    if (column_names.find(field->name()) == column_names.end()) continue;
+    // Only read the requested columns
+    convert_options.include_columns.push_back(field->name());
+    // Properly set conversion types
+    convert_options.column_types[field->name()] = field->type();
+  }
+
   for (auto field : scan_options->dataset_schema->fields()) {
     if (materialized_fields.find(field->name()) == materialized_fields.end()) continue;
     // Ignore virtual columns.

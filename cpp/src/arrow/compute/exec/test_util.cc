@@ -190,6 +190,20 @@ BatchesWithSchema MakeBasicBatches() {
   return out;
 }
 
+BatchesWithSchema MakeNestedBatches() {
+  auto ty = struct_({field("i32", int32()), field("bool", boolean())});
+  BatchesWithSchema out;
+  out.batches = {
+      ExecBatchFromJSON(
+          {ty},
+          R"([[{"i32": null, "bool": true}], [{"i32": 4, "bool": false}], [null]])"),
+      ExecBatchFromJSON(
+          {ty},
+          R"([[{"i32": 5, "bool": null}], [{"i32": 6, "bool": false}], [{"i32": 7, "bool": false}]])")};
+  out.schema = schema({field("struct", ty)});
+  return out;
+}
+
 BatchesWithSchema MakeRandomBatches(const std::shared_ptr<Schema>& schema,
                                     int num_batches, int batch_size) {
   BatchesWithSchema out;

@@ -75,10 +75,10 @@ static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderAsyn
 }
 
 static inline Result<std::vector<int>> GetIncludedFields(
-    const Schema& schema, const std::vector<std::string>& materialized_fields) {
+    const Schema& schema, const std::vector<FieldRef>& materialized_fields) {
   std::vector<int> included_fields;
 
-  for (FieldRef ref : materialized_fields) {
+  for (const auto& ref : materialized_fields) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(schema));
     if (match.indices().empty()) continue;
 

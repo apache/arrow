@@ -573,14 +573,20 @@ class TableTest < Test::Unit::TestCase
         assert_equal(@table, Arrow::Table.load(output, format: :batch))
       end
 
+      def test_arrows
+        output = create_output(".arrows")
+        @table.save(output, format: :arrows)
+        assert_equal(@table, Arrow::Table.load(output, format: :arrows))
+      end
+
       def test_arrow_streaming
-        output = create_output(".arrow")
+        output = create_output(".arrows")
         @table.save(output, format: :arrow_streaming)
         assert_equal(@table, Arrow::Table.load(output, format: :arrow_streaming))
       end
 
       def test_stream
-        output = create_output(".arrow")
+        output = create_output(".arrows")
         @table.save(output, format: :stream)
         assert_equal(@table, Arrow::Table.load(output, format: :stream))
       end
@@ -626,6 +632,24 @@ class TableTest < Test::Unit::TestCase
         end
 
         sub_test_case("save: auto detect") do
+          test("arrow") do
+            output = create_output(".arrow")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :arrow,
+                                           schema: @table.schema))
+          end
+
+          test("arrows") do
+            output = create_output(".arrows")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :arrows,
+                                           schema: @table.schema))
+          end
+
           test("csv") do
             output = create_output(".csv")
             @table.save(output)
@@ -664,7 +688,13 @@ class TableTest < Test::Unit::TestCase
 
           test("arrow: streaming") do
             output = create_output(".arrow")
-            @table.save(output, format: :arrow_streaming)
+            @table.save(output, format: :arrows)
+            assert_equal(@table, Arrow::Table.load(output))
+          end
+
+          test("arrows") do
+            output = create_output(".arrows")
+            @table.save(output, format: :arrows)
             assert_equal(@table, Arrow::Table.load(output))
           end
 
@@ -750,21 +780,21 @@ chris\t-1
       end
 
       data("Arrow File",
-           [:arrow, "arrow", "application/vnd.apache.arrow.file"])
+           ["arrow", "application/vnd.apache.arrow.file"])
       data("Arrow Stream",
-           [:arrow_streaming, "arrows", "application/vnd.apache.arrow.stream"])
+           ["arrows", "application/vnd.apache.arrow.stream"])
       data("CSV",
-           [:csv, "csv", "text/csv"])
+           ["csv", "text/csv"])
       def test_http(data)
-        format, extension, content_type = data
+        extension, content_type = data
         output = Arrow::ResizableBuffer.new(1024)
-        @table.save(output, format: format)
+        @table.save(output, format: extension.to_sym)
         path = "/data.#{extension}"
         start_web_server(path,
                          output.data.to_s,
                          content_type) do |port|
           input = URI("http://127.0.0.1:#{port}#{path}")
-          loaded_table = Arrow::Table.load(input, format: format)
+          loaded_table = Arrow::Table.load(input)
           assert_equal(@table.to_s, loaded_table.to_s)
         end
       end

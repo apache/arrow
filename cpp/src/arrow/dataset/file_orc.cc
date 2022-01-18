@@ -79,12 +79,11 @@ class OrcScanTask {
         // filter out virtual columns
         std::vector<std::string> included_fields;
         ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
-        for (auto name : materialized_fields) {
-          FieldRef ref(name);
+        for (const auto& ref : materialized_fields) {
           ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*schema));
           if (match.indices().empty()) continue;
 
-          included_fields.push_back(name);
+          included_fields.push_back(schema->field(match.indices()[0])->name());
         }
 
         return RecordBatchIterator(

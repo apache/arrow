@@ -155,30 +155,112 @@ void AddColumnIndices(const SchemaField& schema_field,
   }
 }
 
-// Compute the column projection out of an optional arrow::Schema
-std::vector<int> InferColumnProjection(const parquet::arrow::FileReader& reader,
-                                       const ScanOptions& options) {
+Status ResolveOneFieldRef(
+    const SchemaManifest& manifest, const FieldRef& field_ref,
+    const std::unordered_map<std::string, const SchemaField*>& field_lookup,
+    const std::unordered_set<std::string>& duplicate_fields,
+    std::vector<int>* columns_selection) {
+  if (const std::string* name = field_ref.name()) {
+    auto it = field_lookup.find(*name);
+    if (it != field_lookup.end()) {
+      AddColumnIndices(*it->second, columns_selection);
+    } else if (duplicate_fields.find(*name) != duplicate_fields.end()) {
+      // We shouldn't generally get here because SetProjection will reject such references
+      return Status::Invalid("Ambiguous reference to column '", *name,
+                             "' which occurs more than once");
+    }
+    // "Virtual" column: field is not in file but is in the ScanOptions.
+    // Ignore it here, as projection will pad the batch with a null column.
+    return Status::OK();
+  }
+
+  const SchemaField* toplevel = nullptr;
+  const SchemaField* field = nullptr;
+  if (const std::vector<FieldRef>* refs = field_ref.nested_refs()) {
+    // Only supports a sequence of names
+    for (const auto& ref : *refs) {
+      if (const std::string* name = ref.name()) {
+        if (!field) {
+          // First lookup, top-level field
+          auto it = field_lookup.find(*name);
+          if (it != field_lookup.end()) {
+            field = it->second;
+            toplevel = field;
+          } else if (duplicate_fields.find(*name) != duplicate_fields.end()) {
+            return Status::Invalid("Ambiguous reference to column '", *name,
+                                   "' which occurs more than once");
+          } else {
+            // Virtual column
+            return Status::OK();
+          }
+        } else {
+          const SchemaField* result = nullptr;
+          for (const auto& child : field->children) {
+            if (child.field->name() == *name) {
+              if (!result) {
+                result = &child;
+              } else {
+                return Status::Invalid("Ambiguous nested reference to column '", *name,
+                                       "' which occurs more than once in field ",
+                                       field->field->ToString());
+              }
+            }
+          }
+          if (!result) {
+            // Virtual column
+            return Status::OK();
+          }
+          field = result;
+        }
+        continue;
+      }
+      return Status::NotImplemented("Inferring column projection from FieldRef ",
+                                    field_ref.ToString());
+    }
+  } else {
+    return Status::NotImplemented("Inferring column projection from FieldRef ",
+                                  field_ref.ToString());
+  }
+
+  if (field) {
+    // TODO(ARROW-1888): support fine-grained column projection. We should be
+    // able to materialize only the child fields requested, and not the entire
+    // top-level field.
+    // Right now, if enabled, projection/filtering will fail when they cast the
+    // physical schema to the dataset schema.
+    AddColumnIndices(*toplevel, columns_selection);
+  }
+  return Status::OK();
+}
+
+// Compute the column projection based on the scan options
+Result<std::vector<int>> InferColumnProjection(const parquet::arrow::FileReader& reader,
+                                               const ScanOptions& options) {
   auto manifest = reader.manifest();
   // Checks if the field is needed in either the projection or the filter.
-  auto field_names = options.MaterializedFields();
-  std::unordered_set<std::string> materialized_fields{field_names.cbegin(),
-                                                      field_names.cend()};
-  auto should_materialize_column = [&materialized_fields](const std::string& f) {
-    return materialized_fields.find(f) != materialized_fields.end();
-  };
+  auto field_refs = options.MaterializedFields();
 
-  std::vector<int> columns_selection;
-  // Note that the loop is using the file's schema to iterate instead of the
-  // materialized fields of the ScanOptions. This ensures that missing
-  // fields in the file (but present in the ScanOptions) will be ignored. The
-  // scanner's projector will take care of padding the column with the proper
-  // values.
+  // Build a lookup table from top level field name to field metadata.
+  // This is to avoid quadratic-time mapping of projected fields to
+  // column indices, in the common case of selecting top level
+  // columns. For nested fields, we will pay the cost of a linear scan
+  // assuming for now that this is relatively rare, but this can be
+  // optimized. (Also, we don't want to pay the cost of building all
+  // the lookup tables up front if they're rarely used.)
+  std::unordered_map<std::string, const SchemaField*> field_lookup;
+  std::unordered_set<std::string> duplicate_fields;
   for (const auto& schema_field : manifest.schema_fields) {
-    if (should_materialize_column(schema_field.field->name())) {
-      AddColumnIndices(schema_field, &columns_selection);
+    const auto it = field_lookup.emplace(schema_field.field->name(), &schema_field);
+    if (!it.second) {
+      duplicate_fields.emplace(schema_field.field->name());
     }
   }
 
+  std::vector<int> columns_selection;
+  for (const auto& ref : field_refs) {
+    RETURN_NOT_OK(ResolveOneFieldRef(manifest, ref, field_lookup, duplicate_fields,
+                                     &columns_selection));
+  }
   return columns_selection;
 }
 
@@ -351,7 +433,8 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                             parquet_fragment->FilterRowGroups(options->filter));
       if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
     }
-    auto column_projection = InferColumnProjection(*reader, *options);
+    ARROW_ASSIGN_OR_RAISE(auto column_projection,
+                          InferColumnProjection(*reader, *options));
     ARROW_ASSIGN_OR_RAISE(
         auto parquet_scan_options,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(

@@ -197,12 +197,71 @@ TEST_P(TestScanner, FilteredScan) {
   AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), filtered_batch);
 }
 
+TEST_P(TestScanner, FilteredScanNested) {
+  auto struct_ty = struct_({field("f64", float64())});
+  SetSchema({field("struct", struct_ty)});
+
+  double value = 0.5;
+  ASSERT_OK_AND_ASSIGN(auto f64,
+                       ArrayFromBuilderVisitor(float64(), GetParam().items_per_batch,
+                                               GetParam().items_per_batch / 2,
+                                               [&](DoubleBuilder* builder) {
+                                                 builder->UnsafeAppend(value);
+                                                 builder->UnsafeAppend(-value);
+                                                 value += 1.0;
+                                               }));
+
+  SetFilter(greater(field_ref(FieldRef("struct", "f64")), literal(0.0)));
+
+  auto batch = RecordBatch::Make(
+      schema_, f64->length(),
+      {
+          std::make_shared<StructArray>(struct_ty, f64->length(), ArrayVector{f64}),
+      });
+
+  value = 0.5;
+  ASSERT_OK_AND_ASSIGN(auto f64_filtered,
+                       ArrayFromBuilderVisitor(float64(), GetParam().items_per_batch / 2,
+                                               [&](DoubleBuilder* builder) {
+                                                 builder->UnsafeAppend(value);
+                                                 value += 1.0;
+                                               }));
+
+  auto filtered_batch = RecordBatch::Make(
+      schema_, f64_filtered->length(),
+      {
+          std::make_shared<StructArray>(struct_ty, f64_filtered->length(),
+                                        ArrayVector{f64_filtered}),
+      });
+
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), filtered_batch);
+}
+
 TEST_P(TestScanner, ProjectedScan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   SetProjectedColumns({"i32"});
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch,
                                                   schema({field("i32", int32())}));
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
+}
+
+TEST_P(TestScanner, ProjectedScanNested) {
+  SetSchema({
+      field("struct", struct_({field("i32", int32()), field("f64", float64())})),
+      field("nested", struct_({field("left", int32()),
+                               field("right", struct_({field("i32", int32()),
+                                                       field("f64", float64())}))})),
+  });
+  ASSERT_OK_AND_ASSIGN(auto descr, ProjectionDescr::FromExpressions(
+                                       {field_ref(FieldRef("struct", "i32")),
+                                        field_ref(FieldRef("nested", "right", "f64"))},
+                                       {"i32", "f64"}, *options_->dataset_schema))
+  SetProjection(options_.get(), std::move(descr));
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto batch_out = ConstantArrayGenerator::Zeroes(
+      GetParam().items_per_batch,
+      schema({field("i32", int32()), field("f64", float64())}));
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
@@ -1062,6 +1121,7 @@ class TestScannerBuilder : public ::testing::Test {
         field("i16", int16()),
         field("i32", int32()),
         field("i64", int64()),
+        field("nested", struct_({field("str", utf8())})),
     });
 
     ASSERT_OK_AND_ASSIGN(dataset_, UnionDataset::Make(schema_, sources));
@@ -1084,6 +1144,7 @@ TEST_F(TestScannerBuilder, TestProject) {
   ASSERT_OK(builder.Project(
       {field_ref("i16"), call("multiply", {field_ref("i16"), literal(2)})},
       {"i16 renamed", "i16 * 2"}));
+  ASSERT_OK(builder.Project({field_ref(FieldRef("nested", "str"))}, {".nested.str"}));
 
   ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
   ASSERT_RAISES(Invalid, builder.Project({"i8", "not_found_column"}));
@@ -1092,8 +1153,8 @@ TEST_F(TestScannerBuilder, TestProject) {
                                  call("multiply", {field_ref("i16"), literal(2)})},
                                 {"i16 renamed", "i16 * 2"}));
 
-  ASSERT_RAISES(NotImplemented, builder.Project({field_ref(FieldRef("nested", "column"))},
-                                                {"nested column"}));
+  ASSERT_RAISES(Invalid, builder.Project({field_ref(FieldRef("nested", "not_a_column"))},
+                                         {"nested column"}));
 
   // provided more field names than column exprs or vice versa
   ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
@@ -1107,14 +1168,15 @@ TEST_F(TestScannerBuilder, TestFilter) {
   ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<int64_t>(10))));
   ASSERT_OK(builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
                                equal(field_ref("b"), literal(true)))));
+  ASSERT_OK(builder.Filter(equal(field_ref(FieldRef("nested", "str")), literal(""))));
 
   ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<double>(10))));
 
   ASSERT_RAISES(Invalid, builder.Filter(equal(field_ref("not_a_column"), literal(true))));
 
-  ASSERT_RAISES(
-      NotImplemented,
-      builder.Filter(equal(field_ref(FieldRef("nested", "column")), literal(true))));
+  ASSERT_RAISES(Invalid,
+                builder.Filter(
+                    equal(field_ref(FieldRef("nested", "not_a_column")), literal(true))));
 
   ASSERT_RAISES(Invalid,
                 builder.Filter(or_(equal(field_ref("i64"), literal<int64_t>(10)),
@@ -1143,7 +1205,7 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   // project nothing, filter on i32 = materialize i32
   opts->filter = equal(field_ref("i32"), literal(10));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("i32")));
 
   // project i32 & i64, filter nothing = materialize i32 & i64
   opts->filter = literal(true);
@@ -1165,15 +1227,50 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   // project i32, filter on i32 = materialize i32 (reported twice)
   opts->filter = equal(field_ref("i32"), literal(10));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("i32"), FieldRef("i32")));
 
   // project i32, filter on i32 & i64 = materialize i64, i32 (reported twice)
   opts->filter = less(field_ref("i32"), field_ref("i64"));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64", "i32"));
+  EXPECT_THAT(opts->MaterializedFields(),
+              ElementsAre(FieldRef("i32"), FieldRef("i64"), FieldRef("i32")));
 
   // project i32, filter on i64 = materialize i32 & i64
   opts->filter = equal(field_ref("i64"), literal(10));
-  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i64", "i32"));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("i64"), FieldRef("i32")));
+
+  auto nested = field("nested", struct_({i32, i64}));
+  opts->dataset_schema = schema({nested});
+
+  // project top-level field, filter nothing
+  opts->filter = literal(true);
+  ASSERT_OK_AND_ASSIGN(projection,
+                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema));
+  SetProjection(opts.get(), std::move(projection));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested")));
+
+  // project child field, filter nothing
+  opts->filter = literal(true);
+  ASSERT_OK_AND_ASSIGN(projection, ProjectionDescr::FromExpressions(
+                                       {field_ref(FieldRef("nested", "i64"))},
+                                       {"nested.i64"}, *opts->dataset_schema));
+  SetProjection(opts.get(), std::move(projection));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested", "i64")));
+
+  // project nothing, filter child field
+  opts->filter = equal(field_ref(FieldRef("nested", "i64")), literal(10));
+  ASSERT_OK_AND_ASSIGN(projection,
+                       ProjectionDescr::FromExpressions({}, {}, *opts->dataset_schema));
+  SetProjection(opts.get(), std::move(projection));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested", "i64")));
+
+  // project child field, filter child field
+  opts->filter = equal(field_ref(FieldRef("nested", "i64")), literal(10));
+  ASSERT_OK_AND_ASSIGN(projection, ProjectionDescr::FromExpressions(
+                                       {field_ref(FieldRef("nested", "i32"))},
+                                       {"nested.i32"}, *opts->dataset_schema));
+  SetProjection(opts.get(), std::move(projection));
+  EXPECT_THAT(opts->MaterializedFields(),
+              ElementsAre(FieldRef("nested", "i64"), FieldRef("nested", "i32")));
 }
 
 namespace {
@@ -1209,6 +1306,66 @@ struct DatasetAndBatches {
   std::vector<compute::ExecBatch> batches;
 };
 
+DatasetAndBatches DatasetAndBatchesFromJSON(
+    const std::shared_ptr<Schema>& dataset_schema,
+    const std::shared_ptr<Schema>& physical_schema,
+    const std::vector<std::vector<std::string>>& fragment_batch_strs,
+    const std::vector<compute::Expression>& guarantees,
+    std::function<void(compute::ExecBatch*, const RecordBatch&)> make_exec_batch = {}) {
+  if (!guarantees.empty()) {
+    EXPECT_EQ(fragment_batch_strs.size(), guarantees.size());
+  }
+  RecordBatchVector record_batches;
+  FragmentVector fragments;
+  fragments.reserve(fragment_batch_strs.size());
+  for (size_t i = 0; i < fragment_batch_strs.size(); i++) {
+    const auto& batch_strs = fragment_batch_strs[i];
+    RecordBatchVector fragment_batches;
+    fragment_batches.reserve(batch_strs.size());
+    for (const auto& batch_str : batch_strs) {
+      fragment_batches.push_back(RecordBatchFromJSON(physical_schema, batch_str));
+    }
+    record_batches.insert(record_batches.end(), fragment_batches.begin(),
+                          fragment_batches.end());
+    fragments.push_back(std::make_shared<InMemoryFragment>(
+        physical_schema, std::move(fragment_batches),
+        guarantees.empty() ? literal(true) : guarantees[i]));
+  }
+
+  std::vector<compute::ExecBatch> batches;
+  auto batch_it = record_batches.begin();
+  for (size_t fragment_index = 0; fragment_index < fragment_batch_strs.size();
+       ++fragment_index) {
+    for (size_t batch_index = 0; batch_index < fragment_batch_strs[fragment_index].size();
+         ++batch_index) {
+      const auto& batch = *batch_it++;
+
+      // the scanned ExecBatches will begin with physical columns
+      batches.emplace_back(*batch);
+
+      // allow customizing the ExecBatch (e.g. to fill in placeholders for partition
+      // fields)
+      if (make_exec_batch) {
+        make_exec_batch(&batches.back(), *batch);
+      }
+
+      // scanned batches will be augmented with fragment and batch indices
+      batches.back().values.emplace_back(static_cast<int>(fragment_index));
+      batches.back().values.emplace_back(static_cast<int>(batch_index));
+
+      // ... and with the last-in-fragment flag
+      batches.back().values.emplace_back(batch_index ==
+                                         fragment_batch_strs[fragment_index].size() - 1);
+
+      // each batch carries a guarantee inherited from its Fragment's partition expression
+      batches.back().guarantee = fragments[fragment_index]->partition_expression();
+    }
+  }
+
+  auto dataset = std::make_shared<FragmentDataset>(dataset_schema, std::move(fragments));
+  return {std::move(dataset), std::move(batches)};
+}
+
 DatasetAndBatches MakeBasicDataset() {
   const auto dataset_schema = ::arrow::schema({
       field("a", int32()),
@@ -1218,57 +1375,68 @@ DatasetAndBatches MakeBasicDataset() {
 
   const auto physical_schema = SchemaFromColumnNames(dataset_schema, {"a", "b"});
 
-  RecordBatchVector record_batches{
-      RecordBatchFromJSON(physical_schema, R"([{"a": 1,    "b": null},
-                                               {"a": 2,    "b": true}])"),
-      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
-                                               {"a": 3,    "b": false}])"),
-      RecordBatchFromJSON(physical_schema, R"([{"a": null, "b": true},
-                                               {"a": 4,    "b": false}])"),
-      RecordBatchFromJSON(physical_schema, R"([{"a": 5,    "b": null},
-                                               {"a": 6,    "b": false},
-                                               {"a": 7,    "b": false}])"),
-  };
-
-  auto dataset = std::make_shared<FragmentDataset>(
-      dataset_schema,
-      FragmentVector{
-          std::make_shared<InMemoryFragment>(
-              physical_schema, RecordBatchVector{record_batches[0], record_batches[1]},
-              equal(field_ref("c"), literal(23))),
-          std::make_shared<InMemoryFragment>(
-              physical_schema, RecordBatchVector{record_batches[2], record_batches[3]},
-              equal(field_ref("c"), literal(47))),
+  return DatasetAndBatchesFromJSON(
+      dataset_schema, physical_schema,
+      {
+          {
+              R"([{"a": 1,    "b": null},
+                  {"a": 2,    "b": true}])",
+              R"([{"a": null, "b": true},
+                  {"a": 3,    "b": false}])",
+          },
+          {
+              R"([{"a": null, "b": true},
+                  {"a": 4,    "b": false}])",
+              R"([{"a": 5,    "b": null},
+                  {"a": 6,    "b": false},
+                  {"a": 7,    "b": false}])",
+          },
+      },
+      {
+          equal(field_ref("c"), literal(23)),
+          equal(field_ref("c"), literal(47)),
+      },
+      [](compute::ExecBatch* batch, const RecordBatch&) {
+        // a placeholder will be inserted for partition field "c"
+        batch->values.emplace_back(std::make_shared<Int32Scalar>());
       });
+}
 
-  std::vector<compute::ExecBatch> batches;
+DatasetAndBatches MakeNestedDataset() {
+  const auto dataset_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", struct_({
+                     field("d", int64()),
+                     field("e", float64()),
+                 })),
+  });
+  const auto physical_schema = ::arrow::schema({
+      field("a", int32()),
+      field("b", boolean()),
+      field("c", struct_({
+                     field("e", int64()),
+                 })),
+  });
 
-  auto batch_it = record_batches.begin();
-  for (int fragment_index = 0; fragment_index < 2; ++fragment_index) {
-    for (int batch_index = 0; batch_index < 2; ++batch_index) {
-      const auto& batch = *batch_it++;
-
-      // the scanned ExecBatches will begin with physical columns
-      batches.emplace_back(*batch);
-
-      // a placeholder will be inserted for partition field "c"
-      batches.back().values.emplace_back(std::make_shared<Int32Scalar>());
-
-      // scanned batches will be augmented with fragment and batch indices
-      batches.back().values.emplace_back(fragment_index);
-      batches.back().values.emplace_back(batch_index);
-
-      // ... and with the last-in-fragment flag
-      batches.back().values.emplace_back(batch_index == 1);
-
-      // each batch carries a guarantee inherited from its Fragment's partition
-      // expression
-      batches.back().guarantee =
-          equal(field_ref("c"), literal(fragment_index == 0 ? 23 : 47));
-    }
-  }
-
-  return {dataset, batches};
+  return DatasetAndBatchesFromJSON(dataset_schema, physical_schema,
+                                   {
+                                       {
+                                           R"([{"a": 1,    "b": null,  "c": {"e": 0}},
+                                               {"a": 2,    "b": true,  "c": {"e": 1}}])",
+                                           R"([{"a": null, "b": true,  "c": {"e": 2}},
+                                               {"a": 3,    "b": false, "c": {"e": null}}])",
+                                           R"([{"a": null, "b": null,  "c": null}])",
+                                       },
+                                       {
+                                           R"([{"a": null, "b": true,  "c": {"e": 4}},
+                                               {"a": 4,    "b": false, "c": null}])",
+                                           R"([{"a": 5,    "b": null,  "c": {"e": 6}},
+                                               {"a": 6,    "b": false, "c": {"e": 7}},
+                                               {"a": 7,    "b": false, "c": {"e": null}}])",
+                                       },
+                                   },
+                                   /*guarantees=*/{});
 }
 
 compute::Expression Materialize(std::vector<std::string> names,
@@ -1436,6 +1604,31 @@ TEST(ScanNode, MaterializationOfVirtualColumn) {
   }
 
   ASSERT_THAT(plan.Run(), Finishes(ResultWith(UnorderedElementsAreArray(expected))));
+}
+
+TEST(ScanNode, MaterializationOfNestedVirtualColumn) {
+  TestPlan plan;
+
+  auto basic = MakeNestedDataset();
+
+  auto options = std::make_shared<ScanOptions>();
+  options->projection = Materialize({"a", "b", "c"}, /*include_aug_fields=*/true);
+
+  ASSERT_OK(compute::Declaration::Sequence(
+                {
+                    {"scan", ScanNodeOptions{basic.dataset, options}},
+                    {"augmented_project",
+                     compute::ProjectNodeOptions{
+                         {field_ref("a"), field_ref("b"), field_ref("c")}}},
+                    {"sink", compute::SinkNodeOptions{&plan.sink_gen}},
+                })
+                .AddToPlan(plan.get()));
+
+  // TODO(ARROW-1888): allow scanner to "patch up" structs with casts
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented,
+      ::testing::HasSubstr("Unsupported cast from struct<e: int64> to struct"),
+      plan.Run());
 }
 
 TEST(ScanNode, MinimalEndToEnd) {
