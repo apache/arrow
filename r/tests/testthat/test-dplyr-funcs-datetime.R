@@ -634,3 +634,35 @@ test_that("extract yday from date", {
     test_df
   )
 })
+
+test_that("leap_year mirror lubridate", {
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(datetime)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(test_year)) %>%
+      collect(),
+    data.frame(
+      test_year = as.Date(c(
+        "1998-01-01", # not leap year
+        "1996-01-01", # leap year (divide by 4 rule)
+        "1900-01-01", # not leap year (divide by 100 rule)
+        "2000-01-01"  # leap year (divide by 400 rule)
+      ))
+    )
+  )
+
+})
