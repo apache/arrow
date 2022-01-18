@@ -379,7 +379,7 @@ struct CompareRandomNumeric {
     using ScalarType = typename TypeTraits<Type>::ScalarType;
     using CType = typename TypeTraits<Type>::CType;
     auto rand = random::RandomArrayGenerator(0x5416447);
-    const int64_t length = 1000;
+    const int64_t length = 100;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto op : {EQUAL, NOT_EQUAL, GREATER, LESS_EQUAL}) {
         auto data1 =
@@ -2513,7 +2513,7 @@ struct BetweenRandomNumeric {
     using ScalarType = typename TypeTraits<Type>::ScalarType;
     using CType = typename TypeTraits<Type>::CType;
     auto rand = random::RandomArrayGenerator(0x5416447);
-    const int64_t length = 1000;
+    const int64_t length = 100;
     for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
       for (auto inclusive :
            {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,

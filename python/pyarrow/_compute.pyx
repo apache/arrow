@@ -846,8 +846,10 @@ class BetweenOptions(_BetweenOptions):
     Parameters
     ----------
     inclusive : str, default "both"
-        Choices are "both" ( a <= val <= b), "left" ( a <= value < b ),
-        "right" ( a < value <= b ) and "neither" ( a < value < b ).
+        Choices are "both" (left <= value <= right),
+        "left" (left <= value < right),
+        "right" (left < value <= right) and 
+        "neither" (left < value < right).
     """
 
     def __init__(self, *, inclusive="both"):

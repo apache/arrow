@@ -1322,6 +1322,8 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for numeric types.
+// The functor is expected to have the same input and output numeric types.
 template <template <typename... Args> class Generator, typename... Args>
 ArrayKernelExec GeneratePhysicalNumericToNumeric(detail::GetTypeId get_id) {
   switch (get_id.id) {
