@@ -541,7 +541,6 @@ class NullArrayFactory {
                           AllocateBuffer(length_ * scalar_size_bytes, pool_));
     std::memset(buffer->mutable_data(), 0, buffer->size());
     return std::shared_ptr<Buffer>(std::move(buffer));
-    ;
   }
 
   Result<std::shared_ptr<Buffer>> CreateZeroOffsetBuffer(size_t index_size_bytes) const {
