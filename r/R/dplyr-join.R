@@ -138,8 +138,8 @@ handle_join_by <- function(by, x, y) {
   }
 
   if (length(missing_x_cols) > 0 || length(missing_y_cols) > 0) {
-    header <- "Join columns must be present in data."
-    abort(c(header, x = message_x, x = message_y))
+    err_header <- "Join columns must be present in data."
+    abort(c(err_header, x = message_x, x = message_y))
   }
 
   by
