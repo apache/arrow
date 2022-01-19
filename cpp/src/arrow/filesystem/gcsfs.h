@@ -28,10 +28,6 @@ namespace fs {
 class GcsFileSystem;
 struct GcsOptions;
 struct GcsCredentials;
-namespace internal {
-// TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
-std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
-}  // namespace internal
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
@@ -174,11 +170,11 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
- private:
   /// Create a GcsFileSystem instance from the given options.
-  friend std::shared_ptr<GcsFileSystem> internal::MakeGcsFileSystemForTest(
-      const GcsOptions& options);
+  static std::shared_ptr<GcsFileSystem> Make(
+      const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
+ private:
   explicit GcsFileSystem(const GcsOptions& options, const io::IOContext& io_context);
 
   class Impl;
