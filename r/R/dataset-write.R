@@ -51,7 +51,7 @@
 #' @param max_partitions maximum number of partitions any batch may be
 #' written into. Default is 1024L.
 #' @param ... additional format-specific arguments. For available Parquet
-#' options, see [write_parquet()]. The available Feather options are
+#' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
 #'   versions 0.14 and lower can read it. Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
