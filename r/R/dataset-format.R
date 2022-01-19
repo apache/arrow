@@ -309,7 +309,27 @@ FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
     update = function(table, ...) {
+      compose_err_header <- function(unsupported_passed_args) {
+        paste0(
+          oxford_paste(unsupported_passed_args),
+          ngettext(length(unsupported_passed_args),
+                   " is not a valid argument ",
+                   " are not valid arguments "),
+          "for your chosen `format`."
+        )
+      }
+
       if (self$type == "parquet") {
+        args <- list(...)
+        supported_args <- names(formals(write_parquet))
+        supported_args <- supported_args[supported_args != c("x", "sink")]
+        unsupported_passed_args <- setdiff(names(args), supported_args)
+
+        if (length(unsupported_passed_args)) {
+          err_header <- compose_err_header(unsupported_passed_args)
+          abort(err_header)
+        }
+
         dataset___ParquetFileWriteOptions__update(
           self,
           ParquetWriterProperties$create(table, ...),
@@ -324,21 +344,15 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           "null_fallback"
         )
 
-        unsupported_passed_args <- setdiff(
-          names(args),
-          supported_args
-        )
+        unsupported_passed_args <- setdiff(names(args), supported_args)
+        err_info <- NULL
 
         if (length(unsupported_passed_args)) {
-          stop(
-            "The following ",
-            ngettext(length(unsupported_passed_args),
-                     "argument is ",
-                     "arguments are "),
-            "not valid for your chosen 'format': ",
-            oxford_paste(unsupported_passed_args),
-            call. = FALSE
-          )
+          err_header <- compose_err_header(unsupported_passed_args)
+          if("compression" %in% unsupported_passed_args) {
+            err_info <- "You could try using `codec` instead of `compression`."
+          }
+          abort(c(err_header, i = err_info))
         }
 
         if (is.null(args$codec)) {
@@ -356,6 +370,15 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           )
         }
       } else if (self$type == "csv") {
+        args <- list(...)
+        supported_args <- names(formals(CsvWriteOptions$create))
+        unsupported_passed_args <- setdiff(names(args), supported_args)
+
+        if (length(unsupported_passed_args)) {
+          err_header <- compose_err_header(unsupported_passed_args)
+          abort(err_header)
+        }
+
         dataset___CsvFileWriteOptions__update(
           self,
           CsvWriteOptions$create(...)
