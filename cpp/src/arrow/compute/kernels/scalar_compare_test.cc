@@ -2174,138 +2174,101 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   Datum zero(std::make_shared<ScalarType>(CType(0)));
   Datum four(std::make_shared<ScalarType>(CType(4)));
   Datum null(std::make_shared<ScalarType>());
-  BetweenOptions InclusiveBoth(BetweenOptions::Inclusive::BOTH);
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero,
-      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), null, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, null,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  BetweenOptions InclusiveLeft(BetweenOptions::Inclusive::LEFT);
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero,
-      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[1,1,1,1,0,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,0,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), null, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, null,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  BetweenOptions InclusiveRight(BetweenOptions::Inclusive::RIGHT);
-  ValidateBetween<TypeParam>(
-      InclusiveRight, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"), zero,
-      four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,0,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,1,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,0,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), null, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, null,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  BetweenOptions InclusiveNeither(BetweenOptions::Inclusive::NEITHER);
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      zero, four, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,1,2,2]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,0,1,1,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,1,1,1,0,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[0,0,1,1,1,0]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]"), zero, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null,0,1,1]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), null, four,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]"), zero, null,
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[null,null,null,null,null,null]"));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")), zero,
+      four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")), zero,
+      four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]")),
+      zero, four);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]")), zero,
+      four);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")), 
+      null, four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                                      "[null,null,null,null,null,null]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")),
+      zero, null, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                                      "[null,null,null,null,null,null]")));
+  }
+}
+
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayScalar) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum zero(std::make_shared<ScalarType>(CType(0)));
+  Datum four(std::make_shared<ScalarType>(CType(4)));
+  Datum null(std::make_shared<ScalarType>());
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+      zero, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+      zero, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+      zero, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]")),
+      four);
+    ValidateBetween<TypeParam>(options,
+      zero, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]")),
+      four);
+    ValidateBetween<TypeParam>(options,
+      null, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")),
+      four, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                                "[null,null,null,null,null,null]")));
+    ValidateBetween<TypeParam>(options,
+      zero, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")),
+      null, Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                                "[null,null,null,null,null,null]")));
+  }
+}
+
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarArray) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum zero(std::make_shared<ScalarType>(CType(0)));
+  Datum four(std::make_shared<ScalarType>(CType(4)));
+  Datum null(std::make_shared<ScalarType>());
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+      zero, four, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+      zero, four, Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+      zero, four, 
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,3,4,5]")));
+    ValidateBetween<TypeParam>(options,
+      zero, four,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null,0,1,1]")));
+    ValidateBetween<TypeParam>(options,
+      null, four,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                          "[null,null,null,null,null,null]")));
+    ValidateBetween<TypeParam>(options,
+      zero, null,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[5,4,3,2,1,0]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
+                          "[null,null,null,null,null,null]")));
+  }
 }
 
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
@@ -2313,198 +2276,103 @@ TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
   using CType = typename TypeTraits<TypeParam>::CType;
 
   Datum one(std::make_shared<ScalarType>(CType(1)));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options, one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options, one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options, one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]")));
+    ValidateBetween<TypeParam>(options, one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]")));
+  }
+}
 
-  BetweenOptions InclusiveBoth(BetweenOptions::Inclusive::BOTH);
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,true,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,true,null,false,false]"));
-  BetweenOptions InclusiveLeft(BetweenOptions::Inclusive::LEFT);
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,true,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,true,null,false,false]"));
-  BetweenOptions InclusiveRight(BetweenOptions::Inclusive::RIGHT);
-  ValidateBetween<TypeParam>(
-      InclusiveRight, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,false,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,false,null,false,false]"));
-  BetweenOptions InclusiveNeither(BetweenOptions::Inclusive::NEITHER);
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, one, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,false,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, one,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,false,null,false,false]"));
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarArray) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum one(std::make_shared<ScalarType>(CType(1)));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")), one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")), one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]")), one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]")),
+      one,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]")));
+  }
+}
+
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayScalar) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum one(std::make_shared<ScalarType>(CType(1)));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")), one,
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")), one,
+      Datum(ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]")),
+      one);
+    ValidateBetween<TypeParam>(options,
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]")),
+      Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]")), one);
+  }
 }
 
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
-  BetweenOptions InclusiveBoth(BetweenOptions::Inclusive::BOTH);
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,true,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveBoth,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,true,null,false,false]"));
-  BetweenOptions InclusiveLeft(BetweenOptions::Inclusive::LEFT);
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,false,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveLeft,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,false,null,false,false]"));
-  BetweenOptions InclusiveRight(BetweenOptions::Inclusive::RIGHT);
-  ValidateBetween<TypeParam>(
-      InclusiveRight, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,true,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveRight,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,true,null,false,false]"));
-  BetweenOptions InclusiveNeither(BetweenOptions::Inclusive::NEITHER);
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither, ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[true,true,false,false,false]"));
-  ValidateBetween<TypeParam>(
-      InclusiveNeither,
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]"),
-      ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                    "[false,true,false,null,false,false]"));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options,
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[]")));
+    ValidateBetween<TypeParam>(options,
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]")));
+    ValidateBetween<TypeParam>(options,
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1,1,2,2,2]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,3,3]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[10,10,2,5,5]")));
+    ValidateBetween<TypeParam>(options,
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,1,2,2,2,2]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,0,1,null,3,3]")),
+        Datum(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[0,10,2,2,5,5]")));
+  }
 }
 
 template <typename Type>
@@ -2585,222 +2453,132 @@ TEST(TestStringBetweenKernel, StringArrayScalarScalarTest) {
   using ScalarType = typename TypeTraits<StringType>::ScalarType;
   auto l = Datum(std::make_shared<ScalarType>("abc"));
   auto r = Datum(std::make_shared<ScalarType>("zzz"));
-  BetweenOptions InclusiveOption(BetweenOptions::Inclusive::BOTH);
-  ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]"), l,
-      r, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[]"));
-  ValidateBetween<StringType>(
-      InclusiveOption, ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]"),
-      l, r, ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[null]"));
-  ValidateBetween<StringType>(InclusiveOption,
-                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["aaa", "aaaa", "ccc", "z"])"),
-                              l, r,
-                              ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                                            R"([false, false, true, true])"));
-  ValidateBetween<StringType>(InclusiveOption,
-                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["a", "aaaa", "c", "z"])"),
-                              l, r,
-                              ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                                            R"([false, false, true, true])"));
-  ValidateBetween<StringType>(InclusiveOption,
-                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["a", "aaaa", "fff", "zzzz"])"),
-                              l, r,
-                              ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                                            R"([false, false, true, false])"));
-  ValidateBetween<StringType>(InclusiveOption,
-                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["abc", "baa", "fff", "zzz"])"),
-                              l, r,
-                              ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                                            R"([true, true, true, true])"));
-  ValidateBetween<StringType>(InclusiveOption,
-                              ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                                            R"(["abd", null, null, "zzx"])"),
-                              l, r,
-                              ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(),
-                                            R"([true, null, null, true])"));
+  for (auto inclusive :
+       {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+        BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<StringType>(
+        options, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")), l, r);
+    ValidateBetween<StringType>(
+        options, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")), l, r );
+    ValidateBetween<StringType>(options,
+                                Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                                   R"(["aaa", "aaaa", "ccc", "z"])")), l, r);
+    ValidateBetween<StringType>(options,
+                                Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                                   R"(["abc", "baa", "fff", "zzz"])")), l, r);
+    ValidateBetween<StringType>(options,
+                                Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                                   R"(["abd", null, null, "zzx"])")), l, r); 
+  }
 }
 
 TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
-  BetweenOptions InclusiveOption(BetweenOptions::Inclusive::BOTH);
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                    R"(["david","hello","world"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["adam","hi","whirl"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                    R"(["robert","goeiemoreen","whirlwind"])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false, false]"));
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["x","a","f"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["w","a","e"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["z","a","g"])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, true, true]"));
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                    R"(["block","bit","binary"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                    R"(["bit","nibble","ternary"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["word","d","xyz"])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, false, false]"));
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                    R"(["よしもと","の","ち"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["は","へ","あ"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["な","を","ち"])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, false, true]"));
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["A","ア","王"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["た","あ","歩"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["李","田",null])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[false, true, null]"));
-  ValidateBetween<StringType>(
-      InclusiveOption,
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Б",null,"Я"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["А","Ж","Щ"])"),
-      ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Д","Л","Ф"])"),
-      ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), "[true, null, false]"));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["david","hello","world"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["adam","hi","whirl"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["robert","goeiemoreen","whirlwind"])")));
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["x","a","f"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["w","a","e"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["z","a","g"])")));
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["block","bit","binary"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["bit","nibble","ternary"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["word","d","xyz"])")));
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["よしもと","の","ち"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["は","へ","あ"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["な","を","ち"])")));
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+			  R"(["A","ア","王"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["た","あ","歩"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["李","田",null])")));
+    ValidateBetween<StringType>(options,
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["Б",null,"Я"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["А","Ж","Щ"])")),
+        Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                          R"(["Д","Л","Ф"])")));
+  }
 }
 
 TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
   const std::string arr_json = R"(["1970-01-01","1980-02-02","1970-02-28"])";
   const std::string lhs_json = R"(["1970-01-01","1980-02-01","1970-02-28"])";
   const std::string rhs_json = R"(["1970-01-02","1980-02-02","1970-02-28"])";
-  // Between Options
-  BetweenOptions both(BetweenOptions::Inclusive::BOTH);
-  BetweenOptions left(BetweenOptions::Inclusive::LEFT);
-  BetweenOptions right(BetweenOptions::Inclusive::RIGHT);
-  BetweenOptions neither(BetweenOptions::Inclusive::NEITHER);
-  // Same units should be fine
-  ValidateBetween<TimestampType>(both,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(left,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(right,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(neither,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(both,
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
-  ValidateBetween<TimestampType>(left,
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
-  ValidateBetween<TimestampType>(right,
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
-  ValidateBetween<TimestampType>(neither,
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), rhs_json));
-  // Different timezones should be fine
-  ValidateBetween<TimestampType>(
-      both, ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
-  ValidateBetween<TimestampType>(
-      left, ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
-  ValidateBetween<TimestampType>(
-      right, ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
-  ValidateBetween<TimestampType>(
-      neither, ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json));
-  ValidateBetween<TimestampType>(
-      both, ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
-  ValidateBetween<TimestampType>(
-      left, ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
-  ValidateBetween<TimestampType>(
-      right, ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
-  ValidateBetween<TimestampType>(
-      neither, ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json),
-      ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json));
-  // Different units should be fine
-  ValidateBetween<TimestampType>(both,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(left,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(right,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(neither,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(both,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(left,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(right,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  ValidateBetween<TimestampType>(neither,
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json),
-                                 ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json));
-  // But comparing naive to zoned is not OK
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr(
-          "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json), neither,
-              nullptr));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr(
-          "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), rhs_json),
-              neither, nullptr));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr(
-          "Cannot compare timestamp with timezone to timestamp without timezone"),
-      Between(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), arr_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-              ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json), neither, nullptr));
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    // Same units should be fine
+    ValidateBetween<TimestampType>(options,
+                                 Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json)),
+                                 Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json)),
+                                 Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json)));
+    // Different timezones should be fine
+    ValidateBetween<TimestampType>(options,
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json)));
+    ValidateBetween<TimestampType>(options,
+        Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json)));
+    // Different units should be fine
+    ValidateBetween<TimestampType>(options,
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json)));
+    ValidateBetween<TimestampType>(options,
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::NANO), lhs_json)),
+        Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json)));
+    // But comparing naive to zoned is not OK
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json), options,
+                nullptr));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), lhs_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), rhs_json),
+                options, nullptr));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), arr_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
+                ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json), options, nullptr));
+  }
 }
 
 }  // namespace compute
