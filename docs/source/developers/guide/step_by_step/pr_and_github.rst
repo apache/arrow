@@ -74,6 +74,8 @@ made in the library use this two commands:
    $ git status # to see what files are changed
    $ git diff # to see code change per file
 
+.. _create_pr:
+
 Creating a pull request 
 ==========================
 
