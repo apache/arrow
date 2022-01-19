@@ -128,7 +128,7 @@ def test_option_class_equality():
     options = [
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
-        pc.BetweenOptions("both"),
+        pc.BetweenOptions(),
         pc.CastOptions.safe(pa.int8()),
         pc.CountOptions(),
         pc.DayOfWeekOptions(count_from_zero=False, week_start=0),
