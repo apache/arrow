@@ -39,14 +39,17 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
 from pyarrow.lib import frombytes, tobytes
 
 
-cdef compression_type_from_enum(CCompressionType compression_type_):
-    return {
+cdef compression_type_from_enum(CCompressionType compression_type):
+    compression_map = {
         CCompressionType_UNCOMPRESSED: 'UNCOMPRESSED',
         CCompressionType_GZIP: 'ZLIB',
         CCompressionType_SNAPPY: 'SNAPPY',
         CCompressionType_LZ4: 'LZ4',
         CCompressionType_ZSTD: 'ZSTD',
-    }.get(compression_type_, 'UNKNOWN')
+    }
+    if compression_type in compression_map:
+        return compression_map.get(compression_type)
+    raise ValueError('Unsupported compression')
 
 
 cdef CCompressionType compression_type_from_name(name) except *:
@@ -63,60 +66,51 @@ cdef CCompressionType compression_type_from_name(name) except *:
         return CCompressionType_ZSTD
     elif name == 'UNCOMPRESSED':
         return CCompressionType_UNCOMPRESSED
-    raise ValueError('Unknown CompressionKind: {0}'.format(name))
+    raise ValueError(f'Unknown CompressionKind: {name}')
 
 
-cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
-    return {
+cdef compression_strategy_from_enum(
+    CompressionStrategy compression_strategy
+):
+    compression_strategy_map = {
         _CompressionStrategy_SPEED: 'SPEED',
         _CompressionStrategy_COMPRESSION: 'COMPRESSION',
-    }.get(compression_strategy_, 'UNKNOWN')
+    }
+    if compression_strategy in compression_strategy_map:
+        return compression_strategy_map.get(compression_strategy)
+    raise ValueError('Unsupported compression strategy')
 
 
 cdef CompressionStrategy compression_strategy_from_name(name) except *:
     if not isinstance(name, str):
         raise TypeError('compression strategy must be a string')
     name = name.upper()
-    # SPEED is the default value in the ORC C++ implementaton
     if name == 'COMPRESSION':
         return _CompressionStrategy_COMPRESSION
     elif name == 'SPEED':
         return _CompressionStrategy_SPEED
-    raise ValueError('Unknown CompressionStrategy: {0}'.format(name))
+    raise ValueError(f'Unknown CompressionStrategy: {name}')
 
 
-cdef rle_version_from_enum(RleVersion rle_version_):
-    return {
-        _RleVersion_1: '1',
-        _RleVersion_2: '2',
-    }.get(rle_version_, 'UNKNOWN')
+cdef file_version_from_class(FileVersion file_version):
+    return frombytes(file_version.ToString())
 
 
-cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
-    return {
-        _BloomFilterVersion_ORIGINAL: 'ORIGINAL',
-        _BloomFilterVersion_UTF8: 'UTF8',
-        _BloomFilterVersion_FUTURE: 'FUTURE',
-    }.get(bloom_filter_version_, 'UNKNOWN')
-
-
-cdef file_version_from_class(FileVersion file_version_):
-    cdef object file_version = file_version_.ToString()
-    return frombytes(file_version)
-
-
-cdef writer_id_from_enum(WriterId writer_id_):
-    return {
+cdef writer_id_from_enum(WriterId writer_id):
+    writer_id_map = {
         _WriterId_ORC_JAVA_WRITER: 'ORC_JAVA',
         _WriterId_ORC_CPP_WRITER: 'ORC_CPP',
         _WriterId_PRESTO_WRITER: 'PRESTO',
         _WriterId_SCRITCHLEY_GO: 'SCRITCHLEY_GO',
         _WriterId_TRINO_WRITER: 'TRINO',
-    }.get(writer_id_, 'UNKNOWN')
+    }
+    if writer_id in writer_id_map:
+        return writer_id_map.get(writer_id)
+    raise ValueError('Unsupported writer ID')
 
 
-cdef writer_version_from_enum(WriterVersion writer_version_):
-    return {
+cdef writer_version_from_enum(WriterVersion writer_version):
+    writer_version_map = {
         _WriterVersion_ORIGINAL: 'ORIGINAL',
         _WriterVersion_HIVE_8732: 'HIVE_8732',
         _WriterVersion_HIVE_4243: 'HIVE_4243',
@@ -127,7 +121,10 @@ cdef writer_version_from_enum(WriterVersion writer_version_):
         _WriterVersion_ORC_517: 'ORC_517',
         _WriterVersion_ORC_203: 'ORC_203',
         _WriterVersion_ORC_14: 'ORC_14',
-    }.get(writer_version_, 'UNKNOWN')
+    }
+    if writer_version in writer_version_map:
+        return writer_version_map.get(writer_version)
+    raise ValueError('Unsupported writer version')
 
 
 cdef shared_ptr[WriteOptions] _create_write_options(
@@ -227,7 +224,7 @@ cdef shared_ptr[WriteOptions] _create_write_options(
         except Exception:
             raise ValueError(("Invalid ORC BloomFilter columns: "
                               f"{bloom_filter_columns}"))
-    # False positive rate of the Bloom Filter
+    # Max false positive rate of the Bloom Filter
     if bloom_filter_fpp is not None:
         try:
             bloom_filter_fpp = float(bloom_filter_fpp)
@@ -425,7 +422,7 @@ cdef class ORCWriter(_Weakrefable):
         with nogil:
             self.writer = move(GetResultValue(
                 ORCFileWriter.Open(self.rd_handle.get(),
-                    deref(write_options))))
+                                   deref(write_options))))
 
     def write(self, Table table):
         cdef:

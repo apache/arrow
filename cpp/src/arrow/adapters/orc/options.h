@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <set>
 #include <sstream>
+#include <vector>
 
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
@@ -55,18 +55,6 @@ enum class WriterVersion : int32_t {
 };
 
 enum class CompressionStrategy : int32_t { kSpeed = 0, kCompression };
-
-enum class RleVersion : int32_t { k1 = 0, k2 = 1 };
-
-enum class BloomFilterVersion : int32_t {
-  // Include both the BLOOM_FILTER and BLOOM_FILTER_UTF8 streams to support
-  // both old and new readers.
-  kOriginal = 0,
-  // Only include the BLOOM_FILTER_UTF8 streams that consistently use UTF8.
-  // See ORC-101
-  kUtf8 = 1,
-  kFuture = INT32_MAX
-};
 
 class ARROW_EXPORT FileVersion {
  private:
@@ -125,8 +113,8 @@ struct ARROW_EXPORT WriteOptions {
   /// The dictionary key size threshold. 0 to disable dictionary encoding.
   /// 1 to always enable dictionary encoding, default 0.0
   double dictionary_key_size_threshold = 0.0;
-  /// The set of columns that use the bloom filter, default empty
-  std::set<int64_t> bloom_filter_columns;
+  /// The array of columns that use the bloom filter, default empty
+  std::vector<int64_t> bloom_filter_columns;
   /// The upper limit of the false-positive rate of the bloom filter, default 0.05
   double bloom_filter_fpp = 0.05;
 };

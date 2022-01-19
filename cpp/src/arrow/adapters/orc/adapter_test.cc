@@ -224,32 +224,31 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
   return Table::Make(schema, cv);
 }
 
+/**
+ * Generate one of several popular sets of WriteOptions
+ */
 arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions(int64_t num_cols) {
   auto arrow_write_options = arrow::adapters::orc::WriteOptions();
-  arrow_write_options.batch_size = arrow::random_single_int<int64_t, int64_t>(4ull, 8ull);
-  arrow_write_options.file_version = arrow::adapters::orc::FileVersion(
-      0, arrow::random_single_int<int32_t, int32_t>(11, 12));
-  arrow_write_options.stripe_size =
-      arrow::random_single_int<int64_t, int64_t>(4ull, 128ull);
-  arrow_write_options.compression_block_size =
-      arrow::random_single_int<int64_t, int64_t>(4ull, 128ull);
-  arrow_write_options.row_index_stride =
-      arrow::random_single_int<int64_t, int64_t>(0, 128ull);
-  arrow_write_options.compression =
-      arrow::random_single_int<int8_t, arrow::Compression::type>(0, 2);
-  arrow_write_options.compression_strategy =
-      arrow::random_single_int<int8_t, arrow::adapters::orc::CompressionStrategy>(0, 1);
-  arrow_write_options.padding_tolerance = arrow::random_single_real<double, double>(0, 1);
-  arrow_write_options.dictionary_key_size_threshold =
-      arrow::random_single_real<double, double>(0, 1);
-  arrow_write_options.bloom_filter_fpp = arrow::random_single_real<double, double>(0, 1);
-  std::set<int64_t> bloom_filter_cols;
-  for (int64_t i = 0; i < num_cols; i++) {
-    if (arrow::random_single_int<int8_t, int8_t>(0, 1) == 1) {
-      bloom_filter_cols.insert(i);
+  std::default_random_engine gen(kRandomSeed);
+  std::uniform_int_distribution<int8_t> d(0, 2);
+  int8_t config = d(gen);
+  switch (config) {
+    case 0:
+      break;
+    case 1: {
+      arrow_write_options.compression = arrow::Compression::SNAPPY;
+      arrow_write_options.file_version = arrow::adapters::orc::FileVersion(0, 11);
+      arrow_write_options.compression_block_size = 32768;
+      arrow_write_options.row_index_stride = 5000;
+      break;
     }
+    case 2: {
+      arrow_write_options.compression = arrow::Compression::GZIP;
+      break;
+    }
+    default:  // Won't happen but just in case
+      break;
   }
-  arrow_write_options.bloom_filter_columns = bloom_filter_cols;
   return arrow_write_options;
 }
 

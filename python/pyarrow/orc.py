@@ -186,7 +186,7 @@ class ORCFile:
 
 
 _orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
-    Determine which ORC file version to use. 
+    Determine which ORC file version to use.
     `Hive 0.11 / ORC v0 <https://orc.apache.org/specification/ORCv0/>`_
     is the older version
     while `Hive 0.12 / ORC v1 <https://orc.apache.org/specification/ORCv1/>`_
@@ -214,7 +214,7 @@ dictionary_key_size_threshold : double, default 0.0
     1 to always enable dictionary encoding.
 bloom_filter_columns : None, set-like or list-like, default None
     Columns that use the bloom filter.
-bloom_filter_fpp: double, default 0.05
+bloom_filter_fpp : double, default 0.05
     Upper limit of the false-positive rate of the bloom filter.
 """
 
