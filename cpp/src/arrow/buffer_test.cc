@@ -492,12 +492,12 @@ TEST(TestBuffer, SliceBufferSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size(), 0));
   AssertBufferEqual(*sliced, "");
 
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1, 0));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, -1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, buf->size() + 1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 2, buf->size() - 1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1, 0));
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, -1, 0));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 0, -1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 0, buf->size() + 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 2, buf->size() - 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, buf->size() + 1, 0));
+  ASSERT_RAISES(IndexError,
                 SliceBufferSafe(buf, 3, std::numeric_limits<int64_t>::max() - 2));
 
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 0));
@@ -507,8 +507,8 @@ TEST(TestBuffer, SliceBufferSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size()));
   AssertBufferEqual(*sliced, "");
 
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, -1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, buf->size() + 1));
 }
 
 TEST(TestMutableBuffer, Wrap) {

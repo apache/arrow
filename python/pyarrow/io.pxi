@@ -1056,10 +1056,10 @@ cdef class Buffer(_Weakrefable):
             raise IndexError('Offset must be non-negative')
 
         if length is None:
-            result = SliceBuffer(self.buffer, offset)
+            result = GetResultValue(SliceBufferSafe(self.buffer, offset))
         else:
-            result = SliceBuffer(self.buffer, offset, max(length, 0))
-
+            result = GetResultValue(SliceBufferSafe(self.buffer, offset,
+                                                    length))
         return pyarrow_wrap_buffer(result)
 
     def equals(self, Buffer other):
