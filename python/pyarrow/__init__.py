@@ -30,7 +30,9 @@ For more information see the official page at https://arrow.apache.org
 """
 
 import gc as _gc
+import importlib as _importlib
 import os as _os
+import platform as _platform
 import sys as _sys
 import warnings as _warnings
 
@@ -75,19 +77,83 @@ def show_versions():
     """
     Print various version information, to help with error reporting.
     """
-    # TODO: CPU information and flags
+    def print_entry(label, value):
+        print(f"{label: <26}: {value: <8}")
+
     print("pyarrow version info\n--------------------")
-    print("Package kind: {}".format(cpp_build_info.package_kind
-                                    if len(cpp_build_info.package_kind) > 0
-                                    else "not indicated"))
-    print("Arrow C++ library version: {0}".format(cpp_build_info.version))
-    print("Arrow C++ compiler: {0} {1}"
-          .format(cpp_build_info.compiler_id, cpp_build_info.compiler_version))
-    print("Arrow C++ compiler flags: {0}"
-          .format(cpp_build_info.compiler_flags))
-    print("Arrow C++ git revision: {0}".format(cpp_build_info.git_id))
-    print("Arrow C++ git description: {0}"
-          .format(cpp_build_info.git_description))
+    print_entry("Package kind", cpp_build_info.package_kind
+                if len(cpp_build_info.package_kind) > 0
+                else "not indicated")
+    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ compiler",
+                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
+    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", cpp_build_info.git_description)
+
+
+def _module_is_available(module):
+    try:
+        _importlib.import_module(f'pyarrow.{module}')
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+def _filesystem_is_available(fs):
+    try:
+        import pyarrow.fs
+    except ImportError:
+        return False
+
+    try:
+        getattr(pyarrow.fs, fs)
+    except (ImportError, AttributeError):
+        return False
+    else:
+        return True
+
+
+def show_info():
+    """
+    Print detailed version and platform information, for error reporting
+    """
+    show_versions()
+
+    def print_entry(label, value):
+        print(f"  {label: <20}: {value: <8}")
+
+    print("\nPlatform:")
+    print_entry("OS / Arch", f"{_platform.system()} {_platform.machine()}")
+    print_entry("SIMD Level", runtime_info().simd_level)
+    print_entry("Detected SIMD Level", runtime_info().detected_simd_level)
+
+    pool = default_memory_pool()
+    print("\nMemory:")
+    print_entry("Default backend", pool.backend_name)
+    print_entry("Bytes allocated", f"{pool.bytes_allocated()} bytes")
+    print_entry("Max memory", f"{pool.max_memory()} bytes")
+    print_entry("Supported Backends", ', '.join(supported_memory_backends()))
+
+    print("\nOptional modules:")
+    modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
+               "orc", "parquet", "plasma"]
+    for module in modules:
+        status = "Enabled" if _module_is_available(module) else "-"
+        print(f"  {module: <20}: {status: <8}")
+
+    print("\nFilesystems:")
+    filesystems = ["GcsFileSystem", "HadoopFileSystem", "S3FileSystem"]
+    for fs in filesystems:
+        status = "Enabled" if _filesystem_is_available(fs) else "-"
+        print(f"  {fs: <20}: {status: <8}")
+
+    print("\nCompression Codecs:")
+    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
+    for codec in codecs:
+        status = "Enabled" if Codec.is_available(codec) else "-"
+        print(f"  {codec: <20}: {status: <8}")
 
 
 from pyarrow.lib import (null, bool_,
@@ -166,7 +232,8 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          default_memory_pool, system_memory_pool,
                          jemalloc_memory_pool, mimalloc_memory_pool,
                          logging_memory_pool, proxy_memory_pool,
-                         log_memory_allocations, jemalloc_set_decay_ms)
+                         log_memory_allocations, jemalloc_set_decay_ms,
+                         supported_memory_backends)
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,
