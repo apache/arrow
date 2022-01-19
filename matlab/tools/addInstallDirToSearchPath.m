@@ -1,4 +1,4 @@
-function addInstallDirToSearchPath(installDirPath)
+function addInstallDirToSearchPath(installDirPath, addInstallDirToSearchPath, addInstallDirToStartupFile)
     % addInstallDirToSearchPath Add the input path, installDirPath, to the 
     %                           MATLAB Search Path and save.
     %
@@ -17,15 +17,38 @@ function addInstallDirToSearchPath(installDirPath)
     % implied.  See the License for the specific language governing
     % permissions and limitations under the License.
 
-    addpath(installDirPath);
-    status = savepath(fullfile(matlabroot, "toolbox", "local", "pathdef.m"));
+    if addInstallDirToSearchPath == "ON"
+        addpath(installDirPath);
+        status = savepath(fullfile(matlabroot, "toolbox", "local", "pathdef.m"));
 
-    % Return exit code 1 to indicate failure and 0 to indicate the path has
-    % been saved successfully.
-    if status == 0
-        disp("Sucessfully added directory to the MATLAB Search Path: " + installDirPath);
+        % Return exit code 1 to indicate savepath failure and 0 to indicate the path has
+        % been saved successfully.
+        if status == 0
+            disp("Sucessfully added installation directory to the MATLAB Search Path: " + installDirPath);
+            quit(0);
+        else
+            quit(1);
+        end
+    end
+
+    if addInstallDirToStartupFile == "ON"
+        fid = fopen(fullfile(userpath, "startup.m"), "a");
+        if fid > 2
+            count = fwrite(fid, "addpath(""" + installDirPath + """);");
+            if count == 0
+                % fwrite failed.
+                quit(3);
+            end
+            status = fclose(fid);
+            if status ~= 0
+                % fclose failed.
+                quit(4);
+            end
+        else
+            % fopen failed.
+            quit(2);
+        end
+        disp("Sucessfully appended an addpath command to the MATLAB startup.m file located at the userpath to add installation directory to the MATLAB Search Path: " + installDirPath);
         quit(0);
-    else
-        quit(1);
     end
 end

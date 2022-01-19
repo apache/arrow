@@ -17,7 +17,6 @@ classdef tfeather < matlab.unittest.TestCase
     % permissions and limitations under the License.
     
     methods(TestClassSetup)
-        
         function addFeatherFunctionsToMATLABPath(testCase)
             import matlab.unittest.fixtures.PathFixture
             % Add Feather test utilities to the MATLAB path.

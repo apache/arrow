@@ -496,16 +496,40 @@ if(UNIX
   endif()
 endif()
 
-# As part of the installation process, add the installation directory to
-# the MATLAB Search Path.
-set(TOOLS_DIR "${CMAKE_SOURCE_DIR}/tools")
+# MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE sets whether the path to the install directory should
+# be added to the startup.m file located at the MATLAB userpath.
+option(MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE
+       "Sets whether the path to the install directory should be added to the startup.m file located at the MATLAB userpath"
+       OFF)
 
-# Pass Matlab_MAIN_PROGRAM, TOOLS_DIR, and INSTALL_DIR to the install step
-# code/script execution scope.
-install(CODE "set(Matlab_MAIN_PROGRAM \"${Matlab_MAIN_PROGRAM}\")")
-install(CODE "set(TOOLS_DIR \"${TOOLS_DIR}\")")
-install(CODE "set(INSTALL_DIR \"${CMAKE_INSTALL_DIR}\")")
+# If MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE is specified ON and MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH is
+# not specified, then set MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH=OFF.
+if(MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE AND NOT DEFINED
+                                              MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH)
+  set(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH OFF)
+endif()
 
-# Call the CMake script that runs the MATLAB function to add the install directory
-# to the MATLAB Search Path.
-install(SCRIPT "${TOOLS_DIR}/UpdateMatlabSearchPath.cmake")
+# MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH sets whether the path to the install directory should
+# be directly added to the MATLAB Search Path.
+option(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH
+       "Sets whether the path to the install directory should be directly added to the MATLAB Search Path"
+       ON)
+
+if(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH OR MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE)
+  set(TOOLS_DIR "${CMAKE_SOURCE_DIR}/tools")
+
+  # Pass Matlab_MAIN_PROGRAM, TOOLS_DIR, and INSTALL_DIR to the install step
+  # code/script execution scope.
+  install(CODE "set(Matlab_MAIN_PROGRAM \"${Matlab_MAIN_PROGRAM}\")")
+  install(CODE "set(TOOLS_DIR \"${TOOLS_DIR}\")")
+  install(CODE "set(INSTALL_DIR \"${CMAKE_INSTALL_DIR}\")")
+  install(CODE "set(MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE \"${MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE}\")"
+  )
+  install(CODE "set(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH \"${MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH}\")"
+  )
+
+  # Call the CMake script that runs the MATLAB function to add the install directory
+  # to the MATLAB Search Path or add a command to the MATLAB startup file to add the
+  # install directory to the MATLAB Search Path.
+  install(SCRIPT "${TOOLS_DIR}/UpdateMatlabSearchPath.cmake")
+endif()
