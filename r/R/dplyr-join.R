@@ -127,7 +127,7 @@ handle_join_by <- function(by, x, y) {
     message_x <- paste(
       oxford_paste(missing_x_cols, quote_symbol = "`"),
       "not present in x."
-      )
+    )
   }
 
   if (length(missing_y_cols) > 0) {
