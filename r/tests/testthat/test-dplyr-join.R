@@ -94,58 +94,53 @@ test_that("Error handling", {
   )
 
   # we print both message_x and message_y with an unnamed `by` vector
-  expect_snapshot({
-    (expect_error(
-      left_join(
-        arrow_table(example_data),
-        arrow_table(example_data),
-        by = "made_up_colname"
-      )
-    ))
-  })
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = "made_up_colname"
+    ),
+    error = TRUE
+  )
 
   # we only print message_y as `int` is a column of x
-  expect_snapshot({
-    (expect_error(
-      left_join(
-        arrow_table(example_data),
-        arrow_table(example_data),
-        by = c("int" = "made_up_colname")
-      )
-    ))
-  })
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("int" = "made_up_colname")
+    ),
+    error = TRUE
+  )
 
   # we only print message_x as `int` is a column of y
-  expect_snapshot({
-    (expect_error(
-      left_join(
-        arrow_table(example_data),
-        arrow_table(example_data),
-        by = c("made_up_colname" = "int")
-      )
-    ))
-  })
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname" = "int")
+    ),
+    error = TRUE
+  )
 
   # we print both message_x and message_y
-  expect_snapshot({
-    (expect_error(
-      left_join(
-        arrow_table(example_data),
-        arrow_table(example_data),
-        by = c("made_up_colname1", "made_up_colname2")
-      )
-    ))
-  })
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1", "made_up_colname2")
+    ),
+    error = TRUE
+  )
 
-  expect_snapshot({
-    (expect_error(
-      left_join(
-        arrow_table(example_data),
-        arrow_table(example_data),
-        by = c("made_up_colname1" = "made_up_colname2")
-      )
-    ))
-  })
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1" = "made_up_colname2")
+    ),
+    error = TRUE
+  )
 })
 
 # TODO: test duplicate col names
