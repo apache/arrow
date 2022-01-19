@@ -346,8 +346,13 @@ def test_chunked_array_to_pandas_preserve_name():
 def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     import pandas as pd
+    import numpy as np
 
-    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    # Extension types got introduced in later versions of Pandas
+    if "0.23" < pd.__version__ < "1.0.0":
+        types_mapper = {pa.int64(): np.int64}.get
+    else:
+        types_mapper = {pa.int64(): pd.Int64Dtype()}.get
     data = pa.array([1, 2, 3], pa.int64())
     result = data.to_pandas(types_mapper=types_mapper)
 
@@ -359,7 +364,11 @@ def test_chunked_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     import pandas as pd
 
-    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    # Extension types got introduced in later versions of Pandas
+    if "0.23" < pd.__version__ < "1.0.0":
+        types_mapper = {pa.int64(): np.int64}.get
+    else:
+        types_mapper = {pa.int64(): pd.Int64Dtype()}.get
     data = [pa.array([1, 2, 3], pa.int64())]
     table = pa.table(data, names=['a'])
     col = table.column(0)
