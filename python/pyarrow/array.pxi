@@ -872,7 +872,8 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        An array of  <input type "Values", int64_t "Counts"> structs
+        StructArray
+            An array of  <input type "Values", int64 "Counts"> structs
         """
         return _pc().call_function('value_counts', [self])
 
@@ -2515,7 +2516,8 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
 
     Raises
     ------
-    ArrowInvalid : if not all of the arrays have the same type.
+    ArrowInvalid
+        If not all of the arrays have the same type.
 
     Parameters
     ----------

@@ -332,7 +332,8 @@ cdef class MessageReader(_Weakrefable):
 
         Parameters
         ----------
-        source : a readable source, like an InputStream
+        source
+            A readable source, like an InputStream
         """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
@@ -356,7 +357,8 @@ cdef class MessageReader(_Weakrefable):
 
         Raises
         ------
-        StopIteration : at end of stream
+        StopIteration
+            At end of stream
         """
         cdef Message result = Message.__new__(Message)
 
@@ -515,7 +517,8 @@ class _ReadPandasMixin:
 
         Parameters
         ----------
-        **options : arguments to forward to Table.to_pandas
+        **options
+            Arguments to forward to Table.to_pandas.
 
         Returns
         -------

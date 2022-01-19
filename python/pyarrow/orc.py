@@ -29,7 +29,7 @@ class ORCFile:
 
     Parameters
     ----------
-    source : str or pyarrow.io.NativeFile
+    source : str or pyarrow.NativeFile
         Readable source. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
@@ -92,7 +92,7 @@ class ORCFile:
 
         Returns
         -------
-        pyarrow.lib.RecordBatch
+        pyarrow.RecordBatch
             Content of the stripe as a RecordBatch.
         """
         columns = self._select_names(columns)
@@ -110,7 +110,7 @@ class ORCFile:
 
         Returns
         -------
-        pyarrow.lib.Table
+        pyarrow.Table
             Content of the file as a Table.
         """
         columns = self._select_names(columns)
@@ -123,7 +123,7 @@ class ORCWriter:
 
     Parameters
     ----------
-    where : str or pyarrow.io.NativeFile
+    where : str or pyarrow.NativeFile
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.
@@ -140,7 +140,7 @@ class ORCWriter:
 
         Parameters
         ----------
-        table : pyarrow.lib.Table
+        table : pyarrow.Table
             The table to be written into the ORC file
         """
         self.writer.write(table)
@@ -158,9 +158,9 @@ def write_table(table, where):
 
     Parameters
     ----------
-    table : pyarrow.lib.Table
+    table : pyarrow.Table
         The table to be written into the ORC file
-    where : str or pyarrow.io.NativeFile
+    where : str or pyarrow.NativeFile
         Writable target. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
         or pyarrow.io.FixedSizeBufferWriter.

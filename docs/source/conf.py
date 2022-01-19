@@ -96,8 +96,32 @@ ipython_mplbackend = ''
 # numpydoc configuration
 numpydoc_xref_param_type = True
 numpydoc_show_class_members = False
-numpydoc_xref_ignore = {"or", "and", "of", ",", "default", "optional"}
-numpydoc_xref_aliases = {"array-like": ":func:`array-like <pyarrow.array>`"}
+numpydoc_xref_ignore = {
+    "or", "and", "of", "if", "default", "optional", "object",
+    "dicts", "rows", "Python", "source", "filesystem",
+    "dataset", "datasets",
+    # TODO those one could be linked to a glossary or python docs?
+    "file", "path", "paths", "mapping", "Mapping", "URI", "function",
+    "iterator", "Iterator",
+    # TODO this term is used regularly, but isn't actually exposed (base class)
+    "RecordBatchReader",
+    # additional ignores that could be fixed by rewriting the docstrings
+    "other", "supporting", "buffer", "protocol",  # from Codec / pa.compress
+    "depends", "on", "inputs",  # pyarrow.compute
+    "values", "coercible", "to", "arrays",  # pa.chunked_array, Table methods
+    "depending",  # to_pandas
+}
+numpydoc_xref_aliases = {
+    "array-like": ":func:`array-like <pyarrow.array>`",
+    "Array": "pyarrow.Array",
+    "Schema": "pyarrow.Schema",
+    "RecordBatch": "pyarrow.RecordBatch",
+    "Table": "pyarrow.Table",
+    "MemoryPool": "pyarrow.MemoryPool",
+    "NativeFile": "pyarrow.NativeFile",
+    "FileSystem": "pyarrow.fs.FileSystem",
+    "FileType": "pyarrow.fs.FileType",
+}
 
 
 # Add any paths that contain templates here, relative to this directory.

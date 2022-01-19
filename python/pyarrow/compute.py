@@ -324,8 +324,8 @@ def cast(arr, target_type, safe=True):
 
     Parameters
     ----------
-    arr : Array or ChunkedArray
-    target_type : DataType or type string alias
+    arr : Array-like
+    target_type : DataType or str
         Type to cast to
     safe : bool, default True
         Check for overflows or other unsafe conversions
@@ -381,8 +381,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Parameters
     ----------
-    data : Array or ChunkedArray
-    value : Scalar
+    data : Array-like
+    value : Scalar-like object
         The value to search for.
     start : int, optional
     end : int, optional
@@ -391,7 +391,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Returns
     -------
-    index : the index, or -1 if not found
+    index : int
+        the index, or -1 if not found
     """
     if start is not None:
         if end is not None:

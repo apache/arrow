@@ -318,7 +318,7 @@ cdef class Dataset(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         return self.scanner(**kwargs).to_table()
 
@@ -329,7 +329,7 @@ cdef class Dataset(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         return self.scanner(**kwargs).take(indices)
 
@@ -340,7 +340,7 @@ cdef class Dataset(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         return self.scanner(**kwargs).head(num_rows)
 
@@ -578,7 +578,7 @@ cdef class FileSystemDataset(Dataset):
             ParquetFileFormat, IpcFileFormat, and CsvFileFormat are supported.
         filesystem : FileSystem
             The filesystem which files are from.
-        partitions : List[Expression], optional
+        partitions : list[Expression], optional
             Attach additional partition information for the file paths.
         root_partition : Expression, optional
             The top-level partition of the DataDataset.
@@ -886,7 +886,7 @@ cdef class Fragment(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         return self.scanner(**kwargs).take(indices)
 
@@ -897,7 +897,7 @@ cdef class Fragment(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         return self.scanner(**kwargs).head(num_rows)
 
@@ -1059,11 +1059,11 @@ cdef class CsvFileFormat(FileFormat):
 
     Parameters
     ----------
-    parse_options : csv.ParseOptions
+    parse_options : pyarrow.csv.ParseOptions
         Options regarding CSV parsing.
-    convert_options : csv.ConvertOptions
+    convert_options : pyarrow.csv.ConvertOptions
         Options regarding value conversion.
-    read_options : csv.ReadOptions
+    read_options : pyarrow.csv.ReadOptions
         General read options.
     default_fragment_scan_options : CsvFragmentScanOptions
         Default options for fragments scan.
@@ -1142,9 +1142,9 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     Parameters
     ----------
-    convert_options : csv.ConvertOptions
+    convert_options : pyarrow.csv.ConvertOptions
         Options regarding value conversion.
-    read_options : csv.ReadOptions
+    read_options : pyarrow.csv.ReadOptions
         General read options.
     """
 
@@ -1313,7 +1313,7 @@ cdef class DirectoryPartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
-    dictionaries : Dict[str, Array]
+    dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -1459,7 +1459,7 @@ cdef class HivePartitioning(Partitioning):
     ----------
     schema : Schema
         The schema that describes the partitions present in the file path.
-    dictionaries : Dict[str, Array]
+    dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -1802,7 +1802,7 @@ cdef class FileSystemDatasetFactory(DatasetFactory):
     ----------
     filesystem : pyarrow.fs.FileSystem
         Filesystem to discover.
-    paths_or_selector : pyarrow.fs.Selector or list of path-likes
+    paths_or_selector : pyarrow.fs.FileSelector or list of path-likes
         Either a Selector object or a list of path-like objects.
     format : FileFormat
         Currently only ParquetFileFormat and IpcFileFormat are supported.
@@ -2301,7 +2301,7 @@ cdef class Scanner(_Weakrefable):
 
         Returns
         -------
-        table : Table
+        Table
         """
         cdef CResult[shared_ptr[CTable]] result
 
@@ -2319,7 +2319,7 @@ cdef class Scanner(_Weakrefable):
 
         Returns
         -------
-        table : Table
+        Table
         """
         cdef CResult[shared_ptr[CTable]] result
         cdef shared_ptr[CArray] c_indices
@@ -2337,7 +2337,7 @@ cdef class Scanner(_Weakrefable):
 
         Returns
         -------
-        table : Table instance
+        Table
         """
         cdef CResult[shared_ptr[CTable]] result
         with nogil:

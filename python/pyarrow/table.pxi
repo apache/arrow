@@ -327,7 +327,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Returns
         -------
-        result : List[ChunkedArray]
+        result : list of ChunkedArray
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
@@ -859,7 +859,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Returns
         -------
-        list of pa.Array
+        list of pyarrow.Array
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -1105,9 +1105,10 @@ cdef class RecordBatch(_PandasConvertible):
             ``RecordBatch``. The default of None will store the index as a
             column, except for RangeIndex which is stored as metadata only. Use
             ``preserve_index=True`` to force it to be stored as a column.
-        nthreads : int, default None (may use up to system CPU count threads)
+        nthreads : int, default None
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads
+            indicated number of threads. By default, this follows
+            :func:`pyarrow.cpu_count` (may use up to system CPU count threads).
         columns : list, optional
            List of column to be converted. If None, use all columns.
 
@@ -1692,9 +1693,10 @@ cdef class Table(_PandasConvertible):
             ``Table``. The default of None will store the index as a column,
             except for RangeIndex which is stored as metadata only. Use
             ``preserve_index=True`` to force it to be stored as a column.
-        nthreads : int, default None (may use up to system CPU count threads)
+        nthreads : int, default None
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads.
+            indicated number of threads. By default, this follows
+            :func:`pyarrow.cpu_count` (may use up to system CPU count threads).
         columns : list, optional
            List of column to be converted. If None, use all columns.
         safe : bool, default True
@@ -2460,9 +2462,11 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
         specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
-    nthreads : int, default None (may use up to system CPU count threads)
+    nthreads : int, default None
         For pandas.DataFrame inputs: if greater than 1, convert columns to
-        Arrow in parallel using indicated number of threads.
+        Arrow in parallel using indicated number of threads. By default,
+        this follows :func:`pyarrow.cpu_count` (may use up to system CPU count
+        threads).
 
     Returns
     -------
