@@ -505,3 +505,41 @@ test_that("Max partitions fails with non-integer values and less than required p
     "max_partitions must be a positive, non-missing integer"
   )
 })
+
+test_that("Dataset write max open files", {
+  skip_if_not_available("parquet") 
+  # test default partitioning
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+  partitioning <- c("c2")
+  num_of_unique_c2_groups = 5
+
+  get_num_of_files = function(dir, format) {
+    files <-  list.files(dir, pattern = paste('.', format, sep=""), 
+    all.files = FALSE, recursive = TRUE, full.names = TRUE)
+    length(files)
+  }
+
+  record_batch_1 <- record_batch(c1=c(1, 2, 3, 4, 0, 10),
+                                     c2=c('a', 'b', 'c', 'd', 'e', 'a'))
+  record_batch_2 <- record_batch(c1=c(5, 6, 7, 8, 0, 1),
+                                    c2=c('a', 'b', 'c', 'd', 'e', 'c'))
+  record_batch_3 <- record_batch(c1=c(9, 10, 11, 12, 0, 1),
+                                    c2=c('a', 'b', 'c', 'd', 'e', 'd'))
+  record_batch_4 <- record_batch(c1=c(13, 14, 15, 16, 0, 1),
+                                    c2=c('a', 'b', 'c', 'd', 'e', 'b'))
+
+  table = Table$create(d1=record_batch_1, d2=record_batch_2,
+                                  d3=record_batch_3, d4=record_batch_4)
+
+  write_dataset(table, path=dst_dir, format=file_format, partitioning=partitioning)
+
+  # reduce 1 from the length of list of directories, since it list the search path)
+  expect_equal(length(list.dirs(dst_dir)) - 1, num_of_unique_c2_groups)
+
+  max_open_files = 3
+  dst_dir <- make_temp_dir()
+  write_dataset(table, path=dst_dir, format=file_format, partitioning=partitioning, max_open_files=max_open_files)
+
+  expect_gt(get_num_of_files(dst_dir, file_format), max_open_files)
+})
