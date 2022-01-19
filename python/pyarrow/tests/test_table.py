@@ -349,8 +349,9 @@ def test_table_roundtrip_to_pandas_empty_dataframe():
     table = pa.table(data)
     result = table.to_pandas()
 
-    # TODO the conversion results in a table with 0 rows if there is no index
-    # column
+    # TODO the conversion results in a table with 0 rows if the original
+    # DataFrame has a RangeIndex (i.e. no index column in the converted
+    # Arrow table)
     assert table.num_rows == 10
     assert data.shape == (10, 0)
     assert result.shape == (10, 0)
