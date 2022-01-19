@@ -227,7 +227,7 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 /**
  * Generate one of several popular sets of WriteOptions
  */
-arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions(int64_t num_cols) {
+arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions() {
   auto arrow_write_options = arrow::adapters::orc::WriteOptions();
   std::default_random_engine gen(kRandomSeed);
   std::uniform_int_distribution<int8_t> d(0, 2);
@@ -257,8 +257,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
-  arrow::adapters::orc::WriteOptions write_options =
-      GenerateRandomWriteOptions(input_table->num_columns());
+  arrow::adapters::orc::WriteOptions write_options = GenerateRandomWriteOptions();
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));
