@@ -73,18 +73,18 @@ Object.assign(DecimalBigNum.prototype, BigNum.prototype, { 'constructor': Decima
 function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
     const { buffer, byteOffset, length, 'signed': signed } = bn;
     const words = new BigUint64Array(buffer, byteOffset, length);
-    const negative = signed && words[words.length - 1] & 0x8000000000000000n;
-    let number = negative ? 1n : 0n;
-    let i = 0n;
+    const negative = signed && words[words.length - 1] & (BigInt(1) << BigInt(63));
+    let number = negative ? BigInt(1) : BigInt(0);
+    let i = BigInt(0);
     if (!negative) {
         for (const word of words) {
-            number += word * (2n ** (32n * i++));
+            number += word * (BigInt(1) << (BigInt(32) * i++));
         }
     } else {
         for (const word of words) {
-            number += ~word * (2n ** (32n * i++));
+            number += ~word * (BigInt(1) << (BigInt(32) * i++));
         }
-        number *= -1n;
+        number *= BigInt(-1);
     }
     return number;
 }
