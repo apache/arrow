@@ -180,14 +180,14 @@ def write_table(table, where):
 
 def read_table(source, columns=None, filesystem=None):
     """
-    Read a table from ORC format
+    Read a Table from an ORC file.
 
     Parameters
     ----------
     source : str, pyarrow.NativeFile, or file-like object
-        If a string passed, can be a single file name or directory name. For
-        file-like objects, only read a single file. Use pyarrow.BufferReader to
-        read a file contained in a bytes or buffer-like object.
+        If a string passed, can be a single file name. For file-like objects,
+        only read a single file. Use pyarrow.BufferReader to read a file
+        contained in a bytes or buffer-like object.
     columns : list
         If not None, only these columns will be read from the file. A column
         name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
@@ -203,6 +203,9 @@ def read_table(source, columns=None, filesystem=None):
     if filesystem is not None:
         source = filesystem.open_input_file(path)
 
-    dataset = ORCFile(source)
+    if columns is not None and len(columns) == 0:
+        result = ORCFile(source).read().select(columns)
+    else:
+        result = ORCFile(source).read(columns=columns)
 
-    return dataset.read(columns=columns)
+    return result

@@ -181,6 +181,14 @@ def test_readwrite(tmpdir):
     output_table = orc.read_table(file)
     assert table.equals(output_table)
 
+    output_table = orc.read_table(file, [])
+    assert 4 == output_table.num_rows
+    assert 0 == output_table.num_columns
+
+    output_table = orc.read_table(file, columns=["int64"])
+    assert 4 == output_table.num_rows
+    assert 1 == output_table.num_columns
+
 
 def test_filesystem_uri(tmpdir):
     from pyarrow import orc
