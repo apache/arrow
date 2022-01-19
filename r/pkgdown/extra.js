@@ -94,10 +94,7 @@ function check_page_exists_and_redirect(event) {
       	  return current_path.match("(?<=\/r).*");
         }
 
-        // Load the versions JSON and construct the select items
-        versions_path = window.location.href.match(".+(\/r\/)")[0] + "versions.json";
-
-        $.getJSON(versions_path, function( data ) {
+        $.getJSON("https://arrow.apache.org/docs/r/versions.json", function( data ) {
           // get the current page's version number:
 		  var displayed_version = $('.version').text();
           const sel = document.createElement("select");
