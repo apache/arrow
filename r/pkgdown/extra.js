@@ -79,7 +79,7 @@ function check_page_exists_and_redirect(event) {
     });
 
     $(document).ready(function () {
-  
+
       /**
        * This replaces the package version number in the docs with a
        * dropdown where you can select the version of the docs to view.
@@ -95,7 +95,9 @@ function check_page_exists_and_redirect(event) {
         }
 
         // Load the versions JSON and construct the select items
-        $.getJSON("./versions.json", function( data ) {
+        versions_path = window.location.href.match(".+(\/r\/)")[0] + "versions.json";
+
+        $.getJSON(versions_path, function( data ) {
           // get the current page's version number:
 		  var displayed_version = $('.version').text();
           const sel = document.createElement("select");
