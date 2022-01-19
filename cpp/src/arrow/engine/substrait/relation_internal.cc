@@ -77,7 +77,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         // just project all fields
         std::vector<compute::Expression> expressions{base_schema->fields().size()};
         for (int i = 0; i < base_schema->num_fields(); ++i) {
-          expressions.push_back(compute::field_ref(i));
+          expressions[i] = compute::field_ref(i);
         }
         scan_options->projection =
             compute::call("make_struct", std::move(expressions),
@@ -130,7 +130,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
                        std::move(format), std::move(filesystem), std::move(fragments)));
 
       return compute::Declaration{
-          "project", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}};
+          "scan", dataset::ScanNodeOptions{std::move(ds), std::move(scan_options)}};
     }
 
     case substrait::Rel::RelTypeCase::kFilter: {

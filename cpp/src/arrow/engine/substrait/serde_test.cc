@@ -23,15 +23,21 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/exec/expression_internal.h"
+#include "arrow/dataset/file_base.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
 
+using testing::ElementsAre;
 using testing::Eq;
 using testing::HasSubstr;
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace engine {
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
@@ -565,6 +571,66 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
     EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
   }
+}
+
+TEST(Substrait, ReadRel) {
+  auto buf = SubstraitFromJSON("Rel", R"({
+    "read": {
+      "base_schema": {
+        "struct": {
+          "types": [ {"i64": {}}, {"bool": {}} ]
+        },
+        "names": ["i", "b"]
+      },
+      "filter": {
+        "selection": {
+          "directReference": {
+            "structField": {
+              "field": 1
+            }
+          }
+        }
+      },
+      "local_files": {
+        "items": [
+          {
+            "uri_file": "file:///tmp/dat1.parquet",
+            "format": "FILE_FORMAT_PARQUET"
+          },
+          {
+            "uri_file": "file:///tmp/dat2.parquet",
+            "format": "FILE_FORMAT_PARQUET"
+          }
+        ]
+      }
+    }
+  })");
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set));
+
+  // converting a ReadRel produces a scan Declaration
+  ASSERT_EQ(rel.factory_name, "scan");
+  const auto& scan_node_options =
+      checked_cast<const dataset::ScanNodeOptions&>(*rel.options);
+
+  // filter on the boolean field (#1)
+  EXPECT_EQ(scan_node_options.scan_options->filter, compute::field_ref(1));
+  // project all fields
+  EXPECT_EQ(scan_node_options.scan_options->projection,
+            compute::call("make_struct",
+                          {
+                              compute::field_ref(0),
+                              compute::field_ref(1),
+                          },
+                          compute::MakeStructOptions{{"i", "b"}}));
+
+  // dataset is a FileSystemDataset in parquet format with the specified schema
+  ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");
+  const auto& dataset =
+      checked_cast<const dataset::FileSystemDataset&>(*scan_node_options.dataset);
+  EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
+  EXPECT_EQ(dataset.format()->type_name(), "parquet");
+  EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
 }
 
 }  // namespace engine
