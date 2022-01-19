@@ -991,4 +991,10 @@ test_that("Array$nbytes", {
   a <- Array$create(vec)
   nbytes <- a$nbytes()
   expect_equal(nbytes, 4 * 5)
+
+  vec = list(list(c(10,20), c(3,4)), list(c(5, 6, 7), c(NULL), c(8)), list(c(9,10)))
+  a <- Array$create(vec, list_of(list_of(int8())))
+  a <- a$Slice(1, 2)
+  nbytes <- a$nbytes()
+  expect_equal(nbytes, 4 * 2 + 1 + 4 * 4 + 1 * 6)
 })
