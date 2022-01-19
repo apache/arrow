@@ -61,17 +61,18 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*pyarrow.*")
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'breathe',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
+    'numpydoc',
+    'sphinx_tabs.tabs',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.ifconfig',
+    'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting',
-    'breathe',
-    'sphinx_tabs.tabs'
 ]
 
 # Show members for classes in .. autosummary
@@ -93,7 +94,35 @@ autodoc_mock_imports = []
 ipython_mplbackend = ''
 
 # numpydoc configuration
-napoleon_use_rtype = False
+numpydoc_xref_param_type = True
+numpydoc_show_class_members = False
+numpydoc_xref_ignore = {
+    "or", "and", "of", "if", "default", "optional", "object",
+    "dicts", "rows", "Python", "source", "filesystem",
+    "dataset", "datasets",
+    # TODO those one could be linked to a glossary or python docs?
+    "file", "path", "paths", "mapping", "Mapping", "URI", "function",
+    "iterator", "Iterator",
+    # TODO this term is used regularly, but isn't actually exposed (base class)
+    "RecordBatchReader",
+    # additional ignores that could be fixed by rewriting the docstrings
+    "other", "supporting", "buffer", "protocol",  # from Codec / pa.compress
+    "depends", "on", "inputs",  # pyarrow.compute
+    "values", "coercible", "to", "arrays",  # pa.chunked_array, Table methods
+    "depending",  # to_pandas
+}
+numpydoc_xref_aliases = {
+    "array-like": ":func:`array-like <pyarrow.array>`",
+    "Array": "pyarrow.Array",
+    "Schema": "pyarrow.Schema",
+    "RecordBatch": "pyarrow.RecordBatch",
+    "Table": "pyarrow.Table",
+    "MemoryPool": "pyarrow.MemoryPool",
+    "NativeFile": "pyarrow.NativeFile",
+    "FileSystem": "pyarrow.fs.FileSystem",
+    "FileType": "pyarrow.fs.FileType",
+}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -183,6 +212,12 @@ pygments_style = 'sphinx'
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None)
+}
 
 
 # -- Options for HTML output ----------------------------------------------

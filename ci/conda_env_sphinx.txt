@@ -19,8 +19,9 @@
 breathe
 doxygen
 ipython
-sphinx>=4.2
+numpydoc
 pydata-sphinx-theme
+sphinx>=4.2
 
 # Unable to install sphinx-tabs from conda-forge due to:
 # - package sphinx-tabs-1.2.1-py_0 requires sphinx >=2,<4, but none of the providers can be installed

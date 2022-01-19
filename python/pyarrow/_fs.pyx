@@ -332,8 +332,9 @@ cdef class FileSystem(_Weakrefable):
 
         Returns
         -------
-        With (filesystem, path) tuple where path is the abstract path inside
-        the FileSystem instance.
+        tuple of (FileSystem, str path)
+            With (filesystem, path) tuple where path is the abstract path
+            inside the FileSystem instance.
         """
         cdef:
             c_string c_path
@@ -945,7 +946,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        paths : paths for which we want to retrieve the info.
+        paths : list of str
+            paths for which we want to retrieve the info.
         """
 
     @abstractmethod
@@ -955,7 +957,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        selector : selector for which we want to retrieve the info.
+        selector : FileSelector
+            selector for which we want to retrieve the info.
         """
 
     @abstractmethod
@@ -965,8 +968,10 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of the directory.
-        recursive : if the parent directories should be created too.
+        path : str
+            path of the directory.
+        recursive : bool
+            if the parent directories should be created too.
         """
 
     @abstractmethod
@@ -976,7 +981,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of the directory.
+        path : str
+            path of the directory.
         """
 
     @abstractmethod
@@ -986,7 +992,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of the directory.
+        path : str
+            path of the directory.
         """
 
     @abstractmethod
@@ -1002,7 +1009,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of the file.
+        path : str
+            path of the file.
         """
 
     @abstractmethod
@@ -1012,8 +1020,10 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        src : path of what should be moved.
-        dest : path of where it should be moved to.
+        src : str
+            path of what should be moved.
+        dest : str
+            path of where it should be moved to.
         """
 
     @abstractmethod
@@ -1023,8 +1033,10 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        src : path of what should be copied.
-        dest : path of where it should be copied to.
+        src : str
+            path of what should be copied.
+        dest : str
+            path of where it should be copied to.
         """
 
     @abstractmethod
@@ -1034,7 +1046,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of what should be opened.
+        path : str
+            path of what should be opened.
         """
 
     @abstractmethod
@@ -1044,7 +1057,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of what should be opened.
+        path : str
+            path of what should be opened.
         """
 
     @abstractmethod
@@ -1054,8 +1068,10 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of what should be opened.
-        metadata :  mapping of string keys to string values.
+        path : str
+            path of what should be opened.
+        metadata :  mapping
+            Mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
         """
@@ -1067,8 +1083,10 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of what should be opened.
-        metadata :  mapping of string keys to string values.
+        path : str
+            path of what should be opened.
+        metadata :  mapping
+            Mapping of string keys to string values.
             Some filesystems support storing metadata along the file
             (such as "Content-Type").
         """
@@ -1080,7 +1098,8 @@ class FileSystemHandler(ABC):
 
         Parameters
         ----------
-        path : path of what should be normalized.
+        path : str
+            path of what should be normalized.
         """
 
 # Callback definitions for CPyFileSystemVtable

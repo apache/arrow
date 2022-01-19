@@ -84,7 +84,7 @@ documentation for any similar error advice. Also changing the CMake flags
 for compiling Arrow could be useful.
 
 CMake presets
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 You could also try to build with CMake presets which are a collection of
 build and test recipes for Arrow's CMake. They are a very useful
@@ -135,6 +135,7 @@ Building other Arrow libraries
       process.
 
       .. seealso::
+
          Follow the instructions to build PyArrow together with the C++ library
 
          - :ref:`build_pyarrow`
