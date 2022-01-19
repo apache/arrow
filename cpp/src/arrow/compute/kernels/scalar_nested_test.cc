@@ -225,31 +225,6 @@ TEST(TestScalarNested, StructField) {
   }
 }
 
-TEST(TestScalarNested, MapArrayLookupNonRecursive) {
-  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
-
-  auto type = map(utf8(), int32());
-  const char* input = R"(
-[
-    [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
-    null,
-    [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null], ["foo", 22]],
-    []
-  ]
-)";
-  auto map_array = ArrayFromJSON(type, input);
-
-  CheckScalarNonRecursive(
-      "map_array_lookup", {map_array},
-      ArrayFromJSON(list(int32()), "[[99, 3], null, [101, 22], null]"), &foo_all);
-  CheckScalarNonRecursive("map_array_lookup", {map_array},
-                          ArrayFromJSON(int32(), "[99, null, 101, null]"), &foo_first);
-  CheckScalarNonRecursive("map_array_lookup", {map_array},
-                          ArrayFromJSON(int32(), "[3, null, 22, null]"), &foo_last);
-}
-
 TEST(TestScalarNested, MapArrayLookup) {
   MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
   MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
@@ -257,14 +232,14 @@ TEST(TestScalarNested, MapArrayLookup) {
 
   auto type = map(utf8(), int32());
   const char* input = R"(
-[
-     [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
-     null,
-     [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null],
-     ["foo", 22]],
-     []
-   ]
-)";
+    [
+      [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
+      null,
+      [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null],
+      ["foo", 22]],
+      []
+    ]
+  )";
   auto map_array = ArrayFromJSON(type, input);
 
   CheckScalar("map_array_lookup", {map_array},
@@ -273,6 +248,96 @@ TEST(TestScalarNested, MapArrayLookup) {
               ArrayFromJSON(int32(), "[99, null, 101, null]"), &foo_first);
   CheckScalar("map_array_lookup", {map_array},
               ArrayFromJSON(int32(), "[3, null, 22, null]"), &foo_last);
+}
+
+TEST(TestScalarNested, MapArrayLookupNested) {
+  auto type = map(utf8(), map(int16(), int16()));
+  const char* input = R"(
+    [
+      [
+        [
+          "just",
+          [[0, 0], [1, 1]]
+        ],
+        [
+          "random",
+          [[2, 2], [3, 3]]
+        ],
+        [
+          "foo",
+          [[4, 4], [5, 5]]
+        ],
+        [
+          "values",
+          [[6, 6], [7, 7]]
+        ],
+        [
+          "foo",
+          [[8, 8], [9, 9]]
+        ],
+        [
+          "point",
+          [[10, 10], [11, 11]]
+        ],
+        [
+          "foo",
+          [[12, 12], [13, 13]]
+        ]
+      ],
+      null,
+      [
+        [
+          "yet",
+          [[0, 1], [1, 2]]
+        ],
+        [
+          "more",
+          [[2, 3], [3, 4]]
+        ],
+        [
+          "foo",
+          [[4, 5], [5, 6]]
+        ],
+        [
+          "random",
+          [[6, 7], [7, 8]]
+        ],
+        [
+          "foo",
+          [[8, 9], [9, 10]]
+        ],
+        [
+          "values",
+          [[10, 11], [11, 12]]
+        ],
+        [
+          "foo",
+          [[12, 13], [13, 14]]
+        ]
+      ],
+      []
+    ]
+  )";
+  auto map_array = ArrayFromJSON(type, input);
+
+  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
+
+  auto foo_all_output = ArrayFromJSON(
+      list(map(int16(), int16())),
+      "[ [[[4, 4], [5, 5]], [[8, 8], [9, 9]], [[12, 12], [13, 13]]], null, [[[4, 5], [5, "
+      "6]], [[8, 9], [9, 10]], [[12, 13], [13, 14]]], null ]");
+
+  CheckScalar("map_array_lookup", {map_array}, foo_all_output, &foo_all);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(map(int16(), int16()),
+                            "[ [[4, 4], [5, 5]], null, [[4, 5], [5, 6]], null ]"),
+              &foo_first);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(map(int16(), int16()),
+                            "[ [[12, 12], [13, 13]], null, [[12, 13], [13, 14]], null ]"),
+              &foo_last);
 }
 
 struct {

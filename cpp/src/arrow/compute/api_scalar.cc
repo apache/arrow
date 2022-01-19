@@ -268,7 +268,7 @@ struct EnumTraits<compute::MapArrayLookupOptions::Occurrence>
       case compute::MapArrayLookupOptions::Occurrence::LAST:
         return "LAST";
       case compute::MapArrayLookupOptions::Occurrence::ALL:
-        return "All";
+        return "ALL";
     }
     return "<INVALID>";
   }
