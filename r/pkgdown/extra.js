@@ -101,7 +101,7 @@ function check_page_exists_and_redirect(event) {
           const sel = document.createElement("select");
           sel.name = "version-selector";
           sel.id = "version-selector";
-          sel.class = "navbar-default";
+          sel.classList.add("navbar-default");
           sel.onchange = check_page_exists_and_redirect;
 
 		  $.each( data, function( key, val ) {
