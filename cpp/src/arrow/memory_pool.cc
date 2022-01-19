@@ -613,7 +613,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 #ifdef ARROW_MMAP_FOR_IMMUTABLE_ZEROS
     if (size > 0) {
       *out = static_cast<uint8_t*>(mmap(
-          NULLPTR, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
+          nullptr, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
       if (*out == MAP_FAILED) {
         auto err = errno;
         return Status::OutOfMemory("Failed to allocate zero buffer of size ", size, ": ",
@@ -663,15 +663,15 @@ class BaseMemoryPoolImpl : public MemoryPool {
       // calls with slightly larger sizes. Fall back to the requested size if
       // this fails.
       if (!current_buffer || current_buffer->size() < size) {
-        uint8_t* data = NULLPTR;
+        uint8_t* data = nullptr;
         int64_t alloc_size;
         if (current_buffer && size < current_buffer->size() * 2) {
           alloc_size = current_buffer->size() * 2;
           if (!AllocateImmutableZeros(alloc_size, &data).ok()) {
-            data = NULLPTR;
+            data = nullptr;
           }
         }
-        if (data == NULLPTR) {
+        if (data == nullptr) {
           alloc_size = size;
           RETURN_NOT_OK(AllocateImmutableZeros(alloc_size, &data));
         }
