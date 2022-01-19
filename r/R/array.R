@@ -56,7 +56,7 @@
 #' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
 #' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
 #' - `$length()`: Size in the number of elements this array contains
-#' - `$nbytes()`: Total number of bytes consumed by the elements of the array.
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the array
 #' - `$offset`: A relative position into another array's data, to enable zero-copy slicing
 #' - `$null_count`: The number of null entries in the array
 #' - `$type`: logical type of data

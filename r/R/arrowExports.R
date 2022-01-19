@@ -308,6 +308,10 @@ ChunkedArray__length <- function(chunked_array) {
   .Call(`_arrow_ChunkedArray__length`, chunked_array)
 }
 
+ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
+  .Call(`_arrow_ChunkedArray__ReferencedBufferSize`, chunked_array)
+}
+
 ChunkedArray__null_count <- function(chunked_array) {
   .Call(`_arrow_ChunkedArray__null_count`, chunked_array)
 }
