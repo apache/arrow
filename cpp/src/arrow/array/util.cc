@@ -535,6 +535,31 @@ class ImmutableNullArrayFactory {
 
 // mutable version of ImmutableNullArrayFactory
 class NullArrayFactory {
+ private:
+  Result<std::shared_ptr<Buffer>> CreateZeroByteBuffer(size_t scalar_size_bytes) const {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer(length_ * scalar_size_bytes, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return std::shared_ptr<Buffer>(std::move(buffer));
+    ;
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateZeroOffsetBuffer(size_t index_size_bytes) const {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer((length_ + 1) * index_size_bytes, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return std::shared_ptr<Buffer>(std::move(buffer));
+  }
+
+  Result<std::shared_ptr<Buffer>> CreateZeroBitBuffer(size_t scalar_size_bits) const {
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          AllocateBuffer((length_ * scalar_size_bits + 7) / 8, pool_));
+    std::memset(buffer->mutable_data(), 0, buffer->size());
+    return std::shared_ptr<Buffer>(std::move(buffer));
+  }
+
+  static Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0); }
+
  public:
   NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    int64_t length)
@@ -547,29 +572,6 @@ class NullArrayFactory {
     RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return out_;
   }
-
-  Result<std::shared_ptr<Buffer>> CreateZeroByteBuffer(size_t scalar_size_bytes) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          AllocateBuffer(length_ * scalar_size_bytes, pool_));
-    std::memset(buffer->mutable_data(), 0, buffer->size());
-    return buffer;
-  }
-
-  Result<std::shared_ptr<Buffer>> CreateZeroOffsetBuffer(size_t index_size_bytes) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          AllocateBuffer((length_ + 1) * index_size_bytes, pool_));
-    std::memset(buffer->mutable_data(), 0, buffer->size());
-    return buffer;
-  }
-
-  Result<std::shared_ptr<Buffer>> CreateZeroBitBuffer(size_t scalar_size_bits) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          AllocateBuffer((length_ * scalar_size_bits + 7) / 8, pool_));
-    std::memset(buffer->mutable_data(), 0, buffer->size());
-    return buffer;
-  }
-
-  Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0); }
 
   Status Visit(const NullType&) {
     out_->buffers.resize(1, nullptr);
