@@ -25,6 +25,8 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
+#include <arrow/util/byte_size.h>
+
 // [[arrow::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_columns();
@@ -303,6 +305,12 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
+}
+
+// [[arrow::export]]
+int64_t RecordBatch__ReferencedBufferSize(const std::shared_ptr<arrow::RecordBatch>& x) {
+  auto batch = arrow::internal::checked_cast<const arrow::RecordBatch*>(x.get());
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*batch));
 }
 
 #endif

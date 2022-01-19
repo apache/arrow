@@ -83,6 +83,7 @@ RecordBatch <- R6Class("RecordBatch",
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    nbytes = function() RecordBatch__ReferencedBufferSize(self),
     RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))

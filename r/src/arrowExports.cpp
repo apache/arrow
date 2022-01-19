@@ -598,6 +598,36 @@ extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
 }
 #endif
 
+//chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t ChunkedArray__ReferencedBufferSize(const std::shared_ptr<arrow::ChunkedArray>& x);
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	return cpp11::as_sexp(ChunkedArray__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+//recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t RecordBatch__ReferencedBufferSize(const std::shared_ptr<arrow::RecordBatch>& x);
+extern "C" SEXP _arrow_RecordBatch__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	return cpp11::as_sexp(RecordBatch__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -1201,21 +1231,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ChunkedArray__length(SEXP chunked_array_sexp){
 	Rf_error("Cannot call ChunkedArray__length(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-//chunkedarray.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t ChunkedArray__ReferencedBufferSize(const std::shared_ptr<arrow::ChunkedArray>& x);
-extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
-	return cpp11::as_sexp(ChunkedArray__ReferencedBufferSize(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
-	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7438,6 +7453,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2},
 		{ "_arrow_Array__ReferencedBufferSize", (DL_FUNC) &_arrow_Array__ReferencedBufferSize, 1}, 
 		{ "_arrow_ChunkedArray__ReferencedBufferSize", (DL_FUNC) &_arrow_ChunkedArray__ReferencedBufferSize, 1},
+		{ "_arrow_RecordBatch__ReferencedBufferSize", (DL_FUNC) &_arrow_RecordBatch__ReferencedBufferSize, 1},
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 

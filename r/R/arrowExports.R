@@ -152,6 +152,14 @@ Array__ReferencedBufferSize <- function(x) {
   .Call(`_arrow_Array__ReferencedBufferSize`, x)
 }
 
+ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
+  .Call(`_arrow_ChunkedArray__ReferencedBufferSize`, chunked_array)
+}
+
+RecordBatch__ReferencedBufferSize <- function(batch) {
+  .Call(`_arrow_RecordBatch__ReferencedBufferSize`, batch)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }
@@ -306,10 +314,6 @@ Buffer__Equals <- function(x, y) {
 
 ChunkedArray__length <- function(chunked_array) {
   .Call(`_arrow_ChunkedArray__length`, chunked_array)
-}
-
-ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
-  .Call(`_arrow_ChunkedArray__ReferencedBufferSize`, chunked_array)
 }
 
 ChunkedArray__null_count <- function(chunked_array) {
