@@ -228,7 +228,9 @@
                                     <pattern>org.</pattern>
                                     <shadedPattern>cfjd.org.</shadedPattern>
                                     <excludes>
-                                        <exclude>org.apache.arrow.**</exclude>
+                                        <exclude>org.apache.arrow.driver.**</exclude>
+                                        <exclude>org.apache.arrow.flight.**</exclude>
+                                        <exclude>org.apache.arrow.flight</exclude>
                                         <exclude>org.slf4j.**</exclude>
                                     </excludes>
                                 </relocation>

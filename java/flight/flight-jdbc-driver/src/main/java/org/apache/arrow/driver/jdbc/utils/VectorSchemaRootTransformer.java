@@ -99,7 +99,8 @@ public interface VectorSchemaRootTransformer {
       final Field originalField = schema.findField(originalVectorName);
       newFields.add(new Field(
           transformedVectorName,
-          new FieldType(originalField.isNullable(), originalField.getType(), null, null),
+          new FieldType(originalField.isNullable(), originalField.getType(),
+              originalField.getDictionary(), originalField.getMetadata()),
           originalField.getChildren())
       );
 

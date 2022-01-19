@@ -50,12 +50,14 @@ public abstract class AbstractArrowFlightJdbcListVectorAccessor extends ArrowFli
 
   protected abstract FieldVector getDataVector();
 
+  protected abstract boolean isNull(int index);
+
   @Override
   public final Array getArray() {
     int index = getCurrentRow();
     FieldVector dataVector = getDataVector();
 
-    this.wasNull = dataVector.isNull(index);
+    this.wasNull = isNull(index);
     this.wasNullConsumer.setWasNull(this.wasNull);
     if (this.wasNull) {
       return null;
