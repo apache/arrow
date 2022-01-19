@@ -53,6 +53,14 @@ class FunctionTest < Test::Unit::TestCase
                    or_function.execute(args).value.to_a)
     end
 
+    test("Arrow::Column") do
+      or_function = Arrow::Function.find("or")
+      table = Arrow::Table.new(a: [true, false, false],
+                               b: [true, false, true])
+      assert_equal([true, false, true],
+                   or_function.execute([table.a, table.b]).value.to_a)
+    end
+
     test("Arrow::Scalar") do
       add_function = Arrow::Function.find("add")
       args = [

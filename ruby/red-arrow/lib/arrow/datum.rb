@@ -27,6 +27,8 @@ module Arrow
           ArrayDatum.new(value)
         when ChunkedArray
           ChunkedArrayDatum.new(value)
+        when Column
+          ChunkedArrayDatum.new(value.data)
         when Scalar
           ScalarDatum.new(value)
         when ::Array
