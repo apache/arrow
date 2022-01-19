@@ -21,10 +21,10 @@
 
 ## Enhancements to dplyr and datasets
 
-* Additional `lubridate` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` are supported
+* Additional `lubridate` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
+* More complex expressions inside `summarize()`, such as `ifelse(n() > 1, mean(y), mean(z))`, are supported.
 * When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
 * Dictionary columns (R `factor` type) are supported inside of `coalesce()`.
-* Conditionals inside of `group_by` aggregations are supported.
 * `open_dataset()` accepts the `partitioning` argument when reading Hive-style partitioned files, even though it is not required.
 * The experimental `map_batches()` function for custom operations on dataset has been restored.
 
