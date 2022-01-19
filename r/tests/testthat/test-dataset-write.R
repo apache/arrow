@@ -506,6 +506,12 @@ test_that("Max partitions fails with non-integer values and less than required p
   )
 })
 
+get_num_of_files = function(dir, format) {
+    files <-  list.files(dir, pattern = paste('.', format, sep=""), 
+    all.files = FALSE, recursive = TRUE, full.names = TRUE)
+    length(files)
+}
+
 test_that("Dataset write max open files", {
   skip_if_not_available("parquet") 
   # test default partitioning
@@ -513,12 +519,6 @@ test_that("Dataset write max open files", {
   file_format <- "parquet"
   partitioning <- c("c2")
   num_of_unique_c2_groups = 5
-
-  get_num_of_files = function(dir, format) {
-    files <-  list.files(dir, pattern = paste('.', format, sep=""), 
-    all.files = FALSE, recursive = TRUE, full.names = TRUE)
-    length(files)
-  }
 
   record_batch_1 <- record_batch(c1=c(1, 2, 3, 4, 0, 10),
                                      c2=c('a', 'b', 'c', 'd', 'e', 'a'))
@@ -542,4 +542,36 @@ test_that("Dataset write max open files", {
   write_dataset(table, path=dst_dir, format=file_format, partitioning=partitioning, max_open_files=max_open_files)
 
   expect_gt(get_num_of_files(dst_dir, file_format), max_open_files)
+})
+
+
+test_that("Dataset write max rows per files", {
+  skip_if_not_available("parquet") 
+  num_of_records = 35
+  df <- tibble::tibble(
+    int = 1:num_of_records,
+    dbl = as.numeric(1:num_of_records),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 7),
+    chr = rep(letters[1:7], 5),
+  )
+  table = Table$create(df)
+  max_rows_per_file = 10
+  max_rows_per_group = 10
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+  
+  write_dataset(table, path=dst_dir, format=file_format, max_rows_per_file=max_rows_per_file, 
+  max_rows_per_group=max_rows_per_group)
+
+  expected_partitions = num_of_records %/% max_rows_per_file + 1
+  written_files = list.files(dst_dir)
+  result_partitions = length(written_files)
+
+  expect_equal(expected_partitions, result_partitions)
+
+  for (file in written_files) {
+    file_path = paste(dst_dir, file, sep="/")
+    ds = read_parquet(file_path)
+    expect_lte(length(ds), max_rows_per_file)
+  }
 })
