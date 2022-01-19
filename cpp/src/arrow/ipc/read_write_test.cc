@@ -2369,7 +2369,7 @@ class TestDictionaryReplacement : public ::testing::Test {
 
     for (const auto& batch : in_batches) {
       ArrayVector expanded_columns;
-      for (std::size_t col_index = 0; col_index < batch->num_columns(); col_index++) {
+      for (int col_index = 0; col_index < batch->num_columns(); col_index++) {
         std::shared_ptr<Array> column = batch->column(col_index);
         std::shared_ptr<DictionaryArray> dict_array =
             checked_pointer_cast<DictionaryArray>(column);
