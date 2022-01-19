@@ -1059,7 +1059,7 @@ cdef class Buffer(_Weakrefable):
             result = GetResultValue(SliceBufferSafe(self.buffer, offset))
         else:
             result = GetResultValue(SliceBufferSafe(self.buffer, offset,
-                                                    max(length, 0)))
+                                                    length))
         return pyarrow_wrap_buffer(result)
 
     def equals(self, Buffer other):
