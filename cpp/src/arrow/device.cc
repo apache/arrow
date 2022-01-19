@@ -135,7 +135,7 @@ Result<std::shared_ptr<io::OutputStream>> CPUMemoryManager::GetBufferWriter(
   return std::make_shared<io::FixedSizeBufferWriter>(std::move(buf));
 }
 
-Result<std::shared_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
   return ::arrow::AllocateBuffer(size, pool_);
 }
 
