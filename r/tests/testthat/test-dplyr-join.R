@@ -90,8 +90,10 @@ test_that("Error handling", {
     left_tab %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
-    "Join column must be present in data"
+    "Join columns must be present in data"
   )
+
+  # we print both message_x and message_y with an unnamed `by` vector
   expect_snapshot({
     (expect_error(
       left_join(
@@ -102,6 +104,7 @@ test_that("Error handling", {
     ))
   })
 
+  # we only print message_y as `int` is a column of x
   expect_snapshot({
     (expect_error(
       left_join(
@@ -112,6 +115,7 @@ test_that("Error handling", {
     ))
   })
 
+  # we only print message_x as `int` is a column of y
   expect_snapshot({
     (expect_error(
       left_join(
@@ -122,6 +126,7 @@ test_that("Error handling", {
     ))
   })
 
+  # we print both message_x and message_y
   expect_snapshot({
     (expect_error(
       left_join(

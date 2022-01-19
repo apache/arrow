@@ -119,31 +119,28 @@ handle_join_by <- function(by, x, y) {
   }
 
   missing_x_cols <- setdiff(names(by), names(x))
+  missing_y_cols <- setdiff(by, names(y))
+  message_x <- NULL
+  message_y <- NULL
+
   if (length(missing_x_cols) > 0) {
-    message <- paste(
-      "Join",
-      ngettext(length(missing_x_cols), "column", "columns"),
-      "must be present in data."
-    )
     message_x <- paste(
       oxford_paste(missing_x_cols, quote_symbol = "`"),
       "not present in x."
       )
-    abort(c(message, x = message_x))
   }
 
-  missing_y_cols <- setdiff(by, names(y))
   if (length(missing_y_cols) > 0) {
-    message <- paste(
-      "Join",
-      ngettext(length(missing_y_cols), "column", "columns"),
-      "must be present in data."
-    )
     message_y <- paste(
       oxford_paste(missing_y_cols, quote_symbol = "`"),
       "not present in y."
     )
-    abort(c(message, x = message_y))
   }
+
+  if (length(missing_x_cols) > 0 || length(missing_y_cols) > 0) {
+    header <- "Join columns must be present in data."
+    abort(c(header, x = message_x, x = message_y))
+  }
+
   by
 }

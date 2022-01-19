@@ -5,8 +5,9 @@
       by = "made_up_colname")))
     Output
       <error/rlang_error>
-      Join column must be present in data.
+      Join columns must be present in data.
       x `made_up_colname` not present in x.
+      x `made_up_colname` not present in y.
 
 ---
 
@@ -15,7 +16,7 @@
       by = c(int = "made_up_colname"))))
     Output
       <error/rlang_error>
-      Join column must be present in data.
+      Join columns must be present in data.
       x `made_up_colname` not present in y.
 
 ---
@@ -25,7 +26,7 @@
       by = c(made_up_colname = "int"))))
     Output
       <error/rlang_error>
-      Join column must be present in data.
+      Join columns must be present in data.
       x `made_up_colname` not present in x.
 
 ---
@@ -37,6 +38,7 @@
       <error/rlang_error>
       Join columns must be present in data.
       x `made_up_colname1` and `made_up_colname2` not present in x.
+      x `made_up_colname1` and `made_up_colname2` not present in y.
 
 ---
 
@@ -45,6 +47,7 @@
       by = c(made_up_colname1 = "made_up_colname2"))))
     Output
       <error/rlang_error>
-      Join column must be present in data.
+      Join columns must be present in data.
       x `made_up_colname1` not present in x.
+      x `made_up_colname2` not present in y.
 
