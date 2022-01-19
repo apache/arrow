@@ -450,9 +450,9 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+----------------------------+----------------------------+-------+
 | sign             | Unary  | Numeric                    | Int8/Float32/Float64       | \(2)  |
 +------------------+--------+----------------------------+----------------------------+-------+
-| subtract         | Binary | Numeric/Date/Duration      | Numeric/Date/Duration      | \(1)  |
+| subtract         | Binary | Numeric/Timestamp/Duration | Numeric/Timestamp/Duration | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
-| subtract_checked | Binary | Numeric/Date/Duration      | Numeric/Date/Duration      | \(1)  |
+| subtract_checked | Binary | Numeric/Timestamp/Duration | Numeric/Timestamp/Duration | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
