@@ -1003,13 +1003,9 @@ cdef class Array(_PandasConvertible):
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
-            shared_ptr[CArray] shd_ptr_c_array
-            CArray *c_array
             CResult[int64_t] c_res_buffer
 
-        shd_ptr_c_array = pyarrow_unwrap_array(self)
-        c_array = shd_ptr_c_array.get()
-        c_res_buffer = ReferencedBufferSize(deref(c_array))
+        c_res_buffer = ReferencedBufferSize(deref(self.ap))
         size = GetResultValue(c_res_buffer)
         return size
 
@@ -1025,13 +1021,9 @@ cdef class Array(_PandasConvertible):
         only be counted once.
         """
         cdef:
-            shared_ptr[CArray] shd_ptr_c_array
-            CArray *c_array
             int64_t total_buffer_size
 
-        shd_ptr_c_array = pyarrow_unwrap_array(self)
-        c_array = shd_ptr_c_array.get()
-        total_buffer_size = TotalBufferSize(c_array[0])
+        total_buffer_size = TotalBufferSize(deref(self.ap))
         return total_buffer_size
 
     def __sizeof__(self):

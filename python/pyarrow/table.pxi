@@ -158,13 +158,9 @@ cdef class ChunkedArray(_PandasConvertible):
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
-            shared_ptr[CChunkedArray] shd_ptr_c_array
-            CChunkedArray *c_array
             CResult[int64_t] c_res_buffer
 
-        shd_ptr_c_array = pyarrow_unwrap_chunked_array(self)
-        c_array = shd_ptr_c_array.get()
-        c_res_buffer = ReferencedBufferSize(deref(c_array))
+        c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
         size = GetResultValue(c_res_buffer)
         return size
 
@@ -180,13 +176,9 @@ cdef class ChunkedArray(_PandasConvertible):
         only be counted once.
         """
         cdef:
-            shared_ptr[CChunkedArray] shd_ptr_c_array
-            CChunkedArray *c_array
             int64_t total_buffer_size
 
-        shd_ptr_c_array = pyarrow_unwrap_chunked_array(self)
-        c_array = shd_ptr_c_array.get()
-        total_buffer_size = TotalBufferSize(deref(c_array))
+        total_buffer_size = TotalBufferSize(deref(self.chunked_array))
         return total_buffer_size
 
     def __sizeof__(self):
@@ -973,13 +965,9 @@ cdef class RecordBatch(_PandasConvertible):
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
-            shared_ptr[CRecordBatch] shd_ptr_c_rb
-            CRecordBatch *c_rb
             CResult[int64_t] c_res_buffer
 
-        shd_ptr_c_rb = pyarrow_unwrap_batch(self)
-        c_rb = shd_ptr_c_rb.get()
-        c_res_buffer = ReferencedBufferSize(deref(c_rb))
+        c_res_buffer = ReferencedBufferSize(deref(self.batch))
         size = GetResultValue(c_res_buffer)
         return size
 
@@ -995,13 +983,9 @@ cdef class RecordBatch(_PandasConvertible):
         only be counted once.
         """
         cdef:
-            shared_ptr[CRecordBatch] shd_ptr_c_rb
-            CRecordBatch *c_rb
             int64_t total_buffer_size
 
-        shd_ptr_c_rb = pyarrow_unwrap_batch(self)
-        c_rb = shd_ptr_c_rb.get()
-        total_buffer_size = TotalBufferSize(deref(c_rb))
+        total_buffer_size = TotalBufferSize(deref(self.batch))
         return total_buffer_size
 
     def __sizeof__(self):
@@ -2228,13 +2212,9 @@ cdef class Table(_PandasConvertible):
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
-            shared_ptr[CTable] shd_ptr_table
-            CTable *c_table
             CResult[int64_t] c_res_buffer
 
-        shd_ptr_table = pyarrow_unwrap_table(self)
-        c_table = shd_ptr_table.get()
-        c_res_buffer = ReferencedBufferSize(deref(c_table))
+        c_res_buffer = ReferencedBufferSize(deref(self.table))
         size = GetResultValue(c_res_buffer)
         return size
 
@@ -2250,13 +2230,9 @@ cdef class Table(_PandasConvertible):
         only be counted once.
         """
         cdef:
-            shared_ptr[CTable] shd_ptr_table
-            CTable *c_table
             int64_t total_buffer_size
 
-        shd_ptr_table = pyarrow_unwrap_table(self)
-        c_table = shd_ptr_table.get()
-        total_buffer_size = TotalBufferSize(deref(c_table))
+        total_buffer_size = TotalBufferSize(deref(self.table))
         return total_buffer_size
 
     def __sizeof__(self):
