@@ -223,13 +223,6 @@ struct SubtractDate32 {
   }
 };
 
-struct SubtractDate64 {
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return arrow::internal::SafeSignedSubtract(left, right);
-  }
-};
-
 struct Multiply {
   static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
@@ -2461,7 +2454,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add subtract(date64, date64) -> duration(TimeUnit::MILLI)
   InputType in_type_date_64(date64());
-  auto exec_date_64 = ScalarBinaryEqualTypes<Int64Type, Date64Type, SubtractDate64>::Exec;
+  auto exec_date_64 = ScalarBinaryEqualTypes<Int64Type, Date64Type, Subtract>::Exec;
   DCHECK_OK(subtract->AddKernel({in_type_date_64, in_type_date_64},
                                 duration(TimeUnit::MILLI), std::move(exec_date_64)));
 
@@ -2472,7 +2465,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "subtract_checked", &sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
 
-  // Add subtract(timestamp, duration) -> timestamp
+  // Add subtract_checked(timestamp, duration) -> timestamp
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =

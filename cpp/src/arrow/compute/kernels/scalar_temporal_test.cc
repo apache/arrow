@@ -1112,8 +1112,25 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractDate) {
   auto arr_date64s2 = ArrayFromJSON(date64(), date64s2);
 
   CheckScalarBinary(op, arr_date32s2, arr_date32s,
-                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+                    ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_date));
   CheckScalarBinary(op, arr_date64s2, arr_date64s,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+  CheckScalarBinary(op, arr_date64s2, arr_date32s,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDateChecked) {
+  std::string op = "subtract_checked";
+  auto arr_date32s = ArrayFromJSON(date32(), date32s);
+  auto arr_date32s2 = ArrayFromJSON(date32(), date32s2);
+  auto arr_date64s = ArrayFromJSON(date64(), date64s);
+  auto arr_date64s2 = ArrayFromJSON(date64(), date64s2);
+
+  CheckScalarBinary(op, arr_date32s2, arr_date32s,
+                    ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_date));
+  CheckScalarBinary(op, arr_date64s2, arr_date64s,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
+  CheckScalarBinary(op, arr_date64s2, arr_date32s,
                     ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date));
 }
 
