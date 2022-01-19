@@ -52,7 +52,7 @@ Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
   if (ARROW_PREDICT_FALSE(offset < 0)) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative buffer slice offset");
   }
   return CheckBufferSlice(buffer, offset, buffer.size() - offset);
 }

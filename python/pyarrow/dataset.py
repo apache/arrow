@@ -130,7 +130,7 @@ def partitioning(schema=None, field_names=None, flavor=None,
     flavor : str, default None
         The default is DirectoryPartitioning. Specify ``flavor="hive"`` for
         a HivePartitioning.
-    dictionaries : Dict[str, Array]
+    dictionaries : dict[str, Array]
         If the type of any field of `schema` is a dictionary type, the
         corresponding entry of `dictionaries` must be an array containing
         every value which may be taken by the corresponding column or an
@@ -528,8 +528,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list of) batches\
-or tables, iterable of batches, RecordBatchReader, or URI
+    source : path, list of paths, dataset, list of datasets, (list of) \
+RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -731,8 +731,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, RecordBatchReader, list of
-           Table/RecordBatch, or iterable of RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, list of \
+Table/RecordBatch, or iterable of RecordBatch
         The data to write. This can be a Dataset instance or
         in-memory Arrow data. If an iterable is given, the schema must
         also be given.
@@ -760,7 +760,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         default of ``partitioning()`` which is directory partitioning.
     schema : Schema, optional
     filesystem : FileSystem, optional
-    file_options : FileWriteOptions, optional
+    file_options : pyarrow.dataset.FileWriteOptions, optional
         FileFormat specific write options, created using the
         ``FileFormat.make_write_options()`` function.
     use_threads : bool, default True
@@ -789,7 +789,7 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         multiple row groups.  If this value is set, then min_rows_per_group
         should also be set. Otherwise it could end up with very small row
         groups.
-    file_visitor : Function
+    file_visitor : function
         If set, this function will be called with a WrittenFile instance
         for each file created during the call.  This object will have both
         a path attribute and a metadata attribute.

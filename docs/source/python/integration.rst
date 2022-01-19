@@ -15,18 +15,25 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+.. _integration:
 
-This is the documentation of the Java API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the :doc:`parent documentation <../index>`.
+********************
+PyArrow Integrations
+********************
+
+Arrow is designed to be both a framework and an interchange format.
+
+Developers can use Arrow to exchange data between various
+technologies and languages without incurring in any extra cost of
+marshalling/unmarshalling the data. The Arrow bindings and Arrow
+native libraries on the various platforms will all understand Arrow data
+natively wihout the need to decode it.
+
+This allows to easily integrate PyArrow with other languages and technologies.
 
 .. toctree::
    :maxdepth: 2
 
-   vector
-   vector_schema_root
-   ipc
-   algorithm
-   dataset
-   Reference (javadoc) <reference/index>
+   integration/python_r
+   integration/extending
+   integration/cuda

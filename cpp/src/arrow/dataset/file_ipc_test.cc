@@ -135,12 +135,21 @@ class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestIpcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
+  TestScanProjectedNested();
+}
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols();
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
 }
 TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(

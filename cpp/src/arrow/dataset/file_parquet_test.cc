@@ -377,8 +377,21 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedNested) {
+  // TODO(ARROW-1888): enable fine-grained column projection.
+  TestScanProjectedNested(/*fine_grained_selection=*/false);
+}
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
+  TestScanWithVirtualColumn();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
 }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));

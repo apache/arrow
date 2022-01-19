@@ -227,6 +227,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                     f"{func_name} takes {arity} positional argument(s), "
                     f"but {len(args)} were given"
                 )
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
@@ -242,6 +244,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 option_args = ()
             options = _handle_options(func_name, options_class, options,
                                       option_args, kwargs)
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args), options)
             return func.call(args, options, memory_pool)
     return wrapper
 
@@ -320,8 +324,8 @@ def cast(arr, target_type, safe=True):
 
     Parameters
     ----------
-    arr : Array or ChunkedArray
-    target_type : DataType or type string alias
+    arr : Array-like
+    target_type : DataType or str
         Type to cast to
     safe : bool, default True
         Check for overflows or other unsafe conversions
@@ -377,8 +381,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Parameters
     ----------
-    data : Array or ChunkedArray
-    value : Scalar
+    data : Array-like
+    value : Scalar-like object
         The value to search for.
     start : int, optional
     end : int, optional
@@ -387,7 +391,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Returns
     -------
-    index : the index, or -1 if not found
+    index : int
+        the index, or -1 if not found
     """
     if start is not None:
         if end is not None:

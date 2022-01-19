@@ -21,6 +21,7 @@ import warnings
 
 from pyarrow.lib import Table
 import pyarrow._orc as _orc
+from pyarrow.fs import _resolve_filesystem_and_path
 
 
 class ORCFile:
@@ -29,7 +30,7 @@ class ORCFile:
 
     Parameters
     ----------
-    source : str or pyarrow.io.NativeFile
+    source : str or pyarrow.NativeFile
         Readable source. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
@@ -160,7 +161,7 @@ class ORCFile:
 
         Returns
         -------
-        pyarrow.lib.RecordBatch
+        pyarrow.RecordBatch
             Content of the stripe as a RecordBatch.
         """
         columns = self._select_names(columns)
@@ -178,7 +179,7 @@ class ORCFile:
 
         Returns
         -------
-        pyarrow.lib.Table
+        pyarrow.Table
             Content of the file as a Table.
         """
         columns = self._select_names(columns)
@@ -280,7 +281,7 @@ where : str or pyarrow.io.NativeFile
 
         Parameters
         ----------
-        table : pyarrow.lib.Table
+        table : pyarrow.Table
             The table to be written into the ORC file
         """
         assert self.is_open

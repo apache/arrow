@@ -309,10 +309,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
 
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset, int64_t length)
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset, int64_t length)
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
@@ -333,6 +333,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
     cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
         CMemoryPool** out)
+    cdef vector[c_string] c_supported_memory_backends" arrow::SupportedMemoryBackendNames"()
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 

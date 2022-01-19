@@ -150,12 +150,12 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7, 0));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, 8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, -1));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, 2));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, 8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, -1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, 2));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
 
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0));
   check_data(*sliced, original_data);
@@ -166,8 +166,8 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1));
 }
 
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,

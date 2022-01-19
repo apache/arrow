@@ -2628,3 +2628,23 @@ def test_expression_boolean_operators():
 
     with pytest.raises(ValueError, match="cannot be evaluated to python True"):
         not true
+
+
+def test_expression_call_function():
+    field = pc.field("field")
+
+    # no options
+    assert str(pc.hour(field)) == "hour(field)"
+
+    # default options
+    assert str(pc.round(field)) == "round(field)"
+    # specified options
+    assert str(pc.round(field, ndigits=1)) == \
+        "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
+
+    # mixed types are not (yet) allowed
+    with pytest.raises(TypeError):
+        pc.add(field, 1)
+
+    with pytest.raises(TypeError):
+        pc.add(1, field)

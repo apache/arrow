@@ -134,7 +134,7 @@ cdef class S3FileSystem(FileSystem):
     background_writes : boolean, default True
         Whether file writes will be issued in the background, without
         blocking.
-    default_metadata : mapping or KeyValueMetadata, default None
+    default_metadata : mapping or pyarrow.KeyValueMetadata, default None
         Default metadata for open_output_stream.  This will be ignored if
         non-empty metadata is passed to open_output_stream.
     proxy_options : dict or str, default None

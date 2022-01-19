@@ -299,7 +299,11 @@ class Repo:
         try:
             return self.repo.branches[self.repo.head.shorthand]
         except KeyError:
-            return None  # detached
+            raise CrossbowError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
 
     @property
     def remote(self):
@@ -307,7 +311,11 @@ class Repo:
         try:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
-            return None  # cannot detect
+            raise CrossbowError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the `{}` branch first to have '
+                'a remote tracking counterpart.'.format(self.branch.name)
+            )
 
     @property
     def remote_url(self):
@@ -316,10 +324,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with GitHub OAuth token.
         """
-        try:
-            return self._remote_url or _git_ssh_to_https(self.remote.url)
-        except AttributeError:
-            return None
+        return self._remote_url or _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -611,19 +616,6 @@ class Queue(Repo):
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
-
-        if job.target.remote is None:
-            raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(job.target.branch)
-            )
-        if job.target.branch is None:
-            raise CrossbowError(
-                'Cannot determine the current branch of the Arrow repository '
-                'to clone or push to, perhaps it is in detached HEAD state. '
-                'Please checkout a branch.'
-            )
 
         # auto increment and set next job id, e.g. build-85
         job._queue = self

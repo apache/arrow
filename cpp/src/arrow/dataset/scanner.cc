@@ -52,14 +52,13 @@ namespace dataset {
 
 using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
 
-std::vector<std::string> ScanOptions::MaterializedFields() const {
-  std::vector<std::string> fields;
+std::vector<FieldRef> ScanOptions::MaterializedFields() const {
+  std::vector<FieldRef> fields;
 
   for (const compute::Expression* expr : {&filter, &projection}) {
-    for (const FieldRef& ref : FieldsInExpression(*expr)) {
-      DCHECK(ref.name());
-      fields.push_back(*ref.name());
-    }
+    auto refs = FieldsInExpression(*expr);
+    fields.insert(fields.end(), std::make_move_iterator(refs.begin()),
+                  std::make_move_iterator(refs.end()));
   }
 
   return fields;
@@ -591,13 +590,6 @@ Result<std::shared_ptr<RecordBatchReader>> AsyncScanner::ToRecordBatchReader() {
 }
 
 const std::shared_ptr<Dataset>& AsyncScanner::dataset() const { return dataset_; }
-
-Status NestedFieldRefsNotImplemented() {
-  // TODO(ARROW-11259) Several functions (for example, IpcScanTask::Make) assume that
-  // only top level fields will be materialized.
-  return Status::NotImplemented("Nested field references in scans.");
-}
-
 }  // namespace
 
 Result<ProjectionDescr> ProjectionDescr::FromStructExpression(
@@ -623,8 +615,6 @@ Result<ProjectionDescr> ProjectionDescr::FromExpressions(
 
   for (size_t i = 0; i < exprs.size(); ++i) {
     if (auto ref = exprs[i].field_ref()) {
-      if (!ref->name()) return NestedFieldRefsNotImplemented();
-
       // set metadata and nullability for plain field references
       ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(dataset_schema));
       project_options.field_nullability[i] = field->nullable();
@@ -708,8 +698,6 @@ Status ScannerBuilder::Project(std::vector<compute::Expression> exprs,
 
 Status ScannerBuilder::Filter(const compute::Expression& filter) {
   for (const auto& ref : FieldsInExpression(filter)) {
-    if (!ref.name()) return NestedFieldRefsNotImplemented();
-
     RETURN_NOT_OK(ref.FindOne(*scan_options_->dataset_schema));
   }
   ARROW_ASSIGN_OR_RAISE(scan_options_->filter,
