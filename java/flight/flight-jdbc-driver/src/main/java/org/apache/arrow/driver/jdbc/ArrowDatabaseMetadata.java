@@ -1007,10 +1007,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final IntVector nullableVector = (IntVector) currentRoot.getVector("NULLABLE");
     final IntVector ordinalPositionVector = (IntVector) currentRoot.getVector("ORDINAL_POSITION");
     final VarCharVector isNullableVector = (VarCharVector) currentRoot.getVector("IS_NULLABLE");
-    final VarCharVector isAutoincrementVector =
-        (VarCharVector) currentRoot.getVector("IS_AUTOINCREMENT");
-    final VarCharVector isGeneratedColumnVector =
-        (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
+    final VarCharVector isAutoincrementVector = (VarCharVector) currentRoot.getVector("IS_AUTOINCREMENT");
+    final VarCharVector isGeneratedColumnVector = (VarCharVector) currentRoot.getVector("IS_GENERATEDCOLUMN");
 
     for (int i = 0; i < tableColumnsSize; i++, ordinalIndex++) {
       final Field field = tableColumns.get(i);

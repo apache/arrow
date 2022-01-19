@@ -81,6 +81,11 @@ public class ArrowFlightJdbcMapVectorAccessor extends AbstractArrowFlightJdbcLis
   }
 
   @Override
+  protected boolean isNull(int index) {
+    return vector.isNull(index);
+  }
+
+  @Override
   protected FieldVector getDataVector() {
     return vector.getDataVector();
   }

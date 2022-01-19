@@ -55,6 +55,11 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor
   }
 
   @Override
+  protected boolean isNull(int index) {
+    return vector.isNull(index);
+  }
+
+  @Override
   public Object getObject() {
     List<?> object = vector.getObject(getCurrentRow());
     this.wasNull = object == null;

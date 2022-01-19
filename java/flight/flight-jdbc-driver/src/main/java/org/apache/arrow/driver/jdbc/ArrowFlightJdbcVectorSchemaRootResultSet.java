@@ -92,8 +92,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     return resultSet;
   }
 
-  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(
-      final List<Field> fields) {
+  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(final List<Field> fields) {
     return Stream.iterate(0, Math::incrementExact).limit(fields.size())
         .map(index -> {
           final Field field = fields.get(index);
@@ -115,44 +114,44 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
         }).collect(Collectors.toList());
   }
 
-  private static void setOnColumnMetaDataBuilder(Common.ColumnMetaData.Builder builder,
-                                                 Map<String, String> metadataMap) {
-    FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
-    String catalogName = columnMetadata.getCatalogName();
+  private static void setOnColumnMetaDataBuilder(final Common.ColumnMetaData.Builder builder,
+                                                 final Map<String, String> metadataMap) {
+    final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
+    final String catalogName = columnMetadata.getCatalogName();
     if (catalogName != null) {
       builder.setCatalogName(catalogName);
     }
-    String schemaName = columnMetadata.getSchemaName();
+    final String schemaName = columnMetadata.getSchemaName();
     if (schemaName != null) {
       builder.setSchemaName(schemaName);
     }
-    String tableName = columnMetadata.getTableName();
+    final String tableName = columnMetadata.getTableName();
     if (tableName != null) {
       builder.setTableName(tableName);
     }
 
-    Integer precision = columnMetadata.getPrecision();
+    final Integer precision = columnMetadata.getPrecision();
     if (precision != null) {
       builder.setPrecision(precision);
     }
-    Integer scale = columnMetadata.getScale();
+    final Integer scale = columnMetadata.getScale();
     if (scale != null) {
       builder.setScale(scale);
     }
 
-    Boolean isAutoIncrement = columnMetadata.isAutoIncrement();
+    final Boolean isAutoIncrement = columnMetadata.isAutoIncrement();
     if (isAutoIncrement != null) {
       builder.setAutoIncrement(isAutoIncrement);
     }
-    Boolean caseSensitive = columnMetadata.isCaseSensitive();
+    final Boolean caseSensitive = columnMetadata.isCaseSensitive();
     if (caseSensitive != null) {
       builder.setCaseSensitive(caseSensitive);
     }
-    Boolean readOnly = columnMetadata.isReadOnly();
+    final Boolean readOnly = columnMetadata.isReadOnly();
     if (readOnly != null) {
       builder.setReadOnly(readOnly);
     }
-    Boolean searchable = columnMetadata.isSearchable();
+    final Boolean searchable = columnMetadata.isSearchable();
     if (searchable != null) {
       builder.setSearchable(searchable);
     }
