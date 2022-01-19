@@ -111,6 +111,10 @@ write_dataset <- function(dataset,
                           hive_style = TRUE,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
+                          max_open_files = 900L,
+                          max_rows_per_file = 0L,
+                          min_rows_per_group = 0L, 
+                          max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -146,6 +150,8 @@ write_dataset <- function(dataset,
   dataset___Dataset__Write(
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template, scanner,
-    existing_data_behavior, max_partitions
+    existing_data_behavior, max_partitions,
+    max_open_files, max_rows_per_file, 
+    min_rows_per_group, max_rows_per_group
   )
 }
