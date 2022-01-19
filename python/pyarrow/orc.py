@@ -297,7 +297,19 @@ where : str or pyarrow.io.NativeFile
 
 
 def read_table(source, columns=None, filesystem=None):
-    __doc__ = """
+    filesystem, path = _resolve_filesystem_and_path(source, filesystem)
+    if filesystem is not None:
+        source = filesystem.open_input_file(path)
+
+    if columns is not None and len(columns) == 0:
+        result = ORCFile(source).read().select(columns)
+    else:
+        result = ORCFile(source).read(columns=columns)
+
+    return result
+
+
+read_table.__doc__ = """
 Read a Table from an ORC file.
 Parameters
 ----------
@@ -315,17 +327,6 @@ filesystem : FileSystem, default None
     If nothing passed, paths assumed to be found in the local on-disk
     filesystem.
 """
-
-    filesystem, path = _resolve_filesystem_and_path(source, filesystem)
-    if filesystem is not None:
-        source = filesystem.open_input_file(path)
-
-    if columns is not None and len(columns) == 0:
-        result = ORCFile(source).read().select(columns)
-    else:
-        result = ORCFile(source).read(columns=columns)
-
-    return result
 
 
 def write_table(table, where, *, file_version='0.12',
