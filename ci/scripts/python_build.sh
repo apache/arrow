@@ -75,6 +75,5 @@ popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   ncpus=$(python -c "import os; print(os.cpu_count())")
-  pip install -r ${arrow_dir}/docs/requirements.txt
   sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}/docs
 fi
