@@ -156,6 +156,24 @@ TEST(TestDispatchBest, CommonTemporal) {
   args = {timestamp(TimeUnit::SECOND, "America/Phoenix"),
           timestamp(TimeUnit::SECOND, "UTC")};
   ASSERT_EQ(nullptr, CommonTemporal(args.data(), args.size()));
+  args = {date32(), duration(TimeUnit::MILLI)};
+  AssertTypeEqual(duration(TimeUnit::MILLI), CommonTemporal(args.data(), args.size()));
+  args = {date64(), duration(TimeUnit::MICRO)};
+  AssertTypeEqual(duration(TimeUnit::MICRO), CommonTemporal(args.data(), args.size()));
+}
+
+TEST(TestDispatchBest, ReplaceTemporalTypes) {
+  std::vector<ValueDescr> args;
+
+  args = {date32(), duration(TimeUnit::MILLI)};
+  ReplaceTemporalTypes(CommonTemporal(args.data(), args.size()), &args);
+  AssertTypeEqual(args[0].type, timestamp(TimeUnit::MILLI));
+  AssertTypeEqual(args[1].type, duration(TimeUnit::MILLI));
+
+  args = {date64(), duration(TimeUnit::MICRO)};
+  ReplaceTemporalTypes(CommonTemporal(args.data(), args.size()), &args);
+  AssertTypeEqual(args[0].type, timestamp(TimeUnit::MICRO));
+  AssertTypeEqual(args[1].type, duration(TimeUnit::MICRO));
 }
 
 }  // namespace internal

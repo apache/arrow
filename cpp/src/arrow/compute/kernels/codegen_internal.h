@@ -1382,6 +1382,10 @@ ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
 
 ARROW_EXPORT
+void ReplaceTemporalTypes(const std::shared_ptr<DataType>&,
+                          std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
