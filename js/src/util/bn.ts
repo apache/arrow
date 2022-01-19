@@ -77,11 +77,11 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
     let number = negative ? 1n : 0n;
     let i = 0n;
     if (!negative) {
-        for (let word of words) {
+        for (const word of words) {
             number += word * (2n ** (32n * i++));
         }
     } else {
-        for (let word of words) {
+        for (const word of words) {
             number += ~word * (2n ** (32n * i++));
         }
         number *= -1n;
