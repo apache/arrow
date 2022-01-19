@@ -311,6 +311,7 @@ def read_table(source, columns=None, filesystem=None):
 
 read_table.__doc__ = """
 Read a Table from an ORC file.
+
 Parameters
 ----------
 source : str, pyarrow.NativeFile, or file-like object
@@ -365,7 +366,7 @@ def write_table(table, where, *, file_version='0.12',
 
 
 write_table.__doc__ = """
-Write a table into an ORC file
+Write a table into an ORC file.
 
 Parameters
 ----------
