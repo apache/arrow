@@ -920,17 +920,27 @@ class RepeatedArrayFactory {
 
 }  // namespace
 
-Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
-                                               int64_t length, MemoryPool* pool) {
+Result<std::shared_ptr<Array>> MakeMutableArrayOfNull(
+    const std::shared_ptr<DataType>& type, int64_t length, MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(auto data, NullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
 }
 
-Result<std::shared_ptr<Array>> MakeImmutableArrayOfNull(
-    const std::shared_ptr<DataType>& type, int64_t length, MemoryPool* pool) {
+Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                               int64_t length, MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(auto data,
                         ImmutableNullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
+}
+
+Result<std::shared_ptr<Array>> MakeMutableArrayFromScalar(const Scalar& scalar,
+                                                          int64_t length,
+                                                          MemoryPool* pool) {
+  // Null union scalars still have a type code associated
+  if (!scalar.is_valid && !is_union(scalar.type->id())) {
+    return MakeMutableArrayOfNull(scalar.type, length, pool);
+  }
+  return RepeatedArrayFactory(pool, scalar, length).Create();
 }
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
@@ -938,16 +948,6 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
-  }
-  return RepeatedArrayFactory(pool, scalar, length).Create();
-}
-
-Result<std::shared_ptr<Array>> MakeImmutableArrayFromScalar(const Scalar& scalar,
-                                                            int64_t length,
-                                                            MemoryPool* pool) {
-  // Null union scalars still have a type code associated
-  if (!scalar.is_valid && !is_union(scalar.type->id())) {
-    return MakeImmutableArrayOfNull(scalar.type, length, pool);
   }
   return RepeatedArrayFactory(pool, scalar, length).Create();
 }

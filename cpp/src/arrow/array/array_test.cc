@@ -368,7 +368,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       // clang-format on
   };
 
-  for (auto fun : {MakeArrayOfNull, MakeImmutableArrayOfNull}) {
+  for (auto fun : {MakeArrayOfNull, MakeMutableArrayOfNull}) {
     for (int64_t length : {0, 1, 16, 133}) {
       for (auto type : types) {
         ARROW_SCOPED_TRACE("type = ", type->ToString());
@@ -399,7 +399,7 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
   // Unions need special checking -- the top level null count is 0 (per
   // ARROW-9222) so we check the first child to make sure is contains all nulls
   // and check that the type_ids all point to the first child
-  for (auto fun : {MakeArrayOfNull, MakeImmutableArrayOfNull}) {
+  for (auto fun : {MakeArrayOfNull, MakeMutableArrayOfNull}) {
     const int64_t union_length = 10;
     auto s_union_ty = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
     ASSERT_OK_AND_ASSIGN(auto s_union_nulls,
@@ -586,7 +586,7 @@ static ScalarVector GetScalars() {
 }
 
 TEST_F(TestArray, TestMakeArrayFromScalar) {
-  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+  for (auto fun : {MakeArrayFromScalar, MakeMutableArrayFromScalar}) {
     ASSERT_OK_AND_ASSIGN(auto null_array, fun(NullScalar(), 5, default_memory_pool()));
     ASSERT_OK(null_array->ValidateFull());
     ASSERT_EQ(null_array->length(), 5);
@@ -619,7 +619,7 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
   // Regression test for ARROW-13437
   auto scalars = GetScalars();
 
-  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+  for (auto fun : {MakeArrayFromScalar, MakeMutableArrayFromScalar}) {
     for (auto scalar : scalars) {
       SCOPED_TRACE(scalar->type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, fun(*scalar, 32, default_memory_pool()));
@@ -637,7 +637,7 @@ TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(int8(), 1));
   auto scalar = DictionaryScalar({value, dictionary}, type);
 
-  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+  for (auto fun : {MakeArrayFromScalar, MakeMutableArrayFromScalar}) {
     ASSERT_OK_AND_ASSIGN(auto array, fun(scalar, 4, default_memory_pool()));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 4);
@@ -656,7 +656,7 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
                     R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
   auto scalar = MapScalar(value);
 
-  for (auto fun : {MakeArrayFromScalar, MakeImmutableArrayFromScalar}) {
+  for (auto fun : {MakeArrayFromScalar, MakeMutableArrayFromScalar}) {
     ASSERT_OK_AND_ASSIGN(auto array, fun(scalar, 11, default_memory_pool()));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 11);
@@ -667,7 +667,7 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
       ASSERT_TRUE(item->Equals(scalar));
     }
 
-    if (fun != MakeImmutableArrayFromScalar) {
+    if (fun != MakeMutableArrayFromScalar) {
       AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
     }
   }

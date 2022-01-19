@@ -42,9 +42,9 @@ std::shared_ptr<Array> MakeArray(const std::shared_ptr<ArrayData>& data);
 /// \param[in] type the array type \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
-                                               int64_t length,
-                                               MemoryPool* pool = default_memory_pool());
+Result<std::shared_ptr<Array>> MakeMutableArrayOfNull(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    MemoryPool* pool = default_memory_pool());
 
 /// \brief Create a strongly-typed immutable Array instance with all elements null
 ///
@@ -55,9 +55,9 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 /// \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeImmutableArrayOfNull(
-    const std::shared_ptr<DataType>& type, int64_t length,
-    MemoryPool* pool = default_memory_pool());
+Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
+                                               int64_t length,
+                                               MemoryPool* pool = default_memory_pool());
 
 /// \brief Create a mutable Array instance whose slots are initialized with the given
 /// scalar
@@ -65,7 +65,7 @@ Result<std::shared_ptr<Array>> MakeImmutableArrayOfNull(
 /// \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeArrayFromScalar(
+Result<std::shared_ptr<Array>> MakeMutableArrayFromScalar(
     const Scalar& scalar, int64_t length, MemoryPool* pool = default_memory_pool());
 
 /// \brief Create an immutable Array instance whose slots are set to the given scalar
@@ -77,7 +77,7 @@ Result<std::shared_ptr<Array>> MakeArrayFromScalar(
 /// \param[in] length the array length
 /// \param[in] pool the memory pool to allocate memory from
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> MakeImmutableArrayFromScalar(
+Result<std::shared_ptr<Array>> MakeArrayFromScalar(
     const Scalar& scalar, int64_t length, MemoryPool* pool = default_memory_pool());
 
 /// \brief Create an empty Array of a given type

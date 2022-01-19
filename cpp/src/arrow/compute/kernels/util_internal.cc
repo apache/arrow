@@ -70,7 +70,7 @@ ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec,
     }
 
     ARROW_ASSIGN_OR_RAISE(Datum array_in, MakeArrayFromScalar(*batch[0].scalar(), 1));
-    ARROW_ASSIGN_OR_RAISE(Datum array_out, MakeArrayFromScalar(*out->scalar(), 1));
+    ARROW_ASSIGN_OR_RAISE(Datum array_out, MakeMutableArrayFromScalar(*out->scalar(), 1));
     RETURN_NOT_OK(exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out));
     ARROW_ASSIGN_OR_RAISE(*out, array_out.make_array()->GetScalar(0));
     return Status::OK();
