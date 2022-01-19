@@ -1430,20 +1430,18 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractDuration) {
-  std::string op = "subtract";
+  for (auto op : {"subtract", "subtract_checked"}) {
+    for (auto u : TimeUnit::values()) {
+      auto unit = duration(u);
+      CheckScalarBinary(op, ArrayFromJSON(unit, times_s2), ArrayFromJSON(unit, times_s),
+                        ArrayFromJSON(unit, seconds_between_time));
+    }
 
-  for (auto u : TimeUnit::values()) {
-    auto unit = duration(u);
-    CheckScalarBinary(op,
-                      ArrayFromJSON(unit, times_s2),
-                      ArrayFromJSON(unit, times_s),
-                      ArrayFromJSON(unit, seconds_between_time));
+    auto seconds_3 = ArrayFromJSON(duration(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1000, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
   }
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, testing::HasSubstr("no kernel matching input types"),
-      Subtract(ArrayFromJSON(duration(TimeUnit::SECOND), times_s),
-               ArrayFromJSON(duration(TimeUnit::MILLI), times_s)));
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {

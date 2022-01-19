@@ -2658,6 +2658,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     auto exec = ScalarBinary<TimestampType, DurationType, TimestampType, Subtract>::Exec;
     DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
                                   std::move(exec)));
+  }
 
   // Add subtract(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
@@ -2718,6 +2719,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
         ScalarBinary<TimestampType, DurationType, TimestampType, SubtractChecked>::Exec;
     DCHECK_OK(subtract_checked->AddKernel({in_type, duration(unit)},
                                           OutputType(FirstType), std::move(exec)));
+  }
+
+  // Add subtract_checked(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   // Add subtract_checked(date32, date32) -> duration(TimeUnit::SECOND)
