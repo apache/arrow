@@ -623,7 +623,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
     }
 #endif
     RETURN_NOT_OK(Allocate(size, out));
-    std::memset(out, 0, size);
+    std::memset(*out, 0, size);
     return Status::OK();
   }
 
