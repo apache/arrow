@@ -417,6 +417,16 @@ test_that("Table$Equals(check_metadata)", {
   expect_false(tab1$Equals(24)) # Not a Table
 })
 
+test_that("Table$nbytes", {
+  vec1 = list(list(c(1,2), c(3,4)), list(c(5, 6, 7), c(NULL), c(8)), list(c(9,10)))
+  vec2 = list(list(c(11,12), c(13,14)), list(c(5, 6, 7), c(NULL), c(8,9)), list(c(10,11)))
+  a1 <- Array$create(vec1, list_of(list_of(int8())))
+  a2 <- Array$create(vec2, list_of(list_of(int8())))
+  tb <- Table$create(a1=a1$Slice(1, 2), a2=a2$Slice(1,2))
+  nbytes <- tb$nbytes()
+  expect_equal(nbytes, (4 * 2 + 1 + 4 * 4 + 1 * 6) + (4 * 2 + 1 + 4 * 4 + 1 * 7))
+})
+
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
   expect_equal(tab$schema, schema(a = int32(), n = null()), ignore_attr = TRUE)

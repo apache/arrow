@@ -148,8 +148,8 @@ Array__Same <- function(x, y) {
   .Call(`_arrow_Array__Same`, x, y)
 }
 
-Array__ReferencedBufferSize <- function(x) {
-  .Call(`_arrow_Array__ReferencedBufferSize`, x)
+Array__ReferencedBufferSize <- function(array) {
+  .Call(`_arrow_Array__ReferencedBufferSize`, array)
 }
 
 ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
@@ -158,6 +158,10 @@ ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
 
 RecordBatch__ReferencedBufferSize <- function(batch) {
   .Call(`_arrow_RecordBatch__ReferencedBufferSize`, batch)
+}
+
+Table__ReferencedBufferSize <- function(table) {
+  .Call(`_arrow_Table__ReferencedBufferSize`, table)
 }
 
 Array__as_vector <- function(array) {
