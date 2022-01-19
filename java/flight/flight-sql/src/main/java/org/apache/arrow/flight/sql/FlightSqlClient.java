@@ -59,7 +59,6 @@ import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
-import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.util.TableRef;
@@ -414,50 +413,6 @@ public class FlightSqlClient implements AutoCloseable {
 
     builder.setPkTable(pkTableRef.getTable());
     builder.setFkTable(fkTableRef.getTable());
-
-    final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
-    return client.getInfo(descriptor, options);
-  }
-
-  /**
-   * Retrieves a description of the foreign key columns that reference the given table's
-   * primary key columns (the foreign keys exported by a table).
-   *
-   * @param pkCatalog     The catalog name where the parent table is.
-   * @param pkSchema      The Schema name where the parent table is.
-   * @param pkTable       The parent table name. It cannot be null.
-   * @param fkCatalog     The catalog name where the foreign table is.
-   * @param fkSchema      The schema name where the foreign table is.
-   * @param fkTable       The foreign table name. It cannot be null.
-   * @param options       RPC-layer hints for this call.
-   * @return a FlightInfo object representing the stream(s) to fetch.
-   */
-  public FlightInfo getCrossReference(final String pkCatalog, final String pkSchema, final String pkTable,
-                                      final String fkCatalog, final String fkSchema ,
-                                      final String fkTable, final CallOption... options) {
-    Objects.requireNonNull(pkTable, "Parent Table cannot be null.");
-    Objects.requireNonNull(fkTable, "Foreign Table cannot be null.");
-
-    final FlightSql.CommandGetCrossReference.Builder builder = FlightSql.CommandGetCrossReference.newBuilder();
-
-    if (pkCatalog != null) {
-      builder.setPkCatalog(pkCatalog);
-    }
-
-    if (pkSchema != null) {
-      builder.setPkSchema(pkSchema);
-    }
-
-    if (fkCatalog != null) {
-      builder.setFkCatalog(fkCatalog);
-    }
-
-    if (fkSchema != null) {
-      builder.setPkSchema(fkSchema );
-    }
-
-    builder.setPkTable(pkTable);
-    builder.setFkTable(fkTable);
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);

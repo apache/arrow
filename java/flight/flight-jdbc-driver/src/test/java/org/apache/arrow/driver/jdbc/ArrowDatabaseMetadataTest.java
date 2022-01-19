@@ -112,7 +112,7 @@ public class ArrowDatabaseMetadataTest {
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
               format("catalog_name #%d", i),
-              format("schema_name #%d", i),
+              format("db_schema_name #%d", i),
               format("table_name #%d", i),
               format("table_type #%d", i),
               // TODO Add these fields to FlightSQL, as it's currently not possible to fetch them.
@@ -122,7 +122,7 @@ public class ArrowDatabaseMetadataTest {
   private static final List<List<Object>> EXPECTED_GET_SCHEMAS_RESULTS =
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
-              format("schema_name #%d", i),
+              format("db_schema_name #%d", i),
               format("catalog_name #%d", i)})
           .map(Arrays::asList)
           .collect(toList());
@@ -130,11 +130,11 @@ public class ArrowDatabaseMetadataTest {
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
               format("pk_catalog_name #%d", i),
-              format("pk_schema_name #%d", i),
+              format("pk_db_schema_name #%d", i),
               format("pk_table_name #%d", i),
               format("pk_column_name #%d", i),
               format("fk_catalog_name #%d", i),
-              format("fk_schema_name #%d", i),
+              format("fk_db_schema_name #%d", i),
               format("fk_table_name #%d", i),
               format("fk_column_name #%d", i),
               i,
@@ -152,7 +152,7 @@ public class ArrowDatabaseMetadataTest {
       range(0, ROW_COUNT)
           .mapToObj(i -> new Object[] {
               format("catalog_name #%d", i),
-              format("schema_name #%d", i),
+              format("db_schema_name #%d", i),
               format("table_name #%d", i),
               format("column_name #%d", i),
               i,
@@ -226,7 +226,6 @@ public class ArrowDatabaseMetadataTest {
   private static final boolean EXPECTED_SUBQUERIES_IN_EXISTS = false;
   private static final boolean EXPECTED_SUBQUERIES_IN_INS = false;
   private static final boolean EXPECTED_SUBQUERIES_IN_QUANTIFIEDS = false;
-  private static final int EXPECTED_SUPPORTED_SUBQUERIES = 1;
   private static final boolean EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED = true;
   private static final boolean EXPECTED_SUPPORTS_UNION = true;
   private static final boolean EXPECTED_SUPPORTS_UNION_ALL = true;
@@ -276,7 +275,7 @@ public class ArrowDatabaseMetadataTest {
     EXPECTED_GET_COLUMNS_RESULTS = range(0, ROW_COUNT * 3)
         .mapToObj(i -> new Object[] {
             format("catalog_name #%d", i / 3),
-            format("schema_name #%d", i / 3),
+            format("db_schema_name #%d", i / 3),
             format("table_name%d", i / 3),
             format("column_%d", (i % 3) + 1),
             expectedGetColumnsDataTypes.get(i % 3),
@@ -347,12 +346,12 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(
                Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("db_schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
         final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
         range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("db_schema_name #%d", i))))
             .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
             .forEach(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))));
         root.setRowCount(ROW_COUNT);
@@ -381,13 +380,13 @@ public class ArrowDatabaseMetadataTest {
                     Field.notNullable("column_3", Types.MinorType.INT.getType())))))
                 .toByteArray();
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("db_schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
         final VarCharVector tableType = (VarCharVector) root.getVector("table_type");
         final VarBinaryVector tableSchema = (VarBinaryVector) root.getVector("table_schema");
         range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("db_schema_name #%d", i))))
             .peek(i -> tableName.setSafe(i, new Text(format("table_name%d", i))))
             .peek(i -> tableType.setSafe(i, new Text(format("table_type #%d", i))))
             .forEach(i -> tableSchema.setSafe(i, filledTableSchemaBytes));
@@ -409,10 +408,10 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SCHEMAS_SCHEMA,
                allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("db_schema_name");
         range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .forEach(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))));
+            .forEach(i -> schemaName.setSafe(i, new Text(format("db_schema_name #%d", i))));
         root.setRowCount(ROW_COUNT);
         listener.start(root);
         listener.putNext();
@@ -439,11 +438,11 @@ public class ArrowDatabaseMetadataTest {
                    Schemas.GET_IMPORTED_KEYS_SCHEMA,
                    allocator)) {
             final VarCharVector pkCatalogName = (VarCharVector) root.getVector("pk_catalog_name");
-            final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_schema_name");
+            final VarCharVector pkSchemaName = (VarCharVector) root.getVector("pk_db_schema_name");
             final VarCharVector pkTableName = (VarCharVector) root.getVector("pk_table_name");
             final VarCharVector pkColumnName = (VarCharVector) root.getVector("pk_column_name");
             final VarCharVector fkCatalogName = (VarCharVector) root.getVector("fk_catalog_name");
-            final VarCharVector fkSchemaName = (VarCharVector) root.getVector("fk_schema_name");
+            final VarCharVector fkSchemaName = (VarCharVector) root.getVector("fk_db_schema_name");
             final VarCharVector fkTableName = (VarCharVector) root.getVector("fk_table_name");
             final VarCharVector fkColumnName = (VarCharVector) root.getVector("fk_column_name");
             final IntVector keySequence = (IntVector) root.getVector("key_sequence");
@@ -453,11 +452,11 @@ public class ArrowDatabaseMetadataTest {
             final UInt1Vector deleteRule = (UInt1Vector) root.getVector("delete_rule");
             range(0, ROW_COUNT)
                 .peek(i -> pkCatalogName.setSafe(i, new Text(format("pk_catalog_name #%d", i))))
-                .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_schema_name #%d", i))))
+                .peek(i -> pkSchemaName.setSafe(i, new Text(format("pk_db_schema_name #%d", i))))
                 .peek(i -> pkTableName.setSafe(i, new Text(format("pk_table_name #%d", i))))
                 .peek(i -> pkColumnName.setSafe(i, new Text(format("pk_column_name #%d", i))))
                 .peek(i -> fkCatalogName.setSafe(i, new Text(format("fk_catalog_name #%d", i))))
-                .peek(i -> fkSchemaName.setSafe(i, new Text(format("fk_schema_name #%d", i))))
+                .peek(i -> fkSchemaName.setSafe(i, new Text(format("fk_db_schema_name #%d", i))))
                 .peek(i -> fkTableName.setSafe(i, new Text(format("fk_table_name #%d", i))))
                 .peek(i -> fkColumnName.setSafe(i, new Text(format("fk_column_name #%d", i))))
                 .peek(i -> keySequence.setSafe(i, i))
@@ -488,14 +487,14 @@ public class ArrowDatabaseMetadataTest {
            final VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_PRIMARY_KEYS_SCHEMA,
                allocator)) {
         final VarCharVector catalogName = (VarCharVector) root.getVector("catalog_name");
-        final VarCharVector schemaName = (VarCharVector) root.getVector("schema_name");
+        final VarCharVector schemaName = (VarCharVector) root.getVector("db_schema_name");
         final VarCharVector tableName = (VarCharVector) root.getVector("table_name");
         final VarCharVector columnName = (VarCharVector) root.getVector("column_name");
         final IntVector keySequence = (IntVector) root.getVector("key_sequence");
         final VarCharVector keyName = (VarCharVector) root.getVector("key_name");
         range(0, ROW_COUNT)
             .peek(i -> catalogName.setSafe(i, new Text(format("catalog_name #%d", i))))
-            .peek(i -> schemaName.setSafe(i, new Text(format("schema_name #%d", i))))
+            .peek(i -> schemaName.setSafe(i, new Text(format("db_schema_name #%d", i))))
             .peek(i -> tableName.setSafe(i, new Text(format("table_name #%d", i))))
             .peek(i -> columnName.setSafe(i, new Text(format("column_name #%d", i))))
             .peek(i -> keySequence.setSafe(i, i))
@@ -555,7 +554,7 @@ public class ArrowDatabaseMetadataTest {
             FlightSql.SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE)
         .withSqlSelectForUpdateSupported(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED)
         .withSqlStoredProceduresSupported(EXPECTED_STORED_PROCEDURES_SUPPORTED)
-        .withSqlSubQueriesSupported(EXPECTED_SUPPORTED_SUBQUERIES)
+        .withSqlSubQueriesSupported(FlightSql.SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS)
         .withSqlCorrelatedSubqueriesSupported(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED)
         .withSqlSupportedUnions(FlightSql.SqlSupportedUnions.SQL_UNION_ALL)
         .withSqlMaxBinaryLiteralLength(EXPECTED_MAX_BINARY_LITERAL_LENGTH)
