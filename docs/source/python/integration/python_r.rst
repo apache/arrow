@@ -48,15 +48,15 @@ add ``3`` to all its elements:
         return(arr + 3L)
     }
 
-We could save such function in a ``addthree.R`` file so that we can
+We could save such a function in a ``addthree.R`` file so that we can
 make it available for reuse.
 
-Once the ``addthree.R`` is created we can invoke any of its functions
+Once the ``addthree.R`` file is created we can invoke any of its functions
 from Python using the 
 `rpy2 <https://rpy2.github.io/doc/latest/html/index.html>`_ library which
 enables a R runtime within the Python interpreter.
 
-``rpy2`` can be installed using ``pip`` like most python libraries
+``rpy2`` can be installed using ``pip`` like most Python libraries
 
 .. code-block:: bash
 
@@ -106,10 +106,10 @@ module which implements ``rpy2`` support for Arrow types.
     $ pip install rpy2-arrow
 
 ``rpy2-arrow`` implements converters from PyArrow objects to R Arrow objects,
-this is done without occurring into any data copy cost as it relies on the
+this is done without incurring any data copy cost as it relies on the
 C Data interface.
 
-To pass to ``addthree`` a PyArrow array our ``addthree.py`` needs to be modified
+To pass to the ``addthree`` function a PyArrow array, our ``addthree.py`` file needs to be modified
 to enable ``rpy2-arrow`` converters and then pass the PyArrow array:
 
 .. code-block:: python
@@ -202,10 +202,10 @@ For additional information you can refer to
 `Reticulate Documentation <https://rstudio.github.io/reticulate/>`_
 and to the `R Arrow documentation <https://arrow.apache.org/docs/r/articles/python.html#using>`_
 
-R to Python communication using C Data Interface
-------------------------------------------------
+R to Python communication using the C Data Interface
+----------------------------------------------------
 
-Both the solutions described in previous chapters use the Arrow C Data
+Both solutions described above use the Arrow C Data
 interface under the hood.
 
 In case we want to extend the previous ``addthree`` example to switch
