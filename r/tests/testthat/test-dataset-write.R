@@ -568,10 +568,42 @@ test_that("Dataset write max rows per files", {
   result_partitions = length(written_files)
 
   expect_equal(expected_partitions, result_partitions)
-
+  total_records = 0
   for (file in written_files) {
     file_path = paste(dst_dir, file, sep="/")
     ds = read_parquet(file_path)
-    expect_lte(length(ds), max_rows_per_file)
+    cur_records = nrow(ds)
+    expect_lte(cur_records, max_rows_per_file)
+    total_records = total_records + cur_records
   }
+  expect_equal(total_records, num_of_records)
+})
+
+test_that("Dataset write max rows per files", {
+  skip_if_not_available("parquet") 
+  num_of_records = 30
+  max_rows_per_group = 18
+  df <- tibble::tibble(
+      int = 1:num_of_records,
+      dbl = as.numeric(1:num_of_records),
+  )  
+  table = Table$create(df)
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+
+  write_dataset(table, path=dst_dir, format=file_format, max_rows_per_group=max_rows_per_group)
+
+  written_files = list.files(dst_dir)
+  record_combination = list()
+  
+  # writes only to a single file with multiple groups
+  file_path = paste(dst_dir, written_files[[1]], sep="/")
+  ds = open_dataset(file_path)
+  row_group_sizes <- ds %>%
+    select() %>%
+    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+    unlist() %>% # Returns list because .data.frame is FALSE
+    sort()
+    
+  expect_equal(row_group_sizes, c(12, 18))
 })
