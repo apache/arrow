@@ -827,11 +827,11 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return new VectorSchemaRootTransformer.Builder(Schemas.GET_IMPORTED_KEYS_SCHEMA,
         allocator)
         .renameFieldVector("pk_catalog_name", "PKTABLE_CAT")
-        .renameFieldVector("pk_schema_name", "PKTABLE_SCHEM")
+        .renameFieldVector("pk_db_schema_name", "PKTABLE_SCHEM")
         .renameFieldVector("pk_table_name", "PKTABLE_NAME")
         .renameFieldVector("pk_column_name", "PKCOLUMN_NAME")
         .renameFieldVector("fk_catalog_name", "FKTABLE_CAT")
-        .renameFieldVector("fk_schema_name", "FKTABLE_SCHEM")
+        .renameFieldVector("fk_db_schema_name", "FKTABLE_SCHEM")
         .renameFieldVector("fk_table_name", "FKTABLE_NAME")
         .renameFieldVector("fk_column_name", "FKCOLUMN_NAME")
         .renameFieldVector("key_sequence", "KEY_SEQ")
@@ -853,7 +853,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final BufferAllocator allocator = connection.getBufferAllocator();
     final VectorSchemaRootTransformer transformer =
         new VectorSchemaRootTransformer.Builder(Schemas.GET_SCHEMAS_SCHEMA, allocator)
-            .renameFieldVector("schema_name", "TABLE_SCHEM")
+            .renameFieldVector("db_schema_name", "TABLE_SCHEM")
             .renameFieldVector("catalog_name", "TABLE_CATALOG")
             .build();
     return ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(connection, flightInfoSchemas,
@@ -889,7 +889,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final VectorSchemaRootTransformer transformer =
         new VectorSchemaRootTransformer.Builder(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
-            .renameFieldVector("schema_name", "TABLE_SCHEM")
+            .renameFieldVector("db_schema_name", "TABLE_SCHEM")
             .renameFieldVector("table_name", "TABLE_NAME")
             .renameFieldVector("table_type", "TABLE_TYPE")
             .addEmptyField("REMARKS", Types.MinorType.VARBINARY)
@@ -914,7 +914,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     final VectorSchemaRootTransformer transformer =
         new VectorSchemaRootTransformer.Builder(Schemas.GET_PRIMARY_KEYS_SCHEMA, allocator)
             .renameFieldVector("catalog_name", "TABLE_CAT")
-            .renameFieldVector("schema_name", "TABLE_SCHEM")
+            .renameFieldVector("db_schema_name", "TABLE_SCHEM")
             .renameFieldVector("table_name", "TABLE_NAME")
             .renameFieldVector("column_name", "COLUMN_NAME")
             .renameFieldVector("key_sequence", "KEY_SEQ")
@@ -953,7 +953,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           final VarCharVector tableNameVector =
               (VarCharVector) originalRoot.getVector("table_name");
           final VarCharVector schemaNameVector =
-              (VarCharVector) originalRoot.getVector("schema_name");
+              (VarCharVector) originalRoot.getVector("db_schema_name");
 
           final VarBinaryVector schemaVector =
               (VarBinaryVector) originalRoot.getVector("table_schema");

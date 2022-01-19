@@ -1229,7 +1229,6 @@ message ActionCreatePreparedStatementRequest {
   option (experimental) = true;
 
   // The valid SQL string to create a prepared statement for.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
 }
 
@@ -1289,19 +1288,7 @@ message CommandStatementQuery {
   option (experimental) = true;
 
   // The SQL syntax.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
-}
-
-/**
- * Represents a ticket resulting from GetFlightInfo with a CommandStatementQuery.
- * This should be used only once and treated as an opaque value, that is, clients should not attempt to parse this.
- */
-message TicketStatementQuery {
-  option (experimental) = true;
-
-  // Unique identifier for the instance of the statement to execute.
-  bytes statement_handle = 1;
 }
 
 /**
@@ -1347,7 +1334,6 @@ message CommandStatementUpdate {
   option (experimental) = true;
 
   // The SQL syntax.
-  // The query should be treated as an opaque value, that is, clients should not attempt to parse this.
   string query = 1;
 }
 

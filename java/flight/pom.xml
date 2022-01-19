@@ -34,6 +34,7 @@
         <module>flight-grpc</module>
         <module>flight-sql</module>
         <module>flight-integration-tests</module>
+        <module>flight-jdbc-driver</module>
     </modules>
 
     <build>
