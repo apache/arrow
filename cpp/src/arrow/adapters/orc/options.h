@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <sstream>
 #include <vector>
 
 #include "arrow/io/interfaces.h"
@@ -84,11 +83,7 @@ class ARROW_EXPORT FileVersion {
 
   bool operator!=(const FileVersion& right) const { return !(*this == right); }
 
-  std::string ToString() const {
-    std::stringstream ss;
-    ss << major() << '.' << minor();
-    return ss.str();
-  }
+  std::string ToString() const;
 };
 
 /// Options for the ORC Writer

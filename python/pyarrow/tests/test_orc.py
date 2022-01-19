@@ -408,15 +408,28 @@ def test_orcfile_readwrite_with_bad_writeoptions():
             padding_tolerance='cat',
         )
 
-    # dictionary_key_size_threshold must be possible to cast to float
+    # dictionary_key_size_threshold must be possible to cast to
+    # float between 0.0 and 1.0
     with pytest.raises(ValueError):
         orc.write_table(
             buffer_output_stream,
             table,
             dictionary_key_size_threshold='arrow',
         )
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold=1.2,
+        )
+    with pytest.raises(ValueError):
+        orc.write_table(
+            buffer_output_stream,
+            table,
+            dictionary_key_size_threshold=-3.2,
+        )
 
-    # bloom_filter_columns must be convertible to a set containing
+    # bloom_filter_columns must be convertible to a list containing
     # nonnegative integers
     with pytest.raises(ValueError):
         orc.write_table(

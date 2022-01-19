@@ -224,40 +224,16 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
   return Table::Make(schema, cv);
 }
 
-/**
- * Generate one of several popular sets of WriteOptions
- */
-arrow::adapters::orc::WriteOptions GenerateRandomWriteOptions() {
-  auto arrow_write_options = arrow::adapters::orc::WriteOptions();
-  std::default_random_engine gen(kRandomSeed);
-  std::uniform_int_distribution<int8_t> d(0, 2);
-  int8_t config = d(gen);
-  switch (config) {
-    case 0:
-      break;
-    case 1: {
-      arrow_write_options.compression = arrow::Compression::SNAPPY;
-      arrow_write_options.file_version = arrow::adapters::orc::FileVersion(0, 11);
-      arrow_write_options.compression_block_size = 32768;
-      arrow_write_options.row_index_stride = 5000;
-      break;
-    }
-    case 2: {
-      arrow_write_options.compression = arrow::Compression::GZIP;
-      break;
-    }
-    default:  // Won't happen but just in case
-      break;
-  }
-  return arrow_write_options;
-}
-
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
-  arrow::adapters::orc::WriteOptions write_options = GenerateRandomWriteOptions();
+  auto arrow_write_options = arrow::adapters::orc::WriteOptions();
+  arrow_write_options.compression = arrow::Compression::SNAPPY;
+  arrow_write_options.file_version = arrow::adapters::orc::FileVersion(0, 11);
+  arrow_write_options.compression_block_size = 32768;
+  arrow_write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
                                         buffer_output_stream.get(), write_options));
   ARROW_EXPECT_OK(writer->Write(*input_table));

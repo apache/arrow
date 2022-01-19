@@ -752,7 +752,7 @@ Result<liborc::WriterOptions> MakeOrcWriterOptions(
                 [&orc_bloom_filter_columns](const int64_t col) {
                   orc_bloom_filter_columns.insert(static_cast<uint64_t>(col));
                 });
-  orc_options.setColumnsUseBloomFilter(orc_bloom_filter_columns);
+  orc_options.setColumnsUseBloomFilter((std::move(orc_bloom_filter_columns));
   orc_options.setBloomFilterFPP(options.bloom_filter_fpp);
   switch (options.compression) {
     case Compression::UNCOMPRESSED:
