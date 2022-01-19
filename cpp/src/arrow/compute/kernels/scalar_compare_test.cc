@@ -2125,7 +2125,6 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
               ResultWith(ScalarFromJSON(date64(), "86400000")));
 }
 
-template <typename ArrowType>
 static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
                             const Datum& rhs, const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
@@ -2133,7 +2132,6 @@ static void ValidateBetween(BetweenOptions options, const Datum& val, const Datu
                     /*verbose=*/true);
 }
 
-template <typename ArrowType>
 void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
                      const Datum& rhs) {
   CompareOperator lhs_val;
@@ -2167,6 +2165,28 @@ template <typename ArrowType>
 class TestNumericBetweenKernel : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestNumericBetweenKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+  using CType = typename TypeTraits<TypeParam>::CType;
+
+  Datum zero(std::make_shared<ScalarType>(CType(0)));
+  Datum two(std::make_shared<ScalarType>(CType(2)));
+  Datum four(std::make_shared<ScalarType>(CType(4)));
+  Datum null(std::make_shared<ScalarType>());
+  for (auto inclusive :
+     {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+      BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    ValidateBetween<TypeParam>(options, zero, two, four);
+    ValidateBetween<TypeParam>(options, two, zero, four);
+    ValidateBetween<TypeParam>(options, two, two, four);
+    ValidateBetween<TypeParam>(options, four, two, four);
+    ValidateBetween<TypeParam>(options, null, two, four);
+    ValidateBetween<TypeParam>(options, two, null, four);
+    validateBetween<TypeParam>(options, two, zero, null);
+  }
+}
+
 TYPED_TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
   using CType = typename TypeTraits<TypeParam>::CType;
