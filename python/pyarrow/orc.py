@@ -21,6 +21,7 @@ import warnings
 
 from pyarrow.lib import Table
 import pyarrow._orc as _orc
+from pyarrow.fs import _resolve_filesystem_and_path
 
 
 class ORCFile:
@@ -175,3 +176,36 @@ def write_table(table, where):
     writer = ORCWriter(where)
     writer.write(table)
     writer.close()
+
+
+def read_table(source, columns=None, filesystem=None):
+    """
+    Read a Table from an ORC file.
+
+    Parameters
+    ----------
+    source : str, pyarrow.NativeFile, or file-like object
+        If a string passed, can be a single file name. For file-like objects,
+        only read a single file. Use pyarrow.BufferReader to read a file
+        contained in a bytes or buffer-like object.
+    columns : list
+        If not None, only these columns will be read from the file. A column
+        name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+        'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+        that the table will still have the correct num_rows set despite having
+        no columns.
+    filesystem : FileSystem, default None
+        If nothing passed, paths assumed to be found in the local on-disk
+        filesystem.
+    """
+
+    filesystem, path = _resolve_filesystem_and_path(source, filesystem)
+    if filesystem is not None:
+        source = filesystem.open_input_file(path)
+
+    if columns is not None and len(columns) == 0:
+        result = ORCFile(source).read().select(columns)
+    else:
+        result = ORCFile(source).read(columns=columns)
+
+    return result
