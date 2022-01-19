@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include <sstream>
 
 #include "arrow/adapters/orc/options.h"
@@ -27,7 +25,7 @@ namespace adapters {
 
 namespace orc {
 
-std::string FileVersion::ToString() {
+std::string FileVersion::ToString() const {
   std::stringstream ss;
   ss << major() << '.' << minor();
   return ss.str();
