@@ -30,9 +30,11 @@
 #include <stdlib.h>
 #endif
 
+#ifndef ARROW_DISABLE_MMAP_FOR_IMMUTABLE_ZEROS
 #ifdef __linux__
-#define ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+#define USE_MMAP_FOR_IMMUTABLE_ZEROS
 #include <sys/mman.h>
+#endif
 #endif
 
 #include "arrow/buffer.h"
@@ -610,7 +612,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
  protected:
   virtual Status AllocateImmutableZeros(int64_t size, uint8_t** out) {
-#ifdef ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+#ifdef USE_MMAP_FOR_IMMUTABLE_ZEROS
     if (size > 0) {
       *out = static_cast<uint8_t*>(mmap(
           nullptr, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
@@ -628,7 +630,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
   }
 
   void FreeImmutableZeros(uint8_t* buffer, int64_t size) override {
-#ifdef ARROW_MMAP_FOR_IMMUTABLE_ZEROS
+#ifdef USE_MMAP_FOR_IMMUTABLE_ZEROS
     if (size > 0) {
       munmap(buffer, size);
       return;
