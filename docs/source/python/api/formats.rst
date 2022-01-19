@@ -101,4 +101,5 @@ ORC Files
 
    ORCFile
    ORCWriter
+   read_table
    write_table

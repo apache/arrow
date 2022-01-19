@@ -29,7 +29,7 @@ std::string FileVersion::ToString() const {
   std::stringstream ss;
   ss << major() << '.' << minor();
   return ss.str();
-};
+}
 
 }  // namespace orc
 }  // namespace adapters
