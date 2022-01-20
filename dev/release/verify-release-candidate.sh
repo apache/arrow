@@ -379,8 +379,6 @@ test_csharp() {
 test_python() {
   pushd python
 
-  pip install -r requirements-build.txt -r requirements-test.txt
-
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -394,7 +392,10 @@ test_python() {
     export PYARROW_WITH_GANDIVA=1
   fi
 
+  pip install -r requirements-build.txt
   python setup.py build_ext --inplace
+
+  pip install -r requirements-test.txt
   pytest pyarrow -v --pdb
 
   popd
