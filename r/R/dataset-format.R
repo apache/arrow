@@ -313,7 +313,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         if (format == "parquet") {
           supported_args <- names(formals(write_parquet))
           supported_args <- supported_args[supported_args != c("x", "sink")]
-        } else if(format == "ipc") {
+        } else if (format == "ipc") {
           supported_args <- c(
             "use_legacy_format",
             "metadata_version",
