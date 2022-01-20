@@ -2373,110 +2373,104 @@ TEST_F(TestProjector, TestInstr) {
 }
 
 TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
-    auto field_year_interval = field("f0", arrow::month_interval());
-    auto field_day_time_interval = field("f1", arrow::day_time_interval());
-    auto field_date = field("f2", arrow::date64());
-//    auto field_time = field("f3", arrow::time32(arrow::TimeUnit::MILLI));
-//    auto field_timestamp = field("f4", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto field_year_interval = field("f0", arrow::month_interval());
+  auto field_day_time_interval = field("f1", arrow::day_time_interval());
+  auto field_date = field("f2", arrow::date64());
+  auto field_time = field("f3", arrow::time32(arrow::TimeUnit::MILLI));
+  auto field_timestamp = field("f4", arrow::timestamp(arrow::TimeUnit::MILLI));
 
-    auto schema = arrow::schema({field_date, field_year_interval, field_day_time_interval});
+  auto schema = arrow::schema({field_date, field_timestamp, field_time,
+                               field_year_interval, field_day_time_interval});
 
-    // output fields
-    auto field_result_timestamp1 = field("r0", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp2 = field("r1", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp3 = field("r2", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp4 = field("r3", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp5 = field("r4", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp6 = field("r5", arrow::timestamp(arrow::TimeUnit::MILLI));
-    auto field_result_timestamp7 = field("r6", arrow::timestamp(arrow::TimeUnit::MILLI));
+  // output fields
+  auto field_result_timestamp = field("r0", arrow::timestamp(arrow::TimeUnit::MILLI));
+  auto field_result_time = field("r1", arrow::time32(arrow::TimeUnit::MILLI));
 
-    auto field_result_time1 = field("out1", arrow::time32(arrow::TimeUnit::MILLI));
-    auto field_result_time2= field("out2", arrow::time32(arrow::TimeUnit::MILLI));
+  // Build add expressions
+  auto add1 = TreeExprBuilder::MakeExpression("add", {field_date, field_year_interval},
+                                              field_result_timestamp);
+  auto add2 = TreeExprBuilder::MakeExpression(
+      "add", {field_date, field_day_time_interval}, field_result_timestamp);
+  auto add3 = TreeExprBuilder::MakeExpression(
+      "add", {field_timestamp, field_day_time_interval}, field_result_timestamp);
+  auto add4 = TreeExprBuilder::MakeExpression(
+      "add", {field_timestamp, field_year_interval}, field_result_timestamp);
+  auto add5 = TreeExprBuilder::MakeExpression(
+      "add", {field_time, field_day_time_interval}, field_result_time);
 
-    // Build add expressions
-    auto add1 = TreeExprBuilder::MakeExpression("add", {field_date, field_year_interval},
-                                                field_result_timestamp1);
-    auto add2 = TreeExprBuilder::MakeExpression("add", {field_date, field_day_time_interval},
-                                                field_result_timestamp2);
-//    auto add3 = TreeExprBuilder::MakeExpression("add", {field_timestamp, field_day_time_interval},
-//                                                field_result_timestamp3);
-//    auto add4 = TreeExprBuilder::MakeExpression("add", {field_timestamp, field_year_interval},
-//                                                field_result_timestamp4);
-//    auto add5 = TreeExprBuilder::MakeExpression("add", {field_time, field_day_time_interval},
-//                                                field_result_time1);
+  // Build subtract expressions
+  auto sub1 = TreeExprBuilder::MakeExpression(
+      "subtract", {field_date, field_day_time_interval}, field_result_timestamp);
+  auto sub2 = TreeExprBuilder::MakeExpression(
+      "subtract", {field_timestamp, field_day_time_interval}, field_result_timestamp);
+  auto sub3 = TreeExprBuilder::MakeExpression(
+      "subtract", {field_timestamp, field_year_interval}, field_result_timestamp);
+  auto sub4 = TreeExprBuilder::MakeExpression(
+      "subtract", {field_time, field_day_time_interval}, field_result_time);
 
-//    // Build subtract expressions
-//    auto sub1 = TreeExprBuilder::MakeExpression("subtract", {field_date, field_day_time_interval},
-//                                                field_result_timestamp5);
-//    auto sub2 = TreeExprBuilder::MakeExpression("subtract", {field_timestamp, field_day_time_interval},
-//                                                field_result_timestamp6);
-//    auto sub3 = TreeExprBuilder::MakeExpression("subtract", {field_timestamp, field_year_interval},
-//                                                field_result_timestamp7);
-//    auto sub4 = TreeExprBuilder::MakeExpression("subtract", {field_time, field_day_time_interval},
-//                                                field_result_time2);
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {add1, add2, add3, add4, add5, sub1, sub2, sub3, sub4},
+                      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
 
-    // Build a projector for the expressions.
-    std::shared_ptr<Projector> projector;
-    auto status = Projector::Make(schema, {add1, add2}, TestConfiguration(), &projector);
-    EXPECT_TRUE(status.ok());
+  // Create a row-batch with some sample data
+  std::shared_ptr<arrow::Array> array_month_interval, array_day_interval, array_timestamp;
+  int num_records = 2;
+  auto array_date64 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
+  arrow::ArrayFromVector<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {true, false},
+      {951609600000, -26611200000}, &array_timestamp);
+  auto array_time = MakeArrowTypeArray<arrow::Time32Type, int32_t>(
+      arrow::time32(arrow::TimeUnit::MILLI), {2500, 0}, {true, false});
 
-    // Create a row-batch with some sample data
-    std::shared_ptr<arrow::Array> array_month_interval, array_day_interval, array_timestamp;
-    int num_records = 2;
-    auto array_date64 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
-//    arrow::ArrayFromVector<arrow::TimestampType, int64_t>(arrow::timestamp(arrow::TimeUnit::MILLI), {true, false}, {951609600000, -26611200000}, &array_timestamp);
-//    auto array_time = MakeArrowTypeArray<arrow::Time32Type, int32_t>(arrow::time32(arrow::TimeUnit::MILLI), {1000, 0}, {true, false});
+  arrow::ArrayFromVector<arrow::MonthIntervalType, int64_t>(
+      arrow::month_interval(), {true, true}, {4, 4}, &array_month_interval);
+  arrow::ArrayFromVector<arrow::DayTimeIntervalType,
+                         arrow::DayTimeIntervalType::DayMilliseconds>(
+      arrow::day_time_interval(), {true, true}, {{4, 1500}, {2, 2}}, &array_day_interval);
 
-    arrow::ArrayFromVector<arrow::MonthIntervalType, int64_t>(arrow::month_interval(), {true, true}, {4, 4}, &array_month_interval);
-    arrow::ArrayFromVector<arrow::DayTimeIntervalType, arrow::DayTimeIntervalType::DayMilliseconds>(arrow::day_time_interval(),{true, true}, {{4, 1500},{2,2}}, &array_day_interval);
+  // expected outputs
+  auto exp1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0}, {true, false});
+  auto exp2 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {951955201500, 0}, {true, false});
+  auto exp3 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {951955201500, 0}, {true, false});
+  auto exp4 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0}, {true, false});
+  auto exp5 = MakeArrowTypeArray<arrow::Time32Type, int32_t>(
+      arrow::time32(arrow::TimeUnit::MILLI), {4000, 0}, {true, false});
+  auto exp6 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {951264001500, 0}, {true, false});
+  auto exp7 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {951264001500, 0}, {true, false});
+  auto exp8 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {940982400000, 0}, {true, false});
+  auto exp9 = MakeArrowTypeArray<arrow::Time32Type, int32_t>(
+      arrow::time32(arrow::TimeUnit::MILLI), {1000, 0}, {true, false});
 
-    // expected outputs
-    auto exp1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-        {true, false});
-    auto exp2 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-        arrow::timestamp(arrow::TimeUnit::MILLI), {951955201500, 0},
-        {true, false});
-    auto exp3 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-        arrow::timestamp(arrow::TimeUnit::MILLI), {951868800000, 0},
-        {true, false});
-    auto exp4 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-        {true, false});
-    auto exp5 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-        arrow::timestamp(arrow::TimeUnit::MILLI), {1500, 0},
-        {true, false});
-//    auto exp6 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-//        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-//        {true, false});
-//    auto exp7 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-//        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-//        {true, false});
-//    auto exp8 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-//        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-//        {true, false});
-//    auto exp9 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
-//        arrow::timestamp(arrow::TimeUnit::MILLI), {962064000000, 0},
-//        {true, false});
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array_date64, array_timestamp, array_time,
+                                            array_month_interval, array_day_interval});
 
-    // prepare input record batch
-    auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_date64, array_month_interval, array_day_interval});
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
 
-    // Evaluate expression
-    arrow::ArrayVector outputs;
-    status = projector->Evaluate(*in_batch, pool_, &outputs);
-    EXPECT_TRUE(status.ok());
-
-    // Validate results
-    EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
-    EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp3, outputs.at(2));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp4, outputs.at(3));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp5, outputs.at(4));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp6, outputs.at(5));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp7, outputs.at(6));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp8, outputs.at(7));
-//    EXPECT_ARROW_ARRAY_EQUALS(exp9, outputs.at(8));
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp1, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp2, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp3, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(exp4, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(exp5, outputs.at(4));
+  EXPECT_ARROW_ARRAY_EQUALS(exp6, outputs.at(5));
+  EXPECT_ARROW_ARRAY_EQUALS(exp7, outputs.at(6));
+  EXPECT_ARROW_ARRAY_EQUALS(exp8, outputs.at(7));
+  EXPECT_ARROW_ARRAY_EQUALS(exp9, outputs.at(8));
 }
 
 }  // namespace gandiva
