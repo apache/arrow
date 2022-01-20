@@ -59,6 +59,8 @@ you will see:
    The window you get after creating an account on the ASF JIRA.
 
 
+.. _create_jira:
+
 How to create a JIRA issue
 ==========================
 

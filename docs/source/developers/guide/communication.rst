@@ -76,7 +76,9 @@ to ask before you spend too much of your time on something that we
 might think is not a good idea.
 
 .. seealso::
-   How to create a JIRA issue. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
+
+   - :ref:`create_jira`
+   - :ref:`jira-tips`
 
 - If you want to **solve an issue that is already in JIRA**, you should
   connect with other contributors in the issue comments.
