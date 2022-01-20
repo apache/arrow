@@ -1477,16 +1477,12 @@ def generate_dictionary_unsigned_case():
     dict0 = Dictionary(0, StringField('dictionary0'), size=5, name='DICT0')
     dict1 = Dictionary(1, StringField('dictionary1'), size=5, name='DICT1')
     dict2 = Dictionary(2, StringField('dictionary2'), size=5, name='DICT2')
-
-    # TODO: JavaScript does not support uint64 dictionary indices, so disabled
-    # for now
-
-    # dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
+    dict3 = Dictionary(3, StringField('dictionary3'), size=5, name='DICT3')
     fields = [
         DictionaryField('f0', get_field('', 'uint8'), dict0),
         DictionaryField('f1', get_field('', 'uint16'), dict1),
         DictionaryField('f2', get_field('', 'uint32'), dict2),
-        # DictionaryField('f3', get_field('', 'uint64'), dict3)
+        DictionaryField('f3', get_field('', 'uint64'), dict3)
     ]
     batch_sizes = [7, 10]
     return _generate_file("dictionary_unsigned", fields, batch_sizes,
@@ -1618,10 +1614,13 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Go')
         .skip_category('JS'),
 
-        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()
         .skip_category('C#')
-        .skip_category('Go'),
+        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
+        .skip_category('Go')
+        # TODO: JavaScript does not support uint64 dictionary indices, so disabled
+        # for now
+        .skip_category("JS"),
 
         generate_dictionary_unsigned_case()
         .skip_category('C#')
