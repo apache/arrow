@@ -252,6 +252,7 @@ setup_miniconda() {
   echo "Installed miniconda at ${MINICONDA}"
 
   . $MINICONDA/etc/profile.d/conda.sh
+  conda activate base
 
   # Dependencies from python/requirements-build.txt and python/requirements-test.txt
   # with the exception of oldest-supported-numpy since it doesn't have a conda package
