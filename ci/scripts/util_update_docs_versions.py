@@ -18,9 +18,9 @@
 import json
 import sys
 
-dir_path = sys.argv[0]
-version = sys.argv[1] 
-r_version = sys.argv[2] 
+dir_path = sys.argv[1]
+version = sys.argv[2] 
+r_version = sys.argv[3] 
 
 main_versions_path = dir_path + "/docs/source/_static/versions.json"
 r_versions_path = dir_path + "/r/pkgdown/assets/versions.json"
