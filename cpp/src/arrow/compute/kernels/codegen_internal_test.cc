@@ -247,6 +247,7 @@ TEST(TestDispatchBest, ReplaceTemporalTypes) {
 
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::SECOND, tz)};
   ty = CommonTemporalResolution(args.data(), args.size());
+  ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::SECOND, "UTC"));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::SECOND, tz));
 }

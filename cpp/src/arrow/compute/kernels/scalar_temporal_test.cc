@@ -1158,13 +1158,13 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTime) {
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
   std::string op = "subtract";
-  auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+  auto arr_s = ArrayFromJSON(duration(TimeUnit::SECOND), times_s);
   auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
-  auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+  auto arr_ms = ArrayFromJSON(duration(TimeUnit::MILLI), times_ms);
   auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
-  auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+  auto arr_us = ArrayFromJSON(duration(TimeUnit::MICRO), times_us);
   auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
-  auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+  auto arr_ns = ArrayFromJSON(duration(TimeUnit::NANO), times_ns);
   auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
 
   CheckScalarBinary(
@@ -1179,19 +1179,51 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
                     ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
                     arr_ns);
 
-  CheckScalarBinary(op, arr_s, ArrayFromJSON(duration(TimeUnit::SECOND), zeros), arr_s);
-  CheckScalarBinary(op, arr_ms, ArrayFromJSON(duration(TimeUnit::MILLI), zeros), arr_ms);
-  CheckScalarBinary(op, arr_us, ArrayFromJSON(duration(TimeUnit::MICRO), zeros), arr_us);
-  CheckScalarBinary(op, arr_ns, ArrayFromJSON(duration(TimeUnit::NANO), zeros), arr_ns);
+  auto seconds_3 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([3, null])");
+  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+  auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1000, null])");
+  auto nanoseconds_3G = ArrayFromJSON(duration(TimeUnit::NANO), R"([3000000000, null])");
+  auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
+  auto nanoseconds_1M = ArrayFromJSON(duration(TimeUnit::NANO), R"([1000000000, null])");
+  auto microseconds_1M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([1000000, null])");
+  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  CheckScalarBinary(op, nanoseconds_3G, microseconds_2M, nanoseconds_1M);
+  CheckScalarBinary(op, seconds_3, microseconds_2M, microseconds_1M);
+}
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, testing::HasSubstr("no kernel matching input types"),
-      Subtract(ArrayFromJSON(time32(TimeUnit::SECOND), times_s),
-               ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time)));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented, testing::HasSubstr("no kernel matching input types"),
-      Subtract(ArrayFromJSON(time64(TimeUnit::MICRO), times_us),
-               ArrayFromJSON(duration(TimeUnit::SECOND), milliseconds_between_time)));
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDurationChecked) {
+  std::string op = "subtract_checked";
+  auto arr_s = ArrayFromJSON(duration(TimeUnit::SECOND), times_s);
+  auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
+  auto arr_ms = ArrayFromJSON(duration(TimeUnit::MILLI), times_ms);
+  auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
+  auto arr_us = ArrayFromJSON(duration(TimeUnit::MICRO), times_us);
+  auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
+  auto arr_ns = ArrayFromJSON(duration(TimeUnit::NANO), times_ns);
+  auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
+
+  CheckScalarBinary(
+      op, arr_s2, ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time), arr_s);
+  CheckScalarBinary(op, arr_ms2,
+                    ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
+                    arr_ms);
+  CheckScalarBinary(op, arr_us2,
+                    ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
+                    arr_us);
+  CheckScalarBinary(op, arr_ns2,
+                    ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+                    arr_ns);
+
+  auto seconds_3 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([3, null])");
+  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+  auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1000, null])");
+  auto nanoseconds_3G = ArrayFromJSON(duration(TimeUnit::NANO), R"([3000000000, null])");
+  auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
+  auto nanoseconds_1M = ArrayFromJSON(duration(TimeUnit::NANO), R"([1000000000, null])");
+  auto microseconds_1M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([1000000, null])");
+  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  CheckScalarBinary(op, nanoseconds_3G, microseconds_2M, nanoseconds_1M);
+  CheckScalarBinary(op, seconds_3, microseconds_2M, microseconds_1M);
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
