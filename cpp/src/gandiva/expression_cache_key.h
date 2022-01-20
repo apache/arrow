@@ -19,6 +19,7 @@
 
 #include <cstddef>
 
+#include <array>
 #include <thread>
 
 #include "arrow/util/hash_util.h"
@@ -30,7 +31,7 @@
 
 namespace gandiva {
 
-static const std::string func_with_re2_patterns[] = {
+static const std::array<std::string, 3> func_with_re2_patterns = {
     " like("
     " ilike("
     " regexp_replace("};
