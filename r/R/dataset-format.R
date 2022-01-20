@@ -328,7 +328,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
 
         if (length(unsupported_passed_args) > 0) {
           err_header <- paste0(
-            oxford_paste(unsupported_passed_args),
+            oxford_paste(unsupported_passed_args, quote_symbol = "`"),
             ngettext(length(unsupported_passed_args),
                      " is not a valid argument ",
                      " are not valid arguments "),
@@ -337,7 +337,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           err_info <- NULL
           arg_info <- paste0(
             "Supported arguments: ",
-            oxford_paste(supported_args)
+            oxford_paste(supported_args, quote_symbol = "`")
           )
           if ("compression" %in% unsupported_passed_args) {
             err_info <- "You could try using `codec` instead of `compression`."
