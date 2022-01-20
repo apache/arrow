@@ -1,5 +1,5 @@
 function addInstallDirToSearchPath(installDirPath, addInstallDirToSearchPath, addInstallDirToStartupFile)
-    % addInstallDirToSearchPath Add the input path, installDirPath, to the 
+    % addInstallDirToSearchPath Add the input path, INSTALLDIRPATH, to the 
     %                           MATLAB Search Path and save.
     %
     % Licensed to the Apache Software Foundation (ASF) under one or more

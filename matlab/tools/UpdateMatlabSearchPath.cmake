@@ -30,7 +30,7 @@ execute_process(COMMAND "${NATIVE_MATLAB_MAIN_PROGRAM}" -sd "${NATIVE_TOOLS_DIR}
                 RESULT_VARIABLE MATLAB_EXIT_CODE)
 
 if(MATLAB_EXIT_CODE EQUAL "1")
-  # Get path to MATLAB pathdef.m file. This is the location of the default MATLAB Search Path
+  # Get path to the default MATLAB pathdef.m file.
   set(MATLAB_PATHDEF_FILE "${Matlab_MAIN_PROGRAM}/toolbox/local/pathdef.m")
   file(TO_NATIVE_PATH ${MATLAB_PATHDEF_FILE} NATIVE_MATLAB_PATHDEF_FILE)
 
@@ -39,16 +39,16 @@ if(MATLAB_EXIT_CODE EQUAL "1")
 endif()
 
 if(MATLAB_EXIT_CODE EQUAL "2")
-  message(FATAL_ERROR "Failed to add the addpath command to the MATLAB startup.m file located at the MATLAB userpath directory: ${NATIVE_INSTALL_DIR}. fopen() failed to open file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands or by resolving the permissions issues and re-running the CMake install target."
+  message(FATAL_ERROR "Failed to append to the MATLAB startup.m file located at the MATLAB userpath directory. fopen() failed to open the file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands."
   )
 endif()
 
 if(MATLAB_EXIT_CODE EQUAL "3")
-  message(FATAL_ERROR "Failed to add the addpath command to the MATLAB startup.m file located at the MATLAB userpath directory: ${NATIVE_INSTALL_DIR}. fwrite() failed to write to the file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands or by resolving the permissions issues and re-running the CMake install target."
+  message(FATAL_ERROR "Failed to append to the MATLAB startup.m file located at the MATLAB userpath directory. fwrite() failed to write to the file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands."
   )
 endif()
 
 if(MATLAB_EXIT_CODE EQUAL "4")
-  message(FATAL_ERROR "Failed to add the addpath command to the MATLAB startup.m file located at the MATLAB userpath directory: ${NATIVE_INSTALL_DIR}. fclose() failed to close the file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands or by resolving the permissions issues and re-running the CMake install target."
+  message(FATAL_ERROR "Failed to append to the MATLAB startup.m file located at the MATLAB userpath directory. fclose() failed to close the file. In order to complete the installation process, ${NATIVE_INSTALL_DIR} must be added to the MATLAB Search Path using the \"addpath\" and \"savepath\" MATLAB commands."
   )
 endif()

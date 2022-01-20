@@ -496,20 +496,21 @@ if(UNIX
   endif()
 endif()
 
-# MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE sets whether the path to the install directory should
-# be added to the startup.m file located at the MATLAB userpath.
+# MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install
+# directory path to the MATLAB Search Path is added to the startup.m file located in the MATLAB
+# userpath directory.
 option(MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE
        "Sets whether the path to the install directory should be added to the startup.m file located at the MATLAB userpath"
        OFF)
 
-# If MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE is specified ON and MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH is
-# not specified, then set MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH=OFF.
+# If MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE is specified ON and MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH
+# is not specified, then set MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH=OFF.
 if(MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE AND NOT DEFINED
                                               MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH)
   set(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH OFF)
 endif()
 
-# MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH sets whether the path to the install directory should
+# MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH toggles whether the path to the install directory should
 # be directly added to the MATLAB Search Path.
 option(MATLAB_ADD_INSTALL_DIR_TO_SEARCH_PATH
        "Sets whether the path to the install directory should be directly added to the MATLAB Search Path"
