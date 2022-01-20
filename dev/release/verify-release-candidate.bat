@@ -52,7 +52,7 @@ call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
 @rem With MSVC we always bundle a more recent GTest which causes a link conflict
 @rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
-conda remove -y gtest gmock
+call conda remove -y gtest gmock || exit /B 1
 
 set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
