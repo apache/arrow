@@ -330,23 +330,6 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
       fields[left_size + i] =
           std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
     }
-
-    // if (search != left_field_map.end()) {
-    //   auto left_val = search->first;
-    //   auto left_index = search->second;
-    //   auto left_field = fields[left_index];
-    //   // update left table field with suffix
-    //   fields[left_index] =
-    //       std::make_shared<Field>(input_field_name + left_field_name_suffix,
-    //                               left_field->type(), true /*nullable*/);
-    //   // insert right table field with suffix
-    //   fields[left_size + i] = std::make_shared<Field>(
-    //       input_field_name + right_field_name_suffix, input_data_type, true /*nullable*/);
-    // } else {
-    //   // insert right table field without suffix
-    //   fields[left_size + i] =
-    //       std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
-    // }
   }
   return std::make_shared<Schema>(std::move(fields));
 }
