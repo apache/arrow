@@ -38,4 +38,4 @@
 /// @{
 /// @}
 
-#include "arrow/compute/exec/options.h"   // IWYU pragma: export
+#include "arrow/compute/exec/options.h"  // IWYU pragma: export

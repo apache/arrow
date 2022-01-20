@@ -309,10 +309,8 @@ reads and decodes twice.
 Constructing ``ExecNode`` using Options
 =======================================
 
-Using the execution plan we can construct various queries. 
-To construct such queries, we have provided a set of building blocks
-referred to as :class:`ExecNode` s. These nodes provide the ability to  
-construct operations like filtering, projection, join, etc. 
+:class:`ExecNode` is the component we use as a building block 
+containing in-built operations with various functionalities. 
 
 This is the list of operations associated with the execution plan:
 
@@ -329,7 +327,7 @@ This is the list of operations associated with the execution plan:
    * - ``project``
      - :class:`arrow::compute::ProjectNodeOptions`
    * - ``aggregate``
-     - :class:`arrow::compute::ScalarAggregateOptions`
+     - :class:`arrow::compute::AggregateNodeOptions`
    * - ``sink``
      - :class:`arrow::compute::SinkNodeOptions`
    * - ``consuming_sink``
@@ -361,7 +359,7 @@ The source node requires some kind of function that can be called to poll for mo
 function should take no arguments and should return an
 ``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
 This function might be reading a file, iterating through an in memory structure, or receiving data
-from a network connection.  The arrow library refers to these functions as `arrow::AsyncGenerator`
+from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
 and there are a number of utilities for working with these functions.  For this example we use 
 a vector of record batches that we've already stored in memory.
 In addition, the schema of the data must be known up front.  Arrow's streaming execution
@@ -799,3 +797,12 @@ There are examples of these nodes which can be found in ``examples/arrow/executi
 9. :ref:`HashJoin<stream_execution_hashjoin_docs>`
 10. :ref:`Write<stream_execution_write_docs>`
 11. :ref:`Union<stream_execution_union_docs>`
+
+Complete Example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Execution Plan Documentation Example)
+  :end-before: (Doc section: Execution Plan Documentation Example)
+  :linenos:
+  :lineno-match:

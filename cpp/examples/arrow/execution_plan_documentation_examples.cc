@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// (Doc section: Execution Plan Documentation Example)
+
 #include <memory>
 #include <utility>
 
@@ -68,8 +70,7 @@ constexpr char kSep[] = "******";
 
 namespace cp = ::arrow::compute;
 
-std::string GetDataAsCsvString() {
-  std::string data_str = R"csv(a,b
+const char kCsvData[] = R"csv(a,b
 1,null
 2,true
 null,true
@@ -81,8 +82,6 @@ null,true
 7,false
 8,true
 )csv";
-  return data_str;
-}
 
 template <typename TYPE,
           typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
@@ -126,8 +125,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData() {
   arrow::io::IOContext io_context = arrow::io::default_io_context();
   std::shared_ptr<arrow::io::InputStream> input;
-  std::string csv_data = GetDataAsCsvString();
-  arrow::util::string_view sv = csv_data;
+  arrow::util::string_view sv = kCsvData;
   input = std::make_shared<arrow::io::BufferReader>(sv);
 
   auto read_options = arrow::csv::ReadOptions::Defaults();
@@ -899,3 +897,5 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
 }
+
+// (Doc section: Execution Plan Documentation Example)
