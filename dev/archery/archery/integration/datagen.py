@@ -1401,9 +1401,8 @@ def generate_nested_case():
                            get_field('item', 'int32'), 4),
         StructField('struct_nullable', [get_field('f1', 'int32'),
                                         get_field('f2', 'utf8')]),
-        # Fails on Go (ARROW-8452)
-        # ListField('list_nonnullable', get_field('item', 'int32'),
-        #           nullable=False),
+        ListField('list_nonnullable', get_field('item', 'int32'),
+                  nullable=False),
     ]
 
     batch_sizes = [7, 10]
@@ -1592,7 +1591,8 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_nested_case()
-        .skip_category('C#'),
+        .skip_category('C#')
+        .skip_category('Go'),    # TODO(ARROW-8452)
 
         generate_recursive_nested_case()
         .skip_category('C#'),
