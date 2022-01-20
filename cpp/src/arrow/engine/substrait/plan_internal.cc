@@ -41,11 +41,11 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
   for (size_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
-    const auto& uri = ext_set.uris()[anchor];
+    auto uri = ext_set.uris()[anchor];
     if (uri.empty()) continue;
 
     auto ext_uri = internal::make_unique<substrait::extensions::SimpleExtensionURI>();
-    ext_uri->set_uri(uri);
+    ext_uri->set_uri(uri.to_string());
     ext_uri->set_extension_uri_anchor(anchor);
     uris->AddAllocated(ext_uri.release());
 
@@ -99,19 +99,19 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 }
 
 namespace {
-template <typename T>
-void SetElement(size_t i, T element, std::vector<T>* vector) {
+template <typename Element, typename T>
+void SetElement(size_t i, const Element& element, std::vector<T>* vector) {
   DCHECK_LE(i, 1 << 20);
   if (i >= vector->size()) {
     vector->resize(i + 1);
   }
-  (*vector)[i] = std::move(element);
+  (*vector)[i] = static_cast<T>(element);
 }
 }  // namespace
 
 Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                                              ExtensionIdRegistry* registry) {
-  std::vector<std::string> uris;
+  std::vector<util::string_view> uris;
   for (const auto& uri : plan.extension_uris()) {
     SetElement(uri.extension_uri_anchor(), uri.uri(), &uris);
   }
@@ -119,14 +119,16 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
   // NOTE: it's acceptable to use views to memory owned by plan; ExtensionSet::Make
   // will only store views to memory owned by registry.
 
-  std::vector<ExtensionSet::Id> type_ids, function_ids;
+  using Id = ExtensionSet::Id;
+
+  std::vector<Id> type_ids, function_ids;
   std::vector<bool> type_is_variation;
   for (const auto& ext : plan.extensions()) {
     switch (ext.mapping_type_case()) {
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionTypeVariation: {
         const auto& type_var = ext.extension_type_variation();
         util::string_view uri = uris[type_var.extension_uri_reference()];
-        SetElement(type_var.type_variation_anchor(), {uri, type_var.name()}, &type_ids);
+        SetElement(type_var.type_variation_anchor(), Id{uri, type_var.name()}, &type_ids);
         SetElement(type_var.type_variation_anchor(), true, &type_is_variation);
         break;
       }
@@ -134,7 +136,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionType: {
         const auto& type = ext.extension_type();
         util::string_view uri = uris[type.extension_uri_reference()];
-        SetElement(type.type_anchor(), {uri, type.name()}, &type_ids);
+        SetElement(type.type_anchor(), Id{uri, type.name()}, &type_ids);
         SetElement(type.type_anchor(), false, &type_is_variation);
         break;
       }
@@ -142,7 +144,7 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
       case substrait::extensions::SimpleExtensionDeclaration::kExtensionFunction: {
         const auto& fn = ext.extension_function();
         util::string_view uri = uris[fn.extension_uri_reference()];
-        SetElement(fn.function_anchor(), {uri, fn.name()}, &function_ids);
+        SetElement(fn.function_anchor(), Id{uri, fn.name()}, &function_ids);
         break;
       }
 
@@ -155,10 +157,6 @@ Result<ExtensionSet> GetExtensionSetFromPlan(const substrait::Plan& plan,
                             std::move(type_is_variation), std::move(function_ids),
                             registry);
 }
-
-// if read relation is LocalFiles -> produce dataset scan node Declaration
-// otherwise                      -> invoke callback, probably does Voltron specific
-//                                   things with other read relation types
 
 }  // namespace engine
 }  // namespace arrow

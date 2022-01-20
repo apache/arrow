@@ -83,6 +83,9 @@ bool UnwrapIntervalDay(const DataType&);
 /// registered with their corresponding arrow::DataType before they can be used!
 class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
  public:
+  /// All uris registered in this ExtensionIdRegistry
+  virtual std::vector<util::string_view> Uris() const = 0;
+
   struct Id {
     util::string_view uri, name;
 
@@ -105,8 +108,14 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   //
   // ... for another example, depending on the value of the first argument to
   // substrait::add it either corresponds to arrow::add or arrow::add_checked
-  // virtual util::optional<Id> GetFunction(const compute::Expression&) const = 0;
-  // virtual Status RegisterFunction(Id, const std::string&) = 0;
+  struct FunctionRecord {
+    Id id;
+    const std::string& function_name;
+  };
+  virtual util::optional<FunctionRecord> GetFunction(Id) const = 0;
+  virtual util::optional<FunctionRecord> GetFunction(
+      util::string_view arrow_function_name) const = 0;
+  virtual Status RegisterFunction(Id, std::string arrow_function_name) = 0;
 };
 
 constexpr util::string_view kArrowExtTypesUri =
@@ -116,6 +125,9 @@ constexpr util::string_view kArrowExtTypesUri =
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 
 /// A subset of an ExtensionIdRegistry with extensions identifiable by an integer.
+///
+/// ExtensionSet does not own strings; it only refers to strings in an
+/// ExtensionIdRegistry.
 class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   using Id = ExtensionIdRegistry::Id;
@@ -133,23 +145,18 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// Views will be replaced with equivalent views pointing to memory owned by the
   /// registry.
   static Result<ExtensionSet> Make(
-      std::vector<std::string> uris, std::vector<Id> type_ids,
+      std::vector<util::string_view> uris, std::vector<Id> type_ids,
       std::vector<bool> type_is_variation, std::vector<Id> function_ids,
       ExtensionIdRegistry* = default_extension_id_registry());
 
   // index in these vectors == value of _anchor/_reference fields
   /// FIXME this assumes that _anchor/_references won't be huge, which is not guaranteed.
   /// Could it be?
-  const std::vector<std::string>& uris() const { return uris_; }
+  const std::vector<util::string_view>& uris() const { return uris_; }
 
   const DataTypeVector& types() const { return types_; }
   const std::vector<Id>& type_ids() const { return type_ids_; }
   bool type_is_variation(uint32_t i) const { return type_is_variation_[i]; }
-
-  /// Encode a type as a substrait::ExtensionType or a substrait::ExtensionTypeVariation.
-  /// Returns an integer usable for Type.user_defined_type_reference. This method will be
-  /// invoked during serialization when non substrait-core types are encountered.
-  uint32_t EncodeType(Id, const std::shared_ptr<DataType>&, bool is_variation);
 
   /// Encode a type, looking it up first in this set's ExtensionIdRegistry.
   /// If no type is found, an error will be raised.
@@ -161,12 +168,13 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
 
  private:
   ExtensionIdRegistry* registry_;
-  std::vector<std::string> uris_;
+  std::vector<util::string_view> uris_;
   DataTypeVector types_;
   std::vector<Id> type_ids_;
   std::vector<bool> type_is_variation_;
 
   std::vector<Id> function_ids_;
+  std::vector<util::string_view> function_names_;
 
   // pimpl pattern to hide lookup details
   struct Impl;

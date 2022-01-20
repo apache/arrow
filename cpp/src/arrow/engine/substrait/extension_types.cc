@@ -191,6 +191,8 @@ struct ExtensionSet::Impl {
 
   uint32_t EncodeType(Id id, const std::shared_ptr<DataType>& type, bool is_variation,
                       ExtensionSet* self) {
+    // note: at this point we're guaranteed to have an Id which points to memory owned by
+    // the set's registry.
     AddUri(id.uri, self);
     auto it_success = types_.emplace(id, static_cast<uint32_t>(types_.size()));
 
@@ -211,7 +213,7 @@ struct ExtensionSet::Impl {
 ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
     : registry_(registry), impl_(new Impl(), [](Impl* impl) { delete impl; }) {}
 
-Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
+Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
                                         std::vector<Id> type_ids,
                                         std::vector<bool> type_is_variation,
                                         std::vector<Id> function_ids,
@@ -219,16 +221,28 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
   ExtensionSet set;
   set.registry_ = registry;
 
-  for (auto uri : uris) {
+  // TODO(bkietz) move this into the registry as registry->OwnUris(&uris) or so
+  std::unordered_set<util::string_view, ::arrow::internal::StringViewHash>
+      uris_owned_by_registry;
+  for (util::string_view uri : registry->Uris()) {
+    uris_owned_by_registry.insert(uri);
+  }
+
+  for (auto& uri : uris) {
     if (uri.empty()) continue;
+    auto it = uris_owned_by_registry.find(uri);
+    if (it == uris_owned_by_registry.end()) {
+      return Status::KeyError("Uri '", uri, "' not found in registry");
+    }
+    uri = *it;  // Ensure uris point into the registry's memory
     set.impl_->AddUri(uri, &set);
   }
-  set.uris_ = std::move(uris);
 
   if (type_ids.size() != type_is_variation.size()) {
     return Status::Invalid("Received ", type_ids.size(), " type ids but a ",
                            type_is_variation.size(), "-long is_variation vector");
   }
+
   set.types_.resize(type_ids.size());
 
   for (size_t i = 0; i < type_ids.size(); ++i) {
@@ -240,25 +254,45 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<std::string> uris,
       type_ids[i] = rec->id;  // use Id which references memory owned by the registry
       continue;
     }
-    return Status::Invalid("Type not found");
+    return Status::Invalid("Type ", (type_is_variation[i] ? "variation" : ""), " (",
+                           type_ids[i].uri, ", ", type_ids[i].name, ") not found");
   }
 
+  set.function_names_.resize(function_ids.size());
+
+  for (size_t i = 0; i < function_ids.size(); ++i) {
+    if (function_ids[i].empty()) continue;
+    RETURN_NOT_OK(set.impl_->CheckHasUri(function_ids[i].uri));
+
+    if (auto rec = registry->GetFunction(function_ids[i])) {
+      set.function_names_[i] = rec->function_name;
+      function_ids[i] = rec->id;  // use Id which references memory owned by the registry
+      continue;
+    }
+    return Status::Invalid("Function (", function_ids[i].uri, ", ", type_ids[i].name,
+                           ") not found");
+  }
+
+  set.function_ids_ = std::move(function_ids);
   set.type_ids_ = std::move(type_ids);
   set.type_is_variation_ = std::move(type_is_variation);
+  set.uris_ = std::move(uris);
 
   return std::move(set);
 }
 
-uint32_t ExtensionSet::EncodeType(Id id, const std::shared_ptr<DataType>& type,
-                                  bool is_variation) {
-  return impl_->EncodeType(id, type, is_variation, this);
-}
-
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    return EncodeType(rec->id, rec->type, rec->is_variation);
+    return impl_->EncodeType(rec->id, rec->type, rec->is_variation, this);
   }
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
+}
+
+template <typename KeyToIndex, typename Key>
+const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
+  auto it = key_to_index.find(key);
+  if (it == key_to_index.end()) return nullptr;
+  return &it->second;
 }
 
 ExtensionIdRegistry* default_extension_id_registry() {
@@ -279,21 +313,24 @@ ExtensionIdRegistry* default_extension_id_registry() {
                                /*is_variation=*/true));
       }
     }
-    util::optional<TypeRecord> GetType(const DataType& type) const override {
-      auto it = type_to_index_.find(&type);
-      if (it == type_to_index_.end()) return {};
 
-      int index = it->second;
-      return TypeRecord{ids_[index], types_[index], type_is_variation_[index]};
+    std::vector<util::string_view> Uris() const override {
+      return {uris_.begin(), uris_.end()};
+    }
+
+    util::optional<TypeRecord> GetType(const DataType& type) const override {
+      if (auto index = GetIndex(type_to_index_, &type)) {
+        return TypeRecord{ids_[*index], types_[*index], type_is_variation_[*index]};
+      }
+      return {};
     }
 
     util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
-      auto* id_to_index = is_variation ? &variation_id_to_index_ : &id_to_index_;
-      auto it = id_to_index->find(id);
-      if (it == id_to_index->end()) return {};
-
-      int index = it->second;
-      return TypeRecord{ids_[index], types_[index], type_is_variation_[index]};
+      if (auto index =
+              GetIndex(is_variation ? variation_id_to_index_ : id_to_index_, id)) {
+        return TypeRecord{ids_[*index], types_[*index], type_is_variation_[*index]};
+      }
+      return {};
     }
 
     Status RegisterType(Id id, std::shared_ptr<DataType> type,
@@ -324,8 +361,52 @@ ExtensionIdRegistry* default_extension_id_registry() {
       return Status::OK();
     }
 
-    // owning storage of uris, names, types
-    std::unordered_set<std::string> uris_, names_;
+    util::optional<FunctionRecord> GetFunction(
+        util::string_view arrow_function_name) const override {
+      if (auto index = GetIndex(function_name_to_index_, arrow_function_name)) {
+        return FunctionRecord{ids_[*index], *index_to_function_name_[*index]};
+      }
+      return {};
+    }
+
+    util::optional<FunctionRecord> GetFunction(Id id) const override {
+      if (auto index = GetIndex(function_id_to_index_, id)) {
+        return FunctionRecord{ids_[*index], *index_to_function_name_[*index]};
+      }
+      return {};
+    }
+
+    Status RegisterFunction(Id id, std::string arrow_function_name) override {
+      DCHECK_EQ(ids_.size(), types_.size());
+      DCHECK_EQ(ids_.size(), type_is_variation_.size());
+
+      Id copied_id{*uris_.emplace(id.uri.to_string()).first,
+                   *names_.emplace(id.name.to_string()).first};
+
+      util::string_view copied_function_name{
+          *function_names_.emplace(std::move(arrow_function_name)).first};
+
+      size_t index = ids_.size();
+
+      auto it_success = function_id_to_index_.emplace(copied_id, index);
+
+      if (!it_success.second) {
+        return Status::Invalid("Function id was already registered");
+      }
+
+      if (!function_name_to_index_.emplace(copied_function_name, index).second) {
+        function_id_to_index_.erase(it_success.first);
+        return Status::Invalid("Type was already registered");
+      }
+
+      ids_.push_back(copied_id);
+      return Status::OK();
+    }
+
+    // owning storage of uris, names, (arrow::)function_names, types
+    //    note that storing strings like this is safe since references into an
+    //    unordered_set are not invalidated on insertion
+    std::unordered_set<std::string> uris_, names_, function_names_;
     DataTypeVector types_;
     std::vector<bool> type_is_variation_;
 
@@ -333,6 +414,11 @@ ExtensionIdRegistry* default_extension_id_registry() {
     std::vector<Id> ids_;
     std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_, variation_id_to_index_;
     std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
+
+    std::vector<const std::string*> index_to_function_name_;
+    std::unordered_map<Id, int, IdHashEq, IdHashEq> function_id_to_index_;
+    std::unordered_map<util::string_view, int, ::arrow::internal::StringViewHash>
+        function_name_to_index_;
   } impl_;
 
   return &impl_;
