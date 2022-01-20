@@ -118,7 +118,7 @@ Mailing Lists
 
 You can subscribe to the **user** or **development** mailing list and browse for
 previous topics or ask questions. Whereas discussion on GitHub and JIRA
-only notifies people who have subscribed to that particular Pull Request or ticket,
+only notifies people who have subscribed to that particular Pull Request or issue,
 the mailing list allows you to broadcast to all users or developers. Use these when
 you want to get feedback or answers from a wider audience.
 
