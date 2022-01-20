@@ -40,6 +40,7 @@ jobs:
   matlab:
     name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
