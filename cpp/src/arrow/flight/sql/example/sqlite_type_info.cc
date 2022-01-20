@@ -46,7 +46,7 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
       utf8(),
       R"([null, null, null, null, null, "'", "'", "'", null, null, null, null, null, "'", "'", "'", "'"])");
   auto create_params = ArrayFromJSON(
-      list(utf8()),
+      list(field("item", utf8(), false)),
       R"([[], [], [], [], [], ["length"], ["length"], ["length"], [], [], [], [], [], ["length"], [], [], []])");
   auto nullable =
       ArrayFromJSON(int32(), R"([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])");
