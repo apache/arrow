@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// NOTE(mtopol): must have both go:build and +build until we drop
-// support for go1.16 as the 'go:build' syntax was introduced in go1.17
-
 //go:build arm64
 // +build arm64
 
