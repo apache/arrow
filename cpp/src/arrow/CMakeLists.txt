@@ -512,8 +512,8 @@ if(ARROW_ORC)
   list(APPEND
        ARROW_SRCS
        adapters/orc/adapter.cc
-       adapters/orc/util.cc
-       adapters/orc/options.cc)
+       adapters/orc/options.cc
+       adapters/orc/util.cc)
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)

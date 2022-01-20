@@ -117,38 +117,38 @@ std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
 
 Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
                                                          double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   return CastInt64ArrayToTemporalArray<Date64Array>(
       date64(), rand.Int64(size, kMilliMin, kMilliMax, null_probability));
 }
 
 Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
-                                                            arrow::TimeUnit::type type,
+                                                            TimeUnit::type type,
                                                             double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   switch (type) {
-    case arrow::TimeUnit::type::SECOND: {
+    case TimeUnit::type::SECOND: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::SECOND),
           rand.Int64(size, kSecondMin, kSecondMax, null_probability));
     }
-    case arrow::TimeUnit::type::MILLI: {
+    case TimeUnit::type::MILLI: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::MILLI),
           rand.Int64(size, kMilliMin, kMilliMax, null_probability));
     }
-    case arrow::TimeUnit::type::MICRO: {
+    case TimeUnit::type::MICRO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::MICRO),
           rand.Int64(size, kMicroMin, kMicroMax, null_probability));
     }
-    case arrow::TimeUnit::type::NANO: {
+    case TimeUnit::type::NANO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
           timestamp(TimeUnit::NANO),
           rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
-      return arrow::Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
+      return Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
     }
   }
 }
@@ -179,27 +179,26 @@ void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
     const std::shared_ptr<DataType>& data_type, int64_t size, int64_t min_num_chunks,
     int64_t max_num_chunks, double null_probability) {
-  arrow::random::RandomArrayGenerator rand(kRandomSeed);
+  random::RandomArrayGenerator rand(kRandomSeed);
   std::vector<int64_t> num_chunks(1, 0);
   std::vector<int64_t> current_size_chunks;
-  arrow::randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
+  randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
   int64_t current_num_chunks = num_chunks[0];
   ArrayVector arrays(current_num_chunks, nullptr);
-  arrow::RandWeakComposition(current_num_chunks, size, &current_size_chunks);
+  RandWeakComposition(current_num_chunks, size, &current_size_chunks);
   for (int j = 0; j < current_num_chunks; j++) {
     switch (data_type->id()) {
-      case arrow::Type::type::DATE64: {
+      case Type::DATE64: {
         EXPECT_OK_AND_ASSIGN(arrays[j], GenerateRandomDate64Array(current_size_chunks[j],
                                                                   null_probability));
         break;
       }
-      case arrow::Type::type::TIMESTAMP: {
+      case Type::TIMESTAMP: {
         EXPECT_OK_AND_ASSIGN(
             arrays[j],
             GenerateRandomTimestampArray(
                 current_size_chunks[j],
-                arrow::internal::checked_pointer_cast<arrow::TimestampType>(data_type)
-                    ->unit(),
+                internal::checked_pointer_cast<TimestampType>(data_type)->unit(),
                 null_probability));
         break;
       }
@@ -229,9 +228,13 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(max_size));
-  auto write_options = arrow::adapters::orc::WriteOptions();
-  write_options.compression = arrow::Compression::SNAPPY;
-  write_options.file_version = arrow::adapters::orc::FileVersion(0, 11);
+  auto write_options = adapters::orc::WriteOptions();
+#ifdef ARROW_WITH_SNAPPY
+  write_options.compression = Compression::SNAPPY;
+#else
+  write_options.compression = Compression::UNCOMPRESSED;
+#endif
+  write_options.file_version = adapters::orc::FileVersion(0, 11);
   write_options.compression_block_size = 32768;
   write_options.row_index_stride = 5000;
   EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
@@ -497,8 +500,7 @@ class TestORCWriterWithConversion : public ::testing::Test {
         GenerateRandomTable(input_schema, num_rows, 1, 1, null_possibility);
     ArrayVector av(num_cols);
     for (int i = 0; i < num_cols - 2; i++) {
-      EXPECT_OK_AND_ASSIGN(av[i],
-                           arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
+      EXPECT_OK_AND_ASSIGN(av[i], compute::Cast(*(input_table->column(i)->chunk(0)),
                                                 output_schema->field(i)->type()));
     }
     for (int i = num_cols - 2; i < num_cols; i++) {
@@ -520,7 +522,7 @@ class TestORCWriterSingleArray : public ::testing::Test {
   TestORCWriterSingleArray() : rand(kRandomSeed) {}
 
  protected:
-  arrow::random::RandomArrayGenerator rand;
+  random::RandomArrayGenerator rand;
 };
 
 // Nested types
@@ -574,12 +576,11 @@ TEST_F(TestORCWriterSingleArray, WriteLargeList) {
   const int64_t num_rows = 1234;
   auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.5);
   auto output_offsets = rand.Offsets(num_rows + 1, 0, 5 * num_rows, 0.6, false);
-  EXPECT_OK_AND_ASSIGN(auto input_offsets,
-                       arrow::compute::Cast(*output_offsets, int64()));
+  EXPECT_OK_AND_ASSIGN(auto input_offsets, compute::Cast(*output_offsets, int64()));
   EXPECT_OK_AND_ASSIGN(auto input_array,
-                       arrow::LargeListArray::FromArrays(*input_offsets, *value_array));
+                       LargeListArray::FromArrays(*input_offsets, *value_array));
   EXPECT_OK_AND_ASSIGN(auto output_array,
-                       arrow::ListArray::FromArrays(*output_offsets, *value_array));
+                       ListArray::FromArrays(*output_offsets, *value_array));
   AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
 }
 

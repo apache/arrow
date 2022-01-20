@@ -242,6 +242,7 @@ def test_orcfile_readwrite():
     assert orc_file.compression_size == 65536
 
 
+@pytest.mark.snappy
 def test_orcfile_readwrite_with_writeoptions():
     from pyarrow import orc
 

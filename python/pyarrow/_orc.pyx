@@ -48,7 +48,7 @@ cdef compression_type_from_enum(CCompressionType compression_type):
         CCompressionType_ZSTD: 'ZSTD',
     }
     if compression_type in compression_map:
-        return compression_map.get(compression_type)
+        return compression_map[compression_type]
     raise ValueError('Unsupported compression')
 
 
@@ -77,7 +77,7 @@ cdef compression_strategy_from_enum(
         _CompressionStrategy_COMPRESSION: 'COMPRESSION',
     }
     if compression_strategy in compression_strategy_map:
-        return compression_strategy_map.get(compression_strategy)
+        return compression_strategy_map[compression_strategy]
     raise ValueError('Unsupported compression strategy')
 
 
@@ -105,7 +105,7 @@ cdef writer_id_from_enum(WriterId writer_id):
         _WriterId_TRINO_WRITER: 'TRINO',
     }
     if writer_id in writer_id_map:
-        return writer_id_map.get(writer_id)
+        return writer_id_map[writer_id]
     raise ValueError('Unsupported writer ID')
 
 
@@ -123,7 +123,7 @@ cdef writer_version_from_enum(WriterVersion writer_version):
         _WriterVersion_ORC_14: 'ORC_14',
     }
     if writer_version in writer_version_map:
-        return writer_version_map.get(writer_version)
+        return writer_version_map[writer_version]
     raise ValueError('Unsupported writer version')
 
 
@@ -152,9 +152,9 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             raise ValueError(f"Invalid ORC writer batch size: {batch_size}")
     # file_version
     if file_version is not None:
-        if str(file_version) == "0.12":
+        if file_version == "0.12":
             deref(options).file_version = FileVersion(0, 12)
-        elif str(file_version) == "0.11":
+        elif file_version == "0.11":
             deref(options).file_version = FileVersion(0, 11)
         else:
             raise ValueError(f"Unsupported ORC file version: {file_version}")
@@ -170,39 +170,39 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             deref(options).compression = compression_type_from_name(
                 compression)
         else:
-            raise TypeError(("Unsupported ORC compression type: "
-                             f"{compression}"))
+            raise TypeError("Unsupported ORC compression type: "
+                            f"{compression}")
     # compression_block_size
     if compression_block_size is not None:
         if (isinstance(compression_block_size, int) and
                 compression_block_size > 0):
             deref(options).compression_block_size = compression_block_size
         else:
-            raise ValueError(("Invalid ORC compression block size: "
-                              f"{compression_block_size}"))
+            raise ValueError("Invalid ORC compression block size: "
+                             f"{compression_block_size}")
     # compression_strategy
     if compression_strategy is not None:
         if isinstance(compression, str):
             deref(options).compression_strategy = \
                 compression_strategy_from_name(compression_strategy)
         else:
-            raise TypeError(("Unsupported ORC compression strategy: "
-                             f"{compression_strategy}"))
+            raise TypeError("Unsupported ORC compression strategy: "
+                            f"{compression_strategy}")
     # row_index_stride
     if row_index_stride is not None:
         if isinstance(row_index_stride, int) and row_index_stride > 0:
             deref(options).row_index_stride = row_index_stride
         else:
-            raise ValueError(("Invalid ORC row index stride: "
-                              f"{row_index_stride}"))
+            raise ValueError("Invalid ORC row index stride: "
+                             f"{row_index_stride}")
     # padding_tolerance
     if padding_tolerance is not None:
         try:
             padding_tolerance = float(padding_tolerance)
             deref(options).padding_tolerance = padding_tolerance
         except Exception:
-            raise ValueError(("Invalid ORC padding tolerance: "
-                              f"{padding_tolerance}"))
+            raise ValueError("Invalid ORC padding tolerance: "
+                             f"{padding_tolerance}")
     # dictionary_key_size_threshold
     if dictionary_key_size_threshold is not None:
         try:
@@ -212,8 +212,8 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             deref(options).dictionary_key_size_threshold = \
                 dictionary_key_size_threshold
         except Exception:
-            raise ValueError(("Invalid ORC dictionary key size threshold: "
-                              f"{dictionary_key_size_threshold}"))
+            raise ValueError("Invalid ORC dictionary key size threshold: "
+                             f"{dictionary_key_size_threshold}")
     # bloom_filter_columns
     if bloom_filter_columns is not None:
         try:
@@ -222,8 +222,8 @@ cdef shared_ptr[WriteOptions] _create_write_options(
                 assert isinstance(col, int) and col >= 0
             deref(options).bloom_filter_columns = bloom_filter_columns
         except Exception:
-            raise ValueError(("Invalid ORC BloomFilter columns: "
-                              f"{bloom_filter_columns}"))
+            raise ValueError("Invalid ORC BloomFilter columns: "
+                             f"{bloom_filter_columns}")
     # Max false positive rate of the Bloom Filter
     if bloom_filter_fpp is not None:
         try:
@@ -231,8 +231,8 @@ cdef shared_ptr[WriteOptions] _create_write_options(
             assert 0 <= bloom_filter_fpp <= 1
             deref(options).bloom_filter_fpp = bloom_filter_fpp
         except Exception:
-            raise ValueError(("Invalid ORC BloomFilter false positive rate: "
-                              f"{bloom_filter_fpp}"))
+            raise ValueError("Invalid ORC BloomFilter false positive rate: "
+                             f"{bloom_filter_fpp}")
     return options
 
 

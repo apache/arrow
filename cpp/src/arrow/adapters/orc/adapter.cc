@@ -222,8 +222,8 @@ class ORCFileReader::Impl {
   }
 
   Result<Compression::type> GetCompression() {
-    liborc::CompressionKind orc_compression_ = reader_->getCompression();
-    switch (orc_compression_) {
+    liborc::CompressionKind orc_compression = reader_->getCompression();
+    switch (orc_compression) {
       case liborc::CompressionKind::CompressionKind_NONE:
         return Compression::UNCOMPRESSED;
       case liborc::CompressionKind::CompressionKind_ZLIB:
@@ -752,7 +752,7 @@ Result<liborc::WriterOptions> MakeOrcWriterOptions(
                 [&orc_bloom_filter_columns](const int64_t col) {
                   orc_bloom_filter_columns.insert(static_cast<uint64_t>(col));
                 });
-  orc_options.setColumnsUseBloomFilter((std::move(orc_bloom_filter_columns)));
+  orc_options.setColumnsUseBloomFilter(std::move(orc_bloom_filter_columns));
   orc_options.setBloomFilterFPP(options.bloom_filter_fpp);
   switch (options.compression) {
     case Compression::UNCOMPRESSED:
