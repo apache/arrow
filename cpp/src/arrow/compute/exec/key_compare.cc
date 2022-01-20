@@ -334,6 +334,11 @@ void KeyCompare::CompareColumnsToRows(uint32_t num_rows_to_compare,
   bool is_first_column = true;
   for (size_t icol = 0; icol < cols.size(); ++icol) {
     const KeyEncoder::KeyColumnArray& col = cols[icol];
+    // match_bytevector has been filled with 0xFF which is expected by a null type col
+    // so the calculation of match_bytevector can be skipped for a null type col
+    if (col.metadata().is_null_type) {
+      continue;
+    }
     uint32_t offset_within_row =
         rows.metadata().encoded_field_offset(static_cast<uint32_t>(icol));
     if (col.metadata().is_fixed_length) {

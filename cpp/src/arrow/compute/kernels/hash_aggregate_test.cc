@@ -620,6 +620,40 @@ TEST(Grouper, NullKeys) {
   g.ExpectConsume("[[null], [null]]", "[0, 0]");
 }
 
+TEST(Grouper, MultipleNullKeys) {
+  TestGrouper g({null(), null(), null(), null()});
+  g.ExpectConsume("[[null, null, null, null], [null, null, null, null]]", "[0, 0]");
+}
+
+TEST(Grouper, Int64NullKeys) {
+  TestGrouper g({int64(), null()});
+  g.ExpectConsume("[[1, null], [2, null], [1, null]]", "[0, 1, 0]");
+}
+
+TEST(Grouper, StringNullKeys) {
+  TestGrouper g({utf8(), null()});
+  g.ExpectConsume(R"([["be", null], ["eh", null]])", "[0, 1]");
+}
+
+TEST(Grouper, DoubleNullStringKey) {
+  TestGrouper g({float64(), null(), utf8()});
+
+  g.ExpectConsume(R"([[1.5, null, "eh"], [1.5, null, "eh"]])", "[0, 0]");
+  g.ExpectConsume(R"([[null, null, "eh"], [1.0, null, null]])", "[1, 2]");
+  g.ExpectConsume(R"([
+    [1.0,  null, "wh"],
+    [4.4,  null, null],
+    [5.2,  null, "eh"],
+    [6.5,  null, "be"],
+    [7.3,  null, null],
+    [1.0,  null, "wh"],
+    [9.1,  null, "eh"],
+    [10.2, null, "be"],
+    [1.0, null, null]
+  ])",
+                  "[3, 4, 5, 6, 7, 3, 8, 9, 2]");
+}
+
 TEST(Grouper, MakeGroupings) {
   auto ExpectGroupings = [](std::string ids_json, std::string expected_json) {
     auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));

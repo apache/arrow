@@ -232,18 +232,16 @@ struct VarLengthKeyEncoder : KeyEncoder {
 };
 
 struct NullKeyEncoder : KeyEncoder {
-  void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) override {
-    return;
-  }
+  void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) override {}
 
-  void AddLengthNull(int32_t* length) override { return; }
+  void AddLengthNull(int32_t* length) override {}
 
   Status Encode(const Datum& data, int64_t batch_length,
                 uint8_t** encoded_bytes) override {
     return Status::OK();
   }
 
-  void EncodeNull(uint8_t** encoded_bytes) override { return; }
+  void EncodeNull(uint8_t** encoded_bytes) override {}
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override {
