@@ -406,6 +406,18 @@ tasks:
 
 {############################## Wheel OSX M1 #################################}
 
+  wheel-macos-big-sur-cp37-arm64:
+    ci: github
+    template: python-wheels/github.osx.arm64.yml
+    params:
+      arch: arm64
+      arrow_simd_level: "DEFAULT"
+      python_version: "3.7"
+      macos_deployment_target: "11.0"
+
+    artifacts:
+      - pyarrow-{ no_rc_version }-cp37-cp37-macosx_11_0_arm64.whl
+
   # The python 3.8 universal2 installer has been built with macos deployment
   # target 11.0, so we cannot build binaries with earlier deployment target
   # otherwise distutils will raise a deployment target version mismatch error.
