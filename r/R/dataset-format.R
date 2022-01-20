@@ -309,26 +309,46 @@ FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
     update = function(table, ...) {
-      compose_err_header <- function(unsupported_passed_args) {
-        paste0(
-          oxford_paste(unsupported_passed_args),
-          ngettext(length(unsupported_passed_args),
-                   " is not a valid argument ",
-                   " are not valid arguments "),
-          "for your chosen `format`."
-        )
+      check_additional_args <- function(format, passed_args) {
+        if (format == "parquet") {
+          supported_args <- names(formals(write_parquet))
+          supported_args <- supported_args[supported_args != c("x", "sink")]
+        } else if(format == "ipc") {
+          supported_args <- c(
+            "use_legacy_format",
+            "metadata_version",
+            "codec",
+            "null_fallback"
+          )
+        } else if (format == "csv") {
+          supported_args <- names(formals(CsvWriteOptions$create))
+        }
+
+        unsupported_passed_args <- setdiff(passed_args, supported_args)
+
+        if (length(unsupported_passed_args) > 0) {
+          err_header <- paste0(
+            oxford_paste(unsupported_passed_args),
+            ngettext(length(unsupported_passed_args),
+                     " is not a valid argument ",
+                     " are not valid arguments "),
+            "for your chosen `format`."
+          )
+          err_info <- NULL
+          arg_info <- paste0(
+            "Supported arguments: ",
+            oxford_paste(supported_args)
+          )
+          if ("compression" %in% unsupported_passed_args) {
+            err_info <- "You could try using `codec` instead of `compression`."
+          }
+          abort(c(err_header, i = err_info, i = arg_info))
+        }
       }
 
       if (self$type == "parquet") {
         args <- list(...)
-        supported_args <- names(formals(write_parquet))
-        supported_args <- supported_args[supported_args != c("x", "sink")]
-        unsupported_passed_args <- setdiff(names(args), supported_args)
-
-        if (length(unsupported_passed_args)) {
-          err_header <- compose_err_header(unsupported_passed_args)
-          abort(err_header)
-        }
+        check_additional_args(format = self$type, names(args))
 
         dataset___ParquetFileWriteOptions__update(
           self,
@@ -337,23 +357,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         )
       } else if (self$type == "ipc") {
         args <- list(...)
-        supported_args <- c(
-          "use_legacy_format",
-          "metadata_version",
-          "codec",
-          "null_fallback"
-        )
-
-        unsupported_passed_args <- setdiff(names(args), supported_args)
-        err_info <- NULL
-
-        if (length(unsupported_passed_args)) {
-          err_header <- compose_err_header(unsupported_passed_args)
-          if("compression" %in% unsupported_passed_args) {
-            err_info <- "You could try using `codec` instead of `compression`."
-          }
-          abort(c(err_header, i = err_info))
-        }
+        check_additional_args(format = self$type, names(args))
 
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
@@ -371,13 +375,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         }
       } else if (self$type == "csv") {
         args <- list(...)
-        supported_args <- names(formals(CsvWriteOptions$create))
-        unsupported_passed_args <- setdiff(names(args), supported_args)
-
-        if (length(unsupported_passed_args)) {
-          err_header <- compose_err_header(unsupported_passed_args)
-          abort(err_header)
-        }
+        check_additional_args(format = self$type, names(args))
 
         dataset___CsvFileWriteOptions__update(
           self,
