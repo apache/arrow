@@ -172,7 +172,7 @@ if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     ccache -s
 fi
 
-if [ "${DOCS_BUILD_CPP}" == "ON" ]; then
+if [ "${BUILD_DOCS_CPP}" == "ON" ]; then
   pushd ${source_dir}/apidoc
   doxygen
   popd
