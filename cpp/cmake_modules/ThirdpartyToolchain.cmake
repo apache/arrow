@@ -364,6 +364,8 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
+set(THIRDPARTY_MIRROR_URL "https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0")
+
 if(DEFINED ENV{ARROW_ABSL_URL})
   set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
 else()
@@ -401,8 +403,7 @@ if(DEFINED ENV{ARROW_AWSSDK_URL})
 else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -416,7 +417,7 @@ else()
            # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
            # our currently used packages and doesn't fall out of sync with
            # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
            "https://boostorg.jfrog.io/artifactory/main/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
            "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
   )
@@ -427,8 +428,7 @@ if(DEFINED ENV{ARROW_BROTLI_URL})
 else()
   set_urls(BROTLI_SOURCE_URL
            "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BZIP2_URL})
@@ -436,8 +436,7 @@ if(DEFINED ENV{ARROW_BZIP2_URL})
 else()
   set_urls(ARROW_BZIP2_SOURCE_URL
            "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_CARES_URL})
@@ -445,8 +444,7 @@ if(DEFINED ENV{ARROW_CARES_URL})
 else()
   set_urls(CARES_SOURCE_URL
            "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_CRC32C_URL})
@@ -462,8 +460,7 @@ if(DEFINED ENV{ARROW_GBENCHMARK_URL})
 else()
   set_urls(GBENCHMARK_SOURCE_URL
            "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
@@ -471,8 +468,7 @@ if(DEFINED ENV{ARROW_GFLAGS_URL})
 else()
   set_urls(GFLAGS_SOURCE_URL
            "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GLOG_URL})
@@ -480,8 +476,7 @@ if(DEFINED ENV{ARROW_GLOG_URL})
 else()
   set_urls(GLOG_SOURCE_URL
            "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
@@ -497,8 +492,7 @@ if(DEFINED ENV{ARROW_GRPC_URL})
 else()
   set_urls(GRPC_SOURCE_URL
            "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
@@ -507,8 +501,7 @@ else()
   set_urls(GTEST_SOURCE_URL
            "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
@@ -516,8 +509,7 @@ if(DEFINED ENV{ARROW_JEMALLOC_URL})
 else()
   set_urls(JEMALLOC_SOURCE_URL
            "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
-  )
+           "${THIRDPARTY_MIRROR_URL}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2")
 endif()
 
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
@@ -525,8 +517,7 @@ if(DEFINED ENV{ARROW_MIMALLOC_URL})
 else()
   set_urls(MIMALLOC_SOURCE_URL
            "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_NLOHMANN_JSON_URL})
@@ -542,8 +533,7 @@ if(DEFINED ENV{ARROW_LZ4_URL})
 else()
   set_urls(LZ4_SOURCE_URL
            "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
@@ -582,8 +572,7 @@ else()
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
            "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RE2_URL})
@@ -591,8 +580,7 @@ if(DEFINED ENV{ARROW_RE2_URL})
 else()
   set_urls(RE2_SOURCE_URL
            "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
@@ -600,8 +588,7 @@ if(DEFINED ENV{ARROW_RAPIDJSON_URL})
 else()
   set_urls(RAPIDJSON_SOURCE_URL
            "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -612,14 +599,12 @@ else()
     # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
     set_urls(SNAPPY_SOURCE_URL
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-    )
+             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz")
     set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
   else()
     set_urls(SNAPPY_SOURCE_URL
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-    )
+             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
   endif()
 endif()
 
@@ -641,8 +626,7 @@ else()
            "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -666,8 +650,7 @@ if(DEFINED ENV{ARROW_ZLIB_URL})
 else()
   set_urls(ZLIB_SOURCE_URL
            "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})

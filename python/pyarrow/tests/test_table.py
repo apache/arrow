@@ -339,6 +339,7 @@ def test_chunked_array_to_pandas_preserve_name():
         tm.assert_series_equal(result, expected)
 
 
+@pytest.mark.xfail
 @pytest.mark.pandas
 def test_table_roundtrip_to_pandas_empty_dataframe():
     # https://issues.apache.org/jira/browse/ARROW-10643
@@ -348,8 +349,25 @@ def test_table_roundtrip_to_pandas_empty_dataframe():
     table = pa.table(data)
     result = table.to_pandas()
 
+    # TODO the conversion results in a table with 0 rows if the original
+    # DataFrame has a RangeIndex (i.e. no index column in the converted
+    # Arrow table)
+    assert table.num_rows == 10
     assert data.shape == (10, 0)
     assert result.shape == (10, 0)
+
+
+@pytest.mark.pandas
+def test_to_pandas_empty_table():
+    # https://issues.apache.org/jira/browse/ARROW-15370
+    import pandas as pd
+    import pandas.testing as tm
+
+    df = pd.DataFrame({'a': [1, 2], 'b': [0.1, 0.2]})
+    table = pa.table(df)
+    result = table.schema.empty_table().to_pandas()
+    assert result.shape == (0, 2)
+    tm.assert_frame_equal(result, df.iloc[:0])
 
 
 @pytest.mark.pandas
