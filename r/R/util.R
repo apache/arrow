@@ -29,9 +29,12 @@ if (!exists("str2lang")) {
   }
 }
 
-oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
+oxford_paste <- function(x,
+                         conjunction = "and",
+                         quote = TRUE,
+                         quote_symbol = '"') {
   if (quote && is.character(x)) {
-    x <- paste0('"', x, '"')
+    x <- paste0(quote_symbol, x, quote_symbol)
   }
   if (length(x) < 2) {
     return(x)

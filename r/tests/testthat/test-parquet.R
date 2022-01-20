@@ -218,7 +218,7 @@ test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
   # ARROW-9946
   expect_error(
     ParquetFileWriter$create(schema = sch, sink = tempfile()),
-    regex = "OutputStream"
+    regexp = "OutputStream"
   )
 })
 
