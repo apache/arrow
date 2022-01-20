@@ -239,7 +239,7 @@ setup_miniconda() {
     OS=MacOSX
   fi
   ARCH="$(uname -m)"
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge3-${OS}-${ARCH}.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 
