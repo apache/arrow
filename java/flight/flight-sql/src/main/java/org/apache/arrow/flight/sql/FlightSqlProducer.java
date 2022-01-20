@@ -687,7 +687,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
             Field.nullable("literal_prefix", VARCHAR.getType()),
             Field.nullable("literal_suffix", VARCHAR.getType()),
             new Field(
-                "create_params", FieldType.notNullable(LIST.getType()),
+                "create_params", FieldType.nullable(LIST.getType()),
                 singletonList(Field.notNullable("item", VARCHAR.getType()))),
             Field.notNullable("nullable", INT.getType()),
             Field.notNullable("case_sensitive", BIT.getType()),
