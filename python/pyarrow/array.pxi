@@ -1003,10 +1003,10 @@ cdef class Array(_PandasConvertible):
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
-            CResult[int64_t] c_res_buffer
+            CResult[int64_t] c_size_res
 
-        c_res_buffer = ReferencedBufferSize(deref(self.ap))
-        size = GetResultValue(c_res_buffer)
+        c_size_res = ReferencedBufferSize(deref(self.ap))
+        size = GetResultValue(c_size_res)
         return size
 
     def get_total_buffer_size(self):
