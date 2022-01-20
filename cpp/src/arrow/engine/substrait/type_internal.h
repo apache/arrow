@@ -39,10 +39,11 @@ Result<std::unique_ptr<substrait::Type>> ToProto(const DataType&, bool nullable,
                                                  ExtensionSet*);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct&);
+Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct&,
+                                          const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
-Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema&);
+Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema&, ExtensionSet*);
 
 inline std::string TimestampTzTimezoneString() { return "UTC"; }
 

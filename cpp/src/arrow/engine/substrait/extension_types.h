@@ -163,6 +163,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   Result<uint32_t> EncodeType(const DataType& type);
 
   const std::vector<Id>& function_ids() const { return function_ids_; }
+  const std::vector<util::string_view>& function_names() const { return function_names_; }
 
   Result<uint32_t> EncodeFunction(Id);
 

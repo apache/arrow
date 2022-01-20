@@ -52,36 +52,49 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
   return message;
 }
 
-Result<compute::Declaration> Convert(const substrait::PlanRel& relation) {
-  return Status::NotImplemented("");
-}
-
 Result<compute::Declaration> DeserializeRelation(const Buffer& buf,
                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
   return FromProto(rel, ext_set);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlan(const Buffer& buf,
-                                                          const ConsumerFactory&) {
+Result<std::vector<compute::Declaration>> DeserializePlan(
+    const Buffer& buf, const ConsumerFactory& consumer_factory,
+    ExtensionSet* ext_set_out) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  std::vector<compute::Declaration> decls;
-  for (const auto& relation : plan.relations()) {
-    ARROW_ASSIGN_OR_RAISE(auto decl, Convert(relation));
-    decls.push_back(std::move(decl));
+  ARROW_ASSIGN_OR_RAISE(auto ext_set, GetExtensionSetFromPlan(plan));
+
+  std::vector<compute::Declaration> sink_decls;
+  for (const substrait::PlanRel& plan_rel : plan.relations()) {
+    if (plan_rel.has_root()) {
+      return Status::NotImplemented("substrait::PlanRel with custom output field names");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto decl, FromProto(plan_rel.rel(), ext_set));
+
+    // pipe each relation into a consuming_sink node
+    auto sink_decl = compute::Declaration::Sequence({
+        std::move(decl),
+        {"consuming_sink", compute::ConsumingSinkNodeOptions{consumer_factory()}},
+    });
+    sink_decls.push_back(std::move(sink_decl));
   }
 
-  return decls;
+  if (ext_set_out) {
+    *ext_set_out = std::move(ext_set);
+  }
+  return sink_decls;
 }
 
-Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf) {
+Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer& buf,
+                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto named_struct, ParseFromBuffer<substrait::NamedStruct>(buf));
-  return FromProto(named_struct);
+  return FromProto(named_struct, ext_set);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema) {
-  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(schema));
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
+                                                ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto named_struct, ToProto(schema, ext_set));
   std::string serialized = named_struct->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
@@ -100,13 +113,15 @@ Result<std::shared_ptr<Buffer>> SerializeType(const DataType& type,
   return Buffer::FromString(std::move(serialized));
 }
 
-Result<compute::Expression> DeserializeExpression(const Buffer& buf) {
+Result<compute::Expression> DeserializeExpression(const Buffer& buf,
+                                                  const ExtensionSet& ext_set) {
   ARROW_ASSIGN_OR_RAISE(auto expr, ParseFromBuffer<substrait::Expression>(buf));
-  return FromProto(expr);
+  return FromProto(expr, ext_set);
 }
 
-Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr) {
-  ARROW_ASSIGN_OR_RAISE(auto st_expr, ToProto(expr));
+Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression& expr,
+                                                    ExtensionSet* ext_set) {
+  ARROW_ASSIGN_OR_RAISE(auto st_expr, ToProto(expr, ext_set));
   std::string serialized = st_expr->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }

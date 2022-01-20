@@ -61,12 +61,12 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       const auto& read = rel.read();
       RETURN_NOT_OK(CheckRelCommon(read));
 
-      ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema()));
+      ARROW_ASSIGN_OR_RAISE(auto base_schema, FromProto(read.base_schema(), ext_set));
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
 
       if (read.has_filter()) {
-        ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter()));
+        ARROW_ASSIGN_OR_RAISE(scan_options->filter, FromProto(read.filter(), ext_set));
       }
 
       if (read.has_projection()) {
@@ -145,7 +145,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       if (!filter.has_condition()) {
         return Status::Invalid("substrait::FilterRel with no condition expression");
       }
-      ARROW_ASSIGN_OR_RAISE(auto condition, FromProto(filter.condition()));
+      ARROW_ASSIGN_OR_RAISE(auto condition, FromProto(filter.condition(), ext_set));
 
       return compute::Declaration::Sequence({
           std::move(input),
@@ -165,7 +165,7 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       std::vector<compute::Expression> expressions;
       for (const auto& expr : project.expressions()) {
         expressions.emplace_back();
-        ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr));
+        ARROW_ASSIGN_OR_RAISE(expressions.back(), FromProto(expr, ext_set));
       }
 
       return compute::Declaration::Sequence({

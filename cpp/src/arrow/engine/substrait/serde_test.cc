@@ -209,6 +209,8 @@ TEST(Substrait, SupportedExtensionTypes) {
 }
 
 TEST(Substrait, NamedStruct) {
+  ExtensionSet ext_set;
+
   auto buf = SubstraitFromJSON("NamedStruct", R"({
     "struct": {
       "types": [
@@ -225,7 +227,7 @@ TEST(Substrait, NamedStruct) {
     },
     "names": ["a", "b", "c", "d", "e", "f"]
   })");
-  ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf));
+  ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf, ext_set));
   Schema expected_schema({
       field("a", int64()),
       field("b", list(utf8())),
@@ -237,8 +239,8 @@ TEST(Substrait, NamedStruct) {
   });
   EXPECT_EQ(*schema, expected_schema);
 
-  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeSchema(*schema));
-  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeSchema(*serialized));
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeSchema(*schema, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeSchema(*serialized, ext_set));
   EXPECT_EQ(*roundtripped, expected_schema);
 
   // too few names
@@ -246,23 +248,24 @@ TEST(Substrait, NamedStruct) {
     "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]},
     "names": []
   })");
-  EXPECT_THAT(DeserializeSchema(*buf), Raises(StatusCode::Invalid));
+  EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // too many names
   buf = SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": []},
     "names": ["a", "b", "c"]
   })");
-  EXPECT_THAT(DeserializeSchema(*buf), Raises(StatusCode::Invalid));
+  EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // no schema metadata allowed
-  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}}))),
+  EXPECT_THAT(SerializeSchema(Schema({}, key_value_metadata({{"ext", "yes"}})), &ext_set),
               Raises(StatusCode::Invalid));
 
   // no schema metadata allowed
-  EXPECT_THAT(SerializeSchema(
-                  Schema({field("a", int32(), key_value_metadata({{"ext", "yes"}}))})),
-              Raises(StatusCode::Invalid));
+  EXPECT_THAT(
+      SerializeSchema(Schema({field("a", int32(), key_value_metadata({{"ext", "yes"}}))}),
+                      &ext_set),
+      Raises(StatusCode::Invalid));
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
@@ -308,13 +311,17 @@ TEST(Substrait, SupportedLiterals) {
     ARROW_SCOPED_TRACE(json);
 
     auto buf = SubstraitFromJSON("Expression", "{\"literal\":" + json.to_string() + "}");
-    ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf));
+    ExtensionSet ext_set;
+    ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
     ASSERT_TRUE(expr.literal());
     ASSERT_THAT(*expr.literal(), DataEq(expected_value));
 
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized));
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+    EXPECT_EQ(ext_set.function_ids().size(),
+              0);  // shouldn't need extensions for core literals
+
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
 
     ASSERT_TRUE(roundtripped.literal());
     ASSERT_THAT(*roundtripped.literal(), DataEq(expected_value));
@@ -408,16 +415,22 @@ TEST(Substrait, SupportedLiterals) {
 }
 
 TEST(Substrait, CannotDeserializeLiteral) {
+  ExtensionSet ext_set;
+
   // Invalid: missing List.element_type
-  EXPECT_THAT(DeserializeExpression(*SubstraitFromJSON(
-                  "Expression", R"({"literal": {"list": {"values": []}}})")),
-              Raises(StatusCode::Invalid));
+  EXPECT_THAT(
+      DeserializeExpression(
+          *SubstraitFromJSON("Expression", R"({"literal": {"list": {"values": []}}})"),
+          ext_set),
+      Raises(StatusCode::Invalid));
 
   // Invalid: required null literal
   EXPECT_THAT(
-      DeserializeExpression(*SubstraitFromJSON(
-          "Expression",
-          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})")),
+      DeserializeExpression(
+          *SubstraitFromJSON(
+              "Expression",
+              R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"),
+          ext_set),
       Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
@@ -444,8 +457,12 @@ TEST(Substrait, FieldRefRoundTrip) {
        }) {
     ARROW_SCOPED_TRACE(ref.ToString());
     ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized));
+
+    ExtensionSet ext_set;
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+    EXPECT_EQ(ext_set.function_ids().size(),
+              0);  // shouldn't need extensions for core field references
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
     ASSERT_TRUE(roundtripped.field_ref());
 
     ASSERT_OK_AND_ASSIGN(auto expected, ref.FindOne(*kBoringSchema));
@@ -459,7 +476,8 @@ TEST(Substrait, RecursiveFieldRef) {
 
   ARROW_SCOPED_TRACE(ref.ToString());
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
-  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
   auto expected = SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
@@ -489,7 +507,9 @@ TEST(Substrait, FieldRefsInExpressions) {
                                                     })},
                                      compute::StructFieldOptions({0}))
                            .Bind(*kBoringSchema));
-  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
+
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
   auto expected = SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
@@ -566,8 +586,15 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
        }) {
     ARROW_SCOPED_TRACE(expr.ToString());
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
-    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr));
-    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized));
+
+    ExtensionSet ext_set;
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+
+    // These are special cased as core expressions in substrait; shouldn't require any
+    // extensions.
+    EXPECT_EQ(ext_set.function_ids().size(), 0);
+
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
     EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
   }
@@ -631,6 +658,72 @@ TEST(Substrait, ReadRel) {
   EXPECT_THAT(dataset.files(), ElementsAre("/tmp/dat1.parquet", "/tmp/dat2.parquet"));
   EXPECT_EQ(dataset.format()->type_name(), "parquet");
   EXPECT_EQ(*dataset.schema(), Schema({field("i", int64()), field("b", boolean())}));
+}
+
+TEST(Substrait, ExtensionSetFromPlan) {
+  auto buf = SubstraitFromJSON("Plan", R"({
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ {"i64": {}}, {"bool": {}} ]
+            },
+            "names": ["i", "b"]
+          },
+          "local_files": { "items": [] }
+        }
+      }}
+    ],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_type": {
+        "extension_uri_reference": 7,
+        "type_anchor": 42,
+        "name": "null"
+      }},
+      {"extension_type_variation": {
+        "extension_uri_reference": 7,
+        "type_variation_anchor": 23,
+        "name": "u8"
+      }},
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "add"
+      }}
+    ]
+  })");
+
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(
+      auto sink_decls,
+      DeserializePlan(
+          *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
+          &ext_set));
+
+  EXPECT_EQ(ext_set.uris()[7], kArrowExtTypesUri);
+
+  ASSERT_NE(ext_set.types()[42], nullptr);
+  EXPECT_EQ(ext_set.type_ids()[42].uri, kArrowExtTypesUri);
+  EXPECT_EQ(ext_set.type_ids()[42].name, "null");
+  EXPECT_EQ(*ext_set.types()[42], NullType());
+  EXPECT_FALSE(ext_set.type_is_variation(42));
+
+  ASSERT_NE(ext_set.types()[23], nullptr);
+  EXPECT_EQ(ext_set.type_ids()[23].uri, kArrowExtTypesUri);
+  EXPECT_EQ(ext_set.type_ids()[23].name, "u8");
+  EXPECT_EQ(*ext_set.types()[23], UInt8Type());
+  EXPECT_TRUE(ext_set.type_is_variation(23));
+
+  EXPECT_EQ(ext_set.function_ids()[42].uri, kArrowExtTypesUri);
+  EXPECT_EQ(ext_set.function_ids()[42].name, "add");
+  EXPECT_EQ(ext_set.function_names()[42], "add");
 }
 
 }  // namespace engine

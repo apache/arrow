@@ -422,7 +422,8 @@ Result<std::unique_ptr<substrait::Type>> ToProto(const DataType& type, bool null
   return std::move(out);
 }
 
-Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_struct) {
+Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_struct,
+                                          const ExtensionSet& ext_set) {
   if (!named_struct.has_struct_()) {
     return Status::Invalid("While converting ", named_struct.DebugString(),
                            " no anonymous struct type was provided to which to names "
@@ -431,7 +432,6 @@ Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_st
   const auto& struct_ = named_struct.struct_();
   RETURN_NOT_OK(CheckVariation(struct_));
 
-  ExtensionSet ext_set;
   int requested_names_count = 0;
   ARROW_ASSIGN_OR_RAISE(auto fields, FieldsFromProto(
                                          struct_.types_size(), struct_.types(),
@@ -466,7 +466,8 @@ void ToProtoGetDepthFirstNames(const FieldVector& fields,
 }
 }  // namespace
 
-Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema& schema) {
+Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema& schema,
+                                                        ExtensionSet* ext_set) {
   if (schema.metadata()) {
     return Status::Invalid("substrait::NamedStruct does not support schema metadata");
   }
@@ -486,9 +487,7 @@ Result<std::unique_ptr<substrait::NamedStruct>> ToProto(const Schema& schema) {
       return Status::Invalid("substrait::NamedStruct does not support field metadata");
     }
 
-    ExtensionSet ext_set;
-    ARROW_ASSIGN_OR_RAISE(auto type,
-                          ToProto(*field->type(), field->nullable(), &ext_set));
+    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*field->type(), field->nullable(), ext_set));
     types->AddAllocated(type.release());
   }
 

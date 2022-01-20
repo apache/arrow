@@ -37,7 +37,7 @@ namespace engine {
 using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
 
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
-    const Buffer&, const ConsumerFactory&);
+    const Buffer&, const ConsumerFactory&, ExtensionSet* ext_set = NULLPTR);
 
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&, const ExtensionSet&);
@@ -46,16 +46,17 @@ ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeType(const DataType&, ExtensionSet*);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer&);
+Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer&, const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema&);
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema&, ExtensionSet*);
 
 ARROW_ENGINE_EXPORT
-Result<compute::Expression> DeserializeExpression(const Buffer&);
+Result<compute::Expression> DeserializeExpression(const Buffer&, const ExtensionSet&);
 
 ARROW_ENGINE_EXPORT
-Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&);
+Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&,
+                                                    ExtensionSet*);
 
 ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(const Buffer&,
                                                                      const ExtensionSet&);
