@@ -51,15 +51,24 @@ static void ValidateCompare(CompareOptions options, const Datum& lhs, const Datu
                             const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(
       Datum result, CallFunction(CompareOperatorToFunctionName(options.op), {lhs, rhs}));
-  AssertArraysEqual(*expected.make_array(), *result.make_array(),
+  if ((lhs.is_scalar()) && (rhs.is_scalar())) {
+     AssertScalarsEqual(*expected.scalar(), *result.scalar(), /*verbose=*/true);
+  } else {
+     AssertArraysEqual(*expected.make_array(), *result.make_array(),
                     /*verbose=*/true);
+  }
 }
 
 template <typename ArrowType>
 static void ValidateCompare(CompareOptions options, const Datum& lhs, const Datum& rhs,
                             const char* expected_str) {
-  auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
-  ValidateCompare<ArrowType>(options, lhs, rhs, expected);
+  if ((lhs.is_scalar()) && (rhs.is_scalar())) {
+    auto expected = ScalarFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
+    ValidateCompare<ArrowType>(options, lhs, rhs, expected);
+  } else {
+    auto expected = ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
+    ValidateCompare<ArrowType>(options, lhs, rhs, expected);
+  }
 }
 
 template <typename ArrowType>
@@ -259,53 +268,50 @@ TYPED_TEST_SUITE(TestNumericCompareKernel, NumericArrowTypes);
   Datum one(ScalarFromJSON(TypeTraits<TypeParam>::type_singleton(), "1"));
   Datum two(ScalarFromJSON(TypeTraits<TypeParam>::type_singleton(), "2"));
   Datum null(ScalarFromJSON(TypeTraits<TypeParam>::type_singleton(), "null"));
-  Datum one_a(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[1]"));
-  Datum two_a(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[2]"));
-  Datum null_a(ArrayFromJSON(TypeTraits<TypeParam>::type_singleton(), "[null]"));
 
   CompareOptions eq(CompareOperator::EQUAL);
-  ValidateCompare<TypeParam>(eq, two_a, one_a, "[0]");
-  ValidateCompare<TypeParam>(eq, one, one_a, "[1]");
-  ValidateCompare<TypeParam>(eq, two, null_a, "[null]");
-  ValidateCompare<TypeParam>(eq, null_a, one, "[null]");
-  ValidateCompare<TypeParam>(eq, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(eq, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(eq, one_a, two, "[0]");
+  ValidateCompare<TypeParam>(eq, two, one, "0");
+  ValidateCompare<TypeParam>(eq, one, one, "1");
+  ValidateCompare<TypeParam>(eq, two, null, "null");
+  ValidateCompare<TypeParam>(eq, null, one, "null");
+  ValidateCompare<TypeParam>(eq, two, null, "null");
+  ValidateCompare<TypeParam>(eq, null, one, "null");
+  ValidateCompare<TypeParam>(eq, one, two, "0");
 
   CompareOptions neq(CompareOperator::NOT_EQUAL);
-  ValidateCompare<TypeParam>(neq, two, one_a, "[1]");
-  ValidateCompare<TypeParam>(neq, one, one_a, "[0]");
-  ValidateCompare<TypeParam>(neq, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(neq, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(neq, one_a, two, "[1]");
+  ValidateCompare<TypeParam>(neq, two, one, "1");
+  ValidateCompare<TypeParam>(neq, one, one, "0");
+  ValidateCompare<TypeParam>(neq, two, null, "null");
+  ValidateCompare<TypeParam>(neq, null, one, "null");
+  ValidateCompare<TypeParam>(neq, one, two, "1");
 
   CompareOptions gt(CompareOperator::GREATER);
-  ValidateCompare<TypeParam>(gt, two, one_a, "[1]");
-  ValidateCompare<TypeParam>(gt, one, one_a, "[0]");
-  ValidateCompare<TypeParam>(gt, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(gt, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(gt, one_a, two, "[0]");
+  ValidateCompare<TypeParam>(gt, two, one, "1");
+  ValidateCompare<TypeParam>(gt, one, one, "0");
+  ValidateCompare<TypeParam>(gt, two, null, "null");
+  ValidateCompare<TypeParam>(gt, null, one, "null");
+  ValidateCompare<TypeParam>(gt, one, two, "0");
 
   CompareOptions gte(CompareOperator::GREATER_EQUAL);
-  ValidateCompare<TypeParam>(gte, two, one_a, "[1]");
-  ValidateCompare<TypeParam>(gte, one, one_a, "[1]");
-  ValidateCompare<TypeParam>(gte, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(gte, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(gte, one_a, two, "[0]");
+  ValidateCompare<TypeParam>(gte, two, one, "1");
+  ValidateCompare<TypeParam>(gte, one, one, "1");
+  ValidateCompare<TypeParam>(gte, two, null, "null");
+  ValidateCompare<TypeParam>(gte, null, one, "null");
+  ValidateCompare<TypeParam>(gte, one, two, "0");
 
   CompareOptions lt(CompareOperator::LESS);
-  ValidateCompare<TypeParam>(lt, two, one_a, "[0]");
-  ValidateCompare<TypeParam>(lt, one, one_a, "[0]");
-  ValidateCompare<TypeParam>(lt, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(lt, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(lt, one_a, two, "[1]");
+  ValidateCompare<TypeParam>(lt, two, one, "0");
+  ValidateCompare<TypeParam>(lt, one, one, "0");
+  ValidateCompare<TypeParam>(lt, two, null, "null");
+  ValidateCompare<TypeParam>(lt, null, one, "null");
+  ValidateCompare<TypeParam>(lt, one, two, "1");
 
   CompareOptions lte(CompareOperator::LESS_EQUAL);
-  ValidateCompare<TypeParam>(lte, two, one_a, "[0]");
-  ValidateCompare<TypeParam>(lte, one, one_a, "[1]");
-  ValidateCompare<TypeParam>(lte, two_a, null, "[null]");
-  ValidateCompare<TypeParam>(lte, null, one_a, "[null]");
-  ValidateCompare<TypeParam>(lte, one_a, two, "[1]");
+  ValidateCompare<TypeParam>(lte, two, one, "0");
+  ValidateCompare<TypeParam>(lte, one, one, "1");
+  ValidateCompare<TypeParam>(lte, two, null, "null");
+  ValidateCompare<TypeParam>(lte, null, one, "null");
+  ValidateCompare<TypeParam>(lte, one, two, "1");
 }
 
 TYPED_TEST(TestNumericCompareKernel, SimpleCompareArrayScalar) {
@@ -2182,8 +2188,12 @@ TEST(TestMaxElementWiseMinElementWise, CommonTemporal) {
 static void ValidateBetween(BetweenOptions options, const Datum& val, const Datum& lhs,
                             const Datum& rhs, const Datum& expected) {
   ASSERT_OK_AND_ASSIGN(Datum result, Between(val, lhs, rhs, options, nullptr));
-  AssertArraysEqual(*expected.make_array(), *result.make_array(),
-                    /*verbose=*/true);
+  if ((val.is_scalar()) && (lhs.is_scalar()) && (rhs.is_scalar())) {
+     AssertScalarsEqual(*expected.scalar(), *result.scalar(), /*verbose=*/true);
+  } else {
+    AssertArraysEqual(*expected.make_array(), *result.make_array(),
+                      /*verbose=*/true);
+  }
 }
 
 void ValidateBetween(const Datum& val, const Datum& lhs, const Datum& rhs) {
@@ -2246,14 +2256,13 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
       auto two = Datum(ScalarFromJSON(tt, "2"));
       auto four = Datum(ScalarFromJSON(tt, "4"));
       auto null = Datum(ScalarFromJSON(tt, "null"));
-      auto two_a = Datum(ArrayFromJSON(tt, "[2]"));
-      ValidateBetween(zero, two_a, four);
-      ValidateBetween(two_a, zero, four);
-      ValidateBetween(two, two_a, four);
-      ValidateBetween(four, two_a, four);
-      ValidateBetween(null, two_a, four);
-      ValidateBetween(two_a, null, four);
-      ValidateBetween(two_a, zero, null);
+      ValidateBetween(zero, two, four);
+      ValidateBetween(two, zero, four);
+      ValidateBetween(two, two, four);
+      ValidateBetween(four, two, four);
+      ValidateBetween(null, two, four);
+      ValidateBetween(two, null, four);
+      ValidateBetween(two, zero, null);
     }
   }
 }
