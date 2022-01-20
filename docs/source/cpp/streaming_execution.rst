@@ -355,6 +355,7 @@ A `source` operation can be considered as an entry point to create a streaming e
 :class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation.  The
 `source` operation is the most generic and flexible type of source currently available but it can
 be quite tricky to configure.  To process data from files the scan operation is likely a simpler choice.
+
 The source node requires some kind of function that can be called to poll for more data.  This
 function should take no arguments and should return an
 ``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
@@ -367,7 +368,8 @@ engine must know the schema of the data at each stage of the execution graph bef
 processing has begun.  This means we must supply the schema for a source node separately
 from the data itself.
 
-Struct to hold the data generator definition:
+Here we define a struct to hold the data generator definition. This includes in-memory batches, schema
+and a function that serves as a data generator :
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -376,7 +378,7 @@ Struct to hold the data generator definition:
   :linenos:
   :lineno-match:
 
-Generating sample Batches for computation:
+Generating sample batches for computation:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
@@ -399,11 +401,10 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
 ``filter``
 ----------
 
-``filter`` operation, as the name suggests, provides an option to define data filtering
-criteria. It selects rows matching a given expression. 
-Filters can be written using :class:`arrow::compute::Expression`. 
-For example, if we wish to keep rows where the value of column ``b``
-is greater than 3,  then we can use the following expression:: 
+``filter`` operation, as the name suggests, provides an option to define data filtering 
+criteria. It selects rows matching a given expression. Filters can be written using 
+:class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
+of column ``b`` is greater than 3,  then we can use the following expression:: 
 
   // a > 3
   arrow::compute::Expression filter_opt = arrow::compute::greater(
@@ -412,14 +413,10 @@ is greater than 3,  then we can use the following expression::
 
 Using this option, the filter node can be constructed as follows::																
 
-  // creating filter node
   arrow::compute::ExecNode* filter;
     ARROW_ASSIGN_OR_RAISE(filter, arrow::compute::MakeExecNode("filter", 
-                          // plan
                           plan.get(),
-                          // previous node
                           {scan}, 
-                          //filter node options
                           arrow::compute::FilterNodeOptions{filter_opt}));
 
 Filter example:
@@ -455,11 +452,8 @@ Creating a project node::
   arrow::compute::ExecNode* project;
       ARROW_ASSIGN_OR_RAISE(project, 
           arrow::compute::MakeExecNode("project", 
-          // plan
           plan.get(),
-          // previous node 
           {scan},
-          // project node options 
           arrow::compute::ProjectNodeOptions{{a_times_2}}));
 
 Project example:
@@ -476,16 +470,28 @@ Project example:
 ``aggregate``
 -------------
 
-``aggregate`` operation provides various data aggregation options. 
-The :class:`arrow::compute::AggregateNodeOptions` is used to 
-define the aggregation criteria. An aggregate node can first group data by
-one or more key columns or the keys can be left off to compute aggregates
-across the entire dataset.  Each aggregate node can compute any number of
-aggregation functions.  Each aggregation function will be applied to every
-field specified as a target.  The aggregation functions can be 
-selected from :ref:`this list of aggregation functions <aggregation-option-list>`.
-Note: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
-In the future, spillover mechanisms will be added which should alleviate this constraint.
+The ``aggregate`` node computes various types of aggregates over data.
+
+Arrow supports two types of aggregates: "scalar" aggregates, and
+"hash" aggregates. Scalar aggregates reduce an array or scalar input
+to a single scalar output (e.g. computing the mean of a column). Hash
+aggregates act like ``GROUP BY`` in SQL and first partition data based
+on one or more key columns, then reduce the data in each
+partition. The ``aggregate`` node supports both types of computation,
+and can compute any number of aggregations at once.
+
+:class:`arrow::compute::AggregateNodeOptions` is used to define the
+aggregation criteria.  It takes a list of aggregation functions and
+their options; a list of target fields to aggregate, one per function;
+and a list of names for the output fields, one per function.
+Optionally, it takes a list of columns that are used to partition the
+data, in the case of a hash aggregation.  The aggregation functions
+can be selected from :ref:`this list of aggregation functions
+<aggregation-option-list>`.
+
+.. note:: This node is a "pipeline breaker" and will fully materialize
+          the dataset in memory.  In the future, spillover mechanisms
+          will be added which should alleviate this constraint.
 
 An example for creating an aggregate node::
 
@@ -520,12 +526,11 @@ execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used
 the required options. Similar to the source operator the sink operator exposes the output
 with a function that returns a record batch future each time it is called.  It is expected the
 caller will repeatedly call this function until the generator function is exhausted (returns
-arrow::util::optional::nullopt).  If this function is not called often enough then record batches
+``arrow::util::optional::nullopt``).  If this function is not called often enough then record batches
 will accumulate in memory.  An execution plan should only have one
-"terminal" node (one sink node).  An execution plan may "finish" by marking
-`exec_plan->finished()` as complete before the sink generator is fully consumed and the
-execution plan can be safely destroyed without harming the sink generator (which will hold
-references to the unconsumed batches).
+"terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or 
+an error, before the output is fully consumed. However, the plan can be safely destroyed independently
+of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
 
 Example::
 

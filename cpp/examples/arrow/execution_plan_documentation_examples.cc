@@ -463,6 +463,9 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
   cp::ExecNode* project;
   ARROW_ASSIGN_OR_RAISE(project, cp::MakeExecNode("project", plan.get(), {scan},
                                                   cp::ProjectNodeOptions{{a_times_2}}));
+  // schema after projection => multiply(a, 2): int64
+  std::cout << "Schema after projection : \n"
+            << project->output_schema()->ToString() << std::endl;
 
   arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
   ARROW_RETURN_NOT_OK(
