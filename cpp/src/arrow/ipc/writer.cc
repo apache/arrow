@@ -1138,7 +1138,7 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
   // A map of last-written dictionaries by id.
   // This is required to avoid the same dictionary again and again,
   // and also for correctness when writing the IPC file format
-  // (where replacements and deltas are unsupported).
+  // (where replacements are unsupported).
   // The latter is also why we can't use weak_ptr.
   std::unordered_map<int64_t, std::shared_ptr<Array>> last_dictionaries_;
 
