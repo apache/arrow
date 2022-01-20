@@ -173,3 +173,31 @@ test_that("mutate then join", {
     )
   )
 })
+
+test_that("filter then join", {
+  left <- Table$create(
+    one = c("a", "b", "c"),
+    two = 1:3
+  )
+  right <- Table$create(
+    three = c(FALSE, TRUE, NA),
+    dos = c(2L, 3L, 4L)
+  )
+
+  expect_equal(
+    left %>%
+      rename(dos = two) %>%
+      filter(one %in% letters[1:2]) %>%
+      left_join(
+        right %>%
+          filter(!is.na(three))
+      ) %>%
+      arrange(dos) %>%
+      collect(),
+    tibble(
+      one = c("a", "b"),
+      dos = 1:2,
+      three = c(NA, FALSE)
+    )
+  )
+})
