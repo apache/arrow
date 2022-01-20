@@ -340,6 +340,52 @@ TEST(TestScalarNested, MapArrayLookupNested) {
               &foo_last);
 }
 
+template <typename Type>
+class TestMapArrayLookupIntegralKeys : public ::testing ::Test {};
+
+TYPED_TEST_SUITE(TestMapArrayLookupIntegralKeys, IntegralArrowTypes);
+
+TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
+  auto type = default_type_instance<TypeParam>();
+
+  auto one_scalar = MakeScalar(type, 1).ValueOrDie();
+  MapArrayLookupOptions one_all(one_scalar, MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions one_first(one_scalar, MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions one_last(one_scalar, MapArrayLookupOptions::LAST);
+
+  auto map_type = map(type, utf8());
+  const char* input = R"(
+    [
+      [ 
+        [0, "zero"], [1, "first_one"], [2, "two"], [3, "three"], [1, "second_one"],
+        [1, "last_one"]
+      ],
+      null,
+      [ 
+        [0, "zero_hero"], [9, "almost_six"], [1, "the_dumb_one"], [7, "eleven"],
+        [1, "the_chosen_one"], [42, "meaning of life?"], [1, "just_one"],
+        [1, "no more ones!"]
+      ],
+      []
+    ]
+  )";
+  auto map_array = ArrayFromJSON(map_type, input);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(utf8(), R"(["first_one", null, "the_dumb_one", null])"),
+              &one_first);
+  CheckScalar("map_array_lookup", {map_array},
+              ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null])"),
+              &one_last);
+  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(list(utf8()), R"([
+                  ["first_one", "second_one", "last_one"],
+                  null,
+                  ["the_dumb_one", "the_chosen_one", "just_one", "no more ones!"],
+                  null
+                ]
+              )"),
+              &one_all);
+}
+
 struct {
   Result<Datum> operator()(std::vector<Datum> args) {
     return CallFunction("make_struct", args);

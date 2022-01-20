@@ -430,17 +430,17 @@ const FunctionDoc make_struct_doc{"Wrap Arrays into a StructArray",
                                   "MakeStructOptions"};
 
 struct MapArrayLookupFunctor {
-  static Result<int32_t> FindOneMapValueIndex(const Array& keys, const Scalar& query_key,
-                                              const int32_t start, const int32_t end,
+  static Result<int64_t> FindOneMapValueIndex(const Array& keys, const Scalar& query_key,
+                                              const int64_t start, const int64_t end,
                                               const bool from_back = false) {
     if (!from_back) {
-      for (int32_t idx = start; idx < end; ++idx) {
+      for (int64_t idx = start; idx < end; ++idx) {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys.GetScalar(idx));
 
         if (key->Equals(query_key)) return idx;
       }
     } else {
-      for (int32_t idx = end - 1; idx >= start; --idx) {
+      for (int64_t idx = end - 1; idx >= start; --idx) {
         ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys.GetScalar(idx));
 
         if (key->Equals(query_key)) return idx;
@@ -474,14 +474,14 @@ struct MapArrayLookupFunctor {
           continue;
         }
 
-        int32_t start = offsets->Value(map_array_idx);
-        int32_t end = offsets->Value(map_array_idx + 1);
+        int64_t start = offsets->Value(map_array_idx);
+        int64_t end = offsets->Value(map_array_idx + 1);
         bool found_atleast_one_key = false;
 
         RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(),
                                   &list_builder));
 
-        for (int32_t key_idx_to_check = start; key_idx_to_check < end;
+        for (int64_t key_idx_to_check = start; key_idx_to_check < end;
              ++key_idx_to_check) {
           ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key,
                                 keys->GetScalar(key_idx_to_check));
@@ -517,12 +517,12 @@ struct MapArrayLookupFunctor {
           continue;
         }
 
-        int32_t start = offsets->Value(map_array_idx);
-        int32_t end = offsets->Value(map_array_idx + 1);
+        int64_t start = offsets->Value(map_array_idx);
+        int64_t end = offsets->Value(map_array_idx + 1);
         bool from_back = (occurrence == MapArrayLookupOptions::LAST);
 
         ARROW_ASSIGN_OR_RAISE(
-            int32_t key_match_idx,
+            int64_t key_match_idx,
             FindOneMapValueIndex(*keys, *query_key, start, end, from_back));
         if (key_match_idx != -1) {
           RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), key_match_idx, 1));
@@ -583,7 +583,7 @@ struct MapArrayLookupFunctor {
       bool from_back = (occurrence == MapArrayLookupOptions::LAST);
 
       ARROW_ASSIGN_OR_RAISE(
-          int32_t key_match_idx,
+          int64_t key_match_idx,
           FindOneMapValueIndex(*keys, *query_key, 0, struct_array.length(), from_back));
       if (key_match_idx != -1) {
         ARROW_ASSIGN_OR_RAISE(out->value, items->GetScalar(key_match_idx));
