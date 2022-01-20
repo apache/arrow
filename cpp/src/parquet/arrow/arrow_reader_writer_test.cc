@@ -3719,54 +3719,8 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
-TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumn) {
-  // ARROW-14047
-  std::vector<std::shared_ptr<::arrow::Field>> fields{::arrow::field(
-      "s",
-      ::arrow::list(
-        ::arrow::struct_({
-          ::arrow::field("x", ::arrow::float64())
-        })
-      )
-  )};
-  auto array = ::arrow::ArrayFromJSON(
-    fields[0]->type(),
-    R"([[{"x": 12.7}, {"x": 12.8}, {}, {"x": 13}, {"x": 13.1}, {"x": 13.2}, {"x": 13.3}],
-        [{"x": 12.8}, {}, {"x": 13}, {}, {"x": 13.2}, {}, {"x": 13.4}, {}]
-    ])");
-
-  // auto batch = ::arrow::random::GenerateBatch(fields, /*batch_size=*/4096, /*seed=*/0);
-
-  auto expected = Table::Make(::arrow::schema(fields), {array});
-  // ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
-
-  auto pool = default_memory_pool();
-
-  // Write table
-  using ::arrow::io::BufferOutputStream;
-  ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
-  auto props = default_writer_properties();
-  std::unique_ptr<arrow::FileWriter> writer;
-  ASSERT_OK(
-      arrow::FileWriter::Open(*expected->schema().get(), pool, outs, props, &writer));
-  ASSERT_OK(writer->WriteTable(*expected.get(), 1));
-  ASSERT_OK(writer->Close());
-
-  ASSERT_OK_AND_ASSIGN(auto buffer, outs->Finish());
-
-  // Read from table
-  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-  ASSERT_OK(parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer), pool, &arrow_reader));
-
-  for (int i = 0; i < 20; ++i) {
-    std::shared_ptr<::arrow::Table> table_read;
-    ASSERT_OK(arrow_reader->ReadTable(&table_read));
-
-    ::arrow::AssertTablesEqual(*expected.get(), *table_read.get());
-  }
-}
-
 TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
+  // ARROW-14047
   auto pool = default_memory_pool();
 
   auto file_path = test::get_data_file("writeReadRowGroup.parquet");
@@ -3777,14 +3731,73 @@ TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
 
   std::shared_ptr<::arrow::Table> first_read;
   ASSERT_OK(arrow_reader->ReadTable(&first_read));
-  
-  for (int i = 0; i < 20; ++i) {
-    std::shared_ptr<::arrow::Table> table_read;
-    ASSERT_OK(arrow_reader->ReadTable(&table_read));
 
-    ::arrow::AssertTablesEqual(*first_read.get(), *table_read.get());
-  }
+  ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
+  std::shared_ptr<FileMetaData> metadata1 = arrow_reader->parquet_reader()->metadata();
+  std::shared_ptr<Statistics> stats1 = metadata1->RowGroup(0)->ColumnChunk(1)->statistics();
+
+  std::shared_ptr<::arrow::Table> second_read;
+  ASSERT_OK(arrow_reader->ReadTable(&second_read));
+
+  // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number of nulls in array (861)
+  ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); 
+  std::shared_ptr<FileMetaData> metadata2 = arrow_reader->parquet_reader()->metadata();
+  std::shared_ptr<Statistics> stats2 = metadata2->RowGroup(0)->ColumnChunk(1)->statistics();
+
+  ASSERT_EQ(stats1->null_count(), stats2->null_count());
+  ASSERT_EQ(stats1->num_values(), stats2->num_values());
+
+  ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
+
+  // Try writing good read to a new file
+  using ::arrow::io::BufferOutputStream;
+  ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
+  auto props = default_writer_properties();
+  std::unique_ptr<arrow::FileWriter> writer;
+  ASSERT_OK(
+      arrow::FileWriter::Open(*first_read->schema().get(), pool, outs, props, &writer));
+  ASSERT_OK(writer->WriteTable(*first_read.get(), 1));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, outs->Finish());
+
+  // Read from table
+  ASSERT_OK(parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer), pool, &arrow_reader));
+
+  ASSERT_OK(arrow_reader->ReadTable(&first_read));
+  ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
+  metadata1 = arrow_reader->parquet_reader()->metadata();
+  stats1 = metadata1->RowGroup(0)->ColumnChunk(1)->statistics();
+
+  ASSERT_OK(arrow_reader->ReadTable(&second_read));
+  // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number of nulls in array (861)
+  ASSERT_OK(second_read->column(1)->chunk(0)->ValidateFull()); 
+  metadata2 = arrow_reader->parquet_reader()->metadata();
+  stats2 = metadata2->RowGroup(0)->ColumnChunk(1)->statistics();
+
+  ASSERT_EQ(stats1->null_count(), stats2->null_count());
+  ASSERT_EQ(stats1->num_values(), stats2->num_values());
+
+  ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
 }
+
+// Another failure caused by above test?
+// 56: /Users/willjones/Documents/arrows/arrow/cpp/src/parquet/arrow/arrow_statistics_test.cc:89: Failure
+// 56: Expected equality of these values:
+// 56:   stats->null_count()
+// 56:     Which is: 2009
+// 56:   GetParam().expected_null_count
+// 56:     Which is: 2001
+// 56: /Users/willjones/Documents/arrows/arrow/cpp/src/parquet/arrow/arrow_statistics_test.cc:90: Failure
+// 56: Expected equality of these values:
+// 56:   stats->num_values()
+// 56:     Which is: 0
+// 56:   GetParam().expected_value_count
+// 56:     Which is: 8
+// 56: /Users/willjones/Documents/arrows/arrow/cpp/src/parquet/arrow/arrow_statistics_test.cc:91: Failure
+// 56: Value of: stats->HasMinMax()
+// 56:   Actual: false
+// 56: Expected: true
+// 56: [  FAILED  ] StatsTests/ParameterizedStatisticsTest.NoNullCountWrittenForRepeatedFields/5, where GetParam() = StatisticsTestParam{table.schema=a: list<item: int64> not null, expected_null_count=2001, expected_value_count=8, expected_min= (0 ms)
 
 class TestArrowReaderAdHocSparkAndHvr
     : public ::testing::TestWithParam<
