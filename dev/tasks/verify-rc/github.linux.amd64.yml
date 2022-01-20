@@ -68,7 +68,7 @@ jobs:
           fi
       - uses: actions/setup-node@v2-beta
         with:
-          node-version: '14'
+          node-version: '16'
       - name: Run verification
         shell: bash
         run: |
