@@ -867,15 +867,15 @@ enum SqlSupportsConvert {
   SQL_CONVERT_VARCHAR = 19;
 }
 
-enum DATE_SUBCODE {
-  UNKNOWN_SUBCODE = 0;
+enum DateSubcode {
+  SQL_DATETIME_SUBCODE_UNKNOWN = 0;
   SQL_CODE_DATE = 1;
   SQL_CODE_TIME = 2;
   SQL_CODE_TIMESTAMP = 3;
 }
 
-enum SQL_DATA_TYPE {
-  UNKNOWN = 0;
+enum SqlDataType {
+  SQL_CODE_UNKNOWN = 0;
   SQL_CODE_YEAR = 1;
   SQL_CODE_MONTH = 2;
   SQL_CODE_DAY = 3;
@@ -908,30 +908,30 @@ enum Nullable {
   /**
    * Indicates that the fields does not allow the use of null values.
    */
-  TYPE_NO_NULLS = 0;
+  NULLABILITY_NO_NULLS = 0;
 
   /**
    * Indicates that the fields allow the use of null values.
    */
-  TYPE_NULLABLE = 1;
+  NULLABILITY_NULLABLE = 1;
 
   /**
    * Indicates that nullability of the fields can not be determined.
    */
-  TYPE_NULLABLE_UNKNOWN = 2;
+  NULLABILITY_UNKNOWN = 2;
 }
 
 enum Searchable {
   /**
    * Indicates that column can not be used in a WHERE clause.
    */
-  TYPE_PRED_NONE = 0;
+  SEARCHABLE_NONE = 0;
 
   /**
    * Indicates that the column can be used in a WHERE clause if it is using a
    * LIKE predicate.
    */
-  TYPE_PRED_CHAR = 1;
+  SEARCHABLE_CHAR = 1;
 
   /**
    * Indicates that the column can be used in a WHERE clause using other predicates
@@ -940,12 +940,12 @@ enum Searchable {
    * - Allowed operators: comparison, quantified comparison, BETWEEN,
    *                      DISTINCT, IN, MATCH, and UNIQUE.
    */
-  TYPE_PRED_BASIC = 2;
+  SEARCHABLE_BASIC = 2;
 
   /**
    * Indicates that the column can be used in a WHERE clause using any operator.
    */
-  TYPE_SEARCHABLE = 3;
+  SEARCHABLE_FULL = 3;
 }
 
 /*
@@ -968,13 +968,14 @@ enum Searchable {
  *   literal_suffix: utf8 (Character or characters used to terminate a literal,
  *                         NULL is returned for data types where a literal suffix is not applicable.),
  *   create_params: list<utf8 not null>
-                          (A list of keywords, separated by commas, corresponding
- *                        to each parameter that the application may specify in parentheses
- *                        when using the name that is returned in the TYPE_NAME field.
- *                        NULL is returned if there are no parameters for the data type definition.),
- *   nullable: int not null (Shows if the data type accepts a NULL value),
+ *                        (A list of keywords corresponding to which parameters can be used when creating
+ *                         a column for that specific type.
+ *                         NULL is returned if there are no parameters for the data type definition.),
+ *   nullable: int not null (Shows if the data type accepts a NULL value. The possible values can be seen in the
+ *                           Nullable enum.),
  *   case_sensitive: bool not null (Shows if a character data type is case-sensitive in collations and comparisons),
- *   searchable: int not null (Shows how the data type is used in a WHERE clause),
+ *   searchable: int not null (Shows how the data type is used in a WHERE clause. The possible values can be seen in the
+ *                             Searchable enum.),
  *   unsigned_attribute: bool (Shows if the data type is unsigned. NULL is returned if the attribute is
  *                             not applicable to the data type or the data type is not numeric.),
  *   fixed_prec_scale: bool not null (Shows if the data type has predefined fixed precision and scale.),
@@ -990,10 +991,11 @@ enum Searchable {
  *   sql_data_type: int not null (The value of the SQL DATA TYPE which has the same values
  *                                as date_type value. Except for interval and datetime, which
  *                                uses generic values. More info about those types can be
- *                                obtained through datetime_subcode.),
+ *                                obtained through datetime_subcode. The possible values can be seen
+ *                                in the SqlDataType enum.),
  *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
  *                          its sub types. For type different from interval and datetime, this value
- *                          is NULL.),
+ *                          is NULL. The possible values can be seen in the DateSubcode enum.),
  *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
  *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
  *                        exact numeric types, this column contains the value 10 to indicate that
