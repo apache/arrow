@@ -292,7 +292,6 @@ bool Array__Same(const std::shared_ptr<arrow::Array>& x,
 
 // [[arrow::export]]
 int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
-  auto array = arrow::internal::checked_cast<const arrow::Array*>(x.get());
-  return ValueOrStop(arrow::util::ReferencedBufferSize(*array));
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
 }
 #endif

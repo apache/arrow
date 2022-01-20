@@ -20,8 +20,8 @@
 
 #include <arrow/array/array_base.h>
 #include <arrow/table.h>
-#include <arrow/util/key_value_metadata.h>
 #include <arrow/util/byte_size.h>
+#include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x) {
@@ -285,8 +285,7 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
 }
 
 // [[arrow::export]]
-int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& x) {
-  auto table = arrow::internal::checked_cast<const arrow::Table*>(x.get());
+int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
   return ValueOrStop(arrow::util::ReferencedBufferSize(*table));
 }
 
