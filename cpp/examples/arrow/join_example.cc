@@ -54,25 +54,18 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
-std::string GetDataAsCsvString(std::string relation) {
-  std::string data_str = "";
-  if (relation == "l") {
-    data_str = R"csv(lkey,shared,ldistinct
+
+const std::string kLeftRelationCsvData = R"csv(lkey,shared,ldistinct
 1,4,7
 2,5,8
 11,20,21
 3,6,9)csv";
-  } else if (relation == "r") {
-    data_str = R"csv(rkey,shared,rdistinct
+
+const std::string kRightRelationCsvData = R"csv(rkey,shared,rdistinct
 1,10,13
 124,10,11
 2,11,14
 3,12,15)csv";
-  } else {
-    return data_str;
-  }
-  return data_str;
-}
 
 arrow::Result<std::shared_ptr<arrow::Table>> GetTableFromExecBatches(
     const std::shared_ptr<arrow::Schema>& schema,
@@ -86,11 +79,10 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTableFromExecBatches(
 }
 
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData(
-    std::string relation) {
-  arrow::io::IOContext io_context = arrow::io::default_io_context();
+    bool is_left) {
+  const arrow::io::IOContext &io_context = arrow::io::default_io_context();
   std::shared_ptr<arrow::io::InputStream> input;
-  std::string csv_data = GetDataAsCsvString(relation);
-  std::cout << "CSV DATA : " << relation << std::endl;
+  std::string csv_data = is_left ? kLeftRelationCsvData : kRightRelationCsvData;
   std::cout << csv_data << std::endl;
   arrow::util::string_view sv = csv_data;
   input = std::make_shared<arrow::io::BufferReader>(sv);
@@ -135,8 +127,8 @@ arrow::Status DoHashJoin() {
   cp::ExecNode* left_source;
   cp::ExecNode* right_source;
 
-  ARROW_ASSIGN_OR_RAISE(auto l_dataset, CreateDataSetFromCSVData("l"));
-  ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData("r"));
+  ARROW_ASSIGN_OR_RAISE(auto l_dataset, CreateDataSetFromCSVData(true));
+  ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData(false));
 
   auto l_options = std::make_shared<arrow::dataset::ScanOptions>();
   l_options->projection = Materialize({});  // create empty projection
