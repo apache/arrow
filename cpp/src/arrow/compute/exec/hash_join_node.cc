@@ -308,10 +308,10 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
         proj_maps[side].data_type(HashJoinProjection::INPUT, input_field_id);
     // search the map and add suffix to the elements which
     // are present both in left and right tables
-    //auto search = left_field_map.find(input_field_name);
+    // auto search = left_field_map.find(input_field_name);
     auto search_it = left_field_map.equal_range(input_field_name);
     bool match_found = false;
-    for(auto search = search_it.first ; search != search_it.second; ++search) {
+    for (auto search = search_it.first; search != search_it.second; ++search) {
       match_found = true;
       auto left_val = search->first;
       auto left_index = search->second;

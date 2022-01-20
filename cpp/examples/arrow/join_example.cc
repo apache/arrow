@@ -54,14 +54,13 @@ namespace cp = arrow::compute;
     }                                              \
   } while (0);
 
-
-const std::string kLeftRelationCsvData = R"csv(lkey,shared,ldistinct
+char kLeftRelationCsvData[] = R"csv(lkey,shared,ldistinct
 1,4,7
 2,5,8
 11,20,21
 3,6,9)csv";
 
-const std::string kRightRelationCsvData = R"csv(rkey,shared,rdistinct
+char kRightRelationCsvData[] = R"csv(rkey,shared,rdistinct
 1,10,13
 124,10,11
 2,11,14
@@ -69,7 +68,7 @@ const std::string kRightRelationCsvData = R"csv(rkey,shared,rdistinct
 
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData(
     bool is_left) {
-  const arrow::io::IOContext &io_context = arrow::io::default_io_context();
+  const arrow::io::IOContext& io_context = arrow::io::default_io_context();
   std::shared_ptr<arrow::io::InputStream> input;
   std::string csv_data = is_left ? kLeftRelationCsvData : kRightRelationCsvData;
   std::cout << csv_data << std::endl;
@@ -109,11 +108,13 @@ arrow::Status DoHashJoin() {
   ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData(false));
 
   auto l_options = std::make_shared<arrow::dataset::ScanOptions>();
-  // create empty projection: "default" projection where each field is mapped to a field_ref
+  // create empty projection: "default" projection where each field is mapped to a
+  // field_ref
   l_options->projection = cp::project({}, {});
 
   auto r_options = std::make_shared<arrow::dataset::ScanOptions>();
-  // create empty projection: "default" projection where each field is mapped to a field_ref
+  // create empty projection: "default" projection where each field is mapped to a
+  // field_ref
   r_options->projection = cp::project({}, {});
 
   // construct the scan node
@@ -125,13 +126,12 @@ arrow::Status DoHashJoin() {
   ARROW_ASSIGN_OR_RAISE(right_source,
                         cp::MakeExecNode("scan", plan.get(), {}, r_scan_node_options));
 
-  arrow::compute::HashJoinNodeOptions join_opts{
-      arrow::compute::JoinType::INNER,
-      /*in_left_keys=*/{"lkey"},
-      /*in_right_keys=*/{"rkey"},
-      /*filter*/arrow::compute::literal(true), 
-      /*output_suffix_for_left*/"_l", 
-      /*output_suffix_for_right*/"_r"};
+  arrow::compute::HashJoinNodeOptions join_opts{arrow::compute::JoinType::INNER,
+                                                /*in_left_keys=*/{"lkey"},
+                                                /*in_right_keys=*/{"rkey"},
+                                                /*filter*/ arrow::compute::literal(true),
+                                                /*output_suffix_for_left*/ "_l",
+                                                /*output_suffix_for_right*/ "_r"};
 
   ARROW_ASSIGN_OR_RAISE(
       auto hashjoin,
