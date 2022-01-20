@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <stddef.h>
+#include <cstddef>
 
 #include <thread>
 
@@ -29,6 +29,11 @@
 #include "gandiva/visibility.h"
 
 namespace gandiva {
+
+static const std::string func_with_re2_patterns[] = {
+    " like("
+    " ilike("
+    " regexp_replace("};
 
 class ExpressionCacheKey {
  public:
@@ -68,8 +73,11 @@ class ExpressionCacheKey {
     if (uniqifier_ == 0) {
       // caching of expressions with re2 patterns causes lock contention. So, use
       // multiple instances to reduce contention.
-      if (expr.find(" like(") != std::string::npos) {
-        uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+      for (const std::string& function : func_with_re2_patterns) {
+        if (expr.find(function) != std::string::npos) {
+          uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+          break;
+        }
       }
     }
   }
