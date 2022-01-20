@@ -106,4 +106,19 @@ Parquet writer
 .. doxygenclass:: parquet::StreamWriter
    :members:
 
-.. TODO ORC
+.. _cpp-api-orc:
+
+ORC reader
+==========
+
+.. doxygenclass:: arrow::adapters::orc::ORCFileReader
+   :members:
+
+ORC writer
+==========
+
+.. doxygenclass:: arrow::adapters::orc::WriteOptions
+   :members:
+
+.. doxygenclass:: arrow::adapters::orc::ORCFileWriter
+   :members:

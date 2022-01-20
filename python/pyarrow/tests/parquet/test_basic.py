@@ -754,7 +754,7 @@ def test_permutation_of_column_order(tempdir):
 
     table = pq.read_table(str(case))
     table2 = pa.table([[1, 2, 3, 4, 5, 6],
-                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                       [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
                       names=['a', 'b'])
 
     assert table == table2
