@@ -22,23 +22,21 @@ This directory contains a vendored version of Flatbuffers
 
 ```diff
 diff --git a/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h b/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
-index 955738067..f8277b3e9 100644
+index 955738067..fccce42f6 100644
 --- a/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
 +++ b/cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
-@@ -212,11 +212,11 @@ namespace flatbuffers {
+@@ -212,13 +212,6 @@ namespace flatbuffers {
          typedef std::experimental::string_view string_view;
        }
        #define FLATBUFFERS_HAS_STRING_VIEW 1
 -    // Check for absl::string_view
 -    #elif __has_include("absl/strings/string_view.h")
 -      #include "absl/strings/string_view.h"
-+    // Check for arrow::util::string_view
-+    #elif __has_include("arrow/util/string_view.h")
-+      #include "arrow/util/string_view.h"
-       namespace flatbuffers {
+-      namespace flatbuffers {
 -        typedef absl::string_view string_view;
-+        typedef arrow::util::string_view string_view;
-       }
-       #define FLATBUFFERS_HAS_STRING_VIEW 1
+-      }
+-      #define FLATBUFFERS_HAS_STRING_VIEW 1
      #endif
+   #endif // __has_include
+ #endif // !FLATBUFFERS_HAS_STRING_VIEW
 ```
