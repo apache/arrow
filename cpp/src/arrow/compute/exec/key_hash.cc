@@ -289,10 +289,7 @@ void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& col
     // Zero hash for a null type col
     if (cols[icol].metadata().is_null_type) {
       uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
-      int num_nulls = cols[icol].length();
-      for (int i = 0; i < num_nulls; ++i) {
-        dst_hash[i] = 0;
-      }
+      memset(dst_hash, 0, sizeof(uint32_t) * cols[icol].length());
     } else {
       if (cols[icol].metadata().is_fixed_length) {
         uint32_t col_width = cols[icol].metadata().fixed_length;
