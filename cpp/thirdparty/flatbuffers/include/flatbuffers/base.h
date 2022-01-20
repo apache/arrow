@@ -212,11 +212,11 @@ namespace flatbuffers {
         typedef std::experimental::string_view string_view;
       }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
-    // Check for absl::string_view
-    #elif __has_include("absl/strings/string_view.h")
-      #include "absl/strings/string_view.h"
+    // Check for arrow::util::string_view
+    #elif __has_include("arrow/util/string_view.h")
+      #include "arrow/util/string_view.h"
       namespace flatbuffers {
-        typedef absl::string_view string_view;
+        typedef arrow::util::string_view string_view;
       }
       #define FLATBUFFERS_HAS_STRING_VIEW 1
     #endif
