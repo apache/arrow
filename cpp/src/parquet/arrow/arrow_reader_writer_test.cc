@@ -3719,7 +3719,7 @@ TEST(TestArrowReaderAdHoc, WriteBatchedNestedNullableStringColumn) {
   ::arrow::AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
-TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
+TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFileWhichOne) {
   // ARROW-14047
   auto pool = default_memory_pool();
 
@@ -3735,41 +3735,88 @@ TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
 
   ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
 
-  std::shared_ptr<::arrow::Table> second_read;
-  ASSERT_OK(arrow_reader->ReadTable(&second_read));
-  ASSERT_OK(arrow_reader->ReadTable(&second_read)); // (Actually third read)
+  std::vector<int> invalid_ind = {}; 
+  std::vector<int> not_equal_ind = {};
+  for (int i = 2; i < 30; i++) {
+    std::shared_ptr<::arrow::Table> next_read;
+    ASSERT_OK(arrow_reader->ReadTable(&next_read));
+    auto valid_status = next_read->column(1)->chunk(0)->ValidateFull();
+    if (!valid_status.ok()) {
+      invalid_ind.push_back(i);
+    }
+    bool equal = next_read->Equals(*first_read);
+    if (!equal) {
+      not_equal_ind.push_back(i);
+    }
+  }
 
-  // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number of nulls in array (861)
-  // ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); 
+  std::cout << "INVALID: ";
+  for (auto ind : invalid_ind) {
+    std::cout << ind << ", ";
+  }
+  std::cout << std::endl;
 
-  ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
+  std::cout << "NOT EQUAL: ";
+  for (auto ind : not_equal_ind) {
+    std::cout << ind << ", ";
+  }
+  std::cout << std::endl;
 
-  // To eliminate possibility of parquet writer oddities, rewrite table to new parquet:
-  using ::arrow::io::BufferOutputStream;
-  ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
-  auto props = default_writer_properties();
-  std::unique_ptr<arrow::FileWriter> writer;
-  ASSERT_OK(
-      arrow::FileWriter::Open(*first_read->schema().get(), pool, outs, props, &writer));
-  ASSERT_OK(writer->WriteTable(*first_read.get(), std::numeric_limits<int64_t>::max()));
-  ASSERT_OK(writer->Close());
-  ASSERT_OK_AND_ASSIGN(auto buffer, outs->Finish());
-
-  // Read from table
-  std::unique_ptr<parquet::arrow::FileReader> arrow_reader2;
-  ASSERT_OK(parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer), pool, &arrow_reader2));
-
-  ASSERT_OK(arrow_reader2->ReadTable(&first_read));
-  ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
-
-  ASSERT_OK(arrow_reader2->ReadTable(&second_read));
-  // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: 
-  // Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number 
-  // of nulls in array (861)
-  // ASSERT_OK(second_read->column(1)->chunk(0)->ValidateFull()); 
-
-  ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
+  ASSERT_EQ(invalid_ind.size(), 0);
+  ASSERT_EQ(not_equal_ind.size(), 0);
 }
+
+// TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumnFile) {
+//   // ARROW-14047
+//   auto pool = default_memory_pool();
+
+//   // Special parquet file; see attachment in Jira
+//   auto file_path = test::get_data_file("writeReadRowGroup.parquet");
+//   PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(file_path, pool));
+
+//   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+//   ASSERT_OK(OpenFile(infile, pool, &arrow_reader));
+
+//   std::shared_ptr<::arrow::Table> first_read;
+//   ASSERT_OK(arrow_reader->ReadTable(&first_read));
+
+//   ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
+
+//   std::shared_ptr<::arrow::Table> second_read;
+//   // ASSERT_OK(arrow_reader->ReadTable(&second_read));
+//   ASSERT_OK(arrow_reader->ReadTable(&second_read)); // (Actually third read)
+
+//   // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number of nulls in array (861)
+//   // ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); 
+
+//   ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
+
+//   // To eliminate possibility of parquet writer oddities, rewrite table to new parquet:
+//   using ::arrow::io::BufferOutputStream;
+//   ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
+//   auto props = default_writer_properties();
+//   std::unique_ptr<arrow::FileWriter> writer;
+//   ASSERT_OK(
+//       arrow::FileWriter::Open(*first_read->schema().get(), pool, outs, props, &writer));
+//   ASSERT_OK(writer->WriteTable(*first_read.get(), std::numeric_limits<int64_t>::max()));
+//   ASSERT_OK(writer->Close());
+//   ASSERT_OK_AND_ASSIGN(auto buffer, outs->Finish());
+
+//   // Read from table
+//   std::unique_ptr<parquet::arrow::FileReader> arrow_reader2;
+//   ASSERT_OK(parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer), pool, &arrow_reader2));
+
+//   ASSERT_OK(arrow_reader2->ReadTable(&first_read));
+//   ASSERT_OK(first_read->column(1)->chunk(0)->ValidateFull()); // So it's in theory valid
+
+//   ASSERT_OK(arrow_reader2->ReadTable(&second_read));
+//   // 'first_read->column(1)->chunk(0)->ValidateFull()' failed with Invalid: List child array invalid: 
+//   // Invalid: Struct child array #0 invalid: Invalid: null_count value (854) doesn't match actual number 
+//   // of nulls in array (861)
+//   ASSERT_OK(second_read->column(1)->chunk(0)->ValidateFull()); 
+
+//   ::arrow::AssertTablesEqual(*first_read.get(), *second_read.get());
+// }
 
 // Another failure caused by above test?
 // 56: /Users/willjones/Documents/arrows/arrow/cpp/src/parquet/arrow/arrow_statistics_test.cc:89: Failure
