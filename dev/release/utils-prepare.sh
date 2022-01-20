@@ -155,4 +155,8 @@ update_versions() {
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
+
+  pushd "${ARROW_DIR}"
+  python "./ci/scripts/util_update_docs_versions.py" . "${version}" "${r_version}"
+  popd
 }
