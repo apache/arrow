@@ -423,11 +423,9 @@ std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
 
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
-  ArrayVector out_chunks;
-  for (const std::string& chunk_json : json) {
-    out_chunks.push_back(ArrayFromJSON(type, chunk_json));
-  }
-  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
+  std::shared_ptr<ChunkedArray> out;
+  ABORT_NOT_OK(ipc::internal::json::ChunkedArrayFromJSON(type, json, &out));
+  return out;
 }
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,

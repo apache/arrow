@@ -123,6 +123,10 @@ def _pc():
     return pc
 
 
+def _gdb_test_session():
+    GdbTestSession()
+
+
 # Assorted compatibility helpers
 include "compat.pxi"
 
