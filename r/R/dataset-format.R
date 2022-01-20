@@ -337,7 +337,8 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           err_info <- NULL
           arg_info <- paste0(
             "Supported arguments: ",
-            oxford_paste(supported_args, quote_symbol = "`")
+            oxford_paste(supported_args, quote_symbol = "`"),
+            "."
           )
           if ("compression" %in% unsupported_passed_args) {
             err_info <- "You could try using `codec` instead of `compression`."
