@@ -206,8 +206,23 @@ struct ExtensionSet::Impl {
     return it_success.first->second;
   }
 
+  uint32_t EncodeFunction(Id id, util::string_view function_name, ExtensionSet* self) {
+    // note: at this point we're guaranteed to have an Id which points to memory owned by
+    // the set's registry.
+    AddUri(id.uri, self);
+    auto it_success = functions_.emplace(id, static_cast<uint32_t>(functions_.size()));
+
+    if (it_success.second) {
+      DCHECK_EQ(self->function_ids_.size(), self->function_names_.size());
+      self->function_ids_.push_back(id);
+      self->function_names_.push_back(function_name);
+    }
+
+    return it_success.first->second;
+  }
+
   std::unordered_set<util::string_view, ::arrow::internal::StringViewHash> uris_;
-  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_;
+  std::unordered_map<Id, uint32_t, IdHashEq, IdHashEq> types_, functions_;
 };
 
 ExtensionSet::ExtensionSet(ExtensionIdRegistry* registry)
@@ -286,6 +301,13 @@ Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
     return impl_->EncodeType(rec->id, rec->type, rec->is_variation, this);
   }
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
+}
+
+Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {
+  if (auto rec = registry_->GetFunction(function_name)) {
+    return impl_->EncodeFunction(rec->id, rec->function_name, this);
+  }
+  return Status::KeyError("function ", function_name, " not found in the registry");
 }
 
 template <typename KeyToIndex, typename Key>

@@ -171,7 +171,6 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
-      ExtensionSet ext_set;
       auto id = ext_set.function_ids()[scalar_fn.function_reference()];
 
       std::vector<compute::Expression> arguments(scalar_fn.args_size());
@@ -528,10 +527,9 @@ struct ToProtoImpl {
   Status Visit(const Decimal256Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const ListScalar& s) {
-    ExtensionSet ext_set;
     if (s.value->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(auto list_type,
-                            ToProto(*s.type, /*nullable=*/true, &ext_set));
+                            ToProto(*s.type, /*nullable=*/true, ext_set_));
       lit_->set_allocated_empty_list(list_type->release_list());
       return Status::OK();
     }
@@ -541,7 +539,7 @@ struct ToProtoImpl {
     const auto& list_type = checked_cast<const ListType&>(*s.type);
     ARROW_ASSIGN_OR_RAISE(
         auto element_type,
-        ToProto(*list_type.value_type(), list_type.value_field()->nullable(), &ext_set));
+        ToProto(*list_type.value_type(), list_type.value_field()->nullable(), ext_set_));
 
     auto values = lit_->mutable_list()->mutable_values();
     values->Reserve(static_cast<int>(s.value->length()));
@@ -572,9 +570,8 @@ struct ToProtoImpl {
   Status Visit(const DictionaryScalar& s) { return NotImplemented(s); }
 
   Status Visit(const MapScalar& s) {
-    ExtensionSet ext_set;
     if (s.value->length() == 0) {
-      ARROW_ASSIGN_OR_RAISE(auto map_type, ToProto(*s.type, /*nullable=*/true, &ext_set));
+      ARROW_ASSIGN_OR_RAISE(auto map_type, ToProto(*s.type, /*nullable=*/true, ext_set_));
       lit_->set_allocated_empty_map(map_type->release_map());
       return Status::OK();
     }
@@ -680,8 +677,7 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum& dat
   if (datum.scalar()->is_valid) {
     RETURN_NOT_OK((ToProtoImpl{out.get(), ext_set})(*datum.scalar()));
   } else {
-    ExtensionSet ext_set;
-    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*datum.type(), /*nullable=*/true, &ext_set));
+    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*datum.type(), /*nullable=*/true, ext_set));
     out->set_allocated_null(type.release());
   }
 
@@ -889,10 +885,8 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     return std::move(out);
   }
 
-  /*
   // other expression types dive into extensions immediately
-  ExtensionSet* ext_set = nullptr;
-  ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction({"", call->function_name}));
+  ARROW_ASSIGN_OR_RAISE(auto anchor, ext_set->EncodeFunction(call->function_name));
 
   auto scalar_fn = internal::make_unique<substrait::Expression::ScalarFunction>();
   scalar_fn->set_function_reference(anchor);
@@ -903,8 +897,6 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   out->set_allocated_scalar_function(scalar_fn.release());
   return std::move(out);
-  */
-  return Status::NotImplemented("");
 }
 
 }  // namespace engine

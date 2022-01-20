@@ -165,7 +165,7 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   const std::vector<Id>& function_ids() const { return function_ids_; }
   const std::vector<util::string_view>& function_names() const { return function_names_; }
 
-  Result<uint32_t> EncodeFunction(Id);
+  Result<uint32_t> EncodeFunction(util::string_view function_name);
 
  private:
   ExtensionIdRegistry* registry_;

@@ -600,6 +600,25 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
   }
 }
 
+TEST(Substrait, CallExtensionFunction) {
+  for (compute::Expression expr : {
+           compute::call("add", {compute::literal(0), compute::literal(1)}),
+       }) {
+    ARROW_SCOPED_TRACE(expr.ToString());
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*kBoringSchema));
+
+    ExtensionSet ext_set;
+    ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
+
+    // These require an extension, so we should have a single-element ext_set.
+    EXPECT_EQ(ext_set.function_ids().size(), 1);
+
+    ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+    ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
+    EXPECT_EQ(UseBoringRefs(roundtripped), UseBoringRefs(expr));
+  }
+}
+
 TEST(Substrait, ReadRel) {
   auto buf = SubstraitFromJSON("Rel", R"({
     "read": {
