@@ -404,20 +404,7 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
 ``filter`` operation, as the name suggests, provides an option to define data filtering 
 criteria. It selects rows matching a given expression. Filters can be written using 
 :class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
-of column ``b`` is greater than 3,  then we can use the following expression:: 
-
-  // a > 3
-  arrow::compute::Expression filter_opt = arrow::compute::greater(
-                                arrow::compute::field_ref("a"), 
-                                arrow::compute::literal(3));
-
-Using this option, the filter node can be constructed as follows::																
-
-  arrow::compute::ExecNode* filter;
-    ARROW_ASSIGN_OR_RAISE(filter, arrow::compute::MakeExecNode("filter", 
-                          plan.get(),
-                          {scan}, 
-                          arrow::compute::FilterNodeOptions{filter_opt}));
+of column ``b`` is greater than 3,  then we can use the following expression.
 
 Filter example:
 
@@ -439,22 +426,6 @@ against the source record batch. This is exposed via
 :class:`arrow::compute::ProjectNodeOptions` which requires,
 an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
 provided, the string representations of exprs will be used).  
-
-Sample Expression for projection::
-
-  // a * 2 (multiply values in a column by 2)
-  arrow::compute::Expression a_times_2 = arrow::compute::call("multiply", 
-            {arrow::compute::field_ref("a"), arrow::compute::literal(2)});
-
-
-Creating a project node::
-
-  arrow::compute::ExecNode* project;
-      ARROW_ASSIGN_OR_RAISE(project, 
-          arrow::compute::MakeExecNode("project", 
-          plan.get(),
-          {scan},
-          arrow::compute::ProjectNodeOptions{{a_times_2}}));
 
 Project example:
 
@@ -493,20 +464,6 @@ can be selected from :ref:`this list of aggregation functions
           the dataset in memory.  In the future, spillover mechanisms
           will be added which should alleviate this constraint.
 
-An example for creating an aggregate node::
-
-  arrow::compute::CountOptions options(arrow::compute::CountOptions::ONLY_VALID);
-
-  auto aggregate_options = arrow::compute::AggregateNodeOptions{
-      /*aggregates=*/{{"hash_count", &options}},
-      /*targets=*/{"a"},
-      /*names=*/{"count(a)"},
-      /*keys=*/{"b"}};
-
-  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * aggregate,
-                            cp::MakeExecNode("aggregate", plan.get(), {source},
-                            aggregate_options));
-
 Aggregate example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
@@ -532,15 +489,6 @@ will accumulate in memory.  An execution plan should only have one
 an error, before the output is fully consumed. However, the plan can be safely destroyed independently
 of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
 
-Example::
-
-  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
-
-  arrow::compute::ExecNode* sink;
-
-  ARROW_ASSIGN_OR_RAISE(sink, arrow::compute::MakeExecNode("sink", plan.get(), {source},
-                                                arrow::compute::SinkNodeOptions{&sink_gen}));
-
 As a part of the Source Example, the Sink operation is also included;
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
@@ -557,7 +505,7 @@ As a part of the Source Example, the Sink operation is also included;
 
 ``consuming_sink`` operator is a sink operation containing consuming operation within the
 execution plan (i.e. the exec plan should not complete until the consumption has completed).
-Unlike the `sink` node this node takes in a callback function that is expected to consume the
+Unlike the ``sink`` node this node takes in a callback function that is expected to consume the
 batch.  Once this callback has finished the execution plan will no longer hold any reference to
 the batch.
 The consuming function may be called before a previous invocation has completed.  If the consuming
@@ -621,24 +569,10 @@ This operation provides the ability to guarantee the ordering of the
 stream by providing the :class:`arrow::compute::OrderBySinkNodeOptions`. 
 Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
 are used for sorting and whether to sort by ascending or descending values.
-Note: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
-In the future, spillover mechanisms will be added which should alleviate this constraint.
 
-Example::
-
-  arrow::compute::ExecNode *sink;
-
-  ARROW_ASSIGN_OR_RAISE(sink,
-  arrow::compute::MakeExecNode("order_by_sink", plan.get(),
-  {source}, 
-  arrow::compute::OrderBySinkNodeOptions{
-  /*sort_options*/arrow::compute::SortOptions{
-  {	arrow::compute::SortKey{
-  //Column key(s) to order by and how to order by these sort keys.
-  "a",
-  // Sort Order
-  arrow::compute::SortOrder::Descending 
-  }}},&sink_gen}));
+.. note:: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
+          In the future, spillover mechanisms will be added which should alleviate this 
+          constraint.
 
 
 Order-By-Sink example:
@@ -656,24 +590,15 @@ Order-By-Sink example:
 ``select_k_sink``
 -----------------
 
-``select_k_sink`` option enables selecting k number of elements. 
+``select_k_sink`` option enables selecting the top/bottom K elements, 
+similar to a SQL ``ORDER BY ... LIMIT K`` clause.  
 :class:`arrow::compute::SelectKOptions` which is a defined by 
 using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
 inputs and then compute top_k/bottom_k.
-Note: This node is a "pipeline breaker" and will fully materialize the input in memory.
-In the future, spillover mechanisms will be added which should alleviate this constraint.
 
-Create SelectK Option::
-
-  arrow::compute::SelectKOptions options = arrow::compute::SelectKOptions::TopKDefault(
-              /*k=*/2, {"i32"});
-
-  ARROW_ASSIGN_OR_RAISE(
-    arrow::compute::ExecNode * k_sink_node,
-    arrow::compute::MakeExecNode("select_k_sink",
-      plan.get(), {source},
-      arrow::compute::SelectKSinkNodeOptions{options, &sink_gen}));
-
+.. note:: This node is a "pipeline breaker" and will fully materialize the input in memory.
+          In the future, spillover mechanisms will be added which should alleviate this 
+          constraint.
 
 SelectK example:
 
@@ -692,26 +617,12 @@ SelectK example:
 `scan` is an operation used to load and process datasets.  It should be preferred over the
 more generic `source` node when your input is a dataset.  The behavior is defined using 
 :class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
-scan options can be found in :ref:`dataset<cpp-dataset-reading>`.
+scan options can be found in :doc:`./dataset`.
 
 This node is capable of applying pushdown filters to the file readers which reduce
 the amount of data that needs to be read.  This means you may supply the same
 filter expression to the scan node that you also supply to the FilterNode because
 the filtering is done in two different places.
-
-Creating a Scan `ExecNode`::
-
-  auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  options->use_async = true; 
-  options->projection = Materialize({});  // create empty projection
-
-  // construct the scan node
-  cp::ExecNode* scan;
-  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, options};
-
-  ARROW_ASSIGN_OR_RAISE(scan,
-                          cp::MakeExecNode("scan", plan.get(), {}, 
-                            scan_node_options));
 
 Scan example:
 
