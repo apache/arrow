@@ -86,8 +86,8 @@ Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
                             const Schema& right_schema,
                             const std::vector<FieldRef>& right_keys,
                             const Expression& filter,
-                            const std::string& left_field_name_prefix,
-                            const std::string& right_field_name_prefix) {
+                            const std::string& left_field_name_suffix,
+                            const std::string& right_field_name_suffix) {
   std::vector<FieldRef> left_output;
   if (join_type != JoinType::RIGHT_SEMI && join_type != JoinType::RIGHT_ANTI) {
     const FieldVector& left_fields = left_schema.fields();
@@ -106,18 +106,18 @@ Status HashJoinSchema::Init(JoinType join_type, const Schema& left_schema,
     }
   }
   return Init(join_type, left_schema, left_keys, left_output, right_schema, right_keys,
-              right_output, filter, left_field_name_prefix, right_field_name_prefix);
+              right_output, filter, left_field_name_suffix, right_field_name_suffix);
 }
 
 Status HashJoinSchema::Init(
     JoinType join_type, const Schema& left_schema, const std::vector<FieldRef>& left_keys,
     const std::vector<FieldRef>& left_output, const Schema& right_schema,
     const std::vector<FieldRef>& right_keys, const std::vector<FieldRef>& right_output,
-    const Expression& filter, const std::string& left_field_name_prefix,
-    const std::string& right_field_name_prefix) {
+    const Expression& filter, const std::string& left_field_name_suffix,
+    const std::string& right_field_name_suffix) {
   RETURN_NOT_OK(ValidateSchemas(join_type, left_schema, left_keys, left_output,
                                 right_schema, right_keys, right_output,
-                                left_field_name_prefix, right_field_name_prefix));
+                                left_field_name_suffix, right_field_name_suffix));
 
   std::vector<HashJoinProjection> handles;
   std::vector<const std::vector<FieldRef>*> field_refs;
@@ -172,8 +172,8 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
                                        const Schema& right_schema,
                                        const std::vector<FieldRef>& right_keys,
                                        const std::vector<FieldRef>& right_output,
-                                       const std::string& left_field_name_prefix,
-                                       const std::string& right_field_name_prefix) {
+                                       const std::string& left_field_name_suffix,
+                                       const std::string& right_field_name_suffix) {
   // Checks for key fields:
   // 1. Key field refs must match exactly one input field
   // 2. Same number of key fields on left and right
@@ -241,7 +241,7 @@ Status HashJoinSchema::ValidateSchemas(JoinType join_type, const Schema& left_sc
   // 4. Left semi/anti join (right semi/anti join) must not output fields from right
   // (left)
   // 5. No name collisions in output fields after adding (potentially empty)
-  // prefixes to left and right output
+  // suffixes to left and right output
   //
   if (left_output.empty() && right_output.empty()) {
     return Status::Invalid("Join must output at least one field");
@@ -308,8 +308,11 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
         proj_maps[side].data_type(HashJoinProjection::INPUT, input_field_id);
     // search the map and add suffix to the elements which
     // are present both in left and right tables
-    auto search = left_field_map.find(input_field_name);
-    if (search != left_field_map.end()) {
+    //auto search = left_field_map.find(input_field_name);
+    auto search_it = left_field_map.equal_range(input_field_name);
+    bool match_found = false;
+    for(auto search = search_it.first ; search != search_it.second; ++search) {
+      match_found = true;
       auto left_val = search->first;
       auto left_index = search->second;
       auto left_field = fields[left_index];
@@ -320,11 +323,30 @@ std::shared_ptr<Schema> HashJoinSchema::MakeOutputSchema(
       // insert right table field with suffix
       fields[left_size + i] = std::make_shared<Field>(
           input_field_name + right_field_name_suffix, input_data_type, true /*nullable*/);
-    } else {
+    }
+
+    if (!match_found) {
       // insert right table field without suffix
       fields[left_size + i] =
           std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
     }
+
+    // if (search != left_field_map.end()) {
+    //   auto left_val = search->first;
+    //   auto left_index = search->second;
+    //   auto left_field = fields[left_index];
+    //   // update left table field with suffix
+    //   fields[left_index] =
+    //       std::make_shared<Field>(input_field_name + left_field_name_suffix,
+    //                               left_field->type(), true /*nullable*/);
+    //   // insert right table field with suffix
+    //   fields[left_size + i] = std::make_shared<Field>(
+    //       input_field_name + right_field_name_suffix, input_data_type, true /*nullable*/);
+    // } else {
+    //   // insert right table field without suffix
+    //   fields[left_size + i] =
+    //       std::make_shared<Field>(input_field_name, input_data_type, true /*nullable*/);
+    // }
   }
   return std::make_shared<Schema>(std::move(fields));
 }

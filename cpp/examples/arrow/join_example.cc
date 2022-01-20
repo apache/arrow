@@ -67,17 +67,6 @@ const std::string kRightRelationCsvData = R"csv(rkey,shared,rdistinct
 2,11,14
 3,12,15)csv";
 
-arrow::Result<std::shared_ptr<arrow::Table>> GetTableFromExecBatches(
-    const std::shared_ptr<arrow::Schema>& schema,
-    const std::vector<arrow::compute::ExecBatch>& exec_batches) {
-  arrow::RecordBatchVector batches;
-  for (const auto& batch : exec_batches) {
-    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(schema));
-    batches.push_back(std::move(rb));
-  }
-  return arrow::Table::FromRecordBatches(schema, batches);
-}
-
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData(
     bool is_left) {
   const arrow::io::IOContext &io_context = arrow::io::default_io_context();
@@ -95,22 +84,11 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
                         arrow::csv::TableReader::Make(io_context, input, read_options,
                                                       parse_options, convert_options));
 
-  std::shared_ptr<arrow::csv::TableReader> reader = table_reader;
-
   // Read table from CSV file
-  ARROW_ASSIGN_OR_RAISE(auto maybe_table, reader->Read());
+  ARROW_ASSIGN_OR_RAISE(auto maybe_table, table_reader->Read());
   auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(maybe_table);
   arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
   return result;
-}
-
-cp::Expression Materialize(std::vector<std::string> names) {
-  std::vector<cp::Expression> exprs;
-  for (const auto& name : names) {
-    exprs.push_back(cp::field_ref(name));
-  }
-
-  return cp::project(exprs, names);
 }
 
 arrow::Status DoHashJoin() {
@@ -131,10 +109,12 @@ arrow::Status DoHashJoin() {
   ARROW_ASSIGN_OR_RAISE(auto r_dataset, CreateDataSetFromCSVData(false));
 
   auto l_options = std::make_shared<arrow::dataset::ScanOptions>();
-  l_options->projection = Materialize({});  // create empty projection
+  // create empty projection: "default" projection where each field is mapped to a field_ref
+  l_options->projection = cp::project({}, {});
 
   auto r_options = std::make_shared<arrow::dataset::ScanOptions>();
-  r_options->projection = Materialize({});  // create empty projection
+  // create empty projection: "default" projection where each field is mapped to a field_ref
+  r_options->projection = cp::project({}, {});
 
   // construct the scan node
   auto l_scan_node_options = arrow::dataset::ScanNodeOptions{l_dataset, l_options};
@@ -147,8 +127,11 @@ arrow::Status DoHashJoin() {
 
   arrow::compute::HashJoinNodeOptions join_opts{
       arrow::compute::JoinType::INNER,
-      /*left_keys=*/{"lkey"},
-      /*right_keys=*/{"rkey"},         arrow::compute::literal(true), "_l", "_r"};
+      /*in_left_keys=*/{"lkey"},
+      /*in_right_keys=*/{"rkey"},
+      /*filter*/arrow::compute::literal(true), 
+      /*output_suffix_for_left*/"_l", 
+      /*output_suffix_for_right*/"_r"};
 
   ARROW_ASSIGN_OR_RAISE(
       auto hashjoin,
@@ -160,12 +143,12 @@ arrow::Status DoHashJoin() {
   std::shared_ptr<arrow::RecordBatchReader> sink_reader = cp::MakeGeneratorReader(
       hashjoin->output_schema(), std::move(sink_gen), exec_context.memory_pool());
 
-  // // validate the ExecPlan
+  // validate the ExecPlan
   ABORT_ON_FAILURE(plan->Validate());
-  // // // start the ExecPlan
+  // start the ExecPlan
   ABORT_ON_FAILURE(plan->StartProducing());
 
-  // // // collect sink_reader into a Table
+  // collect sink_reader into a Table
   std::shared_ptr<arrow::Table> response_table;
 
   ARROW_ASSIGN_OR_RAISE(response_table,

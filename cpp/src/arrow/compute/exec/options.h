@@ -252,11 +252,11 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   // key comparison function (determines whether a null key is equal another null
   // key or not)
   std::vector<JoinKeyCmp> key_cmp;
-  // prefix added to names of output fields coming from left input (used to distinguish,
+  // suffix added to names of output fields coming from left input (used to distinguish,
   // if necessary, between fields of the same name in left and right input and can be left
   // empty if there are no name collisions)
   std::string output_suffix_for_left;
-  // prefix added to names of output fields coming from right input
+  // suffix added to names of output fields coming from right input
   std::string output_suffix_for_right;
   // residual filter which is applied to matching rows.  Rows that do not match
   // the filter are not included.  The filter is applied against the
