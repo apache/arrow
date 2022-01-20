@@ -239,7 +239,7 @@ setup_miniconda() {
     OS=MacOSX
   fi
   ARCH="$(uname -m)"
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${OS}-${ARCH}.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 
@@ -253,12 +253,21 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
 
-  conda create -n arrow-test -y -q -c conda-forge \
-    python=3.8 \
-    nomkl \
+  # Dependencies from python/requirements-build.txt and python/requirements-test.txt
+  # with the exception of oldest-supported-numpy since it doesn't have a conda package
+  mamba create -n arrow-test -y \
+    cffi \
+    cython \
+    hypothesis \
     numpy \
     pandas \
-    cython
+    pytest \
+    pytest-lazy-fixture \
+    python=3.8 \
+    pytz \
+    setuptools \
+    setuptools_scm
+
   conda activate arrow-test
   echo "Using conda environment ${CONDA_PREFIX}"
 }
@@ -378,8 +387,6 @@ test_csharp() {
 
 test_python() {
   pushd python
-
-  pip install -r requirements-build.txt -r requirements-test.txt
 
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
@@ -632,7 +639,7 @@ test_linux_wheels() {
     else
       local channels="-c conda-forge"
     fi
-    conda create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
+    mamba create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
     conda activate ${env}
     pip install -U pip
 
@@ -672,7 +679,7 @@ test_macos_wheels() {
     else
       local channels="-c conda-forge"
     fi
-    conda create -yq -n ${env} ${channels} python=${py_arch//m/}
+    mamba create -yq -n ${env} ${channels} python=${py_arch//m/}
     conda activate ${env}
     pip install -U pip
 
