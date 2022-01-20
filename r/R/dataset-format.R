@@ -348,7 +348,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
 
       if (self$type == "parquet") {
         args <- list(...)
-        check_additional_args(format = self$type, names(args))
+        check_additional_args(self$type, names(args))
 
         dataset___ParquetFileWriteOptions__update(
           self,
@@ -357,7 +357,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         )
       } else if (self$type == "ipc") {
         args <- list(...)
-        check_additional_args(format = self$type, names(args))
+        check_additional_args(self$type, names(args))
 
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
@@ -375,7 +375,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         }
       } else if (self$type == "csv") {
         args <- list(...)
-        check_additional_args(format = self$type, names(args))
+        check_additional_args(self$type, names(args))
 
         dataset___CsvFileWriteOptions__update(
           self,
