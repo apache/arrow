@@ -105,7 +105,7 @@ When to use GitHub?
 
   .. note::
      Make sure to add which operating system and Arrow version you are using in the
-     ticket description plus the debug information/error.
+     issue description plus the debug information/error.
 
 - If you have **a new contribution already written**, you can create a Pull Request after
   creating a JIRA ticket and mentioning the way you plan to implement it.
