@@ -2240,6 +2240,7 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
 TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto zero = Datum(ScalarFromJSON(tt, "0"));
       auto two = Datum(ScalarFromJSON(tt, "2"));
@@ -2260,6 +2261,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
 TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty); 
       auto zero = Datum(ScalarFromJSON(tt, "0"));
       auto four = Datum(ScalarFromJSON(tt, "4"));
@@ -2277,6 +2279,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
 TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto zero = Datum(ScalarFromJSON(tt, "0"));
       auto four = Datum(ScalarFromJSON(tt, "4"));
@@ -2294,6 +2297,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayScalar) {
 TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto zero = Datum(ScalarFromJSON(tt, "0"));
       auto four = Datum(ScalarFromJSON(tt, "4"));
@@ -2311,6 +2315,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarArray) {
 TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto one = Datum(ScalarFromJSON(tt, "1"));
       ValidateBetween(one, Datum(ArrayFromJSON(tt, "[]")),
@@ -2328,6 +2333,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
 TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto one = Datum(ScalarFromJSON(tt, "1"));
       ValidateBetween(Datum(ArrayFromJSON(tt, "[]")), one,
@@ -2345,6 +2351,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarArray) {
 TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       auto tt = GetType(ty);
       auto one = Datum(ScalarFromJSON(tt, "1"));
       ValidateBetween(Datum(ArrayFromJSON(tt, "[]")),
@@ -2362,6 +2369,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayScalar) {
 TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
+      ARROW_SCOPED_TRACE("type = ", ty->ToString());
       ValidateBetween(Datum(ArrayFromJSON(ty, "[]")), Datum(ArrayFromJSON(ty, "[]")),
                       Datum(ArrayFromJSON(ty, "[]")));
       ValidateBetween(Datum(ArrayFromJSON(ty, "[null]")),
@@ -2383,6 +2391,7 @@ TEST(TestNumericBetweenKernel, BetweenRandomNumeric) {
       auto rand = random::RandomArrayGenerator(0x5416447);
       const int64_t length = 100;
       for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
+        ARROW_SCOPED_TRACE("type = ", ty->ToString());
 	auto tt = GetType(ty);
 	auto metadata =
            key_value_metadata({"null_probability"}, {std::to_string(null_probability)});
