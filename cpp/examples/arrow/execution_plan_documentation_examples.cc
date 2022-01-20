@@ -20,8 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/array.h"
-#include "arrow/builder.h"
+#include <arrow/array.h>
+#include <arrow/builder.h>
 
 #include <arrow/compute/api.h>
 #include <arrow/compute/api_scalar.h>
@@ -61,14 +61,13 @@
 
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
+namespace cp = ::arrow::compute;
+
 constexpr char kSep[] = "******";
 
-#define PRINT_BLOCK(msg)                                               \
-  std::cout << "" << std::endl;                                        \
-  std::cout << "\t" << kSep << " " << msg << " " << kSep << std::endl; \
-  std::cout << "" << std::endl;
-
-namespace cp = ::arrow::compute;
+void PrintBlock(std::string msg) {
+  std::cout << "\n\t" << kSep << " " << msg << " " << kSep << "\n" << std::endl;
+}
 
 const char kCsvData[] = R"csv(a,b
 1,null
@@ -125,8 +124,7 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData() {
   arrow::io::IOContext io_context = arrow::io::default_io_context();
   std::shared_ptr<arrow::io::InputStream> input;
-  arrow::util::string_view sv = kCsvData;
-  input = std::make_shared<arrow::io::BufferReader>(sv);
+  input = std::make_shared<arrow::io::BufferReader>(arrow::Buffer::FromString(kCsvData));
 
   auto read_options = arrow::csv::ReadOptions::Defaults();
   auto parse_options = arrow::csv::ParseOptions::Defaults();
@@ -850,43 +848,47 @@ int main(int argc, char** argv) {
                                ::arrow::internal::GetCpuThreadPool());
   switch (mode) {
     case SOURCE_SINK:
-      PRINT_BLOCK("Source Sink Example");
+      PrintBlock("Source Sink Example");
       status = SourceSinkExample(exec_context);
       break;
     case SCAN_SINK:
-      PRINT_BLOCK("Scan Sink Example");
+      PrintBlock("Scan Example");
       status = ScanSinkExample(exec_context);
       break;
     case SCAN_FILTER_SINK:
-      PRINT_BLOCK("Scan Filter Example");
+      PrintBlock("Filter Example");
       status = ScanFilterSinkExample(exec_context);
       break;
     case SCAN_PROJECT_SINK:
-      PRINT_BLOCK("Scan Project Sink Example");
+      PrintBlock("Project Example");
       status = ScanProjectSinkExample(exec_context);
       break;
     case SOURCE_AGGREGATE_SINK:
-      PRINT_BLOCK("Source Aggregate Example");
+      PrintBlock("Aggregate Example");
       status = SourceAggregateSinkExample(exec_context);
       break;
     case SCAN_CONSUMING_SINK:
-      PRINT_BLOCK("Source Consuming-Sink Example");
+      PrintBlock("Consuming-Sink Example");
       status = SourceConsumingSinkExample(exec_context);
       break;
     case SOURCE_ORDER_BY_SINK:
-      PRINT_BLOCK("Source OrderBy Sink Example");
+      PrintBlock("OrderBy Example");
       status = SourceOrderBySinkExample(exec_context);
       break;
     case SCAN_HASHJOIN_SINK:
+      PrintBlock("HashJoin Example");
       status = SourceHashJoinSinkExample(exec_context);
       break;
     case SCAN_SELECT_SINK:
+      PrintBlock("KSelect Example");
       status = SourceKSelectExample(exec_context);
       break;
     case SCAN_FILTER_WRITE:
+      PrintBlock("ScanFilter Example");
       status = ScanFilterWriteExample(exec_context, base_save_path);
       break;
     case SOURCE_UNION_SINK:
+      PrintBlock("Union Example");
       status = SourceUnionSinkExample(exec_context);
       break;
     default:

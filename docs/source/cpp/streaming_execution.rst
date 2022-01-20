@@ -633,37 +633,18 @@ Scan example:
   :linenos:
   :lineno-match:
 
-.. _stream_execution_hashjoin_docs:
-
-``hash_join``
--------------
-
-``hash_join`` operation provides the relational algebra operation, join using hash-based
-algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
-defining a join. JoinType can be one of LEFT_SEMI, RIGHT_SEMI, LEFT_ANTI, RIGHT_ANTI,
-INNER, LEFT_OUTER, RIGHT_OUTER and FULL_OUTER. Also the join-key or by which column/s, 
-and output suffixes can be set via the the join options. 
-
-Hash-Join example:
-
-.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
-  :language: cpp
-  :start-after: (Doc section: HashJoin Example)
-  :end-before: (Doc section: HashJoin Example)
-  :linenos:
-  :lineno-match:
-
-.. _stream_execution_write_docs:
 
 ``write``
 ---------
 
-``write`` option enables writing a result to supported file formats (example `parquet`,
-`feather`, `csv`, etc). 
-The write options are provided via the :class:`arrow::dataset::WriteNodeOptions` and 
-defined using :class:`arrow::dataset::FileSystemDatasetWriteOptions`. Here the 
-:class:`arrow::dataset::FileSystemDatasetWriteOptions` contains the meta-data required 
-to write the data. 
+The ``write`` node saves query results as a dataset of files in a
+format like Parquet, Feather, CSV, etc. using the :doc:`./dataset`
+functionality in Arrow. The write options are provided via the
+:class:`arrow::dataset::WriteNodeOptions` which in turn contains
+:class:`arrow::dataset::FileSystemDatasetWriteOptions`.
+:class:`arrow::dataset::FileSystemDatasetWriteOptions` provides
+control over the written dataset, including options like the output
+directory, file naming scheme, and so on.
 
 Write example:
 
@@ -679,9 +660,8 @@ Write example:
 ``union``
 -------------
 
-``union`` is operation performs the union of two datasets. 
-The union operation can be executed on multiple data 
-sources(:class:`ExecNodes`).
+``union`` merges multiple data streams with the same schema into one, similar to 
+a SQL ``UNION ALL`` clause.
 
 The following example demonstrates how this can be achieved using 
 two data sources.
@@ -695,24 +675,34 @@ Union example:
   :linenos:
   :lineno-match:
 
-.. _stream_execution_example_list_docs:
+.. _stream_execution_hashjoin_docs:
 
-Example List
-============
+``hash_join``
+-------------
 
-There are examples of these nodes which can be found in ``examples/arrow/execution_plan_documentation_examples.cc``
+``hash_join`` operation provides the relational algebra operation, join using hash-based
+algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
+defining a join. The hash_join supports left/right/full semi/anti/outerjoins. 
+Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
+which can be appended as a suffix for column names duplicated in both left and right 
+relations.) can be set via the the join options. 
 
-1. :ref:`Source-Sink<stream_execution_source_docs>`
-2. :ref:`Filter<stream_execution_filter_docs>`
-3. :ref:`Project<stream_execution_project_docs>`
-4. :ref:`Aggregate<stream_execution_aggregate_docs>`
-5. :ref:`ConsumingSink<stream_execution_consuming_sink_docs>`
-6. :ref:`OrderBySink<stream_execution_order_by_sink_docs>`
-7. :ref:`SelectK<stream_execution_select_k_docs>`
-8. :ref:`Scan<stream_execution_scan_docs>`
-9. :ref:`HashJoin<stream_execution_hashjoin_docs>`
-10. :ref:`Write<stream_execution_write_docs>`
-11. :ref:`Union<stream_execution_union_docs>`
+Hash-Join example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: HashJoin Example)
+  :end-before: (Doc section: HashJoin Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_write_docs:
+
+Summary
+=======
+
+There are examples of these nodes which can be found in 
+``cpp/examples/arrow/execution_plan_documentation_examples.cc`` in the Arrow source.
 
 Complete Example:
 
