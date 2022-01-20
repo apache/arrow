@@ -867,11 +867,11 @@ enum SqlSupportsConvert {
   SQL_CONVERT_VARCHAR = 19;
 }
 
-enum DateSubcode {
+enum SqlDatetimeSubcode {
   SQL_DATETIME_SUBCODE_UNKNOWN = 0;
-  SQL_CODE_DATE = 1;
-  SQL_CODE_TIME = 2;
-  SQL_CODE_TIMESTAMP = 3;
+  SQL_DATETIME_SUBCODE_DATE = 1;
+  SQL_DATETIME_SUBCODE_TIME = 2;
+  SQL_DATETIME_SUBCODE_TIMESTAMP = 3;
 }
 
 enum SqlDataType {
