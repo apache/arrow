@@ -20,7 +20,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/buffer.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

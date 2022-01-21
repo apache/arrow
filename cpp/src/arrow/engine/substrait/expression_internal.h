@@ -22,7 +22,7 @@
 #include <utility>
 
 #include "arrow/compute/type_fwd.h"
-#include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 

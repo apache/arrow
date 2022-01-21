@@ -19,4 +19,5 @@
 
 #pragma once
 
-#include "arrow/engine/substrait_consumer.h"
+#include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/serde.h"

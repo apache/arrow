@@ -26,7 +26,7 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/options.h"
-#include "arrow/engine/substrait/extension_types.h"
+#include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/visibility.h"
 #include "arrow/result.h"
 #include "arrow/util/string_view.h"
