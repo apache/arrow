@@ -3803,6 +3803,7 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 
 macro(build_orc)
   message("Building Apache ORC from source")
+
   set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
   set(ORC_HOME "${ORC_PREFIX}")
   set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
@@ -3811,7 +3812,8 @@ macro(build_orc)
 
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+
   get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
                       IMPORTED_LOCATION)
 
@@ -3835,12 +3837,16 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-      "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
+      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DLZ4_HOME=${LZ4_HOME}"
       "-DZSTD_HOME=${ZSTD_HOME}")
+  if(ORC_PROTOBUF_EXECUTABLE)
+    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
+                       "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
+  endif()
   if(ZLIB_ROOT)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
   endif()
