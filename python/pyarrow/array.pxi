@@ -990,6 +990,13 @@ cdef class Array(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the array.
         """
+        return self.get_refererenced_buffer_size()
+
+    def get_total_size_by_buffer(self):
+        """
+        Total size of the buffer calculated by the sum of all buffers 
+        in the array
+        """
         size = 0
         for buf in self.buffers():
             if buf is not None:
@@ -997,25 +1004,49 @@ cdef class Array(_PandasConvertible):
         return size
 
     def get_refererenced_buffer_size(self):
+        """
+        Returns the sum of bytes from all buffer ranges referenced
+
+        Unlike TotalBufferSize this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        Dictionary arrays will always be counted in their entirety
+        even if the array only references a portion of the dictionary.
+        """
         cdef:
             shared_ptr[CArray] shd_ptr_c_array
             CArray *c_array
             CResult[int64_t] c_res_buffer
-        
+
         shd_ptr_c_array = pyarrow_unwrap_array(self)
         c_array = shd_ptr_c_array.get()
         c_res_buffer = ReferencedBufferSize(c_array[0])
         size = GetResultValue(c_res_buffer)
         return size
 
-    @property
-    def get_buffer_size(self):
+    def get_total_buffer_size(self):
         """
-        Number of bytes associated with the data buffer of the array
+        The sum of bytes in each buffer referenced by the array
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
         """
-        size = 0
-        size = self.get_refererenced_buffer_size()
-        return size
+        cdef:
+            shared_ptr[CArray] shd_ptr_c_array
+            CArray *c_array
+            int64_t total_buffer_size
+
+        shd_ptr_c_array = pyarrow_unwrap_array(self)
+        c_array = shd_ptr_c_array.get()
+        total_buffer_size = TotalBufferSize(c_array[0])
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(Array, self).__sizeof__() + self.nbytes
