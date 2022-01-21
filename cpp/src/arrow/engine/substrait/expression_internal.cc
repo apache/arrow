@@ -438,7 +438,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
 }
 
 namespace {
-struct ToProtoImpl {
+struct ScalarToProtoImpl {
   Status Visit(const NullScalar& s) { return NotImplemented(s); }
 
   using Lit = substrait::Expression::Literal;
@@ -675,7 +675,7 @@ Result<std::unique_ptr<substrait::Expression::Literal>> ToProto(const Datum& dat
   auto out = internal::make_unique<substrait::Expression::Literal>();
 
   if (datum.scalar()->is_valid) {
-    RETURN_NOT_OK((ToProtoImpl{out.get(), ext_set})(*datum.scalar()));
+    RETURN_NOT_OK((ScalarToProtoImpl{out.get(), ext_set})(*datum.scalar()));
   } else {
     ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*datum.type(), /*nullable=*/true, ext_set));
     out->set_allocated_null(type.release());

@@ -26,6 +26,10 @@
 #include "arrow/util/string_view.h"
 
 namespace arrow {
+
+using internal::DataMember;
+using internal::MakeProperties;
+
 namespace engine {
 namespace {
 
@@ -34,7 +38,7 @@ struct UuidExtensionParams {};
 std::shared_ptr<DataType> UuidGetStorage(const UuidExtensionParams&) {
   return fixed_size_binary(16);
 }
-static auto kUuidExtensionParamsProperties = internal::MakeProperties();
+static auto kUuidExtensionParamsProperties = MakeProperties();
 
 using UuidType = SimpleExtensionType<kUuidExtensionName, UuidExtensionParams,
                                      decltype(kUuidExtensionParamsProperties),
@@ -47,8 +51,8 @@ struct FixedCharExtensionParams {
 std::shared_ptr<DataType> FixedCharGetStorage(const FixedCharExtensionParams& params) {
   return fixed_size_binary(params.length);
 }
-static auto kFixedCharExtensionParamsProperties = internal::MakeProperties(
-    internal::DataMember("length", &FixedCharExtensionParams::length));
+static auto kFixedCharExtensionParamsProperties =
+    MakeProperties(DataMember("length", &FixedCharExtensionParams::length));
 
 using FixedCharType =
     SimpleExtensionType<kFixedCharExtensionName, FixedCharExtensionParams,
@@ -62,8 +66,8 @@ struct VarCharExtensionParams {
 std::shared_ptr<DataType> VarCharGetStorage(const VarCharExtensionParams&) {
   return utf8();
 }
-static auto kVarCharExtensionParamsProperties = internal::MakeProperties(
-    internal::DataMember("length", &VarCharExtensionParams::length));
+static auto kVarCharExtensionParamsProperties =
+    MakeProperties(DataMember("length", &VarCharExtensionParams::length));
 
 using VarCharType =
     SimpleExtensionType<kVarCharExtensionName, VarCharExtensionParams,
@@ -75,7 +79,7 @@ struct IntervalYearExtensionParams {};
 std::shared_ptr<DataType> IntervalYearGetStorage(const IntervalYearExtensionParams&) {
   return fixed_size_list(int32(), 2);
 }
-static auto kIntervalYearExtensionParamsProperties = internal::MakeProperties();
+static auto kIntervalYearExtensionParamsProperties = MakeProperties();
 
 using IntervalYearType =
     SimpleExtensionType<kIntervalYearExtensionName, IntervalYearExtensionParams,
@@ -87,7 +91,7 @@ struct IntervalDayExtensionParams {};
 std::shared_ptr<DataType> IntervalDayGetStorage(const IntervalDayExtensionParams&) {
   return fixed_size_list(int32(), 2);
 }
-static auto kIntervalDayExtensionParamsProperties = internal::MakeProperties();
+static auto kIntervalDayExtensionParamsProperties = MakeProperties();
 
 using IntervalDayType =
     SimpleExtensionType<kIntervalDayExtensionName, IntervalDayExtensionParams,
@@ -162,7 +166,7 @@ struct IdHashEq {
 
   size_t operator()(Id id) const {
     constexpr ::arrow::internal::StringViewHash hash = {};
-    auto out = hash(id.uri);
+    auto out = static_cast<size_t>(hash(id.uri));
     ::arrow::internal::hash_combine(out, hash(id.name));
     return out;
   }

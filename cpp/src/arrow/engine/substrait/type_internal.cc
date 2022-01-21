@@ -227,7 +227,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
 
 namespace {
 
-struct ToProtoImpl {
+struct DataTypeToProtoImpl {
   Status Visit(const NullType& t) { return EncodeUserDefined(t); }
 
   Status Visit(const BooleanType& t) {
@@ -418,7 +418,7 @@ struct ToProtoImpl {
 Result<std::unique_ptr<substrait::Type>> ToProto(const DataType& type, bool nullable,
                                                  ExtensionSet* ext_set) {
   auto out = internal::make_unique<substrait::Type>();
-  RETURN_NOT_OK((ToProtoImpl{out.get(), nullable, ext_set})(type));
+  RETURN_NOT_OK((DataTypeToProtoImpl{out.get(), nullable, ext_set})(type));
   return std::move(out);
 }
 

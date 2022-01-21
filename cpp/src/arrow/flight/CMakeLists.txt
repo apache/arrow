@@ -152,9 +152,9 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
 # Note, we do not compile the generated Protobuf sources directly, instead
-# compiling then via protocol_internal.cc which contains some gRPC template
+# compiling them via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
-# protobuf-internal.cc
+# protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
     client.cc
     client_cookie_middleware.cc

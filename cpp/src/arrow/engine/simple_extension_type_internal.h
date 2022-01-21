@@ -50,10 +50,10 @@ class SimpleExtensionType : public ExtensionType {
   static const Params* GetIf(const DataType& type) {
     if (type.id() != Type::EXTENSION) return nullptr;
 
-    const auto& ext_type = internal::checked_cast<const ExtensionType&>(type);
+    const auto& ext_type = ::arrow::internal::checked_cast<const ExtensionType&>(type);
     if (ext_type.extension_name() != kExtensionName) return nullptr;
 
-    return &internal::checked_cast<const SimpleExtensionType&>(type).params_;
+    return &::arrow::internal::checked_cast<const SimpleExtensionType&>(type).params_;
   }
 
   std::string extension_name() const override { return kExtensionName.to_string(); }
@@ -105,7 +105,7 @@ class SimpleExtensionType : public ExtensionType {
       if (repr.back() != '}') return Fail();
 
       repr = repr.substr(1, repr.size() - 2);
-      members_ = internal::SplitString(repr, ',');
+      members_ = ::arrow::internal::SplitString(repr, ',');
       if (members_.size() != num_properties) return Fail();
     }
 
@@ -166,8 +166,8 @@ class SimpleExtensionType : public ExtensionType {
     }
 
     std::string Finish() {
-      return kExtensionName.to_string() + "{" + internal::JoinStrings(members_, ",") +
-             "}";
+      return kExtensionName.to_string() + "{" +
+             ::arrow::internal::JoinStrings(members_, ",") + "}";
     }
 
     const Params& params_;

@@ -66,7 +66,10 @@ foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
   set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_GEN_DIR}/substrait/${SUBSTRAIT_PROTO}.pb")
 
   foreach(EXT h cc)
-    set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}" PROPERTIES GENERATED TRUE)
+    set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
+                                PROPERTIES
+                                GENERATED TRUE
+                                SKIP_UNITY_BUILD_INCLUSION TRUE)
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.${EXT}"
                        COMMAND ${ARROW_PROTOBUF_PROTOC}
                                "-I${SUBSTRAIT_LOCAL_DIR}/proto"
