@@ -479,7 +479,8 @@ that have not been built"
                 OFF)
 
   set(ARROW_SUBSTRAIT_REPO_AND_TAG_DEFAULT
-      "https://github.com/substrait-io/substrait e1b4c04a1b518912f4c4065b16a1b2c0ac8e14cf")
+      "https://github.com/substrait-io/substrait e1b4c04a1b518912f4c4065b16a1b2c0ac8e14cf"
+  )
   define_option_string(ARROW_SUBSTRAIT_REPO_AND_TAG
                        "Custom 'repository_url tag' for generating substrait accessors"
                        "${ARROW_SUBSTRAIT_REPO_AND_TAG_DEFAULT}")

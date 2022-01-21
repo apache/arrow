@@ -36,19 +36,21 @@ set(ARROW_ENGINE_SRCS
 
 set(SUBSTRAIT_LOCAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
 set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated")
-set(SUBSTRAIT_PROTOS capabilities
-                     expression
-                     extensions/extensions
-                     function
-                     parameterized_types
-                     plan
-                     relations
-                     type
-                     type_expressions)
+set(SUBSTRAIT_PROTOS
+    capabilities
+    expression
+    extensions/extensions
+    function
+    parameterized_types
+    plan
+    relations
+    type
+    type_expressions)
 
 string(FIND "${ARROW_SUBSTRAIT_REPO_AND_TAG}" " " TAG_START)
 if(TAG_START EQUAL -1)
-  message(FATAL_ERROR "Cannot parse ARROW_SUBSTRAIT_REPO_AND_TAG='${ARROW_SUBSTRAIT_REPO_AND_TAG}'")
+  message(FATAL_ERROR "Cannot parse ARROW_SUBSTRAIT_REPO_AND_TAG='${ARROW_SUBSTRAIT_REPO_AND_TAG}'"
+  )
 endif()
 string(SUBSTRING "${ARROW_SUBSTRAIT_REPO_AND_TAG}" 0 ${TAG_START} ARROW_SUBSTRAIT_REPO)
 string(SUBSTRING "${ARROW_SUBSTRAIT_REPO_AND_TAG}" ${TAG_START} -1 ARROW_SUBSTRAIT_TAG)
@@ -76,13 +78,12 @@ foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
 
   foreach(EXT h cc)
     set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
-                                PROPERTIES
-                                COMPILE_OPTIONS "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
-                                GENERATED TRUE
-                                SKIP_UNITY_BUILD_INCLUSION TRUE)
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
+                                           GENERATED TRUE
+                                           SKIP_UNITY_BUILD_INCLUSION TRUE)
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.${EXT}"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC}
-                               "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
                                "--cpp_out=${SUBSTRAIT_GEN_DIR}"
                                "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
@@ -125,10 +126,8 @@ add_arrow_lib(arrow_engine
               ${ARROW_ENGINE_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET}
-                             PRIVATE
-                             ARROW_ENGINE_EXPORTING
-                             LIBPROTOBUF_EXPORTS)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING
+                                                   LIBPROTOBUF_EXPORTS)
 endforeach()
 
 set(ARROW_ENGINE_TEST_LINK_LIBS ${ARROW_ENGINE_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
