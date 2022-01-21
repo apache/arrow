@@ -245,7 +245,7 @@ class PrepareTest < Test::Unit::TestCase
         path: "r/pkgdown/assets/versions.json",
         hunks: [
           [ "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
-            "+        \"name\": \"#{@release_version} (dev)\",",
+            "+        \"name\": \"#{@release_version}.9000 (dev)\",",
             "-        \"name\": \"#{@previous_version} (release)\",",
             "+        \"name\": \"#{@release_version} (release)\",",
             "+    {",
