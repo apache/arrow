@@ -28,6 +28,8 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+find_dependency(ArrowDataset)
+find_dependency(Parquet)
 
 # Load targets only once. If we load targets multiple times, CMake reports
 # already existent target error.

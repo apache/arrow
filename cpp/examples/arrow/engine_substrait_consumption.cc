@@ -127,9 +127,61 @@ int main(int argc, char** argv) {
 arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
   // Emulate server interaction by parsing hard coded JSON
   return eng::internal::SubstraitFromJSON("Plan", R"({
-    // FIXME
-    // in particular, this example will need some LocalFiles to read from as an input
-    // this function should probably write them to a tmp dir or at least assert that
-    // there's a readable dataset there
+    "relations": [
+      {"rel": {
+        "read": {
+          "base_schema": {
+            "struct": {
+              "types": [ {"i64": {}}, {"bool": {}} ]
+            },
+            "names": ["i", "b"]
+          },
+          "filter": {
+            "selection": {
+              "directReference": {
+                "structField": {
+                  "field": 1
+                }
+              }
+            }
+          },
+          "local_files": {
+            "items": [
+              {
+                "uri_file": "file:///tmp/dat1.parquet",
+                "format": "FILE_FORMAT_PARQUET"
+              },
+              {
+                "uri_file": "file:///tmp/dat2.parquet",
+                "format": "FILE_FORMAT_PARQUET"
+              }
+            ]
+          }
+        }
+      }}
+    ],
+    "extension_uris": [
+      {
+        "extension_uri_anchor": 7,
+        "uri": "https://github.com/apache/arrow/blob/master/format/substrait/extension_types.yaml"
+      }
+    ],
+    "extensions": [
+      {"extension_type": {
+        "extension_uri_reference": 7,
+        "type_anchor": 42,
+        "name": "null"
+      }},
+      {"extension_type_variation": {
+        "extension_uri_reference": 7,
+        "type_variation_anchor": 23,
+        "name": "u8"
+      }},
+      {"extension_function": {
+        "extension_uri_reference": 7,
+        "function_anchor": 42,
+        "name": "add"
+      }}
+    ]
   })");
 }
