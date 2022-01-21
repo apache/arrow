@@ -2443,7 +2443,7 @@ TEST(TestNumericBetweenKernel, BetweenRandomNumeric) {
       }
     }
   }
-};
+}
 
 class TestStringBetweenKernel : public ::testing::Test {};
 
