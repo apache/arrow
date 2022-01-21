@@ -173,7 +173,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       auto id = ext_set.function_ids()[scalar_fn.function_reference()];
 
       std::vector<compute::Expression> arguments(scalar_fn.args_size());
-      for (size_t i = 0; i < arguments.size(); ++i) {
+      for (int i = 0; i < scalar_fn.args_size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i), ext_set));
       }
 
@@ -289,7 +289,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
 
       ScalarVector fields(struct_.fields_size());
       std::vector<std::string> field_names(fields.size(), "");
-      for (size_t i = 0; i < fields.size(); ++i) {
+      for (int i = 0; i < struct_.fields_size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto field, FromProto(struct_.fields(i), ext_set));
         DCHECK(field.is_scalar());
         fields[i] = field.scalar();
@@ -310,7 +310,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       std::shared_ptr<DataType> element_type;
 
       ScalarVector values(list.values_size());
-      for (size_t i = 0; i < values.size(); ++i) {
+      for (int i = 0; i < list.values_size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto value, FromProto(list.values(i), ext_set));
         DCHECK(value.is_scalar());
         values[i] = value.scalar();
@@ -889,7 +889,7 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
 
   auto scalar_fn = internal::make_unique<substrait::Expression::ScalarFunction>();
   scalar_fn->set_function_reference(anchor);
-  scalar_fn->mutable_args()->Reserve(arguments.size());
+  scalar_fn->mutable_args()->Reserve(static_cast<int>(arguments.size()));
   for (auto& arg : arguments) {
     scalar_fn->mutable_args()->AddAllocated(arg.release());
   }

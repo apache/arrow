@@ -70,6 +70,9 @@ if(MSVC)
 
   # Implicit conversion from uint64_t to uint32_t:
   list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4244")
+
+  # Missing dll-interface:
+  list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4251")
 endif()
 
 set(SUBSTRAIT_PROTO_GEN_ALL)

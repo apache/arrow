@@ -238,7 +238,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
 
     util::optional<TypeRecord> GetType(const DataType& type) const override {
       if (auto index = GetIndex(type_to_index_, &type)) {
-        return TypeRecord{ids_[*index], types_[*index], type_is_variation_[*index]};
+        return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
       }
       return {};
     }
@@ -246,20 +246,20 @@ ExtensionIdRegistry* default_extension_id_registry() {
     util::optional<TypeRecord> GetType(Id id, bool is_variation) const override {
       if (auto index =
               GetIndex(is_variation ? variation_id_to_index_ : id_to_index_, id)) {
-        return TypeRecord{ids_[*index], types_[*index], type_is_variation_[*index]};
+        return TypeRecord{type_ids_[*index], types_[*index], type_is_variation_[*index]};
       }
       return {};
     }
 
     Status RegisterType(Id id, std::shared_ptr<DataType> type,
                         bool is_variation) override {
-      DCHECK_EQ(ids_.size(), types_.size());
-      DCHECK_EQ(ids_.size(), type_is_variation_.size());
+      DCHECK_EQ(type_ids_.size(), types_.size());
+      DCHECK_EQ(type_ids_.size(), type_is_variation_.size());
 
       Id copied_id{*uris_.emplace(id.uri.to_string()).first,
                    *names_.emplace(id.name.to_string()).first};
 
-      size_t index = ids_.size();
+      auto index = static_cast<int>(type_ids_.size());
 
       auto* id_to_index = is_variation ? &variation_id_to_index_ : &id_to_index_;
       auto it_success = id_to_index->emplace(copied_id, index);
@@ -273,7 +273,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
         return Status::Invalid("Type was already registered");
       }
 
-      ids_.push_back(copied_id);
+      type_ids_.push_back(copied_id);
       types_.push_back(std::move(type));
       type_is_variation_.push_back(is_variation);
       return Status::OK();
@@ -303,7 +303,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
       const std::string& copied_function_name{
           *function_names_.emplace(std::move(arrow_function_name)).first};
 
-      size_t index = function_ids_.size();
+      auto index = static_cast<int>(function_ids_.size());
 
       auto it_success = function_id_to_index_.emplace(copied_id, index);
 
@@ -329,7 +329,7 @@ ExtensionIdRegistry* default_extension_id_registry() {
     std::vector<bool> type_is_variation_;
 
     // non-owning lookup helpers
-    std::vector<Id> ids_, function_ids_;
+    std::vector<Id> type_ids_, function_ids_;
     std::unordered_map<Id, int, IdHashEq, IdHashEq> id_to_index_, variation_id_to_index_;
     std::unordered_map<const DataType*, int, TypePtrHashEq, TypePtrHashEq> type_to_index_;
 

@@ -40,7 +40,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 
   auto uris = plan->mutable_extension_uris();
   uris->Reserve(static_cast<int>(ext_set.uris().size()));
-  for (size_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
+  for (uint32_t anchor = 0; anchor < ext_set.uris().size(); ++anchor) {
     auto uri = ext_set.uris()[anchor];
     if (uri.empty()) continue;
 
@@ -58,7 +58,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
 
   using ExtDecl = substrait::extensions::SimpleExtensionDeclaration;
 
-  for (size_t anchor = 0; anchor < ext_set.type_ids().size(); ++anchor) {
+  for (uint32_t anchor = 0; anchor < ext_set.type_ids().size(); ++anchor) {
     auto id = ext_set.type_ids()[anchor];
     if (id.empty()) continue;
 
@@ -81,7 +81,7 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
     extensions->AddAllocated(ext_decl.release());
   }
 
-  for (size_t anchor = 0; anchor < ext_set.function_ids().size(); ++anchor) {
+  for (uint32_t anchor = 0; anchor < ext_set.function_ids().size(); ++anchor) {
     auto id = ext_set.function_ids()[anchor];
     if (id.empty()) continue;
 
