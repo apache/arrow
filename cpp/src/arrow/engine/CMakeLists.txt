@@ -62,6 +62,14 @@ externalproject_add(substrait_ep
                     BUILD_COMMAND ""
                     INSTALL_COMMAND "")
 
+set(SUBSTRAIT_SUPPRESSED_WARNINGS)
+if(MSVC)
+  # Protobuf generated files trigger some spurious warnings on MSVC.
+
+  # Implicit conversion from uint64_t to uint32_t:
+  list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4244")
+endif()
+
 set(SUBSTRAIT_PROTO_GEN_ALL)
 foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
   set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_GEN_DIR}/substrait/${SUBSTRAIT_PROTO}.pb")
@@ -69,6 +77,7 @@ foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
   foreach(EXT h cc)
     set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
                                 PROPERTIES
+                                COMPILE_OPTIONS "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
                                 GENERATED TRUE
                                 SKIP_UNITY_BUILD_INCLUSION TRUE)
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.${EXT}"
@@ -116,7 +125,10 @@ add_arrow_lib(arrow_engine
               ${ARROW_ENGINE_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
+  target_compile_definitions(${LIB_TARGET}
+                             PRIVATE
+                             ARROW_ENGINE_EXPORTING
+                             LIBPROTOBUF_EXPORTS)
 endforeach()
 
 set(ARROW_ENGINE_TEST_LINK_LIBS ${ARROW_ENGINE_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
