@@ -89,7 +89,8 @@ EXCLUSIONS = _paths('''\
     jni/
     test
     internal
-    _generated''')
+    _generated
+    generated/substrait/''')
 
 
 def lint_files():
