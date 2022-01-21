@@ -36,6 +36,7 @@ import pytz
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 
 def test_total_bytes_allocated():
@@ -262,6 +263,38 @@ def test_to_pandas_zero_copy():
         base_refcount = sys.getrefcount(series.values.base)
         assert base_refcount == 2
         series.sum()
+
+
+@pytest.mark.skipif(
+    Version('0.23') <= Version(pa.__version__) < Version('1.0.0'),
+    reason='Extension types introduced in later versions of Pandas')
+@pytest.mark.pandas
+def test_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    import pandas as pd
+    import numpy as np
+
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    data = pa.array([1, 2, 3], pa.int64())
+    result = data.to_pandas(types_mapper=types_mapper)
+
+    assert result.dtype == types_mapper(data.type)
+
+
+@pytest.mark.skipif(
+    Version('0.23') <= Version(pa.__version__) < Version('1.0.0'),
+    reason='Extension types introduced in later versions of Pandas')
+@pytest.mark.pandas
+def test_chunked_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    import pandas as pd
+
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
+    result = data.to_pandas(types_mapper=types_mapper)
+
+    assert isinstance(data, pa.ChunkedArray)
+    assert result.dtype == types_mapper(data.type)
 
 
 @pytest.mark.nopandas
