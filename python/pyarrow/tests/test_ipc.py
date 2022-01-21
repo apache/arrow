@@ -141,16 +141,14 @@ def stream_fixture():
 
 
 @pytest.fixture(params=[
-    FileFormatFixture(),
-    StreamFormatFixture()
-    # pytest.param(
-    #     pytest.lazy_fixture('file_fixture'),
-    #     id='File Format'
-    # ),
-    # pytest.param(
-    #     pytest.lazy_fixture('stream_fixture'),
-    #     id='Stream Format'
-    # )
+    pytest.param(
+        pytest.lazy_fixture('file_fixture'),
+        id='File Format'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('stream_fixture'),
+        id='Stream Format'
+    )
 ])
 def format_fixture(request):
     return request.param
