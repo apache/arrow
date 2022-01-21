@@ -228,10 +228,24 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "r/pkgdown/assets/versions.json",
         hunks: [
+          [ "-        \"name\": \"#{@previous_version}.9000 (dev)\",",
+            "+        \"name\": \"#{@release_version} (dev)\",",
+            "-        \"name\": \"#{@previous_version} (release)\",",
+            "+        \"name\": \"#{@release_version} (release)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_version_minor + "/"}\"",
+            "+    },"
+          ]
+        ]
+
+
+
+        [
           ['-        "name": "#{@previous_version}.9000"',
            '+        "name": "#{@release_version}.9000"'],
           ['-        "name": "#{@previous_version} (release)"',
-           '+        "name": "#{@release_version} (release)"']
+           '+        "name": "#{@release_version} (release)"'],
         ],
       }
     ]
