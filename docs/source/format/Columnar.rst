@@ -76,7 +76,7 @@ concepts, here is a small glossary to help disambiguate.
 * **Nested type**: a data type whose full structure depends on one or
   more other child types. Two fully-specified nested types are equal
   if and only if their child types are equal. For example, ``List<U>``
-  is distinct from ``List<V>`` iff U and V are different types.
+  is distinct from ``List<V>`` if U and V are different types.
 * **Logical type**: An application-facing semantic value type that is
   implemented using some physical layout. For example, Decimal
   values are stored as 16 bytes in a fixed-size binary
