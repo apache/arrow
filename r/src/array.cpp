@@ -21,6 +21,7 @@
 
 #include <arrow/array.h>
 #include <arrow/util/bitmap_reader.h>
+#include <arrow/util/byte_size.h>
 
 namespace cpp11 {
 
@@ -287,5 +288,10 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
 bool Array__Same(const std::shared_ptr<arrow::Array>& x,
                  const std::shared_ptr<arrow::Array>& y) {
   return x.get() == y.get();
+}
+
+// [[arrow::export]]
+int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
 }
 #endif
