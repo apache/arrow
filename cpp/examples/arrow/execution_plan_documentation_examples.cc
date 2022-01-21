@@ -130,8 +130,6 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
                                               arrow::field("b", arrow::boolean())}),
                                10, {int64_array, bool_array});
   ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches({record_batch}));
-  std::cout << "DataSet Created : " << std::endl;
-  std::cout << table->ToString() << std::endl;
   auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
   arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
   return result;
