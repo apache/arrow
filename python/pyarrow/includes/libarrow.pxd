@@ -2766,3 +2766,13 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
+    CResult[int64_t] ReferencedBufferSize(const CArray& array_data)
+    CResult[int64_t] ReferencedBufferSize(const CRecordBatch& record_batch)
+    CResult[int64_t] ReferencedBufferSize(const CChunkedArray& chunked_array)
+    CResult[int64_t] ReferencedBufferSize(const CTable& table)
+    int64_t TotalBufferSize(const CArray& array)
+    int64_t TotalBufferSize(const CChunkedArray& array)
+    int64_t TotalBufferSize(const CRecordBatch& record_batch)
+    int64_t TotalBufferSize(const CTable& table)
