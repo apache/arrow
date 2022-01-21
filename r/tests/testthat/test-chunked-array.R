@@ -445,15 +445,6 @@ test_that("ChunkedArray$Equals", {
   expect_false(a$Equals(vec))
 })
 
-test_that("ChunkedArray$nbytes", {
-  vec = list(list(c(10,20), c(3,4)), list(c(5, 6, 7), c(NULL), c(8)), list(c(9,10)))
-  a <- Array$create(vec, list_of(list_of(int8())))
-  ca <- ChunkedArray$create(a)
-  ca <- ca$Slice(1, 2)
-  nbytes <- ca$nbytes()
-  expect_equal(nbytes, 4 * 2 + 1 + 4 * 4 + 1 * 6)
-})
-
 test_that("Converting a chunked array unifies factors (ARROW-8374)", {
   f1 <- factor(c("a"), levels = c("a", "b"))
   f2 <- factor(c("c"), levels = c("c", "d"))
