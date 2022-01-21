@@ -225,6 +225,15 @@ class PrepareTest < Test::Unit::TestCase
            "+\# arrow #{@release_version}"],
         ],
       },
+      {
+        path: "r/pkgdown/assets/versions.json",
+        hunks: [
+          ['-        "name": "#{@previous_version}.9000"',
+           '+        "name": "#{@release_version}.9000"'],
+          ['-        "name": "#{@previous_version} (release)"',
+           '+        "name": "#{@release_version} (release)"']
+        ],
+      }
     ]
 
     Dir.glob("java/**/pom.xml") do |path|
