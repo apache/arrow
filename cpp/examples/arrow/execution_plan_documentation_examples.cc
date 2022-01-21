@@ -69,19 +69,6 @@ void PrintBlock(std::string msg) {
   std::cout << "\n\t" << kSep << " " << msg << " " << kSep << "\n" << std::endl;
 }
 
-const char kCsvData[] = R"csv(a,b
-1,null
-2,true
-null,true
-3,false
-null,true
-4,false
-5,null
-6,false
-7,false
-8,true
-)csv";
-
 template <typename TYPE,
           typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
                                              arrow::is_boolean_type<TYPE>::value |
@@ -121,25 +108,39 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
   return record_batch->FromStructArray(struct_result);
 }
 
-arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData() {
-  arrow::io::IOContext io_context = arrow::io::default_io_context();
-  std::shared_ptr<arrow::io::InputStream> input;
-  input = std::make_shared<arrow::io::BufferReader>(arrow::Buffer::FromString(kCsvData));
-
-  auto read_options = arrow::csv::ReadOptions::Defaults();
-  auto parse_options = arrow::csv::ParseOptions::Defaults();
-  auto convert_options = arrow::csv::ConvertOptions::Defaults();
-
-  // Instantiate TableReader from input stream and options
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::csv::TableReader> table_reader,
-                        arrow::csv::TableReader::Make(io_context, input, read_options,
-                                                      parse_options, convert_options));
-
-  std::shared_ptr<arrow::csv::TableReader> reader = table_reader;
-
-  // Read table from CSV file
-  ARROW_ASSIGN_OR_RAISE(auto maybe_table, reader->Read());
-  auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(maybe_table);
+/**
+ * \brief Get the Dataset object
+ *  Creating Dataset
+ *  a, b
+    1,null
+    2,true
+    null,true
+    3,false
+    null,true
+    4,false
+    5,null
+    6,false
+    7,false
+    8,true
+ * \return arrow::Result<std::shared_ptr<arrow::dataset::Dataset>>
+ */
+arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
+  auto null_long = std::numeric_limits<int64_t>::quiet_NaN();
+  auto null_bool = std::numeric_limits<bool>::quiet_NaN();
+  ARROW_ASSIGN_OR_RAISE(auto int64_array,
+                        GetArrayDataSample<arrow::Int64Type>(
+                            {1, 2, null_long, 3, null_long, 4, 5, 6, 7, 8}));
+  ARROW_ASSIGN_OR_RAISE(auto bool_array, GetArrayDataSample<arrow::BooleanType>(
+                                             {null_bool, true, true, false, true, false,
+                                              null_bool, false, false, true}));
+  auto record_batch =
+      arrow::RecordBatch::Make(arrow::schema({arrow::field("a", arrow::int64()),
+                                              arrow::field("b", arrow::boolean())}),
+                               10, {int64_array, bool_array});
+  ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches({record_batch}));
+  std::cout << "DataSet Created : " << std::endl;
+  std::cout << table->ToString() << std::endl;
+  auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
   arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
   return result;
 }
@@ -319,8 +320,7 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
-                        CreateDataSetFromCSVData());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   options->projection = Materialize({});  // create empty projection
@@ -386,8 +386,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
-                        CreateDataSetFromCSVData());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // // specify the filter.  This filter removes all rows where the
@@ -443,8 +442,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
-                        CreateDataSetFromCSVData());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // projection
@@ -716,8 +714,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset,
-                        CreateDataSetFromCSVData());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // empty projection
@@ -820,16 +817,16 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
 
 enum ExampleMode {
   SOURCE_SINK = 0,
-  SCAN_SINK = 1,
-  SCAN_FILTER_SINK = 2,
-  SCAN_PROJECT_SINK = 3,
-  SOURCE_AGGREGATE_SINK = 4,
-  SCAN_CONSUMING_SINK = 5,
-  SOURCE_ORDER_BY_SINK = 6,
-  SCAN_HASHJOIN_SINK = 7,
-  SCAN_SELECT_SINK = 8,
-  SCAN_FILTER_WRITE = 9,
-  SOURCE_UNION_SINK = 10,
+  SCAN = 1,
+  FILTER = 2,
+  PROJECT = 3,
+  GROUP_AGGREGATION = 4,
+  CONSUMING_SINK = 5,
+  ORDER_BY_SINK = 6,
+  HASHJOIN = 7,
+  KSELECT = 8,
+  WRITE = 9,
+  UNION = 10,
 };
 
 int main(int argc, char** argv) {
@@ -838,8 +835,8 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  int mode = std::atoi(argv[1]);
-  std::string base_save_path = argv[2];
+  std::string base_save_path = argv[1];
+  int mode = std::atoi(argv[2]);
   arrow::Status status;
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
@@ -851,43 +848,43 @@ int main(int argc, char** argv) {
       PrintBlock("Source Sink Example");
       status = SourceSinkExample(exec_context);
       break;
-    case SCAN_SINK:
+    case SCAN:
       PrintBlock("Scan Example");
       status = ScanSinkExample(exec_context);
       break;
-    case SCAN_FILTER_SINK:
+    case FILTER:
       PrintBlock("Filter Example");
       status = ScanFilterSinkExample(exec_context);
       break;
-    case SCAN_PROJECT_SINK:
+    case PROJECT:
       PrintBlock("Project Example");
       status = ScanProjectSinkExample(exec_context);
       break;
-    case SOURCE_AGGREGATE_SINK:
+    case GROUP_AGGREGATION:
       PrintBlock("Aggregate Example");
       status = SourceAggregateSinkExample(exec_context);
       break;
-    case SCAN_CONSUMING_SINK:
+    case CONSUMING_SINK:
       PrintBlock("Consuming-Sink Example");
       status = SourceConsumingSinkExample(exec_context);
       break;
-    case SOURCE_ORDER_BY_SINK:
+    case ORDER_BY_SINK:
       PrintBlock("OrderBy Example");
       status = SourceOrderBySinkExample(exec_context);
       break;
-    case SCAN_HASHJOIN_SINK:
+    case HASHJOIN:
       PrintBlock("HashJoin Example");
       status = SourceHashJoinSinkExample(exec_context);
       break;
-    case SCAN_SELECT_SINK:
+    case KSELECT:
       PrintBlock("KSelect Example");
       status = SourceKSelectExample(exec_context);
       break;
-    case SCAN_FILTER_WRITE:
-      PrintBlock("ScanFilter Example");
+    case WRITE:
+      PrintBlock("Write Example");
       status = ScanFilterWriteExample(exec_context, base_save_path);
       break;
-    case SOURCE_UNION_SINK:
+    case UNION:
       PrintBlock("Union Example");
       status = SourceUnionSinkExample(exec_context);
       break;
