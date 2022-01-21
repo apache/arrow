@@ -194,6 +194,10 @@ class PrepareTest < Test::Unit::TestCase
         path: "docs/source/_static/versions.json",
         hunks: [
           [ "-        \"name\": \"#{@previous_version} (stable)\",",
+            "+        \"name\": \"#{@next_version} (dev)\",",
+            "+        \"version\": \"dev\"",
+            "+    },"
+            "+    {",
             "+        \"name\": \"#{@release_version} (stable)\",",
             "+    {",
             "+        \"name\": \"#{@previous_version}\",",
