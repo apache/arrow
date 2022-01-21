@@ -225,32 +225,41 @@ TEST(TestScalarNested, StructField) {
   }
 }
 
-TEST(TestScalarNested, MapArrayLookup) {
-  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
+void CheckMapArrayLookupWithDifferentOptions(
+    const std::shared_ptr<Array>& map, const std::shared_ptr<Scalar>& query_key,
+    const std::shared_ptr<Array>& expected_all,
+    const std::shared_ptr<Array>& expected_first,
+    const std::shared_ptr<Array>& expected_last) {
+  MapArrayLookupOptions all_matches(query_key, MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions first_matches(query_key, MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions last_matches(query_key, MapArrayLookupOptions::LAST);
 
+  CheckScalar("map_array_lookup", {map}, expected_all, &all_matches);
+  CheckScalar("map_array_lookup", {map}, expected_first, &first_matches);
+  CheckScalar("map_array_lookup", {map}, expected_last, &last_matches);
+}
+
+class TestMapArrayLookupKernel : public ::testing::Test {};
+
+TEST_F(TestMapArrayLookupKernel, Basic) {
   auto type = map(utf8(), int32());
   const char* input = R"(
     [
-      [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lesgo", 5], ["whatnow", 8]],
+      [["foo", 99], ["bar", 1], ["hello", 2], ["foo", 3], ["lets go", 5], ["what now?", 8]],
       null,
       [["nothing", null], ["hat", null], ["foo", 101], ["sorry", 1], ["dip", null],
       ["foo", 22]],
       []
-    ]
-  )";
+    ])";
   auto map_array = ArrayFromJSON(type, input);
-
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(list(int32()), "[[99, 3], null, [101, 22], null]"), &foo_all);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(int32(), "[99, null, 101, null]"), &foo_first);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(int32(), "[3, null, 22, null]"), &foo_last);
+  CheckMapArrayLookupWithDifferentOptions(
+      map_array, MakeScalar("foo"),
+      ArrayFromJSON(list(int32()), R"([[99, 3], null, [101, 22], null])"),
+      ArrayFromJSON(int32(), R"([99, null, 101, null])"),
+      ArrayFromJSON(int32(), R"([3, null, 22, null])"));
 }
 
-TEST(TestScalarNested, MapArrayLookupNested) {
+TEST_F(TestMapArrayLookupKernel, NestedItems) {
   auto type = map(utf8(), map(int16(), int16()));
   const char* input = R"(
     [
@@ -318,46 +327,51 @@ TEST(TestScalarNested, MapArrayLookupNested) {
       []
     ]
   )";
-  auto map_array = ArrayFromJSON(type, input);
-
-  MapArrayLookupOptions foo_all(MakeScalar("foo"), MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions foo_first(MakeScalar("foo"), MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions foo_last(MakeScalar("foo"), MapArrayLookupOptions::LAST);
-
-  auto foo_all_output = ArrayFromJSON(
-      list(map(int16(), int16())),
-      "[ [[[4, 4], [5, 5]], [[8, 8], [9, 9]], [[12, 12], [13, 13]]], null, [[[4, 5], [5, "
-      "6]], [[8, 9], [9, 10]], [[12, 13], [13, 14]]], null ]");
-
-  CheckScalar("map_array_lookup", {map_array}, foo_all_output, &foo_all);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(map(int16(), int16()),
-                            "[ [[4, 4], [5, 5]], null, [[4, 5], [5, 6]], null ]"),
-              &foo_first);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(map(int16(), int16()),
-                            "[ [[12, 12], [13, 13]], null, [[12, 13], [13, 14]], null ]"),
-              &foo_last);
+  const auto map_array = ArrayFromJSON(type, input);
+  const auto expected_all = ArrayFromJSON(list(map(int16(), int16())), R"(
+                                [
+                                  [
+                                    [[4, 4], [5, 5]], [[8, 8], [9, 9]],
+                                    [[12, 12], [13, 13]]
+                                  ],
+                                  null,
+                                  [
+                                    [[4, 5], [5, 6]], [[8, 9], [9, 10]],
+                                    [[12, 13], [13, 14]]
+                                  ],
+                                  null
+                                ])");
+  const auto expected_first = ArrayFromJSON(map(int16(), int16()), R"(
+                                [
+                                  [[4, 4], [5, 5]],
+                                  null,
+                                  [[4, 5], [5, 6]],
+                                  null
+                                ])");
+  const auto expected_last = ArrayFromJSON(map(int16(), int16()), R"(
+                                [
+                                  [[12, 12], [13, 13]],
+                                  null,
+                                  [[12, 13], [13, 14]],
+                                  null
+                                ])");
+  CheckMapArrayLookupWithDifferentOptions(map_array, MakeScalar("foo"), expected_all,
+                                          expected_first, expected_last);
 }
 
-template <typename Type>
+template <typename KeyType>
 class TestMapArrayLookupIntegralKeys : public ::testing ::Test {};
 
-TYPED_TEST_SUITE(TestMapArrayLookupIntegralKeys, IntegralArrowTypes);
+TYPED_TEST_SUITE(TestMapArrayLookupIntegralKeys, PhysicalIntegralArrowTypes);
 
 TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
-  auto type = default_type_instance<TypeParam>();
-
-  auto one_scalar = MakeScalar(type, 1).ValueOrDie();
-  MapArrayLookupOptions one_all(one_scalar, MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions one_first(one_scalar, MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions one_last(one_scalar, MapArrayLookupOptions::LAST);
+  std::shared_ptr<DataType> type = default_type_instance<TypeParam>();
 
   auto map_type = map(type, utf8());
   const char* input = R"(
     [
       [ 
-        [0, "zero"], [1, "first_one"], [2, "two"], [3, "three"], [1, "second_one"],
+        [0, "zero"], [1, "first_one"], [2, "two"], [1, null], [3, "three"], [1, "second_one"],
         [1, "last_one"]
       ],
       null,
@@ -366,24 +380,137 @@ TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
         [1, "the_chosen_one"], [42, "meaning of life?"], [1, "just_one"],
         [1, "no more ones!"]
       ],
+      [
+        [4, "this"], [6, "has"], [8, "no"], [2, "ones"]
+      ],
+      [
+        [1, "this"], [1, "should"], [1, "also"], [1, "be"], [1, "null"]
+      ],
+      []
+    ])";
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto map_array_tweaked = TweakValidityBit(map_array, 4, false);
+
+  auto expected_all = ArrayFromJSON(list(utf8()), R"(
+                          [
+                            ["first_one", null, "second_one", "last_one"],
+                            null,
+                            ["the_dumb_one", "the_chosen_one", "just_one", "no more ones!"],
+                            null,
+                            null,
+                            null
+                          ])");
+  auto expected_first =
+      ArrayFromJSON(utf8(), R"(["first_one", null, "the_dumb_one", null, null, null])");
+  auto expected_last =
+      ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null, null, null])");
+
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked,
+                                          MakeScalar(type, 1).ValueOrDie(), expected_all,
+                                          expected_first, expected_last);
+}
+template <typename KeyType>
+class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
+ protected:
+  std::shared_ptr<DataType> GetType() {
+    return std::make_shared<KeyType>(/*precision=*/5,
+                                     /*scale=*/4);
+  }
+};
+
+TYPED_TEST_SUITE(TestMapArrayLookupDecimalKeys, DecimalArrowTypes);
+
+TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
+  std::shared_ptr<DataType> type = this->GetType();
+  auto key_scalar = DecimalScalarFromJSON(type, R"("1.2345")");
+
+  auto map_type = map(type, utf8());
+  const char* input = R"(
+    [
+      [
+        ["0.8923", "zero"], ["1.2345", "first_one"], ["2.7001", "two"],
+        ["1.2345", null], ["3.2234", "three"], ["1.2345", "second_one"],
+        ["1.2345", "last_one"]
+      ],
+      null,
+      [
+        ["0.0012", "zero_hero"], ["9.0093", "almost_six"], ["1.2345", "the_dumb_one"],
+        ["7.6587", "eleven"], ["1.2345", "the_chosen_one"], ["4.2000", "meaning of life"],
+        ["1.2345", "just_one"], ["1.2345", "no more ones!"]
+      ],
+      [
+        ["4.8794", "this"], ["6.2345", "has"], ["8.6649", "no"], ["0.0122", "ones"]
+      ],
+      [
+        ["1.2345", "this"], ["1.2345", "should"], ["1.2345", "also"], ["1.2345", "be"], ["1.2345", "null"]
+      ],
       []
     ]
   )";
   auto map_array = ArrayFromJSON(map_type, input);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(utf8(), R"(["first_one", null, "the_dumb_one", null])"),
-              &one_first);
-  CheckScalar("map_array_lookup", {map_array},
-              ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null])"),
-              &one_last);
-  CheckScalar("map_array_lookup", {map_array}, ArrayFromJSON(list(utf8()), R"([
-                  ["first_one", "second_one", "last_one"],
-                  null,
-                  ["the_dumb_one", "the_chosen_one", "just_one", "no more ones!"],
-                  null
-                ]
-              )"),
-              &one_all);
+  auto map_array_tweaked = TweakValidityBit(map_array, 4, false);
+
+  auto expected_first =
+      ArrayFromJSON(utf8(), R"(["first_one", null, "the_dumb_one", null, null, null])");
+  auto expected_last =
+      ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null, null, null])");
+  auto expected_all = ArrayFromJSON(list(utf8()),
+                                    R"([
+                                        ["first_one", null, "second_one", "last_one"],
+                                        null,
+                                        ["the_dumb_one", "the_chosen_one", "just_one", "no more ones!"],
+                                        null,
+                                        null,
+                                        null
+                                      ]
+                                    )");
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
+                                          expected_first, expected_last);
+}
+
+template <typename KeyType>
+class TestMapArrayLookupBinaryKeys : public ::testing ::Test {
+ protected:
+  std::shared_ptr<DataType> GetType() { return TypeTraits<KeyType>::type_singleton(); }
+};
+
+TYPED_TEST_SUITE(TestMapArrayLookupBinaryKeys, BaseBinaryArrowTypes);
+
+TYPED_TEST(TestMapArrayLookupBinaryKeys, IntegralItems) {
+  auto key_type = this->GetType();
+  auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
+
+  auto map_type = map(key_type, int32());
+  const char* input = R"(
+      [
+        [
+          ["sheesh", 99], ["yolo", 1], ["yay", 2], ["sheesh", null], ["no way!", 5],
+          ["sheesh", 8]
+        ],
+        null,
+        [
+          ["hmm", null], ["sheesh", 67], ["snacc", 101], ["awesome", 1], ["dap", null],
+          ["yolo", 9], ["sheesh", 80]
+        ],
+        [],
+        [
+          ["nope", 1], ["no", 2], ["sheeshes", 3], ["here!", 4]
+        ],
+        [
+          ["sheesh", 9], ["sheesh", 2], ["sheesh", 5], ["sheesh", 8]
+        ]
+      ]
+    )";
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto map_array_tweaked = TweakValidityBit(map_array, 5, false);
+
+  auto expected_all = ArrayFromJSON(list(int32()), R"(
+    [[99, null, 8], null, [67, 80], null, null, null ])");
+  auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
+  auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
+
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
+                                          expected_first, expected_last);
 }
 
 struct {
