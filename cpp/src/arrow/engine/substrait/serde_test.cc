@@ -73,7 +73,7 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
 std::shared_ptr<DataType> StripFieldNames(std::shared_ptr<DataType> type) {
   if (type->id() == Type::STRUCT) {
     FieldVector fields(type->num_fields());
-    for (size_t i = 0; i < fields.size(); ++i) {
+    for (int i = 0; i < type->num_fields(); ++i) {
       fields[i] = type->field(i)->WithName("");
     }
     return struct_(std::move(fields));
