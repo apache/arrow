@@ -83,8 +83,12 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
 : ${CMAKE_UNITY_BUILD:=ON}
+: ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
+
+# NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
+vcpkg remove orc
 
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
@@ -125,6 +129,8 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
+    -DORC_SOURCE=BUNDLED \
+    -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
     -DVCPKG_MANIFEST_MODE=OFF \
     -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -G ${CMAKE_GENERATOR} \
