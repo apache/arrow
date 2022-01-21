@@ -351,9 +351,9 @@ This is the list of operations associated with the execution plan:
 ``source``
 ----------
 
-A `source` operation can be considered as an entry point to create a streaming execution plan. 
+A ``source`` operation can be considered as an entry point to create a streaming execution plan. 
 :class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation.  The
-`source` operation is the most generic and flexible type of source currently available but it can
+``source`` operation is the most generic and flexible type of source currently available but it can
 be quite tricky to configure.  To process data from files the scan operation is likely a simpler choice.
 
 The source node requires some kind of function that can be called to poll for more data.  This
@@ -627,8 +627,8 @@ SelectK example:
 ``scan``
 ---------
 
-`scan` is an operation used to load and process datasets.  It should be preferred over the
-more generic `source` node when your input is a dataset.  The behavior is defined using 
+``scan`` is an operation used to load and process datasets.  It should be preferred over the
+more generic ``source`` node when your input is a dataset.  The behavior is defined using 
 :class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
 scan options can be found in :doc:`./dataset`.
 

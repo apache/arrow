@@ -70,12 +70,11 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
   using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
   using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
   ARROW_BUILDER_TYPE builder;
-  ABORT_NOT_OK(builder.Reserve(values.size()));
+  ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
   std::shared_ptr<ARROW_ARRAY_TYPE> array;
-  ABORT_NOT_OK(builder.AppendValues(values));
-  ABORT_NOT_OK(builder.Finish(&array));
-  arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
-  return result;
+  ARROW_RETURN_NOT_OK(builder.AppendValues(values));
+  ARROW_RETURN_NOT_OK(builder.Finish(&array));
+  return array;
 }
 
 template <class TYPE>
@@ -84,12 +83,11 @@ arrow::Result<std::shared_ptr<arrow::Array>> GetBinaryArrayDataSample(
   using ARROW_ARRAY_TYPE = typename arrow::TypeTraits<TYPE>::ArrayType;
   using ARROW_BUILDER_TYPE = typename arrow::TypeTraits<TYPE>::BuilderType;
   ARROW_BUILDER_TYPE builder;
-  ABORT_NOT_OK(builder.Reserve(values.size()));
+  ARROW_RETURN_NOT_OK(builder.Reserve(values.size()));
   std::shared_ptr<ARROW_ARRAY_TYPE> array;
-  ABORT_NOT_OK(builder.AppendValues(values));
-  ABORT_NOT_OK(builder.Finish(&array));
-  arrow::Result<std::shared_ptr<ARROW_ARRAY_TYPE>> result(std::move(array));
-  return result;
+  ARROW_RETURN_NOT_OK(builder.AppendValues(values));
+  ARROW_RETURN_NOT_OK(builder.Finish(&array));
+  return array;
 }
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
@@ -118,21 +116,31 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> GetSampleRecordBatch(
  */
 arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
   auto null_long = std::numeric_limits<int64_t>::quiet_NaN();
-  auto null_bool = std::numeric_limits<bool>::quiet_NaN();
   ARROW_ASSIGN_OR_RAISE(auto int64_array,
                         GetArrayDataSample<arrow::Int64Type>(
                             {1, 2, null_long, 3, null_long, 4, 5, 6, 7, 8}));
-  ARROW_ASSIGN_OR_RAISE(auto bool_array, GetArrayDataSample<arrow::BooleanType>(
-                                             {null_bool, true, true, false, true, false,
-                                              null_bool, false, false, true}));
+
+  arrow::BooleanBuilder boolean_builder;
+  std::shared_ptr<arrow::BooleanArray> bool_array;
+
+  std::vector<uint8_t> bool_values = {false, true,  true,  false, true,
+                                      false, false, false, false, true};
+  std::vector<bool> is_valid = {false, true,  true, true, true,
+                                true,  false, true, true, true};
+
+  ARROW_RETURN_NOT_OK(boolean_builder.Reserve(10));
+
+  ARROW_RETURN_NOT_OK(boolean_builder.AppendValues(bool_values, is_valid));
+
+  ARROW_RETURN_NOT_OK(boolean_builder.Finish(&bool_array));
+
   auto record_batch =
       arrow::RecordBatch::Make(arrow::schema({arrow::field("a", arrow::int64()),
                                               arrow::field("b", arrow::boolean())}),
                                10, {int64_array, bool_array});
   ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches({record_batch}));
   auto ds = std::make_shared<arrow::dataset::InMemoryDataset>(table);
-  arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
-  return result;
+  return ds;
 }
 
 arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
@@ -140,8 +148,7 @@ arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
   std::shared_ptr<arrow::RecordBatch> record_batch;
   ARROW_ASSIGN_OR_RAISE(auto res_batch, GetSampleRecordBatch(array_vector, field_vector));
   cp::ExecBatch batch{*res_batch};
-  arrow::Result<cp::ExecBatch> result(batch);
-  return result;
+  return batch;
 }
 
 // (Doc section: BatchesWithSchema Definition)
@@ -186,8 +193,7 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
 
   out.batches = {b1, b2, b3};
   out.schema = arrow::schema(field_vector);
-  arrow::Result<BatchesWithSchema> result(std::move(out));
-  return result;
+  return out;
 }
 // (Doc section: MakeBasicBatches Definition)
 
@@ -219,8 +225,7 @@ arrow::Result<BatchesWithSchema> MakeSortTestBasicBatches() {
                                                 {b4_int, b5_int, b6_int, b7_int}));
   out.batches = {b1, b2, b3, b4};
   out.schema = arrow::schema({field});
-  arrow::Result<BatchesWithSchema> result(std::move(out));
-  return result;
+  return out;
 }
 
 arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
@@ -248,8 +253,7 @@ arrow::Result<BatchesWithSchema> MakeGroupableBatches(int multiplicity = 1) {
   }
 
   out.schema = arrow::schema(fields);
-  arrow::Result<BatchesWithSchema> result(out);
-  return result;
+  return out;
 }
 
 arrow::Status ExecutePlanAndCollectAsTable(
@@ -278,9 +282,7 @@ arrow::Status ExecutePlanAndCollectAsTable(
   plan->StopProducing();
   // // plan mark finished
   auto future = plan->finished();
-  ARROW_RETURN_NOT_OK(future.status());
-  future.Wait();
-  return arrow::Status::OK();
+  return future.status();
 }
 
 // (Doc section: Scan Example)
@@ -579,9 +581,9 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
                         MakeExecNode("consuming_sink", plan.get(), {source},
                                      cp::ConsumingSinkNodeOptions(consumer)));
 
-  ABORT_NOT_OK(consuming_sink->Validate());
+  ARROW_RETURN_NOT_OK(consuming_sink->Validate());
 
-  ABORT_NOT_OK(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "Exec Plan created: " << plan->ToString() << std::endl;
   // plan start producing
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -590,7 +592,7 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
   std::cout << "Source Finished!" << std::endl;
   // Mark consumption complete, plan should finish
   arrow::Status finish_status;
-  // finish.Wait();
+
   finish.MarkFinished(finish_status);
   ARROW_RETURN_NOT_OK(plan->finished().status());
   ARROW_RETURN_NOT_OK(finish_status);
@@ -777,7 +779,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
 
   ARROW_RETURN_NOT_OK(cp::MakeExecNode("write", plan.get(), {scan}, write_node_options));
 
-  ABORT_NOT_OK(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   std::cout << "Execution Plan Created : " << plan->ToString() << std::endl;
   // // // start the ExecPlan
   ARROW_RETURN_NOT_OK(plan->StartProducing());
@@ -824,9 +826,9 @@ arrow::Status SourceUnionSinkExample(cp::ExecContext& exec_context) {
                                             })
                       .AddToPlan(plan.get()));
 
-  ABORT_NOT_OK(declr->Validate());
+  ARROW_RETURN_NOT_OK(declr->Validate());
 
-  ABORT_NOT_OK(plan->Validate());
+  ARROW_RETURN_NOT_OK(plan->Validate());
   return ExecutePlanAndCollectAsTable(exec_context, plan, basic_data.schema, sink_gen);
 }
 
