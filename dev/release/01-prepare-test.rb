@@ -251,9 +251,8 @@ class PrepareTest < Test::Unit::TestCase
             "+    {",
             "+        \"name\": \"#{@previous_version}\",",
             "+        \"version\": \"#{@previous_version_minor + "/"}\"",
-            "+    },"
-          ]
-        ]
+            "+    },"]],
+            ["-]", "+]"]]
       }
     ]
 
