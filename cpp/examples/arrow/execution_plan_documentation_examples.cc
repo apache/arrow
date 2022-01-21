@@ -592,7 +592,6 @@ arrow::Status SourceConsumingSinkExample(cp::ExecContext& exec_context) {
   std::cout << "Source Finished!" << std::endl;
   // Mark consumption complete, plan should finish
   arrow::Status finish_status;
-
   finish.MarkFinished(arrow::Status::OK());
   ARROW_RETURN_NOT_OK(plan->finished().status());
   ARROW_RETURN_NOT_OK(finish_status);
