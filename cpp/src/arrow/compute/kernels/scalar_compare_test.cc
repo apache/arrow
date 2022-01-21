@@ -2234,44 +2234,31 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
   auto type_string = type->ToString();
   if (type_string == "duration[s]") {
     return int64();
-  }
-  else if (type_string == "duration[ms]") {
+  } else if (type_string == "duration[ms]") {
     return int64();
-  }
-  else if (type_string == "duration[ns]") {
+  } else if (type_string == "duration[ns]") {
     return int64();
-  }
-  else if (type_string == "uint8") { 
+  } else if (type_string == "uint8") { 
     return uint8();
-  }
-  else if (type_string == "uint16") {
+  } else if (type_string == "uint16") {
     return uint16();
-  }
-  else if (type_string == "uint32") {
+  } else if (type_string == "uint32") {
     return uint32();
-  }
-  else if (type_string == "uint64") {
+  } else if (type_string == "uint64") {
     return uint64();
-  }
-  else if (type_string == "int8") {
+  } else if (type_string == "int8") {
     return int8();
-  }
-  else if (type_string == "int16") {
+  } else if (type_string == "int16") {
     return int16();
-  }
-  else if (type_string == "int32") {
+  } else if (type_string == "int32") {
     return int32();
-  }
-  else if (type_string == "int64") {
+  } else if (type_string == "int64") {
     return int64();
-  }
-  else if (type_string == "float") {
+  } else if (type_string == "float") {
     return float32();
-  }
-  else if (type_string == "double") {
+  } else if (type_string == "double") {
     return float64();
-  }
-  else { 
+  } else { 
     return int64();
   }
 }
