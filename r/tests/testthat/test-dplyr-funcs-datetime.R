@@ -444,6 +444,15 @@ test_that("extract wday from timestamp", {
   )
 })
 
+test_that("extract mday from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = mday(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract yday from timestamp", {
   compare_dplyr_binding(
     .input %>%
@@ -621,6 +630,15 @@ test_that("extract wday from date", {
     .input %>%
       mutate(x = wday(date, label = TRUE)) %>%
       mutate(x = as.character(x)) %>%
+      collect(),
+    test_df
+  )
+})
+
+test_that("extract mday from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = mday(date)) %>%
       collect(),
     test_df
   )
