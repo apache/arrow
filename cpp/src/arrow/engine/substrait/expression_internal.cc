@@ -341,7 +341,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
 
       std::shared_ptr<DataType> key_type, value_type;
       ScalarVector keys(map.key_values_size()), values(map.key_values_size());
-      for (size_t i = 0; i < values.size(); ++i) {
+      for (int i = 0; i < map.key_values_size(); ++i) {
         const auto& kv = map.key_values(i);
 
         static const std::array<char const*, 4> kMissing = {"key and value", "value",
