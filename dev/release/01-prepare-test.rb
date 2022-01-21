@@ -196,7 +196,7 @@ class PrepareTest < Test::Unit::TestCase
           [ "-        \"name\": \"#{@previous_version} (stable)\",",
             "+        \"name\": \"#{@next_version} (dev)\",",
             "+        \"version\": \"dev\"",
-            "+    },"
+            "+    },",
             "+    {",
             "+        \"name\": \"#{@release_version} (stable)\",",
             "+    {",
