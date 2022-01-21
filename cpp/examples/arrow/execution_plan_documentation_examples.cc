@@ -24,17 +24,14 @@
 #include <arrow/builder.h>
 
 #include <arrow/compute/api.h>
-#include <arrow/compute/api_scalar.h>
 #include <arrow/compute/api_vector.h>
 #include <arrow/compute/cast.h>
 #include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/ir_consumer.h>
 #include <arrow/compute/exec/test_util.h>
 
 #include <arrow/csv/api.h>
 
 #include <arrow/dataset/dataset.h>
-#include <arrow/dataset/dataset_writer.h>
 #include <arrow/dataset/file_base.h>
 #include <arrow/dataset/file_parquet.h>
 #include <arrow/dataset/plan.h>
@@ -42,11 +39,6 @@
 
 #include <arrow/io/interfaces.h>
 #include <arrow/io/memory.h>
-#include <arrow/io/slow.h>
-#include <arrow/io/stdio.h>
-#include <arrow/io/transform.h>
-
-#include "arrow/json/api.h"
 
 #include <arrow/result.h>
 #include <arrow/status.h>
@@ -65,7 +57,7 @@ namespace cp = ::arrow::compute;
 
 constexpr char kSep[] = "******";
 
-void PrintBlock(const std::string &msg) {
+void PrintBlock(const std::string& msg) {
   std::cout << "\n\t" << kSep << " " << msg << " " << kSep << "\n" << std::endl;
 }
 
@@ -144,17 +136,6 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> GetDataset() {
   arrow::Result<std::shared_ptr<arrow::dataset::InMemoryDataset>> result(std::move(ds));
   return result;
 }
-
-// (Doc section: Materialize)
-cp::Expression Materialize(std::vector<std::string> names) {
-  std::vector<cp::Expression> exprs;
-  for (const auto& name : names) {
-    exprs.push_back(cp::field_ref(name));
-  }
-
-  return cp::project(exprs, names);
-}
-// (Doc section: Materialize)
 
 arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
     const arrow::FieldVector& field_vector, const arrow::ArrayVector& array_vector) {
@@ -323,7 +304,7 @@ arrow::Status ScanSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
-  options->projection = Materialize({});  // create empty projection
+  options->projection = cp::project({}, {});  // create empty projection
 
   // construct the scan node
   cp::ExecNode* scan;
@@ -396,7 +377,7 @@ arrow::Status ScanFilterSinkExample(cp::ExecContext& exec_context) {
   // This step can be skipped if you are not reading from disk.
   options->filter = filter_opt;
   // empty projection
-  options->projection = Materialize({});
+  options->projection = cp::project({}, {});
 
   // construct the scan node
   std::cout << "Initialized Scanning Options" << std::endl;
@@ -447,7 +428,7 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // projection
   cp::Expression a_times_2 = cp::call("multiply", {cp::field_ref("a"), cp::literal(2)});
-  options->projection = Materialize({});
+  options->projection = cp::project({}, {});
 
   cp::ExecNode* scan;
 
@@ -473,14 +454,13 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
 
 // (Doc section: Project Example)
 
-
 // (Doc section: Scalar Aggregate Example)
 /**
  * \brief
  * Source-Aggregation-Sink
  * This example shows how an aggregation operation can be applied on a
- * execution plan resulting a scalar output. The source node loads the 
- * data and the aggregation (counting unique types in column 'a') 
+ * execution plan resulting a scalar output. The source node loads the
+ * data and the aggregation (counting unique types in column 'a')
  * is applied on this data. The output is obtained from the sink node as a table.
  * \param exec_context : execution context
  * \return arrow::Status
@@ -497,24 +477,20 @@ arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
 
   ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
                         cp::MakeExecNode("source", plan.get(), {}, source_node_options));
-  auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr}},
-                               /*targets=*/{"a"},
-                               /*names=*/{"sum(a)"}};
+  auto aggregate_options = cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr}},
+                                                    /*targets=*/{"a"},
+                                                    /*names=*/{"sum(a)"}};
   ARROW_ASSIGN_OR_RAISE(
       cp::ExecNode * aggregate,
       cp::MakeExecNode("aggregate", plan.get(), {source}, aggregate_options));
 
   ARROW_RETURN_NOT_OK(
       cp::MakeExecNode("sink", plan.get(), {aggregate}, cp::SinkNodeOptions{&sink_gen}));
-  auto schema = arrow::schema({
-      arrow::field("sum(a)", arrow::int32())
-  });
+  auto schema = arrow::schema({arrow::field("sum(a)", arrow::int32())});
 
   return ExecutePlanAndCollectAsTable(exec_context, plan, schema, sink_gen);
 }
 // (Doc section: Scalar Aggregate Example)
-
 
 // (Doc section: Group Aggregate Example)
 /**
@@ -522,7 +498,7 @@ arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
  * Source-Aggregation-Sink
  * This example shows how an aggregation operation can be applied on a
  * execution plan resulting a grouped output. The source node loads the
- * data and the aggregation (counting unique types in column 'a') is 
+ * data and the aggregation (counting unique types in column 'a') is
  * applied on this data. The output is obtained from the sink node as a table.
  * \param exec_context : execution context
  * \return arrow::Status
@@ -761,7 +737,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
 
   auto options = std::make_shared<arrow::dataset::ScanOptions>();
   // empty projection
-  options->projection = Materialize({});
+  options->projection = cp::project({}, {});
 
   cp::ExecNode* scan;
 
