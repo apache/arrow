@@ -65,7 +65,7 @@ namespace cp = ::arrow::compute;
 
 constexpr char kSep[] = "******";
 
-void PrintBlock(std::string msg) {
+void PrintBlock(const std::string &msg) {
   std::cout << "\n\t" << kSep << " " << msg << " " << kSep << "\n" << std::endl;
 }
 
@@ -473,18 +473,61 @@ arrow::Status ScanProjectSinkExample(cp::ExecContext& exec_context) {
 
 // (Doc section: Project Example)
 
-// (Doc section: Aggregate Example)
+
+// (Doc section: Scalar Aggregate Example)
 /**
  * \brief
  * Source-Aggregation-Sink
  * This example shows how an aggregation operation can be applied on a
- * execution plan. The source node loads the data and the aggregation
- * (counting unique types in column 'a') is applied on this data. The
- * output is obtained from the sink node as a table.
+ * execution plan resulting a scalar output. The source node loads the 
+ * data and the aggregation (counting unique types in column 'a') 
+ * is applied on this data. The output is obtained from the sink node as a table.
  * \param exec_context : execution context
  * \return arrow::Status
  */
-arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
+arrow::Status SourceScalarAggregateSinkExample(cp::ExecContext& exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(&exec_context));
+
+  ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
+
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> sink_gen;
+
+  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+
+  ARROW_ASSIGN_OR_RAISE(cp::ExecNode * source,
+                        cp::MakeExecNode("source", plan.get(), {}, source_node_options));
+  auto aggregate_options =
+      cp::AggregateNodeOptions{/*aggregates=*/{{"sum", nullptr}},
+                               /*targets=*/{"a"},
+                               /*names=*/{"sum(a)"}};
+  ARROW_ASSIGN_OR_RAISE(
+      cp::ExecNode * aggregate,
+      cp::MakeExecNode("aggregate", plan.get(), {source}, aggregate_options));
+
+  ARROW_RETURN_NOT_OK(
+      cp::MakeExecNode("sink", plan.get(), {aggregate}, cp::SinkNodeOptions{&sink_gen}));
+  auto schema = arrow::schema({
+      arrow::field("sum(a)", arrow::int32())
+  });
+
+  return ExecutePlanAndCollectAsTable(exec_context, plan, schema, sink_gen);
+}
+// (Doc section: Scalar Aggregate Example)
+
+
+// (Doc section: Group Aggregate Example)
+/**
+ * \brief
+ * Source-Aggregation-Sink
+ * This example shows how an aggregation operation can be applied on a
+ * execution plan resulting a grouped output. The source node loads the
+ * data and the aggregation (counting unique types in column 'a') is 
+ * applied on this data. The output is obtained from the sink node as a table.
+ * \param exec_context : execution context
+ * \return arrow::Status
+ */
+arrow::Status SourceGroupAggregateSinkExample(cp::ExecContext& exec_context) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
                         cp::ExecPlan::Make(&exec_context));
 
@@ -515,7 +558,7 @@ arrow::Status SourceAggregateSinkExample(cp::ExecContext& exec_context) {
 
   return ExecutePlanAndCollectAsTable(exec_context, plan, schema, sink_gen);
 }
-// (Doc section: Aggregate Example)
+// (Doc section: Group Aggregate Example)
 
 // (Doc section: ConsumingSink Example)
 /**
@@ -820,13 +863,14 @@ enum ExampleMode {
   SCAN = 1,
   FILTER = 2,
   PROJECT = 3,
-  GROUP_AGGREGATION = 4,
-  CONSUMING_SINK = 5,
-  ORDER_BY_SINK = 6,
-  HASHJOIN = 7,
-  KSELECT = 8,
-  WRITE = 9,
-  UNION = 10,
+  SCALAR_AGGREGATION = 4,
+  GROUP_AGGREGATION = 5,
+  CONSUMING_SINK = 6,
+  ORDER_BY_SINK = 7,
+  HASHJOIN = 8,
+  KSELECT = 9,
+  WRITE = 10,
+  UNION = 11,
 };
 
 int main(int argc, char** argv) {
@@ -862,7 +906,11 @@ int main(int argc, char** argv) {
       break;
     case GROUP_AGGREGATION:
       PrintBlock("Aggregate Example");
-      status = SourceAggregateSinkExample(exec_context);
+      status = SourceGroupAggregateSinkExample(exec_context);
+      break;
+    case SCALAR_AGGREGATION:
+      PrintBlock("Aggregate Example");
+      status = SourceScalarAggregateSinkExample(exec_context);
       break;
     case CONSUMING_SINK:
       PrintBlock("Consuming-Sink Example");

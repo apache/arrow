@@ -464,12 +464,25 @@ can be selected from :ref:`this list of aggregation functions
           the dataset in memory.  In the future, spillover mechanisms
           will be added which should alleviate this constraint.
 
-Aggregate example:
+The aggregation can provide results as a group or scalar. For instances,
+an operation like `hash_count` provides the counts per each unique record
+as a grouped result while an operation like `sum` provides a single record. 
+
+Scalar Aggregation example:
 
 .. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
   :language: cpp
-  :start-after: (Doc section: Aggregate Example)
-  :end-before: (Doc section: Aggregate Example)
+  :start-after: (Doc section: Scalar Aggregate Example)
+  :end-before: (Doc section: Scalar Aggregate Example)
+  :linenos:
+  :lineno-match:
+
+Group Aggregation example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Group Aggregate Example)
+  :end-before: (Doc section: Group Aggregate Example)
   :linenos:
   :lineno-match:
 
@@ -682,10 +695,14 @@ Union example:
 
 ``hash_join`` operation provides the relational algebra operation, join using hash-based
 algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
-defining a join. The hash_join supports left/right/full semi/anti/outerjoins. 
+defining a join. The hash_join supports 
+`left/right/full semi/anti/outerjoins
+<https://en.wikipedia.org/wiki/Join_(SQL)>`_. 
 Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
 which can be appended as a suffix for column names duplicated in both left and right 
 relations.) can be set via the the join options. 
+`Read more on hash-joins
+<https://en.wikipedia.org/wiki/Hash_join>`_. 
 
 Hash-Join example:
 
