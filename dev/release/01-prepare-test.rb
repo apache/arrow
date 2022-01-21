@@ -238,15 +238,6 @@ class PrepareTest < Test::Unit::TestCase
             "+    },"
           ]
         ]
-
-
-
-        [
-          ['-        "name": "#{@previous_version}.9000"',
-           '+        "name": "#{@release_version}.9000"'],
-          ['-        "name": "#{@previous_version} (release)"',
-           '+        "name": "#{@release_version} (release)"'],
-        ],
       }
     ]
 
