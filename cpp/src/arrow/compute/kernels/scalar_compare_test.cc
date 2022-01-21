@@ -2238,7 +2238,7 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
     return int64();
   } else if (type_string == "duration[ns]") {
     return int64();
-  } else if (type_string == "uint8") { 
+  } else if (type_string == "uint8") {
     return uint8();
   } else if (type_string == "uint16") {
     return uint16();
@@ -2258,7 +2258,7 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
     return float32();
   } else if (type_string == "double") {
     return float64();
-  } else { 
+  } else {
     return int64();
   }
 }
