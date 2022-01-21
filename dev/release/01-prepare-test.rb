@@ -191,6 +191,18 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "docs/source/_static/versions.json",
+        hunks: [
+          [ "-        \"name\": \"#{@previous_version} (stable)\",",
+            "+        \"name\": \"#{@release_version} (stable)\",",
+            "+    {",
+            "+        \"name\": \"#{@previous_version}\",",
+            "+        \"version\": \"#{@previous_version_minor + "/"}\"",
+            "+    },"
+          ]
+        ]
+      },
+      {
         path: "js/package.json",
         hunks: [
           ["-  \"version\": \"#{@snapshot_version}\"",
