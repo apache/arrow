@@ -449,97 +449,86 @@ struct MapArrayLookupFunctor {
     return -1;
   }
 
+  static Result<std::shared_ptr<Scalar>> GetScalarOutput(KernelContext* ctx,
+                                                         const MapScalar map_scalar) {
+    const auto& options = OptionsWrapper<MapArrayLookupOptions>::Get(ctx);
+    const std::shared_ptr<Scalar>& query_key = options.query_key;
+    const auto& occurrence = options.occurrence;
+
+    const auto& struct_array = checked_cast<const StructArray&>(*map_scalar.value);
+    const std::shared_ptr<Array> keys = struct_array.field(0);
+    const std::shared_ptr<Array> items = struct_array.field(1);
+
+    std::shared_ptr<Scalar> output;
+
+    if (occurrence == MapArrayLookupOptions::Occurrence::ALL) {
+      std::unique_ptr<ArrayBuilder> builder;
+      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items->type(), &builder));
+
+      bool found_at_least_one_key = false;
+      for (int64_t idx = 0; idx < struct_array.length(); ++idx) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys->GetScalar(idx));
+
+        if (key->Equals(*query_key)) {
+          found_at_least_one_key = true;
+          RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), idx, 1));
+        }
+      }
+      if (!found_at_least_one_key) {
+        output = MakeNullScalar(list(items->type()));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+        ARROW_ASSIGN_OR_RAISE(output, MakeScalar(list(items->type()), result));
+      }
+    }
+
+    else { /* occurrence == FIRST || LAST */
+      bool from_back = (occurrence == MapArrayLookupOptions::LAST);
+
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t key_match_idx,
+          FindOneMapValueIndex(*keys, *query_key, 0, struct_array.length(), from_back));
+      if (key_match_idx != -1) {
+        ARROW_ASSIGN_OR_RAISE(output, items->GetScalar(key_match_idx));
+      } else {
+        output = MakeNullScalar(items->type());
+      }
+    }
+    return output;
+  }
+
   static Status ExecMapArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<MapArrayLookupOptions>::Get(ctx);
 
     const MapArray map_array(batch[0].array());
 
-    std::shared_ptr<arrow::Array> keys = map_array.keys();
-    std::shared_ptr<arrow::Array> items = map_array.items();
-    auto offsets = std::dynamic_pointer_cast<Int32Array>(map_array.offsets());
-
-    const auto& query_key = options.query_key;
-    const auto& occurrence = options.occurrence;
-
-    if (occurrence == MapArrayLookupOptions::Occurrence::ALL) {
-      std::unique_ptr<ArrayBuilder> builder;
-      std::unique_ptr<ArrayBuilder> list_builder;
+    std::unique_ptr<ArrayBuilder> builder;
+    if (options.occurrence == MapArrayLookupOptions::Occurrence::ALL) {
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
                                 list(map_array.map_type()->item_type()), &builder));
-
-      for (int64_t map_array_idx = 0; map_array_idx < map_array.length();
-           ++map_array_idx) {
-        if (!map_array.IsValid(map_array_idx)) {
-          RETURN_NOT_OK(builder->AppendNull());
-          continue;
-        }
-
-        int64_t start = offsets->Value(map_array_idx);
-        int64_t end = offsets->Value(map_array_idx + 1);
-        bool found_atleast_one_key = false;
-
-        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(),
-                                  &list_builder));
-
-        for (int64_t key_idx_to_check = start; key_idx_to_check < end;
-             ++key_idx_to_check) {
-          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key,
-                                keys->GetScalar(key_idx_to_check));
-
-          if (key->Equals(*query_key)) {
-            found_atleast_one_key = true;
-            RETURN_NOT_OK(
-                list_builder->AppendArraySlice(*items->data(), key_idx_to_check, 1));
-          }
-        }
-
-        if (!found_atleast_one_key) {
-          RETURN_NOT_OK(builder->AppendNull());
-        } else {
-          ARROW_ASSIGN_OR_RAISE(auto list_result, list_builder->Finish());
-          RETURN_NOT_OK(builder->AppendScalar(ListScalar(list_result)));
-        }
-
-        list_builder->Reset();
-      }
-      ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-      out->value = result->data();
-
-    } else { /* occurrence == FIRST || LAST */
-      std::unique_ptr<ArrayBuilder> builder;
+    } else {
       RETURN_NOT_OK(
           MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(), &builder));
-
-      for (int64_t map_array_idx = 0; map_array_idx < map_array.length();
-           ++map_array_idx) {
-        if (!map_array.IsValid(map_array_idx)) {
-          RETURN_NOT_OK(builder->AppendNull());
-          continue;
-        }
-
-        int64_t start = offsets->Value(map_array_idx);
-        int64_t end = offsets->Value(map_array_idx + 1);
-        bool from_back = (occurrence == MapArrayLookupOptions::LAST);
-
-        ARROW_ASSIGN_OR_RAISE(
-            int64_t key_match_idx,
-            FindOneMapValueIndex(*keys, *query_key, start, end, from_back));
-        if (key_match_idx != -1) {
-          RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), key_match_idx, 1));
-        } else {
-          RETURN_NOT_OK(builder->AppendNull());
-        }
-      }
-      ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-      out->value = result->data();
     }
+    for (int64_t map_array_idx = 0; map_array_idx < map_array.length(); ++map_array_idx) {
+      if (!map_array.IsValid(map_array_idx)) {
+        RETURN_NOT_OK(builder->AppendNull());
+        continue;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
+                              map_array.GetScalar(map_array_idx));
+        auto map_scalar = std::static_pointer_cast<MapScalar>(scalar);
+        ARROW_ASSIGN_OR_RAISE(auto scalar_output, GetScalarOutput(ctx, *map_scalar));
+        RETURN_NOT_OK(builder->AppendScalar(*scalar_output));
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+    out->value = result->data();
     return Status::OK();
   }
 
   static Status ExecMapScalar(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<MapArrayLookupOptions>::Get(ctx);
-    const std::shared_ptr<Scalar>& query_key = options.query_key;
-    const auto& occurrence = options.occurrence;
     std::shared_ptr<DataType> item_type =
         checked_cast<const MapType&>(*batch[0].type()).item_type();
 
@@ -554,44 +543,7 @@ struct MapArrayLookupFunctor {
       return Status::OK();
     }
 
-    const auto& struct_array = checked_cast<const StructArray&>(*map_scalar.value);
-    const std::shared_ptr<Array> keys = struct_array.field(0);
-    const std::shared_ptr<Array> items = struct_array.field(1);
-
-    if (occurrence == MapArrayLookupOptions::Occurrence::ALL) {
-      std::unique_ptr<ArrayBuilder> builder;
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items->type(), &builder));
-
-      bool found_atleast_one_key = false;
-      for (int64_t idx = 0; idx < struct_array.length(); ++idx) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys->GetScalar(idx));
-
-        if (key->Equals(*query_key)) {
-          found_atleast_one_key = true;
-          RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), idx, 1));
-        }
-      }
-      if (!found_atleast_one_key) {
-        out->value = MakeNullScalar(list(items->type()));
-      } else {
-        ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-        ARROW_ASSIGN_OR_RAISE(out->value, MakeScalar(list(items->type()), result));
-      }
-    }
-
-    else { /* occurrence == FIRST || LAST */
-      bool from_back = (occurrence == MapArrayLookupOptions::LAST);
-
-      ARROW_ASSIGN_OR_RAISE(
-          int64_t key_match_idx,
-          FindOneMapValueIndex(*keys, *query_key, 0, struct_array.length(), from_back));
-      if (key_match_idx != -1) {
-        ARROW_ASSIGN_OR_RAISE(out->value, items->GetScalar(key_match_idx));
-      } else {
-        out->value = MakeNullScalar(items->type());
-      }
-    }
-
+    ARROW_ASSIGN_OR_RAISE(out->value, GetScalarOutput(ctx, map_scalar));
     return Status::OK();
   }
 };
