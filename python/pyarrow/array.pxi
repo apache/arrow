@@ -996,6 +996,27 @@ cdef class Array(_PandasConvertible):
                 size += buf.size
         return size
 
+    def get_refererenced_buffer_size(self):
+        cdef:
+            shared_ptr[CArray] shd_ptr_c_array
+            CArray *c_array
+            CResult[int64_t] c_res_buffer
+        
+        shd_ptr_c_array = pyarrow_unwrap_array(self)
+        c_array = shd_ptr_c_array.get()
+        c_res_buffer = ReferencedBufferSize(c_array[0])
+        size = GetResultValue(c_res_buffer)
+        return size
+
+    @property
+    def get_buffer_size(self):
+        """
+        Number of bytes associated with the data buffer of the array
+        """
+        size = 0
+        size = self.get_refererenced_buffer_size()
+        return size
+
     def __sizeof__(self):
         return super(Array, self).__sizeof__() + self.nbytes
 
