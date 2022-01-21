@@ -69,7 +69,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_UNITY_BUILD:=ON}
 : ${CMAKE_GENERATOR:=Ninja}
-: ${VCPKG_ROOT=:/opt/vcpkg}
+: ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
