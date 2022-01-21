@@ -223,12 +223,13 @@ static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_substrait_2ftype_5f
 static const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* file_level_enum_descriptors_substrait_2ftype_5fexpressions_2eproto[2];
 static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_substrait_2ftype_5fexpressions_2eproto = nullptr;
 
-const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
+const uint32_t TableStruct_substrait_2ftype_5fexpressions_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedChar, _internal_metadata_),
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedChar, length_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedChar, variation_pointer_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedChar, nullability_),
@@ -237,6 +238,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionVarChar, length_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionVarChar, variation_pointer_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionVarChar, nullability_),
@@ -245,6 +247,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedBinary, length_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedBinary, variation_pointer_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionFixedBinary, nullability_),
@@ -253,6 +256,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionDecimal, scale_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionDecimal, precision_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionDecimal, variation_pointer_),
@@ -262,6 +266,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionStruct, types_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionStruct, variation_pointer_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionStruct, nullability_),
@@ -270,6 +275,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionNamedStruct, names_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionNamedStruct, struct__),
   ~0u,  // no _has_bits_
@@ -277,6 +283,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionList, type_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionList, variation_pointer_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionList, nullability_),
@@ -285,6 +292,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionMap, key_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionMap, value_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ExpressionMap, variation_pointer_),
@@ -294,6 +302,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_IfElse, if_condition_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_IfElse, if_return_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_IfElse, else_return_),
@@ -302,6 +311,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_UnaryOp, op_type_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_UnaryOp, arg_),
   ~0u,  // no _has_bits_
@@ -309,6 +319,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_BinaryOp, op_type_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_BinaryOp, arg1_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_BinaryOp, arg2_),
@@ -317,6 +328,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ReturnProgram_Assignment, name_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ReturnProgram_Assignment, expression_),
   ~0u,  // no _has_bits_
@@ -324,6 +336,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ReturnProgram, assignments_),
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression_ReturnProgram, final_expression_),
   ~0u,  // no _has_bits_
@@ -331,6 +344,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
@@ -365,20 +379,20 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2ftype_5fexpressions
   PROTOBUF_FIELD_OFFSET(::substrait::DerivationExpression, kind_),
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, -1, sizeof(::substrait::DerivationExpression_ExpressionFixedChar)},
-  { 8, -1, sizeof(::substrait::DerivationExpression_ExpressionVarChar)},
-  { 16, -1, sizeof(::substrait::DerivationExpression_ExpressionFixedBinary)},
-  { 24, -1, sizeof(::substrait::DerivationExpression_ExpressionDecimal)},
-  { 33, -1, sizeof(::substrait::DerivationExpression_ExpressionStruct)},
-  { 41, -1, sizeof(::substrait::DerivationExpression_ExpressionNamedStruct)},
-  { 48, -1, sizeof(::substrait::DerivationExpression_ExpressionList)},
-  { 56, -1, sizeof(::substrait::DerivationExpression_ExpressionMap)},
-  { 65, -1, sizeof(::substrait::DerivationExpression_IfElse)},
-  { 73, -1, sizeof(::substrait::DerivationExpression_UnaryOp)},
-  { 80, -1, sizeof(::substrait::DerivationExpression_BinaryOp)},
-  { 88, -1, sizeof(::substrait::DerivationExpression_ReturnProgram_Assignment)},
-  { 95, -1, sizeof(::substrait::DerivationExpression_ReturnProgram)},
-  { 102, -1, sizeof(::substrait::DerivationExpression)},
+  { 0, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionFixedChar)},
+  { 9, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionVarChar)},
+  { 18, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionFixedBinary)},
+  { 27, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionDecimal)},
+  { 37, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionStruct)},
+  { 46, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionNamedStruct)},
+  { 54, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionList)},
+  { 63, -1, -1, sizeof(::substrait::DerivationExpression_ExpressionMap)},
+  { 73, -1, -1, sizeof(::substrait::DerivationExpression_IfElse)},
+  { 82, -1, -1, sizeof(::substrait::DerivationExpression_UnaryOp)},
+  { 90, -1, -1, sizeof(::substrait::DerivationExpression_BinaryOp)},
+  { 99, -1, -1, sizeof(::substrait::DerivationExpression_ReturnProgram_Assignment)},
+  { 107, -1, -1, sizeof(::substrait::DerivationExpression_ReturnProgram)},
+  { 115, -1, -1, sizeof(::substrait::DerivationExpression)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -534,13 +548,13 @@ bool DerivationExpression_UnaryOp_UnaryOpType_IsValid(int value) {
   }
 }
 
-#if (__cplusplus < 201703) && (!defined(_MSC_VER) || _MSC_VER >= 1900)
+#if (__cplusplus < 201703) && (!defined(_MSC_VER) || (_MSC_VER >= 1900 && _MSC_VER < 1912))
 constexpr DerivationExpression_UnaryOp_UnaryOpType DerivationExpression_UnaryOp::UNARY_OP_TYPE_UNSPECIFIED;
 constexpr DerivationExpression_UnaryOp_UnaryOpType DerivationExpression_UnaryOp::UNARY_OP_TYPE_BOOLEAN_NOT;
 constexpr DerivationExpression_UnaryOp_UnaryOpType DerivationExpression_UnaryOp::UnaryOpType_MIN;
 constexpr DerivationExpression_UnaryOp_UnaryOpType DerivationExpression_UnaryOp::UnaryOpType_MAX;
 constexpr int DerivationExpression_UnaryOp::UnaryOpType_ARRAYSIZE;
-#endif  // (__cplusplus < 201703) && (!defined(_MSC_VER) || _MSC_VER >= 1900)
+#endif  // (__cplusplus < 201703) && (!defined(_MSC_VER) || (_MSC_VER >= 1900 && _MSC_VER < 1912))
 const ::PROTOBUF_NAMESPACE_ID::EnumDescriptor* DerivationExpression_BinaryOp_BinaryOpType_descriptor() {
   ::PROTOBUF_NAMESPACE_ID::internal::AssignDescriptors(&descriptor_table_substrait_2ftype_5fexpressions_2eproto);
   return file_level_enum_descriptors_substrait_2ftype_5fexpressions_2eproto[1];
@@ -566,7 +580,7 @@ bool DerivationExpression_BinaryOp_BinaryOpType_IsValid(int value) {
   }
 }
 
-#if (__cplusplus < 201703) && (!defined(_MSC_VER) || _MSC_VER >= 1900)
+#if (__cplusplus < 201703) && (!defined(_MSC_VER) || (_MSC_VER >= 1900 && _MSC_VER < 1912))
 constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_BinaryOp::BINARY_OP_TYPE_UNSPECIFIED;
 constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_BinaryOp::BINARY_OP_TYPE_PLUS;
 constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_BinaryOp::BINARY_OP_TYPE_MINUS;
@@ -583,7 +597,7 @@ constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_Binary
 constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_BinaryOp::BinaryOpType_MIN;
 constexpr DerivationExpression_BinaryOp_BinaryOpType DerivationExpression_BinaryOp::BinaryOpType_MAX;
 constexpr int DerivationExpression_BinaryOp::BinaryOpType_ARRAYSIZE;
-#endif  // (__cplusplus < 201703) && (!defined(_MSC_VER) || _MSC_VER >= 1900)
+#endif  // (__cplusplus < 201703) && (!defined(_MSC_VER) || (_MSC_VER >= 1900 && _MSC_VER < 1912))
 
 // ===================================================================
 
@@ -596,10 +610,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionFixedChar::_Internal::length(const DerivationExpression_ExpressionFixedChar* msg) {
   return *msg->length_;
 }
-DerivationExpression_ExpressionFixedChar::DerivationExpression_ExpressionFixedChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionFixedChar::DerivationExpression_ExpressionFixedChar(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionFixedChar)
 }
 DerivationExpression_ExpressionFixedChar::DerivationExpression_ExpressionFixedChar(const DerivationExpression_ExpressionFixedChar& from)
@@ -616,7 +633,7 @@ DerivationExpression_ExpressionFixedChar::DerivationExpression_ExpressionFixedCh
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionFixedChar)
 }
 
-void DerivationExpression_ExpressionFixedChar::SharedCtor() {
+inline void DerivationExpression_ExpressionFixedChar::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -625,12 +642,13 @@ void DerivationExpression_ExpressionFixedChar::SharedCtor() {
 
 DerivationExpression_ExpressionFixedChar::~DerivationExpression_ExpressionFixedChar() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionFixedChar)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionFixedChar::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionFixedChar::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete length_;
 }
 
@@ -646,11 +664,11 @@ void DerivationExpression_ExpressionFixedChar::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionFixedChar::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionFixedChar)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && length_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && length_ != nullptr) {
     delete length_;
   }
   length_ = nullptr;
@@ -663,62 +681,65 @@ void DerivationExpression_ExpressionFixedChar::Clear() {
 const char* DerivationExpression_ExpressionFixedChar::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression length = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_length(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionFixedChar::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionFixedChar::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionFixedChar)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -726,13 +747,13 @@ failure:
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       3, this->_internal_nullability(), target);
@@ -750,77 +771,60 @@ size_t DerivationExpression_ExpressionFixedChar::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionFixedChar)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *length_);
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionFixedChar::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionFixedChar)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionFixedChar* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionFixedChar>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionFixedChar)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionFixedChar)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionFixedChar::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionFixedChar::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionFixedChar::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionFixedChar::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionFixedChar *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionFixedChar &>(from));
 }
+
 
 void DerivationExpression_ExpressionFixedChar::MergeFrom(const DerivationExpression_ExpressionFixedChar& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionFixedChar)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_length()) {
+  if (from._internal_has_length()) {
     _internal_mutable_length()->::substrait::DerivationExpression::MergeFrom(from._internal_length());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionFixedChar::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionFixedChar)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionFixedChar::CopyFrom(const DerivationExpression_ExpressionFixedChar& from) {
@@ -836,7 +840,7 @@ bool DerivationExpression_ExpressionFixedChar::IsInitialized() const {
 
 void DerivationExpression_ExpressionFixedChar::InternalSwap(DerivationExpression_ExpressionFixedChar* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionFixedChar, nullability_)
       + sizeof(DerivationExpression_ExpressionFixedChar::nullability_)
@@ -862,10 +866,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionVarChar::_Internal::length(const DerivationExpression_ExpressionVarChar* msg) {
   return *msg->length_;
 }
-DerivationExpression_ExpressionVarChar::DerivationExpression_ExpressionVarChar(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionVarChar::DerivationExpression_ExpressionVarChar(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionVarChar)
 }
 DerivationExpression_ExpressionVarChar::DerivationExpression_ExpressionVarChar(const DerivationExpression_ExpressionVarChar& from)
@@ -882,7 +889,7 @@ DerivationExpression_ExpressionVarChar::DerivationExpression_ExpressionVarChar(c
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionVarChar)
 }
 
-void DerivationExpression_ExpressionVarChar::SharedCtor() {
+inline void DerivationExpression_ExpressionVarChar::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -891,12 +898,13 @@ void DerivationExpression_ExpressionVarChar::SharedCtor() {
 
 DerivationExpression_ExpressionVarChar::~DerivationExpression_ExpressionVarChar() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionVarChar)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionVarChar::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionVarChar::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete length_;
 }
 
@@ -912,11 +920,11 @@ void DerivationExpression_ExpressionVarChar::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionVarChar::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionVarChar)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && length_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && length_ != nullptr) {
     delete length_;
   }
   length_ = nullptr;
@@ -929,62 +937,65 @@ void DerivationExpression_ExpressionVarChar::Clear() {
 const char* DerivationExpression_ExpressionVarChar::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression length = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_length(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionVarChar::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionVarChar::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionVarChar)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -992,13 +1003,13 @@ failure:
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       3, this->_internal_nullability(), target);
@@ -1016,77 +1027,60 @@ size_t DerivationExpression_ExpressionVarChar::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionVarChar)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *length_);
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionVarChar::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionVarChar)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionVarChar* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionVarChar>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionVarChar)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionVarChar)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionVarChar::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionVarChar::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionVarChar::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionVarChar::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionVarChar *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionVarChar &>(from));
 }
+
 
 void DerivationExpression_ExpressionVarChar::MergeFrom(const DerivationExpression_ExpressionVarChar& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionVarChar)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_length()) {
+  if (from._internal_has_length()) {
     _internal_mutable_length()->::substrait::DerivationExpression::MergeFrom(from._internal_length());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionVarChar::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionVarChar)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionVarChar::CopyFrom(const DerivationExpression_ExpressionVarChar& from) {
@@ -1102,7 +1096,7 @@ bool DerivationExpression_ExpressionVarChar::IsInitialized() const {
 
 void DerivationExpression_ExpressionVarChar::InternalSwap(DerivationExpression_ExpressionVarChar* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionVarChar, nullability_)
       + sizeof(DerivationExpression_ExpressionVarChar::nullability_)
@@ -1128,10 +1122,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionFixedBinary::_Internal::length(const DerivationExpression_ExpressionFixedBinary* msg) {
   return *msg->length_;
 }
-DerivationExpression_ExpressionFixedBinary::DerivationExpression_ExpressionFixedBinary(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionFixedBinary::DerivationExpression_ExpressionFixedBinary(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionFixedBinary)
 }
 DerivationExpression_ExpressionFixedBinary::DerivationExpression_ExpressionFixedBinary(const DerivationExpression_ExpressionFixedBinary& from)
@@ -1148,7 +1145,7 @@ DerivationExpression_ExpressionFixedBinary::DerivationExpression_ExpressionFixed
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionFixedBinary)
 }
 
-void DerivationExpression_ExpressionFixedBinary::SharedCtor() {
+inline void DerivationExpression_ExpressionFixedBinary::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&length_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -1157,12 +1154,13 @@ void DerivationExpression_ExpressionFixedBinary::SharedCtor() {
 
 DerivationExpression_ExpressionFixedBinary::~DerivationExpression_ExpressionFixedBinary() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionFixedBinary)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionFixedBinary::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionFixedBinary::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete length_;
 }
 
@@ -1178,11 +1176,11 @@ void DerivationExpression_ExpressionFixedBinary::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionFixedBinary::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionFixedBinary)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && length_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && length_ != nullptr) {
     delete length_;
   }
   length_ = nullptr;
@@ -1195,62 +1193,65 @@ void DerivationExpression_ExpressionFixedBinary::Clear() {
 const char* DerivationExpression_ExpressionFixedBinary::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression length = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_length(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionFixedBinary::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionFixedBinary::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionFixedBinary)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -1258,13 +1259,13 @@ failure:
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       3, this->_internal_nullability(), target);
@@ -1282,77 +1283,60 @@ size_t DerivationExpression_ExpressionFixedBinary::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionFixedBinary)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression length = 1;
-  if (this->has_length()) {
+  if (this->_internal_has_length()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *length_);
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionFixedBinary::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionFixedBinary)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionFixedBinary* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionFixedBinary>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionFixedBinary)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionFixedBinary)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionFixedBinary::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionFixedBinary::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionFixedBinary::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionFixedBinary::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionFixedBinary *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionFixedBinary &>(from));
 }
+
 
 void DerivationExpression_ExpressionFixedBinary::MergeFrom(const DerivationExpression_ExpressionFixedBinary& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionFixedBinary)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_length()) {
+  if (from._internal_has_length()) {
     _internal_mutable_length()->::substrait::DerivationExpression::MergeFrom(from._internal_length());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionFixedBinary::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionFixedBinary)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionFixedBinary::CopyFrom(const DerivationExpression_ExpressionFixedBinary& from) {
@@ -1368,7 +1352,7 @@ bool DerivationExpression_ExpressionFixedBinary::IsInitialized() const {
 
 void DerivationExpression_ExpressionFixedBinary::InternalSwap(DerivationExpression_ExpressionFixedBinary* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionFixedBinary, nullability_)
       + sizeof(DerivationExpression_ExpressionFixedBinary::nullability_)
@@ -1399,10 +1383,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionDecimal::_Internal::precision(const DerivationExpression_ExpressionDecimal* msg) {
   return *msg->precision_;
 }
-DerivationExpression_ExpressionDecimal::DerivationExpression_ExpressionDecimal(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionDecimal::DerivationExpression_ExpressionDecimal(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionDecimal)
 }
 DerivationExpression_ExpressionDecimal::DerivationExpression_ExpressionDecimal(const DerivationExpression_ExpressionDecimal& from)
@@ -1424,7 +1411,7 @@ DerivationExpression_ExpressionDecimal::DerivationExpression_ExpressionDecimal(c
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionDecimal)
 }
 
-void DerivationExpression_ExpressionDecimal::SharedCtor() {
+inline void DerivationExpression_ExpressionDecimal::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&scale_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -1433,12 +1420,13 @@ void DerivationExpression_ExpressionDecimal::SharedCtor() {
 
 DerivationExpression_ExpressionDecimal::~DerivationExpression_ExpressionDecimal() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionDecimal)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionDecimal::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionDecimal::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete scale_;
   if (this != internal_default_instance()) delete precision_;
 }
@@ -1455,15 +1443,15 @@ void DerivationExpression_ExpressionDecimal::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionDecimal::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionDecimal)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && scale_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && scale_ != nullptr) {
     delete scale_;
   }
   scale_ = nullptr;
-  if (GetArena() == nullptr && precision_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && precision_ != nullptr) {
     delete precision_;
   }
   precision_ = nullptr;
@@ -1476,69 +1464,73 @@ void DerivationExpression_ExpressionDecimal::Clear() {
 const char* DerivationExpression_ExpressionDecimal::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression scale = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_scale(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression precision = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_precision(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 32)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionDecimal::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionDecimal::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionDecimal)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression scale = 1;
-  if (this->has_scale()) {
+  if (this->_internal_has_scale()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -1546,7 +1538,7 @@ failure:
   }
 
   // .substrait.DerivationExpression precision = 2;
-  if (this->has_precision()) {
+  if (this->_internal_has_precision()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -1554,13 +1546,13 @@ failure:
   }
 
   // uint32 variation_pointer = 3;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(3, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 4;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       4, this->_internal_nullability(), target);
@@ -1578,87 +1570,70 @@ size_t DerivationExpression_ExpressionDecimal::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionDecimal)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression scale = 1;
-  if (this->has_scale()) {
+  if (this->_internal_has_scale()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *scale_);
   }
 
   // .substrait.DerivationExpression precision = 2;
-  if (this->has_precision()) {
+  if (this->_internal_has_precision()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *precision_);
   }
 
   // uint32 variation_pointer = 3;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 4;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionDecimal::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionDecimal)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionDecimal* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionDecimal>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionDecimal)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionDecimal)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionDecimal::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionDecimal::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionDecimal::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionDecimal::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionDecimal *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionDecimal &>(from));
 }
+
 
 void DerivationExpression_ExpressionDecimal::MergeFrom(const DerivationExpression_ExpressionDecimal& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionDecimal)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_scale()) {
+  if (from._internal_has_scale()) {
     _internal_mutable_scale()->::substrait::DerivationExpression::MergeFrom(from._internal_scale());
   }
-  if (from.has_precision()) {
+  if (from._internal_has_precision()) {
     _internal_mutable_precision()->::substrait::DerivationExpression::MergeFrom(from._internal_precision());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionDecimal::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionDecimal)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionDecimal::CopyFrom(const DerivationExpression_ExpressionDecimal& from) {
@@ -1674,7 +1649,7 @@ bool DerivationExpression_ExpressionDecimal::IsInitialized() const {
 
 void DerivationExpression_ExpressionDecimal::InternalSwap(DerivationExpression_ExpressionDecimal* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionDecimal, nullability_)
       + sizeof(DerivationExpression_ExpressionDecimal::nullability_)
@@ -1695,11 +1670,14 @@ class DerivationExpression_ExpressionStruct::_Internal {
  public:
 };
 
-DerivationExpression_ExpressionStruct::DerivationExpression_ExpressionStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+DerivationExpression_ExpressionStruct::DerivationExpression_ExpressionStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned),
   types_(arena) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionStruct)
 }
 DerivationExpression_ExpressionStruct::DerivationExpression_ExpressionStruct(const DerivationExpression_ExpressionStruct& from)
@@ -1712,7 +1690,7 @@ DerivationExpression_ExpressionStruct::DerivationExpression_ExpressionStruct(con
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionStruct)
 }
 
-void DerivationExpression_ExpressionStruct::SharedCtor() {
+inline void DerivationExpression_ExpressionStruct::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&variation_pointer_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -1721,12 +1699,13 @@ void DerivationExpression_ExpressionStruct::SharedCtor() {
 
 DerivationExpression_ExpressionStruct::~DerivationExpression_ExpressionStruct() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionStruct)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionStruct::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionStruct::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
 }
 
 void DerivationExpression_ExpressionStruct::ArenaDtor(void* object) {
@@ -1741,7 +1720,7 @@ void DerivationExpression_ExpressionStruct::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionStruct::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -1755,12 +1734,12 @@ void DerivationExpression_ExpressionStruct::Clear() {
 const char* DerivationExpression_ExpressionStruct::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // repeated .substrait.DerivationExpression types = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -1768,50 +1747,53 @@ const char* DerivationExpression_ExpressionStruct::_InternalParse(const char* pt
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionStruct::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionStruct::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // repeated .substrait.DerivationExpression types = 1;
@@ -1823,13 +1805,13 @@ failure:
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       3, this->_internal_nullability(), target);
@@ -1847,7 +1829,7 @@ size_t DerivationExpression_ExpressionStruct::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionStruct)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -1859,63 +1841,46 @@ size_t DerivationExpression_ExpressionStruct::ByteSizeLong() const {
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionStruct::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionStruct)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionStruct* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionStruct>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionStruct)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionStruct)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionStruct::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionStruct::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionStruct::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionStruct::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionStruct *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionStruct &>(from));
 }
+
 
 void DerivationExpression_ExpressionStruct::MergeFrom(const DerivationExpression_ExpressionStruct& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionStruct)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   types_.MergeFrom(from.types_);
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionStruct::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionStruct)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionStruct::CopyFrom(const DerivationExpression_ExpressionStruct& from) {
@@ -1931,7 +1896,7 @@ bool DerivationExpression_ExpressionStruct::IsInitialized() const {
 
 void DerivationExpression_ExpressionStruct::InternalSwap(DerivationExpression_ExpressionStruct* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   types_.InternalSwap(&other->types_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionStruct, nullability_)
@@ -1958,11 +1923,14 @@ const ::substrait::DerivationExpression_ExpressionStruct&
 DerivationExpression_ExpressionNamedStruct::_Internal::struct_(const DerivationExpression_ExpressionNamedStruct* msg) {
   return *msg->struct__;
 }
-DerivationExpression_ExpressionNamedStruct::DerivationExpression_ExpressionNamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+DerivationExpression_ExpressionNamedStruct::DerivationExpression_ExpressionNamedStruct(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned),
   names_(arena) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionNamedStruct)
 }
 DerivationExpression_ExpressionNamedStruct::DerivationExpression_ExpressionNamedStruct(const DerivationExpression_ExpressionNamedStruct& from)
@@ -1977,18 +1945,19 @@ DerivationExpression_ExpressionNamedStruct::DerivationExpression_ExpressionNamed
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionNamedStruct)
 }
 
-void DerivationExpression_ExpressionNamedStruct::SharedCtor() {
+inline void DerivationExpression_ExpressionNamedStruct::SharedCtor() {
 struct__ = nullptr;
 }
 
 DerivationExpression_ExpressionNamedStruct::~DerivationExpression_ExpressionNamedStruct() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionNamedStruct)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionNamedStruct::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionNamedStruct::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete struct__;
 }
 
@@ -2004,12 +1973,12 @@ void DerivationExpression_ExpressionNamedStruct::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionNamedStruct::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionNamedStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   names_.Clear();
-  if (GetArena() == nullptr && struct__ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && struct__ != nullptr) {
     delete struct__;
   }
   struct__ = nullptr;
@@ -2019,12 +1988,12 @@ void DerivationExpression_ExpressionNamedStruct::Clear() {
 const char* DerivationExpression_ExpressionNamedStruct::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // repeated string names = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -2034,42 +2003,44 @@ const char* DerivationExpression_ExpressionNamedStruct::_InternalParse(const cha
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionStruct struct = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_struct_(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionNamedStruct::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionNamedStruct::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionNamedStruct)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // repeated string names = 1;
@@ -2083,7 +2054,7 @@ failure:
   }
 
   // .substrait.DerivationExpression.ExpressionStruct struct = 2;
-  if (this->has_struct_()) {
+  if (this->_internal_has_struct_()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2102,7 +2073,7 @@ size_t DerivationExpression_ExpressionNamedStruct::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionNamedStruct)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -2115,54 +2086,39 @@ size_t DerivationExpression_ExpressionNamedStruct::ByteSizeLong() const {
   }
 
   // .substrait.DerivationExpression.ExpressionStruct struct = 2;
-  if (this->has_struct_()) {
+  if (this->_internal_has_struct_()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *struct__);
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionNamedStruct::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionNamedStruct)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionNamedStruct* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionNamedStruct>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionNamedStruct)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionNamedStruct)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionNamedStruct::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionNamedStruct::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionNamedStruct::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionNamedStruct::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionNamedStruct *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionNamedStruct &>(from));
 }
+
 
 void DerivationExpression_ExpressionNamedStruct::MergeFrom(const DerivationExpression_ExpressionNamedStruct& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionNamedStruct)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   names_.MergeFrom(from.names_);
-  if (from.has_struct_()) {
+  if (from._internal_has_struct_()) {
     _internal_mutable_struct_()->::substrait::DerivationExpression_ExpressionStruct::MergeFrom(from._internal_struct_());
   }
-}
-
-void DerivationExpression_ExpressionNamedStruct::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionNamedStruct)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionNamedStruct::CopyFrom(const DerivationExpression_ExpressionNamedStruct& from) {
@@ -2178,7 +2134,7 @@ bool DerivationExpression_ExpressionNamedStruct::IsInitialized() const {
 
 void DerivationExpression_ExpressionNamedStruct::InternalSwap(DerivationExpression_ExpressionNamedStruct* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   names_.InternalSwap(&other->names_);
   swap(struct__, other->struct__);
 }
@@ -2200,10 +2156,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionList::_Internal::type(const DerivationExpression_ExpressionList* msg) {
   return *msg->type_;
 }
-DerivationExpression_ExpressionList::DerivationExpression_ExpressionList(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionList::DerivationExpression_ExpressionList(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionList)
 }
 DerivationExpression_ExpressionList::DerivationExpression_ExpressionList(const DerivationExpression_ExpressionList& from)
@@ -2220,7 +2179,7 @@ DerivationExpression_ExpressionList::DerivationExpression_ExpressionList(const D
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionList)
 }
 
-void DerivationExpression_ExpressionList::SharedCtor() {
+inline void DerivationExpression_ExpressionList::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&type_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -2229,12 +2188,13 @@ void DerivationExpression_ExpressionList::SharedCtor() {
 
 DerivationExpression_ExpressionList::~DerivationExpression_ExpressionList() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionList)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionList::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionList::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete type_;
 }
 
@@ -2250,11 +2210,11 @@ void DerivationExpression_ExpressionList::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionList::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionList)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && type_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && type_ != nullptr) {
     delete type_;
   }
   type_ = nullptr;
@@ -2267,62 +2227,65 @@ void DerivationExpression_ExpressionList::Clear() {
 const char* DerivationExpression_ExpressionList::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression type = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_type(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 16)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 16)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionList::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionList::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionList)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression type = 1;
-  if (this->has_type()) {
+  if (this->_internal_has_type()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2330,13 +2293,13 @@ failure:
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(2, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       3, this->_internal_nullability(), target);
@@ -2354,77 +2317,60 @@ size_t DerivationExpression_ExpressionList::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionList)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression type = 1;
-  if (this->has_type()) {
+  if (this->_internal_has_type()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *type_);
   }
 
   // uint32 variation_pointer = 2;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 3;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionList::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionList)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionList* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionList>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionList)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionList)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionList::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionList::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionList::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionList::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionList *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionList &>(from));
 }
+
 
 void DerivationExpression_ExpressionList::MergeFrom(const DerivationExpression_ExpressionList& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionList)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_type()) {
+  if (from._internal_has_type()) {
     _internal_mutable_type()->::substrait::DerivationExpression::MergeFrom(from._internal_type());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionList::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionList)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionList::CopyFrom(const DerivationExpression_ExpressionList& from) {
@@ -2440,7 +2386,7 @@ bool DerivationExpression_ExpressionList::IsInitialized() const {
 
 void DerivationExpression_ExpressionList::InternalSwap(DerivationExpression_ExpressionList* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionList, nullability_)
       + sizeof(DerivationExpression_ExpressionList::nullability_)
@@ -2471,10 +2417,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ExpressionMap::_Internal::value(const DerivationExpression_ExpressionMap* msg) {
   return *msg->value_;
 }
-DerivationExpression_ExpressionMap::DerivationExpression_ExpressionMap(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ExpressionMap::DerivationExpression_ExpressionMap(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ExpressionMap)
 }
 DerivationExpression_ExpressionMap::DerivationExpression_ExpressionMap(const DerivationExpression_ExpressionMap& from)
@@ -2496,7 +2445,7 @@ DerivationExpression_ExpressionMap::DerivationExpression_ExpressionMap(const Der
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ExpressionMap)
 }
 
-void DerivationExpression_ExpressionMap::SharedCtor() {
+inline void DerivationExpression_ExpressionMap::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&key_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&nullability_) -
@@ -2505,12 +2454,13 @@ void DerivationExpression_ExpressionMap::SharedCtor() {
 
 DerivationExpression_ExpressionMap::~DerivationExpression_ExpressionMap() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ExpressionMap)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ExpressionMap::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ExpressionMap::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete key_;
   if (this != internal_default_instance()) delete value_;
 }
@@ -2527,15 +2477,15 @@ void DerivationExpression_ExpressionMap::SetCachedSize(int size) const {
 
 void DerivationExpression_ExpressionMap::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ExpressionMap)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && key_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && key_ != nullptr) {
     delete key_;
   }
   key_ = nullptr;
-  if (GetArena() == nullptr && value_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && value_ != nullptr) {
     delete value_;
   }
   value_ = nullptr;
@@ -2548,69 +2498,73 @@ void DerivationExpression_ExpressionMap::Clear() {
 const char* DerivationExpression_ExpressionMap::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression key = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_key(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression value = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_value(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 variation_pointer = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
           variation_pointer_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Nullability nullability = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 32)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_nullability(static_cast<::substrait::Type_Nullability>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ExpressionMap::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ExpressionMap::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ExpressionMap)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression key = 1;
-  if (this->has_key()) {
+  if (this->_internal_has_key()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2618,7 +2572,7 @@ failure:
   }
 
   // .substrait.DerivationExpression value = 2;
-  if (this->has_value()) {
+  if (this->_internal_has_value()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2626,13 +2580,13 @@ failure:
   }
 
   // uint32 variation_pointer = 3;
-  if (this->variation_pointer() != 0) {
+  if (this->_internal_variation_pointer() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteUInt32ToArray(3, this->_internal_variation_pointer(), target);
   }
 
   // .substrait.Type.Nullability nullability = 4;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       4, this->_internal_nullability(), target);
@@ -2650,87 +2604,70 @@ size_t DerivationExpression_ExpressionMap::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ExpressionMap)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression key = 1;
-  if (this->has_key()) {
+  if (this->_internal_has_key()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *key_);
   }
 
   // .substrait.DerivationExpression value = 2;
-  if (this->has_value()) {
+  if (this->_internal_has_value()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *value_);
   }
 
   // uint32 variation_pointer = 3;
-  if (this->variation_pointer() != 0) {
-    total_size += 1 +
-      ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32Size(
-        this->_internal_variation_pointer());
+  if (this->_internal_variation_pointer() != 0) {
+    total_size += ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::UInt32SizePlusOne(this->_internal_variation_pointer());
   }
 
   // .substrait.Type.Nullability nullability = 4;
-  if (this->nullability() != 0) {
+  if (this->_internal_nullability() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_nullability());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ExpressionMap::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ExpressionMap)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ExpressionMap* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ExpressionMap>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ExpressionMap)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ExpressionMap)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ExpressionMap::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ExpressionMap::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ExpressionMap::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ExpressionMap::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ExpressionMap *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ExpressionMap &>(from));
 }
+
 
 void DerivationExpression_ExpressionMap::MergeFrom(const DerivationExpression_ExpressionMap& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ExpressionMap)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_key()) {
+  if (from._internal_has_key()) {
     _internal_mutable_key()->::substrait::DerivationExpression::MergeFrom(from._internal_key());
   }
-  if (from.has_value()) {
+  if (from._internal_has_value()) {
     _internal_mutable_value()->::substrait::DerivationExpression::MergeFrom(from._internal_value());
   }
-  if (from.variation_pointer() != 0) {
+  if (from._internal_variation_pointer() != 0) {
     _internal_set_variation_pointer(from._internal_variation_pointer());
   }
-  if (from.nullability() != 0) {
+  if (from._internal_nullability() != 0) {
     _internal_set_nullability(from._internal_nullability());
   }
-}
-
-void DerivationExpression_ExpressionMap::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ExpressionMap)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ExpressionMap::CopyFrom(const DerivationExpression_ExpressionMap& from) {
@@ -2746,7 +2683,7 @@ bool DerivationExpression_ExpressionMap::IsInitialized() const {
 
 void DerivationExpression_ExpressionMap::InternalSwap(DerivationExpression_ExpressionMap* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_ExpressionMap, nullability_)
       + sizeof(DerivationExpression_ExpressionMap::nullability_)
@@ -2782,10 +2719,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_IfElse::_Internal::else_return(const DerivationExpression_IfElse* msg) {
   return *msg->else_return_;
 }
-DerivationExpression_IfElse::DerivationExpression_IfElse(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_IfElse::DerivationExpression_IfElse(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.IfElse)
 }
 DerivationExpression_IfElse::DerivationExpression_IfElse(const DerivationExpression_IfElse& from)
@@ -2809,7 +2749,7 @@ DerivationExpression_IfElse::DerivationExpression_IfElse(const DerivationExpress
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.IfElse)
 }
 
-void DerivationExpression_IfElse::SharedCtor() {
+inline void DerivationExpression_IfElse::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&if_condition_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&else_return_) -
@@ -2818,12 +2758,13 @@ void DerivationExpression_IfElse::SharedCtor() {
 
 DerivationExpression_IfElse::~DerivationExpression_IfElse() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.IfElse)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_IfElse::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_IfElse::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete if_condition_;
   if (this != internal_default_instance()) delete if_return_;
   if (this != internal_default_instance()) delete else_return_;
@@ -2841,19 +2782,19 @@ void DerivationExpression_IfElse::SetCachedSize(int size) const {
 
 void DerivationExpression_IfElse::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.IfElse)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && if_condition_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && if_condition_ != nullptr) {
     delete if_condition_;
   }
   if_condition_ = nullptr;
-  if (GetArena() == nullptr && if_return_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && if_return_ != nullptr) {
     delete if_return_;
   }
   if_return_ = nullptr;
-  if (GetArena() == nullptr && else_return_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && else_return_ != nullptr) {
     delete else_return_;
   }
   else_return_ = nullptr;
@@ -2863,61 +2804,64 @@ void DerivationExpression_IfElse::Clear() {
 const char* DerivationExpression_IfElse::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression if_condition = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_if_condition(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression if_return = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_if_return(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression else_return = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_else_return(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_IfElse::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_IfElse::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.IfElse)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression if_condition = 1;
-  if (this->has_if_condition()) {
+  if (this->_internal_has_if_condition()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2925,7 +2869,7 @@ failure:
   }
 
   // .substrait.DerivationExpression if_return = 2;
-  if (this->has_if_return()) {
+  if (this->_internal_has_if_return()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2933,7 +2877,7 @@ failure:
   }
 
   // .substrait.DerivationExpression else_return = 3;
-  if (this->has_else_return()) {
+  if (this->_internal_has_else_return()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -2952,78 +2896,63 @@ size_t DerivationExpression_IfElse::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.IfElse)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression if_condition = 1;
-  if (this->has_if_condition()) {
+  if (this->_internal_has_if_condition()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *if_condition_);
   }
 
   // .substrait.DerivationExpression if_return = 2;
-  if (this->has_if_return()) {
+  if (this->_internal_has_if_return()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *if_return_);
   }
 
   // .substrait.DerivationExpression else_return = 3;
-  if (this->has_else_return()) {
+  if (this->_internal_has_else_return()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *else_return_);
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_IfElse::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.IfElse)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_IfElse* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_IfElse>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.IfElse)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.IfElse)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_IfElse::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_IfElse::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_IfElse::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_IfElse::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_IfElse *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_IfElse &>(from));
 }
+
 
 void DerivationExpression_IfElse::MergeFrom(const DerivationExpression_IfElse& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.IfElse)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_if_condition()) {
+  if (from._internal_has_if_condition()) {
     _internal_mutable_if_condition()->::substrait::DerivationExpression::MergeFrom(from._internal_if_condition());
   }
-  if (from.has_if_return()) {
+  if (from._internal_has_if_return()) {
     _internal_mutable_if_return()->::substrait::DerivationExpression::MergeFrom(from._internal_if_return());
   }
-  if (from.has_else_return()) {
+  if (from._internal_has_else_return()) {
     _internal_mutable_else_return()->::substrait::DerivationExpression::MergeFrom(from._internal_else_return());
   }
-}
-
-void DerivationExpression_IfElse::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.IfElse)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_IfElse::CopyFrom(const DerivationExpression_IfElse& from) {
@@ -3039,7 +2968,7 @@ bool DerivationExpression_IfElse::IsInitialized() const {
 
 void DerivationExpression_IfElse::InternalSwap(DerivationExpression_IfElse* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_IfElse, else_return_)
       + sizeof(DerivationExpression_IfElse::else_return_)
@@ -3065,10 +2994,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_UnaryOp::_Internal::arg(const DerivationExpression_UnaryOp* msg) {
   return *msg->arg_;
 }
-DerivationExpression_UnaryOp::DerivationExpression_UnaryOp(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_UnaryOp::DerivationExpression_UnaryOp(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.UnaryOp)
 }
 DerivationExpression_UnaryOp::DerivationExpression_UnaryOp(const DerivationExpression_UnaryOp& from)
@@ -3083,7 +3015,7 @@ DerivationExpression_UnaryOp::DerivationExpression_UnaryOp(const DerivationExpre
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.UnaryOp)
 }
 
-void DerivationExpression_UnaryOp::SharedCtor() {
+inline void DerivationExpression_UnaryOp::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&arg_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&op_type_) -
@@ -3092,12 +3024,13 @@ void DerivationExpression_UnaryOp::SharedCtor() {
 
 DerivationExpression_UnaryOp::~DerivationExpression_UnaryOp() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.UnaryOp)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_UnaryOp::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_UnaryOp::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete arg_;
 }
 
@@ -3113,11 +3046,11 @@ void DerivationExpression_UnaryOp::SetCachedSize(int size) const {
 
 void DerivationExpression_UnaryOp::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.UnaryOp)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && arg_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && arg_ != nullptr) {
     delete arg_;
   }
   arg_ = nullptr;
@@ -3128,62 +3061,64 @@ void DerivationExpression_UnaryOp::Clear() {
 const char* DerivationExpression_UnaryOp::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression.UnaryOp.UnaryOpType op_type = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_op_type(static_cast<::substrait::DerivationExpression_UnaryOp_UnaryOpType>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression arg = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_arg(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_UnaryOp::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_UnaryOp::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.UnaryOp)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression.UnaryOp.UnaryOpType op_type = 1;
-  if (this->op_type() != 0) {
+  if (this->_internal_op_type() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       1, this->_internal_op_type(), target);
   }
 
   // .substrait.DerivationExpression arg = 2;
-  if (this->has_arg()) {
+  if (this->_internal_has_arg()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -3202,67 +3137,52 @@ size_t DerivationExpression_UnaryOp::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.UnaryOp)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression arg = 2;
-  if (this->has_arg()) {
+  if (this->_internal_has_arg()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *arg_);
   }
 
   // .substrait.DerivationExpression.UnaryOp.UnaryOpType op_type = 1;
-  if (this->op_type() != 0) {
+  if (this->_internal_op_type() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_op_type());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_UnaryOp::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.UnaryOp)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_UnaryOp* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_UnaryOp>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.UnaryOp)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.UnaryOp)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_UnaryOp::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_UnaryOp::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_UnaryOp::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_UnaryOp::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_UnaryOp *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_UnaryOp &>(from));
 }
+
 
 void DerivationExpression_UnaryOp::MergeFrom(const DerivationExpression_UnaryOp& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.UnaryOp)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_arg()) {
+  if (from._internal_has_arg()) {
     _internal_mutable_arg()->::substrait::DerivationExpression::MergeFrom(from._internal_arg());
   }
-  if (from.op_type() != 0) {
+  if (from._internal_op_type() != 0) {
     _internal_set_op_type(from._internal_op_type());
   }
-}
-
-void DerivationExpression_UnaryOp::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.UnaryOp)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_UnaryOp::CopyFrom(const DerivationExpression_UnaryOp& from) {
@@ -3278,7 +3198,7 @@ bool DerivationExpression_UnaryOp::IsInitialized() const {
 
 void DerivationExpression_UnaryOp::InternalSwap(DerivationExpression_UnaryOp* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_UnaryOp, op_type_)
       + sizeof(DerivationExpression_UnaryOp::op_type_)
@@ -3309,10 +3229,13 @@ const ::substrait::DerivationExpression&
 DerivationExpression_BinaryOp::_Internal::arg2(const DerivationExpression_BinaryOp* msg) {
   return *msg->arg2_;
 }
-DerivationExpression_BinaryOp::DerivationExpression_BinaryOp(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_BinaryOp::DerivationExpression_BinaryOp(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.BinaryOp)
 }
 DerivationExpression_BinaryOp::DerivationExpression_BinaryOp(const DerivationExpression_BinaryOp& from)
@@ -3332,7 +3255,7 @@ DerivationExpression_BinaryOp::DerivationExpression_BinaryOp(const DerivationExp
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.BinaryOp)
 }
 
-void DerivationExpression_BinaryOp::SharedCtor() {
+inline void DerivationExpression_BinaryOp::SharedCtor() {
 ::memset(reinterpret_cast<char*>(this) + static_cast<size_t>(
     reinterpret_cast<char*>(&arg1_) - reinterpret_cast<char*>(this)),
     0, static_cast<size_t>(reinterpret_cast<char*>(&op_type_) -
@@ -3341,12 +3264,13 @@ void DerivationExpression_BinaryOp::SharedCtor() {
 
 DerivationExpression_BinaryOp::~DerivationExpression_BinaryOp() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.BinaryOp)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_BinaryOp::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_BinaryOp::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete arg1_;
   if (this != internal_default_instance()) delete arg2_;
 }
@@ -3363,15 +3287,15 @@ void DerivationExpression_BinaryOp::SetCachedSize(int size) const {
 
 void DerivationExpression_BinaryOp::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.BinaryOp)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
-  if (GetArena() == nullptr && arg1_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && arg1_ != nullptr) {
     delete arg1_;
   }
   arg1_ = nullptr;
-  if (GetArena() == nullptr && arg2_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && arg2_ != nullptr) {
     delete arg2_;
   }
   arg2_ = nullptr;
@@ -3382,69 +3306,72 @@ void DerivationExpression_BinaryOp::Clear() {
 const char* DerivationExpression_BinaryOp::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.DerivationExpression.BinaryOp.BinaryOpType op_type = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 8)) {
-          ::PROTOBUF_NAMESPACE_ID::uint64 val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 8)) {
+          uint64_t val = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
           _internal_set_op_type(static_cast<::substrait::DerivationExpression_BinaryOp_BinaryOpType>(val));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression arg1 = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_arg1(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression arg2 = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_arg2(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_BinaryOp::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_BinaryOp::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.BinaryOp)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression.BinaryOp.BinaryOpType op_type = 1;
-  if (this->op_type() != 0) {
+  if (this->_internal_op_type() != 0) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::WriteEnumToArray(
       1, this->_internal_op_type(), target);
   }
 
   // .substrait.DerivationExpression arg1 = 2;
-  if (this->has_arg1()) {
+  if (this->_internal_has_arg1()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -3452,7 +3379,7 @@ failure:
   }
 
   // .substrait.DerivationExpression arg2 = 3;
-  if (this->has_arg2()) {
+  if (this->_internal_has_arg2()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -3471,77 +3398,62 @@ size_t DerivationExpression_BinaryOp::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.BinaryOp)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // .substrait.DerivationExpression arg1 = 2;
-  if (this->has_arg1()) {
+  if (this->_internal_has_arg1()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *arg1_);
   }
 
   // .substrait.DerivationExpression arg2 = 3;
-  if (this->has_arg2()) {
+  if (this->_internal_has_arg2()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *arg2_);
   }
 
   // .substrait.DerivationExpression.BinaryOp.BinaryOpType op_type = 1;
-  if (this->op_type() != 0) {
+  if (this->_internal_op_type() != 0) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::EnumSize(this->_internal_op_type());
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_BinaryOp::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.BinaryOp)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_BinaryOp* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_BinaryOp>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.BinaryOp)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.BinaryOp)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_BinaryOp::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_BinaryOp::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_BinaryOp::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_BinaryOp::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_BinaryOp *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_BinaryOp &>(from));
 }
+
 
 void DerivationExpression_BinaryOp::MergeFrom(const DerivationExpression_BinaryOp& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.BinaryOp)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.has_arg1()) {
+  if (from._internal_has_arg1()) {
     _internal_mutable_arg1()->::substrait::DerivationExpression::MergeFrom(from._internal_arg1());
   }
-  if (from.has_arg2()) {
+  if (from._internal_has_arg2()) {
     _internal_mutable_arg2()->::substrait::DerivationExpression::MergeFrom(from._internal_arg2());
   }
-  if (from.op_type() != 0) {
+  if (from._internal_op_type() != 0) {
     _internal_set_op_type(from._internal_op_type());
   }
-}
-
-void DerivationExpression_BinaryOp::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.BinaryOp)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_BinaryOp::CopyFrom(const DerivationExpression_BinaryOp& from) {
@@ -3557,7 +3469,7 @@ bool DerivationExpression_BinaryOp::IsInitialized() const {
 
 void DerivationExpression_BinaryOp::InternalSwap(DerivationExpression_BinaryOp* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
       PROTOBUF_FIELD_OFFSET(DerivationExpression_BinaryOp, op_type_)
       + sizeof(DerivationExpression_BinaryOp::op_type_)
@@ -3583,19 +3495,25 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ReturnProgram_Assignment::_Internal::expression(const DerivationExpression_ReturnProgram_Assignment* msg) {
   return *msg->expression_;
 }
-DerivationExpression_ReturnProgram_Assignment::DerivationExpression_ReturnProgram_Assignment(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression_ReturnProgram_Assignment::DerivationExpression_ReturnProgram_Assignment(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ReturnProgram.Assignment)
 }
 DerivationExpression_ReturnProgram_Assignment::DerivationExpression_ReturnProgram_Assignment(const DerivationExpression_ReturnProgram_Assignment& from)
   : ::PROTOBUF_NAMESPACE_ID::Message() {
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+    name_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), "", GetArenaForAllocation());
+  #endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
   if (!from._internal_name().empty()) {
     name_.Set(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, from._internal_name(), 
-      GetArena());
+      GetArenaForAllocation());
   }
   if (from._internal_has_expression()) {
     expression_ = new ::substrait::DerivationExpression(*from.expression_);
@@ -3605,19 +3523,23 @@ DerivationExpression_ReturnProgram_Assignment::DerivationExpression_ReturnProgra
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ReturnProgram.Assignment)
 }
 
-void DerivationExpression_ReturnProgram_Assignment::SharedCtor() {
+inline void DerivationExpression_ReturnProgram_Assignment::SharedCtor() {
 name_.UnsafeSetDefault(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  name_.Set(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), "", GetArenaForAllocation());
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
 expression_ = nullptr;
 }
 
 DerivationExpression_ReturnProgram_Assignment::~DerivationExpression_ReturnProgram_Assignment() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ReturnProgram.Assignment)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ReturnProgram_Assignment::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ReturnProgram_Assignment::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   name_.DestroyNoArena(&::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited());
   if (this != internal_default_instance()) delete expression_;
 }
@@ -3634,12 +3556,12 @@ void DerivationExpression_ReturnProgram_Assignment::SetCachedSize(int size) cons
 
 void DerivationExpression_ReturnProgram_Assignment::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ReturnProgram.Assignment)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   name_.ClearToEmpty();
-  if (GetArena() == nullptr && expression_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && expression_ != nullptr) {
     delete expression_;
   }
   expression_ = nullptr;
@@ -3649,56 +3571,58 @@ void DerivationExpression_ReturnProgram_Assignment::Clear() {
 const char* DerivationExpression_ReturnProgram_Assignment::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // string name = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           auto str = _internal_mutable_name();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "substrait.DerivationExpression.ReturnProgram.Assignment.name"));
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression expression = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_expression(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ReturnProgram_Assignment::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ReturnProgram_Assignment::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ReturnProgram.Assignment)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // string name = 1;
-  if (this->name().size() > 0) {
+  if (!this->_internal_name().empty()) {
     ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::VerifyUtf8String(
       this->_internal_name().data(), static_cast<int>(this->_internal_name().length()),
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::SERIALIZE,
@@ -3708,7 +3632,7 @@ failure:
   }
 
   // .substrait.DerivationExpression expression = 2;
-  if (this->has_expression()) {
+  if (this->_internal_has_expression()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -3727,68 +3651,53 @@ size_t DerivationExpression_ReturnProgram_Assignment::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ReturnProgram.Assignment)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   // string name = 1;
-  if (this->name().size() > 0) {
+  if (!this->_internal_name().empty()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::StringSize(
         this->_internal_name());
   }
 
   // .substrait.DerivationExpression expression = 2;
-  if (this->has_expression()) {
+  if (this->_internal_has_expression()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *expression_);
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ReturnProgram_Assignment::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ReturnProgram.Assignment)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ReturnProgram_Assignment* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ReturnProgram_Assignment>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ReturnProgram.Assignment)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ReturnProgram.Assignment)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ReturnProgram_Assignment::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ReturnProgram_Assignment::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ReturnProgram_Assignment::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ReturnProgram_Assignment::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ReturnProgram_Assignment *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ReturnProgram_Assignment &>(from));
 }
+
 
 void DerivationExpression_ReturnProgram_Assignment::MergeFrom(const DerivationExpression_ReturnProgram_Assignment& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ReturnProgram.Assignment)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
-  if (from.name().size() > 0) {
+  if (!from._internal_name().empty()) {
     _internal_set_name(from._internal_name());
   }
-  if (from.has_expression()) {
+  if (from._internal_has_expression()) {
     _internal_mutable_expression()->::substrait::DerivationExpression::MergeFrom(from._internal_expression());
   }
-}
-
-void DerivationExpression_ReturnProgram_Assignment::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ReturnProgram.Assignment)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ReturnProgram_Assignment::CopyFrom(const DerivationExpression_ReturnProgram_Assignment& from) {
@@ -3804,8 +3713,14 @@ bool DerivationExpression_ReturnProgram_Assignment::IsInitialized() const {
 
 void DerivationExpression_ReturnProgram_Assignment::InternalSwap(DerivationExpression_ReturnProgram_Assignment* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
-  name_.Swap(&other->name_, &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(), GetArena());
+  auto* lhs_arena = GetArenaForAllocation();
+  auto* rhs_arena = other->GetArenaForAllocation();
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::InternalSwap(
+      &::PROTOBUF_NAMESPACE_ID::internal::GetEmptyStringAlreadyInited(),
+      &name_, lhs_arena,
+      &other->name_, rhs_arena
+  );
   swap(expression_, other->expression_);
 }
 
@@ -3826,11 +3741,14 @@ const ::substrait::DerivationExpression&
 DerivationExpression_ReturnProgram::_Internal::final_expression(const DerivationExpression_ReturnProgram* msg) {
   return *msg->final_expression_;
 }
-DerivationExpression_ReturnProgram::DerivationExpression_ReturnProgram(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+DerivationExpression_ReturnProgram::DerivationExpression_ReturnProgram(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned),
   assignments_(arena) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression.ReturnProgram)
 }
 DerivationExpression_ReturnProgram::DerivationExpression_ReturnProgram(const DerivationExpression_ReturnProgram& from)
@@ -3845,18 +3763,19 @@ DerivationExpression_ReturnProgram::DerivationExpression_ReturnProgram(const Der
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression.ReturnProgram)
 }
 
-void DerivationExpression_ReturnProgram::SharedCtor() {
+inline void DerivationExpression_ReturnProgram::SharedCtor() {
 final_expression_ = nullptr;
 }
 
 DerivationExpression_ReturnProgram::~DerivationExpression_ReturnProgram() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression.ReturnProgram)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression_ReturnProgram::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression_ReturnProgram::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete final_expression_;
 }
 
@@ -3872,12 +3791,12 @@ void DerivationExpression_ReturnProgram::SetCachedSize(int size) const {
 
 void DerivationExpression_ReturnProgram::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression.ReturnProgram)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
   assignments_.Clear();
-  if (GetArena() == nullptr && final_expression_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && final_expression_ != nullptr) {
     delete final_expression_;
   }
   final_expression_ = nullptr;
@@ -3887,12 +3806,12 @@ void DerivationExpression_ReturnProgram::Clear() {
 const char* DerivationExpression_ReturnProgram::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // repeated .substrait.DerivationExpression.ReturnProgram.Assignment assignments = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -3900,42 +3819,44 @@ const char* DerivationExpression_ReturnProgram::_InternalParse(const char* ptr, 
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression final_expression = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_final_expression(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression_ReturnProgram::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression_ReturnProgram::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression.ReturnProgram)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // repeated .substrait.DerivationExpression.ReturnProgram.Assignment assignments = 1;
@@ -3947,7 +3868,7 @@ failure:
   }
 
   // .substrait.DerivationExpression final_expression = 2;
-  if (this->has_final_expression()) {
+  if (this->_internal_has_final_expression()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -3966,7 +3887,7 @@ size_t DerivationExpression_ReturnProgram::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression.ReturnProgram)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -3978,54 +3899,39 @@ size_t DerivationExpression_ReturnProgram::ByteSizeLong() const {
   }
 
   // .substrait.DerivationExpression final_expression = 2;
-  if (this->has_final_expression()) {
+  if (this->_internal_has_final_expression()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *final_expression_);
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression_ReturnProgram::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression.ReturnProgram)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression_ReturnProgram* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression_ReturnProgram>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression.ReturnProgram)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression.ReturnProgram)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression_ReturnProgram::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression_ReturnProgram::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression_ReturnProgram::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression_ReturnProgram::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression_ReturnProgram *>(to)->MergeFrom(
+      static_cast<const DerivationExpression_ReturnProgram &>(from));
 }
+
 
 void DerivationExpression_ReturnProgram::MergeFrom(const DerivationExpression_ReturnProgram& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression.ReturnProgram)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   assignments_.MergeFrom(from.assignments_);
-  if (from.has_final_expression()) {
+  if (from._internal_has_final_expression()) {
     _internal_mutable_final_expression()->::substrait::DerivationExpression::MergeFrom(from._internal_final_expression());
   }
-}
-
-void DerivationExpression_ReturnProgram::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression.ReturnProgram)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression_ReturnProgram::CopyFrom(const DerivationExpression_ReturnProgram& from) {
@@ -4041,7 +3947,7 @@ bool DerivationExpression_ReturnProgram::IsInitialized() const {
 
 void DerivationExpression_ReturnProgram::InternalSwap(DerivationExpression_ReturnProgram* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   assignments_.InternalSwap(&other->assignments_);
   swap(final_expression_, other->final_expression_);
 }
@@ -4194,11 +4100,13 @@ DerivationExpression::_Internal::return_program(const DerivationExpression* msg)
   return *msg->kind_.return_program_;
 }
 void DerivationExpression::set_allocated_bool_(::substrait::Type_Boolean* bool_) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (bool_) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(bool_)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(bool_));
     if (message_arena != submessage_arena) {
       bool_ = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, bool_, submessage_arena);
@@ -4210,18 +4118,20 @@ void DerivationExpression::set_allocated_bool_(::substrait::Type_Boolean* bool_)
 }
 void DerivationExpression::clear_bool_() {
   if (_internal_has_bool_()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.bool__;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_i8(::substrait::Type_I8* i8) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (i8) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i8)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i8));
     if (message_arena != submessage_arena) {
       i8 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, i8, submessage_arena);
@@ -4233,18 +4143,20 @@ void DerivationExpression::set_allocated_i8(::substrait::Type_I8* i8) {
 }
 void DerivationExpression::clear_i8() {
   if (_internal_has_i8()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.i8_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_i16(::substrait::Type_I16* i16) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (i16) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i16)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i16));
     if (message_arena != submessage_arena) {
       i16 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, i16, submessage_arena);
@@ -4256,18 +4168,20 @@ void DerivationExpression::set_allocated_i16(::substrait::Type_I16* i16) {
 }
 void DerivationExpression::clear_i16() {
   if (_internal_has_i16()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.i16_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_i32(::substrait::Type_I32* i32) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (i32) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i32)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i32));
     if (message_arena != submessage_arena) {
       i32 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, i32, submessage_arena);
@@ -4279,18 +4193,20 @@ void DerivationExpression::set_allocated_i32(::substrait::Type_I32* i32) {
 }
 void DerivationExpression::clear_i32() {
   if (_internal_has_i32()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.i32_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_i64(::substrait::Type_I64* i64) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (i64) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i64)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(i64));
     if (message_arena != submessage_arena) {
       i64 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, i64, submessage_arena);
@@ -4302,18 +4218,20 @@ void DerivationExpression::set_allocated_i64(::substrait::Type_I64* i64) {
 }
 void DerivationExpression::clear_i64() {
   if (_internal_has_i64()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.i64_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_fp32(::substrait::Type_FP32* fp32) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (fp32) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(fp32)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(fp32));
     if (message_arena != submessage_arena) {
       fp32 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, fp32, submessage_arena);
@@ -4325,18 +4243,20 @@ void DerivationExpression::set_allocated_fp32(::substrait::Type_FP32* fp32) {
 }
 void DerivationExpression::clear_fp32() {
   if (_internal_has_fp32()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.fp32_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_fp64(::substrait::Type_FP64* fp64) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (fp64) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(fp64)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(fp64));
     if (message_arena != submessage_arena) {
       fp64 = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, fp64, submessage_arena);
@@ -4348,18 +4268,20 @@ void DerivationExpression::set_allocated_fp64(::substrait::Type_FP64* fp64) {
 }
 void DerivationExpression::clear_fp64() {
   if (_internal_has_fp64()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.fp64_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_string(::substrait::Type_String* string) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (string) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(string)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(string));
     if (message_arena != submessage_arena) {
       string = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, string, submessage_arena);
@@ -4371,18 +4293,20 @@ void DerivationExpression::set_allocated_string(::substrait::Type_String* string
 }
 void DerivationExpression::clear_string() {
   if (_internal_has_string()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.string_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_binary(::substrait::Type_Binary* binary) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (binary) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(binary)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(binary));
     if (message_arena != submessage_arena) {
       binary = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, binary, submessage_arena);
@@ -4394,18 +4318,20 @@ void DerivationExpression::set_allocated_binary(::substrait::Type_Binary* binary
 }
 void DerivationExpression::clear_binary() {
   if (_internal_has_binary()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.binary_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_timestamp(::substrait::Type_Timestamp* timestamp) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (timestamp) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(timestamp)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(timestamp));
     if (message_arena != submessage_arena) {
       timestamp = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, timestamp, submessage_arena);
@@ -4417,18 +4343,20 @@ void DerivationExpression::set_allocated_timestamp(::substrait::Type_Timestamp* 
 }
 void DerivationExpression::clear_timestamp() {
   if (_internal_has_timestamp()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.timestamp_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_date(::substrait::Type_Date* date) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (date) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(date)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(date));
     if (message_arena != submessage_arena) {
       date = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, date, submessage_arena);
@@ -4440,18 +4368,20 @@ void DerivationExpression::set_allocated_date(::substrait::Type_Date* date) {
 }
 void DerivationExpression::clear_date() {
   if (_internal_has_date()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.date_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_time(::substrait::Type_Time* time) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (time) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(time)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(time));
     if (message_arena != submessage_arena) {
       time = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, time, submessage_arena);
@@ -4463,18 +4393,20 @@ void DerivationExpression::set_allocated_time(::substrait::Type_Time* time) {
 }
 void DerivationExpression::clear_time() {
   if (_internal_has_time()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.time_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_interval_year(::substrait::Type_IntervalYear* interval_year) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (interval_year) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(interval_year)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(interval_year));
     if (message_arena != submessage_arena) {
       interval_year = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, interval_year, submessage_arena);
@@ -4486,18 +4418,20 @@ void DerivationExpression::set_allocated_interval_year(::substrait::Type_Interva
 }
 void DerivationExpression::clear_interval_year() {
   if (_internal_has_interval_year()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.interval_year_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_interval_day(::substrait::Type_IntervalDay* interval_day) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (interval_day) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(interval_day)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(interval_day));
     if (message_arena != submessage_arena) {
       interval_day = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, interval_day, submessage_arena);
@@ -4509,18 +4443,20 @@ void DerivationExpression::set_allocated_interval_day(::substrait::Type_Interval
 }
 void DerivationExpression::clear_interval_day() {
   if (_internal_has_interval_day()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.interval_day_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_timestamp_tz(::substrait::Type_TimestampTZ* timestamp_tz) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (timestamp_tz) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(timestamp_tz)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(timestamp_tz));
     if (message_arena != submessage_arena) {
       timestamp_tz = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, timestamp_tz, submessage_arena);
@@ -4532,18 +4468,20 @@ void DerivationExpression::set_allocated_timestamp_tz(::substrait::Type_Timestam
 }
 void DerivationExpression::clear_timestamp_tz() {
   if (_internal_has_timestamp_tz()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.timestamp_tz_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_uuid(::substrait::Type_UUID* uuid) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (uuid) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(uuid)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(uuid));
     if (message_arena != submessage_arena) {
       uuid = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, uuid, submessage_arena);
@@ -4555,18 +4493,18 @@ void DerivationExpression::set_allocated_uuid(::substrait::Type_UUID* uuid) {
 }
 void DerivationExpression::clear_uuid() {
   if (_internal_has_uuid()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete kind_.uuid_;
     }
     clear_has_kind();
   }
 }
 void DerivationExpression::set_allocated_fixed_char(::substrait::DerivationExpression_ExpressionFixedChar* fixed_char) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (fixed_char) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(fixed_char);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionFixedChar>::GetOwningArena(fixed_char);
     if (message_arena != submessage_arena) {
       fixed_char = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, fixed_char, submessage_arena);
@@ -4577,11 +4515,11 @@ void DerivationExpression::set_allocated_fixed_char(::substrait::DerivationExpre
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.fixed_char)
 }
 void DerivationExpression::set_allocated_varchar(::substrait::DerivationExpression_ExpressionVarChar* varchar) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (varchar) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(varchar);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionVarChar>::GetOwningArena(varchar);
     if (message_arena != submessage_arena) {
       varchar = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, varchar, submessage_arena);
@@ -4592,11 +4530,11 @@ void DerivationExpression::set_allocated_varchar(::substrait::DerivationExpressi
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.varchar)
 }
 void DerivationExpression::set_allocated_fixed_binary(::substrait::DerivationExpression_ExpressionFixedBinary* fixed_binary) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (fixed_binary) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(fixed_binary);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionFixedBinary>::GetOwningArena(fixed_binary);
     if (message_arena != submessage_arena) {
       fixed_binary = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, fixed_binary, submessage_arena);
@@ -4607,11 +4545,11 @@ void DerivationExpression::set_allocated_fixed_binary(::substrait::DerivationExp
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.fixed_binary)
 }
 void DerivationExpression::set_allocated_decimal(::substrait::DerivationExpression_ExpressionDecimal* decimal) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (decimal) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(decimal);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionDecimal>::GetOwningArena(decimal);
     if (message_arena != submessage_arena) {
       decimal = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, decimal, submessage_arena);
@@ -4622,11 +4560,11 @@ void DerivationExpression::set_allocated_decimal(::substrait::DerivationExpressi
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.decimal)
 }
 void DerivationExpression::set_allocated_struct_(::substrait::DerivationExpression_ExpressionStruct* struct_) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (struct_) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(struct_);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionStruct>::GetOwningArena(struct_);
     if (message_arena != submessage_arena) {
       struct_ = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, struct_, submessage_arena);
@@ -4637,11 +4575,11 @@ void DerivationExpression::set_allocated_struct_(::substrait::DerivationExpressi
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.struct)
 }
 void DerivationExpression::set_allocated_list(::substrait::DerivationExpression_ExpressionList* list) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (list) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(list);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionList>::GetOwningArena(list);
     if (message_arena != submessage_arena) {
       list = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, list, submessage_arena);
@@ -4652,11 +4590,11 @@ void DerivationExpression::set_allocated_list(::substrait::DerivationExpression_
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.list)
 }
 void DerivationExpression::set_allocated_map(::substrait::DerivationExpression_ExpressionMap* map) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (map) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(map);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ExpressionMap>::GetOwningArena(map);
     if (message_arena != submessage_arena) {
       map = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, map, submessage_arena);
@@ -4667,11 +4605,11 @@ void DerivationExpression::set_allocated_map(::substrait::DerivationExpression_E
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.map)
 }
 void DerivationExpression::set_allocated_unary_op(::substrait::DerivationExpression_UnaryOp* unary_op) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (unary_op) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(unary_op);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_UnaryOp>::GetOwningArena(unary_op);
     if (message_arena != submessage_arena) {
       unary_op = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, unary_op, submessage_arena);
@@ -4682,11 +4620,11 @@ void DerivationExpression::set_allocated_unary_op(::substrait::DerivationExpress
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.unary_op)
 }
 void DerivationExpression::set_allocated_binary_op(::substrait::DerivationExpression_BinaryOp* binary_op) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (binary_op) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(binary_op);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_BinaryOp>::GetOwningArena(binary_op);
     if (message_arena != submessage_arena) {
       binary_op = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, binary_op, submessage_arena);
@@ -4697,11 +4635,11 @@ void DerivationExpression::set_allocated_binary_op(::substrait::DerivationExpres
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.binary_op)
 }
 void DerivationExpression::set_allocated_if_else(::substrait::DerivationExpression_IfElse* if_else) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (if_else) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(if_else);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_IfElse>::GetOwningArena(if_else);
     if (message_arena != submessage_arena) {
       if_else = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, if_else, submessage_arena);
@@ -4712,11 +4650,11 @@ void DerivationExpression::set_allocated_if_else(::substrait::DerivationExpressi
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.if_else)
 }
 void DerivationExpression::set_allocated_return_program(::substrait::DerivationExpression_ReturnProgram* return_program) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_kind();
   if (return_program) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      ::PROTOBUF_NAMESPACE_ID::Arena::GetArena(return_program);
+      ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<::substrait::DerivationExpression_ReturnProgram>::GetOwningArena(return_program);
     if (message_arena != submessage_arena) {
       return_program = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, return_program, submessage_arena);
@@ -4726,10 +4664,13 @@ void DerivationExpression::set_allocated_return_program(::substrait::DerivationE
   }
   // @@protoc_insertion_point(field_set_allocated:substrait.DerivationExpression.return_program)
 }
-DerivationExpression::DerivationExpression(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+DerivationExpression::DerivationExpression(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.DerivationExpression)
 }
 DerivationExpression::DerivationExpression(const DerivationExpression& from)
@@ -4868,18 +4809,19 @@ DerivationExpression::DerivationExpression(const DerivationExpression& from)
   // @@protoc_insertion_point(copy_constructor:substrait.DerivationExpression)
 }
 
-void DerivationExpression::SharedCtor() {
+inline void DerivationExpression::SharedCtor() {
 clear_has_kind();
 }
 
 DerivationExpression::~DerivationExpression() {
   // @@protoc_insertion_point(destructor:substrait.DerivationExpression)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void DerivationExpression::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void DerivationExpression::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (has_kind()) {
     clear_kind();
   }
@@ -4899,139 +4841,139 @@ void DerivationExpression::clear_kind() {
 // @@protoc_insertion_point(one_of_clear_start:substrait.DerivationExpression)
   switch (kind_case()) {
     case kBool: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.bool__;
       }
       break;
     }
     case kI8: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.i8_;
       }
       break;
     }
     case kI16: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.i16_;
       }
       break;
     }
     case kI32: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.i32_;
       }
       break;
     }
     case kI64: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.i64_;
       }
       break;
     }
     case kFp32: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.fp32_;
       }
       break;
     }
     case kFp64: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.fp64_;
       }
       break;
     }
     case kString: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.string_;
       }
       break;
     }
     case kBinary: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.binary_;
       }
       break;
     }
     case kTimestamp: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.timestamp_;
       }
       break;
     }
     case kDate: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.date_;
       }
       break;
     }
     case kTime: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.time_;
       }
       break;
     }
     case kIntervalYear: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.interval_year_;
       }
       break;
     }
     case kIntervalDay: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.interval_day_;
       }
       break;
     }
     case kTimestampTz: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.timestamp_tz_;
       }
       break;
     }
     case kUuid: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.uuid_;
       }
       break;
     }
     case kFixedChar: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.fixed_char_;
       }
       break;
     }
     case kVarchar: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.varchar_;
       }
       break;
     }
     case kFixedBinary: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.fixed_binary_;
       }
       break;
     }
     case kDecimal: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.decimal_;
       }
       break;
     }
     case kStruct: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.struct__;
       }
       break;
     }
     case kList: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.list_;
       }
       break;
     }
     case kMap: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.map_;
       }
       break;
@@ -5041,11 +4983,11 @@ void DerivationExpression::clear_kind() {
       break;
     }
     case kTypeParameterName: {
-      kind_.type_parameter_name_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+      kind_.type_parameter_name_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArenaForAllocation());
       break;
     }
     case kIntegerParameterName: {
-      kind_.integer_parameter_name_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArena());
+      kind_.integer_parameter_name_.Destroy(::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr::EmptyDefault{}, GetArenaForAllocation());
       break;
     }
     case kIntegerLiteral: {
@@ -5053,25 +4995,25 @@ void DerivationExpression::clear_kind() {
       break;
     }
     case kUnaryOp: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.unary_op_;
       }
       break;
     }
     case kBinaryOp: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.binary_op_;
       }
       break;
     }
     case kIfElse: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.if_else_;
       }
       break;
     }
     case kReturnProgram: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete kind_.return_program_;
       }
       break;
@@ -5086,7 +5028,7 @@ void DerivationExpression::clear_kind() {
 
 void DerivationExpression::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.DerivationExpression)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -5097,257 +5039,288 @@ void DerivationExpression::Clear() {
 const char* DerivationExpression::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.Type.Boolean bool = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_bool_(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.I8 i8 = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_i8(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.I16 i16 = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr = ctx->ParseMessage(_internal_mutable_i16(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.I32 i32 = 5;
       case 5:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 42)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr = ctx->ParseMessage(_internal_mutable_i32(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.I64 i64 = 7;
       case 7:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 58)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
           ptr = ctx->ParseMessage(_internal_mutable_i64(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.FP32 fp32 = 10;
       case 10:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 82)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 82)) {
           ptr = ctx->ParseMessage(_internal_mutable_fp32(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.FP64 fp64 = 11;
       case 11:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 90)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 90)) {
           ptr = ctx->ParseMessage(_internal_mutable_fp64(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.String string = 12;
       case 12:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 98)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 98)) {
           ptr = ctx->ParseMessage(_internal_mutable_string(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Binary binary = 13;
       case 13:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 106)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 106)) {
           ptr = ctx->ParseMessage(_internal_mutable_binary(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Timestamp timestamp = 14;
       case 14:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 114)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 114)) {
           ptr = ctx->ParseMessage(_internal_mutable_timestamp(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Date date = 16;
       case 16:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 130)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 130)) {
           ptr = ctx->ParseMessage(_internal_mutable_date(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.Time time = 17;
       case 17:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 138)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 138)) {
           ptr = ctx->ParseMessage(_internal_mutable_time(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.IntervalYear interval_year = 19;
       case 19:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 154)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 154)) {
           ptr = ctx->ParseMessage(_internal_mutable_interval_year(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.IntervalDay interval_day = 20;
       case 20:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 162)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 162)) {
           ptr = ctx->ParseMessage(_internal_mutable_interval_day(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionFixedChar fixed_char = 21;
       case 21:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 170)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 170)) {
           ptr = ctx->ParseMessage(_internal_mutable_fixed_char(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionVarChar varchar = 22;
       case 22:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 178)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 178)) {
           ptr = ctx->ParseMessage(_internal_mutable_varchar(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionFixedBinary fixed_binary = 23;
       case 23:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 186)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 186)) {
           ptr = ctx->ParseMessage(_internal_mutable_fixed_binary(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionDecimal decimal = 24;
       case 24:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 194)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 194)) {
           ptr = ctx->ParseMessage(_internal_mutable_decimal(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionStruct struct = 25;
       case 25:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 202)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 202)) {
           ptr = ctx->ParseMessage(_internal_mutable_struct_(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionList list = 27;
       case 27:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 218)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 218)) {
           ptr = ctx->ParseMessage(_internal_mutable_list(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ExpressionMap map = 28;
       case 28:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 226)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 226)) {
           ptr = ctx->ParseMessage(_internal_mutable_map(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.TimestampTZ timestamp_tz = 29;
       case 29:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 234)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 234)) {
           ptr = ctx->ParseMessage(_internal_mutable_timestamp_tz(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // uint32 user_defined_pointer = 31;
       case 31:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 248)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 248)) {
           _internal_set_user_defined_pointer(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.Type.UUID uuid = 32;
       case 32:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 2)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 2)) {
           ptr = ctx->ParseMessage(_internal_mutable_uuid(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // string type_parameter_name = 33;
       case 33:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           auto str = _internal_mutable_type_parameter_name();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "substrait.DerivationExpression.type_parameter_name"));
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // string integer_parameter_name = 34;
       case 34:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           auto str = _internal_mutable_integer_parameter_name();
           ptr = ::PROTOBUF_NAMESPACE_ID::internal::InlineGreedyStringParser(str, ptr, ctx);
           CHK_(::PROTOBUF_NAMESPACE_ID::internal::VerifyUTF8(str, "substrait.DerivationExpression.integer_parameter_name"));
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // int32 integer_literal = 35;
       case 35:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 24)) {
-          _internal_set_integer_literal(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr));
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
+          _internal_set_integer_literal(::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr));
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.UnaryOp unary_op = 36;
       case 36:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
           ptr = ctx->ParseMessage(_internal_mutable_unary_op(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.BinaryOp binary_op = 37;
       case 37:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 42)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr = ctx->ParseMessage(_internal_mutable_binary_op(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.IfElse if_else = 38;
       case 38:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 50)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 50)) {
           ptr = ctx->ParseMessage(_internal_mutable_if_else(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.DerivationExpression.ReturnProgram return_program = 39;
       case 39:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 58)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 58)) {
           ptr = ctx->ParseMessage(_internal_mutable_return_program(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* DerivationExpression::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* DerivationExpression::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.DerivationExpression)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.Type.Boolean bool = 1;
@@ -5610,7 +5583,7 @@ size_t DerivationExpression::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.DerivationExpression)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -5836,35 +5809,26 @@ size_t DerivationExpression::ByteSizeLong() const {
       break;
     }
   }
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void DerivationExpression::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.DerivationExpression)
-  GOOGLE_DCHECK_NE(&from, this);
-  const DerivationExpression* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<DerivationExpression>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.DerivationExpression)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.DerivationExpression)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData DerivationExpression::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    DerivationExpression::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*DerivationExpression::GetClassData() const { return &_class_data_; }
+
+void DerivationExpression::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<DerivationExpression *>(to)->MergeFrom(
+      static_cast<const DerivationExpression &>(from));
 }
+
 
 void DerivationExpression::MergeFrom(const DerivationExpression& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.DerivationExpression)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   switch (from.kind_case()) {
@@ -5996,13 +5960,7 @@ void DerivationExpression::MergeFrom(const DerivationExpression& from) {
       break;
     }
   }
-}
-
-void DerivationExpression::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.DerivationExpression)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void DerivationExpression::CopyFrom(const DerivationExpression& from) {
@@ -6018,7 +5976,7 @@ bool DerivationExpression::IsInitialized() const {
 
 void DerivationExpression::InternalSwap(DerivationExpression* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(kind_, other->kind_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }

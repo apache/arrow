@@ -50,12 +50,13 @@ static ::PROTOBUF_NAMESPACE_ID::Metadata file_level_metadata_substrait_2fplan_2e
 static constexpr ::PROTOBUF_NAMESPACE_ID::EnumDescriptor const** file_level_enum_descriptors_substrait_2fplan_2eproto = nullptr;
 static constexpr ::PROTOBUF_NAMESPACE_ID::ServiceDescriptor const** file_level_service_descriptors_substrait_2fplan_2eproto = nullptr;
 
-const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2fplan_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
+const uint32_t TableStruct_substrait_2fplan_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::substrait::PlanRel, _internal_metadata_),
   ~0u,  // no _extensions_
   PROTOBUF_FIELD_OFFSET(::substrait::PlanRel, _oneof_case_[0]),
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   ::PROTOBUF_NAMESPACE_ID::internal::kInvalidFieldOffsetTag,
   PROTOBUF_FIELD_OFFSET(::substrait::PlanRel, rel_type_),
@@ -64,6 +65,7 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2fplan_2eproto::offs
   ~0u,  // no _extensions_
   ~0u,  // no _oneof_case_
   ~0u,  // no _weak_field_map_
+  ~0u,  // no _inlined_string_donated_
   PROTOBUF_FIELD_OFFSET(::substrait::Plan, extension_uris_),
   PROTOBUF_FIELD_OFFSET(::substrait::Plan, extensions_),
   PROTOBUF_FIELD_OFFSET(::substrait::Plan, relations_),
@@ -71,8 +73,8 @@ const ::PROTOBUF_NAMESPACE_ID::uint32 TableStruct_substrait_2fplan_2eproto::offs
   PROTOBUF_FIELD_OFFSET(::substrait::Plan, expected_type_urls_),
 };
 static const ::PROTOBUF_NAMESPACE_ID::internal::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
-  { 0, -1, sizeof(::substrait::PlanRel)},
-  { 8, -1, sizeof(::substrait::Plan)},
+  { 0, -1, -1, sizeof(::substrait::PlanRel)},
+  { 9, -1, -1, sizeof(::substrait::Plan)},
 };
 
 static ::PROTOBUF_NAMESPACE_ID::Message const * const file_default_instances[] = {
@@ -132,11 +134,13 @@ PlanRel::_Internal::root(const PlanRel* msg) {
   return *msg->rel_type_.root_;
 }
 void PlanRel::set_allocated_rel(::substrait::Rel* rel) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_rel_type();
   if (rel) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(rel)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(rel));
     if (message_arena != submessage_arena) {
       rel = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, rel, submessage_arena);
@@ -148,18 +152,20 @@ void PlanRel::set_allocated_rel(::substrait::Rel* rel) {
 }
 void PlanRel::clear_rel() {
   if (_internal_has_rel()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete rel_type_.rel_;
     }
     clear_has_rel_type();
   }
 }
 void PlanRel::set_allocated_root(::substrait::RelRoot* root) {
-  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArena();
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
   clear_rel_type();
   if (root) {
     ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
-      reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(root)->GetArena();
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper<
+            ::PROTOBUF_NAMESPACE_ID::MessageLite>::GetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(root));
     if (message_arena != submessage_arena) {
       root = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
           message_arena, root, submessage_arena);
@@ -171,16 +177,19 @@ void PlanRel::set_allocated_root(::substrait::RelRoot* root) {
 }
 void PlanRel::clear_root() {
   if (_internal_has_root()) {
-    if (GetArena() == nullptr) {
+    if (GetArenaForAllocation() == nullptr) {
       delete rel_type_.root_;
     }
     clear_has_rel_type();
   }
 }
-PlanRel::PlanRel(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena) {
+PlanRel::PlanRel(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.PlanRel)
 }
 PlanRel::PlanRel(const PlanRel& from)
@@ -203,18 +212,19 @@ PlanRel::PlanRel(const PlanRel& from)
   // @@protoc_insertion_point(copy_constructor:substrait.PlanRel)
 }
 
-void PlanRel::SharedCtor() {
+inline void PlanRel::SharedCtor() {
 clear_has_rel_type();
 }
 
 PlanRel::~PlanRel() {
   // @@protoc_insertion_point(destructor:substrait.PlanRel)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void PlanRel::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void PlanRel::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (has_rel_type()) {
     clear_rel_type();
   }
@@ -234,13 +244,13 @@ void PlanRel::clear_rel_type() {
 // @@protoc_insertion_point(one_of_clear_start:substrait.PlanRel)
   switch (rel_type_case()) {
     case kRel: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete rel_type_.rel_;
       }
       break;
     }
     case kRoot: {
-      if (GetArena() == nullptr) {
+      if (GetArenaForAllocation() == nullptr) {
         delete rel_type_.root_;
       }
       break;
@@ -255,7 +265,7 @@ void PlanRel::clear_rel_type() {
 
 void PlanRel::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.PlanRel)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -266,50 +276,52 @@ void PlanRel::Clear() {
 const char* PlanRel::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // .substrait.Rel rel = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr = ctx->ParseMessage(_internal_mutable_rel(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.RelRoot root = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr = ctx->ParseMessage(_internal_mutable_root(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* PlanRel::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* PlanRel::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.PlanRel)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // .substrait.Rel rel = 1;
@@ -340,7 +352,7 @@ size_t PlanRel::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.PlanRel)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -363,35 +375,26 @@ size_t PlanRel::ByteSizeLong() const {
       break;
     }
   }
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void PlanRel::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.PlanRel)
-  GOOGLE_DCHECK_NE(&from, this);
-  const PlanRel* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<PlanRel>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.PlanRel)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.PlanRel)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData PlanRel::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    PlanRel::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*PlanRel::GetClassData() const { return &_class_data_; }
+
+void PlanRel::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<PlanRel *>(to)->MergeFrom(
+      static_cast<const PlanRel &>(from));
 }
+
 
 void PlanRel::MergeFrom(const PlanRel& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.PlanRel)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   switch (from.rel_type_case()) {
@@ -407,13 +410,7 @@ void PlanRel::MergeFrom(const PlanRel& from) {
       break;
     }
   }
-}
-
-void PlanRel::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.PlanRel)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void PlanRel::CopyFrom(const PlanRel& from) {
@@ -429,7 +426,7 @@ bool PlanRel::IsInitialized() const {
 
 void PlanRel::InternalSwap(PlanRel* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   swap(rel_type_, other->rel_type_);
   swap(_oneof_case_[0], other->_oneof_case_[0]);
 }
@@ -458,19 +455,22 @@ void Plan::clear_extensions() {
   extensions_.Clear();
 }
 void Plan::clear_advanced_extensions() {
-  if (GetArena() == nullptr && advanced_extensions_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && advanced_extensions_ != nullptr) {
     delete advanced_extensions_;
   }
   advanced_extensions_ = nullptr;
 }
-Plan::Plan(::PROTOBUF_NAMESPACE_ID::Arena* arena)
-  : ::PROTOBUF_NAMESPACE_ID::Message(arena),
+Plan::Plan(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                         bool is_message_owned)
+  : ::PROTOBUF_NAMESPACE_ID::Message(arena, is_message_owned),
   extension_uris_(arena),
   extensions_(arena),
   relations_(arena),
   expected_type_urls_(arena) {
   SharedCtor();
-  RegisterArenaDtor(arena);
+  if (!is_message_owned) {
+    RegisterArenaDtor(arena);
+  }
   // @@protoc_insertion_point(arena_constructor:substrait.Plan)
 }
 Plan::Plan(const Plan& from)
@@ -488,18 +488,19 @@ Plan::Plan(const Plan& from)
   // @@protoc_insertion_point(copy_constructor:substrait.Plan)
 }
 
-void Plan::SharedCtor() {
+inline void Plan::SharedCtor() {
 advanced_extensions_ = nullptr;
 }
 
 Plan::~Plan() {
   // @@protoc_insertion_point(destructor:substrait.Plan)
+  if (GetArenaForAllocation() != nullptr) return;
   SharedDtor();
   _internal_metadata_.Delete<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
-void Plan::SharedDtor() {
-  GOOGLE_DCHECK(GetArena() == nullptr);
+inline void Plan::SharedDtor() {
+  GOOGLE_DCHECK(GetArenaForAllocation() == nullptr);
   if (this != internal_default_instance()) delete advanced_extensions_;
 }
 
@@ -515,7 +516,7 @@ void Plan::SetCachedSize(int size) const {
 
 void Plan::Clear() {
 // @@protoc_insertion_point(message_clear_start:substrait.Plan)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -523,7 +524,7 @@ void Plan::Clear() {
   extensions_.Clear();
   relations_.Clear();
   expected_type_urls_.Clear();
-  if (GetArena() == nullptr && advanced_extensions_ != nullptr) {
+  if (GetArenaForAllocation() == nullptr && advanced_extensions_ != nullptr) {
     delete advanced_extensions_;
   }
   advanced_extensions_ = nullptr;
@@ -533,12 +534,12 @@ void Plan::Clear() {
 const char* Plan::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) {
 #define CHK_(x) if (PROTOBUF_PREDICT_FALSE(!(x))) goto failure
   while (!ctx->Done(&ptr)) {
-    ::PROTOBUF_NAMESPACE_ID::uint32 tag;
+    uint32_t tag;
     ptr = ::PROTOBUF_NAMESPACE_ID::internal::ReadTag(ptr, &tag);
     switch (tag >> 3) {
       // repeated .substrait.extensions.SimpleExtensionURI extension_uris = 1;
       case 1:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 10)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 10)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -546,11 +547,12 @@ const char* Plan::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::inter
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<10>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // repeated .substrait.extensions.SimpleExtensionDeclaration extensions = 2;
       case 2:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 18)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 18)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -558,11 +560,12 @@ const char* Plan::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::inter
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<18>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // repeated .substrait.PlanRel relations = 3;
       case 3:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 26)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 26)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -570,18 +573,20 @@ const char* Plan::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::inter
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<26>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // .substrait.extensions.AdvancedExtension advanced_extensions = 4;
       case 4:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 34)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 34)) {
           ptr = ctx->ParseMessage(_internal_mutable_advanced_extensions(), ptr);
           CHK_(ptr);
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
       // repeated string expected_type_urls = 5;
       case 5:
-        if (PROTOBUF_PREDICT_TRUE(static_cast<::PROTOBUF_NAMESPACE_ID::uint8>(tag) == 42)) {
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 42)) {
           ptr -= 1;
           do {
             ptr += 1;
@@ -591,35 +596,36 @@ const char* Plan::_InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::inter
             CHK_(ptr);
             if (!ctx->DataAvailable(ptr)) break;
           } while (::PROTOBUF_NAMESPACE_ID::internal::ExpectTag<42>(ptr));
-        } else goto handle_unusual;
+        } else
+          goto handle_unusual;
         continue;
-      default: {
-      handle_unusual:
-        if ((tag == 0) || ((tag & 7) == 4)) {
-          CHK_(ptr);
-          ctx->SetLastTag(tag);
-          goto success;
-        }
-        ptr = UnknownFieldParse(tag,
-            _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
-            ptr, ctx);
-        CHK_(ptr != nullptr);
-        continue;
-      }
+      default:
+        goto handle_unusual;
     }  // switch
+  handle_unusual:
+    if ((tag == 0) || ((tag & 7) == 4)) {
+      CHK_(ptr);
+      ctx->SetLastTag(tag);
+      goto message_done;
+    }
+    ptr = UnknownFieldParse(
+        tag,
+        _internal_metadata_.mutable_unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(),
+        ptr, ctx);
+    CHK_(ptr != nullptr);
   }  // while
-success:
+message_done:
   return ptr;
 failure:
   ptr = nullptr;
-  goto success;
+  goto message_done;
 #undef CHK_
 }
 
-::PROTOBUF_NAMESPACE_ID::uint8* Plan::_InternalSerialize(
-    ::PROTOBUF_NAMESPACE_ID::uint8* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
+uint8_t* Plan::_InternalSerialize(
+    uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const {
   // @@protoc_insertion_point(serialize_to_array_start:substrait.Plan)
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   // repeated .substrait.extensions.SimpleExtensionURI extension_uris = 1;
@@ -647,7 +653,7 @@ failure:
   }
 
   // .substrait.extensions.AdvancedExtension advanced_extensions = 4;
-  if (this->has_advanced_extensions()) {
+  if (this->_internal_has_advanced_extensions()) {
     target = stream->EnsureSpace(target);
     target = ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::
       InternalWriteMessage(
@@ -676,7 +682,7 @@ size_t Plan::ByteSizeLong() const {
 // @@protoc_insertion_point(message_byte_size_start:substrait.Plan)
   size_t total_size = 0;
 
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
   (void) cached_has_bits;
 
@@ -710,57 +716,42 @@ size_t Plan::ByteSizeLong() const {
   }
 
   // .substrait.extensions.AdvancedExtension advanced_extensions = 4;
-  if (this->has_advanced_extensions()) {
+  if (this->_internal_has_advanced_extensions()) {
     total_size += 1 +
       ::PROTOBUF_NAMESPACE_ID::internal::WireFormatLite::MessageSize(
         *advanced_extensions_);
   }
 
-  if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
-    return ::PROTOBUF_NAMESPACE_ID::internal::ComputeUnknownFieldsSize(
-        _internal_metadata_, total_size, &_cached_size_);
-  }
-  int cached_size = ::PROTOBUF_NAMESPACE_ID::internal::ToCachedSize(total_size);
-  SetCachedSize(cached_size);
-  return total_size;
+  return MaybeComputeUnknownFieldsSize(total_size, &_cached_size_);
 }
 
-void Plan::MergeFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_merge_from_start:substrait.Plan)
-  GOOGLE_DCHECK_NE(&from, this);
-  const Plan* source =
-      ::PROTOBUF_NAMESPACE_ID::DynamicCastToGenerated<Plan>(
-          &from);
-  if (source == nullptr) {
-  // @@protoc_insertion_point(generalized_merge_from_cast_fail:substrait.Plan)
-    ::PROTOBUF_NAMESPACE_ID::internal::ReflectionOps::Merge(from, this);
-  } else {
-  // @@protoc_insertion_point(generalized_merge_from_cast_success:substrait.Plan)
-    MergeFrom(*source);
-  }
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData Plan::_class_data_ = {
+    ::PROTOBUF_NAMESPACE_ID::Message::CopyWithSizeCheck,
+    Plan::MergeImpl
+};
+const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*Plan::GetClassData() const { return &_class_data_; }
+
+void Plan::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message* to,
+                      const ::PROTOBUF_NAMESPACE_ID::Message& from) {
+  static_cast<Plan *>(to)->MergeFrom(
+      static_cast<const Plan &>(from));
 }
+
 
 void Plan::MergeFrom(const Plan& from) {
 // @@protoc_insertion_point(class_specific_merge_from_start:substrait.Plan)
   GOOGLE_DCHECK_NE(&from, this);
-  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
-  ::PROTOBUF_NAMESPACE_ID::uint32 cached_has_bits = 0;
+  uint32_t cached_has_bits = 0;
   (void) cached_has_bits;
 
   extension_uris_.MergeFrom(from.extension_uris_);
   extensions_.MergeFrom(from.extensions_);
   relations_.MergeFrom(from.relations_);
   expected_type_urls_.MergeFrom(from.expected_type_urls_);
-  if (from.has_advanced_extensions()) {
+  if (from._internal_has_advanced_extensions()) {
     _internal_mutable_advanced_extensions()->::substrait::extensions::AdvancedExtension::MergeFrom(from._internal_advanced_extensions());
   }
-}
-
-void Plan::CopyFrom(const ::PROTOBUF_NAMESPACE_ID::Message& from) {
-// @@protoc_insertion_point(generalized_copy_from_start:substrait.Plan)
-  if (&from == this) return;
-  Clear();
-  MergeFrom(from);
+  _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
 void Plan::CopyFrom(const Plan& from) {
@@ -776,7 +767,7 @@ bool Plan::IsInitialized() const {
 
 void Plan::InternalSwap(Plan* other) {
   using std::swap;
-  _internal_metadata_.Swap<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(&other->_internal_metadata_);
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   extension_uris_.InternalSwap(&other->extension_uris_);
   extensions_.InternalSwap(&other->extensions_);
   relations_.InternalSwap(&other->relations_);
