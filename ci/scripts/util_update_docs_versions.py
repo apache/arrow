@@ -32,13 +32,17 @@ with open(main_versions_path) as json_file:
     
 split_version = version.split(".")
 major_minor = split_version[0] + "." + split_version[1]
+dev_version = str(int(split_version[0]) + 1) + ".0"
 
 # Update the old stable version to a numbered version
 old_versions[0]["name"] = old_versions[0]["name"].split(" ")[0]
 old_versions[0]["version"] = old_versions[0]["name"] + '/'
 
 # Create row for new version
-new_version = [{'name': major_minor + " (stable)", 'version':''}]
+new_version = [
+    {'name': dev_version + " (dev)", 'version':'dev'},
+    {'name': major_minor + " (stable)", 'version':''}
+]
 new_version.extend(old_versions)
 with open(main_versions_path, 'w') as json_file:
     json.dump(new_version, json_file, indent = 4)
