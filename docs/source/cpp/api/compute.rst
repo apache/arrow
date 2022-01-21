@@ -54,3 +54,37 @@ Concrete options classes
    :undoc-members:
 
 .. TODO: List concrete function invocation shortcuts?
+
+Streaming Execution
+===================
+
+Streaming Execution Operators
+-----------------------------
+
+.. doxygenenum:: arrow::compute::JoinType
+
+.. doxygenenum:: arrow::compute::JoinKeyCmp
+
+.. doxygengroup:: execnode-options
+   :content-only:
+   :members:
+   :undoc-members:
+
+Execution Plan Expressions
+--------------------------
+
+.. doxygenclass:: arrow::FieldRef
+   :members:
+
+.. doxygengroup:: expression-core
+   :content-only:
+   :members:
+
+.. doxygengroup:: expression-convenience
+   :content-only:
+   :members:
+   :undoc-members:
+
+.. doxygengroup:: expression-passes
+   :content-only:
+   :members:

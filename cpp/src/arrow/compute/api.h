@@ -34,9 +34,15 @@
 #include "arrow/compute/registry.h"       // IWYU pragma: export
 #include "arrow/datum.h"                  // IWYU pragma: export
 
-/// \defgroup execnode-options Concrete option classes for ExecNode options
+/// \defgroup execnode-expressions Utilities for creating expressions to
+/// use in execution plans
 /// @{
 /// @}
 
 #include "arrow/compute/exec/expression.h"  // IWYU pragma: export
-#include "arrow/compute/exec/options.h"     // IWYU pragma: export
+
+/// \defgroup execnode-options Concrete option classes for ExecNode options
+/// @{
+/// @}
+
+#include "arrow/compute/exec/options.h"  // IWYU pragma: export

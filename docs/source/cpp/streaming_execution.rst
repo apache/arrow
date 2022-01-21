@@ -337,7 +337,7 @@ This is the list of operations associated with the execution plan:
    * - ``select_k_sink``
      - :class:`arrow::compute::SelectKSinkNodeOptions`
    * - ``scan``
-     - :class:`arrow::compute::ScanNodeOptions` 
+     - :class:`arrow::dataset::ScanNodeOptions` 
    * - ``hash_join``
      - :class:`arrow::compute::HashJoinNodeOptions`
    * - ``write``
