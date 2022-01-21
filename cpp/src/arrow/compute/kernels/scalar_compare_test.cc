@@ -63,11 +63,11 @@ template <typename ArrowType>
 static void ValidateCompare(CompareOptions options, const Datum& lhs, const Datum& rhs,
                             const char* expected_str) {
   if ((lhs.is_scalar()) && (rhs.is_scalar())) {
-    auto expected = 
+    auto expected =
         ScalarFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
     ValidateCompare<ArrowType>(options, lhs, rhs, expected);
   } else {
-    auto expected = 
+    auto expected =
         ArrayFromJSON(TypeTraits<BooleanType>::type_singleton(), expected_str);
     ValidateCompare<ArrowType>(options, lhs, rhs, expected);
   }
@@ -2234,31 +2234,44 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
   auto type_string = type->ToString();
   if (type_string == "duration[s]") {
     return int64();
-  } else if (type_string == "duration[ms]") {
+  }
+  else if (type_string == "duration[ms]") {
     return int64();
-  } else if (type_string == "duration[ns]") {
-    return int64(); }
-  } else if (type_string == "uint8") { 
+  }
+  else if (type_string == "duration[ns]") {
+    return int64();
+  }
+  else if (type_string == "uint8") { 
     return uint8();
-  } else if (type_string == "uint16") {
+  }
+  else if (type_string == "uint16") {
     return uint16();
-  } else if (type_string == "uint32") {
+  }
+  else if (type_string == "uint32") {
     return uint32();
-  } else if (type_string == "uint64") {
+  }
+  else if (type_string == "uint64") {
     return uint64();
-  } else if (type_string == "int8") {
+  }
+  else if (type_string == "int8") {
     return int8();
-  } else if (type_string == "int16") {
+  }
+  else if (type_string == "int16") {
     return int16();
-  } else if (type_string == "int32") {
+  }
+  else if (type_string == "int32") {
     return int32();
-  } else if (type_string == "int64") {
+  }
+  else if (type_string == "int64") {
     return int64();
-  } else if (type_string == "float") {
+  }
+  else if (type_string == "float") {
     return float32();
-  } else if (type_string == "double") {
+  }
+  else if (type_string == "double") {
     return float64();
-  } else { 
+  }
+  else { 
     return int64();
   }
 }
@@ -2478,7 +2491,7 @@ TEST(TestStringBetweenKernel, StringArrayScalarScalarTest) {
   ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")), l,
                   r);
   ValidateBetween(
-      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")), l, r );
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")), l, r);
   ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                                       R"(["aaa", "aaaa", "ccc", "z"])")),
                   l, r);
@@ -2487,17 +2500,16 @@ TEST(TestStringBetweenKernel, StringArrayScalarScalarTest) {
                   l, r);
   ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
                                       R"(["abd", null, null, "zzx"])")),
-                  l, r); 
+                  l, r);
 }
 
 TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
-  ValidateBetween(
-      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                          R"(["david","hello","world"])")),
-      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                          R"(["adam","hi","whirl"])")),
-      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
-                          R"(["robert","goeiemoreen","whirlwind"])")));
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["david","hello","world"])")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["adam","hi","whirl"])")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["robert","goeiemoreen","whirlwind"])")));
   ValidateBetween(
       Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["x","a","f"])")),
       Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["w","a","e"])")),
@@ -2535,12 +2547,14 @@ TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
                   Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json)),
                   Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), rhs_json)));
   // Different timezones should be fine
-  ValidateBetween(Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json)),
-                  Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json)),
-                  Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json)));
-  ValidateBetween(Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json)),
-                  Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json)),
-                  Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json)));
+  ValidateBetween(
+      Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), arr_json)),
+      Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), lhs_json)),
+      Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), rhs_json)));
+  ValidateBetween(
+      Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), arr_json)),
+      Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), lhs_json)),
+      Datum(ArrayFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), rhs_json)));
   // Different units should be fine
   ValidateBetween(Datum(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json)),
                   Datum(ArrayFromJSON(timestamp(TimeUnit::MILLI), lhs_json)),
@@ -2559,8 +2573,8 @@ TEST(TestTimestampsBetweenKernel, TimestampsArrayArrayArrayTest) {
             "Cannot compare timestamp with timezone to timestamp without timezone"),
         Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), arr_json),
                 ArrayFromJSON(timestamp(TimeUnit::SECOND), lhs_json),
-                ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json), options,
-                nullptr));
+                ArrayFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), rhs_json),
+                options, nullptr));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr(
