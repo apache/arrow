@@ -68,7 +68,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json /arrow/cpp/
-RUN cd /arrow/cpp && vcpkg install --clean-after-build
+RUN cd arrow/cpp && vcpkg install --clean-after-build
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}

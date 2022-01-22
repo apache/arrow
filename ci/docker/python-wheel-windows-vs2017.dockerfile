@@ -48,34 +48,9 @@ ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
     VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
-    VCPKG_FEATURE_FLAGS=-manifests
-
-RUN vcpkg install --clean-after-build \
-        abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-filesystem \
-        boost-multiprecision \
-        boost-system \
-        brotli \
-        bzip2 \
-        c-ares \
-        curl \
-        flatbuffers \
-        gflags \
-        glog \
-        google-cloud-cpp[core,storage] \
-        grpc \
-        lz4 \
-        openssl \
-        orc \
-        protobuf \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift \
-        utf8proc \
-        zlib \
-        zstd
+    VCPKG_FEATURE_FLAGS="versions manifests"
+COPY cpp/vcpkg.json arrow/cpp/
+RUN cd arrow/cpp && vcpkg install --clean-after-build
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
