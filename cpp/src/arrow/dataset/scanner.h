@@ -51,8 +51,8 @@ namespace dataset {
 /// @{
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
-constexpr int32_t kDefaultBatchReadahead = 32;
-constexpr int32_t kDefaultFragmentReadahead = 8;
+constexpr int32_t kDefaultBatchReadahead = 4;
+constexpr int32_t kDefaultFragmentReadahead = 4;
 constexpr int32_t kDefaultBackpressureHigh = 64;
 constexpr int32_t kDefaultBackpressureLow = 32;
 
@@ -88,7 +88,6 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Set to 0 to disable batch readahead
   ///
   /// Note: May not be supported by all formats
-  /// Note: May not be supported by all scanners
   /// Note: Will be ignored if use_threads is set to false
   int32_t batch_readahead = kDefaultBatchReadahead;
 
