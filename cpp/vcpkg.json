@@ -37,6 +37,7 @@
     "gcs",
     "json",
     "orc",
+    "parquet",
     "s3"
   ],
   "features": {

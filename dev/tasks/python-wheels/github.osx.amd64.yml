@@ -81,7 +81,7 @@ jobs:
             --x-no-default-features \
             --x-feature=flight \
             --x-feature=gcs \
-            --x-feature=json {% if arrow_s3 %} --x-feature=s3 {% endif %} \
+            --x-feature=json {% if arrow_s3 %} --x-feature=s3 {% endif %}
 
       - name: Install Python {{ python_version }}
         shell: bash
