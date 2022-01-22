@@ -654,6 +654,11 @@ TEST(Grouper, DoubleNullStringKey) {
                   "[3, 4, 5, 6, 7, 3, 8, 9, 2]");
 }
 
+TEST(Grouper, EmptyNullKeys) {
+  TestGrouper g({null()});
+  g.ExpectConsume("[]", "[]");
+}
+
 TEST(Grouper, MakeGroupings) {
   auto ExpectGroupings = [](std::string ids_json, std::string expected_json) {
     auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));
