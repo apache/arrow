@@ -432,6 +432,10 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("2000-06-27 00:00:00"));
 
   EXPECT_EQ(add_timestamp_month_interval(context_ptr,
+                                         StringToTimestamp("2000-02-27 00:00:00"), INT16_MAX),
+            StringToTimestamp("4730-09-27 00:00:00"));
+
+  EXPECT_EQ(add_timestamp_month_interval(context_ptr,
                                          StringToTimestamp("1969-02-27 00:00:00"), 4),
             StringToTimestamp("1969-06-27 00:00:00"));
 
@@ -456,6 +460,11 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_date64_month_interval(context_ptr,
                                       castDATE_utf8(context_ptr, "2000-01-29", 10), 1),
             StringToTimestamp("2000-02-29 00:00:00"));
+  context.Reset();
+
+  EXPECT_EQ(add_date64_month_interval(context_ptr,
+                                      castDATE_utf8(context_ptr, "2000-02-27", 10), INT16_MAX),
+            StringToTimestamp("4730-09-27 00:00:00"));
   context.Reset();
 
   EXPECT_EQ(add_date64_day_time_interval(context_ptr,
@@ -515,6 +524,10 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(subtract_timestamp_month_interval(
                 context_ptr, StringToTimestamp("2000-03-29 00:00:00"), 1),
             StringToTimestamp("2000-02-29 00:00:00"));
+
+  EXPECT_EQ(subtract_timestamp_month_interval(
+      context_ptr, StringToTimestamp("4730-09-27 00:00:00"), INT16_MAX),
+            StringToTimestamp("2000-02-27 00:00:00"));
 
   EXPECT_EQ(subtract_timestamp_month_interval(
                 context_ptr, StringToTimestamp("1969-02-27 00:00:00"), 4),

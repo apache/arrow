@@ -201,7 +201,7 @@ TIMESTAMP_DIFF(timestamp)
 
 #define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                    \
   FORCE_INLINE                                                                          \
-  gdv_##TYPE NAME##_##TYPE##_month_interval(int64_t context_ptr, gdv_##TYPE millis,     \
+  gdv_timestamp NAME##_##TYPE##_month_interval(int64_t context_ptr, gdv_##TYPE millis,     \
                                             gdv_year_month_interval count) {            \
     if (count < 0) {                                                                    \
       gdv_fn_context_set_error_msg(                                                     \
@@ -210,7 +210,7 @@ TIMESTAMP_DIFF(timestamp)
       return -1;                                                                        \
     }                                                                                   \
     EpochTimePoint tp(millis);                                                          \
-    return static_cast<gdv_##TYPE>(tp.AddMonths(TO_MILLIS * count).MillisSinceEpoch()); \
+    return tp.AddMonths(TO_MILLIS * count).MillisSinceEpoch(); \
   }
 
 #define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE, NAME, TO_MILLIS)                             \
