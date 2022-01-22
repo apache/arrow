@@ -55,9 +55,6 @@ export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
-vcpkg remove orc
-
 mkdir -p "${build_dir}"
 pushd "${build_dir}"
 
