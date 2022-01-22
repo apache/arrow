@@ -66,3 +66,4 @@ new_r_version = [{'name': r_version + ".9000" + " (dev)", 'version':'dev/'}]
 new_r_version.extend(old_r_versions)
 with open(r_versions_path, 'w') as json_file:
     json.dump(new_r_version, json_file, indent = 4)
+    json_file.write("\n")
