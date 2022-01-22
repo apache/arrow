@@ -53,13 +53,14 @@ COPY ci/vcpkg/*.patch \
 COPY ci/scripts/install_vcpkg.sh \
      ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
-RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg} && \
+ENV VCPKG_ROOT=/opt/vcpkg
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
     if [ "${manylinux}" == "2010" ]; then \
         arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc} && \
-        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
-        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg; \
+        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 ${VCPKG_ROOT}/vcpkg && \
+        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 ${VCPKG_ROOT}/vcpkg; \
     fi
-ENV PATH="/opt/vcpkg:${PATH}"
+ENV PATH="${VCPKG_ROOT}:${PATH}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
@@ -68,7 +69,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json /arrow/cpp/
-RUN cd arrow/cpp && vcpkg install --clean-after-build
+RUN cd arrow/cpp && vcpkg install --clean-after-build --x-install-root=${VCPKG_ROOT}/installed
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}

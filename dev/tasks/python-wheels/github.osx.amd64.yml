@@ -73,7 +73,7 @@ jobs:
         run: vcpkg install openssl
 
       - name: Install Packages
-        run: cd arrow/cpp && vcpkg install --clean-after-build
+        run: cd arrow/cpp && vcpkg install --clean-after-build --x-install-root=/opt/vcpkg/installed
 
       - name: Install Python {{ python_version }}
         shell: bash

@@ -36,8 +36,9 @@ COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+ENV VCPKG_ROOT=C:\vcpkg
 RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
-    setx PATH "%PATH%;C:\vcpkg"
+    setx PATH "%PATH%;%VCPKG_ROOT%"
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
@@ -50,7 +51,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json arrow/cpp/
-RUN cd arrow/cpp && vcpkg install --clean-after-build
+RUN cd arrow/cpp && vcpkg install --clean-after-build --x-install-root=%VCPKG_ROOT%\installed
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7

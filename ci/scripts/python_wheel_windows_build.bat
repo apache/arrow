@@ -84,7 +84,6 @@ cmake ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DORC_SOURCE=BUNDLED ^
     -DORC_PROTOBUF_EXECUTABLE=%VCPKG_ROOT%\installed\%VCGPK_TARGET_TRIPLET%\tools\protobuf\protoc.exe ^
-    -DVCPKG_MANIFEST_MODE=OFF ^
     -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
     C:\arrow\cpp || exit /B 1
