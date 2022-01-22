@@ -791,29 +791,32 @@ gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in);
 
 gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in);
 
-gdv_timestamp add_date64_day_time_interval(gdv_date64 millis,
+gdv_timestamp add_date64_day_time_interval(int64_t context_ptr, gdv_date64 millis,
                                            gdv_day_time_interval count);
 
-gdv_timestamp add_timestamp_day_time_interval(gdv_timestamp millis,
+gdv_timestamp add_timestamp_day_time_interval(int64_t context_ptr, gdv_timestamp millis,
                                               gdv_day_time_interval count);
 
-gdv_timestamp add_date64_month_interval(gdv_date64 millis, gdv_year_month_interval count);
+gdv_timestamp add_date64_month_interval(int64_t context_ptr, gdv_date64 millis,
+                                        gdv_year_month_interval count);
 
-gdv_timestamp add_timestamp_month_interval(gdv_timestamp millis,
+gdv_timestamp add_timestamp_month_interval(int64_t context_ptr, gdv_timestamp millis,
                                            gdv_year_month_interval count);
 
-gdv_time32 add_time32_day_time_interval(gdv_time32 millis, gdv_day_time_interval count);
+gdv_time32 add_time32_day_time_interval(int64_t context_ptr, gdv_time32 millis,
+                                        gdv_day_time_interval count);
 
-gdv_timestamp subtract_date64_day_time_interval(gdv_date64 millis,
+gdv_timestamp subtract_date64_day_time_interval(int64_t context_ptr, gdv_date64 millis,
                                                 gdv_day_time_interval count);
 
-gdv_timestamp subtract_timestamp_day_time_interval(gdv_timestamp millis,
+gdv_timestamp subtract_timestamp_day_time_interval(int64_t context_ptr,
+                                                   gdv_timestamp millis,
                                                    gdv_day_time_interval count);
 
-gdv_timestamp subtract_timestamp_month_interval(gdv_timestamp millis,
+gdv_timestamp subtract_timestamp_month_interval(int64_t context_ptr, gdv_timestamp millis,
                                                 gdv_year_month_interval count);
 
-gdv_time32 subtract_time32_day_time_interval(gdv_time32 millis,
+gdv_time32 subtract_time32_day_time_interval(int64_t context_ptr, gdv_time32 millis,
                                              gdv_day_time_interval count);
 
 }  // extern "C"

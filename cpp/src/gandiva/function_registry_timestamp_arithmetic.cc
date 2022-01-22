@@ -50,23 +50,27 @@ namespace gandiva {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, int64, date64),       \
       BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, int64, timestamp)
 
-#define INTERVAL_ADD_FNS(name, ALIASES)                                                  \
-  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval, timestamp), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval,      \
-                                       timestamp),                                       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, month_interval,            \
-                                       timestamp),                                       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval,         \
-                                       timestamp),                                       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval, time32)
+#define INTERVAL_ADD_FNS(name, ALIASES)                                               \
+  BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval,        \
+                                     timestamp),                                      \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval, \
+                                         timestamp),                                  \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, date64, month_interval,       \
+                                         timestamp),                                  \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval,    \
+                                         timestamp),                                  \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval,    \
+                                         time32)
 
-#define INTERVAL_DIFF_FNS(name, ALIASES)                                                 \
-  BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval, timestamp), \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval,      \
-                                       timestamp),                                       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval,         \
-                                       timestamp),                                       \
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval, time32)
+#define INTERVAL_DIFF_FNS(name, ALIASES)                                              \
+  BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, timestamp, month_interval,        \
+                                     timestamp),                                      \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, timestamp, day_time_interval, \
+                                         timestamp),                                  \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, date64, day_time_interval,    \
+                                         timestamp),                                  \
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(name, ALIASES, time32, day_time_interval,    \
+                                         time32)
 
 std::vector<NativeFunction> GetDateTimeArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> datetime_fn_registry_ = {

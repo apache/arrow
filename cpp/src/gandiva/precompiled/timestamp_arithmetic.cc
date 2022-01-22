@@ -183,28 +183,46 @@ TIMESTAMP_DIFF(timestamp)
     return millis + TO_MILLIS * static_cast<gdv_##TYPE>(count);          \
   }
 
-#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)               \
-  FORCE_INLINE                                                                   \
-  gdv_timestamp NAME##_##TYPE##_day_time_interval(gdv_##TYPE millis,             \
-                                                  gdv_day_time_interval count) { \
-    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);             \
-    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);        \
-    return static_cast<gdv_timestamp>(millis) +                                  \
-           (day_interval_days * TO_MILLIS + day_interval_millis);                \
+#define ADD_DAY_TIME_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                \
+  FORCE_INLINE                                                                    \
+  gdv_timestamp NAME##_##TYPE##_day_time_interval(                                \
+      int64_t context_ptr, gdv_##TYPE millis, gdv_day_time_interval count) {      \
+    if (count < 0) {                                                              \
+      gdv_fn_context_set_error_msg(                                               \
+          context_ptr, "a day time interval field can not be a negative number"); \
+                                                                                  \
+      return -1;                                                                  \
+    }                                                                             \
+    gdv_int64 day_interval_days = extractDay_daytimeinterval(count);              \
+    gdv_int64 day_interval_millis = extractMillis_daytimeinterval(count);         \
+    return static_cast<gdv_timestamp>(millis) +                                   \
+           (day_interval_days * TO_MILLIS + day_interval_millis);                 \
   }
 
 #define ADD_YEAR_MONTH_INTERVAL_TO_DATE_TYPES(TYPE, NAME, TO_MILLIS)                    \
   FORCE_INLINE                                                                          \
-  gdv_##TYPE NAME##_##TYPE##_month_interval(gdv_##TYPE millis,                          \
+  gdv_##TYPE NAME##_##TYPE##_month_interval(int64_t context_ptr, gdv_##TYPE millis,     \
                                             gdv_year_month_interval count) {            \
+    if (count < 0) {                                                                    \
+      gdv_fn_context_set_error_msg(                                                     \
+          context_ptr, "a year month interval field can not be a negative number");     \
+                                                                                        \
+      return -1;                                                                        \
+    }                                                                                   \
     EpochTimePoint tp(millis);                                                          \
     return static_cast<gdv_##TYPE>(tp.AddMonths(TO_MILLIS * count).MillisSinceEpoch()); \
   }
 
 #define ADD_DAY_TIME_INTERVAL_TO_TIME(TYPE, NAME, TO_MILLIS)                             \
   FORCE_INLINE                                                                           \
-  gdv_time32 NAME##_time32_day_time_interval(gdv_time32 millis,                          \
+  gdv_time32 NAME##_time32_day_time_interval(int64_t context_ptr, gdv_time32 millis,     \
                                              gdv_day_time_interval count) {              \
+    if (count < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(                                                      \
+          context_ptr, "a day time interval field can not be a negative number");        \
+                                                                                         \
+      return -1;                                                                         \
+    }                                                                                    \
     millis += static_cast<gdv_time32>(extractMillis_daytimeinterval(count)) * TO_MILLIS; \
     return millis % MILLIS_IN_DAY;                                                       \
   }

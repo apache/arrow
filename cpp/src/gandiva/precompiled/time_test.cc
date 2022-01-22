@@ -427,28 +427,57 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(add_date64_int64(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_month_interval(StringToTimestamp("2000-02-27 00:00:00"), 4),
+  EXPECT_EQ(add_timestamp_month_interval(context_ptr,
+                                         StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-06-27 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_month_interval(StringToTimestamp("1969-02-27 00:00:00"), 4),
+  EXPECT_EQ(add_timestamp_month_interval(context_ptr,
+                                         StringToTimestamp("1969-02-27 00:00:00"), 4),
             StringToTimestamp("1969-06-27 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_day_time_interval(StringToTimestamp("2000-02-27 00:00:00"), 4),
+  EXPECT_EQ(add_timestamp_day_time_interval(context_ptr,
+                                            StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_day_time_interval(StringToTimestamp("1968-02-27 00:00:00"), 4),
+  EXPECT_EQ(add_timestamp_day_time_interval(context_ptr,
+                                            StringToTimestamp("1968-02-27 00:00:00"), 4),
             StringToTimestamp("1968-03-02 00:00:00"));
 
-  EXPECT_EQ(add_date64_month_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+  EXPECT_EQ(add_date64_month_interval(context_ptr,
+                                      castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
             StringToTimestamp("2001-01-23 00:00:00"));
 
-  EXPECT_EQ(add_date64_day_time_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+  EXPECT_EQ(add_date64_day_time_interval(context_ptr,
+                                         castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
             StringToTimestamp("2000-09-27 00:00:00"));
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
-  EXPECT_EQ(add_time32_day_time_interval(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
+  EXPECT_EQ(add_time32_day_time_interval(context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
                                          77309411328000001),
             MILLIS_IN_DAY - 5 * MILLIS_IN_HOUR);
+
+  add_timestamp_month_interval(context_ptr, StringToTimestamp("2000-02-27 00:00:00"), -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  add_timestamp_day_time_interval(context_ptr, StringToTimestamp("2000-02-27 00:00:00"),
+                                  -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  add_date64_month_interval(context_ptr, castDATE_utf8(context_ptr, "2000-09-23", 10),
+                            -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  add_date64_day_time_interval(context_ptr, castDATE_utf8(context_ptr, "2000-09-23", 10),
+                               -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  add_time32_day_time_interval(context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR, -1);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
 
   // date_sub
   EXPECT_EQ(date_sub_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
@@ -466,34 +495,51 @@ TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(date_diff_timestamp_int64(StringToTimestamp("2000-02-29 00:00:00"), 365),
             StringToTimestamp("1999-03-01 00:00:00"));
 
-  EXPECT_EQ(
-      subtract_timestamp_month_interval(StringToTimestamp("2000-02-27 00:00:00"), 4),
-      StringToTimestamp("1999-10-27 00:00:00"));
+  EXPECT_EQ(subtract_timestamp_month_interval(
+                context_ptr, StringToTimestamp("2000-02-27 00:00:00"), 4),
+            StringToTimestamp("1999-10-27 00:00:00"));
 
-  EXPECT_EQ(
-      subtract_timestamp_month_interval(StringToTimestamp("1969-02-27 00:00:00"), 4),
-      StringToTimestamp("1968-10-27 00:00:00"));
+  EXPECT_EQ(subtract_timestamp_month_interval(
+                context_ptr, StringToTimestamp("1969-02-27 00:00:00"), 4),
+            StringToTimestamp("1968-10-27 00:00:00"));
 
-  EXPECT_EQ(
-      subtract_timestamp_day_time_interval(StringToTimestamp("2000-03-04 00:00:00"), 4),
-      StringToTimestamp("2000-02-29 00:00:00"));
+  EXPECT_EQ(subtract_timestamp_day_time_interval(
+                context_ptr, StringToTimestamp("2000-02-27 00:00:00"), 4),
+            StringToTimestamp("2000-02-23 00:00:00"));
 
-  EXPECT_EQ(
-      subtract_timestamp_day_time_interval(StringToTimestamp("1968-03-04 00:00:00"), 4),
-      StringToTimestamp("1968-02-29 00:00:00"));
+  EXPECT_EQ(subtract_timestamp_day_time_interval(
+                context_ptr, StringToTimestamp("1968-03-04 00:00:00"), 4),
+            StringToTimestamp("1968-02-29 00:00:00"));
 
-  EXPECT_EQ(
-      subtract_timestamp_month_interval(StringToTimestamp("1972-03-04 00:00:00"), 52),
-      StringToTimestamp("1967-11-04 00:00:00"));
+  EXPECT_EQ(subtract_timestamp_month_interval(
+                context_ptr, StringToTimestamp("1972-03-04 00:00:00"), 52),
+            StringToTimestamp("1967-11-04 00:00:00"));
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
-  EXPECT_EQ(subtract_time32_day_time_interval(MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
-                                              77309411328000001),
+  EXPECT_EQ(subtract_time32_day_time_interval(
+                context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR, 77309411328000001),
             MILLIS_IN_DAY - 15 * MILLIS_IN_HOUR);
 
-  EXPECT_EQ(
-      subtract_date64_day_time_interval(castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
-      StringToTimestamp("2000-09-19 00:00:00"));
+  EXPECT_EQ(subtract_date64_day_time_interval(
+                context_ptr, castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
+            StringToTimestamp("2000-09-19 00:00:00"));
+
+  subtract_timestamp_month_interval(context_ptr, StringToTimestamp("2000-02-27 00:00:00"),
+                                    -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  subtract_timestamp_day_time_interval(context_ptr,
+                                       StringToTimestamp("2000-02-27 00:00:00"), -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+  subtract_date64_day_time_interval(context_ptr,
+                                    castDATE_utf8(context_ptr, "2000-09-23", 10), -4);
+  EXPECT_TRUE(context.has_error());
+  context.Reset();
+
+  subtract_time32_day_time_interval(context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR, -1);
+  EXPECT_TRUE(context.has_error());
   context.Reset();
 }
 
