@@ -36,7 +36,7 @@ COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
-ENV VCPKG_ROOT=C:\vcpkg
+ENV VCPKG_ROOT=C:\\vcpkg
 RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
     setx PATH "%PATH%;%VCPKG_ROOT%"
 
