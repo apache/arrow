@@ -70,13 +70,13 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 COPY cpp/vcpkg.json /arrow/cpp/
 RUN cd arrow/cpp && vcpkg install --clean-after-build
 
-# ARG python=3.8
-# ENV PYTHON_VERSION=${python}
-# RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
-#     echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
+ARG python=3.8
+ENV PYTHON_VERSION=${python}
+RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
+    echo "export PATH=$PYTHON_ROOT/bin:\$PATH" >> /etc/profile.d/python.sh
 
-# SHELL ["/bin/bash", "-i", "-c"]
-# ENTRYPOINT ["/bin/bash", "-i", "-c"]
+SHELL ["/bin/bash", "-i", "-c"]
+ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
-# COPY python/requirements-wheel-build.txt /arrow/python/
-# RUN pip install -r /arrow/python/requirements-wheel-build.txt
+COPY python/requirements-wheel-build.txt /arrow/python/
+RUN pip install -r /arrow/python/requirements-wheel-build.txt
