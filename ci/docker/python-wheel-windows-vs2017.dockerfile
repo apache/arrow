@@ -51,6 +51,11 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json arrow/cpp/
+# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
+# ssl related fixies as well as we can patch the vcpkg portfile to support
+# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
+# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
+# previous versions => use bundled S3 build
 RUN vcpkg install \
         --clean-after-build \
         --x-install-root=%VCPKG_ROOT%\installed \
@@ -59,8 +64,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet \
-        --x-feature=s3
+        --x-feature=parquet
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7

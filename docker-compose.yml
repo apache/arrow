@@ -881,11 +881,11 @@ services:
       # cache_from:
       #   - mcr.microsoft.com/windows/servercore:ltsc2019
       #   - ${REPO}:wheel-windows-vs2017
-    volumes:
-      - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
-      - type: bind
-        source: .
-        target: "C:/arrow"
+    # volumes:
+    #   - "${DOCKER_VOLUME_PREFIX}python-wheel-windows-clcache:C:/clcache"
+    #   - type: bind
+    #     source: .
+    #     target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
   # doesn't exit properly on fail

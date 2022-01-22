@@ -82,7 +82,7 @@ jobs:
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
-            --x-feature=parquet {% if arrow_s3 %} --x-feature=s3 {% endif %}
+            --x-feature=parquet
 
       - name: Install Python {{ python_version }}
         shell: bash
