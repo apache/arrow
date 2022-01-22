@@ -50,7 +50,7 @@ namespace dataset {
 ///
 /// @{
 
-constexpr int64_t kDefaultBatchSize = 1 << 20;
+constexpr int64_t kDefaultBatchSize = 1 << 16;
 constexpr int32_t kDefaultBatchReadahead = 4;
 constexpr int32_t kDefaultFragmentReadahead = 4;
 constexpr int32_t kDefaultBackpressureHigh = 64;
