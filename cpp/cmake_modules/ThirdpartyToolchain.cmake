@@ -79,7 +79,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
 # supported when building with MSVC because of the way that
 # conda-forge packages have 4 variants of the libraries packaged
 # together
-if(MSVC AND "${GTest_SOURCE}" STREQUAL "")
+if(MSVC AND "${GTest_SOURCE}" STREQUAL "" AND "${ARROW_DEPENDENCY_SOURCE}" STREQUAL "CONDA")
   set(GTest_SOURCE "BUNDLED")
 endif()
 
@@ -228,6 +228,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
     list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "AUTO")
+    message("Finding auto package with args: ${FIND_PACKAGE_ARGUMENTS}")
     find_package(${FIND_PACKAGE_ARGUMENTS})
     if(${${PACKAGE_NAME}_FOUND})
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
@@ -236,8 +237,10 @@ macro(resolve_dependency DEPENDENCY_NAME)
       set(${DEPENDENCY_NAME}_SOURCE "BUNDLED")
     endif()
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
+    message("Finding bundled package with args: ${FIND_PACKAGE_ARGUMENTS}")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
+    message("Finding package with args: ${FIND_PACKAGE_ARGUMENTS}")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
   endif()
   if(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM" AND ARG_IS_RUNTIME_DEPENDENCY)
