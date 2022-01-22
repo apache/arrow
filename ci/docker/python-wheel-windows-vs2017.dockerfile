@@ -59,6 +59,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
+        --x-feature=parquet \
         --x-feature=s3
 
 # Remove previous installations of python from the base image

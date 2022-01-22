@@ -77,6 +77,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
+        --x-feature=parquet \
         --x-feature=s3
 
 ARG python=3.8
