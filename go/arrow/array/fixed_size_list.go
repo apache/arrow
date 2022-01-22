@@ -33,18 +33,18 @@ import (
 type FixedSizeList struct {
 	array
 	n      int32
-	values Interface
+	values arrow.Array
 }
 
 // NewFixedSizeListData returns a new List array value, from data.
-func NewFixedSizeListData(data *Data) *FixedSizeList {
+func NewFixedSizeListData(data arrow.ArrayData) *FixedSizeList {
 	a := &FixedSizeList{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *FixedSizeList) ListValues() Interface { return a.values }
+func (a *FixedSizeList) ListValues() arrow.Array { return a.values }
 
 func (a *FixedSizeList) String() string {
 	o := new(strings.Builder)
@@ -65,7 +65,7 @@ func (a *FixedSizeList) String() string {
 	return o.String()
 }
 
-func (a *FixedSizeList) newListValue(i int) Interface {
+func (a *FixedSizeList) newListValue(i int) arrow.Array {
 	n := int64(a.n)
 	off := int64(a.array.data.offset)
 	beg := (off + int64(i)) * n
@@ -240,7 +240,7 @@ func (b *FixedSizeListBuilder) ValueBuilder() Builder {
 
 // NewArray creates a List array from the memory buffers used by the builder and resets the FixedSizeListBuilder
 // so it can be used to build a new array.
-func (b *FixedSizeListBuilder) NewArray() Interface {
+func (b *FixedSizeListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
 }
 
@@ -260,7 +260,7 @@ func (b *FixedSizeListBuilder) newData() (data *Data) {
 	data = NewData(
 		arrow.FixedSizeListOf(b.n, b.etype), b.length,
 		[]*memory.Buffer{b.nullBitmap},
-		[]*Data{values.Data()},
+		[]arrow.ArrayData{values.Data()},
 		b.nulls,
 		0,
 	)

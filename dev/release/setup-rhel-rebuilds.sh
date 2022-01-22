@@ -51,6 +51,7 @@ dnf -y install \
   python3-pip \
   python3-pip \
   ruby-devel \
+  sqlite-devel \
   wget \
   which
 npm install -g yarn

@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/adapters/orc/util.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
@@ -92,8 +92,7 @@ namespace orc {
 
 namespace {
 
-// The following are required by ORC to be uint64_t
-constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
+// The following is required by ORC to be uint64_t
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 using internal::checked_cast;
@@ -215,7 +214,73 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfStripes() { return stripes_.size(); }
 
-  int64_t NumberOfRows() { return reader_->getNumberOfRows(); }
+  int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
+
+  FileVersion GetFileVersion() {
+    liborc::FileVersion orc_file_version = reader_->getFormatVersion();
+    return FileVersion(orc_file_version.getMajor(), orc_file_version.getMinor());
+  }
+
+  Result<Compression::type> GetCompression() {
+    liborc::CompressionKind orc_compression = reader_->getCompression();
+    switch (orc_compression) {
+      case liborc::CompressionKind::CompressionKind_NONE:
+        return Compression::UNCOMPRESSED;
+      case liborc::CompressionKind::CompressionKind_ZLIB:
+        return Compression::GZIP;
+      case liborc::CompressionKind::CompressionKind_SNAPPY:
+        return Compression::SNAPPY;
+      case liborc::CompressionKind::CompressionKind_LZ4:
+        return Compression::LZ4;
+      case liborc::CompressionKind::CompressionKind_ZSTD:
+        return Compression::ZSTD;
+      default:
+        // liborc::CompressionKind::CompressionKind_MAX isn't really a compression type
+        return Status::Invalid("Compression type not supported by Arrow");
+    }
+  }
+
+  std::string GetSoftwareVersion() { return reader_->getSoftwareVersion(); }
+
+  int64_t GetCompressionSize() {
+    return static_cast<int64_t>(reader_->getCompressionSize());
+  }
+
+  int64_t GetRowIndexStride() {
+    return static_cast<int64_t>(reader_->getRowIndexStride());
+  }
+
+  WriterId GetWriterId() {
+    return static_cast<WriterId>(static_cast<int8_t>(reader_->getWriterId()));
+  }
+
+  int32_t GetWriterIdValue() { return static_cast<int32_t>(reader_->getWriterIdValue()); }
+
+  WriterVersion GetWriterVersion() {
+    return static_cast<WriterVersion>(static_cast<int8_t>(reader_->getWriterVersion()));
+  }
+
+  int64_t GetNumberOfStripeStatistics() {
+    return static_cast<int64_t>(reader_->getNumberOfStripeStatistics());
+  }
+
+  int64_t GetContentLength() { return static_cast<int64_t>(reader_->getContentLength()); }
+
+  int64_t GetStripeStatisticsLength() {
+    return static_cast<int64_t>(reader_->getStripeStatisticsLength());
+  }
+
+  int64_t GetFileFooterLength() {
+    return static_cast<int64_t>(reader_->getFileFooterLength());
+  }
+
+  int64_t GetFilePostscriptLength() {
+    return static_cast<int64_t>(reader_->getFilePostscriptLength());
+  }
+
+  int64_t GetFileLength() { return static_cast<int64_t>(reader_->getFileLength()); }
+
+  std::string GetSerializedFileTail() { return reader_->getSerializedFileTail(); }
 
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     const liborc::Type& type = reader_->getType();
@@ -592,6 +657,46 @@ int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
 
+FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
+
+std::string ORCFileReader::GetSoftwareVersion() { return impl_->GetSoftwareVersion(); }
+
+Result<Compression::type> ORCFileReader::GetCompression() {
+  return impl_->GetCompression();
+}
+
+int64_t ORCFileReader::GetCompressionSize() { return impl_->GetCompressionSize(); }
+
+int64_t ORCFileReader::GetRowIndexStride() { return impl_->GetRowIndexStride(); }
+
+WriterId ORCFileReader::GetWriterId() { return impl_->GetWriterId(); }
+
+int32_t ORCFileReader::GetWriterIdValue() { return impl_->GetWriterIdValue(); }
+
+WriterVersion ORCFileReader::GetWriterVersion() { return impl_->GetWriterVersion(); }
+
+int64_t ORCFileReader::GetNumberOfStripeStatistics() {
+  return impl_->GetNumberOfStripeStatistics();
+}
+
+int64_t ORCFileReader::GetContentLength() { return impl_->GetContentLength(); }
+
+int64_t ORCFileReader::GetStripeStatisticsLength() {
+  return impl_->GetStripeStatisticsLength();
+}
+
+int64_t ORCFileReader::GetFileFooterLength() { return impl_->GetFileFooterLength(); }
+
+int64_t ORCFileReader::GetFilePostscriptLength() {
+  return impl_->GetFilePostscriptLength();
+}
+
+int64_t ORCFileReader::GetFileLength() { return impl_->GetFileLength(); }
+
+std::string ORCFileReader::GetSerializedFileTail() {
+  return impl_->GetSerializedFileTail();
+}
+
 namespace {
 
 class ArrowOutputStream : public liborc::OutputStream {
@@ -628,41 +733,85 @@ class ArrowOutputStream : public liborc::OutputStream {
   int64_t length_;
 };
 
+Result<liborc::WriterOptions> MakeOrcWriterOptions(
+    arrow::adapters::orc::WriteOptions options) {
+  liborc::WriterOptions orc_options;
+  orc_options.setFileVersion(
+      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major()),
+                          static_cast<uint32_t>(options.file_version.minor())));
+  orc_options.setStripeSize(static_cast<uint64_t>(options.stripe_size));
+  orc_options.setCompressionBlockSize(
+      static_cast<uint64_t>(options.compression_block_size));
+  orc_options.setCompressionStrategy(static_cast<liborc::CompressionStrategy>(
+      static_cast<int8_t>(options.compression_strategy)));
+  orc_options.setRowIndexStride(static_cast<uint64_t>(options.row_index_stride));
+  orc_options.setPaddingTolerance(options.padding_tolerance);
+  orc_options.setDictionaryKeySizeThreshold(options.dictionary_key_size_threshold);
+  std::set<uint64_t> orc_bloom_filter_columns;
+  std::for_each(options.bloom_filter_columns.begin(), options.bloom_filter_columns.end(),
+                [&orc_bloom_filter_columns](const int64_t col) {
+                  orc_bloom_filter_columns.insert(static_cast<uint64_t>(col));
+                });
+  orc_options.setColumnsUseBloomFilter(std::move(orc_bloom_filter_columns));
+  orc_options.setBloomFilterFPP(options.bloom_filter_fpp);
+  switch (options.compression) {
+    case Compression::UNCOMPRESSED:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_NONE);
+      break;
+    case Compression::GZIP:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZLIB);
+      break;
+    case Compression::SNAPPY:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_SNAPPY);
+      break;
+    case Compression::LZ4:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_LZ4);
+      break;
+    case Compression::ZSTD:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZSTD);
+      break;
+    default:
+      return Status::Invalid("Compression type not supported by ORC");
+  }
+  return orc_options;
+}
+
 }  // namespace
 
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream* output_stream) {
+  Status Open(arrow::io::OutputStream* output_stream, const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
+    write_options_ = write_options;
     return Status::OK();
   }
 
   Status Write(const Table& table) {
-    std::unique_ptr<liborc::WriterOptions> orc_options =
-        std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
     ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
+    ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+    auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
     ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options))
+        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), orc_options))
 
     int64_t num_rows = table.num_rows();
-    const int num_cols_ = table.num_columns();
-    std::vector<int64_t> arrow_index_offset(num_cols_, 0);
-    std::vector<int> arrow_chunk_offset(num_cols_, 0);
+    const int num_cols = table.num_columns();
+    std::vector<int64_t> arrow_index_offset(num_cols, 0);
+    std::vector<int> arrow_chunk_offset(num_cols, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(kOrcWriterBatchSize);
+        writer_->createRowBatch(batch_size);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
-      for (int i = 0; i < num_cols_; i++) {
+      for (int i = 0; i < num_cols; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), kOrcWriterBatchSize, &(arrow_chunk_offset[i]),
+            *(table.column(i)), batch_size, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= kOrcWriterBatchSize;
+      num_rows -= batch_size;
     }
     return Status::OK();
   }
@@ -675,6 +824,7 @@ class ORCFileWriter::Impl {
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  WriteOptions write_options_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -682,10 +832,10 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream* output_stream) {
+    io::OutputStream* output_stream, const WriteOptions& writer_options) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  Status status = result->impl_->Open(output_stream);
+  Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
   return std::move(result);
 }

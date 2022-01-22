@@ -15,20 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// import * as fs from 'fs';
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../data/tables';
+import { generateRandomTables } from '../../data/tables.js';
+import { ArrowIOTestHelper } from './helpers.js';
 
-import { ArrowIOTestHelper } from './helpers';
-import { MessageReader, AsyncMessageReader } from 'apache-arrow';
+import { AsyncMessageReader, MessageReader } from 'apache-arrow';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 
     const io = ArrowIOTestHelper.stream(table);
     const name = `[\n ${table.schema.fields.join(',\n ')}\n]`;
-    const numMessages = table.chunks.reduce((numMessages, batch) => {
+    const numMessages = table.batches.reduce((numMessages, batch) => {
         return numMessages +
             /* recordBatch message */ 1 +
             /* dictionary messages */ batch.dictionaries.size;
@@ -59,7 +55,7 @@ for (const table of generateRandomTables([10, 20, 30])) {
 export function validateMessageReader(numMessages: number, source: any) {
     const reader = new MessageReader(source);
     let index = 0;
-    for (let message of reader) {
+    for (const message of reader) {
 
         if (index === 0) {
             expect(message.isSchema()).toBe(true);
@@ -85,7 +81,7 @@ export function validateMessageReader(numMessages: number, source: any) {
 export async function validateAsyncMessageReader(numMessages: number, source: any) {
     const reader = new AsyncMessageReader(source);
     let index = 0;
-    for await (let message of reader) {
+    for await (const message of reader) {
 
         if (index === 0) {
             expect(message.isSchema()).toBe(true);

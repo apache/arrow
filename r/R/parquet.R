@@ -577,6 +577,12 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
     },
     set_read_dictionary = function(column_index, read_dict) {
       parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
+    },
+    coerce_int96_timestamp_unit = function() {
+      parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(self)
+    },
+    set_coerce_int96_timestamp_unit = function(unit) {
+      parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(self, unit)
     }
   ),
   active = list(

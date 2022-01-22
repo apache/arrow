@@ -21,7 +21,6 @@ import (
 	"io"
 
 	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v7/arrow/memory"
@@ -323,7 +322,7 @@ func (f *FileWriter) Close() error {
 	return nil
 }
 
-func (f *FileWriter) Write(rec array.Record) error {
+func (f *FileWriter) Write(rec arrow.Record) error {
 	schema := rec.Schema()
 	if schema == nil || !schema.Equal(f.schema) {
 		return errInconsistentSchema

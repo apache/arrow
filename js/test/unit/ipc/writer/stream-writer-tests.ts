@@ -16,26 +16,35 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    generateDictionaryTables
-} from '../../../data/tables';
+    generateDictionaryTables,
+    generateRandomTables
+} from '../../../data/tables.js';
+import * as generate from '../../../generate-test-data.js';
+import { validateRecordBatchIterator } from '../validate.js';
 
-import * as generate from '../../../generate-test-data';
-import { validateRecordBatchIterator } from '../validate';
-import { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
-import { DictionaryVector, Dictionary, Uint32, Int32 } from 'apache-arrow';
-import { Table, Schema, Field, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from 'apache-arrow';
+import type { RecordBatchStreamWriterOptions } from 'apache-arrow/ipc/writer';
+import {
+    builderThroughIterable,
+    Dictionary,
+    Field,
+    Int32,
+    RecordBatch,
+    RecordBatchReader,
+    RecordBatchStreamWriter,
+    Schema,
+    Table,
+    Uint32,
+    Vector
+} from 'apache-arrow';
 
 describe('RecordBatchStreamWriter', () => {
 
-    (() => {
-        const type = generate.sparseUnion(0, 0).vector.type;
-        const schema = new Schema([new Field('dictSparseUnion', type)]);
-        const table = generate.table([10, 20, 30], schema).table;
-        const testName = `[${table.schema.fields.join(', ')}]`;
-        testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
-        testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
-    })();
+    const type = generate.sparseUnion(0, 0).vector.type;
+    const schema = new Schema([new Field('dictSparseUnion', type)]);
+    const table = generate.table([10, 20, 30], schema).table;
+    const testName = `[${table.schema.fields.join(', ')}]`;
+    testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
+    testStreamWriter(table, testName, { writeLegacyIpcFormat: false });
 
     for (const table of generateRandomTables([10, 20, 30])) {
         const testName = `[${table.schema.fields.join(', ')}]`;
@@ -55,14 +64,14 @@ describe('RecordBatchStreamWriter', () => {
         const validate = (async () => {
             for await (const reader of RecordBatchReader.readAll(writer)) {
                 const sourceTable = tables.shift()!;
-                const streamTable = await Table.from(reader);
+                const streamTable = new Table(await reader.readAll());
                 expect(streamTable).toEqualTable(sourceTable);
             }
         })();
         for (const table of generateRandomTables([10, 20, 30])) {
             tables.push(table);
-            await writer.writeAll((async function*() {
-                for (const chunk of table.chunks) {
+            await writer.writeAll((async function* () {
+                for (const chunk of table.batches) {
                     yield chunk; // insert some asynchrony
                     await new Promise((r) => setTimeout(r, 1));
                 }
@@ -75,33 +84,35 @@ describe('RecordBatchStreamWriter', () => {
     it('should write delta dictionary batches', async () => {
 
         const name = 'dictionary_encoded_uint32';
-        const chunks: DictionaryVector<Uint32, Int32>[] = [];
+        const chunks: Vector<Dictionary<Uint32, Int32>>[] = [];
         const {
             vector: sourceVector, values: sourceValues,
         } = generate.dictionary(1000, 20, new Uint32(), new Int32());
 
         const writer = RecordBatchStreamWriter.writeAll((function* () {
-            const transform = Builder.throughIterable({
+            const transform = builderThroughIterable({
                 type: sourceVector.type, nullValues: [null],
                 queueingStrategy: 'count', highWaterMark: 50,
             });
             for (const chunk of transform(sourceValues())) {
                 chunks.push(chunk);
-                yield RecordBatch.new({ [name]: chunk });
+                yield new RecordBatch({ [name]: chunk.data[0] });
             }
         })());
 
-        expect(Chunked.concat(chunks)).toEqualVector(sourceVector);
+        expect(new Vector(chunks)).toEqualVector(sourceVector);
 
         type T = { [name]: Dictionary<Uint32, Int32> };
-        const sourceTable = Table.new({ [name]: sourceVector });
-        const resultTable = await Table.from<T>(writer.toUint8Array());
+        const sourceTable = new Table({ [name]: sourceVector });
+        const resultTable = new Table(RecordBatchReader.from<T>(await writer.toUint8Array()));
 
-        const { dictionary } = resultTable.getColumn(name);
+        const child = resultTable.getChild(name)!;
+        const dicts = child.data.map(({ dictionary }) => dictionary!);
+        const dictionary = dicts[child.data.length - 1];
 
         expect(resultTable).toEqualTable(sourceTable);
-        expect((dictionary as Chunked)).toBeInstanceOf(Chunked);
-        expect((dictionary as Chunked).chunks).toHaveLength(20);
+        expect(dictionary).toBeInstanceOf(Vector);
+        expect(dictionary.data).toHaveLength(20);
     });
 });
 
@@ -113,7 +124,8 @@ function testStreamWriter(table: Table, name: string, options: RecordBatchStream
 
 async function validateTable(source: Table, options: RecordBatchStreamWriterOptions) {
     const writer = RecordBatchStreamWriter.writeAll(source, options);
-    const result = await Table.from(writer.toUint8Array());
-    validateRecordBatchIterator(3, source.chunks);
+    const reader = RecordBatchReader.from(await writer.toUint8Array());
+    const result = new Table(...reader);
+    validateRecordBatchIterator(3, source.batches);
     expect(result).toEqualTable(source);
 }

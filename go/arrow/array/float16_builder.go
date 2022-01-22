@@ -138,7 +138,7 @@ func (b *Float16Builder) Resize(n int) {
 
 // NewArray creates a Float16 array from the memory buffers used by the builder and resets the Float16Builder
 // so it can be used to build a new array.
-func (b *Float16Builder) NewArray() Interface {
+func (b *Float16Builder) NewArray() arrow.Array {
 	return b.NewFloat16Array()
 }
 

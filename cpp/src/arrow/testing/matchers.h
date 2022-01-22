@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <gmock/gmock-matchers.h>
 
 #include "arrow/datum.h"
@@ -27,6 +29,37 @@
 #include "arrow/util/future.h"
 
 namespace arrow {
+
+class PointeesEqualMatcher {
+ public:
+  template <typename PtrPair>
+  operator testing::Matcher<PtrPair>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const PtrPair&> {
+      void DescribeTo(::std::ostream* os) const override { *os << "pointees are equal"; }
+
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "pointees are not equal";
+      }
+
+      bool MatchAndExplain(const PtrPair& pair,
+                           testing::MatchResultListener* listener) const override {
+        const auto& first = *std::get<0>(pair);
+        const auto& second = *std::get<1>(pair);
+        const bool match = first.Equals(second);
+        *listener << "whose pointees " << testing::PrintToString(first) << " and "
+                  << testing::PrintToString(second)
+                  << (match ? " are equal" : " are not equal");
+        return match;
+      }
+    };
+
+    return testing::Matcher<PtrPair>(new Impl());
+  }
+};
+
+// A matcher that checks that the values pointed to are Equals().
+// Useful in conjunction with other googletest matchers.
+inline PointeesEqualMatcher PointeesEqual() { return {}; }
 
 template <typename ResultMatcher>
 class FutureMatcher {

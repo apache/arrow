@@ -493,7 +493,7 @@ cdef class ConvertOptions(_Weakrefable):
     ----------
     check_utf8 : bool, optional (default True)
         Whether to check UTF8 validity of string columns.
-    column_types : pa.Schema or dict, optional
+    column_types : pyarrow.Schema or dict, optional
         Explicitly map column names to column types. Passing this argument
         disables type inference on the defined columns.
     null_values : list, optional

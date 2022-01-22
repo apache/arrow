@@ -605,7 +605,7 @@ Class for incrementally building a Parquet file for Arrow tables.
 Parameters
 ----------
 where : path or file-like object
-schema : arrow Schema
+schema : pyarrow.Schema
 {}
 writer_engine_version : unused
 **options : dict
@@ -1039,7 +1039,8 @@ class ParquetPartitions:
         Record a partition value at a particular level, returning the distinct
         code for that value at that level.
 
-        Example:
+        Examples
+        --------
 
         partitions.get_index(1, 'foo', 'a') returns 0
         partitions.get_index(1, 'foo', 'b') returns 1
@@ -1281,7 +1282,8 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : Partitioning or str or list of str, default "hive"
+partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
@@ -2044,7 +2046,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
     "\n".join((_read_docstring_common,
-               """**kwargs : additional options for :func:`read_table`""")),
+               """**kwargs
+    additional options for :func:`read_table`""")),
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
     indexes as columns""",
@@ -2328,7 +2331,7 @@ def read_metadata(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 
@@ -2345,7 +2348,7 @@ def read_schema(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 

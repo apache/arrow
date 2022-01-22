@@ -70,6 +70,8 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -181,6 +183,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
   private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
+  // ARROW-15315: Use ExecutorService to simulate an async scenario
+  private final ExecutorService executorService = Executors.newFixedThreadPool(10);
   private final Location location;
   private final PoolingDataSource<PoolableConnection> dataSource;
   private final BufferAllocator rootAllocator = new RootAllocator();
@@ -574,13 +578,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
                                      final StreamListener<Result> listener) {
-    try {
-      preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
-    } catch (final Exception e) {
-      listener.onError(e);
-      return;
-    }
-    listener.onCompleted();
+    // Running on another thread
+    executorService.submit(() -> {
+      try {
+        preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
+      } catch (final Exception e) {
+        listener.onError(e);
+        return;
+      }
+      listener.onCompleted();
+    });
   }
 
   @Override
@@ -660,36 +667,39 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
-    try {
-      final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
-      // Ownership of the connection will be passed to the context. Do NOT close!
-      final Connection connection = dataSource.getConnection();
-      final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
-          ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-      final StatementContext<PreparedStatement> preparedStatementContext =
-          new StatementContext<>(preparedStatement, request.getQuery());
+    // Running on another thread
+    executorService.submit(() -> {
+      try {
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        // Ownership of the connection will be passed to the context. Do NOT close!
+        final Connection connection = dataSource.getConnection();
+        final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
+            ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        final StatementContext<PreparedStatement> preparedStatementContext =
+            new StatementContext<>(preparedStatement, request.getQuery());
 
-      preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
+        preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
 
-      final Schema parameterSchema =
-          jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
+        final Schema parameterSchema =
+            jdbcToArrowSchema(preparedStatement.getParameterMetaData(), DEFAULT_CALENDAR);
 
-      final ResultSetMetaData metaData = preparedStatement.getMetaData();
-      final ByteString bytes = isNull(metaData) ?
-          ByteString.EMPTY :
-          ByteString.copyFrom(
-              serializeMetadata(jdbcToArrowSchema(metaData, DEFAULT_CALENDAR)));
-      final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
-          .setDatasetSchema(bytes)
-          .setParameterSchema(copyFrom(serializeMetadata(parameterSchema)))
-          .setPreparedStatementHandle(preparedStatementHandle)
-          .build();
-      listener.onNext(new Result(pack(result).toByteArray()));
-    } catch (final Throwable t) {
-      listener.onError(t);
-    } finally {
-      listener.onCompleted();
-    }
+        final ResultSetMetaData metaData = preparedStatement.getMetaData();
+        final ByteString bytes = isNull(metaData) ?
+            ByteString.EMPTY :
+            ByteString.copyFrom(
+                serializeMetadata(jdbcToArrowSchema(metaData, DEFAULT_CALENDAR)));
+        final ActionCreatePreparedStatementResult result = ActionCreatePreparedStatementResult.newBuilder()
+            .setDatasetSchema(bytes)
+            .setParameterSchema(copyFrom(serializeMetadata(parameterSchema)))
+            .setPreparedStatementHandle(preparedStatementHandle)
+            .build();
+        listener.onNext(new Result(pack(result).toByteArray()));
+      } catch (final Throwable t) {
+        listener.onError(t);
+      } finally {
+        listener.onCompleted();
+      }
+    });
   }
 
   @Override

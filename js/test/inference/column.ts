@@ -17,19 +17,25 @@
 
 /* eslint-disable jest/no-standalone-expect */
 
-import { Data } from 'apache-arrow/data';
-import { Field } from 'apache-arrow/schema';
-import { Column } from 'apache-arrow/column';
-import { Vector } from 'apache-arrow/vector';
-import { Bool, Int8, Utf8, List, Dictionary, Struct } from 'apache-arrow/type';
+import {
+    Bool,
+    Dictionary,
+    Field,
+    Int8,
+    List,
+    makeData,
+    Struct,
+    Utf8,
+    Vector
+} from 'apache-arrow';
 
 const boolType = new Bool();
-const boolVector = Vector.new(Data.Bool(boolType, 0, 10, 0, null, new Uint8Array(2)));
+const boolVector = new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]);
 
-const boolColumn = new Column(new Field('bool', boolType), [
-    Vector.new(Data.Bool(boolType, 0, 10, 0, null, new Uint8Array(2))),
-    Vector.new(Data.Bool(boolType, 0, 10, 0, null, new Uint8Array(2))),
-    Vector.new(Data.Bool(boolType, 0, 10, 0, null, new Uint8Array(2))),
+const boolColumn = new Vector([
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
+    new Vector([makeData({ type: boolType, length: 10, nullCount: 0, data: new Uint8Array(2) })]),
 ]);
 
 expect(typeof boolVector.get(0) === 'boolean').toBe(true);
@@ -48,11 +54,11 @@ const structChildFields = [
 ].map(({ name, type }) => new Field('' + name, type));
 
 const structType = new Struct<IndexSchema>(structChildFields);
-const structVector = Vector.new(Data.Struct(structType, 0, 0, 0, null, []));
-const structColumn = new Column(new Field('struct', structType), [
-    Vector.new(Data.Struct(structType, 0, 0, 0, null, [])),
-    Vector.new(Data.Struct(structType, 0, 0, 0, null, [])),
-    Vector.new(Data.Struct(structType, 0, 0, 0, null, [])),
+const structVector = new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]);
+const structColumn = new Vector([
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
+    new Vector([makeData({ type: structType, length: 0, nullCount: 0, children: [] })]),
 ]);
 
 const [x1, y1, z1] = structVector.get(0)!;

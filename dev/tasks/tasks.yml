@@ -1402,6 +1402,7 @@ tasks:
       # use the branch-3.0 of spark, so prevent reusing any layers
       flags: --no-leaf-cache
       image: conda-python-spark
+      fetch_depth: 0
 {% endfor %}
 
   # Remove the "skipped-" prefix in ARROW-8475

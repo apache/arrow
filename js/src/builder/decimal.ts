@@ -15,8 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Decimal } from '../type';
-import { FixedWidthBuilder } from '../builder';
+import { Decimal } from '../type.js';
+import { FixedWidthBuilder } from '../builder.js';
+import { setDecimal } from '../visitor/set.js';
 
 /** @ignore */
-export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> {}
+export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> { }
+
+(DecimalBuilder.prototype as any)._setValue = setDecimal;

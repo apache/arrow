@@ -33,19 +33,19 @@ import (
 // Struct represents an ordered sequence of relative types.
 type Struct struct {
 	array
-	fields []Interface
+	fields []arrow.Array
 }
 
 // NewStructData returns a new Struct array value from data.
-func NewStructData(data *Data) *Struct {
+func NewStructData(data arrow.ArrayData) *Struct {
 	a := &Struct{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *Struct) NumField() int         { return len(a.fields) }
-func (a *Struct) Field(i int) Interface { return a.fields[i] }
+func (a *Struct) NumField() int           { return len(a.fields) }
+func (a *Struct) Field(i int) arrow.Array { return a.fields[i] }
 
 func (a *Struct) String() string {
 	o := new(strings.Builder)
@@ -72,7 +72,7 @@ func (a *Struct) String() string {
 // with a nullBitmapBytes adjusted according on the parent struct nullBitmapBytes.
 // From the docs:
 //   "When reading the struct array the parent validity bitmap takes priority."
-func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) Interface {
+func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) arrow.Array {
 	field := a.Field(fieldIndex)
 	nullBitmapBytes := field.NullBitmapBytes()
 	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
@@ -82,9 +82,9 @@ func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) Interface 
 			bitutil.ClearBit(maskedNullBitmapBytes, i)
 		}
 	}
-	data := NewSliceData(field.Data(), 0, int64(field.Len()))
+	data := NewSliceData(field.Data(), 0, int64(field.Len())).(*Data)
 	defer data.Release()
-	bufs := make([]*memory.Buffer, len(data.buffers))
+	bufs := make([]*memory.Buffer, len(data.Buffers()))
 	copy(bufs, data.buffers)
 	bufs[0].Release()
 	bufs[0] = memory.NewBufferBytes(maskedNullBitmapBytes)
@@ -95,9 +95,9 @@ func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) Interface 
 
 func (a *Struct) setData(data *Data) {
 	a.array.setData(data)
-	a.fields = make([]Interface, len(data.childData))
+	a.fields = make([]arrow.Array, len(data.childData))
 	for i, child := range data.childData {
-		if data.offset != 0 || child.length != data.length {
+		if data.offset != 0 || child.Len() != data.length {
 			sub := NewSliceData(child, int64(data.offset), int64(data.offset+data.length))
 			a.fields[i] = MakeFromData(sub)
 			sub.Release()
@@ -115,7 +115,7 @@ func (a *Struct) getOneForMarshal(i int) interface{} {
 	tmp := make(map[string]interface{})
 	fieldList := a.data.dtype.(*arrow.StructType).Fields()
 	for j, d := range a.fields {
-		tmp[fieldList[j].Name] = d.getOneForMarshal(i)
+		tmp[fieldList[j].Name] = d.(arraymarshal).getOneForMarshal(i)
 	}
 	return tmp
 }
@@ -263,7 +263,7 @@ func (b *StructBuilder) FieldBuilder(i int) Builder { return b.fields[i] }
 
 // NewArray creates a Struct array from the memory buffers used by the builder and resets the StructBuilder
 // so it can be used to build a new array.
-func (b *StructBuilder) NewArray() Interface {
+func (b *StructBuilder) NewArray() arrow.Array {
 	return b.NewStructArray()
 }
 
@@ -276,8 +276,8 @@ func (b *StructBuilder) NewStructArray() (a *Struct) {
 	return
 }
 
-func (b *StructBuilder) newData() (data *Data) {
-	fields := make([]*Data, len(b.fields))
+func (b *StructBuilder) newData() (data arrow.ArrayData) {
+	fields := make([]arrow.ArrayData, len(b.fields))
 	for i, f := range b.fields {
 		arr := f.NewArray()
 		defer arr.Release()

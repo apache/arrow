@@ -250,6 +250,7 @@ const (
 	compGE comparisonType = compGT | compEQ
 )
 
+//lint:ignore U1000 ignore that this is unused for now
 func (c comparisonType) name() string {
 	switch c {
 	case compEQ:
@@ -745,7 +746,7 @@ func SerializeOptions(opts FunctionOptions, mem memory.Allocator) (*memory.Buffe
 	}
 	defer arr.Release()
 
-	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{{Type: arr.DataType(), Nullable: true}}, nil), []array.Interface{arr}, 1)
+	batch := array.NewRecord(arrow.NewSchema([]arrow.Field{{Type: arr.DataType(), Nullable: true}}, nil), []arrow.Array{arr}, 1)
 	defer batch.Release()
 
 	buf := &bufferWriteSeeker{mem: mem}
@@ -764,7 +765,7 @@ func SerializeOptions(opts FunctionOptions, mem memory.Allocator) (*memory.Buffe
 // stored in its columns. Finally the record is written as an IPC file
 func SerializeExpr(expr Expression, mem memory.Allocator) (*memory.Buffer, error) {
 	var (
-		cols      []array.Interface
+		cols      []arrow.Array
 		metaKey   []string
 		metaValue []string
 		visit     func(Expression) error

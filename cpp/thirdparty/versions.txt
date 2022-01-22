@@ -34,7 +34,7 @@ ARROW_AWS_C_COMMON_BUILD_SHA256_CHECKSUM=928a3e36f24d1ee46f9eec360ec5cebfe8b9b89
 ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION=v0.1.5
 ARROW_AWS_C_EVENT_STREAM_BUILD_SHA256_CHECKSUM=f1b423a487b5d6dca118bfc0d0c6cc596dc476b282258a3228e73a8f730422d4
 ARROW_BOOST_BUILD_VERSION=1.75.0
-ARROW_BOOST_BUILD_SHA256_CHECKSUM=cb97b36e2295a321c34851e0455bc2630ad6c691d4f9f589170066cd11c835b4
+ARROW_BOOST_BUILD_SHA256_CHECKSUM=267e04a7c0bfe85daf796dedc789c3a27a76707e1c968f0a2a87bb96331e2b61
 ARROW_BROTLI_BUILD_VERSION=v1.0.9
 ARROW_BROTLI_BUILD_SHA256_CHECKSUM=f9e8d81d0405ba66d181529af42a3354f838c939095ff99930da6aa9cdf6fe46
 ARROW_BZIP2_BUILD_VERSION=1.0.8
@@ -109,7 +109,7 @@ DEPENDENCIES=(
   "ARROW_AWS_CHECKSUMS_URL aws-checksums-${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-checksums/archive/${ARROW_AWS_CHECKSUMS_BUILD_VERSION}.tar.gz"
   "ARROW_AWS_C_COMMON_URL aws-c-common-${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-c-common/archive/${ARROW_AWS_C_COMMON_BUILD_VERSION}.tar.gz"
   "ARROW_AWS_C_EVENT_STREAM_URL aws-c-event-stream-${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-c-event-stream/archive/${ARROW_AWS_C_EVENT_STREAM_BUILD_VERSION}.tar.gz"
-  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
+  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://github.com/ursa-labs/thirdparty/releases/download/apache-arrow-7.0.0/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"

@@ -37,7 +37,7 @@ most of the libraries for which Arrow is available.
 
 Languages like GLib (``c_glib/``), C++ (``cpp/``), C# (``csharp/``),
 Go (``go/``), Java (``java/``), JavaScript (``js/``),
-Julia (``julia/``), MATLAB (``matlab/``, Python (``python/``),
+Julia (``julia/``), MATLAB (``matlab/``), Python (``python/``),
 R (``r/``) and Ruby (``ruby/``) have their own subdirectories in
 the main folder as written here.
 

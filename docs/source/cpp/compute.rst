@@ -98,6 +98,9 @@ exact semantics of the function::
    min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
    max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
+However, :ref:`Grouped Aggregations <grouped-aggregations-group-by>` are
+not invocable via ``CallFunction``.
+
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
@@ -265,6 +268,8 @@ the input to a single output value.
   <https://github.com/tdunning/t-digest>`_ for details.
 
   Decimal arguments are cast to Float64 first.
+
+.. _grouped-aggregations-group-by:
 
 Grouped Aggregations ("group by")
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

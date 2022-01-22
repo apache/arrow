@@ -34,6 +34,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
+#include "arrow/chunked_array.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/scalar.h"
 #include "arrow/testing/builder.h"
@@ -1347,6 +1348,24 @@ TEST(TestDictArrayFromJSON, Errors) {
                 DictArrayFromJSON(type, "[\"not a valid index\"]", "[\"\"]", &array));
   ASSERT_RAISES(Invalid, DictArrayFromJSON(type, "[0, 1]", "[1]",
                                            &array));  // dict value isn't string
+}
+
+TEST(TestChunkedArrayFromJSON, Basics) {
+  auto type = int32();
+  std::shared_ptr<ChunkedArray> chunked_array;
+  ASSERT_OK(ChunkedArrayFromJSON(type, {}, &chunked_array));
+  ASSERT_OK(chunked_array->ValidateFull());
+  ASSERT_EQ(chunked_array->num_chunks(), 0);
+  AssertTypeEqual(type, chunked_array->type());
+
+  ASSERT_OK(ChunkedArrayFromJSON(type, {"[1, 2]", "[3, null, 4]"}, &chunked_array));
+  ASSERT_OK(chunked_array->ValidateFull());
+  ASSERT_EQ(chunked_array->num_chunks(), 2);
+  std::shared_ptr<Array> expected_chunk;
+  ASSERT_OK(ArrayFromJSON(type, "[1, 2]", &expected_chunk));
+  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(0), /*verbose=*/true);
+  ASSERT_OK(ArrayFromJSON(type, "[3, null, 4]", &expected_chunk));
+  AssertArraysEqual(*expected_chunk, *chunked_array->chunk(1), /*verbose=*/true);
 }
 
 TEST(TestScalarFromJSON, Basics) {

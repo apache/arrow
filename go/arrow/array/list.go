@@ -32,19 +32,19 @@ import (
 // List represents an immutable sequence of array values.
 type List struct {
 	array
-	values  Interface
+	values  arrow.Array
 	offsets []int32
 }
 
 // NewListData returns a new List array value, from data.
-func NewListData(data *Data) *List {
+func NewListData(data arrow.ArrayData) *List {
 	a := &List{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *List) ListValues() Interface { return a.values }
+func (a *List) ListValues() arrow.Array { return a.values }
 
 func (a *List) String() string {
 	o := new(strings.Builder)
@@ -65,7 +65,7 @@ func (a *List) String() string {
 	return o.String()
 }
 
-func (a *List) newListValue(i int) Interface {
+func (a *List) newListValue(i int) arrow.Array {
 	j := i + a.array.data.offset
 	beg := int64(a.offsets[j])
 	end := int64(a.offsets[j+1])
@@ -249,7 +249,7 @@ func (b *ListBuilder) ValueBuilder() Builder {
 
 // NewArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
-func (b *ListBuilder) NewArray() Interface {
+func (b *ListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
 }
 
@@ -273,7 +273,7 @@ func (b *ListBuilder) newData() (data *Data) {
 	if b.offsets != nil {
 		arr := b.offsets.NewInt32Array()
 		defer arr.Release()
-		offsets = arr.Data().buffers[1]
+		offsets = arr.Data().Buffers()[1]
 	}
 
 	data = NewData(
@@ -282,7 +282,7 @@ func (b *ListBuilder) newData() (data *Data) {
 			b.nullBitmap,
 			offsets,
 		},
-		[]*Data{values.Data()},
+		[]arrow.ArrayData{values.Data()},
 		b.nulls,
 		0,
 	)

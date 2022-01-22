@@ -90,8 +90,56 @@ test_that("Error handling", {
     left_tab %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
-    "all(names(by) %in% names(x)) is not TRUE",
-    fixed = TRUE
+    "Join columns must be present in data"
+  )
+
+  # we print both message_x and message_y with an unnamed `by` vector
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = "made_up_colname"
+    ),
+    error = TRUE
+  )
+
+  # we only print message_y as `int` is a column of x
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("int" = "made_up_colname")
+    ),
+    error = TRUE
+  )
+
+  # we only print message_x as `int` is a column of y
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname" = "int")
+    ),
+    error = TRUE
+  )
+
+  # we print both message_x and message_y
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1", "made_up_colname2")
+    ),
+    error = TRUE
+  )
+
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1" = "made_up_colname2")
+    ),
+    error = TRUE
   )
 })
 

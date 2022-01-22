@@ -27,6 +27,7 @@ apt-get -y install \
   git \
   libgirepository1.0-dev \
   libglib2.0-dev \
+  libsqlite3-dev \
   libssl-dev \
   llvm-dev \
   maven \

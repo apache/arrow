@@ -67,7 +67,7 @@ RUN /arrow/ci/scripts/util_download_apache.sh \
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
-ARG node=14
+ARG node=16
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \

@@ -29,6 +29,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/array/builder_union.h"
+#include "arrow/chunked_array.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/scalar.h"
 #include "arrow/type_traits.h"
@@ -929,6 +930,19 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>& type,
 Status ArrayFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
                      std::shared_ptr<Array>* out) {
   return ArrayFromJSON(type, util::string_view(json_string), out);
+}
+
+Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::string>& json_strings,
+                            std::shared_ptr<ChunkedArray>* out) {
+  ArrayVector out_chunks;
+  out_chunks.reserve(json_strings.size());
+  for (const std::string& chunk_json : json_strings) {
+    out_chunks.emplace_back();
+    RETURN_NOT_OK(ArrayFromJSON(type, chunk_json, &out_chunks.back()));
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(out_chunks), type);
+  return Status::OK();
 }
 
 Status DictArrayFromJSON(const std::shared_ptr<DataType>& type,

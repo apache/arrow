@@ -47,7 +47,12 @@ set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
+set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
+
+@rem NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
+vcpkg remove orc
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -80,8 +85,10 @@ cmake ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
+    -DORC_SOURCE=BUNDLED ^
+    -DORC_PROTOBUF_EXECUTABLE=%VCPKG_ROOT%\installed\%VCGPK_TARGET_TRIPLET%\tools\protobuf\protoc.exe ^
     -DVCPKG_MANIFEST_MODE=OFF ^
-    -DVCPKG_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE% ^
+    -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
     C:\arrow\cpp || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1

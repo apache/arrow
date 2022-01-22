@@ -15,20 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+export { MessageHeader } from './fb/message-header.js';
+
 export {
+    Type,
+    BufferType,
     DateUnit,
     TimeUnit,
     Precision,
     UnionMode,
     IntervalUnit,
     MetadataVersion,
-} from './fb/Schema';
+} from './enum.js';
 
-export { MessageHeader } from './fb/Message';
-
-export { Type, BufferType } from './enum';
-
-export { Data } from './data';
+export { Data, makeData } from './data.js';
+export type { TypeMap } from './type.js';
 export {
     DataType,
     Null,
@@ -48,78 +49,57 @@ export {
     Dictionary,
     Interval, IntervalDayTime, IntervalYearMonth,
     FixedSizeList,
-    Map_,
-} from './type';
+    Map_
+} from './type.js';
 
-export { Table } from './table';
-export { Column } from './column';
-export { Visitor } from './visitor';
-export { Schema, Field } from './schema';
-export {
-    Vector,
-    BaseVector,
-    BinaryVector,
-    BoolVector,
-    Chunked,
-    DateVector, DateDayVector, DateMillisecondVector,
-    DecimalVector,
-    DictionaryVector,
-    FixedSizeBinaryVector,
-    FixedSizeListVector,
-    FloatVector, Float16Vector, Float32Vector, Float64Vector,
-    IntervalVector, IntervalDayTimeVector, IntervalYearMonthVector,
-    IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector, Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector,
-    ListVector,
-    MapVector,
-    NullVector,
-    StructVector,
-    TimestampVector, TimestampSecondVector, TimestampMillisecondVector, TimestampMicrosecondVector, TimestampNanosecondVector,
-    TimeVector, TimeSecondVector, TimeMillisecondVector, TimeMicrosecondVector, TimeNanosecondVector,
-    UnionVector, DenseUnionVector, SparseUnionVector,
-    Utf8Vector,
-} from './vector/index';
+export { Table, makeTable, tableFromArrays } from './table.js';
+export { Vector, makeVector } from './vector.js';
+export { Visitor } from './visitor.js';
+export { Schema, Field } from './schema.js';
 
-export {
-    Builder,
-    BinaryBuilder,
-    BoolBuilder,
-    DateBuilder, DateDayBuilder, DateMillisecondBuilder,
-    DecimalBuilder,
-    DictionaryBuilder,
-    FixedSizeBinaryBuilder,
-    FixedSizeListBuilder,
-    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
-    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
-    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
-    ListBuilder,
-    MapBuilder,
-    NullBuilder,
-    StructBuilder,
-    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
-    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
-    UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
-    Utf8Builder,
-} from './builder/index';
+export { MapRow } from './row/map.js';
+export { StructRow } from './row/struct.js';
 
-export { ByteStream, AsyncByteStream, AsyncByteQueue, ReadableSource, WritableSink } from './io/stream';
-export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader';
-export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer';
-export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message';
-export { Message } from './ipc/metadata/message';
-export { RecordBatch } from './recordbatch';
-export { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces';
-export { DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc } from './compute/dataframe';
+export { Builder } from './builder.js';
+export { makeBuilder, vectorFromArray, builderThroughIterable, builderThroughAsyncIterable } from './factories.js';
+export type { BuilderOptions } from './builder.js';
+export { BoolBuilder } from './builder/bool.js';
+export { NullBuilder } from './builder/null.js';
+export { DateBuilder, DateDayBuilder, DateMillisecondBuilder } from './builder/date.js';
+export { DecimalBuilder } from './builder/decimal.js';
+export { DictionaryBuilder } from './builder/dictionary.js';
+export { FixedSizeBinaryBuilder } from './builder/fixedsizebinary.js';
+export { FloatBuilder, Float16Builder, Float32Builder, Float64Builder } from './builder/float.js';
+export { IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder } from './builder/int.js';
+export { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder } from './builder/time.js';
+export { TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder } from './builder/timestamp.js';
+export { IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder } from './builder/interval.js';
+export { Utf8Builder } from './builder/utf8.js';
+export { BinaryBuilder } from './builder/binary.js';
+export { ListBuilder } from './builder/list.js';
+export { FixedSizeListBuilder } from './builder/fixedsizelist.js';
+export { MapBuilder } from './builder/map.js';
+export { StructBuilder } from './builder/struct.js';
+export { UnionBuilder, SparseUnionBuilder, DenseUnionBuilder } from './builder/union.js';
 
-import * as util_bn_ from './util/bn';
-import * as util_int_ from './util/int';
-import * as util_bit_ from './util/bit';
-import * as util_math_ from './util/math';
-import * as util_buffer_ from './util/buffer';
-import * as util_vector_ from './util/vector';
-import * as predicate from './compute/predicate';
-import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator';
+export { ByteStream, AsyncByteStream, AsyncByteQueue } from './io/stream.js';
+export type { ReadableSource, WritableSink } from './io/stream.js';
+export { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, AsyncRecordBatchFileReader, AsyncRecordBatchStreamReader } from './ipc/reader.js';
+export { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, RecordBatchJSONWriter } from './ipc/writer.js';
+export { tableToIPC, tableFromIPC } from './ipc/serialization.js';
+export { MessageReader, AsyncMessageReader, JSONMessageReader } from './ipc/message.js';
+export { Message } from './ipc/metadata/message.js';
+export { RecordBatch } from './recordbatch.js';
+export type { ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions } from './io/interfaces.js';
 
-export { predicate };
+import * as util_bn_ from './util/bn.js';
+import * as util_int_ from './util/int.js';
+import * as util_bit_ from './util/bit.js';
+import * as util_math_ from './util/math.js';
+import * as util_buffer_ from './util/buffer.js';
+import * as util_vector_ from './util/vector.js';
+import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator.js';
+
 /** @ignore */
 export const util = {
     ...util_bn_,
@@ -132,5 +112,3 @@ export const util = {
     compareFields,
     compareTypes,
 };
-
-export { isTypedArray } from './util/args';

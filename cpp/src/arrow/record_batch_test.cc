@@ -350,4 +350,64 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
+class TestRecordBatchReader : public ::testing::Test {
+ public:
+  void SetUp() override { MakeBatchesAndReader(100); }
+
+ protected:
+  void MakeBatchesAndReader(int length) {
+    auto field1 = field("f1", int32());
+    auto field2 = field("f2", uint8());
+    auto field3 = field("f3", int16());
+
+    auto schema = ::arrow::schema({field1, field2, field3});
+
+    random::RandomArrayGenerator gen(42);
+
+    auto array1_1 = gen.ArrayOf(int32(), length);
+    auto array1_2 = gen.ArrayOf(int32(), length);
+    auto array1_3 = gen.ArrayOf(int32(), length);
+
+    auto array2_1 = gen.ArrayOf(uint8(), length);
+    auto array2_2 = gen.ArrayOf(uint8(), length);
+    auto array2_3 = gen.ArrayOf(uint8(), length);
+
+    auto array3_1 = gen.ArrayOf(int16(), length);
+    auto array3_2 = gen.ArrayOf(int16(), length);
+    auto array3_3 = gen.ArrayOf(int16(), length);
+
+    auto batch1 = RecordBatch::Make(schema, length, {array1_1, array2_1, array3_1});
+    auto batch2 = RecordBatch::Make(schema, length, {array1_2, array2_2, array3_2});
+    auto batch3 = RecordBatch::Make(schema, length, {array1_3, array2_3, array3_3});
+
+    batches_ = {batch1, batch2, batch3};
+
+    ASSERT_OK_AND_ASSIGN(reader_, RecordBatchReader::Make(batches_));
+  }
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::shared_ptr<RecordBatchReader> reader_;
+};
+
+TEST_F(TestRecordBatchReader, RangeForLoop) {
+  int64_t i = 0;
+
+  for (auto maybe_batch : *reader_) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+    AssertBatchesEqual(*batch, *batches_[i++]);
+  }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
+}
+
+TEST_F(TestRecordBatchReader, BeginEndForLoop) {
+  int64_t i = 0;
+
+  for (auto it = reader_->begin(); it != reader_->end(); ++it) {
+    ASSERT_OK_AND_ASSIGN(auto batch, *it);
+    ASSERT_LT(i, static_cast<int64_t>(batches_.size()));
+    AssertBatchesEqual(*batch, *batches_[i++]);
+  }
+  ASSERT_EQ(i, static_cast<int64_t>(batches_.size()));
+}
+
 }  // namespace arrow

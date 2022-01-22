@@ -20,3 +20,13 @@
 source "https://rubygems.org/"
 
 gemspec
+
+gem "benchmark-driver"
+gem "bundler"
+gem "faker"
+gem "fiddle", ">= 1.0.9"
+gem "rake"
+gem "redcarpet"
+gem "test-unit"
+gem "webrick"
+gem "yard"

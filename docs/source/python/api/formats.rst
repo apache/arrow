@@ -100,3 +100,6 @@ ORC Files
    :toctree: ../generated/
 
    ORCFile
+   ORCWriter
+   read_table
+   write_table
