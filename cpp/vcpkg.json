@@ -5,6 +5,7 @@
     "abseil",
     {
       "name": "aws-sdk-cpp",
+      "version>=": "1.8.126#10",
       "features": [
         "config",
         "cognito-identity",
@@ -39,7 +40,6 @@
     "gtest",
     "lz4",
     "openssl",
-    "orc",
     "protobuf",
     "rapidjson",
     "re2",

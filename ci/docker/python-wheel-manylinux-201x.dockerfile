@@ -66,36 +66,9 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-    VCPKG_FEATURE_FLAGS=-manifests
-
-# Need to install the boost-build prior installing the boost packages, otherwise
-# vcpkg will raise an error.
-# TODO(kszucs): factor out the package enumeration to a text file and reuse it
-# from the windows image and potentially in a future macos wheel build
-RUN vcpkg install --clean-after-build \
-        abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-filesystem \
-        brotli \
-        bzip2 \
-        c-ares \
-        curl \
-        flatbuffers \
-        gflags \
-        glog \
-        google-cloud-cpp[core,storage] \
-        grpc \
-        lz4 \
-        openssl \
-        orc \
-        protobuf \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift \
-        utf8proc \
-        zlib \
-        zstd
+    VCPKG_FEATURE_FLAGS="versions manifests"
+COPY cpp/vcpkg.json /arrow/cpp/
+RUN cd /arrow/cpp && vcpkg install --clean-after-build
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
