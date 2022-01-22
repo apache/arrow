@@ -436,20 +436,37 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("1969-06-27 00:00:00"));
 
   EXPECT_EQ(add_timestamp_day_time_interval(context_ptr,
-                                            StringToTimestamp("2000-02-27 00:00:00"), 4),
-            StringToTimestamp("2000-03-02 00:00:00"));
+                                            StringToTimestamp("2000-02-25 00:00:00"), 4),
+            StringToTimestamp("2000-02-29 00:00:00"));
 
   EXPECT_EQ(add_timestamp_day_time_interval(context_ptr,
-                                            StringToTimestamp("1968-02-27 00:00:00"), 4),
-            StringToTimestamp("1968-03-02 00:00:00"));
+                                            StringToTimestamp("1968-02-25 00:00:00"), 4),
+            StringToTimestamp("1968-02-29 00:00:00"));
 
   EXPECT_EQ(add_date64_month_interval(context_ptr,
                                       castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
             StringToTimestamp("2001-01-23 00:00:00"));
+  context.Reset();
+
+  EXPECT_EQ(add_date64_month_interval(context_ptr,
+                                      castDATE_utf8(context_ptr, "2001-01-29", 10), 1),
+            StringToTimestamp("2001-02-28 00:00:00"));
+  context.Reset();
+
+  EXPECT_EQ(add_date64_month_interval(context_ptr,
+                                      castDATE_utf8(context_ptr, "2000-01-29", 10), 1),
+            StringToTimestamp("2000-02-29 00:00:00"));
+  context.Reset();
 
   EXPECT_EQ(add_date64_day_time_interval(context_ptr,
-                                         castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
-            StringToTimestamp("2000-09-27 00:00:00"));
+                                         castDATE_utf8(context_ptr, "2000-02-25", 10), 4),
+            StringToTimestamp("2000-02-29 00:00:00"));
+  context.Reset();
+
+  EXPECT_EQ(add_date64_day_time_interval(context_ptr,
+                                         castDATE_utf8(context_ptr, "2001-02-25", 10), 4),
+            StringToTimestamp("2001-02-29 00:00:00"));
+  context.Reset();
 
   // 77309411328000001 represents 1 day and 5 hours of interval to be add.
   EXPECT_EQ(add_time32_day_time_interval(context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR,
@@ -496,16 +513,16 @@ TEST(TestTime, TimeStampAdd) {
             StringToTimestamp("1999-03-01 00:00:00"));
 
   EXPECT_EQ(subtract_timestamp_month_interval(
-                context_ptr, StringToTimestamp("2000-02-27 00:00:00"), 4),
-            StringToTimestamp("1999-10-27 00:00:00"));
+                context_ptr, StringToTimestamp("2000-03-29 00:00:00"), 1),
+            StringToTimestamp("2000-02-29 00:00:00"));
 
   EXPECT_EQ(subtract_timestamp_month_interval(
                 context_ptr, StringToTimestamp("1969-02-27 00:00:00"), 4),
             StringToTimestamp("1968-10-27 00:00:00"));
 
   EXPECT_EQ(subtract_timestamp_day_time_interval(
-                context_ptr, StringToTimestamp("2000-02-27 00:00:00"), 4),
-            StringToTimestamp("2000-02-23 00:00:00"));
+                context_ptr, StringToTimestamp("2000-03-01 00:00:00"), 1),
+            StringToTimestamp("2000-02-29 00:00:00"));
 
   EXPECT_EQ(subtract_timestamp_day_time_interval(
                 context_ptr, StringToTimestamp("1968-03-04 00:00:00"), 4),
@@ -515,14 +532,14 @@ TEST(TestTime, TimeStampAdd) {
                 context_ptr, StringToTimestamp("1972-03-04 00:00:00"), 52),
             StringToTimestamp("1967-11-04 00:00:00"));
 
-  // 77309411328000001 represents 1 day and 5 hours of interval to be add.
+  // 77309411328000001 represents 1 day and 5 hours of interval to be subtracted.
   EXPECT_EQ(subtract_time32_day_time_interval(
                 context_ptr, MILLIS_IN_DAY - 10 * MILLIS_IN_HOUR, 77309411328000001),
             MILLIS_IN_DAY - 15 * MILLIS_IN_HOUR);
 
   EXPECT_EQ(subtract_date64_day_time_interval(
-                context_ptr, castDATE_utf8(context_ptr, "2000-09-23", 10), 4),
-            StringToTimestamp("2000-09-19 00:00:00"));
+                context_ptr, castDATE_utf8(context_ptr, "2000-03-04", 10), 4),
+            StringToTimestamp("2000-02-29 00:00:00"));
 
   subtract_timestamp_month_interval(context_ptr, StringToTimestamp("2000-02-27 00:00:00"),
                                     -4);
