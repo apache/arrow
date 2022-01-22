@@ -87,9 +87,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
-# NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
-vcpkg remove orc
-
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 

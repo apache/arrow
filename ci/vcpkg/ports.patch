@@ -1,5 +1,5 @@
 diff --git a/ports/aws-c-auth/vcpkg.json b/ports/aws-c-auth/vcpkg.json
-index dc8f75e8..be703324 100644
+index dc8f75e8ae..be7033248d 100644
 --- a/ports/aws-c-auth/vcpkg.json
 +++ b/ports/aws-c-auth/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -12,7 +12,7 @@ index dc8f75e8..be703324 100644
      "aws-c-common",
      "aws-c-http",
 diff --git a/ports/aws-c-cal/vcpkg.json b/ports/aws-c-cal/vcpkg.json
-index 48c7406c..40e284dd 100644
+index 48c7406ced..40e284dd0f 100644
 --- a/ports/aws-c-cal/vcpkg.json
 +++ b/ports/aws-c-cal/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -25,7 +25,7 @@ index 48c7406c..40e284dd 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-c-common/vcpkg.json b/ports/aws-c-common/vcpkg.json
-index 67d58320..3c8e96f7 100644
+index 67d5832072..3c8e96f7d3 100644
 --- a/ports/aws-c-common/vcpkg.json
 +++ b/ports/aws-c-common/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -38,7 +38,7 @@ index 67d58320..3c8e96f7 100644
      "openssl",
      {
 diff --git a/ports/aws-c-compression/vcpkg.json b/ports/aws-c-compression/vcpkg.json
-index 8b62d038..7aa75eda 100644
+index 8b62d03897..7aa75eda2e 100644
 --- a/ports/aws-c-compression/vcpkg.json
 +++ b/ports/aws-c-compression/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -51,7 +51,7 @@ index 8b62d038..7aa75eda 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-c-event-stream/vcpkg.json b/ports/aws-c-event-stream/vcpkg.json
-index 7018ea0b..df3f85af 100644
+index 7018ea0b29..df3f85af9f 100644
 --- a/ports/aws-c-event-stream/vcpkg.json
 +++ b/ports/aws-c-event-stream/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -64,7 +64,7 @@ index 7018ea0b..df3f85af 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-http/vcpkg.json b/ports/aws-c-http/vcpkg.json
-index f7cf6547..20ee8be7 100644
+index f7cf65478f..20ee8be716 100644
 --- a/ports/aws-c-http/vcpkg.json
 +++ b/ports/aws-c-http/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -77,7 +77,7 @@ index f7cf6547..20ee8be7 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-io/vcpkg.json b/ports/aws-c-io/vcpkg.json
-index 60a1fb93..b695deb5 100644
+index 60a1fb934a..b695deb52a 100644
 --- a/ports/aws-c-io/vcpkg.json
 +++ b/ports/aws-c-io/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -90,7 +90,7 @@ index 60a1fb93..b695deb5 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-mqtt/vcpkg.json b/ports/aws-c-mqtt/vcpkg.json
-index de7e464e..3f459a79 100644
+index de7e464efb..3f459a79e3 100644
 --- a/ports/aws-c-mqtt/vcpkg.json
 +++ b/ports/aws-c-mqtt/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -103,7 +103,7 @@ index de7e464e..3f459a79 100644
      {
        "name": "s2n",
 diff --git a/ports/aws-c-s3/vcpkg.json b/ports/aws-c-s3/vcpkg.json
-index 31dba925..902c07f9 100644
+index 31dba92566..902c07f98d 100644
 --- a/ports/aws-c-s3/vcpkg.json
 +++ b/ports/aws-c-s3/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -116,7 +116,7 @@ index 31dba925..902c07f9 100644
      "aws-c-auth",
      "aws-c-cal",
 diff --git a/ports/aws-checksums/vcpkg.json b/ports/aws-checksums/vcpkg.json
-index 3cdea453..1cbed512 100644
+index 3cdea45345..1cbed512f2 100644
 --- a/ports/aws-checksums/vcpkg.json
 +++ b/ports/aws-checksums/vcpkg.json
 @@ -4,7 +4,6 @@
@@ -128,7 +128,7 @@ index 3cdea453..1cbed512 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-crt-cpp/vcpkg.json b/ports/aws-crt-cpp/vcpkg.json
-index 3b8cfafd..38c37ec9 100644
+index 3b8cfafde8..38c37ec973 100644
 --- a/ports/aws-crt-cpp/vcpkg.json
 +++ b/ports/aws-crt-cpp/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -142,7 +142,7 @@ index 3b8cfafd..38c37ec9 100644
      "aws-c-cal",
 diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
 new file mode 100644
-index 00000000..4566cc66
+index 0000000000..aafc631e93
 --- /dev/null
 +++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
 @@ -0,0 +1,20 @@
@@ -164,26 +164,220 @@ index 00000000..4566cc66
 +-    "    set(LibCrypto_SHARED_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto shared library\")\n"
 +-    "endif()\n"
 +     )
-+ 
++
 + if (NOT SIMPLE_INSTALL)
 diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
-index 2d6bba4d..0ac47887 100644
+index 42c09123d3..f9b4e4e440 100644
 --- a/ports/aws-sdk-cpp/portfile.cmake
 +++ b/ports/aws-sdk-cpp/portfile.cmake
-@@ -8,6 +8,7 @@ vcpkg_from_github(
-     PATCHES
-         patch-relocatable-rpath.patch
-         fix-aws-root.patch
+@@ -1,100 +1,101 @@
+-vcpkg_buildpath_length_warning(37)
+-
+-vcpkg_from_github(
+-    OUT_SOURCE_PATH SOURCE_PATH
+-    REPO aws/aws-sdk-cpp
+-    REF 26fa78673ec93dc703e80b741d8b437237798297 # 1.9.160
+-    SHA512 dfc6c1017dd1e76196861f0bd7e270736c2e74d55da1e394f7d64d8b1e2d978ad21f273ba4cd5d476d5f7dbe21eb0e3f170017dff97d3c3cca951f3ac68cf6f8
+-    PATCHES
+-        fix-config.patch
+-        patch-relocatable-rpath.patch
+-        fix-aws-root.patch
+-)
+-
+-string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
+-
+-set(EXTRA_ARGS)
+-if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
+-    set(rpath "@loader_path")
+-elseif (VCPKG_TARGET_IS_ANDROID)
+-    set(EXTRA_ARGS "-DTARGET_ARCH=ANDROID"
+-            "-DGIT_EXECUTABLE=--invalid-git-executable--"
+-            "-DGIT_FOUND=TRUE"
+-            "-DNDK_DIR=$ENV{ANDROID_NDK_HOME}"
+-            "-DANDROID_BUILD_ZLIB=FALSE"
+-            "-DANDROID_BUILD_CURL=FALSE"
+-            "-DANDROID_BUILD_OPENSSL=FALSE"
+-            )
+-else()
+-    set(rpath "\$ORIGIN")
+-endif()
+-
+-set(BUILD_ONLY core)
+-include(${CMAKE_CURRENT_LIST_DIR}/compute_build_only.cmake)
+-vcpkg_cmake_configure(
+-    SOURCE_PATH "${SOURCE_PATH}"
+-    DISABLE_PARALLEL_CONFIGURE
+-    OPTIONS
+-        ${EXTRA_ARGS}
+-        "-DENABLE_UNITY_BUILD=ON"
+-        "-DENABLE_TESTING=OFF"
+-        "-DFORCE_SHARED_CRT=${FORCE_SHARED_CRT}"
+-        "-DBUILD_ONLY=${BUILD_ONLY}"
+-        "-DBUILD_DEPS=OFF"
+-        "-DBUILD_SHARED_LIBS=OFF"
+-        "-DCMAKE_INSTALL_RPATH=${rpath}"
+-        "-DCMAKE_MODULE_PATH=${CURRENT_INSTALLED_DIR}/share/aws-c-common" # use extra cmake files
+-)
+-vcpkg_cmake_install()
+-
+-foreach(TARGET IN LISTS BUILD_ONLY)
+-    vcpkg_cmake_config_fixup(PACKAGE_NAME "aws-cpp-sdk-${TARGET}" CONFIG_PATH "lib/cmake/aws-cpp-sdk-${TARGET}" DO_NOT_DELETE_PARENT_CONFIG_PATH)
+-endforeach() 
+-vcpkg_cmake_config_fixup(PACKAGE_NAME "AWSSDK" CONFIG_PATH "lib/cmake/AWSSDK")
+-
+-vcpkg_copy_pdbs()
+-
+-file(GLOB_RECURSE AWS_TARGETS "${CURRENT_PACKAGES_DIR}/share/*/*-targets-*.cmake")
+-foreach(AWS_TARGET IN LISTS AWS_TARGETS)
+-    file(READ ${AWS_TARGET} _contents)
+-    string(REGEX REPLACE
+-        "bin\\/([A-Za-z0-9_.-]+\\.lib)"
+-        "lib/\\1"
+-        _contents "${_contents}")
+-    file(WRITE ${AWS_TARGET} "${_contents}")
+-endforeach()
+-
+-file(GLOB AWS_CONFIGS "${CURRENT_PACKAGES_DIR}/share/*/aws-cpp-sdk-*-config.cmake")
+-list(FILTER AWS_CONFIGS EXCLUDE REGEX "aws-cpp-sdk-core-config\\.cmake\$")
+-foreach(AWS_CONFIG IN LISTS AWS_CONFIGS)
+-    file(READ "${AWS_CONFIG}" _contents)
+-    file(WRITE "${AWS_CONFIG}" "include(CMakeFindDependencyMacro)\nfind_dependency(aws-cpp-sdk-core)\n${_contents}")
+-endforeach()
+-
+-file(REMOVE_RECURSE
+-    "${CURRENT_PACKAGES_DIR}/debug/include"
+-    "${CURRENT_PACKAGES_DIR}/debug/share"
+-    "${CURRENT_PACKAGES_DIR}/lib/pkgconfig"
+-    "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig"
+-    "${CURRENT_PACKAGES_DIR}/nuget"
+-    "${CURRENT_PACKAGES_DIR}/debug/nuget"
+-)
+-
+-if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
+-    file(GLOB LIB_FILES ${CURRENT_PACKAGES_DIR}/bin/*.lib)
+-    if(LIB_FILES)
+-        file(COPY ${LIB_FILES} DESTINATION ${CURRENT_PACKAGES_DIR}/lib)
+-        file(REMOVE ${LIB_FILES})
+-    endif()
+-    file(GLOB DEBUG_LIB_FILES ${CURRENT_PACKAGES_DIR}/debug/bin/*.lib)
+-    if(DEBUG_LIB_FILES)
+-        file(COPY ${DEBUG_LIB_FILES} DESTINATION ${CURRENT_PACKAGES_DIR}/debug/lib)
+-        file(REMOVE ${DEBUG_LIB_FILES})
+-    endif()
+-
+-    file(APPEND "${CURRENT_PACKAGES_DIR}/include/aws/core/SDKConfig.h" "#ifndef USE_IMPORT_EXPORT\n#define USE_IMPORT_EXPORT\n#endif")
+-endif()
+-
+-configure_file("${CURRENT_PORT_DIR}/usage" "${CURRENT_PACKAGES_DIR}/share/${PORT}/usage" @ONLY)
+-
+-file(INSTALL "${SOURCE_PATH}/LICENSE" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}" RENAME copyright)
++vcpkg_buildpath_length_warning(37)
++
++vcpkg_from_github(
++    OUT_SOURCE_PATH SOURCE_PATH
++    REPO aws/aws-sdk-cpp
++    REF 26fa78673ec93dc703e80b741d8b437237798297 # 1.9.160
++    SHA512 dfc6c1017dd1e76196861f0bd7e270736c2e74d55da1e394f7d64d8b1e2d978ad21f273ba4cd5d476d5f7dbe21eb0e3f170017dff97d3c3cca951f3ac68cf6f8
++    PATCHES
++        fix-config.patch
++        patch-relocatable-rpath.patch
++        fix-aws-root.patch
 +        fix-find-crypto.patch
- )
- 
- string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
++)
++
++string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
++
++set(EXTRA_ARGS)
++if(VCPKG_TARGET_IS_OSX OR VCPKG_TARGET_IS_IOS)
++    set(rpath "@loader_path")
++elseif (VCPKG_TARGET_IS_ANDROID)
++    set(EXTRA_ARGS "-DTARGET_ARCH=ANDROID"
++            "-DGIT_EXECUTABLE=--invalid-git-executable--"
++            "-DGIT_FOUND=TRUE"
++            "-DNDK_DIR=$ENV{ANDROID_NDK_HOME}"
++            "-DANDROID_BUILD_ZLIB=FALSE"
++            "-DANDROID_BUILD_CURL=FALSE"
++            "-DANDROID_BUILD_OPENSSL=FALSE"
++            )
++else()
++    set(rpath "\$ORIGIN")
++endif()
++
++set(BUILD_ONLY core)
++include(${CMAKE_CURRENT_LIST_DIR}/compute_build_only.cmake)
++vcpkg_cmake_configure(
++    SOURCE_PATH "${SOURCE_PATH}"
++    DISABLE_PARALLEL_CONFIGURE
++    OPTIONS
++        ${EXTRA_ARGS}
++        "-DENABLE_UNITY_BUILD=ON"
++        "-DENABLE_TESTING=OFF"
++        "-DFORCE_SHARED_CRT=${FORCE_SHARED_CRT}"
++        "-DBUILD_ONLY=${BUILD_ONLY}"
++        "-DBUILD_DEPS=OFF"
++        "-DBUILD_SHARED_LIBS=OFF"
++        "-DCMAKE_INSTALL_RPATH=${rpath}"
++        "-DCMAKE_MODULE_PATH=${CURRENT_INSTALLED_DIR}/share/aws-c-common" # use extra cmake files
++)
++vcpkg_cmake_install()
++
++foreach(TARGET IN LISTS BUILD_ONLY)
++    vcpkg_cmake_config_fixup(PACKAGE_NAME "aws-cpp-sdk-${TARGET}" CONFIG_PATH "lib/cmake/aws-cpp-sdk-${TARGET}" DO_NOT_DELETE_PARENT_CONFIG_PATH)
++endforeach()
++vcpkg_cmake_config_fixup(PACKAGE_NAME "AWSSDK" CONFIG_PATH "lib/cmake/AWSSDK")
++
++vcpkg_copy_pdbs()
++
++file(GLOB_RECURSE AWS_TARGETS "${CURRENT_PACKAGES_DIR}/share/*/*-targets-*.cmake")
++foreach(AWS_TARGET IN LISTS AWS_TARGETS)
++    file(READ ${AWS_TARGET} _contents)
++    string(REGEX REPLACE
++        "bin\\/([A-Za-z0-9_.-]+\\.lib)"
++        "lib/\\1"
++        _contents "${_contents}")
++    file(WRITE ${AWS_TARGET} "${_contents}")
++endforeach()
++
++file(GLOB AWS_CONFIGS "${CURRENT_PACKAGES_DIR}/share/*/aws-cpp-sdk-*-config.cmake")
++list(FILTER AWS_CONFIGS EXCLUDE REGEX "aws-cpp-sdk-core-config\\.cmake\$")
++foreach(AWS_CONFIG IN LISTS AWS_CONFIGS)
++    file(READ "${AWS_CONFIG}" _contents)
++    file(WRITE "${AWS_CONFIG}" "include(CMakeFindDependencyMacro)\nfind_dependency(aws-cpp-sdk-core)\n${_contents}")
++endforeach()
++
++file(REMOVE_RECURSE
++    "${CURRENT_PACKAGES_DIR}/debug/include"
++    "${CURRENT_PACKAGES_DIR}/debug/share"
++    "${CURRENT_PACKAGES_DIR}/lib/pkgconfig"
++    "${CURRENT_PACKAGES_DIR}/debug/lib/pkgconfig"
++    "${CURRENT_PACKAGES_DIR}/nuget"
++    "${CURRENT_PACKAGES_DIR}/debug/nuget"
++)
++
++if(VCPKG_LIBRARY_LINKAGE STREQUAL dynamic)
++    file(GLOB LIB_FILES ${CURRENT_PACKAGES_DIR}/bin/*.lib)
++    if(LIB_FILES)
++        file(COPY ${LIB_FILES} DESTINATION ${CURRENT_PACKAGES_DIR}/lib)
++        file(REMOVE ${LIB_FILES})
++    endif()
++    file(GLOB DEBUG_LIB_FILES ${CURRENT_PACKAGES_DIR}/debug/bin/*.lib)
++    if(DEBUG_LIB_FILES)
++        file(COPY ${DEBUG_LIB_FILES} DESTINATION ${CURRENT_PACKAGES_DIR}/debug/lib)
++        file(REMOVE ${DEBUG_LIB_FILES})
++    endif()
++
++    file(APPEND "${CURRENT_PACKAGES_DIR}/include/aws/core/SDKConfig.h" "#ifndef USE_IMPORT_EXPORT\n#define USE_IMPORT_EXPORT\n#endif")
++endif()
++
++configure_file("${CURRENT_PORT_DIR}/usage" "${CURRENT_PACKAGES_DIR}/share/${PORT}/usage" @ONLY)
++
++file(INSTALL "${SOURCE_PATH}/LICENSE" DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}" RENAME copyright)
 diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
-index 3836e2b6..cd88ef07 100644
+index 64459ef4e1..bba54b41c0 100644
 --- a/ports/aws-sdk-cpp/vcpkg.json
 +++ b/ports/aws-sdk-cpp/vcpkg.json
-@@ -5,7 +5,7 @@
-   "port-version": 5,
+@@ -4,7 +4,7 @@
+   "version": "1.9.160",
    "description": "AWS SDK for C++",
    "homepage": "https://github.com/aws/aws-sdk-cpp",
 -  "supports": "!arm & !uwp",
@@ -192,7 +386,7 @@ index 3836e2b6..cd88ef07 100644
      "aws-crt-cpp",
      {
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index ce8b7570..8255ba24 100644
+index ce8b757054..8255ba2448 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
 @@ -92,6 +92,10 @@ vcpkg_cmake_configure(
@@ -207,7 +401,7 @@ index ce8b7570..8255ba24 100644
          ${OPTIONS_RELEASE}
      OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 45b8c706..b409d8a7 100644
+index 45b8c706db..b409d8a7be 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -220,7 +414,7 @@ index 45b8c706..b409d8a7 100644
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 00000000..a57ce0c2
+index 0000000000..a8e6ee573d
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
@@ -241,5 +435,5 @@ index 00000000..a57ce0c2
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+ 
++
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {

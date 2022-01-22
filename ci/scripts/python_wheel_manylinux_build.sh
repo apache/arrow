@@ -80,9 +80,6 @@ if [[ "$(uname -m)" == arm* ]] || [[ "$(uname -m)" == aarch* ]]; then
     export ARROW_EXTRA_CMAKE_FLAGS="-DARROW_JEMALLOC_LG_PAGE=16"
 fi
 
-# NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
-vcpkg remove orc
-
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
 cmake \
