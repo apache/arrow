@@ -51,7 +51,15 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json arrow/cpp/
-RUN cd arrow/cpp && vcpkg install --clean-after-build --x-install-root=%VCPKG_ROOT%\installed
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=%VCPKG_ROOT%\installed \
+        --x-manifest-root=arrow/cpp \
+        --x-no-default-features \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=s3
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7

@@ -69,7 +69,15 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="versions manifests"
 COPY cpp/vcpkg.json /arrow/cpp/
-RUN cd arrow/cpp && vcpkg install --clean-after-build --x-install-root=${VCPKG_ROOT}/installed
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/cpp \
+        --x-no-default-features \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=s3
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}
