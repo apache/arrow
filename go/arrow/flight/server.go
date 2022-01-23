@@ -184,9 +184,9 @@ func NewFlightServer(opt ...grpc.ServerOption) Server {
 // grpc server generated code is still being exported. This only exists to allow
 // the utility of the helpers.
 func NewServerWithMiddleware(middleware []ServerMiddleware, opts ...grpc.ServerOption) Server {
-	unary := make([]grpc.UnaryServerInterceptor, 1, len(middleware))
+	unary := make([]grpc.UnaryServerInterceptor, 1, len(middleware)+1)
 	unary[0] = serverAuthUnaryInterceptor
-	stream := make([]grpc.StreamServerInterceptor, 1, len(middleware))
+	stream := make([]grpc.StreamServerInterceptor, 1, len(middleware)+1)
 	stream[0] = serverAuthStreamInterceptor
 
 	if len(middleware) > 0 {
