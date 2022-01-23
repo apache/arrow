@@ -764,6 +764,34 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc d
 }
 
 template <template <BetweenOptions::Inclusive> class Op>
+Status MakeBetweenArrayExec(Type::type type_id,
+		KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+   using BetweenState = OptionsWrapper<BetweenOptions>;
+   const auto& state = static_cast<const BetweenState&>(*ctx->state());
+   switch (state.options.inclusive) {
+   case BetweenOptions::Inclusive::BOTH:
+     return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType, 
+	                            Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
+          ctx, batch, out);
+   case BetweenOptions::Inclusive::LEFT:
+     return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                    Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
+          ctx, batch, out);
+   case BetweenOptions::Inclusive::RIGHT:
+     return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                     Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
+          ctx, batch, out);
+   case BetweenOptions::Inclusive::NEITHER:
+     return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
+                                     Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
+          ctx, batch, out);
+   default:
+     return Status::NotImplemented("between inclusiveness not implemented: ",
+                                   state.options.ToString());
+  }
+}
+
+template <template <BetweenOptions::Inclusive> class Op>
 std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
                                                     const FunctionDoc* doc) {
   using BetweenState = OptionsWrapper<BetweenOptions>;
@@ -776,29 +804,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
     for (const auto& ty : types) {
       auto type_id = ty->id();
       auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-        // Resolve generator based on options
-        const auto& state = static_cast<const BetweenState&>(*ctx->state());
-        switch (state.options.inclusive) {
-          case BetweenOptions::Inclusive::BOTH:
-            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-                ctx, batch, out);
-          case BetweenOptions::Inclusive::LEFT:
-            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-                ctx, batch, out);
-          case BetweenOptions::Inclusive::RIGHT:
-            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-                ctx, batch, out);
-          case BetweenOptions::Inclusive::NEITHER:
-            return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                           Op<BetweenOptions::Inclusive::NEITHER>>(
-                type_id)(ctx, batch, out);
-          default:
-            return Status::NotImplemented("between inclusiveness not implemented: ",
-                                          state.options.ToString());
-        }
+        return MakeBetweenArrayExec<Op>(type_id, ctx, batch, out);
       };
       DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
     }
@@ -806,36 +812,14 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
 
   // Add timestamp kernels
   for (const auto unit : TimeUnit::values()) {
-    InputType in_type(match::TimestampTypeUnit(unit));
     auto type_id = Type::TIMESTAMP;
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
       // Validate timezones in all entries or in none
       RETURN_NOT_OK(CheckCompareTimestamps(batch));
-      // Resolve generator based on options
-      const auto& state = static_cast<const BetweenState&>(*ctx->state());
-      switch (state.options.inclusive) {
-        case BetweenOptions::Inclusive::BOTH:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::LEFT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::RIGHT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::NEITHER:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
-              ctx, batch, out);
-        default:
-          return Status::NotImplemented("between inclusiveness not implemented: ",
-                                        state.options.ToString());
-      }
+      return MakeBetweenArrayExec<Op>(type_id, ctx, batch, out);
     };
-    DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), exec,
+   InputType in_type(match::TimestampTypeUnit(unit));
+   DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), exec,
                               BetweenState::Init));
   }
 
@@ -843,29 +827,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   for (const auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     auto type_id = Type::TIME32;
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // Resolve generator based on options
-      const auto& state = static_cast<const BetweenState&>(*ctx->state());
-      switch (state.options.inclusive) {
-        case BetweenOptions::Inclusive::BOTH:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::LEFT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::RIGHT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::NEITHER:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
-              ctx, batch, out);
-        default:
-          return Status::NotImplemented("between inclusiveness not implemented: ",
-                                        state.options.ToString());
-      }
+      return MakeBetweenArrayExec<Op>(type_id, ctx, batch, out);
     };
     InputType in_type(match::Time32TypeUnit(unit));
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), exec,
@@ -875,29 +837,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   for (const auto& unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     auto type_id = Type::TIME64;
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // Resolve generator based on options
-      const auto& state = static_cast<const BetweenState&>(*ctx->state());
-      switch (state.options.inclusive) {
-        case BetweenOptions::Inclusive::BOTH:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::LEFT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::RIGHT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::NEITHER:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
-              ctx, batch, out);
-        default:
-          return Status::NotImplemented("between inclusiveness not implemented: ",
-                                        state.options.ToString());
-      }
+      return MakeBetweenArrayExec<Op>(type_id, ctx, batch, out);
     };
     InputType in_type(match::Time64TypeUnit(unit));
     DCHECK_OK(func->AddKernel({in_type, in_type, in_type}, boolean(), exec,
@@ -969,29 +909,7 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   // Add kernels for date types
   for (const auto type_id : {Type::DATE32, Type::DATE64}) {
     auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // Resolve generator based on options
-      const auto& state = static_cast<const BetweenState&>(*ctx->state());
-      switch (state.options.inclusive) {
-        case BetweenOptions::Inclusive::BOTH:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::LEFT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::RIGHT:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-              ctx, batch, out);
-        case BetweenOptions::Inclusive::NEITHER:
-          return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-                                         Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
-              ctx, batch, out);
-        default:
-          return Status::NotImplemented("between inclusiveness not implemented: ",
-                                        state.options.ToString());
-      }
+      return MakeBetweenArrayExec<Op>(type_id, ctx, batch, out);
     };
     InputType ty(type_id);
     DCHECK_OK(func->AddKernel({ty, ty, ty}, boolean(), exec, BetweenState::Init));
