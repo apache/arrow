@@ -75,20 +75,20 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
 ARG python=3.8
-RUN (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.12) & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.11) & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.9) & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.1)
+RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.9" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.7" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.2" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN pip install -U pip
+RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-RUN pip install -r arrow/python/requirements-wheel-build.txt
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
-ENV CLCACHE_DIR="C:\clcache"
-ENV CLCACHE_COMPRESS=1
-ENV CLCACHE_COMPRESSLEVEL=6
-RUN pip install git+https://github.com/Nuitka/clcache.git
+# ENV CLCACHE_DIR="C:\clcache"
+# ENV CLCACHE_COMPRESS=1
+# ENV CLCACHE_COMPRESSLEVEL=6
+# RUN pip install git+https://github.com/Nuitka/clcache.git
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip
