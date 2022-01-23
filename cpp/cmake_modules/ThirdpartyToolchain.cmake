@@ -4125,12 +4125,6 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
-  if(UNIX)
-    # on Linux and macOS curl seems to be required
-    find_curl()
-    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
-  endif()
-
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=OFF
@@ -4139,7 +4133,7 @@ macro(build_awssdk)
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${CURL_ROOT_HINT}")
+      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
   set(AWSSDK_CMAKE_ARGS
@@ -4150,6 +4144,13 @@ macro(build_awssdk)
       -DMINIMIZE_SIZE=ON)
 
   if(UNIX)
+    # on Linux and macOS curl seems to be required
+    find_curl()
+    get_filename_component(CURL_ROOT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+
+    list(APPEND AWSSDK_CMAKE_ARGS -DCURL_LIBRARY=${CURL_ROOT}/lib
+         -DCURL_INCLUDE_DIR=${CURL_ROOT}/include})
+
     if(TARGET zlib_ep)
       list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
            -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
