@@ -101,7 +101,6 @@
         {
           "name": "aws-sdk-cpp",
           "default-features": false,
-          "version>=": "1.8.126",
           "features": [
             "cognito-identity",
             "config",

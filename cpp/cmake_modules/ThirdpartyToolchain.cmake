@@ -4125,6 +4125,12 @@ macro(build_awssdk)
     set(AWSSDK_BUILD_TYPE release)
   endif()
 
+  if(UNIX)
+    # on Linux and macOS curl seems to be required
+    find_curl()
+    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+  endif()
+
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       -DBUILD_SHARED_LIBS=OFF
@@ -4133,16 +4139,25 @@ macro(build_awssdk)
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
-      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
+      "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}\\$<SEMICOLON>${CURL_ROOT_HINT}")
 
+  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
-  if(UNIX AND TARGET zlib_ep)
-    list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
-         -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+
+  if(UNIX)
+    if(TARGET zlib_ep)
+      list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
+           -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+    else()
+      # Provide hints for AWS SDK in order to play nicely with vcpkg
+      get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
+      list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_ROOT=${ZLIB_ROOT})
+    endif()
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
@@ -4213,6 +4228,7 @@ macro(build_awssdk)
     set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
                              "<SOURCE_DIR>/cmake/compiler_settings.cmake")
   endif()
+
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
@@ -4237,7 +4253,6 @@ macro(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on Linux and macOS curl seems to be required
-    find_curl()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
