@@ -25,6 +25,8 @@ import sys
 import pytest
 
 
+pytestmark = pytest.mark.gdb
+
 here = os.path.dirname(os.path.abspath(__file__))
 
 # The GDB script may be found in the source tree (if available)
