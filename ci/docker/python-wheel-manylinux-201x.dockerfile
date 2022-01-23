@@ -60,16 +60,15 @@ RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
         patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 ${VCPKG_ROOT}/vcpkg && \
         patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 ${VCPKG_ROOT}/vcpkg; \
     fi
-ENV PATH="${VCPKG_ROOT}:${PATH}"
+ENV PATH="${PATH}:${VCPKG_ROOT}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-    VCPKG_FEATURE_FLAGS="versions manifests"
-COPY cpp/vcpkg.json /arrow/cpp/
-
+    VCPKG_FEATURE_FLAGS="manifests"
+COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
 # ssl related fixies as well as we can patch the vcpkg portfile to support
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
@@ -78,8 +77,7 @@ COPY cpp/vcpkg.json /arrow/cpp/
 RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
-        --x-manifest-root=/arrow/cpp \
-        --x-no-default-features \
+        --x-manifest-root=/arrow/ci/vcpkg \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \

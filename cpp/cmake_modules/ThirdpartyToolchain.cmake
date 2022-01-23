@@ -4135,7 +4135,9 @@ macro(build_awssdk)
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
+  # provide hint for AWS SDK to link with the already located openssl
   get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
@@ -4146,19 +4148,16 @@ macro(build_awssdk)
   if(UNIX)
     # on Linux and macOS curl seems to be required
     find_curl()
-    get_filename_component(CURL_ROOT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+    get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIRS}" DIRECTORY)
 
-    list(APPEND AWSSDK_CMAKE_ARGS -DCURL_LIBRARY=${CURL_ROOT}/lib
-         -DCURL_INCLUDE_DIR=${CURL_ROOT}/include})
-
-    if(TARGET zlib_ep)
-      list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
-           -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
-    else()
-      # Provide hints for AWS SDK in order to play nicely with vcpkg
-      get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-      list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_ROOT=${ZLIB_ROOT})
-    endif()
+    # provide hint for AWS SDK to link with the already located libcurl and zlib
+    list(APPEND
+         AWSSDK_CMAKE_ARGS
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
+         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})

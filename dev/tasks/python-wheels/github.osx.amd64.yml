@@ -28,7 +28,7 @@ env:
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
   VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
-  VCPKG_FEATURE_FLAGS: "versions manifests"
+  VCPKG_FEATURE_FLAGS: "manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
@@ -77,8 +77,7 @@ jobs:
           vcpkg install \
             --clean-after-build \
             --x-install-root=${VCPKG_ROOT}/installed \
-            --x-manifest-root=arrow/cpp \
-            --x-no-default-features \
+            --x-manifest-root=arrow/ci/vcpkg \
             --x-feature=flight \
             --x-feature=gcs \
             --x-feature=json \
