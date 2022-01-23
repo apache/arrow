@@ -5,6 +5,7 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
+    "boost-filesystem",
     {
       "name": "boost-multiprecision",
       "platform": "windows"
@@ -41,7 +42,6 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
-        "boost-filesystem",
         "gtest"
       ]
     },
