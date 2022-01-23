@@ -5,6 +5,7 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
+    "boost-filesystem",
     "brotli",
     "bzip2",
     "curl",
