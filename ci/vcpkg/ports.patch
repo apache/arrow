@@ -1,5 +1,5 @@
 diff --git a/ports/aws-c-auth/vcpkg.json b/ports/aws-c-auth/vcpkg.json
-index dc8f75e8ae..be7033248d 100644
+index dc8f75e8..be703324 100644
 --- a/ports/aws-c-auth/vcpkg.json
 +++ b/ports/aws-c-auth/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -12,7 +12,7 @@ index dc8f75e8ae..be7033248d 100644
      "aws-c-common",
      "aws-c-http",
 diff --git a/ports/aws-c-cal/vcpkg.json b/ports/aws-c-cal/vcpkg.json
-index 48c7406ced..40e284dd0f 100644
+index 48c7406c..40e284dd 100644
 --- a/ports/aws-c-cal/vcpkg.json
 +++ b/ports/aws-c-cal/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -25,7 +25,7 @@ index 48c7406ced..40e284dd0f 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-c-common/vcpkg.json b/ports/aws-c-common/vcpkg.json
-index 67d5832072..3c8e96f7d3 100644
+index 67d58320..3c8e96f7 100644
 --- a/ports/aws-c-common/vcpkg.json
 +++ b/ports/aws-c-common/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -38,7 +38,7 @@ index 67d5832072..3c8e96f7d3 100644
      "openssl",
      {
 diff --git a/ports/aws-c-compression/vcpkg.json b/ports/aws-c-compression/vcpkg.json
-index 8b62d03897..7aa75eda2e 100644
+index 8b62d038..7aa75eda 100644
 --- a/ports/aws-c-compression/vcpkg.json
 +++ b/ports/aws-c-compression/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -51,7 +51,7 @@ index 8b62d03897..7aa75eda2e 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-c-event-stream/vcpkg.json b/ports/aws-c-event-stream/vcpkg.json
-index 7018ea0b29..df3f85af9f 100644
+index 7018ea0b..df3f85af 100644
 --- a/ports/aws-c-event-stream/vcpkg.json
 +++ b/ports/aws-c-event-stream/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -64,7 +64,7 @@ index 7018ea0b29..df3f85af9f 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-http/vcpkg.json b/ports/aws-c-http/vcpkg.json
-index f7cf65478f..20ee8be716 100644
+index f7cf6547..20ee8be7 100644
 --- a/ports/aws-c-http/vcpkg.json
 +++ b/ports/aws-c-http/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -77,7 +77,7 @@ index f7cf65478f..20ee8be716 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-io/vcpkg.json b/ports/aws-c-io/vcpkg.json
-index 60a1fb934a..b695deb52a 100644
+index 60a1fb93..b695deb5 100644
 --- a/ports/aws-c-io/vcpkg.json
 +++ b/ports/aws-c-io/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -90,7 +90,7 @@ index 60a1fb934a..b695deb52a 100644
      "aws-c-cal",
      "aws-c-common",
 diff --git a/ports/aws-c-mqtt/vcpkg.json b/ports/aws-c-mqtt/vcpkg.json
-index de7e464efb..3f459a79e3 100644
+index de7e464e..3f459a79 100644
 --- a/ports/aws-c-mqtt/vcpkg.json
 +++ b/ports/aws-c-mqtt/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -103,7 +103,7 @@ index de7e464efb..3f459a79e3 100644
      {
        "name": "s2n",
 diff --git a/ports/aws-c-s3/vcpkg.json b/ports/aws-c-s3/vcpkg.json
-index 31dba92566..902c07f98d 100644
+index 31dba925..902c07f9 100644
 --- a/ports/aws-c-s3/vcpkg.json
 +++ b/ports/aws-c-s3/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -116,7 +116,7 @@ index 31dba92566..902c07f98d 100644
      "aws-c-auth",
      "aws-c-cal",
 diff --git a/ports/aws-checksums/vcpkg.json b/ports/aws-checksums/vcpkg.json
-index 3cdea45345..1cbed512f2 100644
+index 3cdea453..1cbed512 100644
 --- a/ports/aws-checksums/vcpkg.json
 +++ b/ports/aws-checksums/vcpkg.json
 @@ -4,7 +4,6 @@
@@ -128,7 +128,7 @@ index 3cdea45345..1cbed512f2 100644
      "aws-c-common",
      {
 diff --git a/ports/aws-crt-cpp/vcpkg.json b/ports/aws-crt-cpp/vcpkg.json
-index 3b8cfafde8..38c37ec973 100644
+index 3b8cfafd..38c37ec9 100644
 --- a/ports/aws-crt-cpp/vcpkg.json
 +++ b/ports/aws-crt-cpp/vcpkg.json
 @@ -4,7 +4,7 @@
@@ -142,7 +142,7 @@ index 3b8cfafde8..38c37ec973 100644
      "aws-c-cal",
 diff --git a/ports/aws-sdk-cpp/fix-find-crypto.patch b/ports/aws-sdk-cpp/fix-find-crypto.patch
 new file mode 100644
-index 0000000000..aafc631e93
+index 00000000..4566cc66
 --- /dev/null
 +++ b/ports/aws-sdk-cpp/fix-find-crypto.patch
 @@ -0,0 +1,20 @@
@@ -167,23 +167,23 @@ index 0000000000..aafc631e93
 +
 + if (NOT SIMPLE_INSTALL)
 diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
-index 42c09123d3..f9b4e4e440 100644
+index 2d6bba4d..0ac47887 100644
 --- a/ports/aws-sdk-cpp/portfile.cmake
 +++ b/ports/aws-sdk-cpp/portfile.cmake
-@@ -9,6 +9,7 @@ vcpkg_from_github(
-         fix-config.patch
+@@ -8,6 +8,7 @@ vcpkg_from_github(
+     PATCHES
          patch-relocatable-rpath.patch
          fix-aws-root.patch
 +        fix-find-crypto.patch
  )
- 
+
  string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
 diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
-index 64459ef4e1..bba54b41c0 100644
+index 3836e2b6..cd88ef07 100644
 --- a/ports/aws-sdk-cpp/vcpkg.json
 +++ b/ports/aws-sdk-cpp/vcpkg.json
-@@ -4,7 +4,7 @@
-   "version": "1.9.160",
+@@ -5,7 +5,7 @@
+   "port-version": 5,
    "description": "AWS SDK for C++",
    "homepage": "https://github.com/aws/aws-sdk-cpp",
 -  "supports": "!arm & !uwp",
@@ -192,7 +192,7 @@ index 64459ef4e1..bba54b41c0 100644
      "aws-crt-cpp",
      {
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index ce8b757054..8255ba2448 100644
+index ce8b7570..8255ba24 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
 @@ -92,6 +92,10 @@ vcpkg_cmake_configure(
@@ -207,7 +207,7 @@ index ce8b757054..8255ba2448 100644
          ${OPTIONS_RELEASE}
      OPTIONS_DEBUG
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index 45b8c706db..b409d8a7be 100644
+index 45b8c706..b409d8a7 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -4,6 +4,7 @@ vcpkg_from_github(
@@ -216,11 +216,11 @@ index 45b8c706db..b409d8a7be 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
- 
+
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000000..a8e6ee573d
+index 00000000..a57ce0c2
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
