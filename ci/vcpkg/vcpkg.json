@@ -6,6 +6,7 @@
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
     "boost-filesystem",
+    "boost-multiprecision",
     "brotli",
     "bzip2",
     "curl",
@@ -63,7 +64,6 @@
         "boost-date-time",
         "boost-format",
         "boost-locale",
-        "boost-multiprecision",
         "boost-predef",
         "boost-regex",
         "boost-system",
