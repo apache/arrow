@@ -313,7 +313,7 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
 
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema, read_options = opts),
-    '"column_names" do not match the schema'
+    "column_names not matching or not found in schema-names"
   )
 
 })
