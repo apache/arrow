@@ -2263,7 +2263,7 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
+TEST(TestNumericBetweenKernel, BetweenScalarScalarScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2283,7 +2283,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarScalar) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
+TEST(TestNumericBetweenKernel, BetweenArrayScalarScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2301,7 +2301,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarScalar) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayScalar) {
+TEST(TestNumericBetweenKernel, BetweenScalarArrayScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2319,7 +2319,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayScalar) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarArray) {
+TEST(TestNumericBetweenKernel, BetweenScalarScalarArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2337,7 +2337,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarScalarArray) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
+TEST(TestNumericBetweenKernel, BetweenScalarArrayArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2355,7 +2355,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenScalarArrayArray) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarArray) {
+TEST(TestNumericBetweenKernel, BetweenArrayScalarArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2373,7 +2373,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayScalarArray) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayScalar) {
+TEST(TestNumericBetweenKernel, BetweenArrayArrayScalar) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
@@ -2391,7 +2391,7 @@ TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayScalar) {
   }
 }
 
-TEST(TestNumericBetweenKernel, SimpleBetweenArrayArrayArray) {
+TEST(TestNumericBetweenKernel, BetweenArrayArrayArray) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
