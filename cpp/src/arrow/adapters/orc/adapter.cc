@@ -720,11 +720,7 @@ class ArrowOutputStream : public liborc::OutputStream {
     return filename;
   }
 
-  void close() override {
-    if (!output_stream_.closed()) {
-      ORC_THROW_NOT_OK(output_stream_.Close());
-    }
-  }
+  void close() override {}
 
   void set_length(int64_t length) { length_ = length; }
 
