@@ -5,10 +5,6 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
-    "boost-multiprecision",
-    "boost-system",
-    "boost-filesystem",
-    "boost-process",
     "brotli",
     "bzip2",
     "curl",
@@ -37,6 +33,7 @@
       "description": "Development dependencies",
       "dependencies": [
         "benchmark",
+        "boost-filesystem",
         "gtest"
       ]
     },
@@ -59,8 +56,29 @@
     "gandiva": {
       "description": "Gandiva support",
       "dependencies": [
+        "boost-algorithm",
         "boost-crc",
-        "llvm"
+        "boost-crc",
+        "boost-date-time",
+        "boost-format",
+        "boost-locale",
+        "boost-multiprecision",
+        "boost-predef",
+        "boost-regex",
+        "boost-system",
+        "boost-variant",
+        {
+          "name": "llvm",
+          "default-features": false,
+          "features": [
+            "clang",
+            "default-options",
+            "default-targets",
+            "enable-rtti",
+            "lld",
+            "tools"
+          ]
+        }
       ]
     },
     "gcs": {
