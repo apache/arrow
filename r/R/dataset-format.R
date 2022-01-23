@@ -129,7 +129,7 @@ CsvFileFormat$create <- function(...,
   column_names     <- read_options$column_names
   schema_names     <- names(schema)
 
-  if (length(column_names_set) > 0 & !is.null(schema) & !identical(schema_names, column_names)) {
+  if (!is.null(schema) & !identical(schema_names, column_names)) {
 
     # Element wise comparison and set differnce of column_names and names in schema
     mismatch_colnames <- column_names[match(column_names, schema_names, nomatch = 0) != seq(column_names)]
@@ -141,7 +141,8 @@ CsvFileFormat$create <- function(...,
                 deparse1(c(mismatch_colnames, not_in_schema))
             ),
             i = "Set column_names to match names of schema",
-            i = "Omit the column_names argument"
+            i = "Omit the column_names argument",
+            i = "Omit the read_options argument"
           )
     )
   }
