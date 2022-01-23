@@ -11,7 +11,7 @@ channel_targets:
 cuda_compiler:
 - nvcc
 cuda_compiler_version:
-- None
+- '10.2'
 cxx_compiler:
 - vs2017
 gflags:
@@ -37,7 +37,7 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.7.* *_cpython
+- 3.6.* *_cpython
 re2:
 - 2021.06.01
 snappy:
