@@ -799,8 +799,8 @@ std::shared_ptr<ScalarFunction> MakeBetweenFunction(std::string name,
   auto func =
       std::make_shared<CompareFunction>(name, Arity::Ternary(), doc, &kDefaultOptions);
 
-  // Add kernels for physical numeric types, temporal types done separately
-  for (const auto& types : {DurationTypes(), IntervalTypes(), NumericTypes()}) {
+  // Add kernels for duration and numeric types, temporal types done separately
+  for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const auto& ty : types) {
       auto type_id = ty->id();
       auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
