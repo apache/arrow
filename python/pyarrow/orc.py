@@ -24,6 +24,7 @@ import pyarrow._orc as _orc
 from pyarrow.fs import _resolve_filesystem_and_path
 from pyarrow import filesystem as legacyfs
 
+
 class ORCFile:
     """
     Reader interface for a single ORC file
@@ -318,7 +319,7 @@ where : str or pyarrow.io.NativeFile
         Close the ORC file
         """
         if self.is_open:
-            self.writer.close()    
+            self.writer.close()
             self.is_open = False
         if self.file_handle is not None:
             self.file_handle.close()
