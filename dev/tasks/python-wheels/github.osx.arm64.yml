@@ -97,7 +97,16 @@ jobs:
       {% endif %}
 
       - name: Install Packages
-        run: cd arrow/cpp && arch -arm64 vcpkg install --clean-after-build --x-install-root=$VCPKG_ROOT/installed
+        run: |
+           arch -arm64 vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/cpp \
+            --x-no-default-features \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet
 
       - name: Build Wheel
         shell: bash
