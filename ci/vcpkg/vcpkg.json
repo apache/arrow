@@ -5,8 +5,14 @@
   "homepage": "https://arrow.apache.org",
   "supports": "x64 | (arm64 & !windows)",
   "dependencies": [
-    "boost-filesystem",
-    "boost-multiprecision",
+    {
+      "name": "boost-multiprecision",
+      "platform": "windows"
+    },
+    {
+      "name": "boost-system",
+      "platform": "windows"
+    },
     "brotli",
     "bzip2",
     "curl",
