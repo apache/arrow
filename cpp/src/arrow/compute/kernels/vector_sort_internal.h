@@ -457,6 +457,8 @@ Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* ind
                         const ChunkedArray& values, SortOrder sort_order,
                         NullPlacement null_placement);
 
+// Common Comparator for all DataStructures with NestedValues like StructArray,
+// ChunkedArray, Table and RecordBatch
 class NestedValuesComparator {
  public:
   // StructArray Compare overload
