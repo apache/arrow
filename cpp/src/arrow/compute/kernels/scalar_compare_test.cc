@@ -2432,7 +2432,8 @@ TEST(TestNumericBetweenKernel, BetweenRandomNumeric) {
         auto scalar1 = Datum(ScalarFromJSON(tt, "10"));
         auto scalar2 = Datum(ScalarFromJSON(tt, "30"));
         auto scalar3 = Datum(ScalarFromJSON(tt, "50"));
-        ValidateBetween(array1, scalar2, scalar3);
+        ValidateBetween(scalar1, scalar2, scalar3);
+	ValidateBetween(array1, scalar2, scalar3);
         ValidateBetween(array1, array2, scalar3);
         ValidateBetween(array1, array2, array3);
         ValidateBetween(array1, scalar2, scalar3);
@@ -2460,6 +2461,7 @@ TEST(TestStringBetweenKernel, RandomBetween) {
       auto scalar1 = Datum(std::make_shared<ScalarType>("fupi"));
       auto scalar2 = Datum(std::make_shared<ScalarType>("tupu"));
       auto scalar3 = Datum(std::make_shared<ScalarType>("zito"));
+      ValidateBetween(scalar1, scalar2, scalar3);
       ValidateBetween(array1, scalar2, scalar3);
       ValidateBetween(scalar1, array2, scalar3);
       ValidateBetween(scalar1, scalar2, array3);
@@ -2489,6 +2491,100 @@ TEST(TestStringBetweenKernel, StringArrayScalarScalarTest) {
                                       R"(["abd", null, null, "zzx"])")),
                   l, r);
 }
+
+TEST(TestStringBetweenKernel, StringScalarArrayScalarTest) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto l = Datum(std::make_shared<ScalarType>("abc"));
+  auto r = Datum(std::make_shared<ScalarType>("zzz"));
+  ValidateBetween(l, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+                  r);
+  ValidateBetween(l,
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")), r);
+  ValidateBetween(l, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["aaa", "aaaa", "ccc", "z"])")),
+                  r);
+  ValidateBetween(l, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["abc", "baa", "fff", "zzz"])")),
+                  r);
+  ValidateBetween(l, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["abd", null, null, "zzx"])")),
+                  r);
+}
+
+TEST(TestStringBetweenKernel, StringScalarScalarArrayTest) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto l = Datum(std::make_shared<ScalarType>("abc"));
+  auto r = Datum(std::make_shared<ScalarType>("zzz"));
+  ValidateBetween(l, r,
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")));
+  ValidateBetween(l, r,
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")));
+  ValidateBetween(l, r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                       R"(["aaa", "aaaa", "ccc", "z"])")));
+  ValidateBetween(l, r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["abc", "baa", "fff", "zzz"])")));
+  ValidateBetween(l, r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                      R"(["abd", null, null, "zzx"])")));
+}
+
+TEST(TestStringBetweenKernel, StringScalarArrayArrayTest) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto r = Datum(std::make_shared<ScalarType>("zzz"));
+  ValidateBetween(r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")));
+  ValidateBetween(r,
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")));
+  ValidateBetween(r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                   R"(["aaa", "aaaa", "ccc", "z"])")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abc", "baa", "fff", "zzz"])")));
+  ValidateBetween(r, Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                   R"(["abc", "baa", "fff", "zzz"])")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abd", null, null, "zzx"])")));
+}
+
+TEST(TestStringBetweenKernel, StringArrayScalarArrayTest) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto r = Datum(std::make_shared<ScalarType>("zzz"));
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")), r,
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")));
+  ValidateBetween(
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")), r,
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")));
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["aaa", "aaaa", "ccc", "z"])")), r,
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abc", "baa", "fff", "zzz"])")));
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abc", "baa", "fff", "zzz"])")), r,
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abd", null, null, "zzx"])")));
+}
+
+TEST(TestStringBetweenKernel, StringArrayArrayScalarTest) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto r = Datum(std::make_shared<ScalarType>("zzz"));
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+		  r);
+  ValidateBetween(
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[]")),
+      Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), "[null]")),
+      r);
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["aaa", "aaaa", "ccc", "z"])")),
+		  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abc", "baa", "fff", "zzz"])")),
+		  r);
+  ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abc", "baa", "fff", "zzz"])")),
+                  Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
+                                R"(["abd", null, null, "zzx"])")),
+		  r);
+}
+
 
 TEST(TestStringBetweenKernel, StringArrayArrayArrayTest) {
   ValidateBetween(Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(),
