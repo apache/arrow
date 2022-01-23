@@ -33,7 +33,7 @@ libprotobuf:
 lz4_c:
 - 1.9.3
 numpy:
-- '1.19'
+- '1.18'
 openssl:
 - 1.1.1
 orc:
@@ -49,7 +49,7 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.9.* *_cpython
+- 3.8.* *_cpython
 re2:
 - 2021.11.01
 snappy:
