@@ -147,13 +147,15 @@ void AddListCast(CastFunction* func) {
   kernel.signature =
       KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
+  DCHECK_OK( func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const CastOptions& options = CastState::Get(ctx);
 
+    // Note that size refers to the number of struct elements, not the length of the
+    // arrays
     const auto in_size = checked_cast<const StructType&>(*batch[0].type()).num_fields();
     const auto out_size = checked_cast<const StructType&>(*out->type()).num_fields();
 
@@ -171,6 +173,28 @@ struct CastStruct {
         ARROW_RETURN_NOT_OK(
             Status(StatusCode::TypeError, "struct field names do not match"));
       }
+    }
+
+    if (out->kind() == Datum::SCALAR) {
+      const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
+      auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
+
+      std::vector<ValueDescr> descrs{};
+      for (auto i{0}; i < in_size; i++) {
+	auto field = out->type()->field(i);
+	auto descr = ValueDescr(field->type());
+	descrs.push_back(descr);
+      }
+
+      auto in_values = static_cast<std::vector<std::shared_ptr<Scalar>>>(in_scalar.value);
+      if (in_scalar.is_valid) {
+	//ARROW_ASSIGN_OR_RAISE(out_scalar->value,
+	auto converted =  Cast(in_values, descrs,
+			       ctx->exec_context()).ValueOrDie();
+
+        out_scalar->is_valid = true;
+      }      
+      return Status::OK();
     }
 
     const ArrayData& in_array = *batch[0].array();
@@ -195,7 +219,7 @@ void AddStructToStructCast(CastFunction* func) {
   ScalarKernel kernel;
   kernel.exec = CastStruct::Exec;
   kernel.signature =
-      KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
+    KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }

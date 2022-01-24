@@ -2221,15 +2221,12 @@ static void CheckStructToStruct(
     const std::vector<std::shared_ptr<DataType>>& value_types) {
   for (const auto& src_value_type : value_types) {
     for (const auto& dest_value_type : value_types) {
-      std::vector<std::string> field_names = {"a", "b"};
+      std::vector<std::string> field_names = {"a"};
       std::shared_ptr<Array> a1, b1, a2, b2;
       a1 = ArrayFromJSON(src_value_type, "[1, 2]");
-      b1 = ArrayFromJSON(src_value_type, "[3, 4]");
       a2 = ArrayFromJSON(dest_value_type, "[1, 2]");
-      b2 = ArrayFromJSON(dest_value_type, "[3, 4]");
-
-      auto src = StructArray::Make({a1, b2}, field_names).ValueOrDie();
-      auto dest = StructArray::Make({a2, b2}, field_names).ValueOrDie();
+      auto src = StructArray::Make({a1}, field_names).ValueOrDie();
+      auto dest = StructArray::Make({a2}, field_names).ValueOrDie();
 
       CheckCast(src, dest);
     }
