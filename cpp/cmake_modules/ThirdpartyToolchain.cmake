@@ -4265,6 +4265,15 @@ macro(build_awssdk)
                    PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
       add_dependencies(awssdk_ep zlib_ep)
     endif()
+  elseif(WIN32)
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          "winhttp.lib"
+                          "bcrypt.lib"
+                          "wininet.lib"
+                          "userenv.lib"
+                          "version.lib")
   endif()
 
   # AWSSDK is static-only build
