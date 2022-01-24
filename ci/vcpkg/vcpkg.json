@@ -66,7 +66,6 @@
       "dependencies": [
         "boost-algorithm",
         "boost-crc",
-        "boost-crc",
         "boost-date-time",
         "boost-format",
         "boost-locale",
@@ -74,6 +73,7 @@
         "boost-regex",
         "boost-system",
         "boost-variant",
+        "boost-multiprecision",
         {
           "name": "llvm",
           "default-features": false,
