@@ -909,4 +909,3 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   # must clean up the pointer or we leak
   delete_arrow_array_stream(stream_ptr)
 })
-
