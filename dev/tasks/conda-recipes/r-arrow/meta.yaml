@@ -7,8 +7,7 @@ package:
   version: {{ version|replace("-", "_") }}
 
 source:
-  url: https://dist.apache.org/repos/dist/release/arrow/arrow-{{ version }}/apache-arrow-{{ version }}.tar.gz
-  sha256: 3786b3d2df954d078b3e68f98d2e5aecbaa3fa2accf075d7a3a13c187b9c5294
+  path: ../../../../
 
 build:
   merge_build_host: true  # [win]
