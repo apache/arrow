@@ -32,6 +32,7 @@ env:
   CXX: "clang++"
   MACOSX_DEPLOYMENT_TARGET: "{{ macos_deployment_target }}"
   PYARROW_BUILD_VERBOSE: 1
+  PYARROW_TEST_GDB: "OFF"
   PYARROW_VERSION: "{{ arrow.no_rc_version }}"
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"

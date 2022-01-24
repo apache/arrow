@@ -25,6 +25,8 @@ import sys
 import pytest
 
 
+pytestmark = pytest.mark.gdb
+
 here = os.path.dirname(os.path.abspath(__file__))
 
 # The GDB script may be found in the source tree (if available)
@@ -57,6 +59,11 @@ def python_executable():
 def skip_if_gdb_unavailable():
     if not is_gdb_available():
         pytest.skip("gdb command unavailable")
+
+
+def skip_if_gdb_script_unavailable():
+    if not os.path.exists(gdb_script):
+        pytest.skip("gdb script not found")
 
 
 class GdbSession:
@@ -169,7 +176,7 @@ def gdb():
 
 @pytest.fixture(scope='session')
 def gdb_arrow(gdb):
-    assert os.path.exists(gdb_script), "GDB script not found"
+    skip_if_gdb_script_unavailable()
     gdb.run_command(f"source {gdb_script}")
     code = "from pyarrow.lib import _gdb_test_session; _gdb_test_session()"
     out = gdb.run_command(f"run -c '{code}'")
