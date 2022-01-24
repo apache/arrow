@@ -286,9 +286,13 @@ void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& col
   bool is_first = true;
 
   for (size_t icol = 0; icol < cols.size(); ++icol) {
+    // If the col is the first one, the hash value is stored in the out_hash buffer
+    // Otherwise, the hash value of current column is stored in a temp buf, and then
+    // combined into the out_hash buffer
+    uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
+
     // Set the hash value as zero for a null type col
     if (cols[icol].metadata().is_null_type) {
-      uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
       memset(dst_hash, 0, sizeof(uint32_t) * cols[icol].length());
     } else {
       if (cols[icol].metadata().is_fixed_length) {
@@ -300,18 +304,16 @@ void Hashing::HashMultiColumn(const std::vector<KeyEncoder::KeyColumnArray>& col
         }
         Hashing::hash_fixed(
             ctx->hardware_flags, num_rows, col_width == 0 ? 1 : col_width,
-            col_width == 0 ? byte_temp_buf.mutable_data() : cols[icol].data(1),
-            is_first ? out_hash : hash_temp_buf.mutable_data());
+            col_width == 0 ? byte_temp_buf.mutable_data() : cols[icol].data(1), dst_hash);
       } else {
         Hashing::hash_varlen(
             ctx->hardware_flags, num_rows, cols[icol].offsets(), cols[icol].data(2),
             varbin_temp_buf.mutable_data(),  // Needs to hold 4 x 32-bit per row
-            is_first ? out_hash : hash_temp_buf.mutable_data());
+            dst_hash);
       }
 
       // Zero hash for nulls
       if (cols[icol].data(0)) {
-        uint32_t* dst_hash = is_first ? out_hash : hash_temp_buf.mutable_data();
         int num_nulls;
         util::bit_util::bits_to_indexes(
             0, ctx->hardware_flags, num_rows, cols[icol].data(0), &num_nulls,
