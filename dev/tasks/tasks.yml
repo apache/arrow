@@ -937,6 +937,8 @@ tasks:
       arch_emulation: "x86_64"
       env:
         TEST_DEFAULT: 0
+        PYARROW_TEST_GDB: "OFF"
+        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       artifact: "wheels"
 
   verify-rc-wheels-macos-11-arm64:
@@ -947,6 +949,7 @@ tasks:
       arch_emulation: "arm64"
       env:
         TEST_DEFAULT: 0
+        PYARROW_TEST_GDB: "OFF"
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       artifact: "wheels"
 
