@@ -26,6 +26,10 @@ Decimal Numbers
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::Decimal256
+   :project: arrow_cpp
+   :members:
+
 Abstract Sequences
 ==================
 
