@@ -108,16 +108,13 @@ Parquet writer
 
 .. _cpp-api-orc:
 
-ORC reader
-==========
+ORC
+===
 
 .. doxygenclass:: arrow::adapters::orc::ORCFileReader
    :members:
 
-ORC writer
-==========
-
-.. doxygenclass:: arrow::adapters::orc::WriteOptions
+.. doxygenstruct:: arrow::adapters::orc::WriteOptions
    :members:
 
 .. doxygenclass:: arrow::adapters::orc::ORCFileWriter

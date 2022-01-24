@@ -33,6 +33,7 @@ from pyarrow._dataset import (  # noqa
     FileSystemFactoryOptions,
     FileWriteOptions,
     Fragment,
+    FragmentScanOptions,
     HivePartitioning,
     IpcFileFormat,
     IpcFileWriteOptions,

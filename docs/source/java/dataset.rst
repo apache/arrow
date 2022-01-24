@@ -98,14 +98,16 @@ schema will be inferred automatically from data source. The same as the result
 of ``DatasetFactory#inspect()``.
 
 Also, if projector is specified during scanning (see next section
-:ref:`Projection`), the actual schema of output data can be got within
-method ``Scanner::schema()``:
+:ref:`java-dataset-projection`), the actual schema of output data can be got
+within method ``Scanner::schema()``:
 
 .. code-block:: Java
 
     Scanner scanner = dataset.newScan(
         new ScanOptions(100, Optional.of(new String[] {"id", "name"})));
     Schema projectedSchema = scanner.schema();
+
+.. _java-dataset-projection:
 
 Projection
 ==========

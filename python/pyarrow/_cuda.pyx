@@ -344,7 +344,7 @@ cdef class IpcMemHandle(_Weakrefable):
         opaque_handle :
           a CUipcMemHandle as a const void*
 
-        Results
+        Returns
         -------
         ipc_handle : IpcMemHandle
         """
