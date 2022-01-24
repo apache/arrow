@@ -22,8 +22,10 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
+import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaPreparedStatement;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.Meta.StatementHandle;
@@ -67,8 +69,14 @@ public class ArrowFlightPreparedStatement extends AvaticaPreparedStatement
       final int resultSetType,
       final int resultSetConcurrency,
       final int resultSetHoldability) throws SQLException {
+
+    final ArrowFlightSqlClientHandler.PreparedStatement prepare = connection.getClientHandler().prepare(signature.sql);
+    final Schema resultSetSchema = prepare.getDataSetSchema();
+
+    signature.columns.addAll(ConvertUtils.convertArrowFieldsToColumnMetaDataList(resultSetSchema.getFields()));
+
     return new ArrowFlightPreparedStatement(
-        connection, connection.getClientHandler().prepare(signature.sql), statementHandle,
+        connection, prepare, statementHandle,
         signature, resultSetType, resultSetConcurrency, resultSetHoldability);
   }
 

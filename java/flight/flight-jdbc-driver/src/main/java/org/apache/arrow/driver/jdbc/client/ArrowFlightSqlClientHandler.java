@@ -141,6 +141,13 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      */
     StatementType getType();
 
+    /**
+     * Gets the {@link Schema} of this {@link PreparedStatement}.
+     *
+     * @return {@link Schema}.
+     */
+    Schema getDataSetSchema();
+
     @Override
     void close();
   }
@@ -169,6 +176,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       public StatementType getType() {
         final Schema schema = preparedStatement.getResultSetSchema();
         return schema.getFields().isEmpty() ? StatementType.UPDATE : StatementType.SELECT;
+      }
+
+      @Override
+      public Schema getDataSetSchema() {
+        return preparedStatement.getResultSetSchema();
       }
 
       @Override

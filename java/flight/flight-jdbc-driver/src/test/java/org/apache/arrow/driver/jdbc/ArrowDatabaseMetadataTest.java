@@ -58,6 +58,7 @@ import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
+import org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedSubqueries;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -226,6 +227,8 @@ public class ArrowDatabaseMetadataTest {
   private static final boolean EXPECTED_SUBQUERIES_IN_EXISTS = false;
   private static final boolean EXPECTED_SUBQUERIES_IN_INS = false;
   private static final boolean EXPECTED_SUBQUERIES_IN_QUANTIFIEDS = false;
+  private static final SqlSupportedSubqueries[] EXPECTED_SUPPORTED_SUBQUERIES = new SqlSupportedSubqueries[]
+      {SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS};
   private static final boolean EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED = true;
   private static final boolean EXPECTED_SUPPORTS_UNION = true;
   private static final boolean EXPECTED_SUPPORTS_UNION_ALL = true;
@@ -554,7 +557,7 @@ public class ArrowDatabaseMetadataTest {
             FlightSql.SqlSupportedPositionedCommands.SQL_POSITIONED_DELETE)
         .withSqlSelectForUpdateSupported(EXPECTED_SELECT_FOR_UPDATE_SUPPORTED)
         .withSqlStoredProceduresSupported(EXPECTED_STORED_PROCEDURES_SUPPORTED)
-        .withSqlSubQueriesSupported(FlightSql.SqlSupportedSubqueries.SQL_SUBQUERIES_IN_COMPARISONS)
+        .withSqlSubQueriesSupported(EXPECTED_SUPPORTED_SUBQUERIES)
         .withSqlCorrelatedSubqueriesSupported(EXPECTED_CORRELATED_SUBQUERIES_SUPPORTED)
         .withSqlSupportedUnions(FlightSql.SqlSupportedUnions.SQL_UNION_ALL)
         .withSqlMaxBinaryLiteralLength(EXPECTED_MAX_BINARY_LITERAL_LENGTH)

@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc;
 
 import java.sql.SQLException;
 
+import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.Meta;
@@ -42,11 +43,12 @@ public class ArrowFlightStatement extends AvaticaStatement implements ArrowFligh
 
   @Override
   public FlightInfo executeFlightInfoQuery() throws SQLException {
+    final PreparedStatement preparedStatement = getConnection().getMeta().getPreparedStatement(handle);
     final Meta.Signature signature = getSignature();
     if (signature == null) {
       return null;
     }
 
-    return getConnection().getClientHandler().getInfo(signature.sql);
+    return preparedStatement.executeQuery();
   }
 }
