@@ -23,7 +23,7 @@ jobs:
 
   build-cpp-ubuntu:
     name: Build C++ Libs Ubuntu
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
