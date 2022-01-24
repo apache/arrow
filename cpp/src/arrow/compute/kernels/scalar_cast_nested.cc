@@ -152,7 +152,6 @@ void AddListCast(CastFunction* func) {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO: we aren't using options in the Scalar case
     const CastOptions& options = CastState::Get(ctx);
     const auto in_field_count =
         checked_cast<const StructType&>(*batch[0].type()).num_fields();
@@ -175,42 +174,23 @@ struct CastStruct {
       }
     }
 
-    if (out->kind() == Datum::SCALAR) {
+    if (out->kind() == Datum::SCALAR) {      
       const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
       auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
 
-      std::vector<ValueDescr> descrs{};
       for (auto i{0}; i < in_field_count; i++) {
-        auto field = out->type()->field(i);
-        // TODO: don't hard code SCALAR in this call; OR alternately
-        // raise if we only support SCALAR elements
-        auto descr = ValueDescr(field->type(), ValueDescr::SCALAR);
-        descrs.push_back(descr);
+	auto values = in_scalar.value[i];
+	auto target_type = out->type()->field(i)->type();
+	ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+			      Cast(values, target_type, options, ctx->exec_context()));
+	DCHECK_EQ(Datum::SCALAR, cast_values.kind());
+	out_scalar->value.push_back(cast_values.scalar());
       }
-
-      // TODO: one of the main issues right now is casting a const vector
-      // of pointers to Scalars to a vector of Datum and back
-      std::vector<std::shared_ptr<Scalar>> in_values = in_scalar.value;
-      std::vector<Datum> datums{};
-      for (auto i{0}; i < in_field_count; i++) {
-        datums.push_back(Datum(in_values[i]));
-      }
-
-      if (in_scalar.is_valid) {
-        auto casted = Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
-
-        // TODO: same issue with vector of Datum -> Scalar conversion
-        std::vector<std::shared_ptr<Scalar>> out_values;
-        for (auto i{0}; i < in_field_count; i++) {
-          out_values.push_back(casted[i].scalar());
-        }
-        out_scalar->value = out_values;
-        out_scalar->is_valid = true;
-      }
+      
+      out_scalar->is_valid = true;
       return Status::OK();
     }
 
-    // TODO: should we raise here for is_downcast similar to what the List does?
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
 
