@@ -61,6 +61,11 @@ def skip_if_gdb_unavailable():
         pytest.skip("gdb command unavailable")
 
 
+def skip_if_gdb_script_unavailable():
+    if not os.path.exists(gdb_script):
+        pytest.skip("gdb script not found")
+
+
 class GdbSession:
     proc = None
     verbose = True
@@ -171,7 +176,7 @@ def gdb():
 
 @pytest.fixture(scope='session')
 def gdb_arrow(gdb):
-    assert os.path.exists(gdb_script), "GDB script not found"
+    skip_if_gdb_script_unavailable()
     gdb.run_command(f"source {gdb_script}")
     code = "from pyarrow.lib import _gdb_test_session; _gdb_test_session()"
     out = gdb.run_command(f"run -c '{code}'")
