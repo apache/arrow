@@ -1077,3 +1077,11 @@ test_that("Array to C-interface", {
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
 })
+
+test_that("Array coverts timestamps with missing timezone /assumed local tz correctly", {
+  a <- as.POSIXct("1970-01-01 00:00:00")
+  attr(a, "tzone") <- Sys.timezone()
+  expect_equal(
+    Array$create(a),
+    Array$create(0, int64())$cast(timestamp(unit = "us", timezone = Sys.timezone())))
+})
