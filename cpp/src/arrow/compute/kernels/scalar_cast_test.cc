@@ -2244,8 +2244,6 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   auto src = StructArray::Make({a, b}, field_names).ValueOrDie();
 
-  // TODO: instead of creating an area create StructType directly
-  // error: call to implicitly-deleted copy constructor of 'arrow::StructType'
   std::vector<std::string> field_names2 = {"c", "d"};
   std::shared_ptr<Array> c, d;
   c = ArrayFromJSON(int8(), "[1, 2]");
