@@ -163,7 +163,7 @@ struct CastStruct {
           Status(StatusCode::TypeError, "struct field sizes do not match"));
     }
 
-    for (auto i{0}; i < in_field_count; i++) {
+    for (int64_t i = 0; i < in_field_count; ++i) {
       const auto in_field_name =
           checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
       const auto out_field_name =
@@ -194,7 +194,7 @@ struct CastStruct {
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
 
-    for (auto i{0}; i < in_field_count; i++) {
+    for (int64_t i = 0; i < in_field_count; ++i) {
       auto values = in_array.child_data[0];
       auto target_type = out->type()->field(i)->type();
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
