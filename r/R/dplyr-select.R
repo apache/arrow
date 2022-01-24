@@ -24,13 +24,13 @@ select.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
   column_select(as_adq(.data), !!!enquos(...))
 }
-select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
+select.Dataset <- select.ArrowTabular <- select.RecordBatchReader <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
   check_select_helpers(enexprs(...))
   column_select(as_adq(.data), !!!enquos(...), .FUN = vars_rename)
 }
-rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
+rename.Dataset <- rename.ArrowTabular <- rename.RecordBatchReader <- rename.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
   # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
@@ -106,7 +106,7 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   }
   .data
 }
-relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+relocate.Dataset <- relocate.ArrowTabular <- relocate.RecordBatchReader <- relocate.arrow_dplyr_query
 
 check_select_helpers <- function(exprs) {
   # Throw an error if unsupported tidyselect selection helpers in `exprs`

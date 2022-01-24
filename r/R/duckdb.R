@@ -122,7 +122,7 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' @param stream should the results be streamed (`TRUE`) or read as a table
 #' (`FALSE`)? default: TRUE
 #'
-#' @return an `arrow_dplyr_query` object, to be used in dplyr pipelines.
+#' @return a `RecordBatchReader` object, to be used in dplyr pipelines.
 #' @export
 #'
 #' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
@@ -158,8 +158,8 @@ to_arrow <- function(.data, stream = TRUE) {
   out <- duckdb::duckdb_fetch_record_batch(res)
 
   if (stream) {
-    arrow_dplyr_query(out)
+    return(out)
   } else {
-    arrow_dplyr_query(out$read_table())
+    return(out$read_table())
   }
 }
