@@ -2398,6 +2398,23 @@ public class TestValueVector {
   }
 
   @Test
+  public void testBitVectorEquals() {
+    try (final BitVector vector1 = new BitVector("bit", allocator);
+        final BitVector vector2 = new BitVector("bit", allocator)) {
+
+      setVector(vector1, 0, 1, 0);
+      setVector(vector2, 1, 1, 0);
+
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+
+      assertFalse(visitor.vectorEquals(vector1, vector2));
+
+      vector1.set(0, 1);
+      assertTrue(visitor.vectorEquals(vector1, vector2));
+    }
+  }
+
+  @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
          final IntVector vector2 = new IntVector("int", allocator)) {
