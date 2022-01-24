@@ -334,9 +334,12 @@ void KeyCompare::CompareColumnsToRows(uint32_t num_rows_to_compare,
   bool is_first_column = true;
   for (size_t icol = 0; icol < cols.size(); ++icol) {
     const KeyEncoder::KeyColumnArray& col = cols[icol];
-    // match_bytevector has been filled with 0xFF which is expected by a null type col
-    // so the calculation of match_bytevector can be skipped for a null type col
     if (col.metadata().is_null_type) {
+      // If this null type col is the first column, the match_bytevector_A needs to be
+      // initialized with 0xFF. Otherwise, the calculation can be skipped
+      if (is_first_column) {
+        std::memset(match_bytevector_A, 0xFF, num_rows_to_compare * sizeof(uint8_t));
+      }
       continue;
     }
     uint32_t offset_within_row =
