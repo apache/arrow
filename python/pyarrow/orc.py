@@ -22,7 +22,6 @@ import warnings
 from pyarrow.lib import Table
 import pyarrow._orc as _orc
 from pyarrow.fs import _resolve_filesystem_and_path
-from pyarrow import filesystem as legacyfs
 
 
 class ORCFile:
@@ -187,9 +186,8 @@ class ORCFile:
         return self.reader.read(columns=columns)
 
 
-_orc_writer_args_docs = """filesystem : FileSystem, default None
-    If nothing passed, will be inferred from `where` if path-like, else
-    `where` is already a file-like object so no filesystem is needed.
+_orc_writer_args_docs = """close_file : boolean, default False
+    Whether we close the file or file-like object after writing to it
 file_version : {"0.11", "0.12"}, default "0.12"
     Determine which ORC file version to use.
     `Hive 0.11 / ORC v0 <https://orc.apache.org/specification/ORCv0/>`_
@@ -238,10 +236,10 @@ where : str or pyarrow.io.NativeFile
 """.format(_orc_writer_args_docs)
 
     is_open = False
-    file_handle = None
+    close_file = False
 
     def __init__(self, where, *,
-                 filesystem=None,
+                 close_file=False,
                  file_version='0.12',
                  batch_size=1024,
                  stripe_size=64 * 1024 * 1024,
@@ -254,30 +252,11 @@ where : str or pyarrow.io.NativeFile
                  bloom_filter_columns=None,
                  bloom_filter_fpp=0.05,
                  ):
-
-        # If we open a file using a filesystem, store file handle so we can be
-        # sure to close it when `self.close` is called.
-
-        filesystem, path = _resolve_filesystem_and_path(
-            where, filesystem, allow_legacy_filesystem=True
-        )
-        if filesystem is not None:
-            if isinstance(filesystem, legacyfs.FileSystem):
-                # legacy filesystem (eg custom subclass)
-                # TODO deprecate
-                sink = self.file_handle = filesystem.open(path, 'wb')
-            else:
-                # ARROW-10480: do not auto-detect compression.  While
-                # a filename like foo.parquet.gz is nonconforming, it
-                # shouldn't implicitly apply compression.
-                sink = self.file_handle = filesystem.open_output_stream(
-                    path, compression=None)
-        else:
-            sink = where
-
+        self.close_file = close_file
         self.writer = _orc.ORCWriter()
         self.writer.open(
-            sink,
+            where,
+            close_file=close_file,
             file_version=file_version,
             batch_size=batch_size,
             stripe_size=stripe_size,
@@ -321,8 +300,6 @@ where : str or pyarrow.io.NativeFile
         if self.is_open:
             self.writer.close()
             self.is_open = False
-        if self.file_handle is not None:
-            self.file_handle.close()
 
 
 def read_table(source, columns=None, filesystem=None):

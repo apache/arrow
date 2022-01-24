@@ -388,8 +388,11 @@ cdef class ORCWriter(_Weakrefable):
         object sink
         unique_ptr[ORCFileWriter] writer
         shared_ptr[COutputStream] rd_handle
+        c_bool close_file
 
-    def open(self, object sink, *, file_version=None,
+    def open(self, object sink, *,
+             close_file=False,
+             file_version=None,
              batch_size=None,
              stripe_size=None,
              compression=None,
@@ -403,6 +406,7 @@ cdef class ORCWriter(_Weakrefable):
         cdef:
             shared_ptr[WriteOptions] write_options
         self.sink = sink
+        self.close_file = close_file
         get_writer(sink, &self.rd_handle)
 
         write_options = _create_write_options(
@@ -434,3 +438,5 @@ cdef class ORCWriter(_Weakrefable):
     def close(self):
         with nogil:
             check_status(deref(self.writer).Close())
+            if self.close_file:
+                check_status(deref(self.rd_handle).Close())
