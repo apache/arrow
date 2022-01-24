@@ -203,21 +203,7 @@ struct CastStruct {
       return Status::OK();
     }
 
-    const ArrayData& in_array = *batch[0].array();
-    ArrayData *out_array = out->mutable_array();
-    out_array->buffers = in_array.buffers;
-    
-    for (unsigned long i=0; i < in_array.child_data.size(); i++) {
-      Datum values = in_array.child_data[i];
-
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-			    Cast(values, out->type()->field(i)->type(), options, ctx->exec_context()));
-    
-      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
-      out_array->child_data.push_back(cast_values.array());
-    }
-
-    return Status::OK();
+    return Status::NotImplemented("Only Scalar Struct casts have been implemented");
   }
 };
 
