@@ -17,6 +17,7 @@
 
 // Implementation of casting to (or between) list types
 
+#include <iostream>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -152,6 +153,8 @@ void AddListCast(CastFunction* func) {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // TODO: we aren't using options in the Scalar case
+    const CastOptions& options = CastState::Get(ctx);
     const auto in_field_count = checked_cast<const StructType&>(*batch[0].type()).num_fields();
     const auto out_field_count = checked_cast<const StructType&>(*out->type()).num_fields();
 
@@ -206,7 +209,21 @@ struct CastStruct {
       return Status::OK();
     }
 
-    return Status::NotImplemented("Only Scalar Struct casts have been implemented");
+    // TODO: should we raise here for is_downcast similar to what the List does?
+    const ArrayData& in_array = *batch[0].array();
+    ArrayData* out_array = out->mutable_array();
+
+    for (auto i{0}; i < in_field_count; i++) {
+      auto values = in_array.child_data[0];
+      auto target_type = out->type()->field(i)->type();
+      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+			    Cast(values, target_type, options, ctx->exec_context()));
+      
+      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+      out_array->child_data.push_back(cast_values.array());
+    }
+    
+    return Status::OK();
   }
 };
 
