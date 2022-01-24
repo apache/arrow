@@ -53,49 +53,35 @@ COPY ci/vcpkg/*.patch \
 COPY ci/scripts/install_vcpkg.sh \
      ci/scripts/install_glibc.sh \
      arrow/ci/scripts/
-RUN arrow/ci/scripts/install_vcpkg.sh /opt/vcpkg ${vcpkg} && \
+ENV VCPKG_ROOT=/opt/vcpkg
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
     if [ "${manylinux}" == "2010" ]; then \
         arrow/ci/scripts/install_glibc.sh ${glibc} /opt/glibc-${glibc} && \
-        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 /opt/vcpkg/vcpkg && \
-        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 /opt/vcpkg/vcpkg; \
+        patchelf --set-interpreter /opt/glibc-2.18/lib/ld-linux-x86-64.so.2 ${VCPKG_ROOT}/vcpkg && \
+        patchelf --set-rpath /opt/glibc-2.18/lib:/usr/lib64 ${VCPKG_ROOT}/vcpkg; \
     fi
-ENV PATH="/opt/vcpkg:${PATH}"
+ENV PATH="${PATH}:${VCPKG_ROOT}"
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
-    VCPKG_FEATURE_FLAGS=-manifests
-
-# Need to install the boost-build prior installing the boost packages, otherwise
-# vcpkg will raise an error.
-# TODO(kszucs): factor out the package enumeration to a text file and reuse it
-# from the windows image and potentially in a future macos wheel build
-RUN vcpkg install --clean-after-build \
-        abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-filesystem \
-        brotli \
-        bzip2 \
-        c-ares \
-        curl \
-        flatbuffers \
-        gflags \
-        glog \
-        google-cloud-cpp[core,storage] \
-        grpc \
-        lz4 \
-        openssl \
-        orc \
-        protobuf \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift \
-        utf8proc \
-        zlib \
-        zstd
+    VCPKG_FEATURE_FLAGS="manifests"
+COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
+# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
+# ssl related fixies as well as we can patch the vcpkg portfile to support
+# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
+# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
+# previous versions => use bundled S3 build
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet
 
 ARG python=3.8
 ENV PYTHON_VERSION=${python}

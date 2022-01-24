@@ -4135,14 +4135,29 @@ macro(build_awssdk)
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
+  # provide hint for AWS SDK to link with the already located openssl
+  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
-  if(UNIX AND TARGET zlib_ep)
-    list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
-         -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+
+  if(UNIX)
+    # on Linux and macOS curl seems to be required
+    find_curl()
+    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+    get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIRS}" DIRECTORY)
+
+    # provide hint for AWS SDK to link with the already located libcurl and zlib
+    list(APPEND
+         AWSSDK_CMAKE_ARGS
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
+         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
@@ -4213,6 +4228,7 @@ macro(build_awssdk)
     set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
                              "<SOURCE_DIR>/cmake/compiler_settings.cmake")
   endif()
+
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
@@ -4237,7 +4253,6 @@ macro(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on Linux and macOS curl seems to be required
-    find_curl()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
@@ -4250,6 +4265,15 @@ macro(build_awssdk)
                    PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
       add_dependencies(awssdk_ep zlib_ep)
     endif()
+  elseif(WIN32)
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          "winhttp.lib"
+                          "bcrypt.lib"
+                          "wininet.lib"
+                          "userenv.lib"
+                          "version.lib")
   endif()
 
   # AWSSDK is static-only build

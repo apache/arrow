@@ -37,7 +37,7 @@ env:
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
   VCPKG_DEFAULT_TRIPLET: {{ arch }}-osx-static-release
-  VCPKG_FEATURE_FLAGS: "-manifests"
+  VCPKG_FEATURE_FLAGS: "manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
@@ -98,27 +98,14 @@ jobs:
 
       - name: Install Packages
         run: |
-          arch -arm64 vcpkg install \
-            aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-            boost-filesystem \
-            brotli \
-            bzip2 \
-            c-ares \
-            curl \
-            flatbuffers \
-            gflags \
-            glog \
-            google-cloud-cpp[core,storage] \
-            lz4 \
-            orc \
-            protobuf \
-            rapidjson \
-            re2 \
-            snappy \
-            thrift \
-            utf8proc \
-            zlib \
-            zstd
+           arch -arm64 vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/ci/vcpkg \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet
 
       - name: Build Wheel
         shell: bash
