@@ -64,8 +64,8 @@ class KeyEncoder {
     /// Is column null type
     bool is_null_type;
     /// For a fixed-length binary column: number of bytes per value.
-    /// Zero has a special meaning, indicating a bit vector with one bit per value if it's
-    /// not a null type column.
+    /// Zero has a special meaning, indicating a bit vector with one bit per value if it
+    /// isn't a null type column.
     /// For a varying-length binary column: number of bytes per offset.
     uint32_t fixed_length;
   };
