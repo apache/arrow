@@ -69,11 +69,11 @@
         "boost-date-time",
         "boost-format",
         "boost-locale",
+        "boost-multiprecision",
         "boost-predef",
         "boost-regex",
         "boost-system",
         "boost-variant",
-        "boost-multiprecision",
         {
           "name": "llvm",
           "default-features": false,
