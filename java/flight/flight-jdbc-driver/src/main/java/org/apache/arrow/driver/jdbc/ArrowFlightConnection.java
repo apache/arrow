@@ -171,4 +171,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   BufferAllocator getBufferAllocator() {
     return allocator;
   }
+
+  public ArrowFlightMetaImpl getMeta() {
+    return (ArrowFlightMetaImpl) this.meta;
+  }
 }

@@ -24,18 +24,14 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-import org.apache.arrow.driver.jdbc.utils.SqlTypes;
-import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
+import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
 import org.apache.calcite.avatica.AvaticaStatement;
@@ -44,7 +40,6 @@ import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.Meta.Frame;
 import org.apache.calcite.avatica.Meta.Signature;
 import org.apache.calcite.avatica.QueryState;
-import org.apache.calcite.avatica.proto.Common;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,71 +87,6 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     return resultSet;
   }
 
-  private static List<ColumnMetaData> convertArrowFieldsToColumnMetaDataList(final List<Field> fields) {
-    return Stream.iterate(0, Math::incrementExact).limit(fields.size())
-        .map(index -> {
-          final Field field = fields.get(index);
-          final ArrowType.ArrowTypeID fieldTypeId = field.getType().getTypeID();
-
-          final Common.ColumnMetaData.Builder builder = Common.ColumnMetaData.newBuilder();
-          builder.setOrdinal(index);
-          builder.setColumnName(field.getName());
-          builder.setLabel(field.getName());
-
-          setOnColumnMetaDataBuilder(builder, field.getMetadata());
-
-          builder.setType(Common.AvaticaType.newBuilder()
-              .setId(SqlTypes.getSqlTypeIdFromArrowType(field.getType()))
-              .setName(fieldTypeId.name())
-              .build());
-
-          return ColumnMetaData.fromProto(builder.build());
-        }).collect(Collectors.toList());
-  }
-
-  private static void setOnColumnMetaDataBuilder(final Common.ColumnMetaData.Builder builder,
-                                                 final Map<String, String> metadataMap) {
-    final FlightSqlColumnMetadata columnMetadata = new FlightSqlColumnMetadata(metadataMap);
-    final String catalogName = columnMetadata.getCatalogName();
-    if (catalogName != null) {
-      builder.setCatalogName(catalogName);
-    }
-    final String schemaName = columnMetadata.getSchemaName();
-    if (schemaName != null) {
-      builder.setSchemaName(schemaName);
-    }
-    final String tableName = columnMetadata.getTableName();
-    if (tableName != null) {
-      builder.setTableName(tableName);
-    }
-
-    final Integer precision = columnMetadata.getPrecision();
-    if (precision != null) {
-      builder.setPrecision(precision);
-    }
-    final Integer scale = columnMetadata.getScale();
-    if (scale != null) {
-      builder.setScale(scale);
-    }
-
-    final Boolean isAutoIncrement = columnMetadata.isAutoIncrement();
-    if (isAutoIncrement != null) {
-      builder.setAutoIncrement(isAutoIncrement);
-    }
-    final Boolean caseSensitive = columnMetadata.isCaseSensitive();
-    if (caseSensitive != null) {
-      builder.setCaseSensitive(caseSensitive);
-    }
-    final Boolean readOnly = columnMetadata.isReadOnly();
-    if (readOnly != null) {
-      builder.setReadOnly(readOnly);
-    }
-    final Boolean searchable = columnMetadata.isSearchable();
-    if (searchable != null) {
-      builder.setSearchable(searchable);
-    }
-  }
-
   @Override
   protected AvaticaResultSet execute() throws SQLException {
     throw new RuntimeException();
@@ -164,7 +94,16 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
 
   void execute(final VectorSchemaRoot vectorSchemaRoot) {
     final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
-    final List<ColumnMetaData> columns = convertArrowFieldsToColumnMetaDataList(fields);
+    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(fields);
+    signature.columns.clear();
+    signature.columns.addAll(columns);
+
+    this.vectorSchemaRoot = vectorSchemaRoot;
+    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+  }
+
+  void execute(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
+    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(schema.getFields());
     signature.columns.clear();
     signature.columns.addAll(columns);
 

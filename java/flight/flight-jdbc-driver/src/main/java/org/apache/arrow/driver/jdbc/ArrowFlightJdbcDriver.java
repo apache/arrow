@@ -50,6 +50,16 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   private static DriverVersion version;
 
   static {
+    // Special code for supporting Java9 and higher.
+    // Netty requires some extra properties to unlock some native memory management api
+    // Setting this property if not already set externally
+    // This has to be done before any netty class is being loaded
+    final String key = "cfjd.io.netty.tryReflectionSetAccessible";
+    final String tryReflectionSetAccessible = System.getProperty(key);
+    if (tryReflectionSetAccessible == null) {
+      System.setProperty(key, Boolean.TRUE.toString());
+    }
+
     new ArrowFlightJdbcDriver().register();
   }
 

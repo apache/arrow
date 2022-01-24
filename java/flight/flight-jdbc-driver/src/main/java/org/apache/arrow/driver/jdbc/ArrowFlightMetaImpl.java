@@ -25,6 +25,8 @@ import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler.PreparedStatement;
 import org.apache.arrow.util.Preconditions;
@@ -40,9 +42,15 @@ import org.apache.calcite.avatica.remote.TypedValue;
  * Metadata handler for Arrow Flight.
  */
 public class ArrowFlightMetaImpl extends MetaImpl {
+  private final Map<StatementHandle, PreparedStatement> statementHandlePreparedStatementMap;
 
+  /**
+   * Constructs a {@link MetaImpl} object specific for Arrow Flight.
+   * @param connection A {@link AvaticaConnection}.
+   */
   public ArrowFlightMetaImpl(final AvaticaConnection connection) {
     super(connection);
+    this.statementHandlePreparedStatementMap = new ConcurrentHashMap<>();
     setDefaultConnectionProperties();
   }
 
@@ -59,7 +67,11 @@ public class ArrowFlightMetaImpl extends MetaImpl {
 
   @Override
   public void closeStatement(final StatementHandle statementHandle) {
-    // NO-OP.
+    PreparedStatement preparedStatement = statementHandlePreparedStatementMap.remove(statementHandle);
+    // Testing if the prepared statement was created because the statement can be not created until this moment
+    if (preparedStatement != null) {
+      preparedStatement.close();
+    }
   }
 
   @Override
@@ -131,6 +143,7 @@ public class ArrowFlightMetaImpl extends MetaImpl {
       final PreparedStatement preparedStatement =
           ((ArrowFlightConnection) connection).getClientHandler().prepare(query);
       final StatementType statementType = preparedStatement.getType();
+      statementHandlePreparedStatementMap.put(handle, preparedStatement);
       final Signature signature = newSignature(query);
       final long updateCount =
           statementType.equals(StatementType.UPDATE) ? preparedStatement.executeUpdate() : -1;
@@ -179,5 +192,9 @@ public class ArrowFlightMetaImpl extends MetaImpl {
         .setCatalog(null)
         .setSchema(null)
         .setTransactionIsolation(Connection.TRANSACTION_NONE);
+  }
+
+  PreparedStatement getPreparedStatement(StatementHandle statementHandle) {
+    return statementHandlePreparedStatementMap.get(statementHandle);
   }
 }
