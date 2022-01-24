@@ -1079,9 +1079,12 @@ test_that("Array to C-interface", {
 })
 
 test_that("Array coverts timestamps with missing timezone /assumed local tz correctly", {
-  a <- as.POSIXct("1970-01-01 00:00:00")
-  attr(a, "tzone") <- Sys.timezone()
-  expect_equal(
-    Array$create(a),
-    Array$create(0, int64())$cast(timestamp(unit = "us", timezone = Sys.timezone())))
+  withr::with_envvar(c(TZ = "America/Chicago"), {
+    a <- as.POSIXct("1970-01-01 00:00:00")
+    attr(a, "tzone") <- Sys.getenv("TZ")
+    expect_equal(
+        Array$create(a),
+        Array$create(as.integer(a), int64())$cast(timestamp(unit = "us", timezone = Sys.getenv("TZ")))
+      )
+  })
 })
