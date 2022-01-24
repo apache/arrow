@@ -353,19 +353,23 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
  public:
   using ArrayType = typename TypeTraits<Type>::ArrayType;
 
-  ConcreteRecordBatchColumnSorter(std::shared_ptr<Array> array, SortOrder order,
-                                  NullPlacement null_placement,
+  ConcreteRecordBatchColumnSorter(const RecordBatch& batch, std::shared_ptr<Array> array, SortOrder order,
+                                  NullPlacement null_placement, uint64_t field_index,
+                                  std::shared_ptr<NestedValuesComparator> nested_values_comparator,
                                   RecordBatchColumnSorter* next_column = nullptr)
       : RecordBatchColumnSorter(next_column),
+        batch_(batch),
         owned_array_(std::move(array)),
+        nested_values_comparator_(std::move(nested_values_comparator)),
         array_(checked_cast<const ArrayType&>(*owned_array_)),
         order_(order),
         null_placement_(null_placement),
-        null_count_(array_.null_count()) {}
+        null_count_(array_.null_count()),
+        field_index_(field_index) {}
 
   NullPartitionResult SortRange(uint64_t* indices_begin, uint64_t* indices_end,
                                 int64_t offset) override {
-    using GetView = GetViewType<Type>;
+    //using GetView = GetViewType<Type>;
 
     NullPartitionResult p;
     if (null_count_ == 0) {
@@ -386,18 +390,12 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
     if (order_ == SortOrder::Ascending) {
       std::stable_sort(
           q.non_nulls_begin, q.non_nulls_end, [&](uint64_t left, uint64_t right) {
-            const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
-            const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
-            return lhs < rhs;
+            return nested_values_comparator_->Compare(batch_, field_index_, offset, left, right);
           });
     } else {
       std::stable_sort(
           q.non_nulls_begin, q.non_nulls_end, [&](uint64_t left, uint64_t right) {
-            // We don't use 'left > right' here to reduce required operator.
-            // If we use 'right < left' here, '<' is only required.
-            const auto lhs = GetView::LogicalValue(array_.GetView(left - offset));
-            const auto rhs = GetView::LogicalValue(array_.GetView(right - offset));
-            return lhs > rhs;
+            return nested_values_comparator_->Compare(batch_, field_index_, offset, right, left);
           });
     }
 
@@ -424,18 +422,22 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
   }
 
  protected:
+  const RecordBatch& batch_;
   const std::shared_ptr<Array> owned_array_;
+  const std::shared_ptr<NestedValuesComparator> nested_values_comparator_;
   const ArrayType& array_;
   const SortOrder order_;
   const NullPlacement null_placement_;
   const int64_t null_count_;
+  const int64_t field_index_;
 };
 
 template <>
 class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter {
  public:
-  ConcreteRecordBatchColumnSorter(std::shared_ptr<Array> array, SortOrder order,
-                                  NullPlacement null_placement,
+  ConcreteRecordBatchColumnSorter(const RecordBatch& batch, std::shared_ptr<Array> array, SortOrder order,
+                                  NullPlacement null_placement, uint64_t field_index,
+                                  std::shared_ptr<NestedValuesComparator> nested_values_comparator,
                                   RecordBatchColumnSorter* next_column = nullptr)
       : RecordBatchColumnSorter(next_column), null_placement_(null_placement) {}
 
@@ -470,7 +472,7 @@ class RadixRecordBatchSorter {
     std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys.size());
     RecordBatchColumnSorter* next_column = nullptr;
     for (int64_t i = static_cast<int64_t>(sort_keys.size() - 1); i >= 0; --i) {
-      ColumnSortFactory factory(sort_keys[i], options_, next_column);
+      ColumnSortFactory factory(batch_, sort_keys[i], options_, next_column);
       ARROW_ASSIGN_OR_RAISE(column_sorts[i], factory.MakeColumnSort());
       next_column = column_sorts[i].get();
     }
@@ -486,13 +488,18 @@ class RadixRecordBatchSorter {
   };
 
   struct ColumnSortFactory {
-    ColumnSortFactory(const ResolvedSortKey& sort_key, const SortOptions& options,
+    ColumnSortFactory(const RecordBatch& batch, const ResolvedSortKey& sort_key, const SortOptions& options,
                       RecordBatchColumnSorter* next_column)
-        : physical_type(GetPhysicalType(sort_key.array->type())),
+        : batch_(batch),
+          physical_type(GetPhysicalType(sort_key.array->type())),
           array(GetPhysicalArray(*sort_key.array, physical_type)),
           order(sort_key.order),
           null_placement(options.null_placement),
-          next_column(next_column) {}
+          next_column(next_column),
+          nested_values_comparator_(nullptr) {
+            nested_values_comparator_ = std::make_shared<NestedValuesComparator>();
+            nested_values_comparator_->Prepare(batch);
+          }
 
     Result<std::unique_ptr<RecordBatchColumnSorter>> MakeColumnSort() {
       RETURN_NOT_OK(VisitTypeInline(*physical_type, this));
@@ -515,17 +522,19 @@ class RadixRecordBatchSorter {
 
     template <typename Type>
     Status VisitGeneric(const Type&) {
-      result.reset(new ConcreteRecordBatchColumnSorter<Type>(array, order, null_placement,
+      result.reset(new ConcreteRecordBatchColumnSorter<Type>(batch_, array, order, null_placement, 0, nested_values_comparator_,
                                                              next_column));
       return Status::OK();
     }
 
+    const RecordBatch& batch_;
     std::shared_ptr<DataType> physical_type;
     std::shared_ptr<Array> array;
     SortOrder order;
     NullPlacement null_placement;
     RecordBatchColumnSorter* next_column;
     std::unique_ptr<RecordBatchColumnSorter> result;
+    std::shared_ptr<NestedValuesComparator> nested_values_comparator_;
   };
 
   static Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
