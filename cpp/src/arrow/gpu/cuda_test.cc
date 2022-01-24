@@ -176,7 +176,8 @@ TEST_F(TestCudaDevice, Copy) {
 
   // device (other context) -> device
   ASSERT_OK_AND_ASSIGN(auto other_context, NonPrimaryContext());
-  ASSERT_OK_AND_ASSIGN(auto cuda_buffer, other_context->Allocate(9));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<CudaBuffer> cuda_buffer,
+                       other_context->Allocate(9));
   ASSERT_OK(cuda_buffer->CopyFromHost(0, "some data", 9));
   ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(cuda_buffer, mm_));
   ASSERT_EQ(other_buffer->device(), device_);
