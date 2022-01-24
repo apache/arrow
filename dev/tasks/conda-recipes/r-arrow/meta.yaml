@@ -7,21 +7,30 @@ package:
   version: {{ version|replace("-", "_") }}
 
 source:
-  path: ../../../../
+  url: https://dist.apache.org/repos/dist/release/arrow/arrow-{{ version }}/apache-arrow-{{ version }}.tar.gz
+  sha256: 3786b3d2df954d078b3e68f98d2e5aecbaa3fa2accf075d7a3a13c187b9c5294
 
 build:
   merge_build_host: true  # [win]
-  number: 0
+  number: 1
   rpaths:
     - lib/R/lib/
     - lib/
 
 requirements:
   build:
+    - cross-r-base {{ r_base }}  # [build_platform != target_platform]
+    - r-r6                       # [build_platform != target_platform]
+    - r-assertthat               # [build_platform != target_platform]
+    - r-bit64                    # [build_platform != target_platform]
+    - r-purrr                    # [build_platform != target_platform]
+    - r-rlang                    # [build_platform != target_platform]
+    - r-tidyselect               # [build_platform != target_platform]
+    - python 3.9                 # [build_platform != target_platform]
     - {{ compiler('c') }}        # [not win]
     - {{ compiler('cxx') }}      # [not win]
     - {{ compiler('r_clang') }}  # [win]
-    - pkg-config                 # [not win]
+    - pkg-config
     - {{ posix }}make
     - {{ posix }}sed         # [win]
     - {{ posix }}coreutils   # [win]
@@ -32,8 +41,8 @@ requirements:
     - pkg-config  # [win]
     - r-base
     - arrow-cpp {{ version }}
-    - r-cpp11
     - r-r6
+    - r-cpp11
     - r-assertthat
     - r-bit64
     - r-purrr
