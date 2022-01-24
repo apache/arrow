@@ -246,8 +246,8 @@ struct GrouperFastImpl : Grouper {
         impl->col_metadata_[icol] =
             arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
       } else if (key->id() == Type::NA) {
-        impl->col_metadata_[icol] =
-            arrow::compute::KeyEncoder::KeyColumnMetadata(true, 0, true);
+        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+            true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
       }
@@ -342,7 +342,6 @@ struct GrouperFastImpl : Grouper {
         if (batch[icol].array()->buffers[0] != NULLPTR) {
           non_nulls = batch[icol].array()->buffers[0]->data();
         }
-        auto array = batch[icol].array();
         fixedlen = batch[icol].array()->buffers[1]->data();
         if (!col_metadata_[icol].is_fixed_length) {
           varlen = batch[icol].array()->buffers[2]->data();
