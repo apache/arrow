@@ -182,15 +182,21 @@ struct CastStruct {
       std::vector<ValueDescr> descrs{};
       for (auto i{0}; i < in_size; i++) {
 	auto field = out->type()->field(i);
-	auto descr = ValueDescr(field->type());
+	// TODO: don't hard code SCALAR in this call
+	auto descr = ValueDescr(field->type(), ValueDescr::SCALAR);
 	descrs.push_back(descr);
       }
 
-      auto in_values = static_cast<std::vector<std::shared_ptr<Scalar>>>(in_scalar.value);
+      std::vector<std::shared_ptr<Scalar>> in_values = in_scalar.value;
+      std::vector<Datum> datums{};
+      for (auto i{0}; i < in_size; i++) {
+	datums.push_back(Datum(in_values[i]));
+      }
+
       if (in_scalar.is_valid) {
 	//ARROW_ASSIGN_OR_RAISE(out_scalar->value,
-	auto converted =  Cast(in_values, descrs,
-			       ctx->exec_context()).ValueOrDie();
+	auto converted =  Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
+	
 
         out_scalar->is_valid = true;
       }      
