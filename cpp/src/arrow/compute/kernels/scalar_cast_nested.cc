@@ -17,7 +17,6 @@
 
 // Implementation of casting to (or between) list types
 
-#include <iostream>
 #include <limits>
 #include <utility>
 #include <vector>
@@ -148,15 +147,17 @@ void AddListCast(CastFunction* func) {
   kernel.signature =
       KernelSignature::Make({InputType(SrcType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-  DCHECK_OK( func->AddKernel(SrcType::type_id, std::move(kernel)));
+  DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO: we aren't using options in the Scalar case
     const CastOptions& options = CastState::Get(ctx);
-    const auto in_field_count = checked_cast<const StructType&>(*batch[0].type()).num_fields();
-    const auto out_field_count = checked_cast<const StructType&>(*out->type()).num_fields();
+    const auto in_field_count =
+        checked_cast<const StructType&>(*batch[0].type()).num_fields();
+    const auto out_field_count =
+        checked_cast<const StructType&>(*out->type()).num_fields();
 
     if (in_field_count != out_field_count) {
       ARROW_RETURN_NOT_OK(
@@ -180,11 +181,11 @@ struct CastStruct {
 
       std::vector<ValueDescr> descrs{};
       for (auto i{0}; i < in_field_count; i++) {
-	auto field = out->type()->field(i);
-	// TODO: don't hard code SCALAR in this call; OR alternately
-	// raise if we only support SCALAR elements
-	auto descr = ValueDescr(field->type(), ValueDescr::SCALAR);
-	descrs.push_back(descr);
+        auto field = out->type()->field(i);
+        // TODO: don't hard code SCALAR in this call; OR alternately
+        // raise if we only support SCALAR elements
+        auto descr = ValueDescr(field->type(), ValueDescr::SCALAR);
+        descrs.push_back(descr);
       }
 
       // TODO: one of the main issues right now is casting a const vector
@@ -192,18 +193,18 @@ struct CastStruct {
       std::vector<std::shared_ptr<Scalar>> in_values = in_scalar.value;
       std::vector<Datum> datums{};
       for (auto i{0}; i < in_field_count; i++) {
-	datums.push_back(Datum(in_values[i]));
+        datums.push_back(Datum(in_values[i]));
       }
 
       if (in_scalar.is_valid) {
-	auto casted =  Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
+        auto casted = Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
 
-	// TODO: same issue with vector of Datum -> Scalar conversion
-	std::vector<std::shared_ptr<Scalar>> out_values;
-	for (auto i{0}; i < in_field_count; i++) {
-	  out_values.push_back(casted[i].scalar());
-	}
-	out_scalar->value = out_values;
+        // TODO: same issue with vector of Datum -> Scalar conversion
+        std::vector<std::shared_ptr<Scalar>> out_values;
+        for (auto i{0}; i < in_field_count; i++) {
+          out_values.push_back(casted[i].scalar());
+        }
+        out_scalar->value = out_values;
         out_scalar->is_valid = true;
       }
       return Status::OK();
@@ -217,12 +218,12 @@ struct CastStruct {
       auto values = in_array.child_data[0];
       auto target_type = out->type()->field(i)->type();
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-			    Cast(values, target_type, options, ctx->exec_context()));
-      
+                            Cast(values, target_type, options, ctx->exec_context()));
+
       DCHECK_EQ(Datum::ARRAY, cast_values.kind());
       out_array->child_data.push_back(cast_values.array());
     }
-    
+
     return Status::OK();
   }
 };
@@ -231,7 +232,7 @@ void AddStructToStructCast(CastFunction* func) {
   ScalarKernel kernel;
   kernel.exec = CastStruct::Exec;
   kernel.signature =
-    KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
+      KernelSignature::Make({InputType(StructType::type_id)}, kOutputTargetType);
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(StructType::type_id, std::move(kernel)));
 }
