@@ -27,7 +27,6 @@
 # include explicitly
 !ci/**
 !c_glib/Gemfile
-!cpp/vcpkg.json
 !dev/archery/setup.py
 !docs/requirements*.txt
 !python/requirements*.txt
