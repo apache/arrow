@@ -54,6 +54,7 @@ python arrow\dev\release\download_rc_binaries.py %ARROW_VERSION% %RC_NUMBER% ^
 
 call deactivate
 
+set PYARROW_TEST_GDB=OFF
 set ARROW_TEST_DATA=%cd%\arrow\testing\data
 
 CALL :verify_wheel 3.7 m
