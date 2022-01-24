@@ -946,6 +946,7 @@ tasks:
       arch_emulation: "arm64"
       env:
         TEST_DEFAULT: 0
+        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       artifact: "wheels"
 
   verify-rc-source-windows:
