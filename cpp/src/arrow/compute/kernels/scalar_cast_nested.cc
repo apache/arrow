@@ -152,17 +152,15 @@ void AddListCast(CastFunction* func) {
 
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // Note that size refers to the number of struct elements, not the length of the
-    // arrays
-    const auto in_size = checked_cast<const StructType&>(*batch[0].type()).num_fields();
-    const auto out_size = checked_cast<const StructType&>(*out->type()).num_fields();
+    const auto in_field_count = checked_cast<const StructType&>(*batch[0].type()).num_fields();
+    const auto out_field_count = checked_cast<const StructType&>(*out->type()).num_fields();
 
-    if (in_size != out_size) {
+    if (in_field_count != out_field_count) {
       ARROW_RETURN_NOT_OK(
           Status(StatusCode::TypeError, "struct field sizes do not match"));
     }
 
-    for (auto i{0}; i < in_size; i++) {
+    for (auto i{0}; i < in_field_count; i++) {
       const auto in_field_name =
           checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
       const auto out_field_name =
@@ -178,9 +176,10 @@ struct CastStruct {
       auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
 
       std::vector<ValueDescr> descrs{};
-      for (auto i{0}; i < in_size; i++) {
+      for (auto i{0}; i < in_field_count; i++) {
 	auto field = out->type()->field(i);
-	// TODO: don't hard code SCALAR in this call
+	// TODO: don't hard code SCALAR in this call; OR alternately
+	// raise if we only support SCALAR elements
 	auto descr = ValueDescr(field->type(), ValueDescr::SCALAR);
 	descrs.push_back(descr);
       }
@@ -189,22 +188,21 @@ struct CastStruct {
       // of pointers to Scalars to a vector of Datum and back
       std::vector<std::shared_ptr<Scalar>> in_values = in_scalar.value;
       std::vector<Datum> datums{};
-      for (auto i{0}; i < in_size; i++) {
+      for (auto i{0}; i < in_field_count; i++) {
 	datums.push_back(Datum(in_values[i]));
       }
 
       if (in_scalar.is_valid) {
-	//ARROW_ASSIGN_OR_RAISE(out_scalar->value,
-	auto converted =  Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
+	auto casted =  Cast(datums, descrs, ctx->exec_context()).ValueOrDie();
 
 	// TODO: same issue with vector of Datum -> Scalar conversion
 	std::vector<std::shared_ptr<Scalar>> out_values;
-	for (auto i{0}; i < in_size; i++) {
-	  out_values.push_back(converted[i].scalar());
+	for (auto i{0}; i < in_field_count; i++) {
+	  out_values.push_back(casted[i].scalar());
 	}
 	out_scalar->value = out_values;
         out_scalar->is_valid = true;
-      }      
+      }
       return Status::OK();
     }
 
