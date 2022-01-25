@@ -213,6 +213,12 @@ cdef class SignalStopHandler:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if self._enabled:
             UnregisterCancellingSignalHandler()
+        if exc_value is None:
+            # Make sure we didn't lose a signal
+            try:
+                check_status(self._stop_token.stop_token.Poll())
+            except ArrowCancelled as e:
+                exc_value = e
         if isinstance(exc_value, ArrowCancelled):
             if exc_value.signum:
                 # Re-emit the exact same signal. We restored the Python signal
@@ -220,7 +226,8 @@ cdef class SignalStopHandler:
                 if os.name == 'nt':
                     SendSignal(exc_value.signum)
                 else:
-                    SendSignalToThread(exc_value.signum, threading.get_ident())
+                    SendSignalToThread(exc_value.signum,
+                                       threading.main_thread().ident)
             else:
                 # Simulate Python receiving a SIGINT
                 # (see https://bugs.python.org/issue43356 for why we can't
