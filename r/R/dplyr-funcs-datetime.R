@@ -51,6 +51,10 @@ register_bindings_datetime <- function() {
     Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
   })
 
+  register_binding("format", function(x, format = "", tz = "", usetz = FALSE) {
+    call_binding("strftime", x = x, format = format, tz = tz, usetz = usetz)
+  })
+
   register_binding("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
     ISO8601_precision_map <-
       list(
