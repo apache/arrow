@@ -360,14 +360,18 @@ TEST_F(TestMapArrayLookupKernel, NestedItems) {
 }
 
 template <typename KeyType>
-class TestMapArrayLookupIntegralKeys : public ::testing ::Test {};
+class TestMapArrayLookupIntegralKeys : public ::testing ::Test {
+ protected:
+  std::shared_ptr<DataType> type_singleton() const {
+    std::shared_ptr<DataType> type = default_type_instance<KeyType>();
+    return map(type, utf8());
+  }
+};
 
 TYPED_TEST_SUITE(TestMapArrayLookupIntegralKeys, PhysicalIntegralArrowTypes);
 
 TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
-  std::shared_ptr<DataType> type = default_type_instance<TypeParam>();
-
-  auto map_type = map(type, utf8());
+  auto map_type = this->type_singleton();
   const char* input = R"(
     [
       [ 
@@ -405,14 +409,14 @@ TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
   auto expected_last =
       ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null, null, null])");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked,
-                                          MakeScalar(type, 1).ValueOrDie(), expected_all,
-                                          expected_first, expected_last);
+  CheckMapArrayLookupWithDifferentOptions(
+      map_array_tweaked, MakeScalar(default_type_instance<TypeParam>(), 1).ValueOrDie(),
+      expected_all, expected_first, expected_last);
 }
 template <typename KeyType>
 class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
  protected:
-  std::shared_ptr<DataType> GetType() {
+  std::shared_ptr<DataType> type_singleton() const {
     return std::make_shared<KeyType>(/*precision=*/5,
                                      /*scale=*/4);
   }
@@ -421,7 +425,7 @@ class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
 TYPED_TEST_SUITE(TestMapArrayLookupDecimalKeys, DecimalArrowTypes);
 
 TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
-  std::shared_ptr<DataType> type = this->GetType();
+  std::shared_ptr<DataType> type = this->type_singleton();
   auto key_scalar = DecimalScalarFromJSON(type, R"("1.2345")");
 
   auto map_type = map(type, utf8());
@@ -471,13 +475,15 @@ TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
 template <typename KeyType>
 class TestMapArrayLookupBinaryKeys : public ::testing ::Test {
  protected:
-  std::shared_ptr<DataType> GetType() { return TypeTraits<KeyType>::type_singleton(); }
+  std::shared_ptr<DataType> type_singleton() const {
+    return TypeTraits<KeyType>::type_singleton();
+  }
 };
 
 TYPED_TEST_SUITE(TestMapArrayLookupBinaryKeys, BaseBinaryArrowTypes);
 
 TYPED_TEST(TestMapArrayLookupBinaryKeys, IntegralItems) {
-  auto key_type = this->GetType();
+  auto key_type = this->type_singleton();
   auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
 
   auto map_type = map(key_type, int32());
