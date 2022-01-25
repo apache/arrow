@@ -122,29 +122,27 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
-
   options <- list(...)
-  schema  <- options[["schema"]]
+  schema <- options[["schema"]]
 
-  column_names     <- read_options$column_names
-  schema_names     <- names(schema)
+  column_names <- read_options$column_names
+  schema_names <- names(schema)
 
   if (!is.null(schema) & !identical(schema_names, column_names)) {
 
     # Element wise comparison and set differnce of column_names and names in schema
     mismatch_colnames <- column_names[match(column_names, schema_names, nomatch = 0) != seq(column_names)]
-    not_in_schema     <- setdiff(schema_names, column_names)
+    not_in_schema <- setdiff(schema_names, column_names)
 
     abort(c(
-            paste(
-                "column_names not matching or not found in schema-names:",
-                deparse1(c(mismatch_colnames, not_in_schema))
-            ),
-            i = "Set column_names to match names of schema",
-            i = "Omit the column_names argument",
-            i = "Omit the read_options argument"
-          )
-    )
+      paste(
+        "column_names must match schema-names:",
+        deparse1(c(mismatch_colnames, not_in_schema))
+      ),
+      i = "Set column_names to match names of schema",
+      i = "Omit the column_names argument",
+      i = "Omit the read_options argument"
+    ))
   }
 
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
@@ -245,7 +243,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema)) {
+  if (!is.null(schema) && is.null(opts[["column_names"]])) {
     opts[["column_names"]] <- names(schema)
   }
   do.call(CsvReadOptions$create, opts)
