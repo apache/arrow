@@ -146,7 +146,7 @@ test_that("anti_join", {
   )
 })
 
-test_that("mutate then join", {
+test_that("arrow dplyr query correctly mutates then joins", {
   left <- Table$create(
     one = c("a", "b"),
     two = 1:2
@@ -174,7 +174,7 @@ test_that("mutate then join", {
   )
 })
 
-test_that("filter then join", {
+test_that("arrow dplyr query correctly filters then joins", {
   left <- Table$create(
     one = c("a", "b", "c"),
     two = 1:3
