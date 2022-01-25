@@ -1692,7 +1692,7 @@ struct ArithmeticFunction : ScalarFunction {
     if (values->size() == 2) {
       ReplaceNullWithOtherType(values);
 
-      if (auto type = CommonTemporal(values->data(), values->size())) {
+      if (auto type = CommonTemporalResolution(values->data(), values->size())) {
         ReplaceTemporalTypes(type, values);
       } else if (auto type = CommonNumeric(*values)) {
         ReplaceTypes(type, values);

@@ -109,50 +109,25 @@ void ReplaceNullWithOtherType(ValueDescr* first, size_t count) {
   }
 }
 
-void ReplaceTemporalTypes(const std::shared_ptr<DataType>& type,
-                          std::vector<ValueDescr>* descrs) {
+void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<ValueDescr>* descrs) {
   auto* end = descrs->data() + descrs->size();
-  TimeUnit::type finest_unit = TimeUnit::SECOND;
-
-  switch (type->id()) {
-    case Type::TIMESTAMP: {
-      const auto& ty = checked_cast<const TimestampType&>(*type);
-      finest_unit = ty.unit();
-      break;
-    }
-    case Type::DURATION: {
-      const auto& ty = checked_cast<const DurationType&>(*type);
-      finest_unit = ty.unit();
-      break;
-    }
-    case Type::DATE32: {
-      // Date32's unit is days, but the coarsest we have is seconds
-      break;
-    }
-    case Type::DATE64: {
-      finest_unit = std::max(finest_unit, TimeUnit::MILLI);
-      break;
-    }
-    default:
-      break;
-  }
 
   for (auto* it = descrs->data(); it != end; it++) {
     switch (it->type->id()) {
       case Type::TIMESTAMP: {
-        it->type = type;
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
+        it->type = timestamp(unit, ty.timezone());
         continue;
       }
+      case Type::TIME32:
+      case Type::TIME64:
       case Type::DURATION: {
-        it->type = duration(finest_unit);
+        it->type = duration(unit);
         continue;
       }
-      case Type::DATE32: {
-        it->type = timestamp(finest_unit);
-        continue;
-      }
+      case Type::DATE32:
       case Type::DATE64: {
-        it->type = timestamp(finest_unit);
+        it->type = timestamp(unit);
         continue;
       }
       default:
@@ -232,12 +207,52 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   return int8();
 }
 
+TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count) {
+  TimeUnit::type finest_unit = TimeUnit::SECOND;
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    auto id = it->type->id();
+    switch (id) {
+      case Type::DATE32: {
+        // Date32's unit is days, but the coarsest we have is seconds
+        continue;
+      }
+      case Type::DATE64: {
+        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        continue;
+      }
+      case Type::TIMESTAMP: {
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::DURATION: {
+        const auto& ty = checked_cast<const DurationType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::TIME32: {
+        const auto& ty = checked_cast<const Time32Type&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::TIME64: {
+        const auto& ty = checked_cast<const Time64Type&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      default:
+        continue;
+    }
+  }
+  return finest_unit;
+}
+
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {
   TimeUnit::type finest_unit = TimeUnit::SECOND;
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
   bool saw_date64 = false;
-  bool saw_duration = false;
 
   const ValueDescr* end = begin + count;
   for (auto it = begin; it != end; it++) {
@@ -259,12 +274,6 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
         finest_unit = std::max(finest_unit, ty.unit());
         continue;
       }
-      case Type::DURATION: {
-        const auto& ty = checked_cast<const DurationType&>(*it->type);
-        finest_unit = std::max(finest_unit, ty.unit());
-        saw_duration = true;
-        continue;
-      }
       default:
         return nullptr;
     }
@@ -273,8 +282,6 @@ std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) 
   if (timezone) {
     // At least one timestamp seen
     return timestamp(finest_unit, *timezone);
-  } else if (saw_duration) {
-    return duration(finest_unit);
   } else if (saw_date64) {
     return date64();
   } else if (saw_date32) {
