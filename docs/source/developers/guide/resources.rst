@@ -47,6 +47,7 @@ Additional information
   - `Apache Arrow Actions on GitHub <https://github.com/apache/arrow/actions>`_
   - `Location of the workflows in Arrow: arrow/.github/workflows/ <https://github.com/apache/arrow/tree/master/.github/workflows>`_
   - `GitHub Documentation on GitHub Actions <https://docs.github.com/en/actions>`_
+
   .. ARROW-13841: [Doc] Document the different subcomponents that make up the CI and how they fit together:
   .. https://github.com/apache/arrow/pull/11821
 

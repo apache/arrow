@@ -45,7 +45,7 @@ class ARROW_EXPORT CastOptions : public FunctionOptions {
  public:
   explicit CastOptions(bool safe = true);
 
-  constexpr static char const kTypeName[] = "CastOptions";
+  static constexpr char const kTypeName[] = "CastOptions";
   static CastOptions Safe(std::shared_ptr<DataType> to_type = NULLPTR) {
     CastOptions safe(true);
     safe.to_type = std::move(to_type);
