@@ -93,14 +93,8 @@ html_context["subproject"] = "Python"
 html_baseurl = "https://arrow.apache.org/docs/python"
 
 
-intersphinx_mapping = {
-    # "pandas": ("https://pandas.pydata.org/docs/", None),
-    # "numpy": ("https://numpy.org/doc/stable/", None),
-    "arrow": ("https://arrow.apache.org/docs/", ('../../_build/html/objects.inv', None)),
-    "cpp": ("https://arrow.apache.org/docs/cpp/", ('../../_build/html/cpp/objects.inv', None)),
-    #"arrow": ("https://arrow.apache.org/docs/", None),
-    # "pyarrow": ("https://arrow.apache.org/docs/python/", None),
-}
+intersphinx_mapping["arrow"] = ("https://arrow.apache.org/docs/", ('../../_build/html/objects.inv', None))
+intersphinx_mapping["cpp"] = ("https://arrow.apache.org/docs/cpp/", ('../../_build/html/cpp/objects.inv', None))
 
 
 # Conditional API doc generation

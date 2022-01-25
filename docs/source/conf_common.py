@@ -38,6 +38,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx_tabs.tabs',
 ]
 
 # Show members for classes in .. autosummary

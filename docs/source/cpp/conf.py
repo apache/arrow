@@ -54,10 +54,4 @@ html_context["subproject"] = "C++"
 # used for canonical url
 html_baseurl = "https://arrow.apache.org/docs/cpp"
 
-
-intersphinx_mapping = {
-    # "pandas": ("https://pandas.pydata.org/docs/", None),
-    # "numpy": ("https://numpy.org/doc/stable/", None),
-    "arrow": ("https://arrow.apache.org/docs/", ('../../_build/html/objects.inv', None)),
-    # "pyarrow": ("https://arrow.apache.org/docs/python/", None),
-}
+intersphinx_mapping["arrow"] = ("https://arrow.apache.org/docs/", ('../../_build/html/objects.inv', None))
