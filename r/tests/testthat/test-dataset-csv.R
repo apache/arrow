@@ -308,12 +308,11 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
   # Mismatch of column names vs schema given via read_options should raise an error
-  opts <- CsvReadOptions$create(column_names = c("i", "d"))
-  schema             <- schema(int = int32(), dbl = float64())
+  schema  <- schema(int = int32(), dbl = float64())
 
   expect_error(
-    open_dataset(csv_dir, format = "csv", schema = schema, read_options = opts),
-    "column_names not matching or not found in schema-names"
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
+    "column_names must match schema-names:"
   )
 
 })
