@@ -109,7 +109,7 @@ GDB provides a facility to automatically load scripts or extensions for each
 object file or library that is involved in a debugging session.  You will need
 to:
 
-1. Find out what the *auto-load* location(s) is/are for your GDB install.
+1. Find out what the *auto-load* locations are for your GDB install.
    This can be determined using ``show`` subcommands on the GDB prompt;
    the answer will depend on the operating system.
 
