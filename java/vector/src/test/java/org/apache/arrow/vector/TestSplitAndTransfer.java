@@ -46,7 +46,7 @@ public class TestSplitAndTransfer {
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
-  
+
   @After
   public void terminate() throws Exception {
     allocator.close();
@@ -62,7 +62,44 @@ public class TestSplitAndTransfer {
     }
     vector.setValueCount(valueCount);
   }
-  
+
+  @Test
+  public void testWithEmptyVector() {
+    // MapVector use TransferImpl from ListVector
+    ListVector listVector = ListVector.empty("", allocator);
+    TransferPair transferPair = listVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseFixedWidthVector
+    IntVector intVector = new IntVector("", allocator);
+    transferPair = intVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseVariableWidthVector
+    VarCharVector varCharVector = new VarCharVector("", allocator);
+    transferPair = varCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseLargeVariableWidthVector
+    LargeVarCharVector largeVarCharVector = new LargeVarCharVector("", allocator);
+    transferPair = largeVarCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+
+    StructVector structVector = StructVector.empty("", allocator);
+    transferPair = structVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    FixedSizeListVector fixedSizeListVector = FixedSizeListVector.empty("", 0, allocator);
+    transferPair = fixedSizeListVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    FixedSizeBinaryVector fixedSizeBinaryVector = new FixedSizeBinaryVector("", allocator, 4);
+    transferPair = fixedSizeBinaryVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+  }
+
   @Test /* VarCharVector */
   public void test() throws Exception {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -70,13 +107,13 @@ public class TestSplitAndTransfer {
   
       final int valueCount = 500;
       final String[] compareArray = new String[valueCount];
-  
+
       populateVarcharVector(varCharVector, valueCount, compareArray);
-  
+
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
       final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
-  
+
       for (final int[] startLength : startLengths) {
         final int start = startLength[0];
         final int length = startLength[1];
