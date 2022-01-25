@@ -783,7 +783,7 @@ case "${ARTIFACT}" in
   source)
     : ${TEST_SOURCE:=1}
     ;;
-  binaires)
+  binaries)
     TEST_BINARY_DISTRIBUTIONS=1
     ;;
   wheels)
