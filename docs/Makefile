@@ -28,11 +28,12 @@ SPHINXOPTS    = -j8
 SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = _build
+SOURCEDIR     = source
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
-ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
+ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) $(SOURCEDIR)
 # the i18n builder cannot share the environment and doctrees with the others
 I18NSPHINXOPTS  = $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) source
 
@@ -42,6 +43,7 @@ help:
 	@echo "  html       to make standalone HTML files"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
+	@echo "  python     to make only the Python documentation"
 	@echo "  pickle     to make pickle files"
 	@echo "  json       to make JSON files"
 	@echo "  htmlhelp   to make HTML files and a HTML help project"
@@ -246,3 +248,9 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+.PHONY: python
+python:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) -c $(SOURCEDIR) $(SOURCEDIR)/python $(BUILDDIR)/html/python
+	@echo
+	@echo "Build finished. The HTML files are in $(BUILLDIR)/html/python"

@@ -33,11 +33,10 @@ from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
 from pyarrow.util import _is_path_like, _stringify_path
 
+from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
-    _bind,
     _make_file_source,
     DatasetFactory,
-    Expression,
     FileFormat,
     FileFragment,
     FileWriteOptions,

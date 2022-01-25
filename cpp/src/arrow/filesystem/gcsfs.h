@@ -28,10 +28,6 @@ namespace fs {
 class GcsFileSystem;
 struct GcsOptions;
 struct GcsCredentials;
-namespace internal {
-// TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
-std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
-}  // namespace internal
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
@@ -96,7 +92,6 @@ struct ARROW_EXPORT GcsOptions {
   static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
 };
 
-// - TODO(ARROW-1231) - review this documentation before closing the bug.
 /// \brief GCS-backed FileSystem implementation.
 ///
 /// GCS (Google Cloud Storage - https://cloud.google.com/storage) is a scalable object
@@ -120,12 +115,8 @@ struct ARROW_EXPORT GcsOptions {
 /// - All buckets are treated as directories at the "root"
 /// - Creating a root directory results in a new bucket being created, this may be slower
 ///   than most GCS operations.
-/// - Any object with a name ending with a slash (`/`) character is treated as a
-///   directory.
-/// - The class creates marker objects for a directory, using a trailing slash in the
-///   marker names. For debugging purposes, the metadata of these marker objects indicate
-///   that they are markers created by this class. The class does not rely on this
-///   annotation.
+/// - The class creates marker objects for a directory, using a metadata attribute to
+///   annotate the file.
 /// - GCS can list all the objects with a given prefix, this is used to emulate listing
 ///   of directories.
 /// - In object lists GCS can summarize all the objects with a common prefix as a single
@@ -179,11 +170,11 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
- private:
   /// Create a GcsFileSystem instance from the given options.
-  friend std::shared_ptr<GcsFileSystem> internal::MakeGcsFileSystemForTest(
-      const GcsOptions& options);
+  static std::shared_ptr<GcsFileSystem> Make(
+      const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
+ private:
   explicit GcsFileSystem(const GcsOptions& options, const io::IOContext& io_context);
 
   class Impl;

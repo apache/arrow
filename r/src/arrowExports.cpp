@@ -583,6 +583,66 @@ extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x);
+extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type x(x_sexp);
+	return cpp11::as_sexp(Array__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call Array__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+//chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t ChunkedArray__ReferencedBufferSize(const std::shared_ptr<arrow::ChunkedArray>& x);
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	return cpp11::as_sexp(ChunkedArray__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+//recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t RecordBatch__ReferencedBufferSize(const std::shared_ptr<arrow::RecordBatch>& x);
+extern "C" SEXP _arrow_RecordBatch__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
+	return cpp11::as_sexp(RecordBatch__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& x);
+extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
+	return cpp11::as_sexp(Table__ReferencedBufferSize(x));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP x_sexp){
+	Rf_error("Cannot call Table__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -2486,6 +2546,53 @@ extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallbac
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(const std::shared_ptr<ds::PartitioningFactory>& factory, const std::vector<std::string>& paths);
+extern "C" SEXP _arrow_dataset___PartitioningFactory__Inspect(SEXP factory_sexp, SEXP paths_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	return cpp11::as_sexp(dataset___PartitioningFactory__Inspect(factory, paths));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___PartitioningFactory__Inspect(SEXP factory_sexp, SEXP paths_sexp){
+	Rf_error("Cannot call dataset___PartitioningFactory__Inspect(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::Partitioning> dataset___PartitioningFactory__Finish(const std::shared_ptr<ds::PartitioningFactory>& factory, const std::shared_ptr<arrow::Schema>& schema);
+extern "C" SEXP _arrow_dataset___PartitioningFactory__Finish(SEXP factory_sexp, SEXP schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	return cpp11::as_sexp(dataset___PartitioningFactory__Finish(factory, schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___PartitioningFactory__Finish(SEXP factory_sexp, SEXP schema_sexp){
+	Rf_error("Cannot call dataset___PartitioningFactory__Finish(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::string dataset___PartitioningFactory__type_name(const std::shared_ptr<ds::PartitioningFactory>& factory);
+extern "C" SEXP _arrow_dataset___PartitioningFactory__type_name(SEXP factory_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::PartitioningFactory>&>::type factory(factory_sexp);
+	return cpp11::as_sexp(dataset___PartitioningFactory__type_name(factory));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___PartitioningFactory__type_name(SEXP factory_sexp){
+	Rf_error("Cannot call dataset___PartitioningFactory__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 void dataset___ScannerBuilder__ProjectNames(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::string>& cols);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectNames(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_CPP11
@@ -2550,23 +2657,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 	Rf_error("Cannot call dataset___ScannerBuilder__UseThreads(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
-void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb, bool use_async);
-extern "C" SEXP _arrow_dataset___ScannerBuilder__UseAsync(SEXP sb_sexp, SEXP use_async_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
-	arrow::r::Input<bool>::type use_async(use_async_sexp);
-	dataset___ScannerBuilder__UseAsync(sb, use_async);
-	return R_NilValue;
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___ScannerBuilder__UseAsync(SEXP sb_sexp, SEXP use_async_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__UseAsync(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2722,21 +2812,6 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
 	Rf_error("Cannot call dataset___Scanner__schema(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
-cpp11::list dataset___ScanTask__get_batches(const std::shared_ptr<ds::ScanTask>& scan_task);
-extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<ds::ScanTask>&>::type scan_task(scan_task_sexp);
-	return cpp11::as_sexp(dataset___ScanTask__get_batches(scan_task));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_dataset___ScanTask__get_batches(SEXP scan_task_sexp){
-	Rf_error("Cannot call dataset___ScanTask__get_batches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -3094,6 +3169,20 @@ extern "C" SEXP _arrow_Decimal256Type__initialize(SEXP precision_sexp, SEXP scal
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> DayTimeInterval__initialize();
+extern "C" SEXP _arrow_DayTimeInterval__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(DayTimeInterval__initialize());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_DayTimeInterval__initialize(){
+	Rf_error("Cannot call DayTimeInterval__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width);
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 BEGIN_CPP11
@@ -3104,6 +3193,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_FixedSizeBinary__initialize(SEXP byte_width_sexp){
 	Rf_error("Cannot call FixedSizeBinary__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int FixedSizeBinary__byte_width(const std::shared_ptr<arrow::FixedSizeBinaryType>& type);
+extern "C" SEXP _arrow_FixedSizeBinary__byte_width(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::FixedSizeBinaryType>&>::type type(type_sexp);
+	return cpp11::as_sexp(FixedSizeBinary__byte_width(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_FixedSizeBinary__byte_width(SEXP type_sexp){
+	Rf_error("Cannot call FixedSizeBinary__byte_width(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4935,6 +5039,22 @@ extern "C" SEXP _arrow_io___BufferOutputStream__Write(SEXP stream_sexp, SEXP byt
 }
 #endif
 
+// io.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::io::InputStream> MakeReencodeInputStream(const std::shared_ptr<arrow::io::InputStream>& wrapped, std::string from);
+extern "C" SEXP _arrow_MakeReencodeInputStream(SEXP wrapped_sexp, SEXP from_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::io::InputStream>&>::type wrapped(wrapped_sexp);
+	arrow::r::Input<std::string>::type from(from_sexp);
+	return cpp11::as_sexp(MakeReencodeInputStream(wrapped, from));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MakeReencodeInputStream(SEXP wrapped_sexp, SEXP from_sexp){
+	Rf_error("Cannot call MakeReencodeInputStream(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // json.cpp
 #if defined(ARROW_R_WITH_JSON)
 std::shared_ptr<arrow::json::ReadOptions> json___ReadOptions__initialize(bool use_threads, int block_size);
@@ -5348,6 +5468,38 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary(SEXP properties_sexp, SEXP column_index_sexp, SEXP read_dict_sexp){
 	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_read_dictionary(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+void parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, arrow::TimeUnit::type unit);
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(SEXP properties_sexp, SEXP unit_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<arrow::TimeUnit::type>::type unit(unit_sexp);
+	parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(properties, unit);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(SEXP properties_sexp, SEXP unit_sexp){
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+arrow::TimeUnit::type parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(const std::shared_ptr<parquet::ArrowReaderProperties>& properties);
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(SEXP properties_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type properties(properties_sexp);
+	return cpp11::as_sexp(parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(properties));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(SEXP properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -7272,11 +7424,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_json_available", (DL_FUNC)& _json_available, 0 },
+{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7313,7 +7465,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2},
+		{ "_arrow_Array__ReferencedBufferSize", (DL_FUNC) &_arrow_Array__ReferencedBufferSize, 1}, 
+		{ "_arrow_ChunkedArray__ReferencedBufferSize", (DL_FUNC) &_arrow_ChunkedArray__ReferencedBufferSize, 1},
+		{ "_arrow_RecordBatch__ReferencedBufferSize", (DL_FUNC) &_arrow_RecordBatch__ReferencedBufferSize, 1},
+		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1},
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -7434,11 +7590,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 3}, 
 		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 2}, 
+		{ "_arrow_dataset___PartitioningFactory__Inspect", (DL_FUNC) &_arrow_dataset___PartitioningFactory__Inspect, 2}, 
+		{ "_arrow_dataset___PartitioningFactory__Finish", (DL_FUNC) &_arrow_dataset___PartitioningFactory__Finish, 2}, 
+		{ "_arrow_dataset___PartitioningFactory__type_name", (DL_FUNC) &_arrow_dataset___PartitioningFactory__type_name, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectNames", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectNames, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__ProjectExprs", (DL_FUNC) &_arrow_dataset___ScannerBuilder__ProjectExprs, 3}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2}, 
-		{ "_arrow_dataset___ScannerBuilder__UseAsync", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseAsync, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__BatchSize", (DL_FUNC) &_arrow_dataset___ScannerBuilder__BatchSize, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__FragmentScanOptions", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FragmentScanOptions, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
@@ -7449,7 +7607,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
-		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 8}, 
 		{ "_arrow_dataset___Scanner__TakeRows", (DL_FUNC) &_arrow_dataset___Scanner__TakeRows, 2}, 
 		{ "_arrow_dataset___Scanner__CountRows", (DL_FUNC) &_arrow_dataset___Scanner__CountRows, 1}, 
@@ -7474,7 +7631,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
+		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
+		{ "_arrow_FixedSizeBinary__byte_width", (DL_FUNC) &_arrow_FixedSizeBinary__byte_width, 1}, 
 		{ "_arrow_Timestamp__initialize", (DL_FUNC) &_arrow_Timestamp__initialize, 2}, 
 		{ "_arrow_Time32__initialize", (DL_FUNC) &_arrow_Time32__initialize, 1}, 
 		{ "_arrow_Time64__initialize", (DL_FUNC) &_arrow_Time64__initialize, 1}, 
@@ -7591,6 +7750,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Finish", (DL_FUNC) &_arrow_io___BufferOutputStream__Finish, 1}, 
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
+		{ "_arrow_MakeReencodeInputStream", (DL_FUNC) &_arrow_MakeReencodeInputStream, 2}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 2}, 
 		{ "_arrow_json___ParseOptions__initialize1", (DL_FUNC) &_arrow_json___ParseOptions__initialize1, 1}, 
 		{ "_arrow_json___ParseOptions__initialize2", (DL_FUNC) &_arrow_json___ParseOptions__initialize2, 2}, 
@@ -7618,6 +7778,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit, 2}, 
+		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 

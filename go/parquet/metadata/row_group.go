@@ -113,8 +113,8 @@ func (r *RowGroupMetaDataBuilder) NumRows() int64 {
 	return r.rg.GetNumRows()
 }
 
-func (r *RowGroupMetaDataBuilder) SetNumRows(nrows int64) {
-	r.rg.NumRows = nrows
+func (r *RowGroupMetaDataBuilder) SetNumRows(nrows int) {
+	r.rg.NumRows = int64(nrows)
 }
 
 // CurrentColumn returns the current column chunk (0-based) index that is being built.

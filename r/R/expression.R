@@ -70,6 +70,7 @@
   "quarter" = "quarter",
   # second is defined in dplyr-functions.R
   # wday is defined in dplyr-functions.R
+  "mday" = "day",
   "yday" = "day_of_year",
   "year" = "year",
 

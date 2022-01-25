@@ -21,7 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
 const { RecordBatch, AsyncMessageReader } = require(`../index${extension}`);
 const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`);
 
@@ -32,7 +32,7 @@ const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`)
 
     let schema, recordBatchIndex = 0, dictionaryBatchIndex = 0;
 
-    for await (let message of reader) {
+    for await (const message of reader) {
 
         let bufferRegions = [];
 

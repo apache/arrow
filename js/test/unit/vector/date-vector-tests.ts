@@ -15,22 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table, DateDay, DateMillisecond } from 'apache-arrow';
+import { DateDay, DateMillisecond, RecordBatchReader, Table } from 'apache-arrow';
 
 describe(`DateVector`, () => {
     it('returns days since the epoch as correct JS Dates', () => {
-        const table = Table.from(test_data);
+        const table = new Table(RecordBatchReader.from(test_data));
         const expectedMillis = expectedMillis32();
-        const date32 = table.getColumnAt<DateDay>(0)!;
+        const date32 = table.getChildAt<DateDay>(0)!;
         for (const date of date32) {
             const millis = expectedMillis.shift();
             expect(date).toEqual(millis === null ? null : new Date(millis!));
         }
     });
     it('returns millisecond longs since the epoch as correct JS Dates', () => {
-        const table = Table.from(test_data);
+        const table = new Table(RecordBatchReader.from(test_data));
         const expectedMillis = expectedMillis64();
-        const date64 = table.getColumnAt<DateMillisecond>(1)!;
+        const date64 = table.getChildAt<DateMillisecond>(1)!;
         for (const date of date64) {
             const millis = expectedMillis.shift();
             expect(date).toEqual(millis === null ? null : new Date(millis!));

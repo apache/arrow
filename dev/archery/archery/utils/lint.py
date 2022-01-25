@@ -222,7 +222,7 @@ def python_linter(src, fix=False):
             f"{_archery_install_msg}")
         return
 
-    flake8_exclude = ['.venv*']
+    flake8_exclude = ['.venv*', 'vendored']
 
     yield LintResult.from_cmd(
         flake8("--extend-exclude=" + ','.join(flake8_exclude),

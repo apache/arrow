@@ -80,7 +80,7 @@ func (p *page) Encoding() format.Encoding { return p.encoding }
 // parquet spec.
 type DataPage interface {
 	Page
-	UncompressedSize() int64
+	UncompressedSize() int32
 	Statistics() metadata.EncodedStatistics
 }
 
@@ -108,7 +108,7 @@ type DataPageV1 struct {
 
 	defLvlEncoding   format.Encoding
 	repLvlEncoding   format.Encoding
-	uncompressedSize int64
+	uncompressedSize int32
 	statistics       metadata.EncodedStatistics
 }
 
@@ -117,7 +117,7 @@ type DataPageV1 struct {
 // Will utilize objects that have been released back into the data page pool and
 // re-use them if available as opposed to creating new objects. Calling Release on the
 // data page object will release it back to the pool for re-use.
-func NewDataPageV1(buffer *memory.Buffer, num int32, encoding, defEncoding, repEncoding parquet.Encoding, uncompressedSize int64) *DataPageV1 {
+func NewDataPageV1(buffer *memory.Buffer, num int32, encoding, defEncoding, repEncoding parquet.Encoding, uncompressedSize int32) *DataPageV1 {
 	dp := dataPageV1Pool.Get().(*DataPageV1)
 	if dp == nil {
 		return &DataPageV1{
@@ -138,7 +138,7 @@ func NewDataPageV1(buffer *memory.Buffer, num int32, encoding, defEncoding, repE
 }
 
 // NewDataPageV1WithStats is the same as NewDataPageV1, but also allows adding the stat info into the created page
-func NewDataPageV1WithStats(buffer *memory.Buffer, num int32, encoding, defEncoding, repEncoding parquet.Encoding, uncompressedSize int64, stats metadata.EncodedStatistics) *DataPageV1 {
+func NewDataPageV1WithStats(buffer *memory.Buffer, num int32, encoding, defEncoding, repEncoding parquet.Encoding, uncompressedSize int32, stats metadata.EncodedStatistics) *DataPageV1 {
 	ret := NewDataPageV1(buffer, num, encoding, defEncoding, repEncoding, uncompressedSize)
 	ret.statistics = stats
 	return ret
@@ -155,7 +155,7 @@ func (d *DataPageV1) Release() {
 }
 
 // UncompressedSize returns the size of the data in this data page when uncompressed
-func (d *DataPageV1) UncompressedSize() int64 { return d.uncompressedSize }
+func (d *DataPageV1) UncompressedSize() int32 { return d.uncompressedSize }
 
 // Statistics returns the encoded statistics on this data page
 func (d *DataPageV1) Statistics() metadata.EncodedStatistics { return d.statistics }
@@ -179,12 +179,12 @@ type DataPageV2 struct {
 	defLvlByteLen    int32
 	repLvlByteLen    int32
 	compressed       bool
-	uncompressedSize int64
+	uncompressedSize int32
 	statistics       metadata.EncodedStatistics
 }
 
 // NewDataPageV2 constructs a new V2 data page with the provided information and a buffer of the raw data.
-func NewDataPageV2(buffer *memory.Buffer, numValues, numNulls, numRows int32, encoding parquet.Encoding, defLvlsByteLen, repLvlsByteLen int32, uncompressed int64, isCompressed bool) *DataPageV2 {
+func NewDataPageV2(buffer *memory.Buffer, numValues, numNulls, numRows int32, encoding parquet.Encoding, defLvlsByteLen, repLvlsByteLen, uncompressed int32, isCompressed bool) *DataPageV2 {
 	dp := dataPageV2Pool.Get().(*DataPageV2)
 	if dp == nil {
 		return &DataPageV2{
@@ -209,7 +209,7 @@ func NewDataPageV2(buffer *memory.Buffer, numValues, numNulls, numRows int32, en
 }
 
 // NewDataPageV2WithStats is the same as NewDataPageV2 but allows providing the encoded stats with the page.
-func NewDataPageV2WithStats(buffer *memory.Buffer, numValues, numNulls, numRows int32, encoding parquet.Encoding, defLvlsByteLen, repLvlsByteLen int32, uncompressed int64, isCompressed bool, stats metadata.EncodedStatistics) *DataPageV2 {
+func NewDataPageV2WithStats(buffer *memory.Buffer, numValues, numNulls, numRows int32, encoding parquet.Encoding, defLvlsByteLen, repLvlsByteLen, uncompressed int32, isCompressed bool, stats metadata.EncodedStatistics) *DataPageV2 {
 	ret := NewDataPageV2(buffer, numValues, numNulls, numRows, encoding, defLvlsByteLen, repLvlsByteLen, uncompressed, isCompressed)
 	ret.statistics = stats
 	return ret
@@ -227,13 +227,16 @@ func (d *DataPageV2) Release() {
 
 // UncompressedSize is the size of the raw page when uncompressed. If `IsCompressed` is true, then
 // the raw data in the buffer is expected to be compressed.
-func (d *DataPageV2) UncompressedSize() int64 { return d.uncompressedSize }
+func (d *DataPageV2) UncompressedSize() int32 { return d.uncompressedSize }
 
 // Statistics are the encoded statistics in the data page
 func (d *DataPageV2) Statistics() metadata.EncodedStatistics { return d.statistics }
 
 // NumNulls is the reported number of nulls in this datapage
 func (d *DataPageV2) NumNulls() int32 { return d.nulls }
+
+// NumRows is the number of rows recorded in the page header
+func (d *DataPageV2) NumRows() int32 { return d.nrows }
 
 // DefinitionLevelByteLen is the number of bytes in the buffer that are used to represent the definition levels
 func (d *DataPageV2) DefinitionLevelByteLen() int32 { return d.defLvlByteLen }
@@ -557,7 +560,7 @@ func (p *serializedPageReader) Next() bool {
 				},
 				defLvlEncoding:   dataHeader.GetDefinitionLevelEncoding(),
 				repLvlEncoding:   dataHeader.GetRepetitionLevelEncoding(),
-				uncompressedSize: int64(lenUncompressed),
+				uncompressedSize: int32(lenUncompressed),
 				statistics:       extractStats(dataHeader),
 			}
 		case format.PageType_DATA_PAGE_V2:
@@ -612,7 +615,7 @@ func (p *serializedPageReader) Next() bool {
 				defLvlByteLen:    dataHeader.GetDefinitionLevelsByteLength(),
 				repLvlByteLen:    dataHeader.GetRepetitionLevelsByteLength(),
 				compressed:       compressed,
-				uncompressedSize: int64(lenUncompressed),
+				uncompressedSize: int32(lenUncompressed),
 				statistics:       extractStats(dataHeader),
 			}
 		default:

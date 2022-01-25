@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../../type';
 import { Duplex, DuplexOptions } from 'stream';
-import { RecordBatch } from '../../recordbatch';
-import { AsyncByteQueue } from '../../io/stream';
-import { RecordBatchReader } from '../../ipc/reader';
+import { AsyncByteQueue } from '../../io/stream.js';
+import { RecordBatchReader } from '../../ipc/reader.js';
+import { RecordBatch } from '../../recordbatch.js';
+import { TypeMap } from '../../type.js';
 
 /** @ignore */
-export function recordBatchReaderThroughNodeStream<T extends { [key: string]: DataType } = any>(options?: DuplexOptions & { autoDestroy: boolean }) {
+export function recordBatchReaderThroughNodeStream<T extends TypeMap = any>(options?: DuplexOptions & { autoDestroy: boolean }) {
     return new RecordBatchReaderDuplex<T>(options);
 }
 
@@ -30,7 +30,7 @@ export function recordBatchReaderThroughNodeStream<T extends { [key: string]: Da
 type CB = (error?: Error | null | undefined) => void;
 
 /** @ignore */
-class RecordBatchReaderDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
+class RecordBatchReaderDuplex<T extends TypeMap = any> extends Duplex {
     private _pulling = false;
     private _autoDestroy = true;
     private _reader: RecordBatchReader | null;

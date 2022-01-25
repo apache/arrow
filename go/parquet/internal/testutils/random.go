@@ -75,7 +75,7 @@ func (r *RandomArrayGenerator) GenerateBitmap(buffer []byte, n int64, prob float
 // with nullProb being the probability of a given index being null.
 //
 // For this generation we only generate ascii values with a min of 'A' and max of 'z'.
-func (r *RandomArrayGenerator) ByteArray(size int64, minLen, maxLen int32, nullProb float64) array.Interface {
+func (r *RandomArrayGenerator) ByteArray(size int64, minLen, maxLen int32, nullProb float64) arrow.Array {
 	if nullProb < 0 || nullProb > 1 {
 		panic("null prob must be between 0 and 1")
 	}
@@ -108,7 +108,7 @@ func (r *RandomArrayGenerator) ByteArray(size int64, minLen, maxLen int32, nullP
 
 // Uint8 generates a random array.Uint8 of the requested size whose values are between min and max
 // with prob as the probability that a given index will be null.
-func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Uint8(size int64, min, max uint8, prob float64) arrow.Array {
 	buffers := make([]*memory.Buffer, 2)
 	nullCount := int64(0)
 

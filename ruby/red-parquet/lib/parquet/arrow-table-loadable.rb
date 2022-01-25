@@ -19,12 +19,13 @@ module Parquet
   module ArrowTableLoadable
     private
     def load_as_parquet
-      input = open_input_stream
-      reader = Parquet::ArrowFileReader.new(input)
-      reader.use_threads = (@options[:use_threads] != false)
-      table = reader.read_table
-      table.instance_variable_set(:@input, input)
-      table
+      open_input_stream do |input|
+        reader = Parquet::ArrowFileReader.new(input)
+        reader.use_threads = (@options[:use_threads] != false)
+        table = reader.read_table
+        table.instance_variable_set(:@input, input)
+        table
+      end
     end
   end
 end

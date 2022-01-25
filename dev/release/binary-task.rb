@@ -605,7 +605,7 @@ class BinaryTask
     private
     def base_path
       path = @distribution
-      path += "-staging"
+      path += "-staging" if @staging
       path
     end
 

@@ -448,6 +448,84 @@ module Arrow
       self.class.new(schema, packed_arrays)
     end
 
+    # @overload join(right, key, type: :inner, left_outputs: nil, right_outputs: nil)
+    #   @!macro join_common_before
+    #     @param right [Arrow::Table] The right table.
+    #
+    #     Join columns with `right` on join key columns.
+    #
+    #   @!macro join_common_after
+    #     @param type [Arrow::JoinType] How to join.
+    #     @param left_outputs [::Array<String, Symbol>] Output columns in
+    #       `self`.
+    #
+    #       If both of `left_outputs` and `right_outputs` aren't
+    #       specified, all columns in `self` and `right` are
+    #       outputted.
+    #     @param right_outputs [::Array<String, Symbol>] Output columns in
+    #       `right`.
+    #
+    #       If both of `left_outputs` and `right_outputs` aren't
+    #       specified, all columns in `self` and `right` are
+    #       outputted.
+    #     @return [Arrow::Table]
+    #       The joined `Arrow::Table`.
+    #
+    #   @macro join_common_before
+    #   @param key [String, Symbol] A join key.
+    #   @macro join_common_after
+    #
+    # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #
+    #   @macro join_common_before
+    #   @param keys [::Array<String, Symbol>] Join keys.
+    #   @macro join_common_after
+    #
+    # @overload join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+    #
+    #   @macro join_common_before
+    #   @param keys [Hash] Specify join keys in `self` and `right` separately.
+    #   @option keys [String, Symbol, ::Array<String, Symbol>] :left
+    #     Join keys in `self`.
+    #   @option keys [String, Symbol, ::Array<String, Symbol>] :right
+    #     Join keys in `right`.
+    #   @macro join_common_after
+    #
+    # @since 7.0.0
+    def join(right, keys, type: :inner, left_outputs: nil, right_outputs: nil)
+      plan = ExecutePlan.new
+      left_node = plan.build_source_node(self)
+      right_node = plan.build_source_node(right)
+      if keys.is_a?(Hash)
+        left_keys = keys[:left]
+        right_keys = keys[:right]
+      else
+        left_keys = keys
+        right_keys = keys
+      end
+      left_keys = Array(left_keys)
+      right_keys = Array(right_keys)
+      hash_join_node_options = HashJoinNodeOptions.new(type,
+                                                       left_keys,
+                                                       right_keys)
+      unless left_outputs.nil?
+        hash_join_node_options.left_outputs = left_outputs
+      end
+      unless right_outputs.nil?
+        hash_join_node_options.right_outputs = right_outputs
+      end
+      hash_join_node = plan.build_hash_join_node(left_node,
+                                                 right_node,
+                                                 hash_join_node_options)
+      sink_node_options = SinkNodeOptions.new
+      plan.build_sink_node(hash_join_node, sink_node_options)
+      plan.validate
+      plan.start
+      plan.wait
+      reader = sink_node_options.get_reader(hash_join_node.output_schema)
+      reader.read_all
+    end
+
     alias_method :to_s_raw, :to_s
     def to_s(options={})
       format = options[:format]

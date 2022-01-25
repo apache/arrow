@@ -78,6 +78,9 @@ targets
 test/data/**/*.json
 test/data/**/*.arrow
 
+# test bundles
+test/bundle/**/*-bundle.js*
+
 # jest snapshots (too big)
 test/__snapshots__/
 

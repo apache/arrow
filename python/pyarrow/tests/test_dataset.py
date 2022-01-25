@@ -18,6 +18,7 @@
 import contextlib
 import os
 import posixpath
+import datetime
 import pathlib
 import pickle
 import textwrap
@@ -29,6 +30,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute as pc
 import pyarrow.csv
 import pyarrow.feather
 import pyarrow.fs as fs
@@ -215,34 +217,27 @@ def dataset(mockfs):
 
 
 @pytest.fixture(params=[
-    (True, True),
-    (True, False),
-    (False, True),
-    (False, False)
-], ids=['threaded-async', 'threaded-sync', 'serial-async', 'serial-sync'])
+    (True),
+    (False)
+], ids=['threaded', 'serial'])
 def dataset_reader(request):
     '''
     Fixture which allows dataset scanning operations to be
-    run with/without threads and with/without async
+    run with/without threads
     '''
-    use_threads, use_async = request.param
+    use_threads = request.param
 
     class reader:
 
         def __init__(self):
             self.use_threads = use_threads
-            self.use_async = use_async
 
         def _patch_kwargs(self, kwargs):
             if 'use_threads' in kwargs:
                 raise Exception(
                     ('Invalid use of dataset_reader, do not specify'
                      ' use_threads'))
-            if 'use_async' in kwargs:
-                raise Exception(
-                    'Invalid use of dataset_reader, do not specify use_async')
             kwargs['use_threads'] = use_threads
-            kwargs['use_async'] = use_async
 
         def to_table(self, dataset, **kwargs):
             self._patch_kwargs(kwargs)
@@ -428,6 +423,31 @@ def test_scanner(dataset, dataset_reader):
     assert table.num_rows == scanner.count_rows()
 
 
+def test_scanner_async_deprecated(dataset):
+    with pytest.warns(FutureWarning):
+        dataset.scanner(use_async=False)
+    with pytest.warns(FutureWarning):
+        dataset.scanner(use_async=True)
+    with pytest.warns(FutureWarning):
+        dataset.to_table(use_async=False)
+    with pytest.warns(FutureWarning):
+        dataset.to_table(use_async=True)
+    with pytest.warns(FutureWarning):
+        dataset.head(1, use_async=False)
+    with pytest.warns(FutureWarning):
+        dataset.head(1, use_async=True)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_dataset(dataset, use_async=False)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_dataset(dataset, use_async=True)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_fragment(
+            next(dataset.get_fragments()), use_async=False)
+    with pytest.warns(FutureWarning):
+        ds.Scanner.from_fragment(
+            next(dataset.get_fragments()), use_async=True)
+
+
 @pytest.mark.parquet
 def test_head(dataset, dataset_reader):
     result = dataset_reader.head(dataset, 0)
@@ -454,15 +474,15 @@ def test_head(dataset, dataset_reader):
 @pytest.mark.parquet
 def test_take(dataset, dataset_reader):
     fragment = next(dataset.get_fragments())
-    indices = pa.array([1, 3])
-    assert dataset_reader.take(
-        fragment, indices) == dataset_reader.to_table(fragment).take(indices)
+    for indices in [[1, 3], pa.array([1, 3])]:
+        expected = dataset_reader.to_table(fragment).take(indices)
+        assert dataset_reader.take(fragment, indices) == expected
     with pytest.raises(IndexError):
         dataset_reader.take(fragment, pa.array([5]))
 
-    indices = pa.array([1, 7])
-    assert dataset_reader.take(
-        dataset, indices) == dataset_reader.to_table(dataset).take(indices)
+    for indices in [[1, 7], pa.array([1, 7])]:
+        assert dataset_reader.take(
+            dataset, indices) == dataset_reader.to_table(dataset).take(indices)
     with pytest.raises(IndexError):
         dataset_reader.take(dataset, pa.array([10]))
 
@@ -547,67 +567,6 @@ def test_partitioning():
     for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
-
-
-def test_expression_serialization():
-    a = ds.scalar(1)
-    b = ds.scalar(1.1)
-    c = ds.scalar(True)
-    d = ds.scalar("string")
-    e = ds.scalar(None)
-    f = ds.scalar({'a': 1})
-    g = ds.scalar(pa.scalar(1))
-    h = ds.scalar(np.int64(2))
-
-    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
-                 d.is_valid(), a.cast(pa.int32(), safe=False),
-                 a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
-                 ds.field('i64') > 5, ds.field('i64') == 5,
-                 ds.field('i64') == 7, ds.field('i64').is_null()]
-    for expr in all_exprs:
-        assert isinstance(expr, ds.Expression)
-        restored = pickle.loads(pickle.dumps(expr))
-        assert expr.equals(restored)
-
-
-def test_expression_construction():
-    zero = ds.scalar(0)
-    one = ds.scalar(1)
-    true = ds.scalar(True)
-    false = ds.scalar(False)
-    string = ds.scalar("string")
-    field = ds.field("field")
-
-    zero | one == string
-    ~true == false
-    for typ in ("bool", pa.bool_()):
-        field.cast(typ) == true
-
-    field.isin([1, 2])
-
-    with pytest.raises(TypeError):
-        field.isin(1)
-
-    with pytest.raises(pa.ArrowInvalid):
-        field != object()
-
-
-def test_expression_boolean_operators():
-    # https://issues.apache.org/jira/browse/ARROW-11412
-    true = ds.scalar(True)
-    false = ds.scalar(False)
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true and false
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        true or false
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        bool(true)
-
-    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
-        not true
 
 
 def test_expression_arithmetic_operators():
@@ -1679,6 +1638,32 @@ def test_dictionary_partitioning_outer_nulls_raises(tempdir):
         ds.write_dataset(table, tempdir, format='ipc', partitioning=part)
 
 
+@pytest.mark.parquet
+@pytest.mark.pandas
+def test_read_partition_keys_only(tempdir):
+    # This is a regression test for ARROW-15318 which saw issues
+    # reading only the partition keys from files with batches larger
+    # than the default batch size (e.g. so we need to return two chunks)
+    table = pa.table({
+        'key': pa.repeat(0, 2 ** 20 + 1),
+        'value': np.arange(2 ** 20 + 1)})
+    pq.write_to_dataset(
+        table[:2 ** 20],
+        tempdir / 'one', partition_cols=['key'])
+    pq.write_to_dataset(
+        table[:2 ** 20 + 1],
+        tempdir / 'two', partition_cols=['key'])
+
+    table = pq.read_table(tempdir / 'one', columns=['key'])
+    assert table['key'].num_chunks == 1
+
+    table = pq.read_table(tempdir / 'two', columns=['key', 'value'])
+    assert table['key'].num_chunks == 2
+
+    table = pq.read_table(tempdir / 'two', columns=['key'])
+    assert table['key'].num_chunks == 2
+
+
 def _has_subdirs(basedir):
     elements = os.listdir(basedir)
     return any([os.path.isdir(os.path.join(basedir, el)) for el in elements])
@@ -2105,10 +2090,8 @@ def test_construct_in_memory(dataset_reader):
         assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
 
-@pytest.mark.parametrize('use_threads,use_async',
-                         [(False, False), (False, True),
-                          (True, False), (True, True)])
-def test_scan_iterator(use_threads, use_async):
+@pytest.mark.parametrize('use_threads', [False, True])
+def test_scan_iterator(use_threads):
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
     table = pa.Table.from_batches([batch])
     # When constructed from readers/iterators, should be one-shot
@@ -2120,8 +2103,7 @@ def test_scan_iterator(use_threads, use_async):
     ):
         # Scanning the fragment consumes the underlying iterator
         scanner = ds.Scanner.from_batches(
-            factory(), schema=schema, use_threads=use_threads,
-            use_async=use_async)
+            factory(), schema=schema, use_threads=use_threads)
         assert scanner.to_table() == table
         with pytest.raises(pa.ArrowInvalid, match=match):
             scanner.to_table()
@@ -2530,6 +2512,26 @@ def test_filter_equal_null(tempdir, dataset_reader):
         dataset, filter=ds.field("A") == ds.scalar(None)
     )
     assert table.num_rows == 0
+
+
+def test_filter_compute_expression(tempdir, dataset_reader):
+    table = pa.table({
+        "A": ["a", "b", None, "a", "c"],
+        "B": [datetime.datetime(2022, 1, 1, i) for i in range(5)],
+        "C": [datetime.datetime(2022, 1, i) for i in range(1, 6)],
+    })
+    _, path = _create_single_file(tempdir, table)
+    dataset = ds.dataset(str(path))
+
+    filter_ = pc.is_in(ds.field('A'), pa.array(["a", "b"]))
+    assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 3
+
+    filter_ = pc.hour(ds.field('B')) >= 3
+    assert dataset_reader.to_table(dataset, filter=filter_).num_rows == 2
+
+    days = pc.days_between(ds.field('B'), ds.field("C"))
+    result = dataset_reader.to_table(dataset, columns={"days": days})
+    assert result["days"].to_pylist() == [0, 1, 2, 3, 4]
 
 
 def test_dataset_union(multisourcefs):
@@ -3472,7 +3474,7 @@ def test_write_dataset_with_scanner(tempdir):
     dataset = ds.dataset(tempdir, format='ipc', partitioning=["b"])
 
     with tempfile.TemporaryDirectory() as tempdir2:
-        ds.write_dataset(dataset.scanner(columns=["b", "c"], use_async=True),
+        ds.write_dataset(dataset.scanner(columns=["b", "c"]),
                          tempdir2, format='ipc', partitioning=["b"])
 
         load_back = ds.dataset(tempdir2, format='ipc', partitioning=["b"])
@@ -3511,8 +3513,7 @@ def test_write_dataset_with_backpressure(tempdir):
             yield batch
 
     scanner = ds.Scanner.from_batches(
-        counting_generator(), schema=schema, use_threads=True,
-        use_async=True)
+        counting_generator(), schema=schema, use_threads=True)
 
     write_thread = threading.Thread(
         target=lambda: ds.write_dataset(
@@ -3744,16 +3745,16 @@ def test_write_dataset_max_open_files(tempdir):
     partition_column_id = 1
     column_names = ['c1', 'c2']
     record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0, 10],
-                                     ['a', 'b', 'c', 'd', 'e', 'a']],
+                                           ['a', 'b', 'c', 'd', 'e', 'a']],
                                      names=column_names)
     record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'c']],
+                                           ['a', 'b', 'c', 'd', 'e', 'c']],
                                      names=column_names)
     record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'd']],
+                                           ['a', 'b', 'c', 'd', 'e', 'd']],
                                      names=column_names)
     record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'b']],
+                                           ['a', 'b', 'c', 'd', 'e', 'b']],
                                      names=column_names)
 
     table = pa.Table.from_batches([record_batch_1, record_batch_2,
@@ -3974,11 +3975,6 @@ def test_write_iterable(tempdir):
 
 
 def test_write_scanner(tempdir, dataset_reader):
-    if not dataset_reader.use_async:
-        pytest.skip(
-            ('ARROW-13338: Write dataset with scanner does not'
-             ' support synchronous scan'))
-
     table = pa.table([
         pa.array(range(20)), pa.array(np.random.randn(20)),
         pa.array(np.repeat(['a', 'b'], 10))

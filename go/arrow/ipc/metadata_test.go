@@ -162,7 +162,7 @@ func TestRWFooter(t *testing.T) {
 	}
 }
 
-func exampleUUID(mem memory.Allocator) array.Interface {
+func exampleUUID(mem memory.Allocator) arrow.Array {
 	extType := types.NewUUIDType()
 	bldr := array.NewExtensionBuilder(mem, extType)
 	defer bldr.Release()
@@ -187,7 +187,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	batch := array.NewRecord(
 		arrow.NewSchema([]arrow.Field{
 			{Name: "f0", Type: extArr.DataType(), Nullable: true}}, nil),
-		[]array.Interface{extArr}, 4)
+		[]arrow.Array{extArr}, 4)
 	defer batch.Release()
 
 	storageArr := extArr.(array.ExtensionArray).Storage()
@@ -215,7 +215,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	batchNoExt := array.NewRecord(
 		arrow.NewSchema([]arrow.Field{
 			{Name: "f0", Type: storageArr.DataType(), Nullable: true, Metadata: extMetadata},
-		}, nil), []array.Interface{storageArr}, 4)
+		}, nil), []arrow.Array{storageArr}, 4)
 	defer batchNoExt.Release()
 
 	assert.Truef(t, array.RecordEqual(rec, batchNoExt), "expected: %s\ngot: %s\n", batchNoExt, rec)

@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Null } from '../type';
-import { Builder } from '../builder';
+import { Null } from '../type.js';
+import { Builder } from '../builder.js';
 
 /** @ignore */
 export class NullBuilder<TNull = any> extends Builder<Null, TNull> {
     // @ts-ignore
-    public setValue(index: number, value: null) {}
+    public setValue(index: number, value: null) { }
     public setValid(index: number, valid: boolean) {
         this.length = Math.max(index + 1, this.length);
         return valid;

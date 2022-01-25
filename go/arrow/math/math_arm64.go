@@ -18,8 +18,22 @@
 
 package math
 
+import (
+	"github.com/apache/arrow/go/v7/arrow/internal/cpu"
+)
+
 func init() {
-	initGo()
+	if cpu.ARM64.HasASIMD {
+		initNEON()
+    } else {
+	    initGo()
+	}
+}
+
+func initNEON() {
+	initFloat64NEON()
+	initInt64NEON()
+	initUint64NEON()
 }
 
 func initGo() {

@@ -50,6 +50,10 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
+@rem With MSVC we always bundle a more recent GTest which causes a link conflict
+@rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
+call conda remove -y gtest gmock || exit /B 1
+
 set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
 

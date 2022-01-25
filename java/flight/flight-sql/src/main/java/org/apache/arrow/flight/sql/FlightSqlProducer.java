@@ -278,9 +278,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       final ActionClosePreparedStatementRequest request = FlightSqlUtils.unpackAndParseOrThrow(action.getBody(),
           ActionClosePreparedStatementRequest.class);
       closePreparedStatement(request, context, listener);
+    } else {
+      throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid action provided.").toRuntimeException();
     }
-
-    throw CallStatus.INVALID_ARGUMENT.withDescription("Invalid action provided.").toRuntimeException();
   }
 
   /**

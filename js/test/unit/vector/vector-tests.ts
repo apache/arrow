@@ -16,9 +16,22 @@
 // under the License.
 
 import {
-    Int32, Dictionary, DateUnit, util,
-    Data, Vector, Utf8Vector, DateVector, DictionaryVector,
+    DateDay, DateMillisecond, Dictionary, Field, Int32, List, makeVector, Utf8, util, Vector, vectorFromArray
 } from 'apache-arrow';
+
+describe(`makeVectorFromArray`, () => {
+    describe(`works with null values`, () => {
+        const values = [1, 2, 3, 4, null, 5];
+        const vector = vectorFromArray(values);
+        basicVectorTests(vector, values, []);
+        test(`toArray returns typed array for numbers`, () => {
+            expect(vector.toArray()).toEqual(Float64Array.from(values.map(n => n === null ? 0 : n)));
+        });
+        test(`toJSON retains null`, () => {
+            expect(vector.toJSON()).toEqual(values);
+        });
+    });
+});
 
 describe(`DateVector`, () => {
     const extras = [
@@ -32,7 +45,7 @@ describe(`DateVector`, () => {
             new Date(1987, 2, 24, 7, 8, 9),
             new Date(2018, 4, 12, 17, 30, 0)
         ];
-        const vector = DateVector.from(values);
+        const vector = vectorFromArray(values, new DateMillisecond);
         basicVectorTests(vector, values, extras);
     });
     describe(`unit = DAY`, () => {
@@ -43,7 +56,8 @@ describe(`DateVector`, () => {
             new Date(Date.UTC(1987, 2, 24)),
             new Date(Date.UTC(2018, 4, 12))
         ];
-        const vector = DateVector.from(values, DateUnit.DAY);
+        const vector = vectorFromArray(values, new DateDay);
+
         basicVectorTests(vector, values, extras);
     });
 });
@@ -52,20 +66,24 @@ describe(`DictionaryVector`, () => {
 
     const dictionary = ['foo', 'bar', 'baz'];
     const extras = ['abc', '123']; // values to search for that should NOT be found
-    const dictionary_vec = Utf8Vector.from(dictionary);
+    const dictionary_vec = vectorFromArray(dictionary, new Utf8).memoize();
 
-    const indices = Array.from({length: 50}, () => Math.random() * 3 | 0);
-    const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2 ? true : false);
+    const indices = Array.from({ length: 50 }, () => Math.trunc(Math.random() * 3));
+    const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
 
     describe(`index with nullCount == 0`, () => {
 
-        const values = Array.from(indices).map((d) => dictionary[d]);
-        const vector = DictionaryVector.from(dictionary_vec, new Int32(), indices);
+        const values = indices.map((d) => dictionary[d]);
+        const vector = makeVector({
+            data: indices,
+            dictionary: dictionary_vec,
+            type: new Dictionary(dictionary_vec.type, new Int32)
+        });
 
         basicVectorTests(vector, values, extras);
 
         describe(`sliced`, () => {
-            basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
+            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
         });
     });
 
@@ -73,23 +91,78 @@ describe(`DictionaryVector`, () => {
 
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
-        const values = Array.from(indices).map((d, i) => validity[i] ? dictionary[d] : null);
-        const type = new Dictionary(dictionary_vec.type, new Int32(), null, null);
-        const vector = Vector.new(Data.Dictionary(type, 0, indices.length, nullCount, nullBitmap, indices, dictionary_vec));
+        const values = indices.map((d, i) => validity[i] ? dictionary[d] : null);
+
+        const vector = makeVector({
+            data: indices,
+            nullCount,
+            nullBitmap,
+            dictionary: dictionary_vec,
+            type: new Dictionary(dictionary_vec.type, new Int32)
+        });
 
         basicVectorTests(vector, values, ['abc', '123']);
         describe(`sliced`, () => {
-            basicVectorTests(vector.slice(10, 20), values.slice(10,20), extras);
+            basicVectorTests(vector.slice(10, 20), values.slice(10, 20), extras);
+        });
+    });
+
+    describe(`vectorFromArray`, () => {
+        const values = ['foo', 'bar', 'baz', 'foo', 'bar'];
+
+        const vector = vectorFromArray(values);
+
+        test(`has dictionary type`, () => {
+            expect(vector.type).toBeInstanceOf(Dictionary);
+        });
+
+        test(`has memoized dictionary`, () => {
+            expect(vector.isMemoized).toBe(true);
+            const unmemoized = vector.unmemoize();
+            expect(unmemoized.isMemoized).toBe(false);
+        });
+
+        basicVectorTests(vector, values, ['abc', '123']);
+        describe(`sliced`, () => {
+            basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
         });
     });
 });
 
 describe(`Utf8Vector`, () => {
     const values = ['foo', 'bar', 'baz', 'foo bar', 'bar'];
-    const vector = Utf8Vector.from(values);
+    const vector = vectorFromArray(values, new Utf8);
+
+    test(`has utf8 type`, () => {
+        expect(vector.type).toBeInstanceOf(Utf8);
+    });
+
+    test(`is not memoized`, () => {
+        expect(vector.isMemoized).toBe(false);
+        const memoizedVector = vector.memoize();
+        expect(memoizedVector.isMemoized).toBe(true);
+        const unMemoizedVector = vector.unmemoize();
+        expect(unMemoizedVector.isMemoized).toBe(false);
+    });
+
     basicVectorTests(vector, values, ['abc', '123']);
     describe(`sliced`, () => {
-        basicVectorTests(vector.slice(1,3), values.slice(1,3), ['foo', 'abc']);
+        basicVectorTests(vector.slice(1, 3), values.slice(1, 3), ['foo', 'abc']);
+    });
+});
+
+describe(`ListVector`, () => {
+    const values = [[1, 2], [1, 2, 3]];
+    const vector = vectorFromArray(values, new List(Field.new({ name: 'field', type: new Int32 })));
+
+    test(`has list type`, () => {
+        expect(vector.type).toBeInstanceOf(List);
+    });
+
+    test(`get value`, () => {
+        for (const [i, value] of values.entries()) {
+            expect(vector.get(i)!.toJSON()).toEqual(value);
+        }
     });
 });
 
@@ -110,13 +183,13 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
     test(`iterates expected values`, () => {
         expect.hasAssertions();
         let i = -1;
-        for (let v of vector) {
+        for (const v of vector) {
             expect(++i).toBeLessThan(n);
             expect(v).toEqual(values[i]);
         }
     });
     test(`indexOf returns expected values`, () => {
-        let testValues = values.concat(extras);
+        const testValues = values.concat(extras);
 
         for (const value of testValues) {
             const actual = vector.indexOf(value);

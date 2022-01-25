@@ -309,10 +309,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
 
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset, int64_t length)
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset, int64_t length)
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
@@ -333,6 +333,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
     cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
         CMemoryPool** out)
+    cdef vector[c_string] c_supported_memory_backends" arrow::SupportedMemoryBackendNames"()
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
@@ -945,6 +946,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CNullScalar()
 
     cdef cppclass CBooleanScalar" arrow::BooleanScalar"(CScalar):
+        CBooleanScalar(c_bool value)
         c_bool value
 
     cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
@@ -2314,6 +2316,56 @@ cdef extern from "arrow/compute/api_aggregate.h" namespace \
                             const vector[CAggregate]& aggregates)
 
 
+cdef extern from * namespace "arrow::compute":
+    # inlined from expression_internal.h to avoid
+    # proliferation of #include <unordered_map>
+    """
+    #include <unordered_map>
+
+    #include "arrow/type.h"
+    #include "arrow/datum.h"
+
+    namespace arrow {
+    namespace compute {
+    struct KnownFieldValues {
+      std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+    };
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    cdef struct CKnownFieldValues "arrow::compute::KnownFieldValues":
+        unordered_map[CFieldRef, CDatum, CFieldRefHash] map
+
+cdef extern from "arrow/compute/exec/expression.h" \
+        namespace "arrow::compute" nogil:
+
+    cdef cppclass CExpression "arrow::compute::Expression":
+        c_bool Equals(const CExpression& other) const
+        c_string ToString() const
+        CResult[CExpression] Bind(const CSchema&)
+
+    cdef CExpression CMakeScalarExpression \
+        "arrow::compute::literal"(shared_ptr[CScalar] value)
+
+    cdef CExpression CMakeFieldExpression \
+        "arrow::compute::field_ref"(c_string name)
+
+    cdef CExpression CMakeCallExpression \
+        "arrow::compute::call"(c_string function,
+                               vector[CExpression] arguments,
+                               shared_ptr[CFunctionOptions] options)
+
+    cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
+        "arrow::compute::Serialize"(const CExpression&)
+
+    cdef CResult[CExpression] CDeserializeExpression \
+        "arrow::compute::Deserialize"(shared_ptr[CBuffer])
+
+    cdef CResult[CKnownFieldValues] \
+        CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
+            const CExpression& partition_expression)
+
+
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
     CResult[shared_ptr[CDataType]] InferArrowType(
@@ -2710,3 +2762,17 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+
+cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
+    void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
+    CResult[int64_t] ReferencedBufferSize(const CArray& array_data)
+    CResult[int64_t] ReferencedBufferSize(const CRecordBatch& record_batch)
+    CResult[int64_t] ReferencedBufferSize(const CChunkedArray& chunked_array)
+    CResult[int64_t] ReferencedBufferSize(const CTable& table)
+    int64_t TotalBufferSize(const CArray& array)
+    int64_t TotalBufferSize(const CChunkedArray& array)
+    int64_t TotalBufferSize(const CRecordBatch& record_batch)
+    int64_t TotalBufferSize(const CTable& table)

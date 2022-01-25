@@ -36,8 +36,9 @@ COPY ci/vcpkg/*.patch \
      ci/vcpkg/*windows*.cmake \
      arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
+ENV VCPKG_ROOT=C:\\vcpkg
 RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && \
-    setx PATH "%PATH%;C:\vcpkg"
+    setx PATH "%PATH%;%VCPKG_ROOT%"
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN
@@ -48,34 +49,21 @@ ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg \
     VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} \
-    VCPKG_FEATURE_FLAGS=-manifests
-
-RUN vcpkg install --clean-after-build \
-        abseil \
-        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-filesystem \
-        boost-multiprecision \
-        boost-system \
-        brotli \
-        bzip2 \
-        c-ares \
-        curl \
-        flatbuffers \
-        gflags \
-        glog \
-        google-cloud-cpp[core,storage] \
-        grpc \
-        lz4 \
-        openssl \
-        orc \
-        protobuf \
-        rapidjson \
-        re2 \
-        snappy \
-        thrift \
-        utf8proc \
-        zlib \
-        zstd
+    VCPKG_FEATURE_FLAGS="manifests"
+COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
+# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
+# ssl related fixies as well as we can patch the vcpkg portfile to support
+# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
+# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
+# previous versions => use bundled S3 build
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=%VCPKG_ROOT%\installed \
+        --x-manifest-root=arrow/ci/vcpkg \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet
 
 # Remove previous installations of python from the base image
 # NOTE: a more recent base image (tried with 2.12.1) comes with python 3.9.7
@@ -87,20 +75,20 @@ RUN wmic product where "name like 'python%%'" call uninstall /nointeractive && \
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.7 => 3.7.0)
 ARG python=3.8
-RUN (if "%python%"=="3.7" setx PYTHON_VERSION 3.7.12) & \
-    (if "%python%"=="3.8" setx PYTHON_VERSION 3.8.11) & \
-    (if "%python%"=="3.9" setx PYTHON_VERSION 3.9.9) & \
-    (if "%python%"=="3.10" setx PYTHON_VERSION 3.10.1)
+RUN (if "%python%"=="3.7" setx PYTHON_VERSION "3.7.9" && setx PATH "%PATH%;C:\Python37;C:\Python37\Scripts") & \
+    (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\Python38;C:\Python38\Scripts") & \
+    (if "%python%"=="3.9" setx PYTHON_VERSION "3.9.7" && setx PATH "%PATH%;C:\Python39;C:\Python39\Scripts") & \
+    (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.2" && setx PATH "%PATH%;C:\Python310;C:\Python310\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
-RUN pip install -U pip
+RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-RUN pip install -r arrow/python/requirements-wheel-build.txt
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
-ENV CLCACHE_DIR="C:\clcache"
-ENV CLCACHE_COMPRESS=1
-ENV CLCACHE_COMPRESSLEVEL=6
-RUN pip install git+https://github.com/Nuitka/clcache.git
+# ENV CLCACHE_DIR="C:\clcache"
+# ENV CLCACHE_COMPRESS=1
+# ENV CLCACHE_COMPRESSLEVEL=6
+# RUN pip install git+https://github.com/Nuitka/clcache.git
 
 # For debugging purposes
 # RUN wget --no-check-certificate https://github.com/lucasg/Dependencies/releases/download/v1.10/Dependencies_x64_Release.zip

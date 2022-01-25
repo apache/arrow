@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -147,6 +148,11 @@ struct ARROW_EXPORT IpcReadOptions {
   /// Endianness conversion is achieved by the RecordBatchFileReader,
   /// RecordBatchStreamReader and StreamDecoder classes.
   bool ensure_native_endian = true;
+
+  /// \brief Options to control caching behavior when pre-buffering is requested
+  ///
+  /// The lazy property will always be reset to true to deliver the expected behavior
+  io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
 
   static IpcReadOptions Defaults();
 };

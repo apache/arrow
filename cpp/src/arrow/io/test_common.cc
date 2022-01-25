@@ -33,8 +33,12 @@
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::IOErrorFromErrno;
+
 namespace io {
 
 void AssertFileContents(const std::string& path, const std::string& contents) {
@@ -47,6 +51,28 @@ void AssertFileContents(const std::string& path, const std::string& contents) {
 }
 
 bool FileExists(const std::string& path) { return std::ifstream(path.c_str()).good(); }
+
+Status PurgeLocalFileFromOsCache(const std::string& path) {
+#if defined(POSIX_FADV_WILLNEED)
+  int fd = open(path.c_str(), O_WRONLY);
+  if (fd < 0) {
+    return IOErrorFromErrno(errno, "open on ", path,
+                            " to clear from cache did not succeed.");
+  }
+  int err = posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+  if (err != 0) {
+    return IOErrorFromErrno(err, "fadvise on ", path,
+                            " to clear from cache did not succeed");
+  }
+  err = close(fd);
+  if (err == 0) {
+    return Status::OK();
+  }
+  return IOErrorFromErrno(err, "close on ", path, " to clear from cache did not succeed");
+#else
+  return Status::NotImplemented("posix_fadvise is not implemented on this machine");
+#endif
+}
 
 #if defined(_WIN32)
 static void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,

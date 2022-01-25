@@ -1,0 +1,30 @@
+[
+    {
+        "name": "6.0.1.9000 (dev)",
+        "version": "dev/"
+    },
+    {
+        "name": "6.0.1 (release)",
+        "version": ""
+    },
+    {
+        "name": "5.0.0",
+        "version": "5.0/"
+    },
+    {
+        "name": "4.0.1",
+        "version": "4.0/"
+    },
+    {
+        "name": "3.0.0",
+        "version": "3.0/"
+    },
+    {
+        "name": "2.0.0",
+        "version": "2.0/"
+    },
+    {
+        "name": "1.0.1",
+        "version": "1.0/"
+    }
+]

@@ -20,7 +20,7 @@ const { BitIterator, getBool } = Arrow.util;
 
 describe('Bits', () => {
     test('BitIterator produces correct bits for single byte', () => {
-        const byte = new Uint8Array([0b11110000]);
+        const byte = new Uint8Array([0b1111_0000]);
         expect([...new BitIterator(byte, 0, 8, null, getBool)]).toEqual(
             [false, false, false, false, true, true, true, true]);
 
@@ -29,7 +29,7 @@ describe('Bits', () => {
     });
 
     test('BitIterator produces correct bits for multiple bytes', () => {
-        const byte = new Uint8Array([0b11110000, 0b10101010]);
+        const byte = new Uint8Array([0b1111_0000, 0b1010_1010]);
         expect([...new BitIterator(byte, 0, 16, null, getBool)]).toEqual(
             [false, false, false, false, true, true, true, true,
              false, true, false, true, false, true, false, true]);

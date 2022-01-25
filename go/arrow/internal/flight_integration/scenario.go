@@ -68,10 +68,10 @@ func initServer(port int, srv flight.Server) int {
 
 type integrationDataSet struct {
 	schema *arrow.Schema
-	chunks []array.Record
+	chunks []arrow.Record
 }
 
-func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *flight.Ticket, orig []array.Record, opts ...grpc.DialOption) error {
+func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *flight.Ticket, orig []arrow.Record, opts ...grpc.DialOption) error {
 	client, err := flight.NewClientWithMiddleware(loc.GetUri(), nil, nil, opts...)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	}
 
 	dataSet := integrationDataSet{
-		chunks: make([]array.Record, 0),
+		chunks: make([]arrow.Record, 0),
 		schema: rdr.Schema(),
 	}
 
@@ -294,7 +294,7 @@ func (s *defaultIntegrationTester) DoPut(stream flight.FlightService_DoPutServer
 
 	key = desc.Path[0]
 	dataset.schema = rdr.Schema()
-	dataset.chunks = make([]array.Record, 0)
+	dataset.chunks = make([]arrow.Record, 0)
 	for rdr.Next() {
 		rec := rdr.Record()
 		rec.Retain()

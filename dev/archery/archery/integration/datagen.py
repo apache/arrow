@@ -1349,12 +1349,20 @@ def generate_datetime_case():
     return _generate_file("datetime", fields, batch_sizes)
 
 
-def generate_interval_case():
+def generate_duration_case():
     fields = [
         DurationIntervalField('f1', 's'),
         DurationIntervalField('f2', 'ms'),
         DurationIntervalField('f3', 'us'),
         DurationIntervalField('f4', 'ns'),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("duration", fields, batch_sizes)
+
+
+def generate_interval_case():
+    fields = [
         YearMonthIntervalField('f5'),
         DayTimeIntervalField('f6'),
     ]
@@ -1571,6 +1579,10 @@ def get_generated_json_files(tempdir=None):
 
         generate_datetime_case()
         .skip_category('C#'),
+
+        generate_duration_case()
+        .skip_category('C#')
+        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_interval_case()
         .skip_category('C#')

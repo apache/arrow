@@ -239,7 +239,7 @@ setup_miniconda() {
     OS=MacOSX
   fi
   ARCH="$(uname -m)"
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${OS}-${ARCH}.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${OS}-${ARCH}.sh"
 
   MINICONDA=$PWD/test-miniconda
 
@@ -252,13 +252,23 @@ setup_miniconda() {
   echo "Installed miniconda at ${MINICONDA}"
 
   . $MINICONDA/etc/profile.d/conda.sh
+  conda activate base
 
-  conda create -n arrow-test -y -q -c conda-forge \
-    python=3.8 \
-    nomkl \
+  # Dependencies from python/requirements-build.txt and python/requirements-test.txt
+  # with the exception of oldest-supported-numpy since it doesn't have a conda package
+  mamba create -n arrow-test -y \
+    cffi \
+    cython \
+    hypothesis \
     numpy \
     pandas \
-    cython
+    pytest \
+    pytest-lazy-fixture \
+    python=3.8 \
+    pytz \
+    setuptools \
+    setuptools_scm
+
   conda activate arrow-test
   echo "Using conda environment ${CONDA_PREFIX}"
 }
@@ -379,8 +389,6 @@ test_csharp() {
 test_python() {
   pushd python
 
-  pip install -r requirements-build.txt -r requirements-test.txt
-
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -440,6 +448,7 @@ test_js() {
   yarn lint
   yarn build
   yarn test
+  yarn test:bundle
   popd
 }
 
@@ -631,7 +640,7 @@ test_linux_wheels() {
     else
       local channels="-c conda-forge"
     fi
-    conda create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
+    mamba create -yq -n ${env} ${channels} python=${py_arch//[mu]/}
     conda activate ${env}
     pip install -U pip
 
@@ -671,7 +680,7 @@ test_macos_wheels() {
     else
       local channels="-c conda-forge"
     fi
-    conda create -yq -n ${env} ${channels} python=${py_arch//m/}
+    mamba create -yq -n ${env} ${channels} python=${py_arch//m/}
     conda activate ${env}
     pip install -U pip
 
@@ -762,7 +771,7 @@ test_jars() {
 # system Node installation, which may be too old.
 node_major_version=$( \
   node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-required_node_major_version=14
+required_node_major_version=16
 if [ -n "${node_major_version}" -a \
      "${node_major_version}" -ge ${required_node_major_version} ]; then
   : ${INSTALL_NODE:=0}

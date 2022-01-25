@@ -271,7 +271,7 @@ func TestFieldRefRecord(t *testing.T) {
 		{Name: "alpha", Type: alpha.DataType(), Nullable: true},
 		{Name: "alpha", Type: beta.DataType(), Nullable: true},
 		{Name: "alpha", Type: gamma.DataType(), Nullable: true},
-	}, nil), []array.Interface{alpha, beta, gamma}, 10)
+	}, nil), []arrow.Array{alpha, beta, gamma}, 10)
 	defer rec.Release()
 
 	arr, err := compute.FieldPath{2, 0}.GetColumn(rec)
@@ -296,7 +296,7 @@ func TestFieldRefRecord(t *testing.T) {
 
 	arrs, err := compute.FieldRefName("alpha").GetAllColumns(rec)
 	assert.NoError(t, err)
-	assert.Equal(t, []array.Interface{alpha, beta, gamma}, arrs)
+	assert.Equal(t, []arrow.Array{alpha, beta, gamma}, arrs)
 
 	arrs, err = compute.FieldRefName("delta").GetAllColumns(rec)
 	assert.NoError(t, err)

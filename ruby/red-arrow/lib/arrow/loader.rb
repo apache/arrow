@@ -30,6 +30,7 @@ module Arrow
       require_libraries
       require_extension_library
       gc_guard
+      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
@@ -76,6 +77,7 @@ module Arrow
       require "arrow/file-system"
       require "arrow/fixed-size-binary-array"
       require "arrow/fixed-size-binary-array-builder"
+      require "arrow/function"
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
@@ -211,6 +213,17 @@ module Arrow
         super(info, klass, method_name)
       else
         super
+      end
+    end
+
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      case klass.name
+      when "Arrow::RecordBatchFileReader"
+        case function_info.name
+        when "new"
+          function_info.lock_gvl_default = false
+        end
       end
     end
   end

@@ -764,6 +764,92 @@ gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   return tp.ClearTimeOfDay().MillisSinceEpoch();
 }
 
+/*
+ * Input consists of mandatory and optional fields.
+ * Mandatory fields are hours, minutes.
+ * The seconds and subseconds are optional.
+ * Format is hours:minutes[:seconds.millis]
+ */
+gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
+  using gandiva::TimeFields;
+  using std::chrono::hours;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  using std::chrono::seconds;
+
+  const int32_t kDisplacementHours = 4;
+  int32_t time_fields[kDisplacementHours] = {0, 0, 0, 0};
+  int32_t sub_seconds_len = 0;
+  int32_t time_field_idx = TimeFields::kHours, index = 0, value = 0;
+
+  bool has_invalid_digit = false;
+  while (time_field_idx < TimeFields::kDisplacementHours && index < length) {
+    if (isdigit(input[index])) {
+      value = (value * 10) + (input[index] - '0');
+
+      if (time_field_idx == TimeFields::kSubSeconds) {
+        sub_seconds_len++;
+      }
+    } else {
+      time_fields[time_field_idx - TimeFields::kHours] = value;
+      value = 0;
+
+      switch (input[index]) {
+        case '.':
+        case ':':
+          time_field_idx++;
+          break;
+        default:
+          has_invalid_digit = true;
+          break;
+      }
+    }
+
+    index++;
+  }
+
+  if (has_invalid_digit) {
+    const char* msg = "Invalid character in time ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  // Check if the hours and minutes were defined and store the last value
+  if (time_field_idx < TimeFields::kDisplacementHours) {
+    time_fields[time_field_idx - TimeFields::kHours] = value;
+  }
+
+  // adjust the milliseconds
+  if (sub_seconds_len > 0) {
+    if (sub_seconds_len > 3) {
+      const char* msg = "Invalid millis for time value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+
+    while (sub_seconds_len < 3) {
+      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] *= 10;
+      sub_seconds_len++;
+    }
+  }
+
+  int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
+  int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
+  int32_t input_seconds = time_fields[TimeFields::kSeconds - TimeFields::kHours];
+  int32_t input_subseconds = time_fields[TimeFields::kSubSeconds - TimeFields::kHours];
+
+  if (!is_valid_time(input_hours, input_minutes, input_seconds)) {
+    const char* msg = "Not a valid time value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  auto time_info = hours(input_hours) + minutes(input_minutes) + seconds(input_seconds) +
+                   milliseconds(input_subseconds);
+
+  return static_cast<gdv_time32>(time_info.count());
+}
+
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
   // Retrieves a timestamp and returns the number of milliseconds since the midnight
   EpochTimePoint tp(timestamp_in_millis);
@@ -773,6 +859,17 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
       tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch();
 
   return static_cast<int32_t>(millis_since_midnight);
+}
+
+// Gets an arbitrary number and return the number of milliseconds since midnight
+gdv_time32 castTIME_int32(int32_t int_val) {
+  if (int_val < 0) {
+    return 0;
+  }
+
+  auto millis_since_midnight = static_cast<gdv_time32>(int_val % MILLIS_IN_DAY);
+
+  return millis_since_midnight;
 }
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,

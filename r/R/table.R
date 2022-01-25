@@ -43,6 +43,7 @@
 #'
 #' - `$column(i)`: Extract a `ChunkedArray` by integer position from the table
 #' - `$ColumnNames()`: Get all column names (called by `names(tab)`)
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the table
 #' - `$RenameColumns(value)`: Set all column names (called by `names(tab) <- value`)
 #' - `$GetColumnByName(name)`: Extract a `ChunkedArray` by string name
 #' - `$field(i)`: Extract a `Field` from the table schema by integer position
@@ -81,6 +82,7 @@ Table <- R6Class("Table",
   public = list(
     column = function(i) Table__column(self, i),
     ColumnNames = function() Table__ColumnNames(self),
+    nbytes = function() Table__ReferencedBufferSize(self),
     RenameColumns = function(value) Table__RenameColumns(self, value),
     GetColumnByName = function(name) {
       assert_is(name, "character")

@@ -121,7 +121,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Parameters
     ----------
-    obj : sequence, iterable, ndarray or Series
+    obj : sequence, iterable, ndarray or pandas.Series
         If both type and size are specified may be a single use iterable. If
         not strongly-typed, Arrow type will be inferred for resulting array.
     type : pyarrow.DataType
@@ -159,9 +159,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Notes
     -----
-    Localized timestamps will currently be returned as UTC (pandas's native
-    representation). Timezone-naive data will be implicitly interpreted as
-    UTC.
+    Timezone will be preserved in the returned array for timezone-aware data,
+    else no timezone will be returned for naive timestamps.
+    Internally, UTC values are stored for timezone-aware data with the
+    timezone set in the data type.
 
     Pandas's DateOffsets and dateutil.relativedelta.relativedelta are by
     default converted as MonthDayNanoIntervalArray. relativedelta leapdays
@@ -710,7 +711,7 @@ cdef class _PandasConvertible(_Weakrefable):
             useful if you have timestamps that don't fit in the normal date
             range of nanosecond timestamps (1678 CE-2262 CE).
             If False, all timestamps are converted to datetime64[ns] dtype.
-        use_threads: bool, default True
+        use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default False
             Do not create multiple copies Python objects when created, to save
@@ -871,7 +872,8 @@ cdef class Array(_PandasConvertible):
 
         Returns
         -------
-        An array of  <input type "Values", int64_t "Counts"> structs
+        StructArray
+            An array of  <input type "Values", int64 "Counts"> structs
         """
         return _pc().call_function('value_counts', [self])
 
@@ -987,12 +989,42 @@ cdef class Array(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the array.
+
+        In other words, the sum of bytes from all buffer 
+        ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their 
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for buf in self.buffers():
-            if buf is not None:
-                size += buf.size
+        cdef:
+            CResult[int64_t] c_size_res
+
+        c_size_res = ReferencedBufferSize(deref(self.ap))
+        size = GetResultValue(c_size_res)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the array.
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.ap))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(Array, self).__sizeof__() + self.nbytes
@@ -1013,11 +1045,11 @@ cdef class Array(_PandasConvertible):
         Parameters
         ----------
         indent : int, default 2
-            How much to indent the internal items in the string to 
+            How much to indent the internal items in the string to
             the right, by default ``2``.
         top_level_indent : int, default 0
             How much to indent right the entire content of the array,
-            by default ``0``. 
+            by default ``0``.
         window : int
             How many items to preview at the begin and end
             of the array when the arrays is bigger than the window.
@@ -1800,7 +1832,7 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
-cdef class MapArray(Array):
+cdef class MapArray(ListArray):
     """
     Concrete class for Arrow arrays of a map data type.
     """
@@ -1841,10 +1873,12 @@ cdef class MapArray(Array):
 
     @property
     def keys(self):
+        """Flattened array of keys across all maps in array"""
         return pyarrow_wrap_array((<CMapArray*> self.ap).keys())
 
     @property
     def items(self):
+        """Flattened array of items across all maps in array"""
         return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
@@ -2512,7 +2546,8 @@ def concat_arrays(arrays, MemoryPool memory_pool=None):
 
     Raises
     ------
-    ArrowInvalid : if not all of the arrays have the same type.
+    ArrowInvalid
+        If not all of the arrays have the same type.
 
     Parameters
     ----------

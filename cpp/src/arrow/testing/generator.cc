@@ -140,7 +140,16 @@ std::shared_ptr<arrow::Array> ConstantArrayGenerator::Zeroes(
       return Float64(size);
     case Type::STRING:
       return String(size);
+    case Type::STRUCT: {
+      ArrayVector children;
+      children.reserve(type->num_fields());
+      for (const auto& field : type->fields()) {
+        children.push_back(Zeroes(size, field->type()));
+      }
+      return std::make_shared<StructArray>(type, size, children);
+    }
     default:
+      ADD_FAILURE() << "ConstantArrayGenerator::Zeroes is not implemented for " << *type;
       return nullptr;
   }
 }

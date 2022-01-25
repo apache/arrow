@@ -19,19 +19,6 @@ name: Docs
 
 on:
   push:
-  pull_request:
-    paths:
-      - '.github/workflows/docs.yml'
-      - 'ci/docker/linux-apt-docs.dockerfile'
-      - 'ci/docker/linux-apt-python-3.dockerfile'
-      - 'ci/docker/ubuntu-20.04-cpp.dockerfile'
-      - 'ci/scripts/c_glib_build.sh'
-      - 'ci/scripts/cpp_build.sh'
-      - 'ci/scripts/docs_build.sh'
-      - 'ci/scripts/java_build.sh'
-      - 'ci/scripts/js_build.sh'
-      - 'ci/scripts/python_build.sh'
-      - 'ci/scripts/r_build.sh'
 
 env:
   ARROW_ENABLE_TIMING_TESTS: OFF
@@ -41,7 +28,7 @@ env:
 
 jobs:
 
-  docker:
+  complete:
     name: AMD64 Ubuntu 20.04 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
