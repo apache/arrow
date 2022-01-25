@@ -2897,7 +2897,6 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
                                },
                                use_threads, use_exec_plan));
       auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
-      auto all_arr = checked_pointer_cast<Array>(struct_arr->field(0));
       for (auto& field : struct_arr->fields()) {
         AssertDatumsEqual(ArrayFromJSON(int64(), "[]"), field, /*verbose=*/true);
       }
