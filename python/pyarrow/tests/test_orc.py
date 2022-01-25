@@ -299,153 +299,153 @@ def test_orcfile_readwrite_with_bad_writeoptions():
     # batch_size must be a positive integer
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             batch_size=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             batch_size=-100,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             batch_size=1024.23,
         )
 
     # file_version must be 0.11 or 0.12
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             file_version=0.13,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             file_version='1.1',
         )
 
     # stripe_size must be a positive integer
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             stripe_size=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             stripe_size=-400,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             stripe_size=4096.73,
         )
 
     # compression must be among the given options
     with pytest.raises(TypeError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression='none',
         )
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression='zlid',
         )
 
     # compression_block_size must be a positive integer
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_block_size=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_block_size=-200,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_block_size=1096.73,
         )
 
     # compression_strategy must be among the given options
     with pytest.raises(TypeError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_strategy=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_strategy='no',
         )
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             compression_strategy='large',
         )
 
     # row_index_stride must be a positive integer
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             row_index_stride=0,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             row_index_stride=-800,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             row_index_stride=3096.29,
         )
 
     # padding_tolerance must be possible to cast to float
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             padding_tolerance='cat',
         )
 
@@ -453,20 +453,20 @@ def test_orcfile_readwrite_with_bad_writeoptions():
     # float between 0.0 and 1.0
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             dictionary_key_size_threshold='arrow',
         )
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             dictionary_key_size_threshold=1.2,
         )
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             dictionary_key_size_threshold=-3.2,
         )
 
@@ -474,44 +474,44 @@ def test_orcfile_readwrite_with_bad_writeoptions():
     # nonnegative integers
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_columns="string",
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_columns=[0, 1.4],
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_columns={0, 2, -1},
         )
 
     # bloom_filter_fpp must be convertible to a float between 0.0 and 1.0
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_fpp='arrow',
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_fpp=1.1,
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
-            buffer_output_stream,
             table,
+            buffer_output_stream,
             bloom_filter_fpp=-0.1,
         )
 

@@ -57,28 +57,29 @@ enum class CompressionStrategy : int32_t { kSpeed = 0, kCompression };
 
 class ARROW_EXPORT FileVersion {
  private:
-  int32_t major_version;
-  int32_t minor_version;
+  int32_t major_version_;
+  int32_t minor_version_;
 
  public:
   static const FileVersion& v_0_11();
   static const FileVersion& v_0_12();
 
   FileVersion(int32_t major, int32_t minor)
-      : major_version(major), minor_version(minor) {}
+      : major_version_(major), minor_version_(minor) {}
 
   /**
    * Get major version
    */
-  int32_t major() const { return this->major_version; }
+  int32_t major_version() const { return this->major_version_; }
 
   /**
    * Get minor version
    */
-  int32_t minor() const { return this->minor_version; }
+  int32_t minor_version() const { return this->minor_version_; }
 
   bool operator==(const FileVersion& right) const {
-    return this->major_version == right.major() && this->minor_version == right.minor();
+    return this->major_version() == right.major_version() &&
+           this->minor_version() == right.minor_version();
   }
 
   bool operator!=(const FileVersion& right) const { return !(*this == right); }

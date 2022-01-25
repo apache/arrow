@@ -737,8 +737,8 @@ Result<liborc::WriterOptions> MakeOrcWriterOptions(
     arrow::adapters::orc::WriteOptions options) {
   liborc::WriterOptions orc_options;
   orc_options.setFileVersion(
-      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major()),
-                          static_cast<uint32_t>(options.file_version.minor())));
+      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major_version()),
+                          static_cast<uint32_t>(options.file_version.minor_version())));
   orc_options.setStripeSize(static_cast<uint64_t>(options.stripe_size));
   orc_options.setCompressionBlockSize(
       static_cast<uint64_t>(options.compression_block_size));
