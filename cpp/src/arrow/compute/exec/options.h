@@ -270,5 +270,26 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   SelectKOptions select_k_options;
 };
 
+
+/// \brief Adapt an Table as a source node
+///
+/// plan->exec_context()->executor() will be used to parallelize pushing to
+/// outputs, if provided.
+class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
+ public:
+  explicit TableSourceNodeOptions(arrow::Table *table) : _table(table) {}
+
+  arrow::Table* _table;
+};
+
+/// \brief Adapt an Table as a source node
+///
+/// plan->exec_context()->executor() will be used to parallelize pushing to
+/// outputs, if provided.
+class ARROW_EXPORT DummyNodeOptions : public ExecNodeOptions {
+ public:
+  explicit DummyNodeOptions();
+};
+
 }  // namespace compute
 }  // namespace arrow
