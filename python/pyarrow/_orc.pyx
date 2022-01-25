@@ -37,6 +37,7 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           get_reader,
                           get_writer)
 from pyarrow.lib import frombytes, tobytes
+from pyarrow.utils import _stringify_path
 
 
 cdef compression_type_from_enum(CCompressionType compression_type):
@@ -385,13 +386,11 @@ cdef class ORCReader(_Weakrefable):
 
 cdef class ORCWriter(_Weakrefable):
     cdef:
-        object sink
         unique_ptr[ORCFileWriter] writer
-        shared_ptr[COutputStream] rd_handle
-        c_bool close_file
+        shared_ptr[COutputStream] sink
+        c_bool own_sink
 
-    def open(self, object sink, *,
-             close_file=False,
+    def open(self, object where, *,
              file_version=None,
              batch_size=None,
              stripe_size=None,
@@ -405,9 +404,17 @@ cdef class ORCWriter(_Weakrefable):
              bloom_filter_fpp=None):
         cdef:
             shared_ptr[WriteOptions] write_options
-        self.sink = sink
-        self.close_file = close_file
-        get_writer(sink, &self.rd_handle)
+            c_string c_where
+        try:
+            where = _stringify_path(where)
+        except TypeError:
+            get_writer(where, &self.sink)
+            self.own_sink = False
+        else:
+            c_where = tobytes(where)
+            with nogil:
+                self.sink = GetResultValue(FileOutputStream.Open(c_where))
+                self.own_sink = True
 
         write_options = _create_write_options(
             file_version=file_version,
@@ -425,7 +432,7 @@ cdef class ORCWriter(_Weakrefable):
 
         with nogil:
             self.writer = move(GetResultValue(
-                ORCFileWriter.Open(self.rd_handle.get(),
+                ORCFileWriter.Open(self.sink.get(),
                                    deref(write_options))))
 
     def write(self, Table table):
@@ -438,5 +445,5 @@ cdef class ORCWriter(_Weakrefable):
     def close(self):
         with nogil:
             check_status(deref(self.writer).Close())
-            if self.close_file:
-                check_status(deref(self.rd_handle).Close())
+            if self.own_sink:
+                check_status(deref(self.sink).Close())

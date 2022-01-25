@@ -186,9 +186,7 @@ class ORCFile:
         return self.reader.read(columns=columns)
 
 
-_orc_writer_args_docs = """close_file : boolean, default False
-    Whether we close the file or file-like object after writing to it
-file_version : {"0.11", "0.12"}, default "0.12"
+_orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
     Determine which ORC file version to use.
     `Hive 0.11 / ORC v0 <https://orc.apache.org/specification/ORCv0/>`_
     is the older version
@@ -197,13 +195,13 @@ file_version : {"0.11", "0.12"}, default "0.12"
 batch_size : int, default 1024
     Number of rows the ORC writer writes at a time.
 stripe_size : int, default 64 * 1024 * 1024
-    Size of each ORC stripe.
+    Size of each ORC stripe in bytes.
 compression : string, default 'uncompressed'
     The compression codec.
     Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ4', 'ZSTD'}
     Note that LZ0 is currently not supported.
 compression_block_size : int, default 64 * 1024
-    Size of each compression block.
+    Size of each compression block in bytes.
 compression_strategy : string, default 'speed'
     The compression strategy i.e. speed vs size reduction.
     Valid values: {'SPEED', 'COMPRESSION'}
@@ -236,10 +234,8 @@ where : str or pyarrow.io.NativeFile
 """.format(_orc_writer_args_docs)
 
     is_open = False
-    close_file = False
 
     def __init__(self, where, *,
-                 close_file=False,
                  file_version='0.12',
                  batch_size=1024,
                  stripe_size=64 * 1024 * 1024,
@@ -252,11 +248,9 @@ where : str or pyarrow.io.NativeFile
                  bloom_filter_columns=None,
                  bloom_filter_fpp=0.05,
                  ):
-        self.close_file = close_file
         self.writer = _orc.ORCWriter()
         self.writer.open(
             where,
-            close_file=close_file,
             file_version=file_version,
             batch_size=batch_size,
             stripe_size=stripe_size,
@@ -358,7 +352,6 @@ def write_table(table, where, *,
         table, where = where, table
     with ORCWriter(
         where,
-        close_file=close_file,
         file_version=file_version,
         batch_size=batch_size,
         stripe_size=stripe_size,
