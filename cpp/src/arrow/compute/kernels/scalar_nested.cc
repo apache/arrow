@@ -449,52 +449,42 @@ struct MapArrayLookupFunctor {
     return -1;
   }
 
-  static Result<std::shared_ptr<Scalar>> GetScalarOutput(KernelContext* ctx,
-                                                         const MapScalar map_scalar) {
-    const auto& options = OptionsWrapper<MapArrayLookupOptions>::Get(ctx);
-    const std::shared_ptr<Scalar>& query_key = options.query_key;
-    const auto& occurrence = options.occurrence;
-
-    const auto& struct_array = checked_cast<const StructArray&>(*map_scalar.value);
-    const std::shared_ptr<Array> keys = struct_array.field(0);
-    const std::shared_ptr<Array> items = struct_array.field(1);
-
-    std::shared_ptr<Scalar> output;
-
-    if (occurrence == MapArrayLookupOptions::Occurrence::ALL) {
+  static Status SetScalarOutput(const Array& keys, const Array& items, KernelContext* ctx,
+                                const MapArrayLookupOptions& options,
+                                std::shared_ptr<Scalar>& out) {
+    const Scalar& query_key = *options.query_key;
+    if (options.occurrence == MapArrayLookupOptions::Occurrence::ALL) {
       std::unique_ptr<ArrayBuilder> builder;
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items->type(), &builder));
+      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items.type(), &builder));
 
       bool found_at_least_one_key = false;
-      for (int64_t idx = 0; idx < struct_array.length(); ++idx) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys->GetScalar(idx));
+      for (int64_t idx = 0; idx < keys.length(); ++idx) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys.GetScalar(idx));
 
-        if (key->Equals(*query_key)) {
+        if (key->Equals(query_key)) {
           found_at_least_one_key = true;
-          RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), idx, 1));
+          RETURN_NOT_OK(builder->AppendArraySlice(*items.data(), idx, 1));
         }
       }
       if (!found_at_least_one_key) {
-        output = MakeNullScalar(list(items->type()));
+        out = MakeNullScalar(list(items.type()));
       } else {
         ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
-        ARROW_ASSIGN_OR_RAISE(output, MakeScalar(list(items->type()), result));
+        ARROW_ASSIGN_OR_RAISE(out, MakeScalar(list(items.type()), result));
       }
-    }
-
-    else { /* occurrence == FIRST || LAST */
-      bool from_back = (occurrence == MapArrayLookupOptions::LAST);
+    } else { /* occurrence == FIRST || LAST */
+      bool from_back = (options.occurrence == MapArrayLookupOptions::LAST);
 
       ARROW_ASSIGN_OR_RAISE(
           int64_t key_match_idx,
-          FindOneMapValueIndex(*keys, *query_key, 0, struct_array.length(), from_back));
+          FindOneMapValueIndex(keys, query_key, 0, keys.length(), from_back));
       if (key_match_idx != -1) {
-        ARROW_ASSIGN_OR_RAISE(output, items->GetScalar(key_match_idx));
+        ARROW_ASSIGN_OR_RAISE(out, items.GetScalar(key_match_idx));
       } else {
-        output = MakeNullScalar(items->type());
+        out = MakeNullScalar(items.type());
       }
     }
-    return output;
+    return Status::OK();
   }
 
   static Status ExecMapArray(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -510,16 +500,18 @@ struct MapArrayLookupFunctor {
       RETURN_NOT_OK(
           MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(), &builder));
     }
+
     for (int64_t map_array_idx = 0; map_array_idx < map_array.length(); ++map_array_idx) {
       if (!map_array.IsValid(map_array_idx)) {
         RETURN_NOT_OK(builder->AppendNull());
         continue;
       } else {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
-                              map_array.GetScalar(map_array_idx));
-        auto map_scalar = std::static_pointer_cast<MapScalar>(scalar);
-        ARROW_ASSIGN_OR_RAISE(auto scalar_output, GetScalarOutput(ctx, *map_scalar));
-        RETURN_NOT_OK(builder->AppendScalar(*scalar_output));
+        auto map = map_array.value_slice(map_array_idx);
+        auto keys = checked_cast<const StructArray&>(*map).field(0);
+        auto items = checked_cast<const StructArray&>(*map).field(1);
+        std::shared_ptr<Scalar> output;
+        RETURN_NOT_OK(SetScalarOutput(*keys, *items, ctx, options, output));
+        RETURN_NOT_OK(builder->AppendScalar(*output));
       }
     }
     ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
@@ -543,7 +535,13 @@ struct MapArrayLookupFunctor {
       return Status::OK();
     }
 
-    ARROW_ASSIGN_OR_RAISE(out->value, GetScalarOutput(ctx, map_scalar));
+    const auto& struct_array = checked_cast<const StructArray&>(*map_scalar.value);
+    const std::shared_ptr<Array> keys = struct_array.field(0);
+    const std::shared_ptr<Array> items = struct_array.field(1);
+    std::shared_ptr<Scalar> output;
+
+    RETURN_NOT_OK(SetScalarOutput(*keys, *items, ctx, options, output));
+    out->value = output;
     return Status::OK();
   }
 };
@@ -565,7 +563,7 @@ Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
 
   if (options.occurrence == MapArrayLookupOptions::Occurrence::ALL) {
     return ValueDescr(list(item_type), descrs.front().shape);
-  } else /* occurrence == FIRST || LAST */ {
+  } else { /* occurrence == FIRST || LAST */
     return ValueDescr(item_type, descrs.front().shape);
   }
 }
