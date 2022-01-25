@@ -307,12 +307,12 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
   df <- df1[, c("int", "dbl")]
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
-  # Mismatch of column names vs schema given via read_options should raise an error
+  # Mismatch of column names vs. schema-names should raise an error
   schema  <- schema(int = int32(), dbl = float64())
 
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
-    "column_names must match schema-names:"
+    "column_names must match schema-names"
   )
 
 })
