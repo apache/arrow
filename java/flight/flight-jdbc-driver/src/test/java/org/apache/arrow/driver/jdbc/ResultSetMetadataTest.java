@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.sql.Types;
 
 import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -46,12 +47,25 @@ public class ResultSetMetadataTest {
   public ErrorCollector collector = new ErrorCollector();
 
   @ClassRule
-  public static final FlightServerTestRule rule =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule SERVER_TEST_RULE;
+
+  static {
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder()
+            .user("flight-test-user", "flight-test-password")
+            .build();
+
+    SERVER_TEST_RULE = new FlightServerTestRule.Builder()
+        .host("localhost")
+        .randomPort()
+        .authentication(authentication)
+        .producer(CoreMockedSqlProducers.getLegacyProducer())
+        .build();
+  }
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = rule.getConnection();
+    connection = SERVER_TEST_RULE.getConnection();
 
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(

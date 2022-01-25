@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
 import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -48,16 +49,30 @@ import com.google.common.collect.ImmutableSet;
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
   @ClassRule
-  public static FlightServerTestRule rule =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule SERVER_TEST_RULE;
   private static Connection connection;
+
+
+  static {
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder()
+            .user("flight-test-user", "flight-test-password")
+            .build();
+
+    SERVER_TEST_RULE = new FlightServerTestRule.Builder()
+        .host("localhost")
+        .randomPort()
+        .authentication(authentication)
+        .producer(CoreMockedSqlProducers.getLegacyProducer())
+        .build();
+  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = rule.getConnection();
+    connection = SERVER_TEST_RULE.getConnection();
   }
 
   @AfterClass

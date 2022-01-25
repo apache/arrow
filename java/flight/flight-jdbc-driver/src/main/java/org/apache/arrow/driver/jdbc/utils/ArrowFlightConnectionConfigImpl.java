@@ -77,6 +77,11 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     return ArrowFlightConnectionProperty.PASSWORD.getString(properties);
   }
 
+
+  public String getToken() {
+    return ArrowFlightConnectionProperty.TOKEN.getString(properties);
+  }
+
   /**
    * Gets the KeyStore path.
    *
@@ -125,7 +130,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     USER("user", null, Type.STRING, false),
     PASSWORD("password", null, Type.STRING, false),
     USE_TLS("useTls", false, Type.BOOLEAN, false),
-    THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false);
+    THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
+    TOKEN("token", null, Type.STRING, false);
 
     private final String camelName;
     private final Object defaultValue;

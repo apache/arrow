@@ -53,6 +53,26 @@ public final class ClientAuthenticationUtils {
   /**
    * Gets the {@link CredentialCallOption} for the provided authentication info.
    *
+   * @param client      the client.
+   * @param credential  the credential as CallOptions.
+   * @param options     the {@link CallOption}s to use.
+   * @return the credential call option.
+   */
+  public static CredentialCallOption getAuthenticate(final FlightClient client,
+                                                     final CredentialCallOption credential,
+                                                     final CallOption... options) {
+
+    final List<CallOption> theseOptions = new ArrayList<>();
+    theseOptions.add(credential);
+    theseOptions.addAll(Arrays.asList(options));
+    client.handshake(theseOptions.toArray(new CallOption[0]));
+
+    return (CredentialCallOption) theseOptions.get(0);
+  }
+
+  /**
+   * Gets the {@link CredentialCallOption} for the provided authentication info.
+   *
    * @param client   the client.
    * @param username the username.
    * @param password the password.

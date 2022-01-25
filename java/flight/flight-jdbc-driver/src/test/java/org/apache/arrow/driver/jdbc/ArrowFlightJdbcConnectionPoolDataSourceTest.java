@@ -21,7 +21,8 @@ import java.sql.Connection;
 
 import javax.sql.PooledConnection;
 
-import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
+import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.junit.After;
 import org.junit.Assert;
@@ -31,12 +32,23 @@ import org.junit.Test;
 
 public class ArrowFlightJdbcConnectionPoolDataSourceTest {
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+
+  private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
   static {
-    FLIGHT_SERVER_TEST_RULE.addUser("user1", "pass1");
-    FLIGHT_SERVER_TEST_RULE.addUser("user2", "pass2");
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder()
+            .user("user1", "pass1")
+            .user("user2", "pass2")
+            .build();
+
+    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
+        .host("localhost")
+        .randomPort()
+        .authentication(authentication)
+        .producer(PRODUCER)
+        .build();
   }
 
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
