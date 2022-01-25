@@ -732,11 +732,14 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
  public:
   MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
                                const RecordBatch& batch, const SortOptions& options)
-      : indices_begin_(indices_begin),
+      : batch_(batch),
+        indices_begin_(indices_begin),
         indices_end_(indices_end),
         sort_keys_(ResolveSortKeys(batch, options.sort_keys, &status_)),
         null_placement_(options.null_placement),
-        comparator_(sort_keys_, null_placement_) {}
+        comparator_(sort_keys_, null_placement_) {
+    nested_values_comparator_.Prepare(batch);
+  }
 
   // This is optimized for the first sort key. The first sort key sort
   // is processed in this class. The second and following sort keys
@@ -769,34 +772,34 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   template <typename Type>
   enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
-    using GetView = GetViewType<Type>;
-
-    auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
     const ArrayType& array = checked_cast<const ArrayType&>(first_sort_key.array);
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
-    std::stable_sort(
-        p.non_nulls_begin, p.non_nulls_end, [&](uint64_t left, uint64_t right) {
-          // Both values are never null nor NaN
-          // (otherwise they've been partitioned away above).
-          const auto value_left = GetView::LogicalValue(array.GetView(left));
-          const auto value_right = GetView::LogicalValue(array.GetView(right));
-          if (value_left != value_right) {
-            bool compared = value_left < value_right;
-            if (first_sort_key.order == SortOrder::Ascending) {
-              return compared;
-            } else {
-              return !compared;
-            }
-          }
-          // If the left value equals to the right value,
-          // we need to compare the second and following
-          // sort keys.
-          return comparator.Compare(left, right, 1);
-        });
-    return comparator_.status();
+    std::stable_sort(p.non_nulls_begin, p.non_nulls_end,
+                     [&](uint64_t left, uint64_t right) {
+                       // Both values are never null nor NaN
+                       -  // (otherwise they've been partitioned away above).
+                           for (const auto& sort_key : sort_keys_) {
+                         int val = nested_values_comparator_.Compare(
+                             batch_, sort_key.field_index, 0, left, right);
+
+                         if (val == 0) {
+                           continue;
+                         }
+
+                         if (sort_key.order == SortOrder::Ascending) {
+                           return val == -1;
+                         } else {
+                           return val == 1;
+                         }
+                       }
+
+                       return true;
+                     });
+
+    return Status::OK();
   }
 
   template <typename Type>
@@ -840,12 +843,14 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     return q;
   }
 
+  const RecordBatch& batch_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Status status_;
   std::vector<ResolvedSortKey> sort_keys_;
   NullPlacement null_placement_;
   Comparator comparator_;
+  NestedValuesComparator nested_values_comparator_;
 };
 
 // ----------------------------------------------------------------------

@@ -850,6 +850,36 @@ def test_record_batch_sort():
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
 
+    # test multi-key record batch sorter (> 8 sort keys)
+    rb1_names = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    rb1 = pa.RecordBatch.from_arrays([
+        pa.array([4, 4, 4, 4], type=pa.int64()),
+        pa.array([4, 4, 4, 4], type=pa.int64()),
+        pa.array([4, 4, 4, 4], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([2, 1, 4, 3], type=pa.int64()),
+        pa.array(["foo", "car", "bar", "foobar"])
+    ], names=rb1_names)
+
+    sort_keys_list = [(name, "ascending") for name in rb1_names]
+
+    sorted_rb1 = rb1.sort_by(sort_keys_list)
+    sorted_rb1_dict = sorted_rb1.to_pydict()
+    assert sorted_rb1_dict["a"] == [4, 4, 4, 4]
+    assert sorted_rb1_dict["b"] == [4, 4, 4, 4]
+    assert sorted_rb1_dict["c"] == [4, 4, 4, 4]
+    assert sorted_rb1_dict["d"] == [2, 2, 4, 4]
+    assert sorted_rb1_dict["e"] == [2, 2, 4, 4]
+    assert sorted_rb1_dict["f"] == [2, 2, 4, 4]
+    assert sorted_rb1_dict["g"] == [2, 2, 4, 4]
+    assert sorted_rb1_dict["h"] == [2, 2, 4, 4]
+    assert sorted_rb1_dict["i"] == [3, 4, 1, 2]
+    assert sorted_rb1_dict["j"] == ["foobar", "bar", "car", "foo"]
+
 
 def test_table_sort():
     tab = pa.Table.from_arrays([
