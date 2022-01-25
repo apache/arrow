@@ -190,6 +190,10 @@ Array$create <- function(x, type = NULL) {
     return(out)
   }
 
+  if (inherits(x, "POSIXct") && attr(x, "tzone") == "") {
+    attr(x, "tzone") <- Sys.timezone()
+  }
+
   if (is.null(type)) {
     return(vec_to_Array(x, type))
   }
