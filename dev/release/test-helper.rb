@@ -69,6 +69,28 @@ module GitRunnable
   def git_tags
     git("tags").lines(chomp: true)
   end
+
+  def parse_patch(patch)
+    diffs = []
+    in_hunk = false
+    patch.each_line do |line|
+      case line
+      when /\A--- a\//
+        path = $POSTMATCH.chomp
+        diffs << { path: path, hunks: [] }
+        in_hunk = false
+      when /\A@@/
+        in_hunk = true
+        diffs.last[:hunks] << []
+      when /\A[-+]/
+        next unless in_hunk
+        diffs.last[:hunks].last << line.chomp
+      end
+    end
+    diffs.sort_by do |diff|
+      diff[:path]
+    end
+  end
 end
 
 module VersionDetectable
@@ -94,5 +116,9 @@ module VersionDetectable
 
   def on_release_branch?
     @snapshot_version == @release_version
+  end
+
+  def omit_on_release_branch
+    omit("Not for release branch") if on_release_branch?
   end
 end
