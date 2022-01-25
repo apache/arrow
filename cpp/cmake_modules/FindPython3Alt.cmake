@@ -65,8 +65,23 @@ endif()
 
 set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 set(PYTHON_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
-set(PYTHON_LIBRARIES ${Python3_LIBRARIES})
 set(PYTHON_OTHER_LIBS)
+
+# On Windows, debug builds of Python will have format: 
+#  "optimized python3x.lib debug python3xd.lib"
+list(LENGTH Python3_LIBRARIES NUM_LIBS)
+if(NUM_LIBS EQUAL 4)
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    list(SUBLIST Python3_LIBRARIES 3 1 PYTHON_LIBRARIES)
+  else()
+    list(SUBLIST Python3_LIBRARIES 1 1 PYTHON_LIBRARIES)
+  endif()
+else()
+  set(PYTHON_LIBRARIES ${Python3_LIBRARIES})
+endif()
+unset(NUM_LIBS)
+
+message("Python libraries: ${PYTHON_LIBRARIES}")
 
 get_target_property(NUMPY_INCLUDE_DIRS Python3::NumPy INTERFACE_INCLUDE_DIRECTORIES)
 

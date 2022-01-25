@@ -370,7 +370,7 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     target_link_libraries(${LIB_NAME}_shared
                           LINK_PUBLIC
-                          ${ARG_SHARED_LINK_LIBS}
+                          "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
                           "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
                           LINK_PRIVATE
                           ${ARG_SHARED_PRIVATE_LINK_LIBS})
