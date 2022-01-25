@@ -134,15 +134,12 @@ CsvFileFormat$create <- function(...,
     mismatch_colnames <- column_names[match(column_names, schema_names, nomatch = 0) != seq(column_names)]
     not_in_schema <- setdiff(schema_names, column_names)
 
-    abort(c(
+    abort(
       paste(
         "column_names must match schema-names:",
         deparse1(c(mismatch_colnames, not_in_schema))
-      ),
-      i = "Set column_names to match names of schema",
-      i = "Omit the column_names argument",
-      i = "Omit the read_options argument"
-    ))
+      )
+    )
   }
 
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
