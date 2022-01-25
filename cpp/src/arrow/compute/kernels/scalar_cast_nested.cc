@@ -178,7 +178,7 @@ struct CastStruct {
       const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
       auto out_scalar = checked_cast<StructScalar*>(out->scalar().get());
 
-      for (auto i{0}; i < in_field_count; i++) {
+      for (int64_t i = 0; i < in_field_count; i++) {
         auto values = in_scalar.value[i];
         auto target_type = out->type()->field(i)->type();
         ARROW_ASSIGN_OR_RAISE(Datum cast_values,
