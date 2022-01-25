@@ -90,6 +90,7 @@ def show_versions():
     print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
     print_entry("Arrow C++ git revision", cpp_build_info.git_id)
     print_entry("Arrow C++ git description", cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", cpp_build_info.build_type)
 
 
 def _module_is_available(module):

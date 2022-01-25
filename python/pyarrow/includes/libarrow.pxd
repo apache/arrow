@@ -69,6 +69,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string git_id
         c_string git_description
         c_string package_kind
+        c_string build_type
 
     const CBuildInfo& GetBuildInfo()
 
