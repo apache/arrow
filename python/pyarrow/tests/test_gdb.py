@@ -42,8 +42,11 @@ gdb_command = ["gdb", "--nx"]
 @lru_cache()
 def is_gdb_available():
     try:
+        # Try to use the same arguments as in GdbSession so that the
+        # same error return gets propagated.
         proc = subprocess.run(gdb_command + ["--version"],
-                              stdin=subprocess.DEVNULL,
+                              env={}, bufsize=0,
+                              stdin=subprocess.PIPE,
                               stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT)
     except FileNotFoundError:
