@@ -100,6 +100,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withKeyStorePassword(config.keystorePassword())
           .withBufferAllocator(allocator)
           .withTlsEncryption(config.useTls())
+          .withToken(config.getToken())
           .withCallOptions(config.toCallOption())
           .build();
     } catch (final SQLException e) {

@@ -35,8 +35,10 @@ import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.util.TableRef;
@@ -340,6 +342,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     private String password;
     private String keyStorePath;
     private String keyStorePassword;
+    private String token;
     private boolean useTls;
     private BufferAllocator allocator;
 
@@ -417,6 +420,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      */
     public Builder withTlsEncryption(final boolean useTls) {
       this.useTls = useTls;
+      return this;
+    }
+
+    /**
+     * Sets the token used in the token authetication.
+     * @param token the token value.
+     * @return      this builder instance.
+     */
+    public Builder withToken(final String token) {
+      this.token = token;
       return this;
     }
 
@@ -506,7 +519,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         if (authFactory != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
+        } else if (token != null) {
+          options.add(
+              ClientAuthenticationUtils.getAuthenticate(
+                  client, new CredentialCallOption(new BearerCredentialWriter(token))));
         }
+
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
         throw new SQLException(e);
