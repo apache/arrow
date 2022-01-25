@@ -50,6 +50,16 @@
 #'   partitions which data is not written to.
 #' @param max_partitions maximum number of partitions any batch may be
 #' written into. Default is 1024L.
+#' @param max_open_files maximum number of files that can be left opened
+#' during a write operation. Default is 900L.
+#' @param max_rows_per_file maximum limit how many rows are placed in 
+#' any single file
+#' @param min_rows_per_group write the row groups to the disk when sufficient 
+#' rows have accumulated.
+#' @param max_rows_per_group maximum number of row groups allowed in a single 
+#' group and when the rows execeeds, it is splitted and excess is written to 
+#' another group. This value must be set such that it is greater than 
+#' min_rows_per_group. 
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries

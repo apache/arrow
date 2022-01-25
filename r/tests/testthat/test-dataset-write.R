@@ -579,7 +579,47 @@ test_that("Dataset write max rows per files", {
   expect_equal(total_records, num_of_records)
 })
 
-test_that("Dataset write max rows per files", {
+test_that("Dataset min_rows_per_group", {
+  skip_if_not_available("parquet")
+  rb1 <- record_batch(c1=c(1, 2, 3, 4),
+                               c2=c('a', 'b', 'e', 'a'))
+  rb2 <- record_batch(c1=c(5, 6, 7, 8, 9),
+                                c2=c('a', 'b', 'c', 'd', 'h'))
+  rb3 <- record_batch(c1=c(9, 10, 11, 12, 0, 1, 100, 200, 300),
+                                c2=c('a', 'b', 'c', 'd', 'e', 'd', 'g', 'h', 'i'))
+  rb4 <- record_batch(c1=c(13, 14, 15, 16, 0, 1),
+                                c2=c('a', 'b', 'c', 'd', 'e', 'b'))
+
+  dataset = Table$create(d1=rb1, d2=rb2, d3=rb3, d4=rb4)
+
+  dst_dir <- make_temp_dir()
+  min_rows_per_group = 4
+  max_rows_per_group = 5
+
+  write_dataset(dataset, 
+                min_rows_per_group = min_rows_per_group, 
+                max_rows_per_group = max_rows_per_group, 
+                path = dst_dir)
+
+  ds = open_dataset(file_path)
+
+  row_group_sizes <- ds %>%
+    select() %>%
+    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+    unlist()
+  index = 1
+  for(row_group_size in row_group_sizes) {
+    if (length(row_group_sizes) < index) {
+      expect_gte(row_group_size, min_rows_per_group)
+      expect_lte(row_group_size, max_rows_per_group)
+    } else {
+      expect_lte(row_group_size, max_rows_per_group)
+    }
+    index = index + 1
+  }
+})
+
+test_that("Dataset write max rows per group", {
   skip_if_not_available("parquet") 
   num_of_records = 30
   max_rows_per_group = 18
