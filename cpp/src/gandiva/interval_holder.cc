@@ -162,7 +162,6 @@ int64_t IntervalDaysHolder::GetIntervalDayFromCompletePeriod(
     try {
       std::replace(minutes_in_period.begin(), minutes_in_period.end(), ',', '.');
       qty_minutes = std::stod(minutes_in_period);
-
     } catch (...) {
       std::string cause("Invalid number of minutes");
       return_error_with_cause(context, cause, suppress_errors);
