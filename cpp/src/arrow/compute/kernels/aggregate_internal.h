@@ -174,7 +174,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
       block_sum = sum[cur_level];
       sum[cur_level] = 0;
       ++cur_level;
-      assert(cur_level, levels);
+      assert(cur_level < levels);
       cur_level_mask <<= 1;
       sum[cur_level] += block_sum;
       mask ^= cur_level_mask;
