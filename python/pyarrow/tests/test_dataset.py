@@ -3744,14 +3744,14 @@ def test_write_dataset_max_open_files(tempdir):
     file_format = "parquet"
     partition_column_id = 1
     column_names = ['c1', 'c2']
-    
+
     record_batch_1 = pa.record_batch(
         data=[[1, 2, 3, 4, 0, 10, 20, 30, 40],
               ['a', 'b', 'c', 'd', 'e', 'a', 'a', 'b', 'c']],
         names=column_names)
     record_batch_2 = pa.record_batch(
         data=[[5, 6, 7, 8, 0, 1, 10, 20, 30],
-              ['a', 'b', 'c', 'd', 'e', 'c', 'a', 'b', 'c']], 
+              ['a', 'b', 'c', 'd', 'e', 'c', 'a', 'b', 'c']],
         names=column_names)
     record_batch_3 = pa.record_batch(
         data=[[9, 10, 11, 12, 0, 1, 30, 40, 50],
