@@ -36,6 +36,7 @@
 namespace arrow {
 namespace compute {
 struct BenchmarkSettings {
+  bool bloom_filter = false;
   int num_threads = 1;
   JoinType join_type = JoinType::INNER;
   int batch_size = 1024;
@@ -57,6 +58,7 @@ class JoinBenchmark {
 
     SchemaBuilder l_schema_builder, r_schema_builder;
     std::vector<FieldRef> left_keys, right_keys;
+    std::vector<JoinKeyCmp> key_cmp;
     for (size_t i = 0; i < settings.key_types.size(); i++) {
       std::string l_name = "lk" + std::to_string(i);
       std::string r_name = "rk" + std::to_string(i);
@@ -93,6 +95,7 @@ class JoinBenchmark {
 
       left_keys.push_back(FieldRef(l_name));
       right_keys.push_back(FieldRef(r_name));
+      key_cmp.push_back(JoinKeyCmp::EQ);
     }
 
     for (size_t i = 0; i < settings.build_payload_types.size(); i++) {
@@ -126,6 +129,22 @@ class JoinBenchmark {
 
     join_ = *HashJoinImpl::MakeBasic();
 
+    HashJoinImpl *bloom_filter_pushdown_target = nullptr;
+    std::vector<int> key_input_map;
+
+    bool bloom_filter_does_not_apply_to_join =
+        settings.join_type == JoinType::LEFT_ANTI ||
+        settings.join_type == JoinType::LEFT_OUTER ||
+        settings.join_type == JoinType::FULL_OUTER;
+    if(settings.bloom_filter && !bloom_filter_does_not_apply_to_join)
+    {
+        bloom_filter_pushdown_target = join_.get();
+        SchemaProjectionMap probe_key_to_input = schema_mgr_->proj_maps[0].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
+        int num_keys = probe_key_to_input.num_cols;
+        for(int i = 0; i < num_keys; i++)
+            key_input_map.push_back(probe_key_to_input.get(i));
+    }
+
     omp_set_num_threads(settings.num_threads);
     auto schedule_callback = [](std::function<Status(size_t)> func) -> Status {
 #pragma omp task
@@ -135,8 +154,8 @@ class JoinBenchmark {
 
     DCHECK_OK(join_->Init(
         ctx_.get(), settings.join_type, !is_parallel, settings.num_threads,
-        schema_mgr_.get(), {JoinKeyCmp::EQ}, std::move(filter), [](ExecBatch) {},
-        [](int64_t x) {}, schedule_callback));
+        schema_mgr_.get(), std::move(key_cmp), std::move(filter), [](ExecBatch) {},
+        [](int64_t x) {}, schedule_callback, bloom_filter_pushdown_target, std::move(key_input_map)));
   }
 
   void RunJoin() {
@@ -268,6 +287,17 @@ static void BM_HashJoinBasic_NullPercentage(benchmark::State& st) {
 
   HashJoinBasicBenchmarkImpl(st, settings);
 }
+
+static void BM_HashJoinBasic_BloomFilter(benchmark::State &st, bool bloom_filter)
+{
+    BenchmarkSettings settings;
+    settings.bloom_filter = bloom_filter;
+    settings.selectivity = static_cast<double>(st.range(0)) / 100.0;
+    settings.num_build_batches = static_cast<int>(st.range(1));
+    settings.num_probe_batches = settings.num_build_batches;
+    
+    HashJoinBasicBenchmarkImpl(st, settings);
+}
 #endif
 
 std::vector<int64_t> hashtable_krows = benchmark::CreateRange(1, 4096, 8);
@@ -395,6 +425,16 @@ BENCHMARK(BM_HashJoinBasic_BuildParallelism)
 BENCHMARK(BM_HashJoinBasic_NullPercentage)
     ->ArgNames({"Null Percentage"})
     ->DenseRange(0, 100, 10);
+
+std::vector<std::string> bloomfilter_argnames = {"Selectivity", "HashTable krows"};
+std::vector<std::vector<int64_t>> bloomfilter_args = {
+    benchmark::CreateDenseRange(0, 100, 10), hashtable_krows};
+BENCHMARK_CAPTURE(BM_HashJoinBasic_BloomFilter, "Bloom Filter", true)
+    ->ArgNames(bloomfilter_argnames)
+    ->ArgsProduct(selectivity_args);
+BENCHMARK_CAPTURE(BM_HashJoinBasic_BloomFilter, "No Bloom Filter", false)
+    ->ArgNames(bloomfilter_argnames)
+    ->ArgsProduct(selectivity_args);
 #else
 
 BENCHMARK_CAPTURE(BM_HashJoinBasic_KeyTypes, "{int32}", {int32()})

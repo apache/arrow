@@ -27,6 +27,8 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/array/data.h"
+#include "arrow/compute/exec.h"
 
 namespace arrow {
 namespace compute {
@@ -246,6 +248,52 @@ class KeyEncoder {
                                   std::vector<KeyColumnArray>* cols);
 
   const std::vector<KeyColumnArray>& GetBatchColumns() const { return batch_all_cols_; }
+
+    static KeyColumnArray ColumnArrayFromArrayData(
+        const std::shared_ptr<ArrayData> &array_data,
+        int start_row,
+        int num_rows)
+    {
+        KeyEncoder::KeyColumnArray column_array = KeyEncoder::KeyColumnArray(
+            ColumnMetadataFromDataType(array_data->type),
+            array_data->offset + start_row + num_rows,
+            array_data->buffers[0] != NULLPTR ? array_data->buffers[0]->data() : nullptr,
+            array_data->buffers[1]->data(),
+            array_data->buffers.size() >= 3 && array_data->buffers[2] != NULLPTR ? array_data->buffers[2]->data() : nullptr);
+        return KeyEncoder::KeyColumnArray(
+            column_array,
+            array_data->offset + start_row,
+            num_rows);
+    }
+
+    static KeyColumnMetadata ColumnMetadataFromDataType(const std::shared_ptr<DataType> &type)
+    {
+        if (type->id() == Type::DICTIONARY)
+        {
+            auto bit_width = arrow::internal::checked_cast<const FixedWidthType &>(*type).bit_width();
+            ARROW_DCHECK(bit_width % 8 == 0);
+            return KeyEncoder::KeyColumnMetadata(true, bit_width / 8);
+        }
+        else if (type->id() == Type::BOOL)
+        {
+            return KeyEncoder::KeyColumnMetadata(true, 0);
+        }
+        else if (is_fixed_width(type->id()))
+        {
+            return KeyEncoder::KeyColumnMetadata(
+                true,
+                arrow::internal::checked_cast<const FixedWidthType &>(*type).bit_width() / 8);
+        }
+        else if (is_binary_like(type->id()))
+        {
+            return KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+        }
+        else
+        {
+            ARROW_DCHECK(false);
+            return KeyEncoder::KeyColumnMetadata(true, sizeof(int));
+        }
+    }
 
  private:
   /// Prepare column array vectors.

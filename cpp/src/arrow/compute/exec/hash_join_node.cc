@@ -16,6 +16,7 @@
 // under the License.
 
 #include <unordered_set>
+#include <utility>
 
 #include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/hash_join.h"
@@ -466,8 +467,9 @@ class HashJoinNode : public ExecNode {
         key_cmp_(join_options.key_cmp),
         filter_(std::move(filter)),
         schema_mgr_(std::move(schema_mgr)),
-        impl_(std::move(impl)) {
-    complete_.store(false);
+        impl_(std::move(impl)),
+        disable_bloom_filter_(join_options.disable_bloom_filter) {
+      complete_.store(false);
   }
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -571,6 +573,82 @@ class HashJoinNode : public ExecNode {
     }
   }
 
+    std::pair<HashJoinImpl *, std::vector<int>> GetPushdownTarget()
+    {
+        ARROW_DCHECK(!disable_bloom_filter_);
+        // We currently only push Bloom filters on the probe side, and only if that input is also a join.
+        SchemaProjectionMap probe_key_to_input = schema_mgr_->proj_maps[0].map(HashJoinProjection::KEY, HashJoinProjection::INPUT);
+        int num_keys = probe_key_to_input.num_cols;
+
+        // A mapping such that bloom_to_target[i] is the index of key i in the pushdown target's input
+        std::vector<int> bloom_to_target(num_keys);
+        HashJoinNode *pushdown_target = this;
+        for(int i = 0; i < num_keys; i++)
+            bloom_to_target[i] = probe_key_to_input.get(i);
+
+        for(ExecNode *candidate = inputs()[0];
+            candidate->kind_name() == this->kind_name();
+            candidate = candidate->inputs()[0])
+        {
+            auto *candidate_as_join = checked_cast<HashJoinNode *>(inputs()[0]);
+            SchemaProjectionMap candidate_output_to_input =
+                candidate_as_join->schema_mgr_->proj_maps[0].map(
+                    HashJoinProjection::OUTPUT,
+                    HashJoinProjection::INPUT);
+
+            // Check if any of the keys are missing, if they are, break
+            bool break_outer = false;
+            for(int i = 0; i < num_keys; i++)
+            {
+                // The output is from the candidate's build side
+                if(bloom_to_target[i] >= candidate_output_to_input.num_cols)
+                {
+                    break_outer = true;
+                    break;
+                }
+                int candidate_input_idx = candidate_output_to_input.get(bloom_to_target[i]);
+                // The output column has to have come from somewhere...
+                ARROW_DCHECK_NE(candidate_input_idx, schema_mgr_->kMissingField());
+            }
+            if(break_outer)
+                break;
+
+            // All keys are present, we can update the mapping
+            for(int i = 0; i < num_keys; i++)
+            {
+                int candidate_input_idx = candidate_output_to_input.get(bloom_to_target[i]);
+                bloom_to_target[i] = candidate_input_idx;
+            }
+            pushdown_target = candidate_as_join;
+        }
+        return std::make_pair(pushdown_target->impl_.get(), std::move(bloom_to_target));
+    }
+
+    Status PrepareToProduce() override
+    {
+        bool use_sync_execution = !(plan_->exec_context()->executor());
+        size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();
+        bool bloom_filter_does_not_apply_to_join =
+            join_type_ == JoinType::LEFT_ANTI || join_type_ == JoinType::LEFT_OUTER || join_type_ == JoinType::FULL_OUTER;
+        disable_bloom_filter_ = disable_bloom_filter_ || bloom_filter_does_not_apply_to_join;
+
+        HashJoinImpl *pushdown_target = nullptr;
+        std::vector<int> column_map;
+        if(!disable_bloom_filter_)
+            std::tie(pushdown_target, column_map) = GetPushdownTarget();
+
+        return impl_->Init(
+            plan_->exec_context(), join_type_, use_sync_execution, num_threads,
+            schema_mgr_.get(), key_cmp_, filter_,
+            [this](ExecBatch batch) { this->OutputBatchCallback(batch); },
+            [this](int64_t total_num_batches) { this->FinishedCallback(total_num_batches); },
+            [this](std::function<Status(size_t)> func) -> Status {
+                return this->ScheduleTaskCallback(std::move(func));
+            },
+            pushdown_target,
+            std::move(column_map));
+    }
+
   Status StartProducing() override {
     START_COMPUTE_SPAN(span_, std::string(kind_name()) + ":" + label(),
                        {{"node.label", label()},
@@ -578,17 +656,6 @@ class HashJoinNode : public ExecNode {
                         {"node.kind", kind_name()}});
     END_SPAN_ON_FUTURE_COMPLETION(span_, finished(), this);
 
-    bool use_sync_execution = !(plan_->exec_context()->executor());
-    size_t num_threads = use_sync_execution ? 1 : thread_indexer_.Capacity();
-
-    RETURN_NOT_OK(impl_->Init(
-        plan_->exec_context(), join_type_, use_sync_execution, num_threads,
-        schema_mgr_.get(), key_cmp_, filter_,
-        [this](ExecBatch batch) { this->OutputBatchCallback(batch); },
-        [this](int64_t total_num_batches) { this->FinishedCallback(total_num_batches); },
-        [this](std::function<Status(size_t)> func) -> Status {
-          return this->ScheduleTaskCallback(std::move(func));
-        }));
     return Status::OK();
   }
 
@@ -662,6 +729,7 @@ class HashJoinNode : public ExecNode {
   std::unique_ptr<HashJoinSchema> schema_mgr_;
   std::unique_ptr<HashJoinImpl> impl_;
   util::AsyncTaskGroup task_group_;
+  bool disable_bloom_filter_;
 };
 
 namespace internal {

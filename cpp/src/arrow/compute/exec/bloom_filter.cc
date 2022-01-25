@@ -301,7 +301,7 @@ int64_t BlockedBloomFilter::NumBitsSet() const {
 Status BloomFilterBuilder_SingleThreaded::Begin(size_t /*num_threads*/,
                                                 int64_t hardware_flags, MemoryPool* pool,
                                                 int64_t num_rows, int64_t /*num_batches*/,
-                                                BlockedBloomFilter* build_target) {
+                                                BlockedBloomFilter *build_target) {
   hardware_flags_ = hardware_flags;
   build_target_ = build_target;
 
@@ -332,7 +332,7 @@ void BloomFilterBuilder_SingleThreaded::PushNextBatchImp(int num_rows, const T* 
 Status BloomFilterBuilder_Parallel::Begin(size_t num_threads, int64_t hardware_flags,
                                           MemoryPool* pool, int64_t num_rows,
                                           int64_t /*num_batches*/,
-                                          BlockedBloomFilter* build_target) {
+                                          BlockedBloomFilter *build_target) {
   hardware_flags_ = hardware_flags;
   build_target_ = build_target;
 

@@ -92,7 +92,7 @@ class TempVectorStack {
   Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
-    buffer_size_ = size;
+    buffer_size_ = PaddedAllocationSize(size) + kPadding + 2 * sizeof(uint64_t);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
     // Ensure later operations don't accidentally read uninitialized memory.
     std::memset(buffer->mutable_data(), 0xFF, size);

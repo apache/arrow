@@ -50,6 +50,7 @@ struct KeyEncoder {
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
                                                     int32_t length, MemoryPool*) = 0;
 
+  
   // extract the null bitmap from the leading nullity bytes of encoded keys
   static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
                             std::shared_ptr<Buffer>* null_bitmap, int32_t* null_count);
