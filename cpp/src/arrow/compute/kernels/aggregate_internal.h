@@ -17,12 +17,13 @@
 
 #pragma once
 
+#include <cassert>
+
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -173,7 +174,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
       block_sum = sum[cur_level];
       sum[cur_level] = 0;
       ++cur_level;
-      DCHECK_LT(cur_level, levels);
+      assert(cur_level, levels);
       cur_level_mask <<= 1;
       sum[cur_level] += block_sum;
       mask ^= cur_level_mask;
