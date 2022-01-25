@@ -389,6 +389,8 @@ test_csharp() {
 test_python() {
   pushd python
 
+  export PYARROW_PARALLEL=$NPROC
+
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -567,6 +569,7 @@ ensure_source_directory() {
   export ARROW_DIR=$PWD
   export ARROW_TEST_DATA=$PWD/testing/data
   export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
+  export ARROW_GDB_SCRIPT=$PWD/cpp/gdb_arrow.py
   popd
 }
 
