@@ -36,9 +36,12 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
-import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Auxiliary class used to handle consuming of multiple {@link FlightStream}.
@@ -53,6 +56,7 @@ import org.apache.calcite.avatica.AvaticaConnection;
  * </ol>
  */
 public class FlightStreamQueue implements AutoCloseable {
+  private static final Logger LOGGER = LoggerFactory.getLogger(FlightStreamQueue.class);
   private final CompletionService<FlightStream> completionService;
   private final Set<Future<FlightStream>> futures = synchronizedSet(new HashSet<>());
   private final Set<FlightStream> allStreams = synchronizedSet(new HashSet<>());
@@ -176,6 +180,11 @@ public class FlightStreamQueue implements AutoCloseable {
     }));
   }
 
+  public static boolean isCallStatusCancelled(final Exception e) {
+    return e.getCause() instanceof FlightRuntimeException &&
+        ((FlightRuntimeException) e.getCause()).status().code() == CallStatus.CANCELLED.code();
+  }
+
   @Override
   public synchronized void close() throws SQLException {
     final Set<SQLException> exceptions = new HashSet<>();
@@ -183,12 +192,35 @@ public class FlightStreamQueue implements AutoCloseable {
       return;
     }
     try {
-      futures.forEach(future -> future.cancel(true));
       for (final FlightStream flightStream : allStreams) {
         try {
-          AutoCloseables.close(flightStream);
+          flightStream.cancel("Cancelling this FlightStream.", null);
         } catch (final Exception e) {
-          exceptions.add(new SQLException(e));
+          final String errorMsg = "Failed to cancel a FlightStream.";
+          LOGGER.error(errorMsg, e);
+          exceptions.add(new SQLException(errorMsg, e));
+        }
+      }
+      futures.forEach(future -> {
+        try {
+          // TODO: Consider adding a hardcoded timeout?
+          future.get();
+        } catch (final InterruptedException | ExecutionException e) {
+          // Ignore if future is already cancelled
+          if (!isCallStatusCancelled(e)) {
+            final String errorMsg = "Failed consuming a future during close.";
+            LOGGER.error(errorMsg, e);
+            exceptions.add(new SQLException(errorMsg, e));
+          }
+        }
+      });
+      for (final FlightStream flightStream : allStreams) {
+        try {
+          flightStream.close();
+        } catch (final Exception e) {
+          final String errorMsg = "Failed to close a FlightStream.";
+          LOGGER.error(errorMsg, e);
+          exceptions.add(new SQLException(errorMsg, e));
         }
       }
     } finally {
