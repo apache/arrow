@@ -122,6 +122,10 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+
+  # Evaluate opts first to catch any unsupported arguments
+  force(opts)
+
   options <- list(...)
   schema <- options[["schema"]]
 
