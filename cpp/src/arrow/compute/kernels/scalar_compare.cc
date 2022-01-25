@@ -786,10 +786,9 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
                                                                                    batch,
                                                                                    out);
       case BetweenOptions::Inclusive::NEITHER:
-        return ScalarTernaryEqualTypes<BooleanType, FixedSizeBinaryType,
-                                       Op<BetweenOptions::Inclusive::NEITHER>>::Exec(ctx,
-                                                                                     batch,
-                                                                                     out);
+        return ScalarTernaryEqualTypes<
+            BooleanType, FixedSizeBinaryType,
+            Op<BetweenOptions::Inclusive::NEITHER>>::Exec(ctx, batch, out);
       default:
         return Status::NotImplemented("between inclusiveness not implemented: ",
                                       state.options.ToString());
@@ -797,7 +796,7 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
   } else if (type_id == Type::DECIMAL128 || type_id == Type::DECIMAL256) {
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
-        return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType, 
+        return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
                                Op<BetweenOptions::Inclusive::BOTH>>(type_id)(ctx, batch,
                                                                              out);
       case BetweenOptions::Inclusive::LEFT:
@@ -810,13 +809,13 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
                                                                               out);
       case BetweenOptions::Inclusive::NEITHER:
         return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
-                               Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(ctx, batch,
-                                                                                out);
+                               Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
+            ctx, batch, out);
       default:
         return Status::NotImplemented("between inclusiveness not implemented: ",
                                       state.options.ToString());
     }
-  } else if (type_id == Type::BINARY || type_id == Type::STRING || 
+  } else if (type_id == Type::BINARY || type_id == Type::STRING ||
              type_id == Type::LARGE_BINARY || type_id == Type::LARGE_STRING) {
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
@@ -842,24 +841,24 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
   } else {
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
-        return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType, 
+        return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
   	                               Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
-             ctx, batch, out);
+            ctx, batch, out);
       case BetweenOptions::Inclusive::LEFT:
         return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
                                        Op<BetweenOptions::Inclusive::LEFT>>(type_id)(
-             ctx, batch, out);
+            ctx, batch, out);
       case BetweenOptions::Inclusive::RIGHT:
         return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
                                        Op<BetweenOptions::Inclusive::RIGHT>>(type_id)(
-             ctx, batch, out);
+            ctx, batch, out);
       case BetweenOptions::Inclusive::NEITHER:
         return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
                                        Op<BetweenOptions::Inclusive::NEITHER>>(type_id)(
             ctx, batch, out);
       default:
         return Status::NotImplemented("between inclusiveness not implemented: ",
-                                       state.options.ToString());
+                                      state.options.ToString());
 
     }
   }
