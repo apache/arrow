@@ -253,7 +253,7 @@ TEST(ExecPlanExecution, TableSourceSink) {
           auto table, TableFromExecBatches(exec_batches.schema, exec_batches.batches));
 
       ASSERT_OK(Declaration::Sequence({
-                                          {"table", TableSourceNodeOptions{table}},
+                                          {"table", TableSourceNodeOptions{table, 1}},
                                           {"sink", SinkNodeOptions{&sink_gen}},
                                       })
                     .AddToPlan(plan.get()));
