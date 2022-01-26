@@ -2452,6 +2452,5 @@ TEST(TestIndicesNonZero, IndicesNonZeroDecimal) {
   AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3]"), *result, true);
 }
 
-
 }  // namespace compute
 }  // namespace arrow
