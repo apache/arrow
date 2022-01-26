@@ -260,11 +260,14 @@ test_that("array supports POSIXct (ARROW-3340)", {
   expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
 })
 
-test_that("array supports POSIXct without timezone", {
-  # Make sure timezone is not set
-  withr::with_envvar(c(TZ = ""), {
+test_that("array uses local timezone for POSIXct without timezone", {
+  expect_message(
+    Array$create(as.POSIXct("1970-01-01 00:00:15")),
+    regexp = "You have not supplied a timezone"
+  )
+  withr::with_envvar(c(TZ = "Asia/Ulaanbaatar"), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
-    expect_array_roundtrip(times, timestamp("us", ""))
+    expect_array_roundtrip(times, timestamp("us", "Asia/Ulaanbaatar"))
 
     # Also test the INTSXP code path
     skip("Ingest_POSIXct only implemented for REALSXP")
@@ -1076,19 +1079,4 @@ test_that("Array to C-interface", {
   # must clean up the pointers or we leak
   delete_arrow_schema(schema_ptr)
   delete_arrow_array(array_ptr)
-})
-
-test_that("Array coverts timestamps with missing timezone /assumed local tz correctly", {
-  withr::with_envvar(c(TZ = "America/Chicago"), {
-    a <- as.POSIXct("1970-01-01 00:00:15", tz = "America/Chicago")
-    b <- as.POSIXct("1970-01-01 00:00:15")
-    expect_equal(
-        Array$create(a),
-        Array$create(b)
-      )
-  })
-  expect_message(
-    Array$create(b),
-    regexp = "You have not supplied a timezone"
-  )
 })
