@@ -61,9 +61,11 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 /// outputs, if provided.
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
-  TableSourceNodeOptions(std::shared_ptr<Table> table) : table(table) {}
+  TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t max_chunksize)
+      : table(table), max_chunksize(max_chunksize) {}
 
   std::shared_ptr<Table> table;
+  int64_t max_chunksize;
 };
 
 /// \brief Make a node which excludes some rows from batches passed through it

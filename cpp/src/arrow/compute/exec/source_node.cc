@@ -179,16 +179,18 @@ struct SourceNode : ExecNode {
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-                  std::shared_ptr<Table> table)
+                  std::shared_ptr<Table> table, int64_t max_chunksize)
       : SourceNode(plan, output_schema,
-                   generator(ConvertTableToExecBatches(*table.get()).ValueOrDie())) {}
+                   generator(ConvertTableToExecBatches(*table.get()).ValueOrDie())),
+        max_chunksize(max_chunksize) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
     const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
     return plan->EmplaceNode<TableSourceNode>(plan, table_options.table->schema(),
-                                              table_options.table);
+                                              table_options.table,
+                                              table_options.max_chunksize);
   }
   const char* kind_name() const override { return "TableSourceNode"; }
 
@@ -221,6 +223,12 @@ struct TableSourceNode : public SourceNode {
 
   arrow::Result<std::vector<ExecBatch>> ConvertTableToExecBatches(const Table& table) {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+
+    // setting chunksize for the batch reader
+    if (max_chunksize > 0) {
+      reader->set_chunksize(max_chunksize);
+    }
+
     std::shared_ptr<arrow::RecordBatch> batch;
     std::vector<std::shared_ptr<arrow::RecordBatch>> batch_vector;
     std::vector<ExecBatch> exec_batches;
@@ -234,6 +242,9 @@ struct TableSourceNode : public SourceNode {
     }
     return exec_batches;
   }
+
+ private:
+  int64_t max_chunksize;
 };
 
 }  // namespace
