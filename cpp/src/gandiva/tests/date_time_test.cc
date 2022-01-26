@@ -875,5 +875,4 @@ TEST_F(TestProjector, TestCastVarcharDate) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
-
 }  // namespace gandiva
