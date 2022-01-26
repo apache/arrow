@@ -189,6 +189,11 @@ def test_filesystem_uri(tmpdir):
         "data_dir/data.orc", filesystem=util._filesystem_uri(tmpdir))
     assert result.equals(table)
 
+    # use the path only
+    result = orc.read_table(
+        util._filesystem_uri(path))
+    assert result.equals(table)
+
 
 def test_orcfile_readwrite(tmpdir):
     from pyarrow import orc
