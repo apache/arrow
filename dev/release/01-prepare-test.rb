@@ -250,8 +250,8 @@ class PrepareTest < Test::Unit::TestCase
             "+        \"name\": \"#{@release_version} (release)\",",
             "+    {",
             "+        \"name\": \"#{@previous_version}\",",
-            "+        \"version\": \"#{@previous_minor_version + "/"}\"",
-            ["-]", "+]"]]
+            "+        \"version\": \"#{@previous_minor_version + "/"}\""
+          ]
         ]
       }
     ]
