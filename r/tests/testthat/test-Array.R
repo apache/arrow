@@ -261,15 +261,23 @@ test_that("array supports POSIXct (ARROW-3340)", {
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
-  withr::with_envvar(c(TZ = "Asia/Ulaanbaatar"), {
+  withr::with_envvar(c(TZ = ""), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
-    expect_array_roundtrip(times, timestamp("us", "Asia/Ulaanbaatar"))
+    expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
 
     # Also test the INTSXP code path
     skip("Ingest_POSIXct only implemented for REALSXP")
     times_int <- as.integer(times)
     attributes(times_int) <- attributes(times)
     expect_array_roundtrip(times_int, timestamp("us", ""))
+  })
+  withr::with_envvar(c(TZ = "Asia/Ulaanbaatar"), {
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    expect_array_roundtrip(times, timestamp("us", "Asia/Ulaanbaatar"))
+  })
+  withr::with_envvar(c(TZ = NA), {
+    times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
+    expect_array_roundtrip(times, timestamp("us", Sys.timezone()))
   })
 })
 
