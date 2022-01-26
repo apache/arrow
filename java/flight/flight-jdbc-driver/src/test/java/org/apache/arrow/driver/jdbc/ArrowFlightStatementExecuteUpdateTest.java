@@ -31,7 +31,6 @@ import java.sql.Statement;
 import java.util.Collections;
 
 import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
-import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -65,26 +64,12 @@ public class ArrowFlightStatementExecuteUpdateTest {
           Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE;
+  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   public Connection connection;
   public Statement statement;
-
-  static {
-    UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
-            .build();
-
-    SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
-        .authentication(authentication)
-        .producer(PRODUCER)
-        .build();
-  }
 
   @BeforeClass
   public static void setUpBeforeClass() {
