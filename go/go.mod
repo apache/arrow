@@ -22,6 +22,7 @@ require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/andybalholm/brotli v1.0.3
 	github.com/apache/thrift v0.15.0
+	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/goccy/go-json v0.7.10
 	github.com/golang/protobuf v1.5.2
 	github.com/golang/snappy v0.0.4
