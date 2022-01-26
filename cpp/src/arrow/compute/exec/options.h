@@ -52,6 +52,17 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()> generator;
 };
 
+/// \brief Adapt an Table as a source node
+///
+/// plan->exec_context()->executor() will be used to parallelize pushing to
+/// outputs, if provided.
+class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
+ public:
+  TableSourceNodeOptions(std::shared_ptr<Table> table) : table(table) {}
+
+  std::shared_ptr<Table> table;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
@@ -268,27 +279,6 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 
   /// SelectK options
   SelectKOptions select_k_options;
-};
-
-
-/// \brief Adapt an Table as a source node
-///
-/// plan->exec_context()->executor() will be used to parallelize pushing to
-/// outputs, if provided.
-class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
- public:
-  explicit TableSourceNodeOptions(arrow::Table *table) : _table(table) {}
-
-  arrow::Table* _table;
-};
-
-/// \brief Adapt an Table as a source node
-///
-/// plan->exec_context()->executor() will be used to parallelize pushing to
-/// outputs, if provided.
-class ARROW_EXPORT DummyNodeOptions : public ExecNodeOptions {
- public:
-  explicit DummyNodeOptions();
 };
 
 }  // namespace compute

@@ -25,6 +25,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
@@ -33,10 +34,12 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/unreachable.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MapVector;
 
 namespace compute {
 namespace {
@@ -169,12 +172,75 @@ struct SourceNode : ExecNode {
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
+struct TableSourceNode : public SourceNode {
+  TableSourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
+                  std::shared_ptr<Table> table)
+      : SourceNode(plan, output_schema,
+                   generator(ConvertTableToExecBatches(*table.get()).ValueOrDie())) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
+    const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
+    return plan->EmplaceNode<TableSourceNode>(plan, table_options.table->schema(),
+                                              table_options.table);
+  }
+  const char* kind_name() const override { return "TableSourceNode"; }
+
+  [[noreturn]] void InputReceived(ExecNode* input, ExecBatch batch) override {
+    SourceNode::InputReceived(input, batch);
+  }
+  [[noreturn]] void ErrorReceived(ExecNode* input, Status status) override {
+    SourceNode::ErrorReceived(input, status);
+  }
+  [[noreturn]] void InputFinished(ExecNode* input, int total_batches) override {
+    SourceNode::InputFinished(input, total_batches);
+  }
+
+  Status StartProducing() override { return SourceNode::StartProducing(); }
+
+  void PauseProducing(ExecNode* output) override { SourceNode::PauseProducing(output); }
+
+  void StopProducing() override { SourceNode::StopProducing(); }
+
+  Future<> finished() override { return SourceNode::finished(); }
+
+  arrow::AsyncGenerator<util::optional<ExecBatch>> generator(
+      std::vector<ExecBatch> batches) {
+    auto opt_batches = MapVector(
+        [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
+    AsyncGenerator<util::optional<ExecBatch>> gen;
+    gen = MakeVectorGenerator(std::move(opt_batches));
+    return gen;
+  }
+
+  arrow::Result<std::vector<ExecBatch>> ConvertTableToExecBatches(const Table& table) {
+    std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+    std::shared_ptr<arrow::RecordBatch> batch;
+    std::vector<std::shared_ptr<arrow::RecordBatch>> batch_vector;
+    std::vector<ExecBatch> exec_batches;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
+      if (batch == NULLPTR) {
+        break;
+      }
+      ExecBatch exec_batch{*batch};
+      exec_batches.push_back(exec_batch);
+    }
+    return exec_batches;
+  }
+};
+
 }  // namespace
 
 namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
+}
+
+void RegisterTableSourceNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("table", TableSourceNode::Make));
 }
 
 }  // namespace internal

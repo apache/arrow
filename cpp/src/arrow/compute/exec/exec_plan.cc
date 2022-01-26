@@ -509,6 +509,7 @@ void RegisterUnionNode(ExecFactoryRegistry*);
 void RegisterAggregateNode(ExecFactoryRegistry*);
 void RegisterSinkNode(ExecFactoryRegistry*);
 void RegisterHashJoinNode(ExecFactoryRegistry*);
+void RegisterTableSourceNode(ExecFactoryRegistry*);
 
 }  // namespace internal
 
@@ -523,6 +524,7 @@ ExecFactoryRegistry* default_exec_factory_registry() {
       internal::RegisterAggregateNode(this);
       internal::RegisterSinkNode(this);
       internal::RegisterHashJoinNode(this);
+      internal::RegisterTableSourceNode(this);
     }
 
     Result<Factory> GetFactory(const std::string& factory_name) override {

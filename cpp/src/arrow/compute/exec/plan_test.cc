@@ -238,6 +238,32 @@ TEST(ExecPlanExecution, SourceSink) {
   }
 }
 
+TEST(ExecPlanExecution, TableSourceSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+      AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+
+      auto exec_batches = MakeBasicBatches();
+      auto table = TableFromExecBatches(exec_batches.schema, exec_batches.batches)
+
+      ASSERT_OK(Declaration::Sequence(
+                    {
+                        {"table", TableNodeOptions{table}},
+                        {"sink", SinkNodeOptions{&sink_gen}},
+                    })
+                    .AddToPlan(plan.get()));
+
+      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+                  Finishes(ResultWith(UnorderedElementsAreArray(basic_data.batches))));
+    }
+  }
+}
+
 TEST(ExecPlanExecution, SinkNodeBackpressure) {
   constexpr uint32_t kPauseIfAbove = 4;
   constexpr uint32_t kResumeIfBelow = 2;
