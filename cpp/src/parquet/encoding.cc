@@ -1486,8 +1486,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       return;
     }
     uint8_t bit_width = *data;
-    if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
-      throw ParquetException("Invalid or corrupted bit_width");
+    if (ARROW_PREDICT_FALSE(bit_width > 32)) {
+      throw ParquetException("Invalid or corrupted bit_width " +
+                             std::to_string(bit_width) + ". Maximum allowed is 32.");
     }
     idx_decoder_ = ::arrow::util::RleDecoder(++data, --len, bit_width);
   }
