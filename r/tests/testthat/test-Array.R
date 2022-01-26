@@ -273,7 +273,7 @@ test_that("array uses local timezone for POSIXct without timezone", {
   })
   withr::with_envvar(c(TZ = "Asia/Ulaanbaatar"), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
-    expect_array_roundtrip(times, timestamp("us", "Asia/Ulaanbaatar"))
+    expect_array_roundtrip(times, timestamp("us", "Pacific/Marquesas"))
   })
   withr::with_envvar(c(TZ = NA), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
