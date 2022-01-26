@@ -190,7 +190,10 @@ Array$create <- function(x, type = NULL) {
     return(out)
   }
 
-  if (inherits(x, "POSIXct") && attr(x, "tzone") == "") {
+  if (inherits(x, "POSIXct") &&
+      # the POSIXct vector may not have the "tzone" attribute (e.g. it was
+      # created with `strptime()`)
+      (attr(x, "tzone") == "" | is.null(attr(x, "tzone")))) {
     attr(x, "tzone") <- Sys.timezone()
     inform("You have not supplied a timezone to x")
   }
