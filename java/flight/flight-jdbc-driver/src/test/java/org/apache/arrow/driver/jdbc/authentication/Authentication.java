@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc.authentication;
 
+import java.util.Properties;
+
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 
 public interface Authentication {
@@ -26,4 +28,10 @@ public interface Authentication {
    * @return a CallHeaderAuthenticator.
    */
   CallHeaderAuthenticator authenticate();
+
+  /**
+   * Uses the validCredentials variable and populate the Properties object.
+   * @param properties the Properties object that will be populated.
+   */
+  void populateProperties(Properties properties);
 }

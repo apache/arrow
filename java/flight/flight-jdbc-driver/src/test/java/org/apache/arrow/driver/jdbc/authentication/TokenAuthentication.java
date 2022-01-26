@@ -19,17 +19,15 @@ package org.apache.arrow.driver.jdbc.authentication;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 
 public class TokenAuthentication implements Authentication {
   private final List<String> validCredentials;
-
-  public List<String> getValidCredentials() {
-    return validCredentials;
-  }
 
   public TokenAuthentication(List<String> validCredentials) {
     this.validCredentials = validCredentials;
@@ -52,6 +50,12 @@ public class TokenAuthentication implements Authentication {
         };
       }
     };
+  }
+
+  @Override
+  public void populateProperties(Properties properties) {
+    this.validCredentials.forEach(value -> properties.put(
+        ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(), value));
   }
 
   public static final class Builder {
