@@ -21,7 +21,7 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 

@@ -134,7 +134,7 @@ func (b *BooleanBuilder) Resize(n int) {
 
 // NewArray creates a Boolean array from the memory buffers used by the builder and resets the BooleanBuilder
 // so it can be used to build a new array.
-func (b *BooleanBuilder) NewArray() Interface {
+func (b *BooleanBuilder) NewArray() arrow.Array {
 	return b.NewBooleanArray()
 }
 

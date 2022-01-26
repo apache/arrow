@@ -45,7 +45,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/schema_internal.h"

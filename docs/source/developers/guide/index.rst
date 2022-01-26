@@ -31,7 +31,7 @@ New Contributor's Guide
 ***********************
 
 This guide is meant to be a resource for contributing to
-`Arrow <https://arrow.apache.org>`_ for new contributors.
+Apache Arrow for new contributors.
 
 No matter what your current skills are, you can try and make
 your first time contribution to Arrow.
@@ -53,6 +53,11 @@ to Arrow:
   to implement a new feature or fix a bug you encountered.
 
 Read more about the project in the :ref:`architectural_overview` section.
+
+.. note::
+
+ Contributors at Apache Arrow are following ASF's
+ `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
 
 .. _quick-ref-guide:
 
@@ -89,7 +94,8 @@ of adding a basic feature.
  
 #. **Run the tests**
    
-   Run the tests from a terminal for Python
+   We should run the tests to check if everything is working correctly. For example,
+   you can run the tests from a terminal for Python
 
    .. code-block:: console
 
@@ -115,7 +121,7 @@ of adding a basic feature.
 
    The first step when starting a new project is the hardest and so we've wrote some guides to help you with this.
 
-   .. TODO: Read through :ref:`solving`  section.
+   You can start by reading through :ref:`arrow-codebase` section.
 
    **Communication**
 
@@ -132,11 +138,14 @@ of adding a basic feature.
 
 #. **Push the branch on your fork and create a Pull Request**
 
-   See detailed instructions on :ref:`pr_and_github`
+   See detailed instructions on :ref:`create_pr`
 
 
-If you are ready you can start with building Arrow or choose to follow tutorials
-on writing an R or Python test.
+If you are ready you can start with building Arrow or choose to follow
+one of the :ref:`tutorial-index` on writing an R binding or Python feature.
+
+You can also take a look at the :ref:`documentation` or
+:ref:`other-resources` section.
 
 **We want to encourage everyone to contribute to Arrow!**
 

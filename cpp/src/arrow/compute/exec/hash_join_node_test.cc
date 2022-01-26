@@ -17,6 +17,7 @@
 
 #include <gmock/gmock-matchers.h>
 
+#include <numeric>
 #include <random>
 #include <unordered_set>
 

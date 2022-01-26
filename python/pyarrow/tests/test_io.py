@@ -518,10 +518,25 @@ def test_buffer_slicing():
     with pytest.raises(IndexError):
         buf.slice(-1)
 
+    with pytest.raises(IndexError):
+        buf.slice(len(buf) + 1)
+    assert buf[11:].to_pybytes() == b""
+
+    # Slice stop exceeds buffer length
+    with pytest.raises(IndexError):
+        buf.slice(1, len(buf))
+    assert buf[1:11].to_pybytes() == buf.to_pybytes()[1:]
+
+    # Negative length
+    with pytest.raises(IndexError):
+        buf.slice(1, -1)
+
     # Test slice notation
     assert buf[2:].equals(buf.slice(2))
     assert buf[2:5].equals(buf.slice(2, 3))
     assert buf[-5:].equals(buf.slice(len(buf) - 5))
+    assert buf[-5:-2].equals(buf.slice(len(buf) - 5, 3))
+
     with pytest.raises(IndexError):
         buf[::-1]
     with pytest.raises(IndexError):

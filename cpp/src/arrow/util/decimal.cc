@@ -320,7 +320,7 @@ std::string Decimal128::ToIntegerString() const {
 Decimal128::operator int64_t() const {
   DCHECK(high_bits() == 0 || high_bits() == -1)
       << "Trying to cast a Decimal128 greater than the value range of a "
-         "int64_t. high_bits_ must be equal to 0 or -1, got: "
+         "int64_t; high_bits() must be equal to 0 or -1, got: "
       << high_bits();
   return static_cast<int64_t>(low_bits());
 }

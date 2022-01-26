@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
@@ -99,7 +98,9 @@ class FilterNode : public MapNode {
   }
 
  protected:
-  std::string ToStringExtra() const override { return "filter=" + filter_.ToString(); }
+  std::string ToStringExtra(int indent) const override {
+    return "filter=" + filter_.ToString();
+  }
 
  private:
   Expression filter_;

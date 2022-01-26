@@ -25,3 +25,18 @@
 **********
 R tutorial
 **********
+
+The first R package tutorial to be included in the New Contributor's
+guide is a **Walkthrough** added in the **Writing Bindings**
+vignette. With time we will try to include additional tutorials
+directly into this guide.
+
+Writing Bindings Walkthrough
+----------------------------
+
+This tutorial will show how to do a binding of a C++ function
+`starts_with() <https://arrow.apache.org/docs/cpp/compute.html#containment-tests>`_
+to the (base) R function ``startsWith()``.
+
+To view the tutorial follow the
+`Walkthrough section of the Writing Bindings article <https://arrow.apache.org/docs/r/articles/developers/bindings.html#walkthrough>`_.

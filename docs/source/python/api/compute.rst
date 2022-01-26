@@ -344,6 +344,7 @@ Containment Tests
    match_substring
    match_substring_regex
    starts_with
+   indices_nonzero
 
 Categorizations
 ---------------
@@ -375,6 +376,9 @@ Conversions
    :toctree: ../generated/
 
    cast
+   ceil_temporal
+   floor_temporal
+   round_temporal
    strftime
    strptime
 
@@ -402,6 +406,7 @@ Temporal Component Extraction
    us_week
    week
    year
+   year_month_day
 
 Temporal Difference
 -------------------
@@ -470,6 +475,8 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   fill_null_backward
+   fill_null_forward
    list_element
    list_flatten
    list_parent_indices
@@ -506,6 +513,7 @@ Compute Options
    ReplaceSliceOptions
    ReplaceSubstringOptions
    RoundOptions
+   RoundTemporalOptions
    RoundToMultipleOptions
    ScalarAggregateOptions
    ScalarAggregateOptions

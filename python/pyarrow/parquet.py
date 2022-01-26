@@ -560,6 +560,12 @@ use_byte_stream_split : bool or list, default False
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
+column_encoding : string or dict, default None
+    Specify the encoding scheme on a per column basis.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Certain encodings are only compatible with certain data types.
+    Please refer to the encodings section of `Reading and writing Parquet
+    files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
 data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
@@ -599,7 +605,7 @@ Class for incrementally building a Parquet file for Arrow tables.
 Parameters
 ----------
 where : path or file-like object
-schema : arrow Schema
+schema : pyarrow.Schema
 {}
 writer_engine_version : unused
 **options : dict
@@ -618,6 +624,7 @@ writer_engine_version : unused
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 column_encoding=None,
                  writer_engine_version=None,
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
@@ -669,6 +676,7 @@ writer_engine_version : unused
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            column_encoding=column_encoding,
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
@@ -1031,7 +1039,8 @@ class ParquetPartitions:
         Record a partition value at a particular level, returning the distinct
         code for that value at that level.
 
-        Example:
+        Examples
+        --------
 
         partitions.get_index(1, 'foo', 'a') returns 0
         partitions.get_index(1, 'foo', 'b') returns 1
@@ -1273,7 +1282,8 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : Partitioning or str or list of str, default "hive"
+partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
@@ -2036,7 +2046,8 @@ read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
     "\n".join((_read_docstring_common,
-               """**kwargs : additional options for :func:`read_table`""")),
+               """**kwargs
+    additional options for :func:`read_table`""")),
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
     indexes as columns""",
@@ -2053,6 +2064,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                column_encoding=None,
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 **kwargs):
@@ -2073,6 +2085,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                column_encoding=column_encoding,
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 **kwargs) as writer:
@@ -2318,7 +2331,7 @@ def read_metadata(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 
@@ -2335,7 +2348,7 @@ def read_schema(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 

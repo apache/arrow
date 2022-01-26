@@ -18,13 +18,16 @@
 #include "./arrow_types.h"
 
 #if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/array/array_base.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
+#include <arrow/util/byte_size.h>
 #include <arrow/util/key_value_metadata.h>
+
 // [[arrow::export]]
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
   return x->num_columns();
@@ -303,6 +306,12 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   StopIfNotOk(arrow::r::check_consistent_array_size(arrays, &num_rows));
 
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
+}
+
+// [[arrow::export]]
+int64_t RecordBatch__ReferencedBufferSize(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*batch));
 }
 
 #endif

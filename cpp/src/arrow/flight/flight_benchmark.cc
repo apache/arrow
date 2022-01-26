@@ -23,6 +23,7 @@
 
 #include <gflags/gflags.h>
 
+#include "arrow/array.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"

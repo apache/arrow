@@ -268,6 +268,7 @@ services:
       ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
@@ -359,6 +360,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -617,7 +619,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.6, 3.7, 3.8, 3.9
+    #   PYTHON: 3.7, 3.8, 3.9, 3.10
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -859,14 +861,14 @@ services:
   python-wheel-windows-vs2017:
     # The windows images must be built locally and pushed to a remote registry:
     # export REPO=ghcr.io/ursacomputing/arrow
-    # PYTHON=3.6 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.7 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.8 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.9 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
-    # PYTHON=3.6 archery docker push python-wheel-windows-vs2017
+    # PYTHON=3.10 archery docker build --no-pull --using-docker-cli python-wheel-windows-vs2017
     # PYTHON=3.7 archery docker push python-wheel-windows-vs2017
     # PYTHON=3.8 archery docker push python-wheel-windows-vs2017
     # PYTHON=3.9 archery docker push python-wheel-windows-vs2017
+    # PYTHON=3.10 archery docker push python-wheel-windows-vs2017
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017-vcpkg-${VCPKG}
     build:
       args:
@@ -886,6 +888,7 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
+  # doesn't exit properly on fail
   python-wheel-windows-test:
     image: python:${PYTHON}-windowsservercore-1809
     volumes:
@@ -1021,6 +1024,7 @@ services:
     environment:
       <<: *ccache
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
     volumes: *conda-volumes
     command:
@@ -1610,6 +1614,7 @@ services:
     environment:
       <<: *ccache
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_PLASMA: "OFF"
       ARROW_HIVESERVER2: "ON"
@@ -1645,6 +1650,9 @@ services:
       - impala:impala
     environment:
       <<: *ccache
+      ARROW_ENGINE: "OFF"
+      ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_HDFS: "ON"
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020

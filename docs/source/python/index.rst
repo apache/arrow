@@ -54,9 +54,8 @@ files into Arrow structures.
    json
    parquet
    dataset
-   cuda
    extending_types
-   extending
+   integration
    api
    getting_involved
    benchmarks

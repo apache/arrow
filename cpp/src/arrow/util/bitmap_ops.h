@@ -81,6 +81,30 @@ ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* bitmap,
                                              int64_t offset, int64_t length);
 
+/// Reverse a bit range of an existing bitmap into an existing bitmap
+///
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to reverse
+/// \param[in] dest_offset bit offset into the destination
+/// \param[out] dest the destination buffer, must have at least space for
+/// (offset + length) bits
+ARROW_EXPORT
+void ReverseBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t* dest,
+                   int64_t dest_offset);
+
+/// Reverse a bit range of an existing bitmap
+///
+/// \param[in] pool memory pool to allocate memory from
+/// \param[in] bitmap source data
+/// \param[in] offset bit offset into the source data
+/// \param[in] length number of bits to reverse
+///
+/// \return Status message
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* bitmap,
+                                              int64_t offset, int64_t length);
+
 /// Compute the number of 1's in the given data array
 ///
 /// \param[in] data a packed LSB-ordered bitmap as a byte array

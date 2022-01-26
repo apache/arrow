@@ -30,6 +30,7 @@ fi
 : ${BUMP_UPDATE_LOCAL_MASTER:=${BUMP_DEFAULT}}
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
+: ${BUMP_LINUX_PACKAGES:=${BUMP_DEFAULT}}
 : ${BUMP_PUSH:=${BUMP_DEFAULT}}
 : ${BUMP_TAG:=${BUMP_DEFAULT}}
 
@@ -86,6 +87,18 @@ if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
+fi
+
+if [ ${BUMP_LINUX_PACKAGES} -gt 0 ]; then
+  echo "Updating .deb/.rpm changelogs for $version"
+  cd $SOURCE_DIR/../tasks/linux-packages
+  rake \
+    version:update \
+    ARROW_RELEASE_TIME="$(git log -n1 --format=%aI apache-arrow-${version})" \
+    ARROW_VERSION=${version}
+  git add */debian*/changelog */yum/*.spec.in
+  git commit -m "[Release] Update .deb/.rpm changelogs for $version"
+  cd -
 fi
 
 if [ ${BUMP_PUSH} -gt 0 ]; then

@@ -26,12 +26,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {

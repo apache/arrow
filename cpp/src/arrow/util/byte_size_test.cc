@@ -22,7 +22,11 @@
 #include <unordered_map>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/chunked_array.h"
+#include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"

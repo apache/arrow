@@ -36,6 +36,34 @@ RUN apt-get update -y -q && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
+# Installs LLVM toolchain, for Gandiva and testing other compilers
+#
+# Note that this is installed before the base packages to improve iteration
+# while debugging package list with docker build.
+ARG llvm
+RUN latest_system_llvm=10 && \
+    if [ ${llvm} -gt ${latest_system_llvm} ]; then \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends \
+          apt-transport-https \
+          ca-certificates \
+          gnupg \
+          lsb-release \
+          wget && \
+      wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+      code_name=$(lsb_release --codename --short) && \
+      if [ ${llvm} -gt 10 ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
+           /etc/apt/sources.list.d/llvm.list; \
+      fi; \
+    fi && \
+    apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        clang-${llvm} \
+        llvm-${llvm}-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*
+
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
@@ -45,7 +73,7 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
-    ARROW_GANDIVA=OFF \
+    ARROW_GANDIVA=ON \
     ARROW_GCS=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \

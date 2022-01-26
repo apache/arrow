@@ -41,15 +41,15 @@ pip install -r C:\arrow\python\requirements-wheel-test.txt || exit /B
 python -m pip install --no-index --find-links=C:\arrow\python\dist\ pyarrow || exit /B
 
 @REM Test that the modules are importable
-python -c "import pyarrow"
-python -c "import pyarrow._hdfs"
-python -c "import pyarrow._s3fs"
-python -c "import pyarrow.csv"
-python -c "import pyarrow.dataset"
-python -c "import pyarrow.flight"
-python -c "import pyarrow.fs"
-python -c "import pyarrow.json"
-python -c "import pyarrow.parquet"
+python -c "import pyarrow" || exit /B
+python -c "import pyarrow._hdfs" || exit /B
+python -c "import pyarrow._s3fs" || exit /B
+python -c "import pyarrow.csv" || exit /B
+python -c "import pyarrow.dataset" || exit /B
+python -c "import pyarrow.flight" || exit /B
+python -c "import pyarrow.fs" || exit /B
+python -c "import pyarrow.json" || exit /B
+python -c "import pyarrow.parquet" || exit /B
 
 @REM Execute unittest
 pytest -r s --pyargs pyarrow || exit /B

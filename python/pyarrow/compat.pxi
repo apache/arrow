@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 
 def encode_file_path(path):
     if isinstance(path, str):
@@ -31,12 +29,8 @@ def encode_file_path(path):
     return encoded_path
 
 
-if sys.version_info >= (3, 7):
-    # Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
-    ordered_dict = dict
-else:
-    import collections
-    ordered_dict = collections.OrderedDict
+# Starting with Python 3.7, dicts are guaranteed to be insertion-ordered.
+ordered_dict = dict
 
 
 try:

@@ -57,7 +57,7 @@ func WithStartOffset(off int64) FromJSONOption {
 	}
 }
 
-// FromJSON creates an array.Interface from a corresponding JSON stream and defined data type. If the types in the
+// FromJSON creates an arrow.Array from a corresponding JSON stream and defined data type. If the types in the
 // json do not match the type provided, it will return errors. This is *not* the integration test format
 // and should not be used as such. This intended to be used by consumers more similarly to the current exposing of
 // the csv reader/writer. It also returns the input offset in the reader where it finished decoding since buffering
@@ -107,7 +107,7 @@ func WithStartOffset(off int64) FromJSONOption {
 // The fractions of a second cannot exceed the precision allowed by the timeunit of the datatype.
 //
 // When processing structs as objects order of keys does not matter, but keys cannot be repeated.
-func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...FromJSONOption) (arr Interface, offset int64, err error) {
+func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...FromJSONOption) (arr arrow.Array, offset int64, err error) {
 	var cfg fromJSONCfg
 	for _, o := range opts {
 		o(&cfg)
@@ -160,7 +160,7 @@ func FromJSON(mem memory.Allocator, dt arrow.DataType, r io.Reader, opts ...From
 // RecordToStructArray constructs a struct array from the columns of the record batch
 // by referencing them, zero-copy.
 func RecordToStructArray(rec Record) *Struct {
-	cols := make([]*Data, rec.NumCols())
+	cols := make([]arrow.ArrayData, rec.NumCols())
 	for i, c := range rec.Columns() {
 		cols[i] = c.Data()
 	}
@@ -210,7 +210,7 @@ func RecordToJSON(rec Record, w io.Writer) error {
 	cols := make(map[string]interface{})
 	for i := 0; int64(i) < rec.NumRows(); i++ {
 		for j, c := range rec.Columns() {
-			cols[fields[j].Name] = c.getOneForMarshal(i)
+			cols[fields[j].Name] = c.(arraymarshal).getOneForMarshal(i)
 		}
 		if err := enc.Encode(cols); err != nil {
 			return err

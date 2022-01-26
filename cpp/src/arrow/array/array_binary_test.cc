@@ -29,15 +29,16 @@
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -403,17 +404,14 @@ TYPED_TEST(TestUTF8Array, TestValidateUTF8) { this->TestValidateUTF8(); }
 // String builder tests
 
 template <typename T>
-class TestStringBuilder : public TestBuilder {
+class TestStringBuilder : public ::testing::Test {
  public:
   using TypeClass = T;
   using offset_type = typename TypeClass::offset_type;
   using ArrayType = typename TypeTraits<TypeClass>::ArrayType;
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
 
-  void SetUp() {
-    TestBuilder::SetUp();
-    builder_.reset(new BuilderType(pool_));
-  }
+  void SetUp() { builder_.reset(new BuilderType(pool_)); }
 
   void Done() {
     std::shared_ptr<Array> out;
@@ -671,6 +669,7 @@ class TestStringBuilder : public TestBuilder {
   }
 
  protected:
+  MemoryPool* pool_ = default_memory_pool();
   std::unique_ptr<BuilderType> builder_;
   std::shared_ptr<ArrayType> result_;
 };

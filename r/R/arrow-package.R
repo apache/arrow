@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list
+#' @importFrom rlang is_list call2
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -56,21 +56,10 @@
     s3_register("reticulate::r_to_py", cl)
   }
 
-  # Create these once, at package build time
-  if (arrow_available()) {
-    # Also include all available Arrow Compute functions,
-    # namespaced as arrow_fun.
-    # We can't do this at install time because list_compute_functions() may error
-    all_arrow_funs <- list_compute_functions()
-    arrow_funcs <- set_names(
-      lapply(all_arrow_funs, function(fun) {
-        force(fun)
-        function(...) build_expr(fun, ...)
-      }),
-      paste0("arrow_", all_arrow_funs)
-    )
-    .cache$functions <- c(nse_funcs, arrow_funcs)
-  }
+  # Create the .cache$functions list at package load time.
+  # We can't do this at build time because list_compute_functions() may error
+  # if arrow_available() is FALSE
+  create_binding_cache()
 
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
     # Disable multithreading on Windows

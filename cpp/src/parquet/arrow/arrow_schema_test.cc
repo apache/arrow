@@ -35,7 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-using arrow::ArrayFromVector;
 using arrow::Field;
 using arrow::TimeUnit;
 

@@ -54,6 +54,36 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+def resolve_s3_region(bucket):
+    """
+    Resolve the S3 region of a bucket.
+
+    Parameters
+    ----------
+    bucket : str
+        A S3 bucket name
+
+    Returns
+    -------
+    region : str
+        A S3 region name
+
+    Examples
+    --------
+    >>> resolve_s3_region('ursa-labs-taxi-data')
+    'us-east-2'
+    """
+    cdef:
+        c_string c_bucket
+        c_string c_region
+
+    c_bucket = tobytes(bucket)
+    with nogil:
+        c_region = GetResultValue(ResolveS3BucketRegion(c_bucket))
+
+    return frombytes(c_region)
+
+
 cdef class S3FileSystem(FileSystem):
     """
     S3-backed FileSystem implementation
@@ -104,7 +134,7 @@ cdef class S3FileSystem(FileSystem):
     background_writes : boolean, default True
         Whether file writes will be issued in the background, without
         blocking.
-    default_metadata : mapping or KeyValueMetadata, default None
+    default_metadata : mapping or pyarrow.KeyValueMetadata, default None
         Default metadata for open_output_stream.  This will be ignored if
         non-empty metadata is passed to open_output_stream.
     proxy_options : dict or str, default None

@@ -28,7 +28,7 @@ env:
   PYTHON_VERSION: "{{ python_version }}"
   PYTHON: "/Library/Frameworks/Python.framework/Versions/{{ python_version }}/bin/python{{ python_version }}"
   VCPKG_DEFAULT_TRIPLET: amd64-osx-static-release
-  VCPKG_FEATURE_FLAGS: "-manifests"
+  VCPKG_FEATURE_FLAGS: "manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
   VCPKG_ROOT: {{ "${{ github.workspace }}/vcpkg" }}
 
@@ -64,40 +64,24 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "10.15"
         run: arrow/ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
 
+      - name: Add Vcpkg to PATH
+        shell: bash
+        run: echo ${VCPKG_ROOT} >> $GITHUB_PATH
+
       # workaround for https://github.com/apache/arrow/pull/11569#issuecomment-979592053
       - name: Install OpenSSL
-        run: $VCPKG_ROOT/vcpkg install openssl
+        run: vcpkg install openssl
 
       - name: Install Packages
         run: |
-          $VCPKG_ROOT/vcpkg install \
-            abseil \
-            boost-filesystem \
-            brotli \
-            bzip2 \
-            c-ares \
-            curl \
-            flatbuffers \
-            gflags \
-            glog \
-            google-cloud-cpp[core,storage] \
-            grpc \
-            lz4 \
-            openssl \
-            orc \
-            protobuf \
-            rapidjson \
-            re2 \
-            snappy \
-            thrift \
-            utf8proc \
-            zlib \
-            zstd
-
-      {% if arrow_s3 == "ON" %}
-      - name: Install AWS SDK C++
-        run: $VCPKG_ROOT/vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer]
-      {% endif %}
+          vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/ci/vcpkg \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet
 
       - name: Install Python {{ python_version }}
         shell: bash

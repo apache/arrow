@@ -46,8 +46,8 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -60,7 +60,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.
@@ -150,12 +150,12 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7, 0));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, 8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, -1));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, 2));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, 8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, -1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, 2));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
 
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0));
   check_data(*sliced, original_data);
@@ -166,8 +166,8 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1));
 }
 
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
@@ -364,6 +364,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       dense_union(union_fields1, union_type_codes),
       dense_union(union_fields2, union_type_codes),
       smallint(),  // extension type
+      list_extension_type(), // nested extension type
       // clang-format on
   };
 
@@ -371,6 +372,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     for (auto type : types) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
+      ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
@@ -839,6 +841,12 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   Int32Array arr(10, data);
   ASSERT_EQ(arr.data()->null_count, 0);
 }
+
+class TestBuilder : public ::testing::Test {
+ protected:
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_;
+};
 
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);

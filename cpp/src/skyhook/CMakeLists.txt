@@ -63,11 +63,12 @@ add_dependencies(cls_skyhook ${ARROW_SKYHOOK_CLS_LIBRARIES})
 
 # define the test builds
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_client_static arrow_dataset_static
+                                   ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_SKYHOOK_TEST_LINK_LIBS arrow_skyhook_client_shared arrow_dataset_shared
+                                   ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
-list(APPEND ARROW_SKYHOOK_TEST_LINK_LIBS ${ARROW_SKYHOOK_CLIENT_LIBRARIES})
 
 # build the cls and protocol tests
 add_arrow_test(cls_test

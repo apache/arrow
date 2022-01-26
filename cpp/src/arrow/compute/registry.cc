@@ -162,8 +162,10 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarComparison(registry.get());
   RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
+  RegisterScalarRandom(registry.get());  // Nullary
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
+  RegisterScalarStringUtf8(registry.get());
   RegisterScalarTemporalBinary(registry.get());
   RegisterScalarTemporalUnary(registry.get());
   RegisterScalarValidity(registry.get());

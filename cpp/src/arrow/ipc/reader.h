@@ -196,6 +196,18 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \brief Computes the total number of rows in the file.
   virtual Result<int64_t> CountRows() = 0;
 
+  /// \brief Begin loading metadata for the desired batches into memory.
+  ///
+  /// This method will also begin loading all dictionaries messages into memory.
+  ///
+  /// For a regular file this will immediately begin disk I/O in the background on a
+  /// thread on the IOContext's thread pool.  If the file is memory mapped this will
+  /// ensure the memory needed for the metadata is paged from disk into memory
+  ///
+  /// \param indices Indices of the batches to prefetch
+  ///                If empty then all batches will be prefetched.
+  virtual Status PreBufferMetadata(const std::vector<int>& indices) = 0;
+
   /// \brief Get a reentrant generator of record batches.
   ///
   /// \param[in] coalesce If true, enable I/O coalescing.

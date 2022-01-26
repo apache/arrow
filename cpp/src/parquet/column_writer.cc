@@ -41,7 +41,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"

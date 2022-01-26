@@ -117,7 +117,7 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// \brief Allocate a (mutable) Buffer
   ///
   /// The buffer will be allocated in the device's memory.
-  virtual Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) = 0;
+  virtual Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) = 0;
 
   // XXX Should this take a `const Buffer&` instead
   /// \brief Copy a Buffer to a destination MemoryManager
@@ -184,7 +184,7 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
       std::shared_ptr<Buffer> buf) override;
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override;
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override;
 
   /// \brief Return the MemoryPool associated with this MemoryManager.
   MemoryPool* pool() const { return pool_; }

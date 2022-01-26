@@ -51,15 +51,9 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override;
-
-  // TODO add async version (https://issues.apache.org/jira/browse/ARROW-13795)
-  // Result<RecordBatchGenerator> ScanBatchesAsync(
-  //     const std::shared_ptr<ScanOptions>& options,
-  //     const std::shared_ptr<FileFragment>& file) const override;
+      const std::shared_ptr<FileFragment>& file) const override;
 
   Future<util::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,

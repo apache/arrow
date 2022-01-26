@@ -1670,6 +1670,11 @@ class ARROW_EXPORT FieldRef {
   const std::string* name() const {
     return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
   }
+  const std::vector<FieldRef>* nested_refs() const {
+    return util::holds_alternative<std::vector<FieldRef>>(impl_)
+               ? &util::get<std::vector<FieldRef>>(impl_)
+               : NULLPTR;
+  }
 
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.
   std::vector<FieldPath> FindAll(const Schema& schema) const;

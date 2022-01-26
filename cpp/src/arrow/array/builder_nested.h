@@ -330,7 +330,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* value_builder() const { return list_builder_->value_builder(); }
 
   std::shared_ptr<DataType> type() const override {
-    return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+    // Key and Item builder may update types, but they don't contain the field names,
+    // so we need to reconstruct the type. (See ARROW-13735.)
+    return std::make_shared<MapType>(
+        field(entries_name_,
+              struct_({field(key_name_, key_builder_->type(), false),
+                       field(item_name_, item_builder_->type(), item_nullable_)}),
+              false),
+        keys_sorted_);
   }
 
   Status ValidateOverflow(int64_t new_elements) {
@@ -342,6 +349,10 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
  protected:
   bool keys_sorted_ = false;
+  bool item_nullable_ = false;
+  std::string entries_name_;
+  std::string key_name_;
+  std::string item_name_;
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
   std::shared_ptr<ArrayBuilder> item_builder_;

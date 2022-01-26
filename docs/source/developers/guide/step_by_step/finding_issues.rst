@@ -59,6 +59,8 @@ you will see:
    The window you get after creating an account on the ASF JIRA.
 
 
+.. _create_jira:
+
 How to create a JIRA issue
 ==========================
 
@@ -115,4 +117,4 @@ Also, do not hesitate to ask questions in the comment section of the issue.
 You can get some pointers about where to start and similar issues already solved.
 
 **Do not forget to create a new branch once you have created or chosen an issue you will be
-working on!** Follow the instructions in the next section: :ref:`pr_and_github`
+working on!** Follow the instructions in the :ref:`pr_and_github` section or follow the next section: :ref:`arrow-codebase`.

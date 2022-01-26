@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
@@ -476,7 +477,18 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
+    // TODO: If the array has an offset then we need to de-offset the array
+    // in order for it to be properly consumed on the Java end.
+    // This forces a copy, it would be nice to avoid this if Java
+    // could consume offset-arrays.  Perhaps at some point in the future
+    // using the C data interface.  See ARROW-15275
+    //
+    // Generally a non-zero offset will occur whenever the scanner batch
+    // size is smaller than the batch size of the underlying files.
     auto column = record_batch->column(i);
+    if (column->offset() != 0) {
+      column = JniGetOrThrow(arrow::Concatenate({column}));
+    }
     auto dataArray = column->data();
     jobject field = env->NewObject(record_batch_handle_field_class,
                                    record_batch_handle_field_constructor,

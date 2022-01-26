@@ -19,9 +19,7 @@
 
 #include <cstdint>
 
-#include "arrow/array.h"
-#include "arrow/record_batch.h"
-#include "arrow/table.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 
@@ -67,7 +65,7 @@ Result<std::shared_ptr<Array>> ARROW_EXPORT ReferencedRanges(const ArrayData& ar
 /// offsets.
 ///
 /// If buffers are shared between arrays then the shared
-/// portion will only be counted multiple times.
+/// portion will be counted multiple times.
 ///
 /// Dictionary arrays will always be counted in their entirety
 /// even if the array only references a portion of the dictionary.

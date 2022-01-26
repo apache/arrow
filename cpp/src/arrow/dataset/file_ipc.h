@@ -52,11 +52,6 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override;
-
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
@@ -111,7 +106,7 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
                 std::shared_ptr<IpcFileWriteOptions> options,
                 fs::FileLocator destination_locator);
 
-  Status FinishInternal() override;
+  Future<> FinishInternal() override;
 
   std::shared_ptr<io::OutputStream> destination_;
   std::shared_ptr<ipc::RecordBatchWriter> batch_writer_;

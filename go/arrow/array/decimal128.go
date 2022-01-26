@@ -40,10 +40,10 @@ type Decimal128 struct {
 	values []decimal128.Num
 }
 
-func NewDecimal128Data(data *Data) *Decimal128 {
+func NewDecimal128Data(data arrow.ArrayData) *Decimal128 {
 	a := &Decimal128{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -222,7 +222,7 @@ func (b *Decimal128Builder) Resize(n int) {
 
 // NewArray creates a Decimal128 array from the memory buffers used by the builder and resets the Decimal128Builder
 // so it can be used to build a new array.
-func (b *Decimal128Builder) NewArray() Interface {
+func (b *Decimal128Builder) NewArray() arrow.Array {
 	return b.NewDecimal128Array()
 }
 

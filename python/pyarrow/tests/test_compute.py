@@ -18,6 +18,7 @@
 from datetime import datetime
 from functools import lru_cache, partial
 import inspect
+import os
 import pickle
 import pytest
 import random
@@ -91,6 +92,8 @@ def test_exported_functions():
             # message if we don't pass an options instance.
             continue
         arity = desc['arity']
+        if arity == 0:
+            continue
         if arity is Ellipsis:
             args = [object()] * 3
         else:
@@ -144,9 +147,11 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.QuantileOptions(),
+        pc.RandomOptions(10),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
+        pc.RoundTemporalOptions(1, "second"),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -172,6 +177,7 @@ def test_option_class_equality():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
+
     for cls in exported_option_classes:
         # Timezone database is not available on Windows yet
         if cls not in classes and sys.platform != 'win32' and \
@@ -180,6 +186,7 @@ def test_option_class_equality():
                 options.append(cls())
             except TypeError:
                 pytest.fail(f"Options class is not tested: {cls}")
+
     for option in options:
         assert option == option
         assert repr(option).startswith(option.__class__.__name__)
@@ -274,8 +281,6 @@ def test_function_attributes():
         kernels = func.kernels
         assert func.num_kernels == len(kernels)
         assert all(isinstance(ker, pc.Kernel) for ker in kernels)
-        if func.arity is not Ellipsis:
-            assert func.arity >= 1
         repr(func)
         for ker in kernels:
             repr(ker)
@@ -664,6 +669,7 @@ def test_is_valid():
 
 
 def test_generated_docstrings():
+    # With options
     assert pc.min_max.__doc__ == textwrap.dedent("""\
         Compute the minimum and maximum values of a numeric array.
 
@@ -673,18 +679,19 @@ def test_generated_docstrings():
         Parameters
         ----------
         array : Array-like
-            Argument to compute function
-        skip_nulls : optional
-            Parameter for ScalarAggregateOptions constructor. Either `options`
-            or `skip_nulls` can be passed, but not both at the same time.
-        min_count : optional
-            Parameter for ScalarAggregateOptions constructor. Either `options`
-            or `min_count` can be passed, but not both at the same time.
+            Argument to compute function.
+        skip_nulls : bool, default True
+            Whether to skip (ignore) nulls in the input.
+            If False, any null in the input forces the output to null.
+        min_count : int, default 1
+            Minimum number of non-null values in the input.  If the number
+            of non-null values is below `min_count`, the output is null.
         options : pyarrow.compute.ScalarAggregateOptions, optional
-            Parameters altering compute function semantics.
+            Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
         """)
+    # Without options
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.
 
@@ -695,30 +702,126 @@ def test_generated_docstrings():
         Parameters
         ----------
         x : Array-like or scalar-like
-            Argument to compute function
+            Argument to compute function.
         y : Array-like or scalar-like
-            Argument to compute function
+            Argument to compute function.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+        """)
+    # Varargs with options
+    assert pc.min_element_wise.__doc__ == textwrap.dedent("""\
+        Find the element-wise minimum value.
+
+        Nulls are ignored (by default) or propagated.
+        NaN is preferred over null, but not over any valid value.
+
+        Parameters
+        ----------
+        *args : Array-like or scalar-like
+            Argument to compute function.
+        skip_nulls : bool, default True
+            Whether to skip (ignore) nulls in the input.
+            If False, any null in the input forces the output to null.
+        options : pyarrow.compute.ElementWiseAggregateOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
+    # Nullary with options
+    assert pc.random.__doc__ == textwrap.dedent("""\
+        Generate numbers in the range [0, 1).
+
+        Generated values are uniformly-distributed, double-precision """ +
+                                                """in range [0, 1).
+        Length of generated data, algorithm and seed can be changed """ +
+                                                """via RandomOptions.
+
+        Parameters
+        ----------
+        length : int
+            Number of random values to generate.
+        initializer : int or str
+            How to initialize the underlying random generator.
+            If an integer is given, it is used as a seed.
+            If "system" is given, the random generator is initialized with
+            a system-specific source of (hopefully true) randomness.
+            Other values are invalid.
+        options : pyarrow.compute.RandomOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+        """)
+    # With custom examples
+    assert pc.filter.__doc__ == textwrap.dedent("""\
+        Filter with a boolean selection filter.
+
+        The output is populated with values from the input at positions
+        where the selection filter is non-zero.  Nulls in the selection filter
+        are handled based on FilterOptions.
+
+        Parameters
+        ----------
+        input : Array-like or scalar-like
+            Argument to compute function.
+        selection_filter : Array-like or scalar-like
+            Argument to compute function.
+        null_selection_behavior : str, default "drop"
+            How to handle nulls in the selection filter.
+            Accepted values are "drop", "emit_null".
+        options : pyarrow.compute.FilterOptions, optional
+            Alternative way of passing options.
+        memory_pool : pyarrow.MemoryPool, optional
+            If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          "e"
+        ]
+        >>> arr.filter(mask, null_selection_behavior='emit_null')
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
         """)
 
 
 def test_generated_signatures():
     # The self-documentation provided by signatures should show acceptable
     # options and their default values.
+
+    # Without options
     sig = inspect.signature(pc.add)
     assert str(sig) == "(x, y, /, *, memory_pool=None)"
+    # With options
     sig = inspect.signature(pc.min_max)
     assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, "
                         "options=None, memory_pool=None)")
+    # With positional options
     sig = inspect.signature(pc.quantile)
     assert str(sig) == ("(array, /, q=0.5, *, interpolation='linear', "
                         "skip_nulls=True, min_count=0, "
                         "options=None, memory_pool=None)")
+    # Varargs with options
     sig = inspect.signature(pc.binary_join_element_wise)
     assert str(sig) == ("(*strings, null_handling='emit_null', "
                         "null_replacement='', options=None, "
                         "memory_pool=None)")
+    # Varargs without options
+    sig = inspect.signature(pc.choose)
+    assert str(sig) == "(indices, /, *values, memory_pool=None)"
+    # Nullary with options
+    sig = inspect.signature(pc.random)
+    assert str(sig) == ("(length, *, initializer='system', "
+                        "options=None, memory_pool=None)")
 
 
 # We use isprintable to find about codepoints that Python doesn't know, but
@@ -1895,6 +1998,73 @@ def test_assume_timezone():
     result.equals(pa.array(expected))
 
 
+def _check_temporal_rounding(ts, values, unit):
+    unit_shorthand = {
+        "nanosecond": "ns",
+        "microsecond": "us",
+        "millisecond": "L",
+        "second": "s",
+        "minute": "min",
+        "hour": "H",
+        "day": "D"
+    }
+    ta = pa.array(ts)
+
+    for value in values:
+        frequency = str(value) + unit_shorthand[unit]
+        options = pc.RoundTemporalOptions(value, unit)
+
+        result = pc.ceil_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.ceil(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.floor_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.floor(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.round_temporal(ta, options=options).to_pandas()
+        expected = ts.dt.round(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+
+# TODO: We should test on windows once ARROW-13168 is resolved.
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
+                                  "second", "minute", "hour", "day"))
+@pytest.mark.pandas
+def test_round_temporal(unit):
+    from pyarrow.vendored.version import Version
+
+    if Version(pd.__version__) < Version('1.0.0') and \
+            unit in ("nanosecond", "microsecond"):
+        pytest.skip('Pandas < 1.0 rounds zoned small units differently.')
+
+    values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
+    timestamps = [
+        "1923-07-07 08:52:35.203790336",
+        "1931-03-17 10:45:00.641559040",
+        "1932-06-16 01:16:42.911994368",
+        "1941-05-27 11:46:43.822831872",
+        "1943-12-14 07:32:05.424766464",
+        "1954-04-12 04:31:50.699881472",
+        "1966-02-12 17:41:28.693282560",
+        "1967-02-26 05:56:46.922376960",
+        "1975-11-01 10:55:37.016146432",
+        "1982-01-21 18:43:44.517366784",
+        "1999-12-04 05:55:34.794991104",
+        "2026-10-26 08:39:00.316686848"]
+    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    _check_temporal_rounding(ts, values, unit)
+
+    timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
+                 "Europe/Brussels", "Pacific/Marquesas", "US/Central", "UTC"]
+
+    for timezone in timezones:
+        ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
+        _check_temporal_rounding(ts_zoned, values, unit)
+
+
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
@@ -2370,3 +2540,111 @@ def test_utf8_normalize():
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
         pc.utf8_normalize(arr, form="NFZ")
+
+
+def test_random():
+    # (note negative integer initializers are accepted)
+    for initializer in ['system', 42, -42, b"abcdef"]:
+        assert pc.random(0, initializer=initializer) == \
+            pa.array([], type=pa.float64())
+
+    # System random initialization => outputs all distinct
+    arrays = [tuple(pc.random(100).to_pylist()) for i in range(10)]
+    assert len(set(arrays)) == len(arrays)
+
+    arrays = [tuple(pc.random(100, initializer=i % 7).to_pylist())
+              for i in range(0, 100)]
+    assert len(set(arrays)) == 7
+
+    # Arbitrary hashable objects can be given as initializer
+    initializers = [object(), (4, 5, 6), "foo"]
+    initializers.extend(os.urandom(10) for i in range(10))
+    arrays = [tuple(pc.random(100, initializer=i).to_pylist())
+              for i in initializers]
+    assert len(set(arrays)) == len(arrays)
+
+    with pytest.raises(TypeError,
+                       match=r"initializer should be 'system', an integer, "
+                             r"or a hashable object; got \[\]"):
+        pc.random(100, initializer=[])
+
+
+def test_expression_serialization():
+    a = pc.scalar(1)
+    b = pc.scalar(1.1)
+    c = pc.scalar(True)
+    d = pc.scalar("string")
+    e = pc.scalar(None)
+    f = pc.scalar({'a': 1})
+    g = pc.scalar(pa.scalar(1))
+    h = pc.scalar(np.int64(2))
+
+    all_exprs = [a, b, c, d, e, f, g, h, a == b, a > b, a & b, a | b, ~c,
+                 d.is_valid(), a.cast(pa.int32(), safe=False),
+                 a.cast(pa.int32(), safe=False), a.isin([1, 2, 3]),
+                 pc.field('i64') > 5, pc.field('i64') == 5,
+                 pc.field('i64') == 7, pc.field('i64').is_null()]
+    for expr in all_exprs:
+        assert isinstance(expr, pc.Expression)
+        restored = pickle.loads(pickle.dumps(expr))
+        assert expr.equals(restored)
+
+
+def test_expression_construction():
+    zero = pc.scalar(0)
+    one = pc.scalar(1)
+    true = pc.scalar(True)
+    false = pc.scalar(False)
+    string = pc.scalar("string")
+    field = pc.field("field")
+
+    zero | one == string
+    ~true == false
+    for typ in ("bool", pa.bool_()):
+        field.cast(typ) == true
+
+    field.isin([1, 2])
+
+    with pytest.raises(TypeError):
+        field.isin(1)
+
+    with pytest.raises(pa.ArrowInvalid):
+        field != object()
+
+
+def test_expression_boolean_operators():
+    # https://issues.apache.org/jira/browse/ARROW-11412
+    true = pc.scalar(True)
+    false = pc.scalar(False)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true and false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        true or false
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        bool(true)
+
+    with pytest.raises(ValueError, match="cannot be evaluated to python True"):
+        not true
+
+
+def test_expression_call_function():
+    field = pc.field("field")
+
+    # no options
+    assert str(pc.hour(field)) == "hour(field)"
+
+    # default options
+    assert str(pc.round(field)) == "round(field)"
+    # specified options
+    assert str(pc.round(field, ndigits=1)) == \
+        "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
+
+    # mixed types are not (yet) allowed
+    with pytest.raises(TypeError):
+        pc.add(field, 1)
+
+    with pytest.raises(TypeError):
+        pc.add(1, field)

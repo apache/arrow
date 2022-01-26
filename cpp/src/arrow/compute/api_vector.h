@@ -44,7 +44,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
   };
 
   explicit FilterOptions(NullSelectionBehavior null_selection = DROP);
-  constexpr static char const kTypeName[] = "FilterOptions";
+  static constexpr char const kTypeName[] = "FilterOptions";
   static FilterOptions Defaults() { return FilterOptions(); }
 
   NullSelectionBehavior null_selection_behavior = DROP;
@@ -53,7 +53,7 @@ class ARROW_EXPORT FilterOptions : public FunctionOptions {
 class ARROW_EXPORT TakeOptions : public FunctionOptions {
  public:
   explicit TakeOptions(bool boundscheck = true);
-  constexpr static char const kTypeName[] = "TakeOptions";
+  static constexpr char const kTypeName[] = "TakeOptions";
   static TakeOptions BoundsCheck() { return TakeOptions(true); }
   static TakeOptions NoBoundsCheck() { return TakeOptions(false); }
   static TakeOptions Defaults() { return BoundsCheck(); }
@@ -73,7 +73,7 @@ class ARROW_EXPORT DictionaryEncodeOptions : public FunctionOptions {
   };
 
   explicit DictionaryEncodeOptions(NullEncodingBehavior null_encoding = MASK);
-  constexpr static char const kTypeName[] = "DictionaryEncodeOptions";
+  static constexpr char const kTypeName[] = "DictionaryEncodeOptions";
   static DictionaryEncodeOptions Defaults() { return DictionaryEncodeOptions(); }
 
   NullEncodingBehavior null_encoding_behavior = MASK;
@@ -117,7 +117,7 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
  public:
   explicit ArraySortOptions(SortOrder order = SortOrder::Ascending,
                             NullPlacement null_placement = NullPlacement::AtEnd);
-  constexpr static char const kTypeName[] = "ArraySortOptions";
+  static constexpr char const kTypeName[] = "ArraySortOptions";
   static ArraySortOptions Defaults() { return ArraySortOptions(); }
 
   /// Sorting order
@@ -130,7 +130,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
                        NullPlacement null_placement = NullPlacement::AtEnd);
-  constexpr static char const kTypeName[] = "SortOptions";
+  static constexpr char const kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
 
   /// Column key(s) to order by and how to order by these sort keys.
@@ -143,7 +143,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
   explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
-  constexpr static char const kTypeName[] = "SelectKOptions";
+  static constexpr char const kTypeName[] = "SelectKOptions";
   static SelectKOptions Defaults() { return SelectKOptions(); }
 
   static SelectKOptions TopKDefault(int64_t k, std::vector<std::string> key_names = {}) {
@@ -180,7 +180,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   explicit PartitionNthOptions(int64_t pivot,
                                NullPlacement null_placement = NullPlacement::AtEnd);
   PartitionNthOptions() : PartitionNthOptions(0) {}
-  constexpr static char const kTypeName[] = "PartitionNthOptions";
+  static constexpr char const kTypeName[] = "PartitionNthOptions";
 
   /// The index into the equivalent sorted array of the partition pivot element.
   int64_t pivot;
@@ -245,6 +245,34 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndices(
 ARROW_EXPORT
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
                               const Datum& replacements, ExecContext* ctx = NULLPTR);
+
+/// \brief FillNullForward fill null values in forward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in forward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "c", "c", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief FillNullBackward fill null values in backward direction
+///
+/// The output array will be of the same type as the input values
+/// array, with replaced null values in backward direction.
+///
+/// For example given values = ["a", "b", "c", null, null, "f"],
+/// the output will be = ["a", "b", "c", "f", "f", "f"]
+///
+/// \param[in] values datum from which to take
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+ARROW_EXPORT
+Result<Datum> FillNullBackward(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief Take from an array of values at indices in another array
 ///

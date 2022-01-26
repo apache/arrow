@@ -35,6 +35,7 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -47,7 +48,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

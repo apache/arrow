@@ -17,10 +17,11 @@
 
 #include "benchmark/benchmark.h"
 
+#include <numeric>
+#include <random>
+
 #include "arrow/sparse_tensor.h"
 #include "arrow/testing/gtest_util.h"
-
-#include <random>
 
 namespace arrow {
 

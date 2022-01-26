@@ -22,12 +22,15 @@
 #include <boost/crc.hpp>
 #include <string>
 #include <vector>
+
 #include "arrow/util/base64.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/double_conversion.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
+
 #include "gandiva/encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
@@ -866,6 +869,8 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   return out;
 }
 
+static constexpr int64_t kAesBlockSize = 16;  // bytes
+
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
                                const char* key_data, int32_t key_data_len,
@@ -876,6 +881,8 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  *out_len =
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg =
@@ -905,6 +912,8 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  *out_len =
+      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg =
@@ -1062,7 +1071,7 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
   utf8proc_int32_t utf8_char_buffer;
   int num_of_chars = static_cast<int>(
       utf8proc_decompose(reinterpret_cast<const utf8proc_uint8_t*>(data), data_len,
-                         &utf8_char_buffer, 4, UTF8PROC_STABLE));
+                         &utf8_char_buffer, 1, UTF8PROC_STABLE));
 
   if (num_of_chars < 0) {
     gdv_fn_context_set_error_msg(context, utf8proc_errmsg(num_of_chars));

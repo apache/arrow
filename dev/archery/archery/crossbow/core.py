@@ -299,7 +299,11 @@ class Repo:
         try:
             return self.repo.branches[self.repo.head.shorthand]
         except KeyError:
-            return None  # detached
+            raise CrossbowError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
 
     @property
     def remote(self):
@@ -307,7 +311,11 @@ class Repo:
         try:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
-            return None  # cannot detect
+            raise CrossbowError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the `{}` branch first to have '
+                'a remote tracking counterpart.'.format(self.branch.name)
+            )
 
     @property
     def remote_url(self):
@@ -316,10 +324,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with GitHub OAuth token.
         """
-        try:
-            return self._remote_url or _git_ssh_to_https(self.remote.url)
-        except AttributeError:
-            return None
+        return self._remote_url or _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -537,17 +542,36 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _latest_prefix_date(self, prefix):
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
+        else:
+            latest = -1
+        return latest
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
     def latest_for_prefix(self, prefix):
-        latest_id = self._latest_prefix_id(prefix)
-        if latest_id < 0:
-            raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
-            )
+        if prefix == "nightly":
+            latest_id = self._latest_prefix_date(prefix)
+            if not latest_id:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}'' yet"
+                )
+            latest_id += "-0"
+        else:
+            latest_id = self._latest_prefix_id(prefix)
+            if latest_id < 0:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}' yet"
+                )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
@@ -592,19 +616,6 @@ class Queue(Repo):
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
-
-        if job.target.remote is None:
-            raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(job.target.branch)
-            )
-        if job.target.branch is None:
-            raise CrossbowError(
-                'Cannot determine the current branch of the Arrow repository '
-                'to clone or push to, perhaps it is in detached HEAD state. '
-                'Please checkout a branch.'
-            )
 
         # auto increment and set next job id, e.g. build-85
         job._queue = self
@@ -654,7 +665,7 @@ def get_version(root, **kwargs):
     if 'dev' not in tag:
         major += 1
 
-    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance)
+    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance or 0)
 
 
 class Serializable:

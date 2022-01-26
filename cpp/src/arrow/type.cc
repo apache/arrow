@@ -43,7 +43,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/range.h"
 #include "arrow/util/vector.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 

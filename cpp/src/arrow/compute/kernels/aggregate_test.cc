@@ -40,7 +40,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
 
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"

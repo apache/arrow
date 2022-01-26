@@ -47,7 +47,8 @@ except ImportError:
 
 try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3)
+        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,
+        resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
@@ -258,7 +259,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Parameters
     ----------
-    fs : The FSSpec-compliant filesystem instance.
+    fs : FSSpec-compliant filesystem instance.
 
     Examples
     --------

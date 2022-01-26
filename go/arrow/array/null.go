@@ -51,10 +51,10 @@ func NewNull(n int) *Null {
 }
 
 // NewNullData returns a new Null array value, from data.
-func NewNullData(data *Data) *Null {
+func NewNullData(data arrow.ArrayData) *Null {
 	a := &Null{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -120,7 +120,7 @@ func (*NullBuilder) resize(newBits int, init func(int)) {}
 
 // NewArray creates a Null array from the memory buffers used by the builder and resets the NullBuilder
 // so it can be used to build a new array.
-func (b *NullBuilder) NewArray() Interface {
+func (b *NullBuilder) NewArray() arrow.Array {
 	return b.NewNullArray()
 }
 

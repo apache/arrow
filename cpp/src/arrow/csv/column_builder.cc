@@ -39,16 +39,16 @@
 #include "arrow/util/task_group.h"
 
 namespace arrow {
+
+using internal::TaskGroup;
+
 namespace csv {
 
 class BlockParser;
 
-using internal::TaskGroup;
-
 class ConcreteColumnBuilder : public ColumnBuilder {
  public:
-  explicit ConcreteColumnBuilder(MemoryPool* pool,
-                                 std::shared_ptr<internal::TaskGroup> task_group,
+  explicit ConcreteColumnBuilder(MemoryPool* pool, std::shared_ptr<TaskGroup> task_group,
                                  int32_t col_index = -1)
       : ColumnBuilder(std::move(task_group)), pool_(pool), col_index_(col_index) {}
 
@@ -132,7 +132,7 @@ class ConcreteColumnBuilder : public ColumnBuilder {
 class NullColumnBuilder : public ConcreteColumnBuilder {
  public:
   explicit NullColumnBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                             const std::shared_ptr<internal::TaskGroup>& task_group)
+                             const std::shared_ptr<TaskGroup>& task_group)
       : ConcreteColumnBuilder(pool, task_group), type_(type) {}
 
   void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
@@ -169,7 +169,7 @@ class TypedColumnBuilder : public ConcreteColumnBuilder {
  public:
   TypedColumnBuilder(const std::shared_ptr<DataType>& type, int32_t col_index,
                      const ConvertOptions& options, MemoryPool* pool,
-                     const std::shared_ptr<internal::TaskGroup>& task_group)
+                     const std::shared_ptr<TaskGroup>& task_group)
       : ConcreteColumnBuilder(pool, task_group, col_index),
         type_(type),
         options_(options) {}
@@ -212,8 +212,7 @@ void TypedColumnBuilder::Insert(int64_t block_index,
 class InferringColumnBuilder : public ConcreteColumnBuilder {
  public:
   InferringColumnBuilder(int32_t col_index, const ConvertOptions& options,
-                         MemoryPool* pool,
-                         const std::shared_ptr<internal::TaskGroup>& task_group)
+                         MemoryPool* pool, const std::shared_ptr<TaskGroup>& task_group)
       : ConcreteColumnBuilder(pool, task_group, col_index),
         options_(options),
         infer_status_(options) {}
@@ -359,7 +358,7 @@ Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::Make(
 
 Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::MakeNull(
     MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    const std::shared_ptr<internal::TaskGroup>& task_group) {
+    const std::shared_ptr<TaskGroup>& task_group) {
   return std::make_shared<NullColumnBuilder>(type, pool, task_group);
 }
 

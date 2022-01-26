@@ -67,9 +67,4 @@ class TestDatasetScannerBuilder < Test::Unit::TestCase
                  scanner.to_table)
   end
 
-  def test_use_async
-    @builder.use_async = true
-    scanner = @builder.finish
-    assert_equal(@table, scanner.to_table)
-  end
 end

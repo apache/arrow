@@ -492,7 +492,7 @@ func (r *RLERandomSuite) checkRoundTrip(vals []uint64, width int) bool {
 	return res
 }
 
-func (r *RLERandomSuite) checkRoundTripSpaced(vals array.Interface, width int) {
+func (r *RLERandomSuite) checkRoundTripSpaced(vals arrow.Array, width int) {
 	nvalues := vals.Len()
 	bufsize := utils.MaxBufferSize(width, nvalues)
 
@@ -587,7 +587,7 @@ func (r *RandomArrayGenerator) generateBitmap(buffer []byte, n int64, prob float
 	return count
 }
 
-func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) array.Interface {
+func (r *RandomArrayGenerator) Int32(size int64, min, max int32, prob float64) arrow.Array {
 	buffers := make([]*memory.Buffer, 2)
 	nullCount := int64(0)
 
