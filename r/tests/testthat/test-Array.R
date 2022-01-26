@@ -1087,4 +1087,8 @@ test_that("Array coverts timestamps with missing timezone /assumed local tz corr
         Array$create(b)
       )
   })
+  expect_message(
+    Array$create(b),
+    regexp = "You have not supplied a timezone"
+  )
 })
