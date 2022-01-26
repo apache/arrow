@@ -21,8 +21,8 @@ File Formats
 
 .. _cpp-api-csv:
 
-CSV
-===
+CSV reader
+==========
 
 .. doxygenstruct:: arrow::csv::ConvertOptions
    :members:
@@ -33,19 +33,23 @@ CSV
 .. doxygenstruct:: arrow::csv::ReadOptions
    :members:
 
-.. doxygenstruct:: arrow::csv::WriteOptions
-   :members:
-
 .. doxygenclass:: arrow::csv::TableReader
    :members:
 
-.. doxygenfunction:: arrow::csv::MakeCSVWriter(io::OutputStream *, const std::shared_ptr<Schema>&, const WriteOptions&)
+.. doxygenclass:: arrow::csv::StreamingReader
+   :members:
 
-.. doxygenfunction:: arrow::csv::MakeCSVWriter(std::shared_ptr<io::OutputStream>, const std::shared_ptr<Schema>&, const WriteOptions&)
+CSV writer
+==========
 
-.. doxygenfunction:: arrow::csv::WriteCSV(const RecordBatch&, const WriteOptions&, arrow::io::OutputStream *)
+.. doxygenstruct:: arrow::csv::WriteOptions
+   :members:
 
-.. doxygenfunction:: arrow::csv::WriteCSV(const Table&, const WriteOptions&, arrow::io::OutputStream *)
+.. doxygengroup:: csv-write-functions
+   :content-only:
+
+.. doxygengroup:: csv-writer-factories
+   :content-only:
 
 .. _cpp-api-json:
 

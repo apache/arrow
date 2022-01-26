@@ -41,6 +41,10 @@
 
 namespace arrow {
 
+/// \addtogroup binary-builders
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // Binary and String
 
@@ -610,6 +614,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   void CheckValueSize(int64_t size);
 };
+
+/// @}
 
 // ----------------------------------------------------------------------
 // Chunked builders: build a sequence of BinaryArray or StringArray that are
