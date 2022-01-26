@@ -19,7 +19,9 @@ package org.apache.arrow.driver.jdbc.authentication;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
+import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
@@ -28,10 +30,6 @@ import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 public class UserPasswordAuthentication implements Authentication {
 
   private final Map<String, String> validCredentials;
-
-  public Map<String, String> getValidCredentials() {
-    return validCredentials;
-  }
 
   public UserPasswordAuthentication(Map<String, String> validCredentials) {
     this.validCredentials = validCredentials;
@@ -50,6 +48,14 @@ public class UserPasswordAuthentication implements Authentication {
           }
           throw CallStatus.UNAUTHENTICATED.withDescription("Invalid credentials.").toRuntimeException();
         }));
+  }
+
+  @Override
+  public void populateProperties(Properties properties) {
+    validCredentials.forEach((key, value) -> {
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(), value);
+    });
   }
 
   public static class Builder {

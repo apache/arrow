@@ -205,15 +205,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return  a {@link FlightServerTestRule}.
      */
     public FlightServerTestRule build() {
-      if (authentication instanceof UserPasswordAuthentication) {
-        ((UserPasswordAuthentication) authentication).getValidCredentials().forEach((key, value) -> {
-          properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
-          properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(), value);
-        });
-      } else {
-        ((TokenAuthentication) authentication).getValidCredentials().forEach(value -> properties.put(
-            ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.TOKEN.camelName(), value));
-      }
+      authentication.populateProperties(properties);
+
       return new FlightServerTestRule(properties, new ArrowFlightConnectionConfigImpl(properties),
           new RootAllocator(Long.MAX_VALUE), producer, authentication);
     }
