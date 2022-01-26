@@ -47,7 +47,6 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
-import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ResultSetTestUtils;
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.sql.FlightSqlProducer.Schemas;
@@ -95,7 +94,8 @@ public class ArrowDatabaseMetadataTest {
   public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
+      .createStandardTestRule(FLIGHT_SQL_PRODUCER);
   private static final int ROW_COUNT = 10;
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)
@@ -269,18 +269,6 @@ public class ArrowDatabaseMetadataTest {
   private static Connection connection;
 
   static {
-    UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
-            .build();
-
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
-        .authentication(authentication)
-        .producer(FLIGHT_SQL_PRODUCER)
-        .build();
-
     List<Integer> expectedGetColumnsDataTypes = Arrays.asList(3, 93, 4);
     List<String> expectedGetColumnsTypeName = Arrays.asList("DECIMAL", "TIMESTAMP", "INTEGER");
     List<Integer> expectedGetColumnsRadix = Arrays.asList(10, null, 10);

@@ -25,7 +25,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import org.apache.arrow.driver.jdbc.adhoc.CoreMockedSqlProducers;
-import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -36,23 +35,10 @@ import org.junit.rules.ErrorCollector;
 public class ArrowFlightPreparedStatementTest {
 
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
+      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   private static Connection connection;
-
-  static {
-    UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
-            .build();
-
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
-        .authentication(authentication)
-        .producer(CoreMockedSqlProducers.getLegacyProducer())
-        .build();
-  }
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();

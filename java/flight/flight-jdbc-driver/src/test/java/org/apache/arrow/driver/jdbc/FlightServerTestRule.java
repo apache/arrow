@@ -70,6 +70,26 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     this.authentication = authentication;
   }
 
+  /**
+   * Create a {@link FlightServerTestRule} with standard values such as: user, password, localhost.
+   *
+   * @param producer the producer used to create the FlightServerTestRule.
+   * @return         the FlightServerTestRule.
+   */
+  public static FlightServerTestRule createStandardTestRule(final FlightSqlProducer producer) {
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder()
+            .user("flight-test-user", "flight-test-password")
+            .build();
+
+    return new FlightServerTestRule.Builder()
+        .host("localhost")
+        .randomPort()
+        .authentication(authentication)
+        .producer(producer)
+        .build();
+  }
+
   ArrowFlightJdbcDataSource createDataSource() {
     return ArrowFlightJdbcDataSource.createNewDataSource(properties);
   }

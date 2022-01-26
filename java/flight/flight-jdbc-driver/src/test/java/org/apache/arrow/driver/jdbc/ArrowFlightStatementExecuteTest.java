@@ -34,7 +34,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
-import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -70,21 +69,7 @@ public class ArrowFlightStatementExecuteTest {
   private static final long SAMPLE_LARGE_UPDATE_COUNT = Long.MAX_VALUE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE;
-
-  static {
-    UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
-            .build();
-
-    SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .host("localhost")
-        .randomPort()
-        .authentication(authentication)
-        .producer(PRODUCER)
-        .build();
-  }
+  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
 
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
