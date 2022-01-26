@@ -687,6 +687,13 @@ test_that("leap_year mirror lubridate", {
 
 test_that("am/pm mirror lubridate", {
 
+  # TODO: revisit once ARROW-13168 is resolved
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    tzone = ""
+  } else {
+    tzone = "UTC"
+  }
+
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -695,11 +702,16 @@ test_that("am/pm mirror lubridate", {
       ) %>%
       collect(),
     data.frame(
-      test_time = strptime(c(
-        "2022-01-25 11:50:59",
-        "2022-01-25 12:00:00",
-        "2022-01-25 00:00:00"
-      ), format = "%Y-%m-%d %H:%M:%S")
+      test_time = strptime(
+        x = c(
+          "2022-01-25 11:50:59",
+          "2022-01-25 12:00:00",
+          "2022-01-25 00:00:00"
+        ),
+        format = "%Y-%m-%d %H:%M:%S",
+        tz = tzone
+      )
+
     )
   )
 
