@@ -86,6 +86,32 @@ class SelectKBasicImpl : public SortBasicImpl {
   const SelectKOptions options_;
 };
 
+class DefaultOrderImpl : public OrderByImpl {
+ public:
+  DefaultOrderImpl(ExecContext* ctx, const std::shared_ptr<Schema>& output_schema)
+      : ctx_(ctx), output_schema_(output_schema) {}
+
+  void InputReceived(const std::shared_ptr<RecordBatch>& batch) override {
+    std::unique_lock<std::mutex> lock(mutex_);
+    batches_.push_back(batch);
+  }
+
+  Result<Datum> DoFinish() override {
+    std::unique_lock<std::mutex> lock(mutex_);
+    ARROW_ASSIGN_OR_RAISE(auto table,
+                          Table::FromRecordBatches(output_schema_, std::move(batches_)));
+    return table;
+  }
+
+  std::string ToString() const override { return "default table generator"; }
+
+ protected:
+  ExecContext* ctx_;
+  std::shared_ptr<Schema> output_schema_;
+  std::mutex mutex_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+};  // namespace compute
+
 Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSort(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SortOptions& options) {
@@ -97,6 +123,12 @@ Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeSelectK(
     ExecContext* ctx, const std::shared_ptr<Schema>& output_schema,
     const SelectKOptions& options) {
   std::unique_ptr<OrderByImpl> impl{new SelectKBasicImpl(ctx, output_schema, options)};
+  return std::move(impl);
+}
+
+Result<std::unique_ptr<OrderByImpl>> OrderByImpl::MakeDefault(
+      ExecContext* ctx, const std::shared_ptr<Schema>& output_schema) {
+  std::unique_ptr<OrderByImpl> impl{new DefaultOrderImpl(ctx, output_schema)};
   return std::move(impl);
 }
 

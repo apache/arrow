@@ -280,5 +280,18 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 
 /// @}
 
+/// \brief Adapt an Table as a sink node
+///
+/// plan->exec_context()->executor() will be used to parallelize pushing to
+/// outputs, if provided.
+class ARROW_EXPORT TableSinkNodeOptions : public SinkNodeOptions {
+ public:
+  TableSinkNodeOptions(std::shared_ptr<Table> *output_table, 
+  std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), output_table(output_table) {}
+
+  std::shared_ptr<Table> *output_table;
+};
+
 }  // namespace compute
 }  // namespace arrow
