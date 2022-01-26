@@ -195,7 +195,6 @@ Array$create <- function(x, type = NULL) {
       # created with `strptime()`)
       is.null(attr(x, "tzone")))) {
     attr(x, "tzone") <- Sys.timezone()
-    inform("You have not supplied a timezone to x")
   }
 
   if (is.null(type)) {
