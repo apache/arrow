@@ -331,7 +331,6 @@ filesystem : FileSystem, default None
 
 
 def write_table(table, where, *,
-                close_file=False,
                 file_version='0.12',
                 batch_size=1024,
                 stripe_size=64 * 1024 * 1024,
