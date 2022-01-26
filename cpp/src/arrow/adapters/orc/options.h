@@ -93,12 +93,12 @@ struct ARROW_EXPORT WriteOptions {
   int64_t batch_size = 1024;
   /// Which ORC file version to use, default FileVersion(0, 12)
   FileVersion file_version = FileVersion(0, 12);
-  /// Size of each ORC stripe, default 64 MiB
+  /// Size of each ORC stripe in bytes, default 64 MiB
   int64_t stripe_size = 64 * 1024 * 1024;
   /// The compression codec of the ORC file, there is no compression by default
   Compression::type compression = Compression::UNCOMPRESSED;
-  /// The size of each compression block, default 65536
-  int64_t compression_block_size = 65536;
+  /// The size of each compression block in bytes, default 64 KiB
+  int64_t compression_block_size = 64 * 1024;
   /// The compression strategy i.e. speed vs size reduction, default
   /// CompressionStrategy::kSpeed
   CompressionStrategy compression_strategy = CompressionStrategy::kSpeed;
