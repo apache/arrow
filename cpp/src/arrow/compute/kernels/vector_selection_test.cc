@@ -2365,40 +2365,42 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
   });
 }
 
-template <typename Type>
-class TestIndicesNonZero : public ::testing::Test {};
-
-TYPED_TEST_SUITE(TestIndicesNonZero, NumericArrowTypes);
-TYPED_TEST(TestIndicesNonZero, IndicesNonZero) {
+TEST(TestIndicesNonZero, IndicesNonZero) {
   Datum actual;
   std::shared_ptr<Array> result;
-  auto type = TypeTraits<TypeParam>::type_singleton();
 
-  ASSERT_OK_AND_ASSIGN(actual, CallFunction("indices_nonzero",
-                                            {ArrayFromJSON(type, "[null, 50, 0, 10]")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[1, 3]"), *result);
+  for (const auto& type : NumericTypes()) {
+    ARROW_SCOPED_TRACE("Input type = ", type->ToString());
 
-  // empty
-  ASSERT_OK_AND_ASSIGN(actual,
-                       CallFunction("indices_nonzero", {ArrayFromJSON(type, "[]")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[]"), *result);
+    ASSERT_OK_AND_ASSIGN(
+        actual,
+        CallFunction("indices_nonzero", {ArrayFromJSON(type, "[null, 50, 0, 10]")}));
+    result = actual.make_array();
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[1, 3]"), *result, /*verbose*/ true);
 
-  // chunked
-  ChunkedArray chunked_arr(
-      {ArrayFromJSON(type, "[1, 0, 3]"), ArrayFromJSON(type, "[4, 0, 6]")});
-  ASSERT_OK_AND_ASSIGN(
-      actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr)}));
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array());
+    // empty
+    ASSERT_OK_AND_ASSIGN(actual,
+                         CallFunction("indices_nonzero", {ArrayFromJSON(type, "[]")}));
+    result = actual.make_array();
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[]"), *result, /*verbose*/ true);
 
-  // empty chunked
-  ChunkedArray chunked_arr_empty({ArrayFromJSON(type, "[1, 0, 3]"),
-                                  ArrayFromJSON(type, "[]"),
-                                  ArrayFromJSON(type, "[4, 0, 6]")});
-  ASSERT_OK_AND_ASSIGN(
-      actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr_empty)}));
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array());
+    // chunked
+    ChunkedArray chunked_arr(
+        {ArrayFromJSON(type, "[1, 0, 3]"), ArrayFromJSON(type, "[4, 0, 6]")});
+    ASSERT_OK_AND_ASSIGN(
+        actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr)}));
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array(),
+                      /*verbose*/ true);
+
+    // empty chunked
+    ChunkedArray chunked_arr_empty({ArrayFromJSON(type, "[1, 0, 3]"),
+                                    ArrayFromJSON(type, "[]"),
+                                    ArrayFromJSON(type, "[4, 0, 6]")});
+    ASSERT_OK_AND_ASSIGN(
+        actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr_empty)}));
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array(),
+                      /*verbose*/ true);
+  }
 }
 
 TEST(TestIndicesNonZero, IndicesNonZeroBoolean) {
@@ -2410,46 +2412,31 @@ TEST(TestIndicesNonZero, IndicesNonZeroBoolean) {
       actual, CallFunction("indices_nonzero",
                            {ArrayFromJSON(boolean(), "[null, true, false, true]")}));
   result = actual.make_array();
-  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"));
+  AssertArraysEqual(*result, *ArrayFromJSON(uint64(), "[1, 3]"), /*verbose*/ true);
 }
 
 TEST(TestIndicesNonZero, IndicesNonZeroDecimal) {
   Datum actual;
   std::shared_ptr<Array> result;
 
-  ASSERT_OK_AND_ASSIGN(
-      actual, CallFunction(
-                  "indices_nonzero",
-                  {DecimalArrayFromJSON(decimal128(2, -2), R"(["12E2",null,"0","0"])")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0]"), *result, true);
+  for (const auto& decimal_factory : {decimal128, decimal256}) {
+    ASSERT_OK_AND_ASSIGN(
+        actual, CallFunction("indices_nonzero",
+                             {DecimalArrayFromJSON(decimal_factory(2, -2),
+                                                   R"(["12E2",null,"0","0"])")}));
+    result = actual.make_array();
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[0]"), *result, /*verbose*/ true);
 
-  ASSERT_OK_AND_ASSIGN(
-      actual,
-      CallFunction(
-          "indices_nonzero",
-          {DecimalArrayFromJSON(
-              decimal128(6, 9),
-              R"(["765483.999999999","0.000000000",null,"-987645.000000001"])")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3]"), *result, true);
-
-  ASSERT_OK_AND_ASSIGN(
-      actual, CallFunction(
-                  "indices_nonzero",
-                  {DecimalArrayFromJSON(decimal256(2, -2), R"(["12E2",null,"0","0"])")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0]"), *result, true);
-
-  ASSERT_OK_AND_ASSIGN(
-      actual,
-      CallFunction(
-          "indices_nonzero",
-          {DecimalArrayFromJSON(
-              decimal256(6, 9),
-              R"(["765483.999999999","0.000000000",null,"-987645.000000001"])")}));
-  result = actual.make_array();
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3]"), *result, true);
+    ASSERT_OK_AND_ASSIGN(
+        actual,
+        CallFunction(
+            "indices_nonzero",
+            {DecimalArrayFromJSON(
+                decimal_factory(6, 9),
+                R"(["765483.999999999","0.000000000",null,"-987645.000000001"])")}));
+    result = actual.make_array();
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3]"), *result, /*verbose*/ true);
+  }
 }
 
 }  // namespace compute
