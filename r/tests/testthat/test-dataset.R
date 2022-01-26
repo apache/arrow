@@ -849,14 +849,8 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
 
-  # then import it and check that the roundtripped value is the same
-  circle <- RecordBatchStreamReader$import_from_c(stream_ptr)
-
-  # create an arrow_dplyr_query() from the recordbatch reader
-  reader_adq <- arrow_dplyr_query(circle)
-
   expect_equal(
-    reader_adq %>%
+    RecordBatchStreamReader$import_from_c(stream_ptr) %>%
       filter(int < 8 | int > 55) %>%
       mutate(part_plus = group + 6) %>%
       arrange(dbl) %>%
