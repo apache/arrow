@@ -192,6 +192,7 @@ Array$create <- function(x, type = NULL) {
 
   if (inherits(x, "POSIXct") && attr(x, "tzone") == "") {
     attr(x, "tzone") <- Sys.timezone()
+    inform("You have not supplied a timezone to x")
   }
 
   if (is.null(type)) {
