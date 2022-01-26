@@ -359,6 +359,42 @@ TEST_F(TestMapArrayLookupKernel, NestedItems) {
                                           expected_first, expected_last);
 }
 
+TEST_F(TestMapArrayLookupKernel, BooleanKey) {
+  auto true_scalar = ScalarFromJSON(boolean(), R"(true)");
+  auto map_type = map(boolean(), int32());
+  const char* input = R"(
+      [
+        [
+          [true, 99], [false, 1], [false, 2], [true, null], [false, 5],
+          [true, 8]
+        ],
+        null,
+        [
+          [false, null], [true, 67], [false, 101], [false, 1], [false, null],
+          [false, 9], [true, 80]
+        ],
+        [],
+        [
+          [false, 1], [false, 2], [false, 3], [false, 4]
+        ],
+        [
+          [true, 9], [true, 2], [true, 5], [true, 8]
+        ]
+      ]
+    )";
+  
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto map_array_tweaked = TweakValidityBit(map_array, 5, false);
+
+  auto expected_all = ArrayFromJSON(list(int32()), R"(
+    [[99, null, 8], null, [67, 80], null, null, null ])");
+  auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
+  auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
+
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, true_scalar, expected_all,
+                                          expected_first, expected_last);
+}
+
 template <typename KeyType>
 class TestMapArrayLookupIntegralKeys : public ::testing ::Test {
  protected:

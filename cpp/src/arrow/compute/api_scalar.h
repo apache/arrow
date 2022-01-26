@@ -482,7 +482,8 @@ class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
     ALL
   };
 
-  MapArrayLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence = ALL);
+  explicit MapArrayLookupOptions(std::shared_ptr<Scalar> query_key,
+                                 Occurrence occurrence = ALL);
   MapArrayLookupOptions();
 
   constexpr static char const kTypeName[] = "MapArrayLookupOptions";

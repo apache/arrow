@@ -428,40 +428,82 @@ const FunctionDoc make_struct_doc{"Wrap Arrays into a StructArray",
                                    "specified through MakeStructOptions."),
                                   {"*args"},
                                   "MakeStructOptions"};
-
+template <typename KeyType>
 struct MapArrayLookupFunctor {
-  static Result<int64_t> FindOneMapValueIndex(const Array& keys, const Scalar& query_key,
+  static Result<int64_t> FindOneMapValueIndex(const Array& keys,
+                                              const Scalar& query_key_scalar,
                                               const int64_t start, const int64_t end,
                                               const bool from_back = false) {
-    if (!from_back) {
-      for (int64_t idx = start; idx < end; ++idx) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys.GetScalar(idx));
+    const auto query_key = UnboxScalar<KeyType>::Unbox(query_key_scalar);
+    int64_t index = 0;
+    int64_t match_idx = -1;
+    ARROW_UNUSED(VisitArrayValuesInline<KeyType>(
+        *keys.data(),
+        [&](decltype(query_key) key) -> Status {
+          if (index < start) {
+            ++index;
+            return Status::OK();
+          } else if (index < end) {
+            if (key == query_key) {
+              if (!from_back) {
+                match_idx = index;
+                return Status::Cancelled("Found first matching key");
+              } else {
+                match_idx = index;
+              }
+            }
+            ++index;
+            return Status::OK();
+          } else {
+            return Status::Cancelled("End reached");
+          }
+        },
+        [&]() -> Status {
+          if (index < end) {
+            ++index;
+            return Status::OK();
+          } else {
+            return Status::Cancelled("End reached");
+          }
+        }));
 
-        if (key->Equals(query_key)) return idx;
-      }
-    } else {
-      for (int64_t idx = end - 1; idx >= start; --idx) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> key, keys.GetScalar(idx));
-
-        if (key->Equals(query_key)) return idx;
-      }
-    }
-    return -1;
+    return match_idx;
   }
 
   static Result<std::unique_ptr<ArrayBuilder>> GetBuiltArray(
-      const Array& keys, const Array& items, const Scalar& query_key,
+      const Array& keys, const Array& items, const Scalar& query_key_scalar,
       bool& found_at_least_one_key, const int64_t& start, const int64_t& end,
       KernelContext* ctx) {
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items.type(), &builder));
-    for (int64_t key_idx_to_check = start; key_idx_to_check < end; ++key_idx_to_check) {
-      ARROW_ASSIGN_OR_RAISE(auto key, keys.GetScalar(key_idx_to_check));
-      if (key->Equals(query_key)) {
-        found_at_least_one_key = true;
-        RETURN_NOT_OK(builder->AppendArraySlice(*items.data(), key_idx_to_check, 1));
-      }
-    }
+    const auto query_key = UnboxScalar<KeyType>::Unbox(query_key_scalar);
+    int64_t index = 0;
+    ARROW_UNUSED(VisitArrayValuesInline<KeyType>(
+        *keys.data(),
+        [&](decltype(query_key) key) -> Status {
+          if (index < start) {
+            ++index;
+            return Status::OK();
+          } else if (index < end) {
+            if (key == query_key) {
+              found_at_least_one_key = true;
+              RETURN_NOT_OK(builder->AppendArraySlice(*items.data(), index, 1));
+            }
+            ++index;
+            return Status::OK();
+          } else {
+            return Status::Cancelled("End reached");
+          }
+        },
+        [&]() -> Status {
+          if (index < end) {
+            ++index;
+            return Status::OK();
+          } else {
+            return Status::Cancelled("End reached");
+          }
+        }));
+
     return std::move(builder);
   }
 
@@ -607,13 +649,55 @@ Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
   }
 }
 
+struct ResolveMapArrayLookup {
+  KernelContext* ctx;
+  const ExecBatch& batch;
+  Datum* out;
+
+  template <typename KeyType>
+  Status Execute() {
+    if (batch[0].kind() == Datum::SCALAR) {
+      return MapArrayLookupFunctor<KeyType>::ExecMapScalar(ctx, batch, out);
+    }
+    return MapArrayLookupFunctor<KeyType>::ExecMapArray(ctx, batch, out);
+  }
+
+  template <typename KeyType>
+  enable_if_physical_integer<KeyType, Status> Visit(const KeyType& type) {
+    return Execute<KeyType>();
+  }
+
+  template <typename KeyType>
+  enable_if_decimal<KeyType, Status> Visit(const KeyType& type) {
+    return Execute<KeyType>();
+  }
+
+  template <typename KeyType>
+  enable_if_base_binary<KeyType, Status> Visit(const KeyType& type) {
+    return Execute<KeyType>();
+  }
+
+  template <typename KeyType>
+  enable_if_boolean<KeyType, Status> Visit(const KeyType& type) {
+    return Execute<KeyType>();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("Got unsupported type: ", type.ToString());
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    ResolveMapArrayLookup visitor{ctx, batch, out};
+    return VisitTypeInline(*checked_cast<const MapType&>(*batch[0].type()).key_type(),
+                           &visitor);
+  }
+};
+
 void AddMapArrayLookupKernels(ScalarFunction* func) {
   for (const auto shape : {ValueDescr::ARRAY, ValueDescr::SCALAR}) {
-    ScalarKernel kernel({InputType(Type::MAP, shape)},
-                        OutputType(ResolveMapArrayLookupType),
-                        shape == ValueDescr::ARRAY ? MapArrayLookupFunctor::ExecMapArray
-                                                   : MapArrayLookupFunctor::ExecMapScalar,
-                        OptionsWrapper<MapArrayLookupOptions>::Init);
+    ScalarKernel kernel(
+        {InputType(Type::MAP, shape)}, OutputType(ResolveMapArrayLookupType),
+        ResolveMapArrayLookup::Exec, OptionsWrapper<MapArrayLookupOptions>::Init);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
     DCHECK_OK(func->AddKernel(std::move(kernel)));
