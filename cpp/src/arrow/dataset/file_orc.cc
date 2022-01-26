@@ -71,7 +71,6 @@ class OrcScanTask : public ScanTask {
         ARROW_ASSIGN_OR_RAISE(
             auto reader,
             OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
-        int num_stripes = reader->NumberOfStripes();
 
         auto materialized_fields = scan_options.MaterializedFields();
         // filter out virtual columns

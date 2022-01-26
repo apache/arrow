@@ -232,7 +232,8 @@ class ARROW_EXPORT ORCFileReader {
                           std::shared_ptr<RecordBatchReader>* out);
 
   /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as a fine grain
+  ///         in each record batch, and will iterate all the stripes.
+  ///         NextBatchReader serves as a fine grain
   ///         alternative to ReadStripe which may cause OOM issue by loading
   ///         the whole stripes into memory.
   ///

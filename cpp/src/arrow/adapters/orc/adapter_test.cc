@@ -371,6 +371,81 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   }
 }
 
+TEST(TestAdapterRead, ReadIntAndStringFileMultipleBatches) {
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  ORC_UNIQUE_PTR<liborc::Type> type(
+      liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
+
+  constexpr uint64_t stripe_size = 1024;  // 1K
+  constexpr uint64_t stripe_count = 10;
+  constexpr uint64_t stripe_row_count = 16384;
+  constexpr uint64_t reader_batch_size = 1024;
+
+  auto writer = CreateWriter(stripe_size, *type, &mem_stream);
+  auto batch = writer->createRowBatch(stripe_row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  auto long_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
+  auto str_batch =
+      internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[1]);
+  int64_t accumulated = 0;
+
+  for (uint64_t j = 0; j < stripe_count; ++j) {
+    std::string data_buffer(stripe_row_count * 5, '\0');
+    uint64_t offset = 0;
+    for (uint64_t i = 0; i < stripe_row_count; ++i) {
+      std::string str_data = std::to_string(accumulated % stripe_row_count);
+      long_batch->data[i] = static_cast<int64_t>(accumulated % stripe_row_count);
+      str_batch->data[i] = &data_buffer[offset];
+      str_batch->length[i] = static_cast<int64_t>(str_data.size());
+      memcpy(&data_buffer[offset], str_data.c_str(), str_data.size());
+      accumulated++;
+      offset += str_data.size();
+    }
+    struct_batch->numElements = stripe_row_count;
+    long_batch->numElements = stripe_row_count;
+    str_batch->numElements = stripe_row_count;
+
+    writer->add(*batch);
+  }
+
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               static_cast<int64_t>(mem_stream.getLength()))));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+
+  EXPECT_OK_AND_ASSIGN(auto metadata, reader->ReadMetadata());
+  auto expected_metadata = std::const_pointer_cast<const KeyValueMetadata>(
+      key_value_metadata(std::vector<std::string>(), std::vector<std::string>()));
+  ASSERT_TRUE(metadata->Equals(*expected_metadata));
+  ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
+  ASSERT_EQ(stripe_count, reader->NumberOfStripes());
+  accumulated = 0;
+  std::shared_ptr<RecordBatchReader> record_batch_reader;
+  ABORT_NOT_OK(reader->NextBatchReader(reader_batch_size, {"col1", "col2"}, &record_batch_reader));
+  std::shared_ptr<RecordBatch> record_batch;
+  ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
+  int64_t batches = 0;
+  while (record_batch) {
+    auto int32_array = checked_pointer_cast<Int32Array>(record_batch->column(0));
+    auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
+    for (int j = 0; j < record_batch->num_rows(); ++j) {
+      EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
+      EXPECT_EQ(std::to_string(accumulated % stripe_row_count),
+                str_array->GetString(j));
+      accumulated++;
+    }
+    record_batch.reset();
+    ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
+    batches++;
+  }
+  EXPECT_EQ((stripe_row_count * stripe_count) / reader_batch_size , batches);
+}
+
 // WriteORC tests
 // Trivial
 
