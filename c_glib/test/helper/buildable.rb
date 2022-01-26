@@ -104,6 +104,18 @@ module Helper
                   values)
     end
 
+    def build_month_interval_array(values)
+      build_array(Arrow::MonthIntervalArrayBuilder.new, values)
+    end
+
+    def build_day_time_interval_array(values)
+      build_array(Arrow::DayTimeIntervalArrayBuilder.new, values)
+    end
+
+    def build_month_day_nano_interval_array(values)
+      build_array(Arrow::MonthDayNanoIntervalArrayBuilder.new, values)
+    end
+
     def build_binary_array(values)
       build_array(Arrow::BinaryArrayBuilder.new, values)
     end
