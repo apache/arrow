@@ -764,7 +764,6 @@ class WeakFuture {
   std::weak_ptr<FutureImpl> impl_;
 };
 
-
 /// \defgroup future-utilities Functions for working with Futures
 /// @{
 
