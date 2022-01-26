@@ -119,10 +119,8 @@ duckdb_disconnector <- function(con, tbl_name) {
 #' other processes (like DuckDB).
 #'
 #' @param .data the object to be converted
-#' @param stream should the results be streamed (`TRUE`) or read as a table
-#' (`FALSE`)? default: TRUE
 #'
-#' @return a `RecordBatchReader` object, to be used in dplyr pipelines.
+#' @return a `RecordBatchReader` object, which can be used in dplyr pipelines.
 #' @export
 #'
 #' @examplesIf getFromNamespace("run_duckdb_examples", "arrow")()
@@ -155,11 +153,6 @@ to_arrow <- function(.data, stream = TRUE) {
 
   # Run the query
   res <- DBI::dbSendQuery(dbplyr::remote_con(.data), dbplyr::remote_query(.data), arrow = TRUE)
-  out <- duckdb::duckdb_fetch_record_batch(res)
 
-  if (stream) {
-    return(out)
-  } else {
-    return(out$read_table())
-  }
+  duckdb::duckdb_fetch_record_batch(res)
 }
