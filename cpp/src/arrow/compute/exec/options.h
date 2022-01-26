@@ -56,8 +56,6 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 };
 
 /// \brief Adapt an Table as a source node
-/// The table will be sent through the exec plan in batches.
-/// Each batch will be submitted as a new thread task
 /// if plan->exec_context()->executor() is not null.
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
@@ -72,26 +70,6 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t batch_size;
 };
 
-/// \brief Make a node which excludes some rows from batches passed through it
-///
-/// filter_expression will be evaluated against each batch which is pushed to
-/// this node. Any rows for which filter_expression does not evaluate to `true` will be
-/// excluded in the batch emitted by this node.
-class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
- public:
-  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
-      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
-
-  Expression filter_expression;
-  bool async_mode;
-};
-
-/// \brief Make a node which executes expressions on input batches, producing new batches.
-///
-/// Each expression will be evaluated against each batch which is pushed to
-/// this node to produce a corresponding output column.
-///
-/// If names are not provided, the string representations of exprs will be used.
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
