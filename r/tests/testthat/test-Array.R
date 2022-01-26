@@ -261,10 +261,6 @@ test_that("array supports POSIXct (ARROW-3340)", {
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
-  expect_message(
-    Array$create(as.POSIXct("1970-01-01 00:00:15")),
-    regexp = "You have not supplied a timezone"
-  )
   withr::with_envvar(c(TZ = "Asia/Ulaanbaatar"), {
     times <- strptime("2019-02-03 12:34:56", format = "%Y-%m-%d %H:%M:%S") + 1:10
     expect_array_roundtrip(times, timestamp("us", "Asia/Ulaanbaatar"))
