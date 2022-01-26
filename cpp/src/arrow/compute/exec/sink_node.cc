@@ -324,6 +324,67 @@ struct OrderBySinkNode final : public SinkNode {
   std::unique_ptr<OrderByImpl> impl_;
 };
 
+struct TableSinkNode final : public SinkNode {
+  TableSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+            std::unique_ptr<OrderByImpl> impl,
+           AsyncGenerator<util::optional<ExecBatch>>* generator,
+           util::BackpressureOptions backpressure, std::shared_ptr<Table> *output) 
+           : SinkNode(plan, std::move(inputs), generator, std::move(backpressure)), output_table(output), 
+           impl_{std::move(impl)} {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableSinkNode"));
+    const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
+    ARROW_ASSIGN_OR_RAISE(
+        std::unique_ptr<OrderByImpl> impl,
+        OrderByImpl::MakeDefault(plan->exec_context(), inputs[0]->output_schema()));
+    return plan->EmplaceNode<TableSinkNode>(plan, std::move(inputs), std::move(impl), sink_options.generator,
+                                       sink_options.backpressure, sink_options.output_table);
+  }
+
+  const char* kind_name() const override { return "TableSinkNode"; }
+
+  void InputReceived(ExecNode* input, ExecBatch batch) override {
+    DCHECK_EQ(input, inputs_[0]);
+
+    auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
+                                           plan()->exec_context()->memory_pool());
+    if (ErrorIfNotOk(maybe_batch.status())) {
+      StopProducing();
+      if (input_counter_.Cancel()) {
+        finished_.MarkFinished(maybe_batch.status());
+      }
+      return;
+    }
+    auto record_batch = maybe_batch.MoveValueUnsafe();
+
+    impl_->InputReceived(std::move(record_batch));
+    if (input_counter_.Increment()) {
+      Finish();
+    }
+  }
+
+  protected:
+    Status DoFinish() {
+      ARROW_ASSIGN_OR_RAISE(Datum gathered, impl_->DoFinish());
+      *output_table = gathered.table();
+      return Status::OK();
+    }
+
+    void Finish() override {
+      Status st = DoFinish();
+      if (ErrorIfNotOk(st)) {
+        producer_.Push(std::move(st));
+      }
+      SinkNode::Finish();
+    }
+
+  private:
+    std::shared_ptr<Table> *output_table;
+    std::unique_ptr<OrderByImpl> impl_;
+};
+
 }  // namespace
 
 namespace internal {
@@ -333,6 +394,7 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
+  DCHECK_OK(registry->AddFactory("table_sink", TableSinkNode::Make));
 }
 
 }  // namespace internal
