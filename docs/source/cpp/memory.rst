@@ -201,3 +201,66 @@ simply do::
    std::shared_ptr<arrow::Buffer> arbitrary_buffer = ... ;
    std::shared_ptr<arrow::Buffer> cpu_buffer = arrow::Buffer::ViewOrCopy(
       arbitrary_buffer, arrow::default_cpu_memory_manager());
+
+
+Memory Profiling
+----------------
+
+Using LoggingMemoryPool
+~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Using perf on Linux
+~~~~~~~~~~~~~~~~~~~
+
+On Linux, more detailed profiles can be done using perf. These profiles can show the
+traceback in addition to allocation parameters (like size).
+
+.. TODO: This requires a debug build, right? Or maybe not if symbols in header file
+
+As an example, we can show how to profile one of the unit tests in Arrow. The same principal
+applies to any binary that uses the Arrow libraries.
+
+If you are following along on another platform, you can run the following docker container
+using archery:
+
+::
+
+   archery docker run ubuntu-cpp bash
+   /arrow/ci/scripts/cpp_build.sh /arrow /build
+   cd build/cpp/debug
+   ./arrow-array-test # Run a test
+   apt-get update
+   apt-get install -y linux-tools-generic
+   alias perf=/usr/lib/linux-tools/<something>/perf
+
+To track allocations, we can set events on MemoryPool methods. Use ``nm`` to find the
+symbols for the relevant methods. Here, we'll look at the ``Allocate``, ``Free``, and
+``Reallocate`` methods on ``JemallocAllocator``.
+
+:: 
+
+   > nm ./libarrow.so | grep 'Jemalloc'
+   ...
+   000000000178bdbc t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE10ReallocateEllPPh
+   000000000178c112 t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE13ReleaseUnusedEv
+   000000000178bfdc t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE4FreeEPhl
+   000000000178bbae t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh
+   ...
+
+
+::
+
+   perf probe -x libarrow.so _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh
+   perf record -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh \
+      -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE4FreeEPhl \
+      -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE10ReallocateEllPPh \
+      ./arrow-array-test
+
+
+Some other resources with tracing:
+
+https://www.maartenbreddels.com/perf/jupyter/python/tracing/gil/2021/01/14/Tracing-the-Python-GIL.html
+https://jvns.ca/linux-tracing-zine.pdf
+https://jvns.ca/perf-zine.pdf
+https://www.brendangregg.com/blog/2015-06-28/linux-ftrace-uprobe.html
