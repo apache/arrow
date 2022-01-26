@@ -220,6 +220,7 @@ struct TableSourceNode : public SourceNode {
     return gen;
   }
 
+<<<<<<< HEAD
   static std::vector<ExecBatch> ConvertTableToExecBatches(const Table& table,
                                                           const int64_t batch_size) {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
@@ -236,6 +237,15 @@ struct TableSourceNode : public SourceNode {
       if (batch_res.ok()) {
         batch = batch_res.ValueOrDie();
       }
+=======
+  arrow::Result<std::vector<ExecBatch>> ConvertTableToExecBatches(const Table& table) {
+    std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
+    std::shared_ptr<arrow::RecordBatch> batch;
+    std::vector<std::shared_ptr<arrow::RecordBatch>> batch_vector;
+    std::vector<ExecBatch> exec_batches;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
+>>>>>>> f505d915f (adding table source node)
       if (batch == NULLPTR) {
         break;
       }
@@ -252,7 +262,11 @@ namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
+<<<<<<< HEAD
   DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
+=======
+  DCHECK_OK(registry->AddFactory("table", TableSourceNode::Make));
+>>>>>>> f505d915f (adding table source node)
 }
 
 }  // namespace internal
