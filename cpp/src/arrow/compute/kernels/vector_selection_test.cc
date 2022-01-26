@@ -2385,14 +2385,14 @@ TYPED_TEST(TestIndicesNonZero, IndicesNonZero) {
   result = actual.make_array();
   AssertArraysEqual(*ArrayFromJSON(uint64(), "[]"), *result);
 
-  // chuncked
+  // chunked
   ChunkedArray chunked_arr(
       {ArrayFromJSON(type, "[1, 0, 3]"), ArrayFromJSON(type, "[4, 0, 6]")});
   ASSERT_OK_AND_ASSIGN(
       actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr)}));
   AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array());
 
-  // empty chuncked
+  // empty chunked
   ChunkedArray chunked_arr_empty({ArrayFromJSON(type, "[1, 0, 3]"),
                                   ArrayFromJSON(type, "[]"),
                                   ArrayFromJSON(type, "[4, 0, 6]")});
