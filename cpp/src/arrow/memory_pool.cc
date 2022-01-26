@@ -106,6 +106,7 @@ namespace {
 constexpr size_t kAlignment = 64;
 
 constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
+constexpr char kAllocationLoggingEnvVar[] = "ARROW_LOG_ALLOCATIONS";
 
 enum class MemoryPoolBackend : uint8_t { System, Jemalloc, Mimalloc };
 
@@ -513,6 +514,7 @@ static struct GlobalState {
 #ifdef ARROW_MIMALLOC
   MimallocMemoryPool mimalloc_pool;
 #endif
+  LoggingMemoryPool* logging_pool;
 } global_state;
 
 MemoryPool* system_memory_pool() { return &global_state.system_pool; }
@@ -537,20 +539,37 @@ Status mimalloc_memory_pool(MemoryPool** out) {
 
 MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();
+
+  bool use_logging = false; // TODO: check env variable
+  std::string logging_var = internal::GetEnvVar(kAllocationLoggingEnvVar).ValueOr("false");
+  if (logging_var == "true") {
+    use_logging = true;
+  }
+
+  MemoryPool* pool;
   switch (backend) {
     case MemoryPoolBackend::System:
-      return &global_state.system_pool;
+      pool = &global_state.system_pool;
 #ifdef ARROW_JEMALLOC
     case MemoryPoolBackend::Jemalloc:
-      return &global_state.jemalloc_pool;
+      pool = &global_state.jemalloc_pool;
 #endif
 #ifdef ARROW_MIMALLOC
     case MemoryPoolBackend::Mimalloc:
-      return &global_state.mimalloc_pool;
+      pool = &global_state.mimalloc_pool;
 #endif
     default:
       ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
       return nullptr;
+  }
+
+  if (use_logging && global_state.logging_pool != nullptr) {
+    return global_state.logging_pool;
+  } else if (use_logging) {
+    *global_state.logging_pool = LoggingMemoryPool(pool);
+    return global_state.logging_pool;
+  } else {
+    return pool;
   }
 }
 
