@@ -2392,6 +2392,29 @@ struct NonZeroVisitor {
 
     return Status::OK();
   }
+
+  template <typename Type>
+  enable_if_t<is_decimal128_type<Type>::value || is_decimal256_type<Type>::value, Status>
+  Visit(const Type&) {
+    using T = typename GetOutputType<Type>::T;
+    uint64_t index = 0;
+
+    T zero = 0;
+    for (const auto& current_array : arrays) {
+      VisitArrayValuesInline<Type>(
+          *current_array,
+          [&](T v) {
+            if (v != zero) {
+              this->builder->UnsafeAppend(index++);
+            } else {
+              ++index;
+            }
+          },
+          [&]() { ++index; });
+    }
+
+    return Status::OK();
+  }
 };
 
 Status IndicesNonZeroExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
@@ -2426,25 +2449,33 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
                                                            const FunctionDoc* doc) {
   auto func = std::make_shared<VectorFunction>(name, Arity::Unary(), doc);
 
-  for (const auto& ty : NumericTypes()) {
-    VectorKernel kernel;
-    kernel.exec = IndicesNonZeroExec;
-    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    kernel.output_chunked = false;
-    kernel.can_execute_chunkwise = false;
-    kernel.signature = KernelSignature::Make({InputType(ty->id())}, uint64());
-    DCHECK_OK(func->AddKernel(kernel));
-  }
+  VectorKernel kernel;
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  kernel.output_chunked = false;
+  kernel.can_execute_chunkwise = false;
 
-  VectorKernel boolkernel;
-  boolkernel.exec = IndicesNonZeroExec;
-  boolkernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-  boolkernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  boolkernel.output_chunked = false;
-  boolkernel.can_execute_chunkwise = false;
-  boolkernel.signature = KernelSignature::Make({boolean()}, uint64());
-  DCHECK_OK(func->AddKernel(boolkernel));
+  auto AddKernels = [&](const std::vector<std::shared_ptr<DataType>>& types) {
+    for (const std::shared_ptr<DataType>& ty : types) {
+      kernel.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+      kernel.exec = IndicesNonZeroExec;
+      DCHECK_OK(func->AddKernel(kernel));
+    }
+  };
+
+  AddKernels(NumericTypes());
+  AddKernels({boolean()});
+
+  VectorKernel deckernel;
+  deckernel.exec = IndicesNonZeroExec;
+  deckernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  deckernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  deckernel.output_chunked = false;
+  deckernel.can_execute_chunkwise = false;
+  for (const auto& ty : {Type::DECIMAL128, Type::DECIMAL256}) {
+    deckernel.signature = KernelSignature::Make({InputType::Array(ty)}, uint64());
+    DCHECK_OK(func->AddKernel(deckernel));
+  }
 
   return func;
 }
