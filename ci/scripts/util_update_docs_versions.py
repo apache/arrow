@@ -47,7 +47,8 @@ new_version = [
 new_version.extend(old_versions)
 with open(main_versions_path, 'w') as json_file:
     json.dump(new_version, json_file, indent = 4)
-    
+    json_file.write("\n")
+
 ## Update R package version script
 
 with open(r_versions_path) as json_file:
