@@ -180,7 +180,7 @@ public class FlightStreamQueue implements AutoCloseable {
     }));
   }
 
-  public static boolean isCallStatusCancelled(final Exception e) {
+  private static boolean isCallStatusCancelled(final Exception e) {
     return e.getCause() instanceof FlightRuntimeException &&
         ((FlightRuntimeException) e.getCause()).status().code() == CallStatus.CANCELLED.code();
   }
