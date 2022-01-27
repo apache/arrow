@@ -284,13 +284,18 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 ///
 /// plan->exec_context()->executor() will be used to parallelize pushing to
 /// outputs, if provided.
-class ARROW_EXPORT TableSinkNodeOptions : public SinkNodeOptions {
+class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
-  TableSinkNodeOptions(std::shared_ptr<Table> *output_table, 
-  std::function<Future<util::optional<ExecBatch>>()>* generator)
-      : SinkNodeOptions(generator), output_table(output_table) {}
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                       std::shared_ptr<Schema> output_schema,
+                       Future<> finish = Future<>::Make())
+      : output_table(output_table),
+        output_schema(std::move(output_schema)),
+        finish(std::move(finish)) {}
 
-  std::shared_ptr<Table> *output_table;
+  std::shared_ptr<Table>* output_table;
+  std::shared_ptr<Schema> output_schema;
+  Future<> finish;
 };
 
 }  // namespace compute

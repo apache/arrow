@@ -232,6 +232,77 @@ class ConsumingSinkNode : public ExecNode {
   std::shared_ptr<SinkNodeConsumer> consumer_;
 };
 
+/**
+ * @brief This node is an extension on ConsumingSinkNode
+ * to facilitate to get the output from an execution plan
+ * as a table. We define a custom SinkNodeConsumer to
+ * enable this functionality.
+ */
+
+struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
+ public:
+  TableSinkNodeConsumer(std::shared_ptr<Table>* out,
+                        std::shared_ptr<Schema> output_schema, MemoryPool* pool,
+                        Future<> finish)
+      : out_(out),
+        output_schema_(output_schema),
+        pool_(pool),
+        finish_(std::move(finish)) {}
+
+  Status Consume(ExecBatch batch) override {
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(output_schema_, pool_));
+    if (rb) {
+      batch_vector.push_back(rb);
+    } else {
+      return Status::Invalid("Invalid ExecBatch consumed");
+    }
+    return Status::OK();
+  }
+
+  Future<> Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches(batch_vector));
+    *out_ = table;
+    return finish_;
+  }
+
+ private:
+  std::shared_ptr<Table>* out_;
+  std::shared_ptr<Schema> output_schema_;
+  MemoryPool* pool_;
+  Future<> finish_;
+  std::vector<std::shared_ptr<RecordBatch>> batch_vector;
+};
+
+static std::shared_ptr<SinkNodeConsumer> MakeTableSinkConsumer(
+    std::shared_ptr<Table>* out, std::shared_ptr<Schema> output_schema, MemoryPool* pool,
+    Future<> finish) {
+  auto tb_consumer =
+      std::make_shared<TableSinkNodeConsumer>(out, output_schema, pool, finish);
+  return std::move(tb_consumer);
+}
+
+class TableConsumingSinkNode : public ConsumingSinkNode {
+ public:
+  TableConsumingSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                         std::shared_ptr<Schema> output_schema,
+                         std::shared_ptr<Table>* out, MemoryPool* pool, Future<> finish)
+      : ConsumingSinkNode(plan, inputs,
+                          MakeTableSinkConsumer(out, output_schema, pool, finish)) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableConsumingSinkNode"));
+
+    const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
+    MemoryPool* pool = plan->exec_context()->memory_pool();
+    return plan->EmplaceNode<TableConsumingSinkNode>(
+        plan, std::move(inputs), sink_options.output_schema, sink_options.output_table,
+        pool, sink_options.finish);
+  }
+
+  const char* kind_name() const override { return "TableConsumingSinkNode"; }
+};
+
 // A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -324,67 +395,6 @@ struct OrderBySinkNode final : public SinkNode {
   std::unique_ptr<OrderByImpl> impl_;
 };
 
-struct TableSinkNode final : public SinkNode {
-  TableSinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-            std::unique_ptr<OrderByImpl> impl,
-           AsyncGenerator<util::optional<ExecBatch>>* generator,
-           util::BackpressureOptions backpressure, std::shared_ptr<Table> *output) 
-           : SinkNode(plan, std::move(inputs), generator, std::move(backpressure)), output_table(output), 
-           impl_{std::move(impl)} {}
-
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableSinkNode"));
-    const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
-    ARROW_ASSIGN_OR_RAISE(
-        std::unique_ptr<OrderByImpl> impl,
-        OrderByImpl::MakeDefault(plan->exec_context(), inputs[0]->output_schema()));
-    return plan->EmplaceNode<TableSinkNode>(plan, std::move(inputs), std::move(impl), sink_options.generator,
-                                       sink_options.backpressure, sink_options.output_table);
-  }
-
-  const char* kind_name() const override { return "TableSinkNode"; }
-
-  void InputReceived(ExecNode* input, ExecBatch batch) override {
-    DCHECK_EQ(input, inputs_[0]);
-
-    auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
-                                           plan()->exec_context()->memory_pool());
-    if (ErrorIfNotOk(maybe_batch.status())) {
-      StopProducing();
-      if (input_counter_.Cancel()) {
-        finished_.MarkFinished(maybe_batch.status());
-      }
-      return;
-    }
-    auto record_batch = maybe_batch.MoveValueUnsafe();
-
-    impl_->InputReceived(std::move(record_batch));
-    if (input_counter_.Increment()) {
-      Finish();
-    }
-  }
-
-  protected:
-    Status DoFinish() {
-      ARROW_ASSIGN_OR_RAISE(Datum gathered, impl_->DoFinish());
-      *output_table = gathered.table();
-      return Status::OK();
-    }
-
-    void Finish() override {
-      Status st = DoFinish();
-      if (ErrorIfNotOk(st)) {
-        producer_.Push(std::move(st));
-      }
-      SinkNode::Finish();
-    }
-
-  private:
-    std::shared_ptr<Table> *output_table;
-    std::unique_ptr<OrderByImpl> impl_;
-};
-
 }  // namespace
 
 namespace internal {
@@ -394,7 +404,7 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
-  DCHECK_OK(registry->AddFactory("table_sink", TableSinkNode::Make));
+  DCHECK_OK(registry->AddFactory("table_sink", TableConsumingSinkNode::Make));
 }
 
 }  // namespace internal
