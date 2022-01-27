@@ -33,6 +33,9 @@
 namespace arrow {
 namespace compute {
 
+/// \addtogroup execnode-options
+/// @{
+
 class ARROW_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
@@ -153,6 +156,8 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
+/// @}
+
 enum class JoinType {
   LEFT_SEMI,
   RIGHT_SEMI,
@@ -165,6 +170,9 @@ enum class JoinType {
 };
 
 enum class JoinKeyCmp { EQ, IS };
+
+/// \addtogroup execnode-options
+/// @{
 
 /// \brief Make a node which implements join operation using hash join strategy.
 class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
@@ -269,6 +277,8 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
   /// SelectK options
   SelectKOptions select_k_options;
 };
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow
