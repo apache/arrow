@@ -1588,7 +1588,7 @@ This function returns the indices at which array elements are non-null and non-z
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
+| indices_nonzero       | Unary | Boolean, Null, Numeric, Decimal   | UInt64         |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 Sorts and partitions
