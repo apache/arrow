@@ -133,7 +133,6 @@ CsvFileFormat$create <- function(...,
   schema_names <- names(schema)
 
   if (!is.null(schema) & !identical(schema_names, column_names)) {
-
     missing_from_schema <- setdiff(column_names, schema_names)
     missing_from_colnames <- setdiff(schema_names, column_names)
     message_colnames <- NULL
@@ -154,7 +153,7 @@ CsvFileFormat$create <- function(...,
       )
     }
 
-    if ( length(missing_from_schema) == 0 & length(missing_from_colnames) == 0) {
+    if (length(missing_from_schema) == 0 & length(missing_from_colnames) == 0) {
       message_order <- "`column_names` and schema field names match but are not in the same order"
     }
 
