@@ -42,7 +42,6 @@
 #include "arrow/compute/registry.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -910,7 +909,11 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                              R"([
     ["-0.25", "-0.25", 2],
     ["0.75",  "0.75",  null],
-    [null,    null,    3]
+    [null,    null,    3],
+    ["1.01",  "1.01",  4],
+    ["1.01",  "1.01",  4],
+    ["1.01",  "1.01",  4],
+    ["1.02",  "1.02",  4]
   ])"});
 
       ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
@@ -945,10 +948,11 @@ TEST(GroupBy, SumMeanProductDecimal) {
                                           field("key_0", int64()),
                                       }),
                                       R"([
-    ["4.25",  "4.25",  "2.12",  "2.12",  "3.25", "3.25", 1],
+    ["4.25",  "4.25",  "2.13",  "2.13",  "3.25", "3.25", 1],
     ["-0.13", "-0.13", "-0.04", "-0.04", "0.00", "0.00", 2],
     [null,    null,    null,    null,    null,   null,   3],
-    ["4.75",  "4.75",  "2.37",  "2.37",  "3.00", "3.00", null]
+    ["4.05",  "4.05",  "1.01",  "1.01",  "1.05", "1.05", 4],
+    ["4.75",  "4.75",  "2.38",  "2.38",  "3.00", "3.00", null]
   ])"),
                         aggregated_and_grouped,
                         /*verbose=*/true);
@@ -2480,7 +2484,7 @@ TEST(GroupBy, Product) {
                                         }),
                                         R"([
     [-3.25, 1,    null, 1],
-    [0.0,   8,    0.0,  2],
+    [-0.0,  8,    -0.0, 2],
     [null,  9,    null, 3],
     [3.0,   null, null, null]
   ])"),
@@ -2564,7 +2568,7 @@ TEST(GroupBy, SumMeanProductKeepNulls) {
                                         }),
                                         R"([
     [null,   null,   null,       null,       null, null, 1],
-    [-0.125, -0.125, -0.0416667, -0.0416667, 0.0,  0.0,  2],
+    [-0.125, -0.125, -0.0416667, -0.0416667, -0.0, -0.0, 2],
     [null,   null,   null,       null,       null, null, 3],
     [4.75,   null,   2.375,      null,       3.0,  null, null]
   ])"),
@@ -2807,5 +2811,97 @@ TEST(GroupBy, SmallChunkSizeSumOnly) {
                     /*verbose=*/true);
 }
 
+TEST(GroupBy, CountWithNullType) {
+  auto table =
+      TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
+    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, 3],
+    [null, null],
+    [null, 1],
+    [null, 2]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, null],
+    [null, 3]
+                        ])"});
+
+  CountOptions all(CountOptions::ALL);
+  CountOptions only_valid(CountOptions::ONLY_VALID);
+  CountOptions only_null(CountOptions::ONLY_NULL);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_count", &all},
+                                   {"hash_count", &only_valid},
+                                   {"hash_count", &only_null},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_count", int64()),
+                                          field("hash_count", int64()),
+                                          field("hash_count", int64()),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    [3, 0, 3, 1],
+    [3, 0, 3, 2],
+    [2, 0, 2, 3],
+    [2, 0, 2, null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, CountWithNullTypeEmptyTable) {
+  auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
+                             {R"([])"});
+
+  CountOptions all(CountOptions::ALL);
+  CountOptions only_valid(CountOptions::ONLY_VALID);
+  CountOptions only_null(CountOptions::ONLY_NULL);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_count", &all},
+                                   {"hash_count", &only_valid},
+                                   {"hash_count", &only_null},
+                               },
+                               use_threads, use_exec_plan));
+      auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+      for (auto& field : struct_arr->fields()) {
+        AssertDatumsEqual(ArrayFromJSON(int64(), "[]"), field, /*verbose=*/true);
+      }
+    }
+  }
+}
 }  // namespace compute
 }  // namespace arrow

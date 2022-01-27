@@ -84,7 +84,7 @@ The resulting Array (which can be casted to the concrete :class:`arrow::Int64Arr
 subclass if you want to access its values) then consists of two
 :class:`arrow::Buffer`\s.
 The first buffer holds the null bitmap, which consists here of a single byte with
-the bits ``1|1|1|1|0|1|1|1``. As we use  `least-significant bit (LSB) numbering`_.
+the bits ``1|1|1|1|0|1|1|1``. As we use  `least-significant bit (LSB) numbering`_,
 this indicates that the fourth entry in the array is null. The second
 buffer is simply an ``int64_t`` array containing all the above values.
 As the fourth entry is null, the value at that position in the buffer is
@@ -95,7 +95,7 @@ Here is how you could access the concrete array's contents::
    // Cast the Array to its actual type to access its data
    auto int64_array = std::static_pointer_cast<arrow::Int64Array>(array);
 
-   // Get the pointer to the null bitmap.
+   // Get the pointer to the null bitmap
    const uint8_t* null_bitmap = int64_array->null_bitmap_data();
 
    // Get the pointer to the actual data

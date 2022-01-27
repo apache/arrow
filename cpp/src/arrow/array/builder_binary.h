@@ -280,7 +280,7 @@ class BaseBinaryBuilder : public ArrayBuilder {
     auto offsets = array.GetValues<offset_type>(1);
     auto data = array.GetValues<uint8_t>(2, 0);
     for (int64_t i = 0; i < length; i++) {
-      if (!bitmap || BitUtil::GetBit(bitmap, array.offset + offset + i)) {
+      if (!bitmap || bit_util::GetBit(bitmap, array.offset + offset + i)) {
         const offset_type start = offsets[offset + i];
         const offset_type end = offsets[offset + i + 1];
         ARROW_RETURN_NOT_OK(Append(data + start, end - start));

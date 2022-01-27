@@ -1,4 +1,4 @@
- local({
+local({
   .pick_cran <- function() {
     # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
     rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
@@ -38,14 +38,14 @@
       }
     }
 
-    return("https://cloud.r-project.org")
+    return(NULL)
   }
 
   options(
     Ncpus = parallel::detectCores(),
-    repos = tryCatch(.pick_cran(), error = function(e) "https://cloud.r-project.org"),
+    repos = c(tryCatch(.pick_cran(), error = function(e) NULL), "https://cloud.r-project.org"),
     HTTPUserAgent = sprintf(
-      'R/%s R (%s)',
+      "R/%s R (%s)",
       getRversion(),
       paste(getRversion(), R.version$platform, R.version$arch, R.version$os)
     )

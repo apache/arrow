@@ -334,6 +334,14 @@ if(ARROW_GANDIVA)
   set(ARROW_WITH_RE2 ON)
 endif()
 
+if(ARROW_BUILD_INTEGRATION AND ARROW_FLIGHT)
+  set(ARROW_FLIGHT_SQL ON)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  set(ARROW_FLIGHT ON)
+endif()
+
 if(ARROW_CUDA
    OR ARROW_FLIGHT
    OR ARROW_PARQUET
@@ -763,6 +771,19 @@ endif()
 if(ARROW_S3)
   list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND
+       ARROW_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
+       opentelemetry-cpp::otlp_http_exporter)
+  list(APPEND
+       ARROW_STATIC_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
+       opentelemetry-cpp::otlp_http_exporter)
 endif()
 
 if(ARROW_WITH_UTF8PROC)

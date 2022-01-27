@@ -36,6 +36,7 @@ import os
 import sys
 import warnings
 from unittest import mock
+from docutils.parsers.rst import Directive, directives
 
 import pyarrow
 
@@ -60,16 +61,18 @@ warnings.filterwarnings("ignore", category=FutureWarning, message=".*pyarrow.*")
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'breathe',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
+    'numpydoc',
+    'sphinx_tabs.tabs',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.doctest',
     'sphinx.ext.ifconfig',
+    'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'sphinx.ext.napoleon',
-    'IPython.sphinxext.ipython_directive',
-    'IPython.sphinxext.ipython_console_highlighting',
-    'breathe'
 ]
 
 # Show members for classes in .. autosummary
@@ -91,7 +94,35 @@ autodoc_mock_imports = []
 ipython_mplbackend = ''
 
 # numpydoc configuration
-napoleon_use_rtype = False
+numpydoc_xref_param_type = True
+numpydoc_show_class_members = False
+numpydoc_xref_ignore = {
+    "or", "and", "of", "if", "default", "optional", "object",
+    "dicts", "rows", "Python", "source", "filesystem",
+    "dataset", "datasets",
+    # TODO those one could be linked to a glossary or python docs?
+    "file", "path", "paths", "mapping", "Mapping", "URI", "function",
+    "iterator", "Iterator",
+    # TODO this term is used regularly, but isn't actually exposed (base class)
+    "RecordBatchReader",
+    # additional ignores that could be fixed by rewriting the docstrings
+    "other", "supporting", "buffer", "protocol",  # from Codec / pa.compress
+    "depends", "on", "inputs",  # pyarrow.compute
+    "values", "coercible", "to", "arrays",  # pa.chunked_array, Table methods
+    "depending",  # to_pandas
+}
+numpydoc_xref_aliases = {
+    "array-like": ":func:`array-like <pyarrow.array>`",
+    "Array": "pyarrow.Array",
+    "Schema": "pyarrow.Schema",
+    "RecordBatch": "pyarrow.RecordBatch",
+    "Table": "pyarrow.Table",
+    "MemoryPool": "pyarrow.MemoryPool",
+    "NativeFile": "pyarrow.NativeFile",
+    "FileSystem": "pyarrow.fs.FileSystem",
+    "FileType": "pyarrow.fs.FileType",
+}
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -182,6 +213,12 @@ pygments_style = 'sphinx'
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'pandas': ('https://pandas.pydata.org/docs/', None)
+}
+
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -197,6 +234,7 @@ html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
     "show_toc_level": 2,
     "google_analytics_id": "UA-107500873-1",
+    "use_edit_page_button": True,
 }
 
 html_context = {
@@ -204,6 +242,10 @@ html_context = {
     "switcher_template_url": "https://arrow.apache.org/docs/{version}",
     # for local testing
     # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
+    "github_user": "apache",
+    "github_repo": "arrow",
+    "github_version": "master",
+    "doc_path": "docs/source",
 }
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -462,3 +504,49 @@ def setup(app):
     # This will also rebuild appropriately when the value changes.
     app.add_config_value('cuda_enabled', cuda_enabled, 'env')
     app.add_config_value('flight_enabled', flight_enabled, 'env')
+    app.add_directive('arrow-computefuncs', ComputeFunctionsTableDirective)
+
+
+class ComputeFunctionsTableDirective(Directive):
+    """Generate a table of Arrow compute functions.
+
+    .. arrow-computefuncs::
+        :kind: hash_aggregate
+
+    The generated table will include function name,
+    description and option class reference.
+
+    The functions listed in the table can be restricted
+    with the :kind: option.
+    """
+    has_content = True
+    option_spec = {
+        "kind": directives.unchanged
+    }
+
+    def run(self):
+        from docutils.statemachine import ViewList
+        from docutils import nodes
+        import pyarrow.compute as pc
+
+        result = ViewList()
+        function_kind = self.options.get('kind', None)
+
+        result.append(".. csv-table::", "<computefuncs>")
+        result.append("   :widths: 20, 60, 20", "<computefuncs>")
+        result.append("   ", "<computefuncs>")
+        for fname in pc.list_functions():
+            func = pc.get_function(fname)
+            option_class = ""
+            if func._doc.options_class:
+                option_class = f":class:`{func._doc.options_class}`"
+            if not function_kind or func.kind == function_kind:
+                result.append(
+                    f'   "{fname}", "{func._doc.summary}", "{option_class}"',
+                    "<computefuncs>"
+                )
+
+        node = nodes.section()
+        node.document = self.state.document
+        self.state.nested_parse(result, 0, node)
+        return node.children

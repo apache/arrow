@@ -170,7 +170,6 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
 
     if (right_false) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
@@ -178,8 +177,8 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
     if (right_true) {
       if (left.GetNullCount() == 0) {
         out->null_count = 0;
-        out->buffers[0] = nullptr;
       } else {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
       }
       GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
@@ -187,6 +186,7 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
     }
 
     // scalar was null: out[i] is valid iff left[i] was false
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
     if (left.GetNullCount() == 0) {
       ::arrow::internal::InvertBitmap(left.buffers[1]->data(), left.offset, left.length,
                                       out->buffers[0]->mutable_data(), out->offset);
@@ -204,10 +204,10 @@ struct KleeneAndOp : Commutative<KleeneAndOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      BitUtil::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
       return AndOp::Call(ctx, left, right, out);
     }
+
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
     auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
                            uint64_t right_false, uint64_t* out_valid,
                            uint64_t* out_data) {
@@ -274,7 +274,6 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
 
     if (right_true) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(true);  // all true case
       return Status::OK();
     }
@@ -282,8 +281,8 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
     if (right_false) {
       if (left.GetNullCount() == 0) {
         out->null_count = 0;
-        out->buffers[0] = nullptr;
       } else {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
         GetBitmap(*out, 0).CopyFrom(GetBitmap(left, 0));
       }
       GetBitmap(*out, 1).CopyFrom(GetBitmap(left, 1));
@@ -291,6 +290,7 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
     }
 
     // scalar was null: out[i] is valid iff left[i] was true
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
     if (left.GetNullCount() == 0) {
       ::arrow::internal::CopyBitmap(left.buffers[1]->data(), left.offset, left.length,
                                     out->buffers[0]->mutable_data(), out->offset);
@@ -308,11 +308,10 @@ struct KleeneOrOp : Commutative<KleeneOrOp> {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      BitUtil::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
       return OrOp::Call(ctx, left, right, out);
     }
 
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
     static auto compute_word = [](uint64_t left_true, uint64_t left_false,
                                   uint64_t right_true, uint64_t right_false,
                                   uint64_t* out_valid, uint64_t* out_data) {
@@ -400,7 +399,6 @@ struct KleeneAndNotOp {
 
     if (left_false) {
       out->null_count = 0;
-      out->buffers[0] = nullptr;
       GetBitmap(*out, 1).SetBitsTo(false);  // all false case
       return Status::OK();
     }
@@ -408,8 +406,8 @@ struct KleeneAndNotOp {
     if (left_true) {
       if (right.GetNullCount() == 0) {
         out->null_count = 0;
-        out->buffers[0] = nullptr;
       } else {
+        ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(right.length));
         GetBitmap(*out, 0).CopyFrom(GetBitmap(right, 0));
       }
       GetBitmap(*out, 1).CopyFromInverted(GetBitmap(right, 1));
@@ -417,6 +415,7 @@ struct KleeneAndNotOp {
     }
 
     // scalar was null: out[i] is valid iff right[i] was true
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(right.length));
     if (right.GetNullCount() == 0) {
       ::arrow::internal::CopyBitmap(right.buffers[1]->data(), right.offset, right.length,
                                     out->buffers[0]->mutable_data(), out->offset);
@@ -439,11 +438,10 @@ struct KleeneAndNotOp {
                      ArrayData* out) {
     if (left.GetNullCount() == 0 && right.GetNullCount() == 0) {
       out->null_count = 0;
-      // Kleene kernels have validity bitmap pre-allocated. Therefore, set it to 1
-      BitUtil::SetBitmap(out->buffers[0]->mutable_data(), out->offset, out->length);
       return AndNotOp::Call(ctx, left, right, out);
     }
 
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(left.length));
     static auto compute_word = [](uint64_t left_true, uint64_t left_false,
                                   uint64_t right_true, uint64_t right_false,
                                   uint64_t* out_valid, uint64_t* out_data) {
@@ -461,7 +459,6 @@ void MakeFunction(const std::string& name, int arity, ArrayKernelExec exec,
                   NullHandling::type null_handling = NullHandling::INTERSECTION) {
   auto func = std::make_shared<ScalarFunction>(name, Arity(arity), doc);
 
-  // Scalar arguments not yet supported
   std::vector<InputType> in_types(arity, InputType(boolean()));
   ScalarKernel kernel(std::move(in_types), boolean(), exec);
   kernel.null_handling = null_handling;
@@ -550,12 +547,14 @@ void RegisterScalarBoolean(FunctionRegistry* registry) {
   MakeFunction("or", 2, applicator::SimpleBinary<OrOp>, &or_doc, registry);
   MakeFunction("xor", 2, applicator::SimpleBinary<XorOp>, &xor_doc, registry);
 
+  // The null bitmap is not preallocated for Kleene kernels, as sometimes
+  // all outputs are valid even though some inputs may be null.
   MakeFunction("and_kleene", 2, applicator::SimpleBinary<KleeneAndOp>, &and_kleene_doc,
-               registry, NullHandling::COMPUTED_PREALLOCATE);
+               registry, NullHandling::COMPUTED_NO_PREALLOCATE);
   MakeFunction("and_not_kleene", 2, applicator::SimpleBinary<KleeneAndNotOp>,
-               &and_not_kleene_doc, registry, NullHandling::COMPUTED_PREALLOCATE);
+               &and_not_kleene_doc, registry, NullHandling::COMPUTED_NO_PREALLOCATE);
   MakeFunction("or_kleene", 2, applicator::SimpleBinary<KleeneOrOp>, &or_kleene_doc,
-               registry, NullHandling::COMPUTED_PREALLOCATE);
+               registry, NullHandling::COMPUTED_NO_PREALLOCATE);
 }
 
 }  // namespace internal

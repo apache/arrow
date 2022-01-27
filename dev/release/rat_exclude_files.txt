@@ -49,6 +49,7 @@ dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
 dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
+dev/tasks/homebrew-formulae/apache-arrow-glib.rb
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/apache-arrow-apt-source.install
 dev/tasks/linux-packages/apache-arrow-apt-source/debian/compat
@@ -130,11 +131,14 @@ go/arrow/flight/Flight_grpc.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
+go/arrow/compute/datumkind_string.go
+go/arrow/compute/valueshape_string.go
 go/*.tmpldata
 go/*.s
 go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
+go/parquet/version_string.go
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts

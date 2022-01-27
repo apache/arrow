@@ -46,6 +46,8 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
   static std::vector<NativeFunction> date_time_fn_registry_ = {
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, day_time_interval),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnull, {}, month_interval),
       DATE_EXTRACTION_TRUNCATION_FNS(EXTRACT_SAFE_NULL_IF_NULL, extract),
       DATE_EXTRACTION_TRUNCATION_FNS(TRUNCATE_SAFE_NULL_IF_NULL, date_trunc_),
 
@@ -87,8 +89,15 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castDATE", {"to_date"}, DataTypeVector{timestamp()}, date64(),
                      kResultNullIfNull, "castDATE_timestamp"),
 
+      NativeFunction("castTIME", {}, DataTypeVector{utf8()}, time32(), kResultNullIfNull,
+                     "castTIME_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castTIME", {}, DataTypeVector{timestamp()}, time32(),
                      kResultNullIfNull, "castTIME_timestamp"),
+
+      NativeFunction("castTIME", {}, DataTypeVector{int32()}, time32(), kResultNullIfNull,
+                     "castTIME_int32"),
 
       NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "castBIGINT_daytimeinterval"),

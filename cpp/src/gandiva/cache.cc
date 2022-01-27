@@ -20,13 +20,13 @@
 
 namespace gandiva {
 
-static const int DEFAULT_CACHE_SIZE = 500;
+static const size_t DEFAULT_CACHE_SIZE = 500000;
 
 int GetCapacity() {
-  int capacity;
+  size_t capacity;
   const char* env_cache_size = std::getenv("GANDIVA_CACHE_SIZE");
   if (env_cache_size != nullptr) {
-    capacity = std::atoi(env_cache_size);
+    capacity = std::atol(env_cache_size);
     if (capacity <= 0) {
       ARROW_LOG(WARNING) << "Invalid cache size provided. Using default cache size: "
                          << DEFAULT_CACHE_SIZE;
@@ -35,11 +35,11 @@ int GetCapacity() {
   } else {
     capacity = DEFAULT_CACHE_SIZE;
   }
-  return capacity;
+  return static_cast<int>(capacity);
 }
 
 void LogCacheSize(size_t capacity) {
-  ARROW_LOG(INFO) << "Creating gandiva cache with capacity: " << capacity;
+  ARROW_LOG(INFO) << "Creating gandiva cache with capacity of " << capacity;
 }
 
 }  // namespace gandiva

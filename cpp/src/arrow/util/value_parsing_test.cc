@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -28,17 +30,64 @@ namespace arrow {
 namespace internal {
 
 template <typename T>
-void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+void AssertValueEquals(T a, T b) {
+  ASSERT_EQ(a, b);
+}
+
+template <>
+void AssertValueEquals<float>(float a, float b) {
+  ASSERT_EQ(a, b);
+  ASSERT_EQ(std::signbit(a), std::signbit(b));
+}
+
+template <>
+void AssertValueEquals<double>(double a, double b) {
+  ASSERT_EQ(a, b);
+  ASSERT_EQ(std::signbit(a), std::signbit(b));
+}
+
+template <typename T>
+void AssertConversion(StringConverter<T>* converter, const T& type, const std::string& s,
+                      typename T::c_type expected) {
+  ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
   typename T::c_type out{};
-  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out))
-      << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
-  ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
+  ASSERT_TRUE(converter->Convert(type, s.data(), s.length(), &out));
+  AssertValueEquals(out, expected);
+}
+
+template <typename T>
+void AssertConversion(StringConverter<T>* converter, const std::string& s,
+                      typename T::c_type expected) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversion(converter, *type, s, expected);
+}
+
+template <typename T>
+void AssertConversion(const T& type, const std::string& s, typename T::c_type expected) {
+  ARROW_SCOPED_TRACE("When converting: '", s, "', expecting: ", expected);
+  typename T::c_type out{};
+  ASSERT_TRUE(ParseValue(type, s.data(), s.length(), &out));
+  AssertValueEquals(out, expected);
 }
 
 template <typename T>
 void AssertConversion(const std::string& s, typename T::c_type expected) {
   auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
   AssertConversion(*type, s, expected);
+}
+
+template <typename T>
+void AssertConversionFails(StringConverter<T>* converter, const T& type,
+                           const std::string& s) {
+  typename T::c_type out{};
+  ASSERT_FALSE(converter->Convert(type, s.data(), s.length(), &out))
+      << "Conversion should have failed for '" << s << "' (returned " << out << ")";
+}
+
+template <typename T>
+void AssertConversionFails(StringConverter<T>* converter, const std::string& s) {
+  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
+  AssertConversionFails(converter, *type, s);
 }
 
 template <typename T>
@@ -68,23 +117,33 @@ TEST(StringConversion, ToBoolean) {
 TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("1.5", 1.5f);
   AssertConversion<FloatType>("0", 0.0f);
-  // XXX ASSERT_EQ doesn't distinguish signed zeros
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
+  AssertConversionFails<FloatType>("1,5");
+
+  StringConverter<FloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", 1.5f);
+  AssertConversion(&converter, "0", 0.0f);
+  AssertConversionFails(&converter, "1.5");
 }
 
 TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("1.5", 1.5);
   AssertConversion<DoubleType>("0", 0);
-  // XXX ASSERT_EQ doesn't distinguish signed zeros
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
 
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
+  AssertConversionFails<DoubleType>("1,5");
+
+  StringConverter<DoubleType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", 1.5);
+  AssertConversion(&converter, "0", 0.0);
+  AssertConversionFails(&converter, "1.5");
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)
@@ -94,13 +153,25 @@ TEST(StringConversion, ToFloatLocale) {
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
   AssertConversion<FloatType>("1.5", 1.5f);
+  AssertConversionFails<FloatType>("1,5");
+
+  StringConverter<FloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", 1.5f);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
 }
 
 TEST(StringConversion, ToDoubleLocale) {
   // French locale uses the comma as decimal point
   LocaleGuard locale_guard("fr_FR.UTF-8");
 
-  AssertConversion<DoubleType>("1.5", 1.5f);
+  AssertConversion<DoubleType>("1.5", 1.5);
+  AssertConversionFails<DoubleType>("1,5");
+
+  StringConverter<DoubleType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
 }
 
 #endif  // _WIN32
@@ -723,7 +794,7 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
   for (auto unit : TimeUnit::values()) {
-    for (const std::string& value :
+    for (const std::string value :
          {"2018-01-01 00:00:00+0000", "2018-01-01 00:00:00+0100",
           "2018-01-01 00:00:00+0130", "2018-01-01 00:00:00-0117"}) {
       SCOPED_TRACE(value);
@@ -733,7 +804,7 @@ TEST(TimestampParser, StrptimeZoneOffset) {
       ASSERT_TRUE(ParseTimestampISO8601(value.c_str(), value.size(), unit, &expected));
       ASSERT_EQ(expected, converted);
     }
-    for (const std::string& value : {"2018-01-01 00:00:00", "2018-01-01 00:00:00EST"}) {
+    for (const std::string value : {"2018-01-01 00:00:00", "2018-01-01 00:00:00EST"}) {
       SCOPED_TRACE(value);
       int64_t converted = 0;
       ASSERT_FALSE((*parser)(value.c_str(), value.size(), unit, &converted));

@@ -25,6 +25,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_nested.h"
+#include "arrow/array/util.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
@@ -41,24 +42,17 @@ class MemoryPool;
 // ----------------------------------------------------------------------
 // ChunkedArray methods
 
-ChunkedArray::ChunkedArray(ArrayVector chunks) : chunks_(std::move(chunks)) {
-  length_ = 0;
-  null_count_ = 0;
-
-  ARROW_CHECK_GT(chunks_.size(), 0)
-      << "cannot construct ChunkedArray from empty vector and omitted type";
-  type_ = chunks_[0]->type();
-  for (const std::shared_ptr<Array>& chunk : chunks_) {
-    length_ += chunk->length();
-    null_count_ += chunk->null_count();
-  }
-}
-
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
     : chunks_(std::move(chunks)), type_(std::move(type)) {
   length_ = 0;
   null_count_ = 0;
-  for (const std::shared_ptr<Array>& chunk : chunks_) {
+
+  if (type_ == nullptr) {
+    ARROW_CHECK_GT(chunks_.size(), 0)
+        << "cannot construct ChunkedArray from empty vector and omitted type";
+    type_ = chunks_[0]->type();
+  }
+  for (const auto& chunk : chunks_) {
     length_ += chunk->length();
     null_count_ += chunk->null_count();
   }
@@ -74,12 +68,19 @@ Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
     }
     type = chunks[0]->type();
   }
-  for (size_t i = 0; i < chunks.size(); ++i) {
-    if (!chunks[i]->type()->Equals(*type)) {
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*type)) {
       return Status::Invalid("Array chunks must all be same type");
     }
   }
   return std::make_shared<ChunkedArray>(std::move(chunks), std::move(type));
+}
+
+Result<std::shared_ptr<ChunkedArray>> ChunkedArray::MakeEmpty(
+    std::shared_ptr<DataType> type, MemoryPool* memory_pool) {
+  std::vector<std::shared_ptr<Array>> new_chunks(1);
+  ARROW_ASSIGN_OR_RAISE(new_chunks[0], MakeEmptyArray(type, memory_pool));
+  return std::make_shared<ChunkedArray>(std::move(new_chunks));
 }
 
 bool ChunkedArray::Equals(const ChunkedArray& other) const {

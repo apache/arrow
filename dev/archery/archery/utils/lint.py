@@ -222,7 +222,7 @@ def python_linter(src, fix=False):
             f"{_archery_install_msg}")
         return
 
-    flake8_exclude = ['.venv*']
+    flake8_exclude = ['.venv*', 'vendored']
 
     yield LintResult.from_cmd(
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
@@ -246,7 +246,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.csv',
         'pyarrow.dataset',
         'pyarrow.feather',
-        'pyarrow.flight',
+        # 'pyarrow.flight',
         'pyarrow.fs',
         'pyarrow.gandiva',
         'pyarrow.ipc',

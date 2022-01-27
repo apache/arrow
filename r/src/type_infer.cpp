@@ -96,8 +96,11 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   if (Rf_inherits(x, "integer64")) {
     return int64();
   }
-  if (Rf_inherits(x, "difftime")) {
+  if (Rf_inherits(x, "hms")) {
     return time32(TimeUnit::SECOND);
+  }
+  if (Rf_inherits(x, "difftime")) {
+    return duration(TimeUnit::SECOND);
   }
   return float64();
 }

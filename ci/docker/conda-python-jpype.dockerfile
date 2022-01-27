@@ -17,13 +17,13 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.6
+ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=11
 ARG maven=3.6
-RUN conda install -q \
+RUN mamba install -q \
         maven=${maven} \
         openjdk=${jdk} \
         jpype1 && \
-    conda clean --all
+    mamba clean --all

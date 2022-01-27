@@ -218,7 +218,7 @@ test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
   # ARROW-9946
   expect_error(
     ParquetFileWriter$create(schema = sch, sink = tempfile()),
-    regex = "OutputStream"
+    regexp = "OutputStream"
   )
 })
 
@@ -251,10 +251,12 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
   msg <- paste0(
-    "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
+    ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
-    "environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional ",
-    "features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\n",
+    "environment variables before installing:",
+    "\n\n \\* Sys\\.setenv\\(LIBARROW_MINIMAL = \"false\"\\) ",
+    "\\(for all optional features, including 'snappy'\\)",
+    "\n \\* Sys\\.setenv\\(ARROW_WITH_SNAPPY = \"ON\"\\) \\(for just 'snappy')\n\n",
     "See https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
@@ -262,7 +264,7 @@ test_that("Error messages are shown when the compression algorithm snappy is not
     d <- read_parquet(pq_file)
     expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_parquet(pq_file), msg, fixed = TRUE)
+    expect_error(read_parquet(pq_file), msg)
   }
 })
 
@@ -310,4 +312,43 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
       expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
     })
+})
+
+test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {
+  expect_equal(calculate_chunk_size(31869547, 108, 2.5e8, 200), 2451504)
+
+  # we can set the target cells per group, and it rounds appropriately
+  expect_equal(calculate_chunk_size(100, 1, 25), 25)
+  expect_equal(calculate_chunk_size(101, 1, 25), 26)
+
+  # but our max_chunks is respected
+  expect_equal(calculate_chunk_size(101, 1, 25, 2), 51)
+})
+
+test_that("deprecated int96 timestamp unit can be specified when reading Parquet files", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  table <- Table$create(
+    some_datetime = as.POSIXct("2001-01-01 12:34:56.789")
+  )
+
+  write_parquet(
+    table,
+    tf,
+    use_deprecated_int96_timestamps = TRUE
+  )
+
+  props <- ParquetArrowReaderProperties$create()
+  props$set_coerce_int96_timestamp_unit(TimeUnit$MILLI)
+  expect_identical(props$coerce_int96_timestamp_unit(), TimeUnit$MILLI)
+
+  result <- read_parquet(
+    tf,
+    as_data_frame = FALSE,
+    props = props
+  )
+
+  expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
+  expect_true(result$some_datetime == table$some_datetime)
 })

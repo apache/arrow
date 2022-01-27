@@ -145,11 +145,41 @@ cdef class ChunkedArray(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the chunked array.
+
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their 
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for chunk in self.iterchunks():
-            size += chunk.nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the chunked array.
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.chunked_array))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(ChunkedArray, self).__sizeof__() + self.nbytes
@@ -327,7 +357,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
         Returns
         -------
-        result : List[ChunkedArray]
+        result : list of ChunkedArray
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] flattened
@@ -513,7 +543,7 @@ def chunked_array(arrays, type=None):
 
     Parameters
     ----------
-    arrays : Array, list of Array, or values coercible to arrays
+    arrays : Array, list of Array, or array-like
         Must all be the same data type. Can be empty only if type also passed.
     type : DataType or string coercible to DataType
 
@@ -671,9 +701,58 @@ cdef class RecordBatch(_PandasConvertible):
         Returns
         -------
         RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> pa.RecordBatch.from_pydict(pydict)
+        pyarrow.RecordBatch
+        int: int64
+        str: string
         """
 
         return _from_pydict(cls=RecordBatch,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a RecordBatch from list of rows / dictionaries.
+
+        Parameters
+        ----------
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
+        schema : Schema, default None
+            If not passed, will be inferred from the first row of the
+            mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        RecordBatch
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> pa.RecordBatch.from_pylist(pylist)
+        pyarrow.RecordBatch
+        int: int64
+        str: string
+        >>> pa.RecordBatch.from_pylist(pylist)[0]
+        <pyarrow.lib.Int64Array object at 0x1256b08e0>
+        [
+          1,
+          2
+        ]
+        """
+
+        return _from_pylist(cls=RecordBatch,
                             mapping=mapping,
                             schema=schema,
                             metadata=metadata)
@@ -810,7 +889,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Returns
         -------
-        list of pa.Array
+        list of pyarrow.Array
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -873,11 +952,41 @@ cdef class RecordBatch(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the record batch.
+
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for i in range(self.num_columns):
-            size += self.column(i).nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.batch))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the record batch
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.batch))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
@@ -1016,6 +1125,21 @@ cdef class RecordBatch(_PandasConvertible):
             entries.append((name, column))
         return ordered_dict(entries)
 
+    def to_pylist(self):
+        """
+        Convert the RecordBatch to a list of rows / dictionaries.
+
+        Returns
+        -------
+        list
+        """
+
+        pydict = self.to_pydict()
+        names = self.schema.names
+        pylist = [{column: pydict[column][row] for column in names}
+                  for row in range(self.num_rows)]
+        return pylist
+
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
 
@@ -1041,9 +1165,10 @@ cdef class RecordBatch(_PandasConvertible):
             ``RecordBatch``. The default of None will store the index as a
             column, except for RangeIndex which is stored as metadata only. Use
             ``preserve_index=True`` to force it to be stored as a column.
-        nthreads : int, default None (may use up to system CPU count threads)
+        nthreads : int, default None
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads
+            indicated number of threads. By default, this follows
+            :func:`pyarrow.cpu_count` (may use up to system CPU count threads).
         columns : list, optional
            List of column to be converted. If None, use all columns.
 
@@ -1135,7 +1260,7 @@ cdef class RecordBatch(_PandasConvertible):
                 CRecordBatch.FromStructArray(struct_array.sp_array))
         return pyarrow_wrap_batch(c_record_batch)
 
-    def _export_to_c(self, uintptr_t out_ptr, uintptr_t out_schema_ptr=0):
+    def _export_to_c(self, out_ptr, out_schema_ptr=0):
         """
         Export to a C ArrowArray struct, given its pointer.
 
@@ -1153,13 +1278,17 @@ cdef class RecordBatch(_PandasConvertible):
         array memory will leak.  This is a low-level function intended for
         expert users.
         """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
         with nogil:
             check_status(ExportRecordBatch(deref(self.sp_batch),
-                                           <ArrowArray*> out_ptr,
-                                           <ArrowSchema*> out_schema_ptr))
+                                           <ArrowArray*> c_ptr,
+                                           <ArrowSchema*> c_schema_ptr))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr, schema):
+    def _import_from_c(in_ptr, schema):
         """
         Import RecordBatch from a C ArrowArray struct, given its pointer
         and the imported schema.
@@ -1175,19 +1304,21 @@ cdef class RecordBatch(_PandasConvertible):
         This is a low-level function intended for expert users.
         """
         cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_schema_ptr
             shared_ptr[CRecordBatch] c_batch
 
         c_schema = pyarrow_unwrap_schema(schema)
         if c_schema == nullptr:
             # Not a Schema object, perhaps a raw ArrowSchema pointer
-            schema_ptr = <uintptr_t> schema
+            c_schema_ptr = _as_c_pointer(schema, allow_null=True)
             with nogil:
                 c_batch = GetResultValue(ImportRecordBatch(
-                    <ArrowArray*> in_ptr, <ArrowSchema*> schema_ptr))
+                    <ArrowArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
         else:
             with nogil:
                 c_batch = GetResultValue(ImportRecordBatch(
-                    <ArrowArray*> in_ptr, c_schema))
+                    <ArrowArray*> c_ptr, c_schema))
         return pyarrow_wrap_batch(c_batch)
 
 
@@ -1234,8 +1365,8 @@ cdef class Table(_PandasConvertible):
     """
     A collection of top-level named, equal length Arrow arrays.
 
-    Warning
-    -------
+    Warnings
+    --------
     Do not call this class's constructor directly, use one of the ``from_*``
     methods instead.
     """
@@ -1253,7 +1384,7 @@ cdef class Table(_PandasConvertible):
 
         Parameters
         ----------
-        show_metadata : bool, default True
+        show_metadata : bool, default False
             Display Field-level and Schema-level KeyValueMetadata.
         preview_cols : int, default 0
             Display values of the columns for the first N columns.
@@ -1622,9 +1753,10 @@ cdef class Table(_PandasConvertible):
             ``Table``. The default of None will store the index as a column,
             except for RangeIndex which is stored as metadata only. Use
             ``preserve_index=True`` to force it to be stored as a column.
-        nthreads : int, default None (may use up to system CPU count threads)
+        nthreads : int, default None
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads.
+            indicated number of threads. By default, this follows
+            :func:`pyarrow.cpu_count` (may use up to system CPU count threads).
         columns : list, optional
            List of column to be converted. If None, use all columns.
         safe : bool, default True
@@ -1719,9 +1851,58 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pydict = {'int': [1, 2], 'str': ['a', 'b']}
+        >>> pa.Table.from_pydict(pydict)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
         """
 
         return _from_pydict(cls=Table,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @staticmethod
+    def from_pylist(mapping, schema=None, metadata=None):
+        """
+        Construct a Table from list of rows / dictionaries.
+
+        Parameters
+        ----------
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
+        schema : Schema, default None
+            If not passed, will be inferred from the first row of the
+            mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        Table
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> pylist = [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        >>> pa.Table.from_pylist(pylist)
+        pyarrow.Table
+        int: int64
+        str: string
+        ----
+        int: [[1,2]]
+        str: [["a","b"]]
+        """
+
+        return _from_pylist(cls=Table,
                             mapping=mapping,
                             schema=schema,
                             metadata=metadata)
@@ -1777,7 +1958,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        list of RecordBatch
+        list[RecordBatch]
         """
         cdef:
             unique_ptr[TableBatchReader] reader
@@ -1825,6 +2006,16 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         dict
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pydict()
+        {'int': [1, 2], 'str': ['a', 'b']}
         """
         cdef:
             size_t i
@@ -1837,6 +2028,30 @@ cdef class Table(_PandasConvertible):
             entries.append((self.field(i).name, column.to_pylist()))
 
         return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the Table to a list of rows / dictionaries.
+
+        Returns
+        -------
+        list
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table([
+        ...     pa.array([1, 2]),
+        ...     pa.array(["a", "b"])
+        ... ], names=["int", "str"])
+        >>> table.to_pylist()
+        [{'int': 1, 'str': 'a'}, {'int': 2, 'str': 'b'}]
+        """
+        pydict = self.to_pydict()
+        names = self.schema.names
+        pylist = [{column: pydict[column][row] for column in names}
+                  for row in range(self.num_rows)]
+        return pylist
 
     @property
     def schema(self):
@@ -1985,14 +2200,40 @@ cdef class Table(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the table.
 
-        Returns
-        -------
-        int
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for column in self.itercolumns():
-            size += column.nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.table))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the table.
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.table))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(Table, self).__sizeof__() + self.nbytes
@@ -2192,6 +2433,53 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+    def group_by(self, keys):
+        """Declare a grouping over the columns of the table.
+
+        Resulting grouping can then be used to perform aggregations
+        with a subsequent ``aggregate()`` method.
+
+        Parameters
+        ----------
+        keys : str or list[str]
+            Name of the columns that should be used as the grouping key.
+
+        Returns
+        -------
+        TableGroupBy
+
+        See Also
+        --------
+        TableGroupBy.aggregate
+        """
+        return TableGroupBy(self, keys)
+
+    def sort_by(self, sorting):
+        """
+        Sort the table by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+
+        Returns
+        -------
+        Table
+            A new table sorted according to the sort keys.
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            sort_keys=sorting
+        )
+        return self.take(indices)
+
 
 def _reconstruct_table(arrays, schema):
     """
@@ -2260,9 +2548,11 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
         specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
-    nthreads : int, default None (may use up to system CPU count threads)
+    nthreads : int, default None
         For pandas.DataFrame inputs: if greater than 1, convert columns to
-        Arrow in parallel using indicated number of threads.
+        Arrow in parallel using indicated number of threads. By default,
+        this follows :func:`pyarrow.cpu_count` (may use up to system CPU count
+        threads).
 
     Returns
     -------
@@ -2387,3 +2677,121 @@ def _from_pydict(cls, mapping, schema, metadata):
         return cls.from_arrays(arrays, schema=schema, metadata=metadata)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+def _from_pylist(cls, mapping, schema, metadata):
+    """
+    Construct a Table/RecordBatch from list of rows / dictionaries.
+
+    Parameters
+    ----------
+    cls : Class Table/RecordBatch
+    mapping : list of dicts of rows
+        A mapping of strings to row values.
+    schema : Schema, default None
+        If not passed, will be inferred from the first row of the
+        mapping values.
+    metadata : dict or Mapping, default None
+        Optional metadata for the schema (if inferred).
+
+    Returns
+    -------
+    Table/RecordBatch
+    """
+
+    arrays = []
+    if schema is None:
+        names = []
+        if mapping:
+            names = list(mapping[0].keys())
+        for n in names:
+            v = [row[n] if n in row else None for row in mapping]
+            arrays.append(v)
+        return cls.from_arrays(arrays, names, metadata=metadata)
+    else:
+        if isinstance(schema, Schema):
+            for n in schema.names:
+                v = [row[n] if n in row else None for row in mapping]
+                arrays.append(v)
+            # Will raise if metadata is not None
+            return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            raise TypeError('Schema must be an instance of pyarrow.Schema')
+
+
+class TableGroupBy:
+    """
+    A grouping of columns in a table on which to perform aggregations.
+
+    Parameters
+    ----------
+    table : pyarrow.Table
+        Input table to execute the aggregation on.
+    keys : str or list[str]
+        Name of the grouped columns.
+    """
+
+    def __init__(self, table, keys):
+        if isinstance(keys, str):
+            keys = [keys]
+
+        self._table = table
+        self.keys = keys
+
+    def aggregate(self, aggregations):
+        """
+        Perform an aggregation over the grouped columns of the table.
+
+        Parameters
+        ----------
+        aggregations : list[tuple(str, str)] or \
+list[tuple(str, str, FunctionOptions)]
+            List of tuples made of aggregation column names followed
+            by function names and optionally aggregation function options.
+
+        Returns
+        -------
+        Table
+            Results of the aggregation functions.
+
+        Examples
+        --------
+        >>> t = pa.table([
+        ...       pa.array(["a", "a", "b", "b", "c"]),
+        ...       pa.array([1, 2, 3, 4, 5]),
+        ... ], names=["keys", "values"])
+        >>> t.group_by("keys").aggregate([("values", "sum")])
+        pyarrow.Table
+        values_sum: int64
+        keys: string
+        ----
+        values_sum: [[3,7,5]]
+        keys: [["a","b","c"]]
+        """
+        columns = [a[0] for a in aggregations]
+        aggrfuncs = [
+            (a[1], a[2]) if len(a) > 2 else (a[1], None)
+            for a in aggregations
+        ]
+
+        group_by_aggrs = []
+        for aggr in aggrfuncs:
+            if not aggr[0].startswith("hash_"):
+                aggr = ("hash_" + aggr[0], aggr[1])
+            group_by_aggrs.append(aggr)
+
+        # Build unique names for aggregation result columns
+        # so that it's obvious what they refer to.
+        column_names = [
+            aggr_name.replace("hash", col_name)
+            for col_name, (aggr_name, _) in zip(columns, group_by_aggrs)
+        ] + self.keys
+
+        result = _pc()._group_by(
+            [self._table[c] for c in columns],
+            [self._table[k] for k in self.keys],
+            group_by_aggrs
+        )
+
+        t = Table.from_batches([RecordBatch.from_struct_array(result)])
+        return t.rename_columns(column_names)

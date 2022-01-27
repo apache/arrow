@@ -356,6 +356,24 @@ TEST(TestFlight, BuilderHook) {
   ASSERT_OK(server->Shutdown());
 }
 
+TEST(TestFlight, ServeShutdown) {
+  // Regression test for ARROW-15181
+  constexpr int kIterations = 10;
+  for (int i = 0; i < kIterations; i++) {
+    Location location;
+    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    FlightServerOptions options(location);
+    ASSERT_OK(server->Init(options));
+    ASSERT_GT(server->port(), 0);
+    std::thread t([&]() { ASSERT_OK(server->Serve()); });
+    ASSERT_OK(server->Shutdown());
+    ASSERT_OK(server->Wait());
+    t.join();
+  }
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 

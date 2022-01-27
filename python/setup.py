@@ -199,6 +199,7 @@ class build_ext(_build_ext):
         '_flight',
         '_dataset',
         '_dataset_orc',
+        '_dataset_parquet',
         '_feather',
         '_parquet',
         '_orc',
@@ -429,6 +430,10 @@ class build_ext(_build_ext):
                 self.with_orc and self.with_dataset
         ):
             return True
+        if name == '_dataset_parquet' and not (
+                self.with_parquet and self.with_dataset
+        ):
+            return True
         if name == '_cuda' and not self.with_cuda:
             return True
         if name == 'gandiva' and not self.with_gandiva:
@@ -613,13 +618,12 @@ setup(
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',

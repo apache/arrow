@@ -1,0 +1,88 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: R without Arrow
+
+on:
+  push:
+    paths:
+      - ".github/workflows/r-without-arrow.yml"
+      - "r/src/**"
+  pull_request:
+    paths:
+      - ".github/workflows/r-without-arrow.yml"
+      - "r/src/**"
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_VOLUME_PREFIX: ".docker/"
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+  bundled:
+    name: "R package without arrow"
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+    env:
+      R_ORG: rhub
+      R_IMAGE: ubuntu-gcc-release
+      R_TAG: latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: ubuntu-gcc-release-r-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-gcc-release-r-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run -e LIBARROW_DOWNLOAD=FALSE -e LIBARROW_BUILD=FALSE -e TEST_R_WITHOUT_LIBARROW=TRUE -e NOT_CRAN=FALSE r
+      - name: Dump install logs
+        run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push r

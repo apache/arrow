@@ -78,17 +78,17 @@ static const FunctionDoc kEmptyFunctionDoc{};
 
 const FunctionDoc& FunctionDoc::Empty() { return kEmptyFunctionDoc; }
 
-static Status CheckArityImpl(const Function* function, int passed_num_args,
+static Status CheckArityImpl(const Function& function, int passed_num_args,
                              const char* passed_num_args_label) {
-  if (function->arity().is_varargs && passed_num_args < function->arity().num_args) {
-    return Status::Invalid("VarArgs function ", function->name(), " needs at least ",
-                           function->arity().num_args, " arguments but ",
+  if (function.arity().is_varargs && passed_num_args < function.arity().num_args) {
+    return Status::Invalid("VarArgs function '", function.name(), "' needs at least ",
+                           function.arity().num_args, " arguments but ",
                            passed_num_args_label, " only ", passed_num_args);
   }
 
-  if (!function->arity().is_varargs && passed_num_args != function->arity().num_args) {
-    return Status::Invalid("Function ", function->name(), " accepts ",
-                           function->arity().num_args, " arguments but ",
+  if (!function.arity().is_varargs && passed_num_args != function.arity().num_args) {
+    return Status::Invalid("Function '", function.name(), "' accepts ",
+                           function.arity().num_args, " arguments but ",
                            passed_num_args_label, " ", passed_num_args);
   }
 
@@ -96,19 +96,27 @@ static Status CheckArityImpl(const Function* function, int passed_num_args,
 }
 
 Status Function::CheckArity(const std::vector<InputType>& in_types) const {
-  return CheckArityImpl(this, static_cast<int>(in_types.size()), "kernel accepts");
+  return CheckArityImpl(*this, static_cast<int>(in_types.size()), "kernel accepts");
 }
 
 Status Function::CheckArity(const std::vector<ValueDescr>& descrs) const {
-  return CheckArityImpl(this, static_cast<int>(descrs.size()),
+  return CheckArityImpl(*this, static_cast<int>(descrs.size()),
                         "attempted to look up kernel(s) with");
+}
+
+static Status CheckOptions(const Function& function, const FunctionOptions* options) {
+  if (options == nullptr && function.doc().options_required) {
+    return Status::Invalid("Function '", function.name(),
+                           "' cannot be called without options");
+  }
+  return Status::OK();
 }
 
 namespace detail {
 
 Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>& descrs) {
-  return Status::NotImplemented("Function ", func->name(),
-                                " has no kernel matching input types ",
+  return Status::NotImplemented("Function '", func->name(),
+                                "' has no kernel matching input types ",
                                 ValueDescr::ToString(descrs));
 }
 
@@ -197,6 +205,7 @@ Result<const Kernel*> Function::DispatchBest(std::vector<ValueDescr>* values) co
 Result<Datum> Function::Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const {
   if (options == nullptr) {
+    RETURN_NOT_OK(CheckOptions(*this, options));
     options = default_options();
   }
   if (ctx == nullptr) {
@@ -364,7 +373,8 @@ Result<Datum> MetaFunction::Execute(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const {
   RETURN_NOT_OK(
-      CheckArityImpl(this, static_cast<int>(args.size()), "attempted to Execute with"));
+      CheckArityImpl(*this, static_cast<int>(args.size()), "attempted to Execute with"));
+  RETURN_NOT_OK(CheckOptions(*this, options));
 
   if (options == nullptr) {
     options = default_options();

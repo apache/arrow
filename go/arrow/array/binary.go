@@ -34,10 +34,10 @@ type Binary struct {
 }
 
 // NewBinaryData constructs a new Binary array from data.
-func NewBinaryData(data *Data) *Binary {
+func NewBinaryData(data arrow.ArrayData) *Binary {
 	a := &Binary{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 

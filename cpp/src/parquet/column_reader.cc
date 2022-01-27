@@ -57,7 +57,7 @@ using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 namespace {
@@ -91,7 +91,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
   int32_t num_bytes = 0;
   encoding_ = encoding;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = BitUtil::Log2(max_level + 1);
+  bit_width_ = bit_util::Log2(max_level + 1);
   switch (encoding) {
     case Encoding::RLE: {
       if (data_size < 4) {
@@ -116,12 +116,12 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
         throw ParquetException(
             "Number of buffered values too large (corrupt data page?)");
       }
-      num_bytes = static_cast<int32_t>(BitUtil::BytesForBits(num_bits));
+      num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
       if (num_bytes < 0 || num_bytes > data_size - 4) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {
-        bit_packed_decoder_.reset(new ::arrow::BitUtil::BitReader(data, num_bytes));
+        bit_packed_decoder_.reset(new ::arrow::bit_util::BitReader(data, num_bytes));
       } else {
         bit_packed_decoder_->Reset(data, num_bytes);
       }
@@ -143,7 +143,7 @@ void LevelDecoder::SetDataV2(int32_t num_bytes, int16_t max_level,
   }
   encoding_ = Encoding::RLE;
   num_values_remaining_ = num_buffered_values;
-  bit_width_ = BitUtil::Log2(max_level + 1);
+  bit_width_ = bit_util::Log2(max_level + 1);
 
   if (!rle_decoder_) {
     rle_decoder_.reset(new ::arrow::util::RleDecoder(data, num_bytes, bit_width_));
@@ -970,6 +970,14 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   // Read dictionary indices.
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
   int64_t total_indices = std::max(num_def_levels, *indices_read);
+  // Some callers use a batch size of 0 just to get the dictionary.
+  int64_t expected_values =
+      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  if (total_indices == 0 && expected_values > 0) {
+    std::stringstream ss;
+    ss << "Read 0 values, expected " << expected_values;
+    ParquetException::EofException(ss.str());
+  }
   this->ConsumeBufferedValues(total_indices);
 
   return total_indices;
@@ -993,6 +1001,13 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
 
   *values_read = this->ReadValues(values_to_read, values);
   int64_t total_values = std::max(num_def_levels, *values_read);
+  int64_t expected_values =
+      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  if (total_values == 0 && expected_values > 0) {
+    std::stringstream ss;
+    ss << "Read 0 values, expected " << expected_values;
+    ParquetException::EofException(ss.str());
+  }
   this->ConsumeBufferedValues(total_values);
 
   return total_values;
@@ -1039,9 +1054,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
         }
       }
       total_values = this->ReadValues(values_to_read, values);
-      ::arrow::BitUtil::SetBitsTo(valid_bits, valid_bits_offset,
-                                  /*length=*/total_values,
-                                  /*bits_are_set=*/true);
+      ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
+                                   /*length=*/total_values,
+                                   /*bits_are_set=*/true);
       *values_read = total_values;
     } else {
       internal::LevelInfo info;
@@ -1069,9 +1084,9 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
   } else {
     // Required field, read all values
     total_values = this->ReadValues(batch_size, values);
-    ::arrow::BitUtil::SetBitsTo(valid_bits, valid_bits_offset,
-                                /*length=*/total_values,
-                                /*bits_are_set=*/true);
+    ::arrow::bit_util::SetBitsTo(valid_bits, valid_bits_offset,
+                                 /*length=*/total_values,
+                                 /*bits_are_set=*/true);
     *null_count_out = 0;
     *values_read = total_values;
     *levels_read = total_values;
@@ -1297,7 +1312,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
   std::shared_ptr<ResizableBuffer> ReleaseIsValid() override {
     if (leaf_info_.HasNullableValues()) {
       auto result = valid_bits_;
-      PARQUET_THROW_NOT_OK(result->Resize(BitUtil::BytesForBits(values_written_), true));
+      PARQUET_THROW_NOT_OK(result->Resize(bit_util::BytesForBits(values_written_), true));
       valid_bits_ = AllocateBuffer(this->pool_);
       return result;
     } else {
@@ -1371,7 +1386,7 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     if (capacity >= target_size) {
       return capacity;
     }
-    return BitUtil::NextPower2(target_size);
+    return bit_util::NextPower2(target_size);
   }
 
   void ReserveLevels(int64_t extra_levels) {
@@ -1406,9 +1421,9 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
       values_capacity_ = new_values_capacity;
     }
     if (leaf_info_.HasNullableValues()) {
-      int64_t valid_bytes_new = BitUtil::BytesForBits(values_capacity_);
+      int64_t valid_bytes_new = bit_util::BytesForBits(values_capacity_);
       if (valid_bits_->size() < valid_bytes_new) {
-        int64_t valid_bytes_old = BitUtil::BytesForBits(values_written_);
+        int64_t valid_bytes_old = bit_util::BytesForBits(values_written_);
         PARQUET_THROW_NOT_OK(valid_bits_->Resize(valid_bytes_new, false));
 
         // Avoid valgrind warnings
@@ -1619,7 +1634,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     DCHECK_EQ(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
-      if (::arrow::BitUtil::GetBit(valid_bits, valid_bits_offset + i)) {
+      if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
         PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
       } else {
         PARQUET_THROW_NOT_OK(builder_->AppendNull());

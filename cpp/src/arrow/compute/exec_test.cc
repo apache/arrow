@@ -95,7 +95,7 @@ void AssertValidityZeroExtraBits(const ArrayData& arr) {
 
   const int64_t bit_extent = ((arr.offset + arr.length + 7) / 8) * 8;
   for (int64_t i = arr.offset + arr.length; i < bit_extent; ++i) {
-    EXPECT_FALSE(BitUtil::GetBit(buf.data(), i)) << i;
+    EXPECT_FALSE(bit_util::GetBit(buf.data(), i)) << i;
   }
 }
 
@@ -253,7 +253,7 @@ TEST_F(TestPropagateNulls, SingleValueWithNulls) {
     if (preallocate) {
       ASSERT_OK_AND_ASSIGN(
           preallocated_bitmap,
-          AllocateBuffer(BitUtil::BytesForBits(sliced->length() + out_offset)));
+          AllocateBuffer(bit_util::BytesForBits(sliced->length() + out_offset)));
       std::memset(preallocated_bitmap->mutable_data(), 0, preallocated_bitmap->size());
       output.buffers[0] = preallocated_bitmap;
     } else {

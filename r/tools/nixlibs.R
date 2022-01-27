@@ -21,11 +21,6 @@ dst_dir <- paste0("libarrow/arrow-", VERSION)
 
 arrow_repo <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/"
 
-if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
-  # default method doesn't work on R 3.3, nor does libcurl
-  options(download.file.method = "wget")
-}
-
 options(.arrow.cleanup = character()) # To collect dirs to rm on exit
 on.exit(unlink(getOption(".arrow.cleanup")))
 
@@ -47,7 +42,10 @@ quietly <- !env_is("ARROW_R_DEV", "true")
 
 # Default is build from source, not download a binary
 build_ok <- !env_is("LIBARROW_BUILD", "false")
-binary_ok <- env_is("LIBARROW_BINARY", "true")
+# For LIBARROW_BINARY we support "true" or the name of the OS to use to
+# locate the appropriate binary (e.g., 'ubuntu-18.04'). When NOT_CRAN=true, and
+# LIBARROW_BINARY is unset, configure script sets LIBARROW_BINARY=true.
+binary_ok <- !env_is("LIBARROW_BINARY", "false") || env_is("LIBARROW_BINARY", "")
 
 # Check if we're doing an offline build.
 # (Note that cmake will still be downloaded if necessary
@@ -77,7 +75,7 @@ download_binary <- function(os = identify_os()) {
         cat("**** If installation fails, retry after installing those system requirements\n")
       }
     } else {
-      cat(sprintf("*** No C++ binaries found for %s\n", os))
+      cat(sprintf("*** No libarrow binary found for version %s on %s\n", VERSION, os))
       libfile <- NULL
     }
   } else {
@@ -293,11 +291,6 @@ build_libarrow <- function(src_dir, dst_dir) {
   options(.arrow.cleanup = c(getOption(".arrow.cleanup"), build_dir))
 
   R_CMD_config <- function(var) {
-    if (getRversion() < 3.4) {
-      # var names were called CXX1X instead of CXX11
-      var <- sub("^CXX11", "CXX1X", var)
-    }
-    # tools::Rcmd introduced R 3.3
     tools::Rcmd(paste("config", var), stdout = TRUE)
   }
   env_var_list <- c(
@@ -597,12 +590,17 @@ if (!file.exists(paste0(dst_dir, "/include/arrow/api.h"))) {
     # (2) Find source and build it
     src_dir <- find_local_source()
     if (!is.null(src_dir)) {
-      cat("*** Building C++ libraries\n")
+      cat(paste0(
+      "*** Building libarrow from source\n",
+      "    For a faster, more complete installation, set the environment variable NOT_CRAN=true before installing\n",
+      "    See install vignette for details:\n",
+      "    https://cran.r-project.org/web/packages/arrow/vignettes/install.html\n"
+      ))
       build_libarrow(src_dir, dst_dir)
     } else {
-      cat("*** Proceeding without C++ dependencies\n")
+      cat("*** Proceeding without libarrow\n")
     }
   } else {
-    cat("*** Proceeding without C++ dependencies\n")
+    cat("*** Proceeding without libarrow\n")
   }
 }

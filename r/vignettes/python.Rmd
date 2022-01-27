@@ -7,8 +7,13 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-The `arrow` package provides `reticulate` methods for passing data between
+The arrow package provides [reticulate](https://rstudio.github.io/reticulate/) methods for passing data between
 R and Python in the same process. This document provides a brief overview.
+
+Why you might want to use `pyarrow`?
+
+* To use some Python functionality that is not yet implemented in R, for example, the `concat_arrays` function.
+* To transfer Python objects into R, for example, a Pandas dataframe into an R Arrow Array. 
 
 ## Installing
 
@@ -28,6 +33,11 @@ add `nightly = TRUE`:
 install_pyarrow("arrow-env", nightly = TRUE)
 ```
 
+A virtualenv or a virtual environment is a specific Python installation
+created for one project or purpose. It is a good practice to use
+specific environments in Python so that updating a package doesn't
+impact packages in other projects.
+
 `install_pyarrow()` also works with `conda` environments
 (`conda_create()` instead of `virtualenv_create()`).
 
@@ -45,9 +55,9 @@ use_virtualenv("arrow-env")
 pa <- import("pyarrow")
 ```
 
-The package includes support for sharing Arrow `Array` and `RecordBatch`
+The arrow R package include support for sharing Arrow `Array` and `RecordBatch`
 objects in-process between R and Python. For example, let's create an `Array`
-in `pyarrow`.
+in pyarrow.
 
 ```r
 a <- pa$array(c(1, 2, 3))
@@ -62,8 +72,8 @@ a
 ## ]
 ```
 
-`a` is now an `Array` object in our R session, even though we created it in Python.
-We can apply R methods on it:
+`a` is now an `Array` object in your R session, even though you created it in Python.
+You can apply R methods on it:
 
 ```r
 a[a > 1]
@@ -76,10 +86,10 @@ a[a > 1]
 ## ]
 ```
 
-We can send data both ways. One reason we might want to use `pyarrow` in R is
+You can send data both ways. One reason you might want to use pyarrow in R is
 to take advantage of functionality that is better supported in Python than in R.
-For example, `pyarrow` has a `concat_arrays` function, but as of 0.17, this
-function is not implemented in the `arrow` R package. We can use `reticulate`
+For example, pyarrow has a `concat_arrays()` function, but as of 0.17, this
+function is not implemented in the arrow R package. You can use reticulate
 to use it efficiently.
 
 ```r
@@ -101,12 +111,23 @@ a_and_b
 ## ]
 ```
 
-Now we have a single `Array` in R.
+Now you have a single Array in R.
+
+## How this works
 
 "Send", however, isn't the correct word. Internally, we're passing pointers to
 the data between the R and Python interpreters running together in the same
 process, without copying anything. Nothing is being sent: we're sharing and
 accessing the same internal Arrow memory buffers.
+
+## Arrow object types
+
+For more information about Arrow object types see the "Internals" section of
+the "arrow" vignette:
+
+```r
+vignette("arrow", package = "arrow")
+```
 
 ## Troubleshooting
 

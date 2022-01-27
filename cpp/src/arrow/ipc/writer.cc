@@ -54,7 +54,8 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/parallel.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_array_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -89,7 +90,7 @@ Status GetTruncatedBitmap(int64_t offset, int64_t length,
     *buffer = input;
     return Status::OK();
   }
-  int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
+  int64_t min_length = PaddedLength(bit_util::BytesForBits(length));
   if (offset != 0 || min_length < input->size()) {
     // With a sliced array / non-zero offset, we must copy the bitmap
     ARROW_ASSIGN_OR_RAISE(*buffer, CopyBitmap(pool, input->data(), offset, length));
@@ -192,7 +193,7 @@ class RecordBatchSerializer {
                           codec->Compress(buffer.size(), buffer.data(), maximum_length,
                                           result->mutable_data() + sizeof(int64_t)));
     *reinterpret_cast<int64_t*>(result->mutable_data()) =
-        BitUtil::ToLittleEndian(buffer.size());
+        bit_util::ToLittleEndian(buffer.size());
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
     return Status::OK();
   }
@@ -225,6 +226,15 @@ class RecordBatchSerializer {
       RETURN_NOT_OK(VisitArray(*batch.column(i)));
     }
 
+    // calculate initial body length using all buffer sizes
+    int64_t raw_size = 0;
+    for (const auto& buf : out_->body_buffers) {
+      if (buf) {
+        raw_size += buf->size();
+      }
+    }
+    out_->raw_body_length = raw_size;
+
     if (options_.codec != nullptr) {
       RETURN_NOT_OK(CompressBodyBuffers());
     }
@@ -243,7 +253,7 @@ class RecordBatchSerializer {
       // The buffer might be null if we are handling zero row lengths.
       if (buffer) {
         size = buffer->size();
-        padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+        padding = bit_util::RoundUpToMultipleOf8(size) - size;
       }
 
       buffer_meta_.push_back({offset, size});
@@ -251,7 +261,7 @@ class RecordBatchSerializer {
     }
 
     out_->body_length = offset - buffer_start_offset_;
-    DCHECK(BitUtil::IsMultipleOf8(out_->body_length));
+    DCHECK(bit_util::IsMultipleOf8(out_->body_length));
 
     // Now that we have computed the locations of all of the buffers in shared
     // memory, the data header can be converted to a flatbuffer and written out
@@ -326,7 +336,7 @@ class RecordBatchSerializer {
 
       // Send padding if it's available
       const int64_t buffer_length =
-          std::min(BitUtil::RoundUpToMultipleOf8(array.length() * type_width),
+          std::min(bit_util::RoundUpToMultipleOf8(array.length() * type_width),
                    data->size() - byte_offset);
       data = SliceBuffer(data, byte_offset, buffer_length);
     }
@@ -585,7 +595,7 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
     // The buffer might be null if we are handling zero row lengths.
     if (buffer) {
       size = buffer->size();
-      padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+      padding = bit_util::RoundUpToMultipleOf8(size) - size;
     }
 
     if (size > 0) {
@@ -821,17 +831,20 @@ class SparseTensorSerializer {
 
     int64_t offset = buffer_start_offset_;
     buffer_meta_.reserve(out_->body_buffers.size());
+    int64_t raw_size = 0;
 
     for (size_t i = 0; i < out_->body_buffers.size(); ++i) {
       const Buffer* buffer = out_->body_buffers[i].get();
       int64_t size = buffer->size();
-      int64_t padding = BitUtil::RoundUpToMultipleOf8(size) - size;
+      int64_t padding = bit_util::RoundUpToMultipleOf8(size) - size;
       buffer_meta_.push_back({offset, size + padding});
       offset += size + padding;
+      raw_size += size;
     }
 
     out_->body_length = offset - buffer_start_offset_;
-    DCHECK(BitUtil::IsMultipleOf8(out_->body_length));
+    DCHECK(bit_util::IsMultipleOf8(out_->body_length));
+    out_->raw_body_length = raw_size;
 
     return SerializeMetadata(sparse_tensor);
   }
@@ -999,6 +1012,10 @@ class ARROW_EXPORT IpcFormatWriter : public RecordBatchWriter {
     RETURN_NOT_OK(GetRecordBatchPayload(batch, options_, &payload));
     RETURN_NOT_OK(WritePayload(payload));
     ++stats_.num_record_batches;
+
+    stats_.total_raw_body_size += payload.raw_body_length;
+    stats_.total_serialized_body_size += payload.body_length;
+
     return Status::OK();
   }
 
@@ -1282,7 +1299,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     }
 
     // write footer length in little endian
-    footer_length = BitUtil::ToLittleEndian(footer_length);
+    footer_length = bit_util::ToLittleEndian(footer_length);
     RETURN_NOT_OK(Write(&footer_length, sizeof(int32_t)));
 
     // Write magic bytes to end file
@@ -1381,7 +1398,7 @@ Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
   auto options = IpcWriteOptions::Defaults();
   int64_t size = 0;
   RETURN_NOT_OK(GetRecordBatchSize(batch, options, &size));
-  ARROW_ASSIGN_OR_RAISE(auto buffer, mm->AllocateBuffer(size));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer, mm->AllocateBuffer(size));
   ARROW_ASSIGN_OR_RAISE(auto writer, Buffer::GetWriter(buffer));
 
   // XXX Should we have a helper function for getting a MemoryPool

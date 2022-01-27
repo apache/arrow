@@ -21,25 +21,25 @@ package arrio
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v7/arrow"
 )
 
 // Reader is the interface that wraps the Read method.
 type Reader interface {
 	// Read reads the current record from the underlying stream and an error, if any.
 	// When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
-	Read() (array.Record, error)
+	Read() (arrow.Record, error)
 }
 
 // ReaderAt is the interface that wraps the ReadAt method.
 type ReaderAt interface {
 	// ReadAt reads the i-th record from the underlying stream and an error, if any.
-	ReadAt(i int64) (array.Record, error)
+	ReadAt(i int64) (arrow.Record, error)
 }
 
 // Writer is the interface that wraps the Write method.
 type Writer interface {
-	Write(rec array.Record) error
+	Write(rec arrow.Record) error
 }
 
 // Copy copies all the records available from src to dst.

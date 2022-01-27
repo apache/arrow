@@ -40,7 +40,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
 
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -145,9 +144,7 @@ void ValidateBooleanAgg(const std::string& json,
   SCOPED_TRACE(json);
   auto array = ArrayFromJSON(boolean(), json);
   ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
-
-  auto equal_options = EqualOptions::Defaults().nans_equal(true);
-  AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true, equal_options);
+  AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true);
 }
 
 TEST(TestBooleanAggregation, Sum) {
@@ -306,8 +303,7 @@ TEST(TestBooleanAggregation, Mean) {
   ASSERT_OK_AND_ASSIGN(
       auto result, Mean(MakeNullScalar(boolean()),
                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0)));
-  AssertDatumsApproxEqual(result, ScalarFromJSON(float64(), "NaN"), /*detailed=*/true,
-                          EqualOptions::Defaults().nans_equal(true));
+  AssertDatumsApproxEqual(result, ScalarFromJSON(float64(), "NaN"), /*detailed=*/true);
   EXPECT_THAT(Mean(MakeNullScalar(boolean()),
                    ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0)),
               ResultWith(ScalarFromJSON(float64(), "null")));
@@ -589,6 +585,32 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
     EXPECT_THAT(Sum(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
                 ResultWith(null));
   }
+}
+
+TEST(TestNullSumKernel, Basics) {
+  auto ty = null();
+  Datum null_result = std::make_shared<Int64Scalar>();
+  Datum zero_result = std::make_shared<Int64Scalar>(0);
+
+  EXPECT_THAT(Sum(ScalarFromJSON(ty, "null")), ResultWith(null_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[]")), ResultWith(null_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[null]")), ResultWith(null_result));
+  EXPECT_THAT(Sum(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"})),
+              ResultWith(null_result));
+
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  EXPECT_THAT(Sum(ScalarFromJSON(ty, "null"), options), ResultWith(zero_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[null]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Sum(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+              ResultWith(zero_result));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0);
+  EXPECT_THAT(Sum(ScalarFromJSON(ty, "null"), options), ResultWith(null_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Sum(ArrayFromJSON(ty, "[null]"), options), ResultWith(null_result));
+  EXPECT_THAT(Sum(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+              ResultWith(null_result));
 }
 
 //
@@ -1039,8 +1061,7 @@ template <typename ArrowType>
 void ValidateMean(const Array& input, Datum expected,
                   const ScalarAggregateOptions& options) {
   ASSERT_OK_AND_ASSIGN(Datum result, Mean(input, options, nullptr));
-  auto equal_options = EqualOptions::Defaults().nans_equal(true);
-  AssertDatumsApproxEqual(expected, result, /*verbose=*/true, equal_options);
+  AssertDatumsApproxEqual(expected, result, /*verbose=*/true);
 }
 
 template <typename ArrowType>
@@ -1215,10 +1236,31 @@ TEST(TestDecimalMeanKernel, SimpleMean) {
 
     EXPECT_THAT(Mean(ArrayFromJSON(ty, R"(["1.01", null, "1.01"])")),
                 ResultWith(ScalarFromJSON(ty, R"("1.01")")));
+
+    // Check rounding
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["1.01", "2.02", "3.03", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
+        // 4.545 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("4.55")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty,
+            R"(["-1.01", "-2.02", "-3.03", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
+        // -4.545 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("-4.55")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty, R"(["1.01", "2.02", "3.00", "4.04", "5.05", "6.06", "7.07", "8.08"])")),
+        // 4.54125 unrounded
         ResultWith(ScalarFromJSON(ty, R"("4.54")")));
+    EXPECT_THAT(
+        Mean(ArrayFromJSON(
+            ty,
+            R"(["-1.01", "-2.02", "-3.00", "-4.04", "-5.05", "-6.06", "-7.07", "-8.08"])")),
+        // -4.54125 unrounded
+        ResultWith(ScalarFromJSON(ty, R"("-4.54")")));
+
     EXPECT_THAT(
         Mean(ArrayFromJSON(
             ty, R"(["0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00", "0.00"])")),
@@ -1232,6 +1274,34 @@ TEST(TestDecimalMeanKernel, SimpleMean) {
                 ResultWith(ScalarFromJSON(ty, R"("5.05")")));
     EXPECT_THAT(Mean(ScalarFromJSON(ty, R"(null)")),
                 ResultWith(ScalarFromJSON(ty, R"(null)")));
+  }
+
+  for (const auto& ty : {decimal128(3, -2), decimal256(3, -2)}) {
+    // Check rounding
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["101E2", "202E2", "303E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
+        // 45450 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("455E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["-101E2", "-202E2", "-303E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
+        // -45450 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("-455E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["101E2", "202E2", "300E2", "404E2", "505E2", "606E2", "707E2", "808E2"])")),
+        // 45412.5 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("454E2")")));
+    EXPECT_THAT(
+        Mean(DecimalArrayFromJSON(
+            ty,
+            R"(["-101E2", "-202E2", "-300E2", "-404E2", "-505E2", "-606E2", "-707E2", "-808E2"])")),
+        // -45412.5 unrounded
+        ResultWith(DecimalScalarFromJSON(ty, R"("-454E2")")));
   }
 }
 
@@ -1303,6 +1373,32 @@ TEST(TestDecimalMeanKernel, ScalarAggregateOptions) {
     EXPECT_THAT(Mean(null, ScalarAggregateOptions(/*skip_nulls=*/false)),
                 ResultWith(null));
   }
+}
+
+TEST(TestNullMeanKernel, Basics) {
+  auto ty = null();
+  Datum null_result = std::make_shared<DoubleScalar>();
+  Datum zero_result = std::make_shared<DoubleScalar>(0);
+
+  EXPECT_THAT(Mean(ScalarFromJSON(ty, "null")), ResultWith(null_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]")), ResultWith(null_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]")), ResultWith(null_result));
+  EXPECT_THAT(Mean(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"})),
+              ResultWith(null_result));
+
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  EXPECT_THAT(Mean(ScalarFromJSON(ty, "null"), options), ResultWith(zero_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Mean(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+              ResultWith(zero_result));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0);
+  EXPECT_THAT(Mean(ScalarFromJSON(ty, "null"), options), ResultWith(null_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[]"), options), ResultWith(zero_result));
+  EXPECT_THAT(Mean(ArrayFromJSON(ty, "[null]"), options), ResultWith(null_result));
+  EXPECT_THAT(Mean(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+              ResultWith(null_result));
 }
 
 //
@@ -2170,7 +2266,7 @@ TYPED_TEST(TestNumericIndexKernel, Basics) {
   this->AssertIndexIs(chunked_input4, value, 5);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Must provide IndexOptions"),
+      Invalid, ::testing::HasSubstr("Function 'index' cannot be called without options"),
       CallFunction("index", {ArrayFromJSON(this->type_singleton(), "[0]")}));
 }
 TYPED_TEST(TestNumericIndexKernel, Random) {
@@ -3402,7 +3498,7 @@ TEST_F(TestInt64QuantileKernel, Int64) {
 #undef DOUBLE
 #undef O
 
-#ifndef __MINGW32__
+#if !defined(__MINGW32__) && !defined(__i386__)
 template <typename ArrowType>
 class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
   using CType = typename ArrowType::c_type;
@@ -3533,7 +3629,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
       const CType* values = array->data()->GetValues<CType>(1);
       const auto bitmap = array->null_bitmap_data();
       for (int64_t i = 0; i < array->length(); ++i) {
-        if ((!bitmap || BitUtil::GetBit(bitmap, array->data()->offset + i)) &&
+        if ((!bitmap || bit_util::GetBit(bitmap, array->data()->offset + i)) &&
             !std::isnan(static_cast<double>(values[i]))) {
           input[index++] = values[i];
         }

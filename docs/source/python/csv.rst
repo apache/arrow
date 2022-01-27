@@ -16,7 +16,7 @@
 .. under the License.
 
 .. currentmodule:: pyarrow.csv
-.. _csv:
+.. _py-csv:
 
 Reading and Writing CSV files
 =============================

@@ -27,7 +27,13 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   }
 
   # See query-engine.R for ExecPlan/Nodes
-  tab <- do_exec_plan(x)
+  tryCatch(
+    tab <- do_exec_plan(x),
+    error = function(e) {
+      handle_csv_read_error(e, x$.data$schema)
+    }
+  )
+
   if (as_data_frame) {
     df <- as.data.frame(tab)
     tab$invalidate()
@@ -113,7 +119,7 @@ implicit_schema <- function(.data) {
     hash <- length(.data$group_by_vars) > 0
     agg_fields <- imap(
       new_fields[setdiff(names(new_fields), .data$group_by_vars)],
-      ~ output_type(.data$aggregations[[.y]][["fun"]], .x, hash)
+      ~ agg_fun_output_type(.data$aggregations[[.y]][["fun"]], .x, hash)
     )
     new_fields <- c(group_fields, agg_fields)
   }

@@ -18,10 +18,6 @@
 ARG arch=amd64
 FROM ${arch}/ubuntu:18.04
 
-# arch is unset after the FROM statement, so need to define it again
-ARG arch=amd64
-ARG prefix=/opt/conda
-
 # install build essentials
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \
@@ -29,27 +25,22 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH=${prefix}/bin:$PATH
-# install conda and minio
-COPY ci/scripts/install_conda.sh \
-     ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
-COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts
-RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
+# install conda and mamba via mambaforge
+COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_conda.sh mambaforge latest /opt/conda
+ENV PATH=/opt/conda/bin:$PATH
 
 # create a conda environment
 ADD ci/conda_env_unix.txt /arrow/ci/
-RUN conda create -n arrow --file arrow/ci/conda_env_unix.txt git && \
-    conda clean --all
+RUN mamba create -n arrow --file arrow/ci/conda_env_unix.txt git && \
+    mamba clean --all
 
 # activate the created environment by default
 RUN echo "conda activate arrow" >> ~/.profile
-ENV CONDA_PREFIX=${prefix}/envs/arrow
+ENV CONDA_PREFIX=/opt/conda/envs/arrow
 
 # use login shell to activate arrow environment un the RUN commands
-SHELL [ "/bin/bash", "-c", "-l" ]
+SHELL ["/bin/bash", "-c", "-l"]
 
 # use login shell when running the container
-ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
+ENTRYPOINT ["/bin/bash", "-c", "-l"]

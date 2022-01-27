@@ -138,8 +138,7 @@ typedef struct GADatasetScannerBuilderPrivate_ {
 } GADatasetScannerBuilderPrivate;
 
 enum {
-  PROP_SCANNER_BUILDER = 1,
-  PROP_USE_ASYNC,
+  PROP_SCANNER_BUILDER = 1
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GADatasetScannerBuilder,
@@ -173,11 +172,6 @@ gadataset_scanner_builder_set_property(GObject *object,
       *static_cast<std::shared_ptr<arrow::dataset::ScannerBuilder> *>(
         g_value_get_pointer(value));
     break;
-  case PROP_USE_ASYNC:
-    garrow::check(nullptr,
-                  priv->scanner_builder->UseAsync(g_value_get_boolean(value)),
-                  "[scanner-builder][use-async][set]");
-    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -206,21 +200,6 @@ gadataset_scanner_builder_class_init(GADatasetScannerBuilderClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_SCANNER_BUILDER, spec);
-
-  arrow::dataset::ScanOptions default_options;
-  /**
-   * GADatasetScannerBuilder:use-async:
-   *
-   * Whether or not async mode is used.
-   *
-   * Since: 6.0.0
-   */
-  spec = g_param_spec_boolean("use-async",
-                              "Use async",
-                              "Whether or not async mode is used",
-                              default_options.use_async,
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE));
-  g_object_class_install_property(gobject_class, PROP_USE_ASYNC, spec);
 }
 
 /**

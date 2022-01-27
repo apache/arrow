@@ -62,15 +62,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Checkout Arrow Rust
         uses: actions/checkout@v2
         with:
           repository: apache/arrow-rs
           path: rust
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:

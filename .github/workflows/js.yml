@@ -42,7 +42,7 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 14
+    name: AMD64 Debian 11 NodeJS 16
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -51,10 +51,6 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -79,15 +75,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:
@@ -106,12 +99,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [14]
+        node: [16]
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
         with:
-          submodules: true
+          fetch-depth: 0
       - name: Install NodeJS
         uses: actions/setup-node@v1
         with:

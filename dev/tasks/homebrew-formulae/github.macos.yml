@@ -25,8 +25,8 @@ on:
       - "*-github-*"
 
 jobs:
-  autobrew:
-    name: "Autobrew"
+  homebrew:
+    name: "Homebrew"
     runs-on: macOS-latest
     steps:
       - name: Checkout Arrow
@@ -35,22 +35,40 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
-      - name: Configure homebrew formula for testing
+      - name: Configure Homebrew formula for testing
         env:
           ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
         run: |
-          # Pin the current commit in the formula to test so that we're not always pulling from master
-          sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' $ARROW_FORMULA && rm -f $ARROW_FORMULA.bak
-          # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
-          sed -i.bak -E -e 's@.git.git@.git@' $ARROW_FORMULA && rm -f $ARROW_FORMULA.bak
           brew update
           brew --version
           brew unlink python@2 || true
           brew config
           brew doctor || true
-          cp $ARROW_FORMULA $(brew --repository homebrew/core)/Formula/apache-arrow.rb
+
+          ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
+          echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
+          for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
+            if [ ! -f ${formula} ]; then
+              continue
+            fi
+            # Pin the current commit in the formula to test so that
+            # we're not always pulling from master
+            sed -i '' -E \
+              -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+              ${formula}
+            # Sometimes crossbow gives a remote URL with .git and sometimes not.
+            # Make sure there's only one
+            sed -i '' -E -e 's@.git.git@.git@' ${formula}
+            cp ${formula} $(brew --repository homebrew/core)/Formula/
+          done
       - name: Test formula
         run: |
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow
+
+          if [ -f ${ARROW_GLIB_FORMULA} ]; then
+            brew install -v --HEAD apache-arrow-glib
+            brew test apache-arrow-glib
+            brew audit --strict apache-arrow-glib
+          fi

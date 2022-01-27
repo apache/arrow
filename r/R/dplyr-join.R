@@ -117,10 +117,30 @@ handle_join_by <- function(by, x, y) {
   if (is.null(names(by))) {
     by <- set_names(by)
   }
-  # TODO: nicer messages?
-  stopifnot(
-    all(names(by) %in% names(x)),
-    all(by %in% names(y))
-  )
+
+  missing_x_cols <- setdiff(names(by), names(x))
+  missing_y_cols <- setdiff(by, names(y))
+  message_x <- NULL
+  message_y <- NULL
+
+  if (length(missing_x_cols) > 0) {
+    message_x <- paste(
+      oxford_paste(missing_x_cols, quote_symbol = "`"),
+      "not present in x."
+    )
+  }
+
+  if (length(missing_y_cols) > 0) {
+    message_y <- paste(
+      oxford_paste(missing_y_cols, quote_symbol = "`"),
+      "not present in y."
+    )
+  }
+
+  if (length(missing_x_cols) > 0 || length(missing_y_cols) > 0) {
+    err_header <- "Join columns must be present in data."
+    abort(c(err_header, x = message_x, x = message_y))
+  }
+
   by
 }

@@ -32,6 +32,7 @@
 #'
 #' - `$length()`: Size in the number of elements this array contains
 #' - `$chunk(i)`: Extract an `Array` chunk by integer position
+#' - `$nbytes() : Total number of bytes consumed by the elements of the array
 #' - `$as_vector()`: convert to an R vector
 #' - `$Slice(offset, length = NULL)`: Construct a zero-copy slice of the array
 #'    with the indicated offset and length. If length is `NULL`, the slice goes
@@ -82,6 +83,7 @@ ChunkedArray <- R6Class("ChunkedArray",
   public = list(
     length = function() ChunkedArray__length(self),
     type_id = function() ChunkedArray__type(self)$id,
+    nbytes = function() ChunkedArray__ReferencedBufferSize(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self, option_use_threads()),
     Slice = function(offset, length = NULL) {

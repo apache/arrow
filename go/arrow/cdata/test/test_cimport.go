@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cdata_test
 // +build cdata_test
 
 package main
@@ -109,7 +110,7 @@ func makeSchema() *arrow.Schema {
 	}, &meta)
 }
 
-func makeBatch() array.Record {
+func makeBatch() arrow.Record {
 	bldr := array.NewRecordBuilder(alloc, makeSchema())
 	defer bldr.Release()
 

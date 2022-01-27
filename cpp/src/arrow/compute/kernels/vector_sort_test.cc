@@ -32,7 +32,6 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -148,7 +147,7 @@ struct SortComparator {
 };
 
 template <typename ArrowType>
-class TestNthToIndicesBase : public TestBase {
+class TestNthToIndicesBase : public ::testing::Test {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
  protected:
@@ -337,6 +336,33 @@ TYPED_TEST(TestNthToIndicesRandom, RandomValues) {
 }
 
 // ----------------------------------------------------------------------
+// Basic tests for the "array_sort_indices" function
+
+TEST(ArraySortIndicesFunction, Array) {
+  auto arr = ArrayFromJSON(int16(), "[0, 1, null, -3, null, -42, 5]");
+  auto expected = ArrayFromJSON(uint64(), "[5, 3, 0, 1, 6, 2, 4]");
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ArrayFromJSON(uint64(), "[2, 4, 6, 1, 0, 3, 5]");
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST(ArraySortIndicesFunction, ChunkedArray) {
+  auto arr = ChunkedArrayFromJSON(int16(), {"[0, 1]", "[null, -3, null, -42, 5]"});
+  auto expected = ChunkedArrayFromJSON(uint64(), {"[5, 3, 0, 1, 6, 2, 4]"});
+  ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("array_sort_indices", {arr}));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+
+  ArraySortOptions options{SortOrder::Descending, NullPlacement::AtStart};
+  expected = ChunkedArrayFromJSON(uint64(), {"[2, 4, 6, 1, 0, 3, 5]"});
+  ASSERT_OK_AND_ASSIGN(actual, CallFunction("array_sort_indices", {arr}, &options));
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+// ----------------------------------------------------------------------
 // Tests for SortToIndices
 
 template <typename T>
@@ -376,7 +402,7 @@ void AssertSortIndices(const std::shared_ptr<DataType>& type, const std::string&
                     ArrayFromJSON(uint64(), expected));
 }
 
-class TestArraySortIndicesBase : public TestBase {
+class TestArraySortIndicesBase : public ::testing::Test {
  public:
   virtual std::shared_ptr<DataType> type() = 0;
 
@@ -741,13 +767,13 @@ TEST(TestArraySortIndices, TemporalTypeParameters) {
 }
 
 template <typename ArrowType>
-class TestArraySortIndicesRandom : public TestBase {};
+class TestArraySortIndicesRandom : public ::testing::Test {};
 
 template <typename ArrowType>
-class TestArraySortIndicesRandomCount : public TestBase {};
+class TestArraySortIndicesRandomCount : public ::testing::Test {};
 
 template <typename ArrowType>
-class TestArraySortIndicesRandomCompare : public TestBase {};
+class TestArraySortIndicesRandomCompare : public ::testing::Test {};
 
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
@@ -928,7 +954,7 @@ TYPED_TEST(TestChunkedArraySortIndicesForDecimal, Basics) {
 
 // Base class for testing against random chunked array.
 template <typename Type>
-class TestChunkedArrayRandomBase : public TestBase {
+class TestChunkedArrayRandomBase : public ::testing::Test {
  protected:
   // Generates a chunk. This should be implemented in subclasses.
   virtual std::shared_ptr<Array> GenerateArray(int length, double null_probability) = 0;

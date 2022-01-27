@@ -81,6 +81,13 @@ bool DetectAbsolutePath(const std::string& s) {
 
 namespace {
 
+Status ValidatePath(util::string_view s) {
+  if (internal::IsLikelyUri(s)) {
+    return Status::Invalid("Expected a local filesystem path, got a URI: '", s, "'");
+  }
+  return Status::OK();
+}
+
 #ifdef _WIN32
 
 std::string NativeToString(const NativePathString& ns) {
@@ -274,6 +281,7 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
 LocalFileSystem::~LocalFileSystem() {}
 
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return fn.ToString();
 }
@@ -288,11 +296,13 @@ bool LocalFileSystem::Equals(const FileSystem& other) const {
 }
 
 Result<FileInfo> LocalFileSystem::GetFileInfo(const std::string& path) {
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());
 }
 
 Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& select) {
+  RETURN_NOT_OK(ValidatePath(select.base_dir));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileInfo> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
@@ -300,6 +310,7 @@ Result<std::vector<FileInfo>> LocalFileSystem::GetFileInfo(const FileSelector& s
 }
 
 Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   if (recursive) {
     return ::arrow::internal::CreateDirTree(fn).status();
@@ -309,6 +320,7 @@ Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
 }
 
 Status LocalFileSystem::DeleteDir(const std::string& path) {
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   auto st = ::arrow::internal::DeleteDirTree(fn, /*allow_not_found=*/false).status();
   if (!st.ok()) {
@@ -321,6 +333,7 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status LocalFileSystem::DeleteDirContents(const std::string& path) {
+  RETURN_NOT_OK(ValidatePath(path));
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
@@ -339,11 +352,14 @@ Status LocalFileSystem::DeleteRootDirContents() {
 }
 
 Status LocalFileSystem::DeleteFile(const std::string& path) {
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return ::arrow::internal::DeleteFile(fn, /*allow_not_found=*/false).status();
 }
 
 Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
+  RETURN_NOT_OK(ValidatePath(src));
+  RETURN_NOT_OK(ValidatePath(dest));
   ARROW_ASSIGN_OR_RAISE(auto sfn, PlatformFilename::FromString(src));
   ARROW_ASSIGN_OR_RAISE(auto dfn, PlatformFilename::FromString(dest));
 
@@ -363,6 +379,8 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status LocalFileSystem::CopyFile(const std::string& src, const std::string& dest) {
+  RETURN_NOT_OK(ValidatePath(src));
+  RETURN_NOT_OK(ValidatePath(dest));
   ARROW_ASSIGN_OR_RAISE(auto sfn, PlatformFilename::FromString(src));
   ARROW_ASSIGN_OR_RAISE(auto dfn, PlatformFilename::FromString(dest));
   // XXX should we use fstat() to compare inodes?
@@ -392,6 +410,7 @@ template <typename InputStreamType>
 Result<std::shared_ptr<InputStreamType>> OpenInputStreamGeneric(
     const std::string& path, const LocalFileSystemOptions& options,
     const io::IOContext& io_context) {
+  RETURN_NOT_OK(ValidatePath(path));
   if (options.use_mmap) {
     return io::MemoryMappedFile::Open(path, io::FileMode::READ);
   } else {
@@ -416,11 +435,11 @@ namespace {
 Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::string& path,
                                                                   bool truncate,
                                                                   bool append) {
-  int fd;
-  bool write_only = true;
+  RETURN_NOT_OK(ValidatePath(path));
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  const bool write_only = true;
   ARROW_ASSIGN_OR_RAISE(
-      fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
+      int fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
   auto maybe_stream = io::FileOutputStream::Open(fd);
   if (!maybe_stream.ok()) {
     ARROW_UNUSED(::arrow::internal::FileClose(fd));

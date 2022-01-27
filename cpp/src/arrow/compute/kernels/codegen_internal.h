@@ -48,7 +48,7 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/string_view.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -1169,6 +1169,20 @@ ArrayKernelExec GeneratePhysicalNumeric(detail::GetTypeId get_id) {
   }
 }
 
+// Generate a kernel given a templated functor for decimal types
+template <template <typename... Args> class Generator, typename... Args>
+ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::DECIMAL128:
+      return Generator<Decimal128Type, Args...>::Exec;
+    case Type::DECIMAL256:
+      return Generator<Decimal256Type, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
@@ -1368,6 +1382,9 @@ ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
 
 ARROW_EXPORT
+void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
@@ -1375,6 +1392,9 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
+TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);

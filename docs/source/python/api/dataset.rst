@@ -51,6 +51,7 @@ Classes
    CsvFragmentScanOptions
    IpcFileFormat
    ParquetFileFormat
+   ParquetReadOptions
    ParquetFragmentScanOptions
    ORCFileFormat
    Partitioning
@@ -62,5 +63,7 @@ Classes
    FileSystemFactoryOptions
    FileSystemDatasetFactory
    UnionDataset
+   Fragment
+   FragmentScanOptions
    Scanner
    Expression

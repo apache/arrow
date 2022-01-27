@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   as-cran:
@@ -44,27 +39,12 @@ jobs:
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: cd arrow && ci/scripts/util_checkout.sh
-      - name: Docker Pull
-        shell: bash
-        run: cd arrow && docker-compose pull --ignore-pull-failures r
-      - name: Docker Build
-        shell: bash
-        run: cd arrow && docker-compose build r
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+
       - name: Docker Run
         shell: bash
-        run: cd arrow && docker-compose run r
+        run: archery docker run r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()

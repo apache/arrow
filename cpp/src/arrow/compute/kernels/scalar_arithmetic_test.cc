@@ -34,7 +34,7 @@
 #include "arrow/util/math_constants.h"
 #include "arrow/util/string.h"
 
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 
@@ -72,21 +72,8 @@ void AssertNullToNull(const std::string& func_name) {
   }
 }
 
-// Construct an array of decimals, where negative scale is allowed.
-//
-// Works around DecimalXXX::FromString intentionally not inferring
-// negative scales.
-std::shared_ptr<Array> DecimalArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                            const std::string& json) {
-  const auto& ty = checked_cast<const DecimalType&>(*type);
-  if (ty.scale() >= 0) return ArrayFromJSON(type, json);
-  auto p = ty.precision() - ty.scale();
-  auto adjusted_ty = ty.id() == Type::DECIMAL128 ? decimal128(p, 0) : decimal256(p, 0);
-  return Cast(ArrayFromJSON(adjusted_ty, json), type).ValueOrDie().make_array();
-}
-
 template <typename T, typename OptionsType>
-class TestBaseUnaryArithmetic : public TestBase {
+class TestBaseUnaryArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -197,7 +184,7 @@ class TestBaseUnaryArithmetic : public TestBase {
   }
 
   OptionsType options_ = OptionsType();
-  EqualOptions equal_options_ = EqualOptions::Defaults();
+  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
 };
 
 // Subclasses of TestBaseUnaryArithmetic for different FunctionOptions.
@@ -289,8 +276,7 @@ class TestArithmeticDecimal : public ::testing::Test {
     }
     ASSERT_OK_AND_ASSIGN(auto expected, CallFunction(func, floating_args));
     ASSERT_OK_AND_ASSIGN(auto actual, CallFunction(func, args));
-    auto equal_options = EqualOptions::Defaults().nans_equal(true);
-    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true, equal_options);
+    AssertDatumsApproxEqual(actual, expected, /*verbose=*/true);
   }
 
   void CheckRaises(const std::string& func, const DatumVector& args,
@@ -301,7 +287,7 @@ class TestArithmeticDecimal : public ::testing::Test {
 };
 
 template <typename T>
-class TestBinaryArithmetic : public TestBase {
+class TestBinaryArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -446,8 +432,12 @@ class TestBinaryArithmetic : public TestBase {
     this->equal_options_ = equal_options_.nans_equal(value);
   }
 
+  void SetSignedZerosEqual(bool value = true) {
+    this->equal_options_ = equal_options_.signed_zeros_equal(value);
+  }
+
   ArithmeticOptions options_ = ArithmeticOptions();
-  EqualOptions equal_options_ = EqualOptions::Defaults();
+  EqualOptions equal_options_ = EqualOptions::Defaults().signed_zeros_equal(false);
 };
 
 template <typename... Elements>
@@ -474,7 +464,7 @@ template <typename T>
 class TestBinaryArithmeticFloating : public TestBinaryArithmetic<T> {};
 
 template <typename T>
-class TestBitWiseArithmetic : public TestBase {
+class TestBitWiseArithmetic : public ::testing::Test {
  protected:
   using ArrowType = T;
   using CType = typename ArrowType::c_type;
@@ -1082,14 +1072,24 @@ TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
   this->AssertBinop(Multiply, "[null, 1.5, 0.5]", "[2.0, -3, null]",
                     "[null, -4.5, null]");
 
+  // Negative zeros
+  this->AssertBinop(Multiply, "[0.0, 1.0, -1.0, -0.0]", "[1.0, -0.0, 0.0, -1.0]",
+                    "[0.0, -0.0, -0.0, 0.0]");
+  this->AssertBinop(Multiply, "[0.0, 1.0, -1.0, null]", "[null, -0.0, 0.0, -1.0]",
+                    "[null, -0.0, -0.0, null]");
+
   // Scalar on the left
-  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[0.0, -3.0]");
+  this->AssertBinop(Multiply, -1.5f, "[0.0, 2.0]", "[-0.0, -3.0]");
   this->AssertBinop(Multiply, -1.5f, "[null, 2.0]", "[null, -3.0]");
+  this->AssertBinop(Multiply, -0.0f, "[3.0, -2.0]", "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, -0.0f, "[null, 2.0]", "[null, -0.0]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[0.0, 2.0]", "[null, null]");
   this->AssertBinop(Multiply, this->MakeNullScalar(), "[null, 2.0]", "[null, null]");
   // Scalar on the right
-  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[0.0, -3.0]");
+  this->AssertBinop(Multiply, "[0.0, 2.0]", -1.5f, "[-0.0, -3.0]");
   this->AssertBinop(Multiply, "[null, 2.0]", -1.5f, "[null, -3.0]");
+  this->AssertBinop(Multiply, "[3.0, -2.0]", -0.0f, "[-0.0, 0.0]");
+  this->AssertBinop(Multiply, "[null, 2.0]", -0.0f, "[null, -0.0]");
   this->AssertBinop(Multiply, "[0.0, 2.0]", this->MakeNullScalar(), "[null, null]");
   this->AssertBinop(Multiply, "[null, 2.0]", this->MakeNullScalar(), "[null, null]");
 }
@@ -1356,10 +1356,9 @@ TYPED_TEST(TestUnaryArithmeticFloating, Negate) {
     this->AssertUnaryOp(Negate, this->MakeNullScalar(), this->MakeNullScalar());
     this->AssertUnaryOp(Negate, "[1.3, null, -10.80]", "[-1.3, null, 10.80]");
     // Arrays with zeros
-    this->AssertUnaryOp(Negate, "[0.0, 0.0, -0.0]", "[0.0, -0.0, 0.0]");
+    this->AssertUnaryOp(Negate, "[0.0, 0.0, -0.0]", "[-0.0, -0.0, 0.0]");
     this->AssertUnaryOp(Negate, 0.0F, -0.0F);
     this->AssertUnaryOp(Negate, -0.0F, 0.0F);
-    this->AssertUnaryOp(Negate, 0.0F, 0.0F);
     // Ordinary arrays (positive inputs)
     this->AssertUnaryOp(Negate, "[1.3, 10.80, 12748.001]", "[-1.3, -10.80, -12748.001]");
     this->AssertUnaryOp(Negate, 1.3F, -1.3F);
@@ -2199,8 +2198,8 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
 
   // Test different round N-digits for nearest rounding mode
   std::vector<std::pair<int64_t, std::string>> ndigits_and_expected{{
-      {-2, "[0, 0, -0, -100, 100]"},
-      {-1, "[0, 0, -10, -50, 120]"},
+      {-2, "[0.0, 0.0, -0.0, -100, 100]"},
+      {-1, "[0.0, 0.0, -10, -50, 120]"},
       {0, values},
       {1, values},
       {2, values},
@@ -2265,8 +2264,8 @@ TYPED_TEST(TestUnaryRoundFloating, Round) {
   // Test different round N-digits for nearest rounding mode
   values = "[320, 3.5, 3.075, 4.5, -3.212, -35.1234, -3.045]";
   std::vector<std::pair<int64_t, std::string>> ndigits_and_expected{{
-      {-2, "[300, 0, 0, 0, -0, -0, -0]"},
-      {-1, "[320, 0, 0, 0, -0, -40, -0]"},
+      {-2, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
+      {-1, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
       {0, "[320, 4, 3, 5, -3, -35, -3]"},
       {1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
       {2, "[320, 3.5, 3.08, 4.5, -3.21, -35.12, -3.05]"},
@@ -2294,11 +2293,11 @@ TYPED_TEST(TestUnaryRoundToMultipleSigned, RoundToMultiple) {
 
   // Test different round multiples for nearest rounding mode
   std::vector<std::pair<double, std::string>> multiple_and_expected{{
-      {2, "[0, 2, -14, -50, 116]"},
-      {0.05, "[0, 1, -13, -50, 115]"},
+      {2, "[0.0, 2, -14, -50, 116]"},
+      {0.05, "[0.0, 1, -13, -50, 115]"},
       {0.1, values},
-      {10, "[0, 0, -10, -50, 120]"},
-      {100, "[0, 0, -0, -100, 100]"},
+      {10, "[0.0, 0.0, -10, -50, 120]"},
+      {100, "[0.0, 0.0, -0.0, -100, 100]"},
   }};
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
@@ -2363,8 +2362,8 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
       {2, "[320, 4, 4, 4, -4, -36, -4]"},
       {0.05, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3.05]"},
       {0.1, "[320, 3.5, 3.1, 4.5, -3.2, -35.1, -3]"},
-      {10, "[320, 0, 0, 0, -0, -40, -0]"},
-      {100, "[300, 0, 0, 0, -0, -0, -0]"},
+      {10, "[320, 0.0, 0.0, 0.0, -0.0, -40, -0.0]"},
+      {100, "[300, 0.0, 0.0, 0.0, -0.0, -0.0, -0.0]"},
   }};
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : multiple_and_expected) {
@@ -3225,6 +3224,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
   this->AssertBinop(Logb, "[1.0, 2.0, null]", "[2.0, 2.0, null]", "[0.0, 1.0, null]");
   this->AssertBinop(Logb, "[10.0, 100.0, 1000.0, null]", this->MakeScalar(10),
                     "[1.0, 2.0, 3.0, null]");
+  this->AssertBinop(Logb, "[1, 2, 4, 8]", this->MakeScalar(0.25),
+                    "[-0.0, -0.5, -1.0, -1.5]");
   this->SetOverflowCheck(false);
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(10),
                     "[NaN, NaN, -Inf, Inf]");
@@ -3237,6 +3238,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
                     "[NaN, NaN, NaN, Inf]");
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Logb, "[0]", "[2]", "logarithm of zero");
+  this->AssertBinopRaises(Logb, "[2]", "[0]", "logarithm of zero");
   this->AssertBinopRaises(Logb, "[-1]", "[2]", "logarithm of negative number");
   this->AssertBinopRaises(Logb, "[-Inf]", "[2]", "logarithm of negative number");
 }
@@ -3253,8 +3255,9 @@ TYPED_TEST(TestBinaryArithmeticSigned, Log) {
                     ArrayFromJSON(float64(), "[NaN, NaN]"));
   this->AssertBinop(Logb, "[-1, 0, null]", this->MakeScalar(-1),
                     ArrayFromJSON(float64(), "[NaN, NaN, null]"));
+  // 10**x is negative for x smaller than 1, and tends towards zero when x -> 0
   this->AssertBinop(Logb, "[10, 100]", this->MakeScalar(0),
-                    ArrayFromJSON(float64(), "[0, 0]"));
+                    ArrayFromJSON(float64(), "[-0.0, -0.0]"));
   this->SetOverflowCheck(true);
   this->AssertBinopRaises(Logb, "[0]", "[10]", "logarithm of zero");
   this->AssertBinopRaises(Logb, "[-1]", "[10]", "logarithm of negative number");
@@ -3382,7 +3385,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Floor) {
   this->AssertUnaryOp(floor, "[]", "[]");
   this->AssertUnaryOp(floor, "[null]", "[null]");
   this->AssertUnaryOp(floor, "[1.3, null, -10.80]", "[1, null, -11]");
-  this->AssertUnaryOp(floor, "[0.0, -0.0]", "[0, 0]");
+  // XXX Python uses math.floor(-0.0) == 0.0, but std::floor() keeps the sign
+  this->AssertUnaryOp(floor, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(floor, "[1.3, 10.80, 12748.001]", "[1, 10, 12748]");
   this->AssertUnaryOp(floor, "[-1.3, -10.80, -12748.001]", "[-2, -11, -12749]");
   this->AssertUnaryOp(floor, "[Inf, -Inf]", "[Inf, -Inf]");
@@ -3431,7 +3435,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Ceil) {
   this->AssertUnaryOp(ceil, "[]", "[]");
   this->AssertUnaryOp(ceil, "[null]", "[null]");
   this->AssertUnaryOp(ceil, "[1.3, null, -10.80]", "[2, null, -10]");
-  this->AssertUnaryOp(ceil, "[0.0, -0.0]", "[0, 0]");
+  // XXX same comment as Floor above
+  this->AssertUnaryOp(ceil, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(ceil, "[1.3, 10.80, 12748.001]", "[2, 11, 12749]");
   this->AssertUnaryOp(ceil, "[-1.3, -10.80, -12748.001]", "[-1, -10, -12748]");
   this->AssertUnaryOp(ceil, "[Inf, -Inf]", "[Inf, -Inf]");
@@ -3481,7 +3486,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Trunc) {
   this->AssertUnaryOp(trunc, "[]", "[]");
   this->AssertUnaryOp(trunc, "[null]", "[null]");
   this->AssertUnaryOp(trunc, "[1.3, null, -10.80]", "[1, null, -10]");
-  this->AssertUnaryOp(trunc, "[0.0, -0.0]", "[0, 0]");
+  // XXX same comment as Floor above
+  this->AssertUnaryOp(trunc, "[0.0, -0.0]", "[0.0, -0.0]");
   this->AssertUnaryOp(trunc, "[1.3, 10.80, 12748.001]", "[1, 10, 12748]");
   this->AssertUnaryOp(trunc, "[-1.3, -10.80, -12748.001]", "[-1, -10, -12748]");
   this->AssertUnaryOp(trunc, "[Inf, -Inf]", "[Inf, -Inf]");

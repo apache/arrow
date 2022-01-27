@@ -24,6 +24,7 @@ import weakref
 import numpy as np
 import pytest
 import pyarrow as pa
+import pyarrow.compute as pc
 
 
 def test_chunked_array_basics():
@@ -47,8 +48,11 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
-    assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
-    assert sys.getsizeof(data) >= object.__sizeof__(data) + data.nbytes
+    assert data.get_total_buffer_size() == sum(c.get_total_buffer_size()
+                                               for c in data.iterchunks())
+    assert sys.getsizeof(data) >= object.__sizeof__(
+        data) + data.get_total_buffer_size()
+    assert data.nbytes == 3 * 3 * 8  # 3 items per 3 lists with int64 size(8)
     data.validate()
 
     wr = weakref.ref(data)
@@ -338,6 +342,37 @@ def test_chunked_array_to_pandas_preserve_name():
         tm.assert_series_equal(result, expected)
 
 
+@pytest.mark.xfail
+@pytest.mark.pandas
+def test_table_roundtrip_to_pandas_empty_dataframe():
+    # https://issues.apache.org/jira/browse/ARROW-10643
+    import pandas as pd
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
+    table = pa.table(data)
+    result = table.to_pandas()
+
+    # TODO the conversion results in a table with 0 rows if the original
+    # DataFrame has a RangeIndex (i.e. no index column in the converted
+    # Arrow table)
+    assert table.num_rows == 10
+    assert data.shape == (10, 0)
+    assert result.shape == (10, 0)
+
+
+@pytest.mark.pandas
+def test_to_pandas_empty_table():
+    # https://issues.apache.org/jira/browse/ARROW-15370
+    import pandas as pd
+    import pandas.testing as tm
+
+    df = pd.DataFrame({'a': [1, 2], 'b': [0.1, 0.2]})
+    table = pa.table(df)
+    result = table.schema.empty_table().to_pandas()
+    assert result.shape == (0, 2)
+    tm.assert_frame_equal(result, df.iloc[:0])
+
+
 @pytest.mark.pandas
 @pytest.mark.nopandas
 def test_chunked_array_asarray():
@@ -425,17 +460,16 @@ def test_recordbatch_basics():
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
     # (only the second array has a null bitmap)
-    assert batch.nbytes == (5 * 2) + (5 * 4 + 1)
-    assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
+    assert batch.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
+    batch.nbytes == (5 * 2) + (5 * 4 + 1)
+    assert sys.getsizeof(batch) >= object.__sizeof__(
+        batch) + batch.get_total_buffer_size()
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -788,17 +822,16 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.get_total_buffer_size() == 2 * (5 * 8)
     assert table.nbytes == 2 * (5 * 8)
-    assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
+    assert sys.getsizeof(table) >= object.__sizeof__(
+        table) + table.get_total_buffer_size()
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    if sys.version_info >= (3, 7):
-        assert type(pydict) == dict
-    else:
-        assert type(pydict) == OrderedDict
+    assert type(pydict) == dict
 
     columns = []
     for col in table.itercolumns():
@@ -1478,6 +1511,98 @@ def test_table_from_pydict_schema(data, klass):
     assert table.column_names == ['strs']
 
 
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_from_pylist(cls):
+    table = cls.from_pylist([])
+    assert table.num_columns == 0
+    assert table.num_rows == 0
+    assert table.schema == pa.schema([])
+    assert table.to_pylist() == []
+
+    schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64())])
+
+    # With lists as values
+    data = [{'strs': '', 'floats': 4.5},
+            {'strs': 'foo', 'floats': 5},
+            {'strs': 'bar', 'floats': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.schema == schema
+    assert table.to_pylist() == data
+
+    # With metadata and inferred schema
+    metadata = {b'foo': b'bar'}
+    schema = schema.with_metadata(metadata)
+    table = cls.from_pylist(data, metadata=metadata)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # With explicit schema
+    table = cls.from_pylist(data, schema=schema)
+    assert table.schema == schema
+    assert table.schema.metadata == metadata
+    assert table.to_pylist() == data
+
+    # Cannot pass both schema and metadata
+    with pytest.raises(ValueError):
+        cls.from_pylist(data, schema=schema, metadata=metadata)
+
+    # Non-convertible values given schema
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'c0': 0}, {'c0': 1}, {'c0': 2}],
+                        schema=pa.schema([("c0", pa.string())]))
+
+    # Missing schema fields in the passed mapping translate to None
+    schema = pa.schema([('a', pa.int64()),
+                        ('c', pa.int32()),
+                        ('d', pa.int16())
+                        ])
+    table = cls.from_pylist(
+        [{'a': 1, 'b': 3}, {'a': 2, 'b': 4}, {'a': 3, 'b': 5}],
+        schema=schema
+    )
+    data = [{'a': 1, 'c': None, 'd': None},
+            {'a': 2, 'c': None, 'd': None},
+            {'a': 3, 'c': None, 'd': None}]
+    assert table.schema == schema
+    assert table.to_pylist() == data
+
+    # Passed wrong schema type
+    with pytest.raises(TypeError):
+        cls.from_pylist([{'a': 1}, {'a': 2}, {'a': 3}], schema={})
+
+    # If the dictionaries of rows are not same length
+    data = [{'strs': '', 'floats': 4.5},
+            {'floats': 5},
+            {'strs': 'bar'}]
+    data2 = [{'strs': '', 'floats': 4.5},
+             {'strs': None, 'floats': 5},
+             {'strs': 'bar', 'floats': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 2
+    assert table.num_rows == 3
+    assert table.to_pylist() == data2
+
+    data = [{'strs': ''},
+            {'strs': 'foo', 'floats': 5},
+            {'floats': None}]
+    data2 = [{'strs': ''},
+             {'strs': 'foo'},
+             {'strs': None}]
+    table = cls.from_pylist(data)
+    assert table.num_columns == 1
+    assert table.num_rows == 3
+    assert table.to_pylist() == data2
+
+
 @pytest.mark.pandas
 def test_table_from_pandas_schema():
     # passed schema is source of truth for the columns
@@ -1746,3 +1871,130 @@ def test_table_select():
     result = table.select(['f2'])
     expected = pa.table([a2], ['f2'])
     assert result.equals(expected)
+
+
+def test_table_group_by():
+    def sorted_by_keys(d):
+        # Ensure a guaranteed order of keys for aggregation results.
+        if "keys2" in d:
+            keys = tuple(zip(d["keys"], d["keys2"]))
+        else:
+            keys = d["keys"]
+        sorted_keys = sorted(keys)
+        sorted_d = {"keys": sorted(d["keys"])}
+        for entry in d:
+            if entry == "keys":
+                continue
+            values = dict(zip(keys, d[entry]))
+            for k in sorted_keys:
+                sorted_d.setdefault(entry, []).append(values[k])
+        return sorted_d
+
+    table = pa.table([
+        pa.array(["a", "a", "b", "b", "c"]),
+        pa.array(["X", "X", "Y", "Z", "Z"]),
+        pa.array([1, 2, 3, 4, 5]),
+        pa.array([10, 20, 30, 40, 50])
+    ], names=["keys", "keys2", "values", "bigvalues"])
+
+    r = table.group_by("keys").aggregate([
+        ("values", "hash_sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
+    }
+
+    r = table.group_by("keys").aggregate([
+        ("values", "hash_sum"),
+        ("values", "hash_count")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "values_count": [2, 2, 1]
+    }
+
+    # Test without hash_ prefix
+    r = table.group_by("keys").aggregate([
+        ("values", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
+    }
+
+    r = table.group_by("keys").aggregate([
+        ("values", "max"),
+        ("bigvalues", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_max": [2, 4, 5],
+        "bigvalues_sum": [30, 70, 50]
+    }
+
+    r = table.group_by("keys").aggregate([
+        ("bigvalues", "max"),
+        ("values", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "bigvalues_max": [20, 40, 50]
+    }
+
+    r = table.group_by(["keys", "keys2"]).aggregate([
+        ("values", "sum")
+    ])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "b", "c"],
+        "keys2": ["X", "Y", "Z", "Z"],
+        "values_sum": [3, 3, 4, 5]
+    }
+
+    table_with_nulls = pa.table([
+        pa.array(["a", "a", "a"]),
+        pa.array([1, None, None])
+    ], names=["keys", "values"])
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="all"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [3]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="only_null"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [2]
+    }
+
+    r = table_with_nulls.group_by(["keys"]).aggregate([
+        ("values", "count", pc.CountOptions(mode="only_valid"))
+    ])
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [1]
+    }
+
+
+def test_table_sort_by():
+    table = pa.table([
+        pa.array([3, 1, 4, 2, 5]),
+        pa.array(["b", "a", "b", "a", "c"]),
+    ], names=["values", "keys"])
+
+    assert table.sort_by("values").to_pydict() == {
+        "keys": ["a", "a", "b", "b", "c"],
+        "values": [1, 2, 3, 4, 5]
+    }
+
+    assert table.sort_by([("values", "descending")]).to_pydict() == {
+        "keys": ["c", "b", "b", "a", "a"],
+        "values": [5, 4, 3, 2, 1]
+    }

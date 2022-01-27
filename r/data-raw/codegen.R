@@ -124,14 +124,13 @@ ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
   #   return(cpp11_wrapped)
   # }
   glue('
-  #if defined(ARROW_R_WITH_{toupper(decoration)})
-  {cpp11_wrapped}
-  #else
-  extern "C" SEXP {sexp_signature}{{
-  \tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-  }}
-  #endif
-  \n')
+#if defined(ARROW_R_WITH_{toupper(decoration)})
+{cpp11_wrapped}
+#else
+extern "C" SEXP {sexp_signature}{{
+\tRf_error("Cannot call {name}(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}}
+#endif\n\n')
 }
 
 cpp_functions_definitions <- arrow_exports %>%

@@ -20,7 +20,9 @@
 #endif
 
 #include <gtest/gtest.h>
+
 #include <cmath>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -41,6 +43,47 @@ TEST(TestExtendedMathOps, TestCbrt) {
 
   VerifyFuzzyEquals(cbrt_float32(15.625), 2.5);
   VerifyFuzzyEquals(cbrt_float64(15.625), 2.5);
+}
+
+TEST(TestExtendedMathOps, TestFactorial) {
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<int64_t>(&context);
+
+  for (int32_t i = 0; i <= 20; ++i) {
+    int64_t expected_factorial = 1;
+
+    for (int64_t j = 1; j <= i; ++j) {
+      expected_factorial *= j;
+    }
+
+    EXPECT_EQ(factorial_int32(ctx, i), expected_factorial);
+  }
+
+  factorial_int32(ctx, 21);
+  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  context.Reset();
+
+  factorial_int32(ctx, -5);
+  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  context.Reset();
+
+  for (int64_t i = 0; i <= 20; ++i) {
+    int64_t expected_factorial = 1;
+
+    for (int64_t j = 1; j <= i; ++j) {
+      expected_factorial *= j;
+    }
+
+    EXPECT_EQ(factorial_int64(ctx, i), expected_factorial);
+  }
+
+  factorial_int64(ctx, 21);
+  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  context.Reset();
+
+  factorial_int64(ctx, -5);
+  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  context.Reset();
 }
 
 TEST(TestExtendedMathOps, TestExp) {

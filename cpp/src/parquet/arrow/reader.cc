@@ -72,7 +72,7 @@ using ParquetReader = parquet::ParquetFileReader;
 
 using parquet::internal::RecordReader;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 namespace arrow {
@@ -583,9 +583,9 @@ class ListReader : public ColumnReaderImpl {
     ::parquet::internal::ValidityBitmapInputOutput validity_io;
     validity_io.values_read_upper_bound = length_upper_bound;
     if (field_->nullable()) {
-      ARROW_ASSIGN_OR_RAISE(
-          validity_buffer,
-          AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+      ARROW_ASSIGN_OR_RAISE(validity_buffer,
+                            AllocateResizableBuffer(
+                                bit_util::BytesForBits(length_upper_bound), ctx_->pool));
       validity_io.valid_bits = validity_buffer->mutable_data();
     }
     ARROW_ASSIGN_OR_RAISE(
@@ -609,7 +609,7 @@ class ListReader : public ColumnReaderImpl {
         offsets_buffer->Resize((validity_io.values_read + 1) * sizeof(IndexType)));
     if (validity_buffer != nullptr) {
       RETURN_NOT_OK(
-          validity_buffer->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+          validity_buffer->Resize(bit_util::BytesForBits(validity_io.values_read)));
       validity_buffer->ZeroPadding();
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> item_chunk, ChunksToSingle(**out));
@@ -757,7 +757,7 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
   if (has_repeated_child_) {
     ARROW_ASSIGN_OR_RAISE(
         null_bitmap,
-        AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+        AllocateResizableBuffer(bit_util::BytesForBits(length_upper_bound), ctx_->pool));
     validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
     RETURN_NOT_OK(GetRepLevels(&rep_levels, &num_levels));
@@ -765,7 +765,7 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
   } else if (filtered_field_->nullable()) {
     ARROW_ASSIGN_OR_RAISE(
         null_bitmap,
-        AllocateResizableBuffer(BitUtil::BytesForBits(length_upper_bound), ctx_->pool));
+        AllocateResizableBuffer(bit_util::BytesForBits(length_upper_bound), ctx_->pool));
     validity_io.valid_bits = null_bitmap->mutable_data();
     RETURN_NOT_OK(GetDefLevels(&def_levels, &num_levels));
     DefLevelsToBitmap(def_levels, num_levels, level_info_, &validity_io);
@@ -773,7 +773,7 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
 
   // Ensure all values are initialized.
   if (null_bitmap) {
-    RETURN_NOT_OK(null_bitmap->Resize(BitUtil::BytesForBits(validity_io.values_read)));
+    RETURN_NOT_OK(null_bitmap->Resize(bit_util::BytesForBits(validity_io.values_read)));
     null_bitmap->ZeroPadding();
   }
 

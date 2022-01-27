@@ -37,11 +37,8 @@ Apache Arrow is the emerging standard for large in-memory columnar data ([Spark]
 
 # Get Started
 
-Check out our [API documentation][7] to learn more about how to use Apache Arrow's JS implementation. You can also learn by example by checking out some of the following resources:
+Check out our [API documentation][5] to learn more about how to use Apache Arrow's JS implementation. You can also learn by example by checking out some of the following resources:
 
-* [Observable: Introduction to Apache Arrow][5]
-* [Observable: Manipulating flat arrays arrow-style][6]
-* [Observable: Rich columnar data tables - Dictionary-encoded strings, 64bit ints, and nested structs][8]
 * [/js/test/unit](https://github.com/apache/arrow/tree/master/js/test/unit) - Unit tests for Table and Vector
 
 ## Cookbook
@@ -50,12 +47,12 @@ Check out our [API documentation][7] to learn more about how to use Apache Arrow
 
 ```js
 import { readFileSync } from 'fs';
-import { Table } from 'apache-arrow';
+import { tableFromIPC } from 'apache-arrow';
 
 const arrow = readFileSync('simple.arrow');
-const table = Table.from([arrow]);
+const table = tableFromIPC(arrow);
 
-console.log(table.toString());
+console.table(table.toArray());
 
 /*
  foo,  bar,  baz
@@ -71,14 +68,14 @@ null, null, null
 
 ```js
 import { readFileSync } from 'fs';
-import { Table } from 'apache-arrow';
+import { tableFromIPC } from 'apache-arrow';
 
-const table = Table.from([
+const table = tableFromIPC([
     'latlong/schema.arrow',
     'latlong/records.arrow'
 ].map((file) => readFileSync(file)));
 
-console.log(table.toString());
+console.table([...table]);
 
 /*
         origin_lat,         origin_lon
@@ -93,58 +90,78 @@ console.log(table.toString());
 ### Create a Table from JavaScript arrays
 
 ```js
-import {
-  Table,
-  FloatVector,
-  DateVector
-} from 'apache-arrow';
+import { tableFromArrays } from 'apache-arrow';
 
 const LENGTH = 2000;
 
 const rainAmounts = Float32Array.from(
-  { length: LENGTH },
-  () => Number((Math.random() * 20).toFixed(1)));
+    { length: LENGTH },
+    () => Number((Math.random() * 20).toFixed(1)));
 
 const rainDates = Array.from(
-  { length: LENGTH },
-  (_, i) => new Date(Date.now() - 1000 * 60 * 60 * 24 * i));
+    { length: LENGTH },
+    (_, i) => new Date(Date.now() - 1000 * 60 * 60 * 24 * i));
 
-const rainfall = Table.new(
-  [FloatVector.from(rainAmounts), DateVector.from(rainDates)],
-  ['precipitation', 'date']
-);
+const rainfall = tableFromArrays({
+    precipitation: rainAmounts,
+    date: rainDates
+});
+
+console.table([...rainfall]);
 ```
 
 ### Load data with `fetch`
 
 ```js
-import { Table } from "apache-arrow";
+import { tableFromIPC } from "apache-arrow";
 
-const table = await Table.from(fetch("/simple.arrow"));
-console.log(table.toString());
+const table = await tableFromIPC(fetch("/simple.arrow"));
 
+console.table([...table]);
 ```
 
-### Columns look like JS Arrays
+### Vectors look like JS Arrays
+
+You can create vector from JavaScript typed arrays with `makeVector` and from JavaScript arrays with `vectorFromArray`. `makeVector` is a lot faster and does not require a copy.
 
 ```js
-import { readFileSync } from 'fs';
-import { Table } from 'apache-arrow';
+import { makeVector } from "apache-arrow";
 
-const table = Table.from([
-    'latlong/schema.arrow',
-    'latlong/records.arrow'
-].map(readFileSync));
+const LENGTH = 2000;
 
-const column = table.getColumn('origin_lat');
+const rainAmounts = Float32Array.from(
+    { length: LENGTH },
+    () => Number((Math.random() * 20).toFixed(1)));
 
-// Copy the data into a TypedArray
-const typed = column.toArray();
+const vector = makeVector(rainAmounts);
+
+const typed = vector.toArray()
+
 assert(typed instanceof Float32Array);
 
-for (let i = -1, n = column.length; ++i < n;) {
-    assert(column.get(i) === typed[i]);
+for (let i = -1, n = vector.length; ++i < n;) {
+    assert(vector.get(i) === typed[i]);
 }
+```
+
+### String vectors
+
+Strings can be encoded as UTF-8 or dictionary encoded UTF-8. Dictionary encoding encodes repeated values more efficiently. You can create a dictionary encoded string conveniently with `vectorFromArray` or efficiently with `makeVector`.
+
+```js
+import { makeVector, vectorFromArray, Dictionary, Uint8, Utf8 } from "apache-arrow";
+
+const uft8Vector = vectorFromArray(['foo', 'bar', 'baz'], new Utf8);
+
+const dictionaryVector1 = vectorFromArray(
+    ['foo', 'bar', 'baz', 'foo', 'bar']
+);
+
+const dictionaryVector2 = makeVector({
+    data: [0, 1, 2, 0, 1],  // indexes into the dictionary
+    dictionary: uft8Vector,
+    type: new Dictionary(new Utf8, new Uint8)
+});
 ```
 
 # Getting involved
@@ -235,7 +252,4 @@ Full list of broader Apache Arrow [projects & organizations](https://arrow.apach
 [2]: https://github.com/apache/arrow/tree/master/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow
-[5]: https://beta.observablehq.com/@theneuralbit/introduction-to-apache-arrow
-[6]: https://beta.observablehq.com/@lmeyerov/manipulating-flat-arrays-arrow-style
-[7]: https://arrow.apache.org/docs/js/
-[8]: https://observablehq.com/@lmeyerov/rich-data-types-in-apache-arrow-js-efficient-data-tables-wit
+[5]: https://arrow.apache.org/docs/js/

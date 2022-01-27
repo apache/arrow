@@ -113,7 +113,8 @@ TEST(TestScalarNested, StructField) {
   StructFieldOptions extract20({2, 0});
   StructFieldOptions invalid1({-1});
   StructFieldOptions invalid2({2, 4});
-  StructFieldOptions invalid3({0, 1});
+  StructFieldOptions invalid3({3});
+  StructFieldOptions invalid4({0, 1});
   FieldVector fields = {field("a", int32()), field("b", utf8()),
                         field("c", struct_({
                                        field("d", int64()),
@@ -137,8 +138,11 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid4));
   }
   {
     auto ty = dense_union(fields, {2, 5, 8});
@@ -159,8 +163,11 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid4));
 
     // Test edge cases for union representation
     auto ints = ArrayFromJSON(fields[0]->type(), "[null, 2, 3]");
@@ -205,8 +212,11 @@ TEST(TestScalarNested, StructField) {
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                     ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid2));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("out-of-bounds field reference"),
                                     CallFunction("struct_field", {arr}, &invalid3));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("cannot subscript"),
+                                    CallFunction("struct_field", {arr}, &invalid4));
   }
   {
     auto arr = ArrayFromJSON(int32(), "[0, 1, 2, 3]");
@@ -226,25 +236,25 @@ struct {
     MakeStructOptions opts{field_names, options...};
     return CallFunction("make_struct", args, &opts);
   }
-} MakeStruct;
+} MakeStructor;
 
 TEST(MakeStruct, Scalar) {
   auto i32 = MakeScalar(1);
   auto f64 = MakeScalar(2.5);
   auto str = MakeScalar("yo");
 
-  EXPECT_THAT(MakeStruct({i32, f64, str}, {"i", "f", "s"}),
+  EXPECT_THAT(MakeStructor({i32, f64, str}, {"i", "f", "s"}),
               ResultWith(Datum(*StructScalar::Make({i32, f64, str}, {"i", "f", "s"}))));
 
   // Names default to field_index
-  EXPECT_THAT(MakeStruct({i32, f64, str}),
+  EXPECT_THAT(MakeStructor({i32, f64, str}),
               ResultWith(Datum(*StructScalar::Make({i32, f64, str}, {"0", "1", "2"}))));
 
   // No field names or input values is fine
-  EXPECT_THAT(MakeStruct({}), ResultWith(Datum(*StructScalar::Make({}, {}))));
+  EXPECT_THAT(MakeStructor({}), ResultWith(Datum(*StructScalar::Make({}, {}))));
 
   // Three field names but one input value
-  EXPECT_THAT(MakeStruct({str}, {"i", "f", "s"}), Raises(StatusCode::Invalid));
+  EXPECT_THAT(MakeStructor({str}, {"i", "f", "s"}), Raises(StatusCode::Invalid));
 }
 
 TEST(MakeStruct, Array) {
@@ -253,15 +263,16 @@ TEST(MakeStruct, Array) {
   auto i32 = ArrayFromJSON(int32(), "[42, 13, 7]");
   auto str = ArrayFromJSON(utf8(), R"(["aa", "aa", "aa"])");
 
-  EXPECT_THAT(MakeStruct({i32, str}, {"i", "s"}),
+  EXPECT_THAT(MakeStructor({i32, str}, {"i", "s"}),
               ResultWith(Datum(*StructArray::Make({i32, str}, field_names))));
 
   // Scalars are broadcast to the length of the arrays
-  EXPECT_THAT(MakeStruct({i32, MakeScalar("aa")}, {"i", "s"}),
+  EXPECT_THAT(MakeStructor({i32, MakeScalar("aa")}, {"i", "s"}),
               ResultWith(Datum(*StructArray::Make({i32, str}, field_names))));
 
   // Array length mismatch
-  EXPECT_THAT(MakeStruct({i32->Slice(1), str}, field_names), Raises(StatusCode::Invalid));
+  EXPECT_THAT(MakeStructor({i32->Slice(1), str}, field_names),
+              Raises(StatusCode::Invalid));
 }
 
 TEST(MakeStruct, NullableMetadataPassedThru) {
@@ -274,7 +285,7 @@ TEST(MakeStruct, NullableMetadataPassedThru) {
       key_value_metadata({"a", "b"}, {"ALPHA", "BRAVO"}), nullptr};
 
   ASSERT_OK_AND_ASSIGN(auto proj,
-                       MakeStruct({i32, str}, field_names, nullability, metadata));
+                       MakeStructor({i32, str}, field_names, nullability, metadata));
 
   AssertTypeEqual(*proj.type(), StructType({
                                     field("i", int32(), /*nullable=*/true, metadata[0]),
@@ -282,8 +293,8 @@ TEST(MakeStruct, NullableMetadataPassedThru) {
                                 }));
 
   // error: projecting an array containing nulls with nullable=false
-  EXPECT_THAT(MakeStruct({i32, ArrayFromJSON(utf8(), R"(["aa", null, "aa"])")},
-                         field_names, nullability, metadata),
+  EXPECT_THAT(MakeStructor({i32, ArrayFromJSON(utf8(), R"(["aa", null, "aa"])")},
+                           field_names, nullability, metadata),
               Raises(StatusCode::Invalid));
 }
 
@@ -307,13 +318,13 @@ TEST(MakeStruct, ChunkedArray) {
   ASSERT_OK_AND_ASSIGN(Datum expected,
                        ChunkedArray::Make({expected_0, expected_1, expected_2}));
 
-  ASSERT_OK_AND_EQ(expected, MakeStruct({i32, str}, field_names));
+  ASSERT_OK_AND_EQ(expected, MakeStructor({i32, str}, field_names));
 
   // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, MakeStruct({i32, MakeScalar("aa")}, field_names));
+  ASSERT_OK_AND_EQ(expected, MakeStructor({i32, MakeScalar("aa")}, field_names));
 
   // Array length mismatch
-  ASSERT_RAISES(Invalid, MakeStruct({i32->Slice(1), str}, field_names));
+  ASSERT_RAISES(Invalid, MakeStructor({i32->Slice(1), str}, field_names));
 }
 
 TEST(MakeStruct, ChunkedArrayDifferentChunking) {
@@ -344,13 +355,13 @@ TEST(MakeStruct, ChunkedArrayDifferentChunking) {
 
   ASSERT_OK_AND_ASSIGN(Datum expected, ChunkedArray::Make(expected_chunks));
 
-  ASSERT_OK_AND_EQ(expected, MakeStruct({i32, str}, field_names));
+  ASSERT_OK_AND_EQ(expected, MakeStructor({i32, str}, field_names));
 
   // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, MakeStruct({i32, MakeScalar("aa")}, field_names));
+  ASSERT_OK_AND_EQ(expected, MakeStructor({i32, MakeScalar("aa")}, field_names));
 
   // Array length mismatch
-  ASSERT_RAISES(Invalid, MakeStruct({i32->Slice(1), str}, field_names));
+  ASSERT_RAISES(Invalid, MakeStructor({i32->Slice(1), str}, field_names));
 }
 
 }  // namespace compute

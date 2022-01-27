@@ -38,8 +38,8 @@
 #endif
 
 #include "arrow/table.h"
-#include "arrow/type.h"
 #include "arrow/testing/random.h"
+#include "arrow/type.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"

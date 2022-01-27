@@ -37,6 +37,28 @@ namespace gandiva {
 
 #define UNARY_CAST_TO_INT64(type) UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, type, int64)
 
+#define MULTIPLE_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                                 \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
+                 DataTypeVector{TYPE(), TYPE()}, TYPE(), kResultNullIfNull,             \
+                 ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE)),                              \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE()}, TYPE(), kResultNullIfNull, \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE)),                 \
+      NativeFunction(#NAME, std::vector<std::string> ALIASES,                           \
+                     DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),            \
+                     kResultNullIfNull,                                                 \
+                     ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),        \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),               \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE)),          \
+      NativeFunction(                                                                   \
+          #NAME, std::vector<std::string> ALIASES,                                      \
+          DataTypeVector{TYPE(), TYPE(), TYPE(), TYPE(), TYPE(), TYPE()}, TYPE(),       \
+          kResultNullIfNull,                                                            \
+          ARROW_STRINGIFY(NAME##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE##_##TYPE))
+
 std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
   static std::vector<NativeFunction> arithmetic_fn_registry_ = {
       UNARY_SAFE_NULL_IF_NULL(not, {}, boolean, boolean),
@@ -82,6 +104,10 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int64, int64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, float64),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, int32),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, int64),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, float32),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, float64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int32),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, float32),
@@ -96,6 +122,28 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, int64),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int64, int64),
+
+      // is true, is not false, is false
+      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
+                              boolean, boolean),
+      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
+                              boolean, boolean),
+      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}), int32,
+                              boolean),
+      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}), int32,
+                              boolean),
+      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}), int64,
+                              boolean),
+      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}), int64,
+                              boolean),
+      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
+                              float32, boolean),
+      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
+                              float32, boolean),
+      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
+                              float64, boolean),
+      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
+                              float64, boolean),
 
       // round functions
       UNARY_SAFE_NULL_IF_NULL(round, {}, float32, float32),
@@ -118,6 +166,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+      BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, greatest, {}),
+      BASE_NUMERIC_TYPES(MULTIPLE_SAFE_NULL_IF_NULL, least, {}),
 
       // binary representation of integer values
       UNARY_UNSAFE_NULL_IF_NULL(bin, {}, int32, utf8),

@@ -15,6 +15,149 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Aggregation functions
+# These all return a list of:
+# @param fun string function name
+# @param data Expression (these are all currently a single field)
+# @param options list of function options, as passed to call_function
+# For group-by aggregation, `hash_` gets prepended to the function name.
+# So to see a list of available hash aggregation functions,
+# you can use list_compute_functions("^hash_")
+
+
+ensure_one_arg <- function(args, fun) {
+  if (length(args) == 0) {
+    arrow_not_supported(paste0(fun, "() with 0 arguments"))
+  } else if (length(args) > 1) {
+    arrow_not_supported(paste0("Multiple arguments to ", fun, "()"))
+  }
+  args[[1]]
+}
+
+agg_fun_output_type <- function(fun, input_type, hash) {
+  # These are quick and dirty heuristics.
+  if (fun %in% c("any", "all")) {
+    bool()
+  } else if (fun %in% "sum") {
+    # It may upcast to a bigger type but this is close enough
+    input_type
+  } else if (fun %in% c("mean", "stddev", "variance", "approximate_median")) {
+    float64()
+  } else if (fun %in% "tdigest") {
+    if (hash) {
+      fixed_size_list_of(float64(), 1L)
+    } else {
+      float64()
+    }
+  } else {
+    # Just so things don't error, assume the resulting type is the same
+    input_type
+  }
+}
+
+register_bindings_aggregate <- function() {
+  register_binding_agg("sum", function(..., na.rm = FALSE) {
+    list(
+      fun = "sum",
+      data = ensure_one_arg(list2(...), "sum"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("any", function(..., na.rm = FALSE) {
+    list(
+      fun = "any",
+      data = ensure_one_arg(list2(...), "any"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("all", function(..., na.rm = FALSE) {
+    list(
+      fun = "all",
+      data = ensure_one_arg(list2(...), "all"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("mean", function(x, na.rm = FALSE) {
+    list(
+      fun = "mean",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("sd", function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "stddev",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  })
+  register_binding_agg("var", function(x, na.rm = FALSE, ddof = 1) {
+    list(
+      fun = "variance",
+      data = x,
+      options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
+    )
+  })
+  register_binding_agg("quantile", function(x, probs, na.rm = FALSE) {
+    if (length(probs) != 1) {
+      arrow_not_supported("quantile() with length(probs) != 1")
+    }
+    # TODO: Bind to the Arrow function that returns an exact quantile and remove
+    # this warning (ARROW-14021)
+    warn(
+      "quantile() currently returns an approximate quantile in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.quantile.approximate"
+    )
+    list(
+      fun = "tdigest",
+      data = x,
+      options = list(skip_nulls = na.rm, q = probs)
+    )
+  })
+  register_binding_agg("median", function(x, na.rm = FALSE) {
+    # TODO: Bind to the Arrow function that returns an exact median and remove
+    # this warning (ARROW-14021)
+    warn(
+      "median() currently returns an approximate median in Arrow",
+      .frequency = ifelse(is_interactive(), "once", "always"),
+      .frequency_id = "arrow.median.approximate"
+    )
+    list(
+      fun = "approximate_median",
+      data = x,
+      options = list(skip_nulls = na.rm)
+    )
+  })
+  register_binding_agg("n_distinct", function(..., na.rm = FALSE) {
+    list(
+      fun = "count_distinct",
+      data = ensure_one_arg(list2(...), "n_distinct"),
+      options = list(na.rm = na.rm)
+    )
+  })
+  register_binding_agg("n", function() {
+    list(
+      fun = "sum",
+      data = Expression$scalar(1L),
+      options = list()
+    )
+  })
+  register_binding_agg("min", function(..., na.rm = FALSE) {
+    list(
+      fun = "min",
+      data = ensure_one_arg(list2(...), "min"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+  register_binding_agg("max", function(..., na.rm = FALSE) {
+    list(
+      fun = "max",
+      data = ensure_one_arg(list2(...), "max"),
+      options = list(skip_nulls = na.rm, min_count = 0L)
+    )
+  })
+}
 
 # The following S3 methods are registered on load if dplyr is present
 
@@ -166,14 +309,37 @@ format_aggregation <- function(x) {
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
+summarize_eval <- function(name, quosure, ctx, hash) {
   expr <- quo_get_expr(quosure)
   ctx$quo_env <- quo_get_env(quosure)
 
   funs_in_expr <- all_funs(expr)
+
   if (length(funs_in_expr) == 0) {
-    # If it is a scalar or field ref, no special handling required
-    ctx$aggregations[[name]] <- arrow_eval_or_stop(quosure, ctx$mask)
+    # This branch only gets called at the top level, where expr is something
+    # that is not a function call (could be a quosure, a symbol, or atomic
+    # value). This needs to evaluate to a scalar or something that can be
+    # converted to one.
+    value <- arrow_eval_or_stop(quosure, ctx$mask)
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
+    }
+
+    # We can't support a bare field reference because this is not
+    # an aggregate expression
+    if (!identical(value$field_name, "")) {
+      abort(
+        paste(
+          "Expression", format_expr(quosure),
+          "is not an aggregate expression or is not supported in Arrow"
+        )
+      )
+    }
+
+    # Scalars need to be added to post_mutate because they don't need
+    # to be sent to the query engine as an aggregation
+    ctx$post_mutate[[name]] <- value
     return()
   }
 
@@ -229,18 +395,27 @@ summarize_eval <- function(name, quosure, ctx, hash, recurse = FALSE) {
         )
       )
     )
-    ctx$post_mutate[[name]] <- arrow_eval_or_stop(
+
+    value <- arrow_eval_or_stop(
       as_quosure(expr, ctx$quo_env),
       mutate_mask
     )
+
+    if (!inherits(value, "Expression")) {
+      value <- Expression$scalar(value)
+    }
+
+    ctx$post_mutate[[name]] <- value
     return()
   }
 
   # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
   # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
-  stop(
-    handle_arrow_not_supported(quo_get_expr(quosure), format_expr(quosure)),
-    call. = FALSE
+  abort(
+    paste(
+      "Expression", format_expr(quosure),
+      "is not an aggregate expression or is not supported in Arrow"
+    )
   )
 }
 
@@ -258,16 +433,16 @@ extract_aggregations <- function(expr, ctx) {
   }
   if (funs[1] %in% names(agg_funcs)) {
     inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
-    if (any(inner_agg_exprs) & !all(inner_agg_exprs)) {
+    if (any(inner_agg_exprs)) {
       # We can't aggregate over a combination of dataset columns and other
       # aggregations (e.g. sum(x - mean(x)))
       # TODO: support in ARROW-13926
-      # TODO: Add "because" arg to explain _why_ it's not supported?
-      # TODO: this message could also say "not supported in summarize()"
-      #       since some of these expressions may be legal elsewhere
-      stop(
-        handle_arrow_not_supported(original_expr, format_expr(original_expr)),
-        call. = FALSE
+      abort(
+        paste(
+          "Aggregate within aggregate expression",
+          format_expr(original_expr),
+          "not supported in Arrow"
+        )
       )
     }
 

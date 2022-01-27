@@ -27,10 +27,12 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 namespace internal {
@@ -385,7 +387,7 @@ struct ValidateArrayImpl {
       int64_t min_buffer_size = -1;
       switch (spec.kind) {
         case DataTypeLayout::BITMAP:
-          min_buffer_size = BitUtil::BytesForBits(length_plus_offset);
+          min_buffer_size = bit_util::BytesForBits(length_plus_offset);
           break;
         case DataTypeLayout::FIXED_WIDTH:
           if (MultiplyWithOverflow(length_plus_offset, spec.byte_width,
@@ -419,7 +421,8 @@ struct ValidateArrayImpl {
   }
 
   Status ValidateNulls(const DataType& type) {
-    if (type.id() != Type::NA && data.null_count > 0 && data.buffers[0] == nullptr) {
+    if (type.storage_id() != Type::NA && data.null_count > 0 &&
+        data.buffers[0] == nullptr) {
       return Status::Invalid("Array of type ", type.ToString(), " has ", data.null_count,
                              " nulls but no null bitmap");
     }
@@ -437,7 +440,7 @@ struct ValidateArrayImpl {
           // Do not call GetNullCount() as it would also set the `null_count` member
           actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
                                                          data.offset, data.length);
-        } else if (data.type->id() == Type::NA) {
+        } else if (data.type->storage_id() == Type::NA) {
           actual_null_count = data.length;
         } else {
           actual_null_count = 0;

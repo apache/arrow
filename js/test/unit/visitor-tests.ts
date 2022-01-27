@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Field } from 'apache-arrow';
-import { Visitor } from 'apache-arrow';
 import {
+    Field, Visitor,
     DataType, Dictionary,
     Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
@@ -31,64 +30,64 @@ import {
 
 class BasicVisitor extends Visitor {
     public type: DataType | undefined;
-    public visitNull                 <T extends Null>                 (type: T) { return (this.type = type); }
-    public visitBool                 <T extends Bool>                 (type: T) { return (this.type = type); }
-    public visitInt                  <T extends Int>                  (type: T) { return (this.type = type); }
-    public visitFloat                <T extends Float>                (type: T) { return (this.type = type); }
-    public visitUtf8                 <T extends Utf8>                 (type: T) { return (this.type = type); }
-    public visitBinary               <T extends Binary>               (type: T) { return (this.type = type); }
-    public visitFixedSizeBinary      <T extends FixedSizeBinary>      (type: T) { return (this.type = type); }
-    public visitDate                 <T extends Date_>                (type: T) { return (this.type = type); }
-    public visitTimestamp            <T extends Timestamp>            (type: T) { return (this.type = type); }
-    public visitTime                 <T extends Time>                 (type: T) { return (this.type = type); }
-    public visitDecimal              <T extends Decimal>              (type: T) { return (this.type = type); }
-    public visitList                 <T extends List>                 (type: T) { return (this.type = type); }
-    public visitStruct               <T extends Struct>               (type: T) { return (this.type = type); }
-    public visitUnion                <T extends Union>                (type: T) { return (this.type = type); }
-    public visitDictionary           <T extends Dictionary>           (type: T) { return (this.type = type); }
-    public visitInterval             <T extends Interval>             (type: T) { return (this.type = type); }
-    public visitFixedSizeList        <T extends FixedSizeList>        (type: T) { return (this.type = type); }
-    public visitMap                  <T extends Map_>                 (type: T) { return (this.type = type); }
+    public visitNull<T extends Null>(type: T) { return (this.type = type); }
+    public visitBool<T extends Bool>(type: T) { return (this.type = type); }
+    public visitInt<T extends Int>(type: T) { return (this.type = type); }
+    public visitFloat<T extends Float>(type: T) { return (this.type = type); }
+    public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
+    public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
+    public visitDate<T extends Date_>(type: T) { return (this.type = type); }
+    public visitTimestamp<T extends Timestamp>(type: T) { return (this.type = type); }
+    public visitTime<T extends Time>(type: T) { return (this.type = type); }
+    public visitDecimal<T extends Decimal>(type: T) { return (this.type = type); }
+    public visitList<T extends List>(type: T) { return (this.type = type); }
+    public visitStruct<T extends Struct>(type: T) { return (this.type = type); }
+    public visitUnion<T extends Union>(type: T) { return (this.type = type); }
+    public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
+    public visitInterval<T extends Interval>(type: T) { return (this.type = type); }
+    public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
+    public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
 
 class FeatureVisitor extends Visitor {
     public type: DataType | undefined;
-    public visitNull                 <T extends Null>                 (type: T) { return (this.type = type); }
-    public visitBool                 <T extends Bool>                 (type: T) { return (this.type = type); }
-    public visitInt8                 <T extends Int8>                 (type: T) { return (this.type = type); }
-    public visitInt16                <T extends Int16>                (type: T) { return (this.type = type); }
-    public visitInt32                <T extends Int32>                (type: T) { return (this.type = type); }
-    public visitInt64                <T extends Int64>                (type: T) { return (this.type = type); }
-    public visitUint8                <T extends Uint8>                (type: T) { return (this.type = type); }
-    public visitUint16               <T extends Uint16>               (type: T) { return (this.type = type); }
-    public visitUint32               <T extends Uint32>               (type: T) { return (this.type = type); }
-    public visitUint64               <T extends Uint64>               (type: T) { return (this.type = type); }
-    public visitFloat16              <T extends Float16>              (type: T) { return (this.type = type); }
-    public visitFloat32              <T extends Float32>              (type: T) { return (this.type = type); }
-    public visitFloat64              <T extends Float64>              (type: T) { return (this.type = type); }
-    public visitUtf8                 <T extends Utf8>                 (type: T) { return (this.type = type); }
-    public visitBinary               <T extends Binary>               (type: T) { return (this.type = type); }
-    public visitFixedSizeBinary      <T extends FixedSizeBinary>      (type: T) { return (this.type = type); }
-    public visitDateDay              <T extends DateDay>              (type: T) { return (this.type = type); }
-    public visitDateMillisecond      <T extends DateMillisecond>      (type: T) { return (this.type = type); }
-    public visitTimestampSecond      <T extends TimestampSecond>      (type: T) { return (this.type = type); }
-    public visitTimestampMillisecond <T extends TimestampMillisecond> (type: T) { return (this.type = type); }
-    public visitTimestampMicrosecond <T extends TimestampMicrosecond> (type: T) { return (this.type = type); }
-    public visitTimestampNanosecond  <T extends TimestampNanosecond>  (type: T) { return (this.type = type); }
-    public visitTimeSecond           <T extends TimeSecond>           (type: T) { return (this.type = type); }
-    public visitTimeMillisecond      <T extends TimeMillisecond>      (type: T) { return (this.type = type); }
-    public visitTimeMicrosecond      <T extends TimeMicrosecond>      (type: T) { return (this.type = type); }
-    public visitTimeNanosecond       <T extends TimeNanosecond>       (type: T) { return (this.type = type); }
-    public visitDecimal              <T extends Decimal>              (type: T) { return (this.type = type); }
-    public visitList                 <T extends List>                 (type: T) { return (this.type = type); }
-    public visitStruct               <T extends Struct>               (type: T) { return (this.type = type); }
-    public visitDenseUnion           <T extends DenseUnion>           (type: T) { return (this.type = type); }
-    public visitSparseUnion          <T extends SparseUnion>          (type: T) { return (this.type = type); }
-    public visitDictionary           <T extends Dictionary>           (type: T) { return (this.type = type); }
-    public visitIntervalDayTime      <T extends IntervalDayTime>      (type: T) { return (this.type = type); }
-    public visitIntervalYearMonth    <T extends IntervalYearMonth>    (type: T) { return (this.type = type); }
-    public visitFixedSizeList        <T extends FixedSizeList>        (type: T) { return (this.type = type); }
-    public visitMap                  <T extends Map_>                 (type: T) { return (this.type = type); }
+    public visitNull<T extends Null>(type: T) { return (this.type = type); }
+    public visitBool<T extends Bool>(type: T) { return (this.type = type); }
+    public visitInt8<T extends Int8>(type: T) { return (this.type = type); }
+    public visitInt16<T extends Int16>(type: T) { return (this.type = type); }
+    public visitInt32<T extends Int32>(type: T) { return (this.type = type); }
+    public visitInt64<T extends Int64>(type: T) { return (this.type = type); }
+    public visitUint8<T extends Uint8>(type: T) { return (this.type = type); }
+    public visitUint16<T extends Uint16>(type: T) { return (this.type = type); }
+    public visitUint32<T extends Uint32>(type: T) { return (this.type = type); }
+    public visitUint64<T extends Uint64>(type: T) { return (this.type = type); }
+    public visitFloat16<T extends Float16>(type: T) { return (this.type = type); }
+    public visitFloat32<T extends Float32>(type: T) { return (this.type = type); }
+    public visitFloat64<T extends Float64>(type: T) { return (this.type = type); }
+    public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
+    public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
+    public visitDateDay<T extends DateDay>(type: T) { return (this.type = type); }
+    public visitDateMillisecond<T extends DateMillisecond>(type: T) { return (this.type = type); }
+    public visitTimestampSecond<T extends TimestampSecond>(type: T) { return (this.type = type); }
+    public visitTimestampMillisecond<T extends TimestampMillisecond>(type: T) { return (this.type = type); }
+    public visitTimestampMicrosecond<T extends TimestampMicrosecond>(type: T) { return (this.type = type); }
+    public visitTimestampNanosecond<T extends TimestampNanosecond>(type: T) { return (this.type = type); }
+    public visitTimeSecond<T extends TimeSecond>(type: T) { return (this.type = type); }
+    public visitTimeMillisecond<T extends TimeMillisecond>(type: T) { return (this.type = type); }
+    public visitTimeMicrosecond<T extends TimeMicrosecond>(type: T) { return (this.type = type); }
+    public visitTimeNanosecond<T extends TimeNanosecond>(type: T) { return (this.type = type); }
+    public visitDecimal<T extends Decimal>(type: T) { return (this.type = type); }
+    public visitList<T extends List>(type: T) { return (this.type = type); }
+    public visitStruct<T extends Struct>(type: T) { return (this.type = type); }
+    public visitDenseUnion<T extends DenseUnion>(type: T) { return (this.type = type); }
+    public visitSparseUnion<T extends SparseUnion>(type: T) { return (this.type = type); }
+    public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
+    public visitIntervalDayTime<T extends IntervalDayTime>(type: T) { return (this.type = type); }
+    public visitIntervalYearMonth<T extends IntervalYearMonth>(type: T) { return (this.type = type); }
+    public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
+    public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
 
 describe('Visitor', () => {
@@ -104,7 +103,7 @@ describe('Visitor', () => {
         test(`visits Date types`, () => validateBasicVisitor(new Date_(0)));
         test(`visits Timestamp types`, () => validateBasicVisitor(new Timestamp(0, 'UTC')));
         test(`visits Time types`, () => validateBasicVisitor(new Time(0, 64)));
-        test(`visits Decimal types`, () => validateBasicVisitor(new Decimal(2, 9)));
+        test(`visits Decimal types`, () => validateBasicVisitor(new Decimal(2, 9, 128)));
         test(`visits List types`, () => validateBasicVisitor(new List(null as any)));
         test(`visits Struct types`, () => validateBasicVisitor(new Struct([] as any[])));
         test(`visits Union types`, () => validateBasicVisitor(new Union(0, [] as any[], [] as any[])));
@@ -148,7 +147,7 @@ describe('Visitor', () => {
         test(`visits TimeMillisecond types`, () => validateFeatureVisitor(new TimeMillisecond()));
         test(`visits TimeMicrosecond types`, () => validateFeatureVisitor(new TimeMicrosecond()));
         test(`visits TimeNanosecond types`, () => validateFeatureVisitor(new TimeNanosecond()));
-        test(`visits Decimal types`, () => validateFeatureVisitor(new Decimal(2, 9)));
+        test(`visits Decimal types`, () => validateFeatureVisitor(new Decimal(2, 9, 128)));
         test(`visits List types`, () => validateFeatureVisitor(new List(null as any)));
         test(`visits Struct types`, () => validateFeatureVisitor(new Struct([] as any[])));
         test(`visits DenseUnion types`, () => validateFeatureVisitor(new DenseUnion([] as any[], [] as any[])));

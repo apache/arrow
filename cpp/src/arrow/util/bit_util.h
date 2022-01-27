@@ -48,7 +48,7 @@ typename std::make_unsigned<Integer>::type as_unsigned(Integer x) {
 
 }  // namespace detail
 
-namespace BitUtil {
+namespace bit_util {
 
 // The number of set bits in a given unsigned byte value, pre-computed
 //
@@ -162,7 +162,7 @@ constexpr int64_t RoundUpToMultipleOf64(int64_t num) {
 //
 // The covering bytes is the length (in bytes) of this new aligned slice.
 constexpr int64_t CoveringBytes(int64_t offset, int64_t length) {
-  return (BitUtil::RoundUp(length + offset, 8) - BitUtil::RoundDown(offset, 8)) / 8;
+  return (bit_util::RoundUp(length + offset, 8) - bit_util::RoundDown(offset, 8)) / 8;
 }
 
 // Returns the 'num_bits' least-significant bits of 'v'.
@@ -353,5 +353,5 @@ constexpr Word SpliceWord(int n, Word low, Word high) {
   return (high & ~PrecedingWordBitmask<Word>(n)) | (low & PrecedingWordBitmask<Word>(n));
 }
 
-}  // namespace BitUtil
+}  // namespace bit_util
 }  // namespace arrow

@@ -65,6 +65,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
+      NativeFunction("chr", {}, DataTypeVector{int32()}, utf8(), kResultNullIfNull,
+                     "chr_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("chr", {}, DataTypeVector{int64()}, utf8(), kResultNullIfNull,
+                     "chr_int64", NativeFunction::kNeedsContext),
+
       NativeFunction("ascii", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "ascii_utf8"),
 
@@ -77,6 +83,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("repeat", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "repeat_utf8_int32",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("soundex", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "soundex_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "gdv_fn_upper_utf8", NativeFunction::kNeedsContext),
@@ -174,6 +183,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castVARCHAR_int64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("castVARCHAR", {}, DataTypeVector{date64(), int64()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_castVARCHAR_date64_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("castVARCHAR", {}, DataTypeVector{float32(), int64()}, utf8(),
                      kResultNullIfNull, "gdv_fn_castVARCHAR_float32_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
@@ -185,6 +198,12 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("castVARCHAR", {}, DataTypeVector{decimal128(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_decimal128_int64",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("crc32", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
+                     "gdv_fn_crc_32_utf8", NativeFunction::kNeedsContext),
+
+      NativeFunction("crc32", {}, DataTypeVector{binary()}, int64(), kResultNullIfNull,
+                     "gdv_fn_crc_32_binary", NativeFunction::kNeedsContext),
 
       NativeFunction("like", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullIfNull, "gdv_fn_like_utf8_utf8",
@@ -318,6 +337,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "concat_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8_utf8",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("quote", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "quote_utf8", NativeFunction::kNeedsContext),
+
       NativeFunction("byte_substr", {"bytesubstring"},
                      DataTypeVector{binary(), int32(), int32()}, binary(),
                      kResultNullIfNull, "byte_substr_binary_int32_int32",
@@ -435,9 +457,47 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castVARBINARY_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("levenshtein", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "levenshtein",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{binary()}, utf8(),
+                     kResultNullIfNull, "to_hex_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "to_hex_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{int64()}, utf8(),
+                     kResultNullIfNull, "to_hex_int64", NativeFunction::kNeedsContext),
+
+      NativeFunction("to_hex", {"hex"}, DataTypeVector{int32()}, utf8(),
+                     kResultNullIfNull, "to_hex_int32", NativeFunction::kNeedsContext),
+
+      NativeFunction("from_hex", {"unhex"}, DataTypeVector{utf8()}, binary(),
+                     kResultNullIfNull, "from_hex_utf8", NativeFunction::kNeedsContext),
+
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_encrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_aes_encrypt",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("aes_decrypt", {}, DataTypeVector{utf8(), utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_fn_aes_decrypt",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "gdv_mask_first_n_utf8_int32",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("mask_last_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "gdv_mask_last_n_utf8_int32",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "instr_utf8")};
 
   return string_fn_registry_;
 }

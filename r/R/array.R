@@ -56,6 +56,7 @@
 #' - `$IsNull(i)`: Return true if value at index is null. Does not boundscheck
 #' - `$IsValid(i)`: Return true if value at index is valid. Does not boundscheck
 #' - `$length()`: Size in the number of elements this array contains
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the array
 #' - `$offset`: A relative position into another array's data, to enable zero-copy slicing
 #' - `$null_count`: The number of null entries in the array
 #' - `$type`: logical type of data
@@ -112,6 +113,7 @@ Array <- R6Class("Array",
     IsValid = function(i) Array__IsValid(self, i),
     length = function() Array__length(self),
     type_id = function() Array__type_id(self),
+    nbytes = function() Array__ReferencedBufferSize(self),
     Equals = function(other, ...) {
       inherits(other, "Array") && Array__Equals(self, other)
     },
@@ -187,8 +189,30 @@ Array$create <- function(x, type = NULL) {
     }
     return(out)
   }
-  vec_to_Array(x, type)
+
+  if (is.null(type)) {
+    return(vec_to_Array(x, type))
+  }
+
+  # when a type is given, try to create a vector of the desired type. If that
+  # fails, attempt to cast and if casting is successful, suggest to the user
+  # to try casting manually. If the casting fails, return the original error
+  # message.
+  tryCatch(
+    vec_to_Array(x, type),
+    error = function(cnd) {
+      attempt <- try(vec_to_Array(x, NULL)$cast(type), silent = TRUE)
+      abort(
+        c(conditionMessage(cnd),
+          i = if (!inherits(attempt, "try-error")) {
+            "You might want to try casting manually with `Array$create(...)$cast(...)`."
+          }
+        )
+      )
+    }
+  )
 }
+
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
 

@@ -23,6 +23,7 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -46,6 +47,11 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
 ARROW_EXPORT
 Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
                      std::shared_ptr<Array>* out);
+
+ARROW_EXPORT
+Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::string>& json_strings,
+                            std::shared_ptr<ChunkedArray>* out);
 
 ARROW_EXPORT
 Status DictArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view indices_json,
