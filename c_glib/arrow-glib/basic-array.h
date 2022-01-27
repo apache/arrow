@@ -650,7 +650,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalArray,
                          GArrowPrimitiveArray)
 struct _GArrowDayTimeIntervalArrayClass
 {
-  GArrowNumericArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_8_0
