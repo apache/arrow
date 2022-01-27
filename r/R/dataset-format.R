@@ -44,7 +44,7 @@
 #'   you encounter one that `arrow` should support. Also, the following options are
 #'   supported. From [CsvReadOptions]:
 #'   * `skip_rows`
-#'   * `column_names`
+#'   * `column_names`. Note that if a [Schema] is specified, `column_names` must match those specified in the schema.
 #'   * `autogenerate_column_names`
 #'   From [CsvFragmentScanOptions] (these values can be overridden at scan time):
 #'   * `convert_options`: a [CsvConvertOptions]
@@ -122,6 +122,25 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+
+  # Evaluate opts first to catch any unsupported arguments
+  force(opts)
+
+  options <- list(...)
+  schema <- options[["schema"]]
+
+  column_names <- read_options$column_names
+  schema_names <- names(schema)
+
+  if (!is.null(schema) & !identical(schema_names, column_names)) {
+
+    abort(
+      paste(
+        "Values in `column_names` must match schema field names"
+      )
+    )
+  }
+
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
@@ -220,7 +239,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema)) {
+  if (!is.null(schema) && is.null(opts[["column_names"]])) {
     opts[["column_names"]] <- names(schema)
   }
   do.call(CsvReadOptions$create, opts)

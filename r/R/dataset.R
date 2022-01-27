@@ -118,7 +118,7 @@
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
-#' format-specific options.
+#' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_feather()] on how to specify these).
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
