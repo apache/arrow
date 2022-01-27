@@ -23,18 +23,18 @@ Decimal Numbers
 ===============
 
 .. doxygenclass:: arrow::Decimal128
-   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::Decimal256
    :members:
 
 Abstract Sequences
 ==================
 
 .. doxygenclass:: arrow::Iterator
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::VectorIterator
-   :project: arrow_cpp
    :members:
 
 Compression
