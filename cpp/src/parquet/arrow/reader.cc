@@ -479,6 +479,7 @@ class LeafReader : public ColumnReaderImpl {
   ::arrow::Status BuildArray(int64_t length_upper_bound,
                              std::shared_ptr<::arrow::ChunkedArray>* out) final {
     *out = out_;
+    ARROW_DCHECK_OK(out_->ValidateFull());
     return Status::OK();
   }
 

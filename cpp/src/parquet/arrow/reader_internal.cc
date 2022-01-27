@@ -777,6 +777,7 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
 
   if (result.kind() == Datum::ARRAY) {
     *out = std::make_shared<ChunkedArray>(result.make_array());
+    ARROW_DCHECK_OK((*out)->ValidateFull());
   } else if (result.kind() == Datum::CHUNKED_ARRAY) {
     *out = result.chunked_array();
   } else {
