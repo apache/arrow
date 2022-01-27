@@ -815,8 +815,7 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
         return Status::NotImplemented("between inclusiveness not implemented: ",
                                       state.options.ToString());
     }
-  } else if (type_id == Type::BINARY || type_id == Type::STRING ||
-             type_id == Type::LARGE_BINARY || type_id == Type::LARGE_STRING) {
+  } else if (is_base_binary_like(type_id)) {
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
         return GenerateVarBinaryBase<ScalarTernaryEqualTypes, BooleanType,
