@@ -2990,20 +2990,20 @@ TEST(GroupBy, SingleNullTypeKey) {
       SortBy({"key_0"}, &aggregated_and_grouped);
 
       AssertDatumsEqual(ArrayFromJSON(struct_({
-                                                  field("hash_count", int64()),
-                                                  field("hash_sum", int64()),
-                                                  field("hash_mean", float64()),
-                                                  field("hash_min_max", struct_({
-                                                                                    field("min", int64()),
-                                                                                    field("max", int64()),
-                                                                                })),
-                                                  field("key_0", null()),
-                                              }),
+                                          field("hash_count", int64()),
+                                          field("hash_sum", int64()),
+                                          field("hash_mean", float64()),
+                                          field("hash_min_max", struct_({
+                                                                    field("min", int64()),
+                                                                    field("max", int64()),
+                                                                })),
+                                          field("key_0", null()),
+                                      }),
                                       R"([
     [8, 15, 1.875, {"min": 1, "max": 3}, null]
   ])"),
                         aggregated_and_grouped,
-          /*verbose=*/true);
+                        /*verbose=*/true);
     }
   }
 }
@@ -3050,15 +3050,15 @@ TEST(GroupBy, MultipleKeysIncludesNullType) {
 
       AssertDatumsEqual(
           ArrayFromJSON(struct_({
-                                    field("hash_count", int64()),
-                                    field("hash_sum", float64()),
-                                    field("hash_min_max", struct_({
-                                                                      field("min", float64()),
-                                                                      field("max", float64()),
-                                                                  })),
-                                    field("key_0", utf8()),
-                                    field("key_1", null()),
-                                }),
+                            field("hash_count", int64()),
+                            field("hash_sum", float64()),
+                            field("hash_min_max", struct_({
+                                                      field("min", float64()),
+                                                      field("max", float64()),
+                                                  })),
+                            field("key_0", utf8()),
+                            field("key_1", null()),
+                        }),
                         R"([
     [2, 4.25,   {"min": 1,     "max": 3.25},  "a",      null],
     [0, null,   {"min": null,  "max": null},  "aa",     null],
