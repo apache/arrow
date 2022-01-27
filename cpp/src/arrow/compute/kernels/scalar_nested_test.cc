@@ -252,6 +252,7 @@ TEST_F(TestMapArrayLookupKernel, Basic) {
       []
     ])";
   auto map_array = ArrayFromJSON(type, input);
+
   CheckMapArrayLookupWithDifferentOptions(
       map_array, MakeScalar("foo"),
       ArrayFromJSON(list(int32()), R"([[99, 3], null, [101, 22], null])"),
@@ -328,6 +329,7 @@ TEST_F(TestMapArrayLookupKernel, NestedItems) {
     ]
   )";
   const auto map_array = ArrayFromJSON(type, input);
+
   const auto expected_all = ArrayFromJSON(list(map(int16(), int16())), R"(
                                 [
                                   [
@@ -355,6 +357,7 @@ TEST_F(TestMapArrayLookupKernel, NestedItems) {
                                   [[12, 13], [13, 14]],
                                   null
                                 ])");
+
   CheckMapArrayLookupWithDifferentOptions(map_array, MakeScalar("foo"), expected_all,
                                           expected_first, expected_last);
 }
@@ -363,26 +366,25 @@ TEST_F(TestMapArrayLookupKernel, BooleanKey) {
   auto true_scalar = ScalarFromJSON(boolean(), R"(true)");
   auto map_type = map(boolean(), int32());
   const char* input = R"(
+    [
       [
-        [
-          [true, 99], [false, 1], [false, 2], [true, null], [false, 5],
-          [true, 8]
-        ],
-        null,
-        [
-          [false, null], [true, 67], [false, 101], [false, 1], [false, null],
-          [false, 9], [true, 80]
-        ],
-        [],
-        [
-          [false, 1], [false, 2], [false, 3], [false, 4]
-        ],
-        [
-          [true, 9], [true, 2], [true, 5], [true, 8]
-        ]
+        [true, 99], [false, 1], [false, 2], [true, null], [false, 5],
+        [true, 8]
+      ],
+      null,
+      [
+        [false, null], [true, 67], [false, 101], [false, 1], [false, null],
+        [false, 9], [true, 80]
+      ],
+      [],
+      [
+        [false, 1], [false, 2], [false, 3], [false, 4]
+      ],
+      [
+        [true, 9], [true, 2], [true, 5], [true, 8]
       ]
-    )";
-  
+    ]
+  )";
   auto map_array = ArrayFromJSON(map_type, input);
   auto map_array_tweaked = TweakValidityBit(map_array, 5, false);
 
@@ -392,6 +394,93 @@ TEST_F(TestMapArrayLookupKernel, BooleanKey) {
   auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
 
   CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, true_scalar, expected_all,
+                                          expected_first, expected_last);
+}
+
+TEST_F(TestMapArrayLookupKernel, MonthDayNanoIntervalKeys) {
+  auto key_type = month_day_nano_interval();
+  auto map_type = map(key_type, utf8());
+  auto key_scalar = ScalarFromJSON(month_day_nano_interval(), R"([1, 2, -3])");
+  const char* input = R"(
+    [
+      [
+        [[-9, -10, 11], "zero"], [[1, 2, -3], "first_one"], [[11, -12, 0], "two"],
+        [[1, 2, -3], null], [[-7, -8, -9], "three"], [[1, 2, -3], "second_one"],
+        [[1, 2, -3], "last_one"]
+      ],
+      null,
+      [
+        [[-5, 6, 7], "zero_hero"], [[15, 16, 2], "almost_six"],
+        [[1, 2, -3], "the_dumb_one"], [[-7, -8, -9], "eleven"],
+        [[1, 2, -3], "the_chosen_one"], [[-5, 6, 7], "meaning of life"],
+        [[1, 2, -3], "just_one"], [[1, 2, -3], "no more ones!"]
+      ],
+      [
+        [[-5, 6, 7], "this"], [[-13, 14, -1], "has"], [[11, -12, 0], "no"],
+        [[15, 16, 2], "keys"]
+      ],
+      [
+        [[1, 2, -3], "this"], [[1, 2, -3], "should"], [[1, 2, -3], "also"],
+        [[1, 2, -3], "be"], [[1, 2, -3], "null"]
+      ],
+      []
+    ]
+  )";
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto map_array_tweaked = TweakValidityBit(map_array, 4, false);
+
+  auto expected_first =
+      ArrayFromJSON(utf8(), R"(["first_one", null, "the_dumb_one", null, null, null])");
+  auto expected_last =
+      ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null, null, null])");
+  auto expected_all = ArrayFromJSON(list(utf8()),
+                                    R"([
+                                          ["first_one", null, "second_one", "last_one"],
+                                          null,
+                                          ["the_dumb_one", "the_chosen_one", "just_one", "no more ones!"],
+                                          null,
+                                          null,
+                                          null
+                                        ]
+                                      )");
+
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
+                                          expected_first, expected_last);
+}
+
+TEST_F(TestMapArrayLookupKernel, FixedSizeBinary) {
+  auto key_type = fixed_size_binary(6);
+  auto map_type = map(key_type, int32());
+  auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
+  const char* input = R"(
+      [
+        [
+          ["sheesh", 99], ["yooloo", 1], ["yaaaay", 2], ["sheesh", null], ["no way", 5],
+          ["sheesh", 8]
+        ],
+        null,
+        [
+          ["hmm,mm", null], ["sheesh", 67], ["snaccc", 101], ["awwwww", 1], ["dapdap", null],
+          ["yooloo", 9], ["sheesh", 80]
+        ],
+        [],
+        [
+          ["nopeno", 1], ["nonono", 2], ["sheess", 3], ["here!!", 4]
+        ],
+        [
+          ["sheesh", 9], ["sheesh", 2], ["sheesh", 5], ["sheesh", 8]
+        ]
+      ]
+    )";
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto map_array_tweaked = TweakValidityBit(map_array, 5, false);
+
+  auto expected_all = ArrayFromJSON(list(int32()), R"(
+    [[99, null, 8], null, [67, 80], null, null, null ])");
+  auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
+  auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
+
+  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
                                           expected_first, expected_last);
 }
 
@@ -461,10 +550,9 @@ class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
 TYPED_TEST_SUITE(TestMapArrayLookupDecimalKeys, DecimalArrowTypes);
 
 TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
-  std::shared_ptr<DataType> type = this->type_singleton();
-  auto key_scalar = DecimalScalarFromJSON(type, R"("1.2345")");
-
+  auto type = this->type_singleton();
   auto map_type = map(type, utf8());
+  auto key_scalar = DecimalScalarFromJSON(type, R"("1.2345")");
   const char* input = R"(
     [
       [
@@ -521,7 +609,6 @@ TYPED_TEST_SUITE(TestMapArrayLookupBinaryKeys, BaseBinaryArrowTypes);
 TYPED_TEST(TestMapArrayLookupBinaryKeys, IntegralItems) {
   auto key_type = this->type_singleton();
   auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
-
   auto map_type = map(key_type, int32());
   const char* input = R"(
       [
