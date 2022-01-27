@@ -78,15 +78,20 @@ class GANDIVA_EXPORT Filter {
 
   std::string DumpIR();
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   void SetBuiltFromCache(bool flag);
 
   bool GetBuiltFromCache();
+#endif
 
  private:
   std::unique_ptr<LLVMGenerator> llvm_generator_;
   SchemaPtr schema_;
   std::shared_ptr<Configuration> configuration_;
+
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   bool built_from_cache_;
+#endif
 };
 
 }  // namespace gandiva

@@ -45,17 +45,21 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();
+#else
+  static Cache<ExpressionCacheKey, std::shared_ptr<Filter>> cache;
+#endif
 
   Condition conditionToKey = *(condition.get());
 
   ExpressionCacheKey cache_key(schema, configuration, conditionToKey);
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   bool is_cached = false;
 
-  std::shared_ptr<llvm::MemoryBuffer> prev_cached_obj;
-  prev_cached_obj = cache->GetObjectCode(cache_key);
+  auto prev_cached_obj = cache->GetObjectCode(cache_key);
 
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
@@ -63,6 +67,14 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   }
 
   GandivaObjectCache obj_cache(cache, cache_key);
+#else
+  auto prev_cached_obj = cache.GetObjectCode(cache_key);
+  // Verify if previous filter obj code was cached
+  if (prev_cached_obj != nullptr) {
+    *filter = prev_cached_obj;
+    return Status::OK();
+  }
+#endif
 
   // Build LLVM generator, and generate code for the specified expression
   std::unique_ptr<LLVMGenerator> llvm_gen;
@@ -82,7 +94,12 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
+
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   filter->get()->SetBuiltFromCache(is_cached);
+#else
+  cache.PutObjectCode(cache_key, *filter);
+#endif
 
   return Status::OK();
 }
@@ -120,8 +137,9 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 void Filter::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
 bool Filter::GetBuiltFromCache() { return built_from_cache_; }
-
+#endif
 }  // namespace gandiva

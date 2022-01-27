@@ -17,6 +17,7 @@
 
 #pragma once
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4244)
@@ -52,3 +53,4 @@ class GandivaObjectCache : public llvm::ObjectCache {
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache_;
 };
 }  // namespace gandiva
+#endif  // GANDIVA_ENABLE_OBJECT_CODE_CACHE

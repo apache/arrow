@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 #include "gandiva/gandiva_object_cache.h"
 
 #include <utility>
@@ -51,3 +52,4 @@ std::unique_ptr<llvm::MemoryBuffer> GandivaObjectCache::getObject(const llvm::Mo
 }
 
 }  // namespace gandiva
+#endif  // GANDIVA_ENABLE_OBJECT_CODE_CACHE
