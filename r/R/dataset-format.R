@@ -140,8 +140,7 @@ CsvFileFormat$create <- function(...,
 
     abort(
       paste(
-        "column_names must match schema-names:",
-        deparse1(c(mismatch_colnames, not_in_schema))
+        "Values in `column_names` must match schema field names"
       )
     )
   }
