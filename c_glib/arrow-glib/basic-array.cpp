@@ -2901,7 +2901,7 @@ garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
 
 G_DEFINE_TYPE(GArrowDayTimeIntervalArray,
               garrow_day_time_interval_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+              GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
 garrow_day_time_interval_array_init(GArrowDayTimeIntervalArray *object)
