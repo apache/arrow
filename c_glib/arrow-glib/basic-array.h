@@ -639,7 +639,7 @@ gint32 garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
                                              gint64 i);
 GARROW_AVAILABLE_IN_8_0
 const gint32 *garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
-                                             gint64 *length);
+                                                     gint64 *length);
 
 
 #define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY (garrow_day_time_interval_array_get_type())
