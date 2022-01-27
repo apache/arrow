@@ -1,5 +1,4 @@
 *_generated*
-*generated/substrait/*.pb.*
 *.grpc.fb.*
 *arrowExports.cpp*
 *parquet_constants.*

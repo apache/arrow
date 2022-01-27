@@ -25,7 +25,7 @@
 #include "arrow/engine/visibility.h"
 #include "arrow/type_fwd.h"
 
-#include "generated/substrait/relations.pb.h"  // IWYU pragma: export
+#include "substrait/relations.pb.h"  // IWYU pragma: export
 
 namespace arrow {
 namespace engine {

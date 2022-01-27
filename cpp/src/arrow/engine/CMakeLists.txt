@@ -35,7 +35,7 @@ set(ARROW_ENGINE_SRCS
     substrait/type_internal.cc)
 
 set(SUBSTRAIT_LOCAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
-set(SUBSTRAIT_GEN_DIR "${ARROW_SOURCE_DIR}/src/generated")
+set(SUBSTRAIT_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(SUBSTRAIT_PROTOS
     capabilities
     expression
@@ -126,7 +126,9 @@ add_arrow_lib(arrow_engine
               STATIC_LINK_LIBS
               arrow_static
               arrow_dataset_static
-              ${ARROW_ENGINE_LINK_LIBS})
+              ${ARROW_ENGINE_LINK_LIBS}
+              PRIVATE_INCLUDES
+              ${SUBSTRAIT_GEN_DIR})
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING
