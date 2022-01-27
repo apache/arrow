@@ -68,6 +68,10 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
 
+/// \addtogroup numeric-builders
+///
+/// @{
+
 /// Base class for all Builders that emit an Array of a scalar numerical type.
 template <typename T>
 class NumericBuilder : public ArrayBuilder {
@@ -318,6 +322,22 @@ using Int64Builder = NumericBuilder<Int64Type>;
 using HalfFloatBuilder = NumericBuilder<HalfFloatType>;
 using FloatBuilder = NumericBuilder<FloatType>;
 using DoubleBuilder = NumericBuilder<DoubleType>;
+
+/// @}
+
+/// \addtogroup temporal-builders
+///
+/// @{
+
+using Date32Builder = NumericBuilder<Date32Type>;
+using Date64Builder = NumericBuilder<Date64Type>;
+using Time32Builder = NumericBuilder<Time32Type>;
+using Time64Builder = NumericBuilder<Time64Type>;
+using TimestampBuilder = NumericBuilder<TimestampType>;
+using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
+using DurationBuilder = NumericBuilder<DurationType>;
+
+/// @}
 
 class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
  public:

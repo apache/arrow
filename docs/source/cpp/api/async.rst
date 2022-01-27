@@ -15,44 +15,15 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-=========
-Utilities
-=========
+========================
+Asynchronous programming
+========================
 
-Decimal Numbers
-===============
+Futures
+=======
 
-.. doxygenclass:: arrow::BasicDecimal128
+.. doxygenclass:: arrow::Future
    :members:
 
-.. doxygenclass:: arrow::Decimal128
-   :members:
-
-.. doxygenclass:: arrow::BasicDecimal256
-   :members:
-
-.. doxygenclass:: arrow::Decimal256
-   :members:
-
-Iterators
-=========
-
-.. doxygenclass:: arrow::Iterator
-   :members:
-
-.. doxygenclass:: arrow::VectorIterator
-   :members:
-
-Compression
-===========
-
-.. doxygenenum:: arrow::Compression::type
-
-.. doxygenclass:: arrow::util::Codec
-   :members:
-
-.. doxygenclass:: arrow::util::Compressor
-   :members:
-
-.. doxygenclass:: arrow::util::Decompressor
-   :members:
+.. doxygengroup:: future-utilities
+   :content-only:

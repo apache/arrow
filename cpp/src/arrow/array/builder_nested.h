@@ -35,6 +35,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-builders
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // List builder
 
@@ -551,5 +555,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  private:
   std::shared_ptr<DataType> type_;
 };
+
+/// @}
 
 }  // namespace arrow
