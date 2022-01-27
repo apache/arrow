@@ -19,6 +19,7 @@
 package testutils
 
 import (
+	"encoding/binary"
 	"math"
 	"time"
 	"unsafe"
@@ -26,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/array"
 	"github.com/apache/arrow/go/v7/arrow/bitutil"
+	"github.com/apache/arrow/go/v7/arrow/endian"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/apache/arrow/go/v7/parquet"
 	"github.com/apache/arrow/go/v7/parquet/pqarrow"
@@ -447,6 +449,14 @@ func RandomDecimals(n int64, seed uint64, precision int32) []byte {
 		// 0b10000000 == 0x80 == 128
 		if out[start+int(nreqBytes)-1]&byte(0x80) != 0 {
 			memory.Set(out[start+int(nreqBytes):start+byteWidth], 0xFF)
+		}
+
+		// byte swap for big endian
+		if endian.IsBigEndian {
+			for j := 0; j+8 <= byteWidth; j += 8 {
+				v := binary.LittleEndian.Uint64(out[start+j : start+j+8])
+				binary.BigEndian.PutUint64(out[start+j:start+j+8], v)
+			}
 		}
 	}
 	return out
