@@ -982,7 +982,7 @@ const FunctionDoc less_equal_doc{
     {"x", "y"}};
 
 const FunctionDoc between_doc{
-    "Check if values are in the given range, val between a and b",
+    "Check if values are in the given range",
     ("A null on either side emits a null comparison result.\n"
      "Options are used to specify if the left and right endpoints are\n"
      "inclusive, possible values are NEITHER (left < values < right),\n"
