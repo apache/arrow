@@ -152,6 +152,6 @@ garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options);
 
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new_raw(
-  const arrow::compute::UTF8NormalizeOptions *arrow_options);
-arrow::compute::UTF8NormalizeOptions *
+  const arrow::compute::Utf8NormalizeOptions *arrow_options);
+arrow::compute::Utf8NormalizeOptions *
 garrow_utf8_normalize_options_get_raw(GArrowUTF8NormalizeOptions *options);

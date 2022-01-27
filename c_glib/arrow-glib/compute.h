@@ -682,7 +682,7 @@ garrow_round_to_multiple_options_new(void);
  * @GARROW_UTF8_NORMALIZE_FORM_NFD: Normalization Form Canonical Decomposition.
  * @GARROW_UTF8_NORMALIZE_FORM_NFKD: Normalization Form Compatibility Decomposition.
  *
- * They correspond to the values of `arrow::compute::UTF8NormalizeOptions::Form`.
+ * They correspond to the values of `arrow::compute::Utf8NormalizeOptions::Form`.
  *
  * Since: 8.0.0
  */
