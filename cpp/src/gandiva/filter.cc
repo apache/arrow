@@ -56,8 +56,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   ExpressionCacheKey cache_key(schema, configuration, conditionToKey);
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   bool is_cached = false;
+
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 
   auto prev_cached_obj = cache->GetObjectCode(cache_key);
 
@@ -72,6 +73,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Verify if previous filter obj code was cached
   if (prev_cached_obj != nullptr) {
     *filter = prev_cached_obj;
+    filter->get()->SetBuiltFromCache(true);
     return Status::OK();
   }
 #endif
@@ -94,10 +96,9 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
-
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   filter->get()->SetBuiltFromCache(is_cached);
-#else
+
+#ifndef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   cache.PutObjectCode(cache_key, *filter);
 #endif
 
@@ -137,9 +138,7 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
 
 std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 
-#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 void Filter::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 
 bool Filter::GetBuiltFromCache() { return built_from_cache_; }
-#endif
 }  // namespace gandiva
