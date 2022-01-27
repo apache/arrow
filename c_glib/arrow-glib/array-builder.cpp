@@ -4745,7 +4745,7 @@ garrow_month_day_nano_interval_array_builder_append_value(GArrowMonthDayNanoInte
                                                           GError **error)
 {
   if (value) {
-    auto arrow_day_millisecond = garrow_month_day_nano_get_raw(value);
+    auto arrow_month_day_nano = garrow_month_day_nano_get_raw(value);
     return garrow_array_builder_append_value<arrow::MonthDayNanoIntervalBuilder *>
       (GARROW_ARRAY_BUILDER(builder),
        *arrow_day_millisecond,
