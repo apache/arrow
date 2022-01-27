@@ -1356,8 +1356,7 @@ def test_between_array_array_scalar(ty):
     }
 
     for inclusive, expected in inclusive_and_expected.items():
-        options = BetweenOptions(inclusive=inclusive)
-        result = pc.between(val, arr1, scalar2, options=options)
+        result = pc.between(val, arr1, scalar2, inclusive=inclusive)
         assert result.equals(pa.array(expected))
 
 
