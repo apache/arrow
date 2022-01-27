@@ -29,6 +29,7 @@ import (
 	"github.com/apache/arrow/go/v7/arrow/ipc"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestArrow12072(t *testing.T) {
@@ -139,4 +140,137 @@ func TestArrow14769(t *testing.T) {
 	if err.Error() != "Error!" {
 		t.Fatalf("Expected an error, not %s", err)
 	}
+}
+
+func makeTestCol(t *testing.T, alloc memory.Allocator, vals []int32, nulls []bool) (arrow.Field, *arrow.Column) {
+	t.Helper()
+	fld := arrow.Field{Name: "test", Type: arrow.PrimitiveTypes.Int32, Nullable: nulls != nil}
+
+	b := array.NewInt32Builder(alloc)
+	defer b.Release()
+	b.AppendValues(vals, nulls)
+
+	arr := b.NewArray()
+	defer arr.Release()
+
+	chk := arrow.NewChunked(arrow.PrimitiveTypes.Int32, []arrow.Array{arr})
+	defer chk.Release()
+
+	return fld, arrow.NewColumn(fld, chk)
+}
+
+func makeTestTable(t *testing.T, fld arrow.Field, col *arrow.Column) arrow.Table {
+	t.Helper()
+	schema := arrow.NewSchema([]arrow.Field{fld}, nil)
+	return array.NewTable(schema, []arrow.Column{*col}, -1)
+}
+
+func writeThenReadTable(t *testing.T, alloc memory.Allocator, table arrow.Table) arrow.Table {
+	t.Helper()
+
+	// write the table into a buffer
+	buf := new(bytes.Buffer)
+	writer := ipc.NewWriter(buf, ipc.WithAllocator(alloc), ipc.WithSchema(table.Schema()))
+	tr := array.NewTableReader(table, 0)
+	defer tr.Release()
+	for tr.Next() {
+		require.NoError(t, writer.Write(tr.Record()))
+	}
+	require.NoError(t, writer.Close())
+
+	// read the table from the buffer
+	reader, err := ipc.NewReader(buf, ipc.WithAllocator(alloc))
+	require.NoError(t, err)
+	defer reader.Release()
+	records := make([]arrow.Record, 0)
+	for reader.Next() {
+		rec := reader.Record()
+		rec.Retain()
+		defer rec.Release()
+		records = append(records, rec)
+	}
+	require.NoError(t, reader.Err())
+	return array.NewTableFromRecords(reader.Schema(), records)
+}
+
+func TestWriteColumnWithOffset(t *testing.T) {
+	alloc := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer alloc.AssertSize(t, 0)
+
+	t.Run("some nulls", func(t *testing.T) {
+		vals := []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		nulls := []bool{true, false, true, false, true, false, true, false, true, false, true}
+		fld, col := makeTestCol(t, alloc, vals, nulls)
+		defer col.Release()
+
+		// slice the column so there are offsets
+		col = array.NewColumnSlice(col, 3, 8)
+		defer col.Release()
+
+		table := makeTestTable(t, fld, col)
+		defer table.Release()
+
+		table = writeThenReadTable(t, alloc, table)
+		defer table.Release()
+
+		require.EqualValues(t, 1, table.NumCols())
+		col = table.Column(0)
+		colArr := col.Data().Chunk(0).(*array.Int32)
+		require.EqualValues(t, 5, colArr.Len())
+		assert.True(t, colArr.IsNull(0))
+		assert.False(t, colArr.IsNull(1))
+		assert.True(t, colArr.IsNull(2))
+		assert.False(t, colArr.IsNull(3))
+		assert.True(t, colArr.IsNull(4))
+	})
+
+	t.Run("all nulls", func(t *testing.T) {
+		vals := []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		nulls := []bool{false, false, false, false, false, false, false, false, false, false, false}
+		fld, col := makeTestCol(t, alloc, vals, nulls)
+		defer col.Release()
+
+		// slice the column so there are offsets
+		col = array.NewColumnSlice(col, 3, 8)
+		defer col.Release()
+
+		table := makeTestTable(t, fld, col)
+		defer table.Release()
+
+		table = writeThenReadTable(t, alloc, table)
+		defer table.Release()
+
+		require.EqualValues(t, 1, table.NumCols())
+		col = table.Column(0)
+		colArr := col.Data().Chunk(0).(*array.Int32)
+		require.EqualValues(t, 5, colArr.Len())
+		for i := 0; i < colArr.Len(); i++ {
+			assert.True(t, colArr.IsNull(i))
+		}
+	})
+
+	t.Run("no nulls", func(t *testing.T) {
+		vals := []int32{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		nulls := []bool{true, true, true, true, true, true, true, true, true, true, true}
+		fld, col := makeTestCol(t, alloc, vals, nulls)
+		defer col.Release()
+
+		// slice the column so there are offsets
+		col = array.NewColumnSlice(col, 3, 8)
+		defer col.Release()
+
+		table := makeTestTable(t, fld, col)
+		defer table.Release()
+
+		table = writeThenReadTable(t, alloc, table)
+		defer table.Release()
+
+		require.EqualValues(t, 1, table.NumCols())
+		col = table.Column(0)
+		colArr := col.Data().Chunk(0).(*array.Int32)
+		require.EqualValues(t, 5, colArr.Len())
+		for i := 0; i < colArr.Len(); i++ {
+			assert.False(t, colArr.IsNull(i))
+		}
+	})
 }
