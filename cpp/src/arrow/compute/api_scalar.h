@@ -1375,5 +1375,20 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           AssumeTimezoneOptions options,
                                           ExecContext* ctx = NULLPTR);
 
+/// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
+/// query key in a map array.
+///
+/// Returns an array of items for FIRST and LAST, and an array of list of items for ALL.
+///
+/// \param[in] map_array to look in
+/// \param[in] options to pass a query key and choose which matching keys to return
+/// (FIRST, LAST or ALL)
+/// \param[in] ctx the function execution context, optional
+///
+/// \return the resulting datum
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MapArrayLookup(const Datum& map_array,
+                                          MapArrayLookupOptions options,
+                                          ExecContext* ctx = NULLPTR);
 }  // namespace compute
 }  // namespace arrow
