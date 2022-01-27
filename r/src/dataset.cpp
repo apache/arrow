@@ -518,7 +518,7 @@ void dataset___Dataset__Write(
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
     const std::shared_ptr<ds::Scanner>& scanner,
     arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
-    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, 
+    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
     uint64_t max_rows_per_group) {
   ds::FileSystemDatasetWriteOptions opts;
   opts.file_write_options = file_write_options;
