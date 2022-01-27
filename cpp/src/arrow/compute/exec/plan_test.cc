@@ -248,18 +248,19 @@ TEST(ExecPlanExecution, TableSourceSink) {
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
       AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-      auto exec_batches = MakeBasicBatches();
+      auto exp_batches = MakeBasicBatches();
       ASSERT_OK_AND_ASSIGN(
-          auto table, TableFromExecBatches(exec_batches.schema, exec_batches.batches));
+          auto table, TableFromExecBatches(exp_batches.schema, exp_batches.batches));
 
       ASSERT_OK(Declaration::Sequence({
-                                          {"table", TableSourceNodeOptions{table, 1}},
+                                          {"table_source", TableSourceNodeOptions{table, 1}},
                                           {"sink", SinkNodeOptions{&sink_gen}},
                                       })
                     .AddToPlan(plan.get()));
 
-      ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
-                  Finishes(ResultWith(UnorderedElementsAreArray(exec_batches.batches))));
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+      ASSERT_OK_AND_ASSIGN(auto out_table, TableFromExecBatches(exp_batches.schema, res));
+      AssertTablesEqual(table, out_table);
     }
   }
 }

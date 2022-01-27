@@ -179,10 +179,10 @@ struct SourceNode : ExecNode {
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-                  std::shared_ptr<Table> table, int64_t max_chunksize)
+                  std::shared_ptr<Table> table, int64_t batch_size)
       : SourceNode(plan, output_schema,
                    generator(ConvertTableToExecBatches(*table.get()).ValueOrDie())),
-        max_chunksize(max_chunksize) {}
+        batch_size(batch_size) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -190,7 +190,7 @@ struct TableSourceNode : public SourceNode {
     const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
     return plan->EmplaceNode<TableSourceNode>(plan, table_options.table->schema(),
                                               table_options.table,
-                                              table_options.max_chunksize);
+                                              table_options.batch_size);
   }
   const char* kind_name() const override { return "TableSourceNode"; }
 
@@ -225,8 +225,8 @@ struct TableSourceNode : public SourceNode {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
 
     // setting chunksize for the batch reader
-    if (max_chunksize > 0) {
-      reader->set_chunksize(max_chunksize);
+    if (batch_size > 0) {
+      reader->set_chunksize(batch_size);
     }
 
     std::shared_ptr<arrow::RecordBatch> batch;
@@ -244,7 +244,7 @@ struct TableSourceNode : public SourceNode {
   }
 
  private:
-  int64_t max_chunksize;
+  int64_t batch_size;
 };
 
 }  // namespace
@@ -253,7 +253,7 @@ namespace internal {
 
 void RegisterSourceNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
-  DCHECK_OK(registry->AddFactory("table", TableSourceNode::Make));
+  DCHECK_OK(registry->AddFactory("table_source", TableSourceNode::Make));
 }
 
 }  // namespace internal
