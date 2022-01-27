@@ -2374,35 +2374,19 @@ struct NonZeroVisitor {
   Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
 
   template <typename Type>
-  enable_if_t<is_decimal_type<Type>::value || is_primitive_ctype<Type>::value, Status>
+  enable_if_t<is_decimal_type<Type>::value || is_primitive_ctype<Type>::value ||
+                  is_boolean_type<Type>::value,
+              Status>
   Visit(const Type&) {
     using T = typename GetOutputType<Type>::T;
+    const T zero{};
     uint64_t index = 0;
 
     for (const auto& current_array : arrays) {
       VisitArrayValuesInline<Type>(
           *current_array,
           [&](T v) {
-            if (v != 0) {
-              this->builder->UnsafeAppend(index++);
-            } else {
-              ++index;
-            }
-          },
-          [&]() { ++index; });
-    }
-
-    return Status::OK();
-  }
-
-  Status Visit(const BooleanType&) {
-    uint64_t index = 0;
-
-    for (const auto& current_array : arrays) {
-      VisitArrayValuesInline<BooleanType>(
-          *current_array,
-          [&](bool v) {
-            if (v) {
+            if (v != zero) {
               this->builder->UnsafeAppend(index++);
             } else {
               ++index;
