@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc_test
+package ipc
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ import (
 
 	"github.com/apache/arrow/go/v7/arrow"
 	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v7/arrow/bitutil"
 	"github.com/apache/arrow/go/v7/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
@@ -49,7 +49,7 @@ func TestSliceAndWrite(t *testing.T) {
 		fmt.Println(slice.Columns()[0].(*array.String).Value(0))
 
 		var buf bytes.Buffer
-		w := ipc.NewWriter(&buf, ipc.WithSchema(schema))
+		w := NewWriter(&buf, WithSchema(schema))
 		w.Write(slice)
 		w.Close()
 	}
@@ -59,4 +59,36 @@ func TestSliceAndWrite(t *testing.T) {
 			sliceAndWrite(rec, schema)
 		}
 	})
+}
+
+func TestNewTruncatedBitmap(t *testing.T) {
+	alloc := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer alloc.AssertSize(t, 0)
+
+	assert.Nil(t, newTruncatedBitmap(alloc, 0, 0, nil), "input bitmap is null")
+
+	buf := memory.NewBufferBytes(make([]byte, bitutil.BytesForBits(8)))
+	defer buf.Release()
+
+	bitutil.SetBit(buf.Bytes(), 0)
+	bitutil.SetBit(buf.Bytes(), 2)
+	bitutil.SetBit(buf.Bytes(), 4)
+	bitutil.SetBit(buf.Bytes(), 6)
+
+	assert.Same(t, buf, newTruncatedBitmap(alloc, 0, 8, buf), "no truncation necessary")
+
+	result := newTruncatedBitmap(alloc, 1, 7, buf)
+	defer result.Release()
+	for i, exp := range []bool{false, true, false, true, false, true, false} {
+		assert.Equal(t, exp, bitutil.BitIsSet(result.Bytes(), i), "truncate for offset")
+	}
+
+	buf = memory.NewBufferBytes(make([]byte, 128))
+	defer buf.Release()
+	bitutil.SetBitsTo(buf.Bytes(), 0, 128*8, true)
+
+	result = newTruncatedBitmap(alloc, 0, 8, buf)
+	defer result.Release()
+	assert.Equal(t, 64, result.Len(), "truncate to smaller buffer")
+	assert.Equal(t, 8, bitutil.CountSetBits(result.Bytes(), 0, 8))
 }
