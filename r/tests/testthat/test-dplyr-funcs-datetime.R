@@ -687,12 +687,8 @@ test_that("leap_year mirror lubridate", {
 
 test_that("am/pm mirror lubridate", {
 
-  # TODO: revisit once ARROW-13168 is resolved
-  if (tolower(Sys.info()[["sysname"]]) == "windows") {
-    tzone = ""
-  } else {
-    tzone = "UTC"
-  }
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
 
   compare_dplyr_binding(
     .input %>%
