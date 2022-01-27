@@ -91,8 +91,10 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
   // Set the object cache for LLVM
   llvm_gen->SetLLVMObjectCache(obj_cache);
+#endif
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 

@@ -56,9 +56,11 @@ LLVMGenerator::GetCache() {
   return shared_cache;
 }
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   engine_->SetLLVMObjectCache(object_cache);
 }
+#endif
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());
