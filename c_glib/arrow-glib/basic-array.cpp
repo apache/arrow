@@ -2966,7 +2966,7 @@ garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
  * @array: A #GArrowDayTimeIntervalArray.
  *
  * Returns: (nullable) (element-type GArrowDayMillisecond) (transfer full):
- *   The returned list of #GArrowDayMillisecond on success, %NULL on error.
+ *   The list of #GArrowDayMillisecond.
  *
  * Since: 8.0.0
  */
