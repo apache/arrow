@@ -17,9 +17,6 @@
 
 // (Doc section: Execution Plan Documentation Example)
 
-#include <memory>
-#include <utility>
-
 #include <arrow/array.h>
 #include <arrow/builder.h>
 
@@ -27,7 +24,6 @@
 #include <arrow/compute/api_vector.h>
 #include <arrow/compute/cast.h>
 #include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/test_util.h>
 
 #include <arrow/csv/api.h>
 
@@ -50,6 +46,10 @@
 #include <arrow/util/range.h>
 #include <arrow/util/thread_pool.h>
 #include <arrow/util/vector.h>
+
+#include <iostream>
+#include <memory>
+#include <utility>
 
 // Demonstrate various operators in Arrow Streaming Execution Engine
 
