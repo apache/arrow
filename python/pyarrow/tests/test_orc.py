@@ -171,25 +171,6 @@ def test_orcfile_empty(datadir):
     assert table.schema == expected_schema
 
 
-def test_readwrite(tmpdir):
-    from pyarrow import orc
-    a = pa.array([1, None, 3, None])
-    b = pa.array([None, "Arrow", None, "ORC"])
-    table = pa.table({"int64": a, "utf8": b})
-    file = tmpdir.join("test.orc")
-    orc.write_table(table, file)
-    output_table = orc.read_table(file)
-    assert table.equals(output_table)
-
-    output_table = orc.read_table(file, [])
-    assert 4 == output_table.num_rows
-    assert 0 == output_table.num_columns
-
-    output_table = orc.read_table(file, columns=["int64"])
-    assert 4 == output_table.num_rows
-    assert 1 == output_table.num_columns
-
-
 def test_filesystem_uri(tmpdir):
     from pyarrow import orc
     table = pa.table({"a": [1, 2, 3]})
@@ -208,8 +189,47 @@ def test_filesystem_uri(tmpdir):
         "data_dir/data.orc", filesystem=util._filesystem_uri(tmpdir))
     assert result.equals(table)
 
+    # use the path only
+    result = orc.read_table(
+        util._filesystem_uri(path))
+    assert result.equals(table)
 
-def test_orcfile_readwrite():
+
+def test_orcfile_readwrite(tmpdir):
+    from pyarrow import orc
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, "Arrow", None, "ORC"])
+    table = pa.table({"int64": a, "utf8": b})
+    file = tmpdir.join("test.orc")
+    orc.write_table(table, file)
+    output_table = orc.read_table(file)
+    assert table.equals(output_table)
+
+    output_table = orc.read_table(file, [])
+    assert 4 == output_table.num_rows
+    assert 0 == output_table.num_columns
+
+    output_table = orc.read_table(file, columns=["int64"])
+    assert 4 == output_table.num_rows
+    assert 1 == output_table.num_columns
+
+
+def test_bytesio_readwrite():
+    from pyarrow import orc
+    from io import BytesIO
+
+    buf = BytesIO()
+    a = pa.array([1, None, 3, None])
+    b = pa.array([None, "Arrow", None, "ORC"])
+    table = pa.table({"int64": a, "utf8": b})
+    orc.write_table(table, buf)
+    buf.seek(0)
+    orc_file = orc.ORCFile(buf)
+    output_table = orc_file.read()
+    assert table.equals(output_table)
+
+
+def test_buffer_readwrite():
     from pyarrow import orc
 
     buffer_output_stream = pa.BufferOutputStream()
@@ -243,7 +263,7 @@ def test_orcfile_readwrite():
 
 
 @pytest.mark.snappy
-def test_orcfile_readwrite_with_writeoptions():
+def test_buffer_readwrite_with_writeoptions():
     from pyarrow import orc
 
     buffer_output_stream = pa.BufferOutputStream()
@@ -290,7 +310,7 @@ def test_orcfile_readwrite_with_writeoptions():
     assert orc_file.compression_size == 16384
 
 
-def test_orcfile_readwrite_with_bad_writeoptions():
+def test_buffer_readwrite_with_bad_writeoptions():
     from pyarrow import orc
     buffer_output_stream = pa.BufferOutputStream()
     a = pa.array([1, None, 3, None])

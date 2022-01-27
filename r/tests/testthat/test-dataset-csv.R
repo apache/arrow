@@ -280,12 +280,47 @@ test_that("Error if no format specified and files are not parquet", {
   )
 })
 
-test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)", {
-  headerless_csv_dir <- make_temp_dir()
+test_that("Column names can be inferred from schema", {
   tbl <- df1[, c("int", "dbl")]
+
+  # Data containing a header row
+  header_csv_dir <- make_temp_dir()
+  write.table(tbl, file.path(header_csv_dir, "file1.csv"), sep = ",", row.names = FALSE)
+
+  # First row must be skipped if file has header
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64()),
+    skip_rows = 1
+  )
+  expect_equal(collect(ds), tbl)
+
+  # If first row isn't skipped, supply user-friendly error
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64())
+  )
+
+  expect_error(
+    collect(ds),
+    regexp = paste0(
+      "If you have supplied a schema and your data contains a ",
+      "header row, you should supply the argument `skip = 1` to ",
+      "prevent the header being read in as data."
+    )
+  )
+
+  # Data with no header row
+  headerless_csv_dir <- make_temp_dir()
   write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
 
-  ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
+  ds <- open_dataset(
+    headerless_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64())
+  )
   expect_equal(ds %>% collect(), tbl)
 })
 

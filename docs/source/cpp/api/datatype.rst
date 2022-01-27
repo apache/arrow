@@ -100,3 +100,6 @@ Fields and Schemas
 
 .. doxygenclass:: arrow::Schema
    :members:
+
+.. doxygenclass:: arrow::KeyValueMetadata
+   :members:

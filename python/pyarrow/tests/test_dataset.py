@@ -3799,7 +3799,7 @@ def test_write_dataset_max_open_files(tempdir):
 
     ds.write_dataset(data=table, base_dir=data_source_2,
                      partitioning=partitioning, format=file_format,
-                     max_open_files=max_open_files)
+                     max_open_files=max_open_files, use_threads=False)
 
     num_of_files_generated, number_of_partitions \
         = _get_compare_pair(data_source_2, record_batch_1, file_format,

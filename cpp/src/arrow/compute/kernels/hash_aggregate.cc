@@ -703,16 +703,22 @@ struct GroupedCountImpl : public GroupedAggregator {
     } else if (batch[0].is_array()) {
       const auto& input = batch[0].array();
       if (options_.mode == CountOptions::ONLY_VALID) {
-        arrow::internal::VisitSetBitRunsVoid(input->buffers[0], input->offset,
-                                             input->length,
-                                             [&](int64_t offset, int64_t length) {
-                                               auto g = g_begin + offset;
-                                               for (int64_t i = 0; i < length; ++i, ++g) {
-                                                 counts[*g] += 1;
-                                               }
-                                             });
+        if (input->type->id() != arrow::Type::NA) {
+          arrow::internal::VisitSetBitRunsVoid(
+              input->buffers[0], input->offset, input->length,
+              [&](int64_t offset, int64_t length) {
+                auto g = g_begin + offset;
+                for (int64_t i = 0; i < length; ++i, ++g) {
+                  counts[*g] += 1;
+                }
+              });
+        }
       } else {  // ONLY_NULL
-        if (input->MayHaveNulls()) {
+        if (input->type->id() == arrow::Type::NA) {
+          for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
+            counts[*g_begin] += 1;
+          }
+        } else if (input->MayHaveNulls()) {
           auto end = input->offset + input->length;
           for (int64_t i = input->offset; i < end; ++i, ++g_begin) {
             counts[*g_begin] += !bit_util::GetBit(input->buffers[0]->data(), i);

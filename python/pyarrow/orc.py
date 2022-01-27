@@ -195,13 +195,13 @@ _orc_writer_args_docs = """file_version : {"0.11", "0.12"}, default "0.12"
 batch_size : int, default 1024
     Number of rows the ORC writer writes at a time.
 stripe_size : int, default 64 * 1024 * 1024
-    Size of each ORC stripe.
+    Size of each ORC stripe in bytes.
 compression : string, default 'uncompressed'
     The compression codec.
     Valid values: {'UNCOMPRESSED', 'SNAPPY', 'ZLIB', 'LZ4', 'ZSTD'}
     Note that LZ0 is currently not supported.
 compression_block_size : int, default 64 * 1024
-    Size of each compression block.
+    Size of each compression block in bytes.
 compression_strategy : string, default 'speed'
     The compression strategy i.e. speed vs size reduction.
     Valid values: {'SPEED', 'COMPRESSION'}
@@ -235,7 +235,8 @@ where : str or pyarrow.io.NativeFile
 
     is_open = False
 
-    def __init__(self, where, *, file_version='0.12',
+    def __init__(self, where, *,
+                 file_version='0.12',
                  batch_size=1024,
                  stripe_size=64 * 1024 * 1024,
                  compression='uncompressed',
@@ -247,7 +248,6 @@ where : str or pyarrow.io.NativeFile
                  bloom_filter_columns=None,
                  bloom_filter_fpp=0.05,
                  ):
-
         self.writer = _orc.ORCWriter()
         self.writer.open(
             where,
@@ -330,7 +330,8 @@ filesystem : FileSystem, default None
 """
 
 
-def write_table(table, where, *, file_version='0.12',
+def write_table(table, where, *,
+                file_version='0.12',
                 batch_size=1024,
                 stripe_size=64 * 1024 * 1024,
                 compression='uncompressed',

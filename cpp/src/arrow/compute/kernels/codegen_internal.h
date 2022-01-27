@@ -1382,6 +1382,9 @@ ARROW_EXPORT
 void ReplaceTypes(const std::shared_ptr<DataType>&, ValueDescr* descrs, size_t count);
 
 ARROW_EXPORT
+void ReplaceTemporalTypes(TimeUnit::type unit, std::vector<ValueDescr>* descrs);
+
+ARROW_EXPORT
 std::shared_ptr<DataType> CommonNumeric(const std::vector<ValueDescr>& descrs);
 
 ARROW_EXPORT
@@ -1389,6 +1392,9 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count);
+
+ARROW_EXPORT
+TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count);
 
 ARROW_EXPORT
 std::shared_ptr<DataType> CommonBinary(const ValueDescr* begin, size_t count);
