@@ -134,8 +134,6 @@ CsvFileFormat$create <- function(...,
 
   if (!is.null(schema) & !identical(schema_names, column_names)) {
 
-    
-
     abort(
       paste(
         "Values in `column_names` must match schema field names"
