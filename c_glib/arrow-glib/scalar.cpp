@@ -20,9 +20,9 @@
 #include <arrow-glib/basic-array.hpp>
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/data-type.hpp>
-#include <arrow-glib/interval.hpp>
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/interval.hpp>
 #include <arrow-glib/scalar.hpp>
 
 G_BEGIN_DECLS

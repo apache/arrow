@@ -20,8 +20,8 @@
 #pragma once
 
 #include <arrow-glib/basic-data-type.h>
-#include <arrow-glib/interval.h>
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/interval.h>
 
 G_BEGIN_DECLS
 
