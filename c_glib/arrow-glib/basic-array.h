@@ -673,7 +673,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalArray,
                          GArrowNumericArray)
 struct _GArrowMonthDayNanoIntervalArrayClass
 {
-  GArrowNumericArrayClass parent_class;
+  GArrowPrimitiveArrayClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_8_0
