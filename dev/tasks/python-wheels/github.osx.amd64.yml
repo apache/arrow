@@ -55,7 +55,7 @@ jobs:
         id: vcpkg-cache
         with:
           path: vcpkg
-          key: vcpkg-{{ macos_deployment_target }}-{{ "${{ env.VCPKG_VERSION }}" }}-{{ "${{ hashFiles('arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}
+          key: vcpkg-{{ macos_deployment_target }}-{{ "${{ env.VCPKG_VERSION }}" }}-{{ "${{ hashFiles('arrow/ci/vcpkg/vcpkg.json', 'arrow/ci/vcpkg/*.patch', 'arrow/ci/vcpkg/*osx*.cmake') }}" }}-0
 
       - name: Install Vcpkg
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
