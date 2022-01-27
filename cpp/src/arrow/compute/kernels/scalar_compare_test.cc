@@ -2429,6 +2429,23 @@ TEST(TestStringBetweenKernel, Random) {
   }
 }
 
+TEST(TestStringBetweenKernel, 3Scalars) {
+  using ScalarType = typename TypeTraits<StringType>::ScalarType;
+  auto a = Datum(std::make_shared<ScalarType>("a"));
+  auto b = Datum(std::make_shared<ScalarType>("b"));
+  auto c = Datum(std::make_shared<ScalarType>("c"));
+  auto null = Datum(std::make_shared<ScalarType>("null"));
+  auto empty = Datum(std::make_shared<ScalarType>("[]"));
+
+  ValidateBetween(a, b, c);
+  ValidateBetween(b, a, c);
+  ValidateBetween(a, a, a);
+  ValidateBetween(a, a, b);
+  ValidateBetween(null, a, b);
+  ValidateBetween(empty, a, b);
+}
+
+
 TEST(TestStringBetweenKernel, 1Array2Scalars) {
   using ScalarType = typename TypeTraits<StringType>::ScalarType;
   auto l = Datum(std::make_shared<ScalarType>("abc"));
@@ -2735,62 +2752,68 @@ TEST(TestTimestampsBetweenKernel, 3Arrays) {
   }
 }
 
-template <typename ArrowType>
 class TestBetweenDecimal : public ::testing::Test {};
-TYPED_TEST_SUITE(TestBetweenDecimal, DecimalArrowTypes);
-
-TYPED_TEST(TestBetweenDecimal, 2Arrays1Scalar) {
-  auto ty = std::make_shared<TypeParam>(3, 2);
-
-  auto val = ArrayFromJSON(
-      ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
-  auto lhs = ArrayFromJSON(
-      ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
-  auto rhs = ScalarFromJSON(ty, "1.23");
 /*
-  ValidateBetween(Datum(ArrayFromJSON(ty, R"([])")),
-                  Datum(ArrayFromJSON(ty, R"([])")),
-                  Datum(ScalarFromJSON(ty, "[]")));
-  ValidateBetween(Datum(ArrayFromJSON(ty, R"([null])")),
-                  Datum(ArrayFromJSON(ty, R"([null])")),
-                  Datum(ScalarFromJSON(ty, R"(null)")));*/
-  ValidateBetween(Datum(val), Datum(lhs), Datum(rhs));
-  ValidateBetween(Datum(val), Datum(rhs), Datum(lhs));
-  ValidateBetween(Datum(lhs), Datum(val), Datum(rhs));
-  ValidateBetween(Datum(rhs), Datum(lhs), Datum(val));
+TEST(TestBetweenDecimal, 2Arrays1Scalar) {
+  for (auto decimal_factory : {decimal128, decimal256}) {
+    auto ty = decimal_factory(3, 2);
+    ARROW_SCOPED_TRACE("Type =", ty->ToString());
+    auto val = ArrayFromJSON(
+        ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
+    auto lhs = ArrayFromJSON(
+        ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
+    auto rhs = ScalarFromJSON(ty, "1.23");
+
+    ValidateBetween(Datum(ArrayFromJSON(ty, R"([])")),
+                    Datum(ArrayFromJSON(ty, R"([])")),
+                    Datum(ScalarFromJSON(ty, "[]")));
+    ValidateBetween(Datum(ArrayFromJSON(ty, R"([null])")),
+                    Datum(ArrayFromJSON(ty, R"([null])")),
+                    Datum(ScalarFromJSON(ty, R"(null)")));
+    ValidateBetween(Datum(val), Datum(lhs), Datum(rhs));
+    ValidateBetween(Datum(val), Datum(rhs), Datum(lhs));
+    ValidateBetween(Datum(lhs), Datum(val), Datum(rhs));
+    ValidateBetween(Datum(rhs), Datum(lhs), Datum(val));
+  }
+}
+*/
+
+TEST(TestBetweenDecimal, 3Arrays) {
+ for (auto decimal_factory : {decimal128, decimal256}) {
+   auto ty = decimal_factory(3, 2);
+
+    auto val = ArrayFromJSON(
+        ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
+    auto lhs = ArrayFromJSON(
+        ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
+    auto rhs = ArrayFromJSON(
+        ty, R"(["1.23", "2.34", "1.23", "-1.23", "1.23", "-1.23", null, "1.23"])");
+
+    ValidateBetween(ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+                        ArrayFromJSON(ty, "[]"));
+    ValidateBetween(ArrayFromJSON(ty, R"([null])"),
+                        ArrayFromJSON(ty, R"([null])"), ArrayFromJSON(ty, R"([null])"));
+    ValidateBetween(val, lhs, rhs);
+ }
 }
 
-TYPED_TEST(TestBetweenDecimal, 3Arrays) {
-  auto ty = std::make_shared<TypeParam>(3, 2);
+TEST(TestBetweenDecimal, DifferentParameters) {
+  for (auto decimal_factory : {decimal128, decimal256}) {
+    auto ty1 = decimal_factory(3, 2);
+    auto ty2 = decimal_factory(4, 3);
+    auto ty3 = decimal_factory(2, 3);
 
-  auto val = ArrayFromJSON(
-      ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
-  auto lhs = ArrayFromJSON(
-      ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
-  auto rhs = ArrayFromJSON(
-      ty, R"(["1.23", "2.34", "1.23", "-1.23", "1.23", "-1.23", null, "1.23"])");
+    auto arr1 = ArrayFromJSON(ty1,
+                              R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
+    auto arr2 =
+        ArrayFromJSON(ty2, R"(["1.230", "2.340", "1.230", "-1.230", "1.230", "-1.230"])");
+    auto arr3 =
+        ArrayFromJSON(ty3, R"(["1.231", "1.330", "2.210", "-1.230", "1.231", "-1.230"])");
 
-  ValidateBetween(ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
-                      ArrayFromJSON(ty, "[]"));
-  ValidateBetween(ArrayFromJSON(ty, R"([null])"),
-                      ArrayFromJSON(ty, R"([null])"), ArrayFromJSON(ty, R"([null])"));
-  ValidateBetween(val, lhs, rhs);
-}
-
-TYPED_TEST(TestBetweenDecimal, DifferentParameters) {
-  auto ty1 = std::make_shared<TypeParam>(3, 2);
-  auto ty2 = std::make_shared<TypeParam>(4, 3);
-  auto ty3 = std::make_shared<TypeParam>(2, 3);
-
-  auto arr1 = ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
-  auto arr2 =
-      ArrayFromJSON(ty2, R"(["1.230", "2.340", "1.230", "-1.230", "1.230", "-1.230"])");
-  auto arr3 =
-      ArrayFromJSON(ty3, R"(["1.231", "1.330", "2.210", "-1.230", "1.231", "-1.230"])");
-
-  ValidateBetween(Datum(arr1), Datum(arr2), Datum(arr3));
-  ValidateBetween(Datum(arr1), Datum(arr3), Datum(arr2));
-  ValidateBetween(Datum(arr2), Datum(arr1), Datum(arr3));
+    ValidateBetween(Datum(arr1), Datum(arr2), Datum(arr3));
+    ValidateBetween(Datum(arr1), Datum(arr3), Datum(arr2));
+    ValidateBetween(Datum(arr2), Datum(arr1), Datum(arr3));
+  }
 }
 
 class TestFixedSizeBinaryBetweenKernel : public ::testing::Test {};

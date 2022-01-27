@@ -984,16 +984,6 @@ Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
   return array->GetScalar(0).Value(out);
 }
 
-Status ScalarFromJSON(const std::shared_ptr<DataType>& type,
-                      const std::string& json_string, std::shared_ptr<Scalar>* out) {
-  return ScalarFromJSON(type, util::string_view(json_string), out);
-}
-
-Status ScalarFromJSON(const std::shared_ptr<DataType>& type, const char* json_string,
-                      std::shared_ptr<Scalar>* out) {
-  return ScalarFromJSON(type, util::string_view(json_string), out);
-}
-
 Status DictScalarFromJSON(const std::shared_ptr<DataType>& type,
                           util::string_view index_json, util::string_view dictionary_json,
                           std::shared_ptr<Scalar>* out) {
