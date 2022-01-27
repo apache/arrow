@@ -704,8 +704,7 @@ test_that("am/pm mirror lubridate", {
           "2022-01-25 12:00:00",
           "2022-01-25 00:00:00"
         ),
-        format = "%Y-%m-%d %H:%M:%S",
-        tz = tzone
+        format = "%Y-%m-%d %H:%M:%S"
       )
 
     )
