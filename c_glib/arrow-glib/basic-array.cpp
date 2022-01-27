@@ -2992,7 +2992,7 @@ garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array)
 
 G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArray,
               garrow_month_day_nano_interval_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+              GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
 garrow_month_day_nano_interval_array_init(GArrowMonthDayNanoIntervalArray *object)
