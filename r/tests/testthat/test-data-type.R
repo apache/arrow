@@ -386,7 +386,9 @@ test_that("map type works as expected", {
   expect_equal(x$item_type, string())
   # TODO: (ARROW-15102): Enable constructing StructTypes with non-nullable fields, so
   # we can make this comparison:
+  # nolint start (lintr doesn't like commented out code)
   # expect_equal(x$value_type, struct(key = x$key_field, value = x$item_field))
+  # nolint end
   expect_false(x$keys_sorted)
 })
 
