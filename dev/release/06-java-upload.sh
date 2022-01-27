@@ -95,6 +95,9 @@ sign() {
 
 for pom in *.pom; do
   base=$(basename ${pom} .pom)
+  files=""
+  types=""
+  classifiers=""
   args=()
   args+=(deploy:deploy-file)
   args+=(-Durl=https://repository.apache.org/service/local/staging/deploy/maven2)
