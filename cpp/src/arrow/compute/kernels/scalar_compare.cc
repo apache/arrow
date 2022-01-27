@@ -793,7 +793,7 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
         return Status::NotImplemented("between inclusiveness not implemented: ",
                                       state.options.ToString());
     }
-  } else if (type_id == Type::DECIMAL128 || type_id == Type::DECIMAL256) {
+  } else if (is_decimal(type_id)) {
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
         return GenerateDecimal<ScalarTernaryEqualTypes, BooleanType,
