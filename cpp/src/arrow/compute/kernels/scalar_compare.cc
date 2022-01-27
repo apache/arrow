@@ -215,14 +215,14 @@ struct Maximum {
 // Check if timestamp timezones are comparable (either all are empty or none is).
 Status CheckCompareTimestamps(const ExecBatch& batch) {
   if (batch.num_values() > 0) {
-    int invalid_states = 0;
-    for (int i = 0; i < batch.num_values(); i++) {
-      const auto& tsi = checked_cast<const TimestampType&>(*batch[i].type());
-      invalid_states += int(tsi.timezone().empty());
-    }
-    if (invalid_states * (invalid_states - batch.num_values()) != 0) {
-      return Status::TypeError(
-          "Cannot compare timestamp with timezone to timestamp without timezone");
+    bool have_no_timezone =
+        checked_cast<const TimestampType&>(*batch[0].type()).timezone().empty();
+    for (int i = 1; i < batch.num_values(); i++) {
+      if (checked_cast<const TimestampType&>(*batch[i].type()).timezone().empty() !=
+          have_no_timezone) {
+        return Status::TypeError(
+            "Cannot compare timestamp with timezone to timestamp without timezone");
+      }
     }
   }
   return Status::OK();
