@@ -3057,7 +3057,7 @@ garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *
  * @array: A #GArrowMonthDayNanoIntervalArray.
  *
  * Returns: (nullable) (element-type GArrowMonthDayNano) (transfer full):
- *   The returned list of #GArrowMonthDayNano on success, %NULL on error.
+ *   The list of #GArrowMonthDayNano.
  *
  * Since: 8.0.0
  */
