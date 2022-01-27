@@ -676,13 +676,13 @@ garrow_round_to_multiple_options_new(void);
 
 
 /**
- * GArrowUtf8NormalizeForm:
+ * GArrowUTF8NormalizeForm:
  * @GARROW_UTF8_NORMALIZE_FORM_NFC: Normalization Form Canonical Composition.
  * @GARROW_UTF8_NORMALIZE_FORM_NFKC: Normalization Form Compatibility Composition.
  * @GARROW_UTF8_NORMALIZE_FORM_NFD: Normalization Form Canonical Decomposition.
  * @GARROW_UTF8_NORMALIZE_FORM_NFKD: Normalization Form Compatibility Decomposition.
  *
- * They correspond to the values of `arrow::compute::Utf8NormalizeOptions::Form`.
+ * They correspond to the values of `arrow::compute::UTF8NormalizeOptions::Form`.
  *
  * Since: 8.0.0
  */
@@ -691,21 +691,21 @@ typedef enum {
   GARROW_UTF8_NORMALIZE_FORM_NFKC,
   GARROW_UTF8_NORMALIZE_FORM_NFD,
   GARROW_UTF8_NORMALIZE_FORM_NFKD,
-} GArrowUtf8NormalizeForm;
+} GArrowUTF8NormalizeForm;
 
 #define GARROW_TYPE_UTF8_NORMALIZE_OPTIONS (garrow_utf8_normalize_options_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowUtf8NormalizeOptions,
+G_DECLARE_DERIVABLE_TYPE(GArrowUTF8NormalizeOptions,
                          garrow_utf8_normalize_options,
                          GARROW,
                          UTF8_NORMALIZE_OPTIONS,
                          GArrowFunctionOptions)
-struct _GArrowUtf8NormalizeOptionsClass
+struct _GArrowUTF8NormalizeOptionsClass
 {
   GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_8_0
-GArrowUtf8NormalizeOptions *
+GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new(void);
 
 

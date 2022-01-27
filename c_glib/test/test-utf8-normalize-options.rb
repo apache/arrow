@@ -15,16 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestUtf8NormalizeOptions < Test::Unit::TestCase
+class TestUTF8NormalizeOptions < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
-    @options = Arrow::Utf8NormalizeOptions.new
+    @options = Arrow::UTF8NormalizeOptions.new
   end
 
-  def test_mode
-    assert_equal(Arrow::Utf8NormalizeForm::NFC, @options.form)
+  def test_form
+    assert_equal(Arrow::UTF8NormalizeForm::NFC, @options.form)
     @options.form = :nfkc
-    assert_equal(Arrow::Utf8NormalizeForm::NFKC, @options.form)
+    assert_equal(Arrow::UTF8NormalizeForm::NFKC, @options.form)
   end
 end
