@@ -134,9 +134,7 @@ CsvFileFormat$create <- function(...,
 
   if (!is.null(schema) & !identical(schema_names, column_names)) {
 
-    # Element wise comparison and set differnce of column_names and names in schema
-    mismatch_colnames <- column_names[match(column_names, schema_names, nomatch = 0) != seq(column_names)]
-    not_in_schema <- setdiff(schema_names, column_names)
+    
 
     abort(
       paste(
