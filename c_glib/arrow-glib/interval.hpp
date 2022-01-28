@@ -26,14 +26,16 @@
 #include <arrow-glib/interval.h>
 
 GArrowDayMillisecond *
-garrow_day_millisecond_new_raw(arrow::DayTimeIntervalType::DayMilliseconds *arrow_day_millisecond);
+garrow_day_millisecond_new_raw(
+  arrow::DayTimeIntervalType::DayMilliseconds *arrow_day_millisecond);
 arrow::DayTimeIntervalType::DayMilliseconds *
 garrow_day_millisecond_get_raw(GArrowDayMillisecond *day_millisecond);
 const arrow::DayTimeIntervalType::DayMilliseconds *
 garrow_day_millisecond_get_raw(const GArrowDayMillisecond *day_millisecond);
 
 GArrowMonthDayNano *
-garrow_month_day_nano_new_raw(arrow::MonthDayNanoIntervalType::MonthDayNanos *arrow_month_day_nano);
+garrow_month_day_nano_new_raw(
+  arrow::MonthDayNanoIntervalType::MonthDayNanos *arrow_month_day_nano);
 arrow::MonthDayNanoIntervalType::MonthDayNanos *
 garrow_month_day_nano_get_raw(GArrowMonthDayNano *month_day_nano);
 const arrow::MonthDayNanoIntervalType::MonthDayNanos *

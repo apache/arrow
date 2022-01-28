@@ -96,7 +96,8 @@ G_BEGIN_DECLS
  *
  * #GArrowDayTimeIntervalScalar is a class for the day time intarval scalar.
  *
- * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano intarval scalar.
+ * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano
+ * intarval scalar.
  *
  * #GArrowDecimal128Scalar is a class for a 128-bit decimal scalar.
  *
@@ -1565,8 +1566,8 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayTimeIntervalScalar,
                            garrow_day_time_interval_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)        \
-  static_cast<GArrowDayTimeIntervalScalarPrivate *>(        \
+#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowDayTimeIntervalScalarPrivate *>(             \
     garrow_day_time_interval_scalar_get_instance_private(        \
       GARROW_DAY_TIME_INTERVAL_SCALAR(obj)))
 
@@ -1576,7 +1577,8 @@ garrow_day_time_interval_scalar_init(GArrowDayTimeIntervalScalar *object)
 }
 
 static void
-garrow_day_time_interval_scalar_class_init(GArrowDayTimeIntervalScalarClass *klass)
+garrow_day_time_interval_scalar_class_init(
+  GArrowDayTimeIntervalScalarClass *klass)
 {
 }
 
@@ -1630,18 +1632,20 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNanoIntervalScalar,
                            garrow_month_day_nano_interval_scalar,
                            GARROW_TYPE_SCALAR)
 
-#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)        \
-  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(        \
+#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(              \
     garrow_month_day_nano_interval_scalar_get_instance_private(        \
       GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(obj)))
 
 static void
-garrow_month_day_nano_interval_scalar_init(GArrowMonthDayNanoIntervalScalar *object)
+garrow_month_day_nano_interval_scalar_init(
+  GArrowMonthDayNanoIntervalScalar *object)
 {
 }
 
 static void
-garrow_month_day_nano_interval_scalar_class_init(GArrowMonthDayNanoIntervalScalarClass *klass)
+garrow_month_day_nano_interval_scalar_class_init(
+  GArrowMonthDayNanoIntervalScalarClass *klass)
 {
 }
 
@@ -1660,7 +1664,8 @@ garrow_month_day_nano_interval_scalar_new(GArrowMonthDayNano *value)
   auto arrow_scalar =
     std::static_pointer_cast<arrow::Scalar>(
       std::make_shared<arrow::MonthDayNanoIntervalScalar>(*arrow_value));
-  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(
+    garrow_scalar_new_raw(&arrow_scalar));
 }
 
 /**

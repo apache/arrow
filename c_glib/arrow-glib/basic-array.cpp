@@ -167,7 +167,7 @@ G_BEGIN_DECLS
  * new array.
  *
  * #GArrowMonthDayNanoIntervalArray is a class for the month day nano 
- * intarval array. It can store zero or more date data. If you don't 
+ * intarval array. It can store zero or more date data. If you don't
  * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
  * to create a new array.
  *
@@ -2895,7 +2895,8 @@ garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
                                        gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  return garrow_array_get_values_raw<arrow::MonthIntervalType>(arrow_array, length);
+  return garrow_array_get_values_raw<arrow::MonthIntervalType>(
+    arrow_array, length);
 }
 
 
@@ -2934,10 +2935,11 @@ garrow_day_time_interval_array_new(gint64 length,
                                    GArrowBuffer *null_bitmap,
                                    gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::DayTimeIntervalType>(length,
-                                                                      data,
-                                                                      null_bitmap,
-                                                                      n_nulls);
+  auto array = garrow_primitive_array_new<arrow::DayTimeIntervalType>(
+    length,
+    data,
+    null_bitmap,
+    n_nulls);
   return GARROW_DAY_TIME_INTERVAL_ARRAY(array);
 }
 
@@ -2980,8 +2982,9 @@ garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array)
   GList *values = NULL;
   for (gint64 i = 0; i < length; ++i) {
     if (arrow_day_time_interval_array->IsValid(i)) {
-      auto arrow_day_time_interval = arrow_day_time_interval_array->GetValue(i);
-      values = g_list_prepend(values, garrow_day_millisecond_new_raw(&arrow_day_time_interval));
+      auto arrow_value = arrow_day_time_interval_array->GetValue(i);
+      auto value = garrow_day_millisecond_new_raw(&arrow_value);
+      values = g_list_prepend(values, value);
     } else {
       values = g_list_prepend(values, NULL);
     }
@@ -2995,12 +2998,14 @@ G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArray,
               GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
-garrow_month_day_nano_interval_array_init(GArrowMonthDayNanoIntervalArray *object)
+garrow_month_day_nano_interval_array_init(
+  GArrowMonthDayNanoIntervalArray *object)
 {
 }
 
 static void
-garrow_month_day_nano_interval_array_class_init(GArrowMonthDayNanoIntervalArrayClass *klass)
+garrow_month_day_nano_interval_array_class_init(
+  GArrowMonthDayNanoIntervalArrayClass *klass)
 {
 }
 
@@ -3025,10 +3030,11 @@ garrow_month_day_nano_interval_array_new(gint64 length,
                                          GArrowBuffer *null_bitmap,
                                          gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::MonthDayNanoIntervalType>(length,
-                                                                           data,
-                                                                           null_bitmap,
-                                                                           n_nulls);
+  auto array = garrow_primitive_array_new<arrow::MonthDayNanoIntervalType>(
+    length,
+    data,
+    null_bitmap,
+    n_nulls);
   return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY(array);
 }
 
@@ -3042,14 +3048,15 @@ garrow_month_day_nano_interval_array_new(gint64 length,
  * Since: 8.0.0
  */
 GArrowMonthDayNano *
-garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *array,
-                                               gint64 i)
+garrow_month_day_nano_interval_array_get_value(
+  GArrowMonthDayNanoIntervalArray *array,
+  gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_month_day_nano_interval_array =
     std::static_pointer_cast<arrow::MonthDayNanoIntervalArray>(arrow_array);
-  auto arrow_month_day_nano_interval = arrow_month_day_nano_interval_array->GetValue(i);
-  return garrow_month_day_nano_new_raw(&arrow_month_day_nano_interval);
+  auto arrow_value = arrow_month_day_nano_interval_array->GetValue(i);
+  return garrow_month_day_nano_new_raw(&arrow_value);
 }
 
 /**
@@ -3062,7 +3069,8 @@ garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *
  * Since: 8.0.0
  */
 GList *
-garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray *array)
+garrow_month_day_nano_interval_array_get_values(
+  GArrowMonthDayNanoIntervalArray *array)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_month_day_nano_interval_array =
@@ -3071,8 +3079,9 @@ garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray 
   GList *values = NULL;
   for (gint64 i = 0; i < length; ++i) {
     if (arrow_month_day_nano_interval_array->IsValid(i)) {
-      auto arrow_month_day_nano_interval = arrow_month_day_nano_interval_array->GetValue(i);
-      values = g_list_prepend(values, garrow_month_day_nano_new_raw(&arrow_month_day_nano_interval));
+      auto arrow_value = arrow_month_day_nano_interval_array->GetValue(i);
+      auto value = garrow_month_day_nano_new_raw(&arrow_value);
+      values = g_list_prepend(values, value);
     } else {
       values = g_list_prepend(values, NULL);
     }

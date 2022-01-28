@@ -618,7 +618,8 @@ const gint64 *garrow_time64_array_get_values(GArrowTime64Array *array,
                                              gint64 *length);
 
 
-#define GARROW_TYPE_MONTH_INTERVAL_ARRAY (garrow_month_interval_array_get_type())
+#define GARROW_TYPE_MONTH_INTERVAL_ARRAY        \
+  (garrow_month_interval_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalArray,
                          garrow_month_interval_array,
                          GARROW,
@@ -630,19 +631,23 @@ struct _GArrowMonthIntervalArrayClass
 };
 
 GARROW_AVAILABLE_IN_8_0
-GArrowMonthIntervalArray *garrow_month_interval_array_new(gint64 length,
-                                                          GArrowBuffer *data,
-                                                          GArrowBuffer *null_bitmap,
-                                                          gint64 n_nulls);
+GArrowMonthIntervalArray *
+garrow_month_interval_array_new(gint64 length,
+                                GArrowBuffer *data,
+                                GArrowBuffer *null_bitmap,
+                                gint64 n_nulls);
 GARROW_AVAILABLE_IN_8_0
-gint32 garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
-                                             gint64 i);
+gint32
+garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
+                                      gint64 i);
 GARROW_AVAILABLE_IN_8_0
-const gint32 *garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
-                                                     gint64 *length);
+const gint32 *
+garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
+                                       gint64 *length);
 
 
-#define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY (garrow_day_time_interval_array_get_type())
+#define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY     \
+  (garrow_day_time_interval_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalArray,
                          garrow_day_time_interval_array,
                          GARROW,
@@ -654,18 +659,22 @@ struct _GArrowDayTimeIntervalArrayClass
 };
 
 GARROW_AVAILABLE_IN_8_0
-GArrowDayTimeIntervalArray *garrow_day_time_interval_array_new(gint64 length,
-                                                               GArrowBuffer *data,
-                                                               GArrowBuffer *null_bitmap,
-                                                               gint64 n_nulls);
+GArrowDayTimeIntervalArray *
+garrow_day_time_interval_array_new(gint64 length,
+                                   GArrowBuffer *data,
+                                   GArrowBuffer *null_bitmap,
+                                   gint64 n_nulls);
 GARROW_AVAILABLE_IN_8_0
-GArrowDayMillisecond *garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
-                                                               gint64 i);
+GArrowDayMillisecond *
+garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
+                                         gint64 i);
 GARROW_AVAILABLE_IN_8_0
-GList *garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array);
+GList *
+garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array);
 
 
-#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY (garrow_month_day_nano_interval_array_get_type())
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY       \
+  (garrow_month_day_nano_interval_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalArray,
                          garrow_month_day_nano_interval_array,
                          GARROW,
@@ -677,15 +686,20 @@ struct _GArrowMonthDayNanoIntervalArrayClass
 };
 
 GARROW_AVAILABLE_IN_8_0
-GArrowMonthDayNanoIntervalArray *garrow_month_day_nano_interval_array_new(gint64 length,
-                                                                          GArrowBuffer *data,
-                                                                          GArrowBuffer *null_bitmap,
-                                                                          gint64 n_nulls);
+GArrowMonthDayNanoIntervalArray *
+garrow_month_day_nano_interval_array_new(gint64 length,
+                                         GArrowBuffer *data,
+                                         GArrowBuffer *null_bitmap,
+                                         gint64 n_nulls);
 GARROW_AVAILABLE_IN_8_0
-GArrowMonthDayNano *garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *array,
-                                                                   gint64 i);
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_array_get_value(
+  GArrowMonthDayNanoIntervalArray *array,
+  gint64 i);
 GARROW_AVAILABLE_IN_8_0
-GList *garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray *array);
+GList *
+garrow_month_day_nano_interval_array_get_values(
+  GArrowMonthDayNanoIntervalArray *array);
 
 
 #define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY (garrow_fixed_size_binary_array_get_type())

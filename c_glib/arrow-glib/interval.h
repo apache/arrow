@@ -40,11 +40,13 @@ GARROW_AVAILABLE_IN_8_0
 GArrowDayMillisecond *
 garrow_day_millisecond_new(gint32 days, gint32 milliseconds);
 GARROW_AVAILABLE_IN_8_0
-gboolean garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond,
-                                      GArrowDayMillisecond *other_day_millisecond);
+gboolean
+garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond,
+                             GArrowDayMillisecond *other_day_millisecond);
 GARROW_AVAILABLE_IN_8_0
-gboolean garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
-                                          GArrowDayMillisecond *other_day_millisecond);
+gboolean
+garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
+                                 GArrowDayMillisecond *other_day_millisecond);
 
 
 #define GARROW_TYPE_MONTH_DAY_NANO (garrow_month_day_nano_get_type())
@@ -63,8 +65,9 @@ GARROW_AVAILABLE_IN_8_0
 GArrowMonthDayNano *
 garrow_month_day_nano_new(gint32 months, gint32 days, gint64 nanoseconds);
 GARROW_AVAILABLE_IN_8_0
-gboolean garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,
-                                     GArrowMonthDayNano *other_month_nano_day);
+gboolean
+garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,
+                            GArrowMonthDayNano *other_month_nano_day);
 
 
 G_END_DECLS

@@ -179,11 +179,11 @@ garrow_day_millisecond_new(gint32 days, gint32 milliseconds)
  * Since: 8.0.0
  */
 gboolean
-garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond, GArrowDayMillisecond *other_day_millisecond)
+garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond,
+                             GArrowDayMillisecond *other_day_millisecond)
 {
   auto priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(day_millisecond);
   auto other_priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(other_day_millisecond);
-
   return priv->day_millisecond == other_priv->day_millisecond;
 }
 
@@ -198,11 +198,11 @@ garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond, GArrowDayMil
  * Since: 8.0.0
  */
 gboolean
-garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond, GArrowDayMillisecond *other_day_millisecond)
+garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
+                                 GArrowDayMillisecond *other_day_millisecond)
 {
   auto priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(day_millisecond);
   auto other_priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(other_day_millisecond);
-
   return priv->day_millisecond < other_priv->day_millisecond;
 }
 
@@ -379,11 +379,11 @@ garrow_month_day_nano_new(gint32 months, gint32 days, gint64 nanoseconds)
  * Since: 8.0.0
  */
 gboolean
-garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day, GArrowMonthDayNano *other_month_nano_day)
+garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,
+                            GArrowMonthDayNano *other_month_nano_day)
 {
   auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(month_nano_day);
   auto other_priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(other_month_nano_day);
-
   return priv->month_day_nano == other_priv->month_day_nano;
 }
 
@@ -391,12 +391,14 @@ garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day, GArrowMonthDayNa
 G_END_DECLS
 
 GArrowDayMillisecond *
-garrow_day_millisecond_new_raw(arrow::DayTimeIntervalType::DayMilliseconds *arrow_day_millisecond)
+garrow_day_millisecond_new_raw(
+  arrow::DayTimeIntervalType::DayMilliseconds *arrow_day_millisecond)
 {
-  auto day_millisecond = g_object_new(garrow_day_millisecond_get_type(),
-                                 "day", arrow_day_millisecond->days,
-                                 "millisecond", arrow_day_millisecond->milliseconds,
-                                 NULL);
+  auto day_millisecond =
+    g_object_new(garrow_day_millisecond_get_type(),
+                 "day", arrow_day_millisecond->days,
+                 "millisecond", arrow_day_millisecond->milliseconds,
+                 NULL);
   return GARROW_DAY_MILLISECOND(day_millisecond);
 }
 
@@ -410,19 +412,22 @@ garrow_day_millisecond_get_raw(GArrowDayMillisecond *day_millisecond)
 const arrow::DayTimeIntervalType::DayMilliseconds *
 garrow_day_millisecond_get_raw(const GArrowDayMillisecond *day_millisecond)
 {
-  auto priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(const_cast<GArrowDayMillisecond *>(day_millisecond));
+  auto priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(
+    const_cast<GArrowDayMillisecond *>(day_millisecond));
   return &priv->day_millisecond;
 }
 
 
 GArrowMonthDayNano *
-garrow_month_day_nano_new_raw(arrow::MonthDayNanoIntervalType::MonthDayNanos *arrow_month_day_nano)
+garrow_month_day_nano_new_raw(
+  arrow::MonthDayNanoIntervalType::MonthDayNanos *arrow_month_day_nano)
 {
-  auto month_day_nano = g_object_new(garrow_month_day_nano_get_type(),
-                                 "month", arrow_month_day_nano->months,
-                                 "day", arrow_month_day_nano->days,
-                                 "nanosecond", arrow_month_day_nano->nanoseconds,
-                                 NULL);
+  auto month_day_nano =
+    g_object_new(garrow_month_day_nano_get_type(),
+                 "month", arrow_month_day_nano->months,
+                 "day", arrow_month_day_nano->days,
+                 "nanosecond", arrow_month_day_nano->nanoseconds,
+                 NULL);
   return GARROW_MONTH_DAY_NANO(month_day_nano);
 }
 
@@ -434,8 +439,10 @@ garrow_month_day_nano_get_raw(GArrowMonthDayNano *month_day_nano)
 }
 
 const arrow::MonthDayNanoIntervalType::MonthDayNanos *
-garrow_month_day_nano_get_raw(const GArrowMonthDayNano *month_day_nano)
+garrow_month_day_nano_get_raw(
+  const GArrowMonthDayNano *month_day_nano)
 {
-  auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(const_cast<GArrowMonthDayNano *>(month_day_nano));
+  auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(
+    const_cast<GArrowMonthDayNano *>(month_day_nano));
   return &priv->month_day_nano;
 }

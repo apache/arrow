@@ -4499,12 +4499,14 @@ G_DEFINE_TYPE(GArrowMonthIntervalArrayBuilder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_month_interval_array_builder_init(GArrowMonthIntervalArrayBuilder *builder)
+garrow_month_interval_array_builder_init(
+  GArrowMonthIntervalArrayBuilder *builder)
 {
 }
 
 static void
-garrow_month_interval_array_builder_class_init(GArrowMonthIntervalArrayBuilderClass *klass)
+garrow_month_interval_array_builder_class_init(
+  GArrowMonthIntervalArrayBuilderClass *klass)
 {
 }
 
@@ -4535,9 +4537,10 @@ garrow_month_interval_array_builder_new(void)
  * Since: 8.0.0
  */
 gboolean
-garrow_month_interval_array_builder_append_value(GArrowMonthIntervalArrayBuilder *builder,
-                                                 gint32 value,
-                                                 GError **error)
+garrow_month_interval_array_builder_append_value(
+  GArrowMonthIntervalArrayBuilder *builder,
+  gint32 value,
+  GError **error)
 {
   return garrow_array_builder_append_value<arrow::MonthIntervalBuilder *>
     (GARROW_ARRAY_BUILDER(builder),
@@ -4566,12 +4569,13 @@ garrow_month_interval_array_builder_append_value(GArrowMonthIntervalArrayBuilder
  * Since: 8.0.0
  */
 gboolean
-garrow_month_interval_array_builder_append_values(GArrowMonthIntervalArrayBuilder *builder,
-                                                  const gint32 *values,
-                                                  gint64 values_length,
-                                                  const gboolean *is_valids,
-                                                  gint64 is_valids_length,
-                                                  GError **error)
+garrow_month_interval_array_builder_append_values(
+  GArrowMonthIntervalArrayBuilder *builder,
+  const gint32 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
 {
   return garrow_array_builder_append_values<arrow::MonthIntervalBuilder *>
     (GARROW_ARRAY_BUILDER(builder),
@@ -4589,12 +4593,14 @@ G_DEFINE_TYPE(GArrowDayTimeIntervalArrayBuilder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_day_time_interval_array_builder_init(GArrowDayTimeIntervalArrayBuilder *builder)
+garrow_day_time_interval_array_builder_init(
+  GArrowDayTimeIntervalArrayBuilder *builder)
 {
 }
 
 static void
-garrow_day_time_interval_array_builder_class_init(GArrowDayTimeIntervalArrayBuilderClass *klass)
+garrow_day_time_interval_array_builder_class_init(
+  GArrowDayTimeIntervalArrayBuilderClass *klass)
 {
 }
 
@@ -4625,9 +4631,10 @@ garrow_day_time_interval_array_builder_new(void)
  * Since: 8.0.0
  */
 gboolean
-garrow_day_time_interval_array_builder_append_value(GArrowDayTimeIntervalArrayBuilder *builder,
-                                                    GArrowDayMillisecond *value,
-                                                    GError **error)
+garrow_day_time_interval_array_builder_append_value(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  GArrowDayMillisecond *value,
+  GError **error)
 {
   if (value) {
     auto arrow_day_millisecond = garrow_day_millisecond_get_raw(value);
@@ -4662,15 +4669,17 @@ garrow_day_time_interval_array_builder_append_value(GArrowDayTimeIntervalArrayBu
  * Since: 8.0.0
  */
 gboolean
-garrow_day_time_interval_array_builder_append_values(GArrowDayTimeIntervalArrayBuilder *builder,
-                                                     const GArrowDayMillisecond **values,
-                                                     gint64 values_length,
-                                                     const gboolean *is_valids,
-                                                     gint64 is_valids_length,
-                                                     GError **error)
+garrow_day_time_interval_array_builder_append_values(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  const GArrowDayMillisecond **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
 {
   auto arrow_builder =
-    static_cast<arrow::DayTimeIntervalBuilder *>(garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    static_cast<arrow::DayTimeIntervalBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   return garrow_array_builder_append_values(
     values,
@@ -4685,7 +4694,8 @@ garrow_day_time_interval_array_builder_append_values(GArrowDayTimeIntervalArrayB
       for (int i = 0; i < values_length; i++) {
         arrow::Status status;
         if (!valid_bytes || valid_bytes[i]) {
-          status = arrow_builder->Append(*garrow_day_millisecond_get_raw(values[i]));
+          auto arrow_value = garrow_day_millisecond_get_raw(values[i]);
+          status = arrow_builder->Append(*arrow_value);
         } else {
           status = arrow_builder->AppendNull();
         }
@@ -4704,12 +4714,14 @@ G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArrayBuilder,
               GARROW_TYPE_ARRAY_BUILDER)
 
 static void
-garrow_month_day_nano_interval_array_builder_init(GArrowMonthDayNanoIntervalArrayBuilder *builder)
+garrow_month_day_nano_interval_array_builder_init(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder)
 {
 }
 
 static void
-garrow_month_day_nano_interval_array_builder_class_init(GArrowMonthDayNanoIntervalArrayBuilderClass *klass)
+garrow_month_day_nano_interval_array_builder_class_init(
+  GArrowMonthDayNanoIntervalArrayBuilderClass *klass)
 {
 }
 
@@ -4723,9 +4735,10 @@ garrow_month_day_nano_interval_array_builder_class_init(GArrowMonthDayNanoInterv
 GArrowMonthDayNanoIntervalArrayBuilder *
 garrow_month_day_nano_interval_array_builder_new(void)
 {
-  auto builder = garrow_array_builder_new(arrow::month_day_nano_interval(),
-                                          NULL,
-                                          "[month-day-nano-interval-array-builder][new]");
+  auto builder =
+    garrow_array_builder_new(arrow::month_day_nano_interval(),
+                             NULL,
+                             "[month-day-nano-interval-array-builder][new]");
   return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER(builder);
 }
 
@@ -4740,17 +4753,18 @@ garrow_month_day_nano_interval_array_builder_new(void)
  * Since: 8.0.0
  */
 gboolean
-garrow_month_day_nano_interval_array_builder_append_value(GArrowMonthDayNanoIntervalArrayBuilder *builder,
-                                                          GArrowMonthDayNano *value,
-                                                          GError **error)
+garrow_month_day_nano_interval_array_builder_append_value(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  GArrowMonthDayNano *value,
+  GError **error)
 {
   if (value) {
     auto arrow_month_day_nano = garrow_month_day_nano_get_raw(value);
-    return garrow_array_builder_append_value<arrow::MonthDayNanoIntervalBuilder *>
-      (GARROW_ARRAY_BUILDER(builder),
-       *arrow_month_day_nano,
-       error,
-       "[month-day-nano-interval-array-builder][append-value]");
+    return garrow_array_builder_append_value<arrow::MonthDayNanoIntervalBuilder *>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_month_day_nano,
+      error,
+      "[month-day-nano-interval-array-builder][append-value]");
   } else {
     return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
                                             error);
@@ -4777,15 +4791,17 @@ garrow_month_day_nano_interval_array_builder_append_value(GArrowMonthDayNanoInte
  * Since: 8.0.0
  */
 gboolean
-garrow_month_day_nano_interval_array_builder_append_values(GArrowMonthDayNanoIntervalArrayBuilder *builder,
-                                                           const GArrowMonthDayNano **values,
-                                                           gint64 values_length,
-                                                           const gboolean *is_valids,
-                                                           gint64 is_valids_length,
-                                                           GError **error)
+garrow_month_day_nano_interval_array_builder_append_values(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  const GArrowMonthDayNano **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
 {
   auto arrow_builder =
-    static_cast<arrow::MonthDayNanoIntervalBuilder *>(garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    static_cast<arrow::MonthDayNanoIntervalBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
 
   return garrow_array_builder_append_values(
     values,
@@ -4800,7 +4816,8 @@ garrow_month_day_nano_interval_array_builder_append_values(GArrowMonthDayNanoInt
       for (int i = 0; i < values_length; i++) {
         arrow::Status status;
         if (!valid_bytes || valid_bytes[i]) {
-          status = arrow_builder->Append(*garrow_month_day_nano_get_raw(values[i]));
+          auto arrow_value = garrow_month_day_nano_get_raw(values[i]);
+          status = arrow_builder->Append(*arrow_value);
         } else {
           status = arrow_builder->AppendNull();
         }
