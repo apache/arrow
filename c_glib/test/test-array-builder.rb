@@ -1500,7 +1500,6 @@ class TestArrayBuilder < Test::Unit::TestCase
     def empty_value
       Arrow::DayMillisecond.new(0, 0)
     end
-    
 
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
