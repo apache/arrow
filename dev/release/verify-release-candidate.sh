@@ -377,9 +377,14 @@ test_csharp() {
   fi
 
   dotnet test
-  mv dummy.git ../.git
-  dotnet pack -c Release
-  mv ../.git dummy.git
+
+  if [ "${SOURCE_KIND}" = "git" ]; then
+    dotnet pack -c Release
+  else
+    mv dummy.git ../.git
+    dotnet pack -c Release
+    mv ../.git dummy.git
+  fi
 
   if ! which sourcelink > /dev/null 2>&1; then
     dotnet tool install --tool-path ${csharp_bin} sourcelink
