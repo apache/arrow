@@ -35,15 +35,19 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
+      {% if not use_conda %}
       - name: Install System Dependencies
         shell: bash
         run: |
           brew update
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile
+      {% endif %}
+
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '16'
+
       - name: Run verification
         shell: bash
         env:
