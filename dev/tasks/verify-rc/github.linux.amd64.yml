@@ -19,6 +19,8 @@
 
 {{ macros.github_header() }}
 
+{% set use_conda = use_conda|default(False) %}
+
 jobs:
   verify:
     name: "Verify release candidate Ubuntu {{ artifact }}"
@@ -33,7 +35,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      {% if not ((use_conda is defined) and use_conda) %}
+      {% if not use_conda %}
       - name: Install System Dependencies
         run: |
           # TODO: don't require removing newer llvms
@@ -82,6 +84,9 @@ jobs:
           TEST_DEFAULT: 0
         {% if target is defined %}
           TEST_{{ target|upper }}: 1
+        {% endif %}
+        {% if use_conda %}
+          USE_CONDA: 1
         {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
