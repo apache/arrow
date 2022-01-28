@@ -86,6 +86,17 @@ def test_logging_memory_pool(capfd):
     assert out.count("Allocate:") == out.count("Free:")
 
 
+def test_logging_memory_pool_envvar(capfd):
+    os.environ["ARROW_LOG_ALLOCATIONS"] = "true"
+    pool = pa.default_memory_pool()
+    check_allocated_bytes(pool)
+    out, err = capfd.readouterr()
+    assert err == ""
+    assert out.count("Allocate:") > 0
+    assert out.count("Allocate:") == out.count("Free:")
+    del os.environ["ARROW_LOG_ALLOCATIONS"]
+
+
 def test_set_memory_pool():
     old_pool = pa.default_memory_pool()
     pool = pa.proxy_memory_pool(old_pool)

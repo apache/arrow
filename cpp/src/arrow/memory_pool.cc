@@ -514,7 +514,7 @@ static struct GlobalState {
 #ifdef ARROW_MIMALLOC
   MimallocMemoryPool mimalloc_pool;
 #endif
-  LoggingMemoryPool* logging_pool;
+  util::optional<LoggingMemoryPool> logging_pool;
 } global_state;
 
 MemoryPool* system_memory_pool() { return &global_state.system_pool; }
@@ -540,8 +540,9 @@ Status mimalloc_memory_pool(MemoryPool** out) {
 MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();
 
-  bool use_logging = false; // TODO: check env variable
-  std::string logging_var = internal::GetEnvVar(kAllocationLoggingEnvVar).ValueOr("false");
+  bool use_logging = false;  // TODO: allow more values as true
+  std::string logging_var =
+      internal::GetEnvVar(kAllocationLoggingEnvVar).ValueOr("false");
   if (logging_var == "true") {
     use_logging = true;
   }
@@ -550,24 +551,27 @@ MemoryPool* default_memory_pool() {
   switch (backend) {
     case MemoryPoolBackend::System:
       pool = &global_state.system_pool;
+      break;
 #ifdef ARROW_JEMALLOC
     case MemoryPoolBackend::Jemalloc:
       pool = &global_state.jemalloc_pool;
+      break;
 #endif
 #ifdef ARROW_MIMALLOC
     case MemoryPoolBackend::Mimalloc:
       pool = &global_state.mimalloc_pool;
+      break;
 #endif
     default:
       ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
       return nullptr;
   }
 
-  if (use_logging && global_state.logging_pool != nullptr) {
-    return global_state.logging_pool;
-  } else if (use_logging) {
-    *global_state.logging_pool = LoggingMemoryPool(pool);
-    return global_state.logging_pool;
+  if (use_logging) {
+    if (!global_state.logging_pool.has_value()) {
+      global_state.logging_pool.emplace(LoggingMemoryPool(pool));
+    }
+    return &*global_state.logging_pool;
   } else {
     return pool;
   }
