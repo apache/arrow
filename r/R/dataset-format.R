@@ -347,19 +347,16 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         }
       }
 
-      if (self$type == "parquet") {
-        args <- list(...)
-        check_additional_args(self$type, names(args))
+      args <- list(...)
+      check_additional_args(self$type, names(args))
 
+      if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
           ParquetWriterProperties$create(table, ...),
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {
-        args <- list(...)
-        check_additional_args(self$type, names(args))
-
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
             self,
@@ -375,9 +372,6 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           )
         }
       } else if (self$type == "csv") {
-        args <- list(...)
-        check_additional_args(self$type, names(args))
-
         dataset___CsvFileWriteOptions__update(
           self,
           CsvWriteOptions$create(...)
