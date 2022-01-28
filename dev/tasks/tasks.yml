@@ -876,7 +876,7 @@ tasks:
 
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
-    template: docker-tests/github.linux.amd64.docker.yml
+    template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
       distro: {{ distribution }}

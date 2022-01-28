@@ -41,5 +41,5 @@ jobs:
       - name: Run verification
         shell: cmd
         env:
-          SOURCE_REPOSITORY: {{ arrow.repo }}
-        run: arrow/dev/release/{{ script }} {{ release|arrow.head }} {{ rc|default("") }}
+          SOURCE_REPOSITORY: {{ arrow.remote }}
+        run: arrow/dev/release/{{ script }} {{ release|default(arrow.head) }} {{ rc|default("") }}

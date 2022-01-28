@@ -45,8 +45,8 @@ jobs:
       - name: Run verification
         shell: bash
         env:
-          SOURCE_REPOSITORY: {{ arrow.repo }}
+          SOURCE_REPOSITORY: {{ arrow.remote }}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
-            {{ release|arrow.head }} {{ rc|default("") }}
+            {{ release|default(arrow.head) }} {{ rc|default("") }}
