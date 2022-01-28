@@ -955,12 +955,16 @@ tasks:
     ci: github
     template: verify-rc/github.win.yml
     params:
+      env:
+        PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
 
   verify-rc-wheels-windows:
     ci: github
     template: verify-rc/github.win.yml
     params:
+      env:
+        PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate-wheels.bat"
 
 {############################## Docker tests #################################}
