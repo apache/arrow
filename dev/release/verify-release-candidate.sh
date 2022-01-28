@@ -259,7 +259,7 @@ setup_conda() {
 
   if [ ! -d "${MINICONDA}" ]; then
     # Setup miniconda only if the directory doesn't exist yet
-    wget -O miniconda.sh $MINICONDA_URL
+    wget -q -O miniconda.sh $MINICONDA_URL
     bash miniconda.sh -b -p $MINICONDA
     rm -f miniconda.sh
   fi
@@ -268,8 +268,8 @@ setup_conda() {
   . $MINICONDA/etc/profile.d/conda.sh
   conda activate base
   mamba create -n arrow-test -y
-  conda activate arrow-test
-  echo "Using conda environment ${CONDA_PREFIX}"
+  echo "Created conda environment ${CONDA_PREFIX}"
+  conda deactivate
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -346,6 +346,12 @@ ${ARROW_CMAKE_OPTIONS:-}
     --output-on-failure \
     -L unittest
   popd
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda deactivate
+  else
+    deactivate
+  fi
 }
 
 test_csharp() {
@@ -417,6 +423,7 @@ test_python() {
     echo "Deactivate the environment before running the verification script."
     exit 1
   else
+    source venv/bin/activate
     pip install -r python/requirements-build.txt
   fi
 
@@ -469,8 +476,11 @@ import pyarrow.plasma
   # Execute pyarrow unittests
   pytest pyarrow -v --pdb
 
-  # Deactivate virtualenv
-  deactivate
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda deactivate
+  else
+    deactivate
+  fi
 
   popd
 }
@@ -737,7 +747,11 @@ test_linux_wheels() {
       INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
     done
 
-    conda deactivate
+    if [ "${USE_CONDA}" -gt 0 ]; then
+      conda deactivate
+    else
+      deactivate
+    fi
   done
 }
 
@@ -788,7 +802,11 @@ test_macos_wheels() {
     INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
       ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
 
-    conda deactivate
+    if [ "${USE_CONDA}" -gt 0 ]; then
+      conda deactivate
+    else
+      deactivate
+    fi
   done
 
   # verify arm64 and universal2 wheels using an universal2 python binary

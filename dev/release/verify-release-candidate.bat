@@ -40,7 +40,7 @@ if "%RC_NUMBER%"=="" (
     ) else (
         pushd %SOURCE_REPOSITORY%
     )
-    git clone --recurse-submodules . %ARROW_SOURCE%
+    git clone . %ARROW_SOURCE%
     git -C %ARROW_SOURCE% checkout %VERSION%
     popd
 ) else (
@@ -50,14 +50,14 @@ if "%RC_NUMBER%"=="" (
     set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
     wget --no-check-certificate -O %TARBALL_NAME% %TARBALL_URL% || exit /B 1
     tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
-
-    @rem Get testing datasets for Parquet unit tests
-    git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-    set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
-
-    git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
-    set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 )
+
+ @rem Get testing datasets for Parquet unit tests
+git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
+set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
+
+git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
+set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 set PYTHON=3.8
 
