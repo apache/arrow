@@ -606,8 +606,11 @@ Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
   std::shared_ptr<DataType> item_type = checked_cast<const MapType&>(*type).item_type();
   std::shared_ptr<DataType> key_type = checked_cast<const MapType&>(*type).key_type();
 
-  if (!options.query_key || !options.query_key->type ||
-      !options.query_key->type->Equals(key_type)) {
+  if (!options.query_key) {
+    return Status::TypeError("map_array_lookup: query_key can't be empty.");
+  } else if (!options.query_key->is_valid) {
+    return Status::TypeError("map_array_lookup: query_key can't be null.");
+  } else if (!options.query_key->type || !options.query_key->type->Equals(key_type)) {
     return Status::TypeError(
         "map_array_lookup: query_key type and MapArray key_type don't match. Expected "
         "type: ",

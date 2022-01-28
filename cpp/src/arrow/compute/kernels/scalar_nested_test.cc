@@ -24,6 +24,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {
@@ -519,11 +520,19 @@ TEST_F(TestMapArrayLookupKernel, Errors) {
   MapArrayLookupOptions all(query_key_int16, MapArrayLookupOptions::ALL);
   MapArrayLookupOptions first(query_key_int16, MapArrayLookupOptions::FIRST);
   MapArrayLookupOptions last(query_key_int16, MapArrayLookupOptions::LAST);
-  MapArrayLookupOptions null_key;
+  MapArrayLookupOptions empty_key(nullptr);
+  MapArrayLookupOptions null_key(MakeNullScalar(int32()));
 
-  for (auto option : {all, first, last, null_key, unsupported}) {
+  for (auto option : {unsupported, all, first, last, empty_key, null_key}) {
     ASSERT_RAISES(TypeError, CallFunction("map_array_lookup", {map_array}, &option));
   }
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, ::testing::HasSubstr("key can't be empty"),
+      CallFunction("map_array_lookup", {map_array}, &empty_key));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, ::testing::HasSubstr("key can't be null"),
+      CallFunction("map_array_lookup", {map_array}, &null_key));
 }
 
 template <typename KeyType>
