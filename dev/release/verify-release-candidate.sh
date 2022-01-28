@@ -708,6 +708,10 @@ test_linux_wheels() {
     if [ "${USE_CONDA}" -gt 0 ]; then
       mamba create -yq -n ${env} python=${py_arch//[mu]/}
       conda activate ${env}
+    elif [ ! -z ${CONDA_PREFIX} ]; then
+      echo "Conda environment is active despite that USE_CONDA is set to 0."
+      echo "Deactivate the environment before running the verification script."
+      exit 1
     elif [ command -v "python${py_ver}" ]; then
       local venv="${ARROW_TMPDIR}/test-virtualenv"
       local python="python${py_ver}"
@@ -716,6 +720,7 @@ test_linux_wheels() {
     else
       echo "Couldn't locate python interpreter with version ${py_arch}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
+      continue
     fi
 
     pip install -U pip
@@ -755,6 +760,10 @@ test_macos_wheels() {
     if [ "${USE_CONDA}" -gt 0 ]; then
       mamba create -yq -n ${env} python=${py_arch//m/}
       conda activate ${env}
+    elif [ ! -z ${CONDA_PREFIX} ]; then
+      echo "Conda environment is active despite that USE_CONDA is set to 0."
+      echo "Deactivate the environment before running the verification script."
+      exit 1
     elif [ command -v "python${py_ver}" ]; then
       local venv="${ARROW_TMPDIR}/test-virtualenv"
       local python="python${py_ver}"
@@ -763,6 +772,7 @@ test_macos_wheels() {
     else
       echo "Couldn't locate python interpreter with version ${py_arch}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
+      continue
     fi
 
     pip install -U pip
@@ -875,6 +885,7 @@ case "${ARTIFACT}" in
     ;;
   wheels)
     TEST_WHEELS=1
+    USE_CONDA=1
     ;;
   jars)
     TEST_JARS=1
