@@ -686,7 +686,7 @@ garrow_round_to_multiple_options_new(void);
  *
  * Since: 8.0.0
  */
-typedef enum {
+typedef enum /*< underscore_name=garrow_utf8_normalize_form >*/ {
   GARROW_UTF8_NORMALIZE_FORM_NFC,
   GARROW_UTF8_NORMALIZE_FORM_NFKC,
   GARROW_UTF8_NORMALIZE_FORM_NFD,

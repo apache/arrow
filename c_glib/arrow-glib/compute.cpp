@@ -3669,7 +3669,7 @@ garrow_utf8_normalize_options_class_init(GArrowUTF8NormalizeOptionsClass *klass)
   spec = g_param_spec_enum("form",
                            "Form",
                            "The Unicode normalization form to apply",
-                           GARROW_TYPE_UT_F8_NORMALIZE_FORM,
+                           GARROW_TYPE_UTF8_NORMALIZE_FORM,
                            static_cast<GArrowRoundMode>(options.form),
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
@@ -5307,7 +5307,7 @@ GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new_raw(
   const arrow::compute::Utf8NormalizeOptions *arrow_options)
 {
-  auto options = g_object_new(GARROW_TYPE_UT_F8_NORMALIZE_FORM,
+  auto options = g_object_new(GARROW_TYPE_UTF8_NORMALIZE_FORM,
                               "form", arrow_options->form,
                               NULL);
   return GARROW_UTF8_NORMALIZE_OPTIONS(options);
