@@ -3549,6 +3549,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
+  if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
+    # ARROW-15495: Protobuf/gRPC must come from the same source
+    message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
+    set(gRPC_SOURCE "${Protobuf_SOURCE}")
+  endif()
   resolve_dependency(gRPC
                      HAVE_ALT
                      TRUE
