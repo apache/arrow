@@ -1064,7 +1064,7 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestampAndDuration) {
   auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
   auto milliseconds_1k_tz =
       ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTimestampAndDuration) {
@@ -1101,7 +1101,7 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTimestampAndDuration) {
   auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
   auto milliseconds_1k_tz =
       ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
-  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
