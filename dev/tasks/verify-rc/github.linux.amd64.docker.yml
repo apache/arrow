@@ -35,5 +35,5 @@ jobs:
             -e VERIFY_VERSION="{{ release|default(arrow.head) }}" \
             -e VERIFY_RC="{{ rc|default("") }}" \
             -e TEST_DEFAULT=0 \
-            -e TEST_{{ target|upper }}=1
+            -e TEST_{{ target|upper }}=1 \
             {{ distro }}-verify-rc-source
