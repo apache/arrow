@@ -3557,6 +3557,11 @@ if(ARROW_WITH_GRPC)
                      PC_PACKAGE_NAMES
                      grpc++)
 
+  if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
+    message(FATAL_ERROR "Cannot mix bundled/system Protobuf and gRPC, Protobuf_SOURCE: ${Protobuf_SOURCE}, gRPC_SOURCE: ${gRPC_SOURCE}"
+    )
+  endif()
+
   # TODO: Don't use global includes but rather target_include_directories
   get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(SYSTEM ${GRPC_INCLUDE_DIR})
