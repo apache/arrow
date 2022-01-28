@@ -45,7 +45,10 @@ jobs:
       - name: Run verification
         shell: bash
         env:
-          SOURCE_REPOSITORY: {{ arrow.remote }}
+          TEST_DEFAULT: 0
+        {% if target is defined %}
+          TEST_{{ target|upper }}: 1
+        {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \

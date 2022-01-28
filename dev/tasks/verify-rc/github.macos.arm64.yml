@@ -22,7 +22,7 @@
 jobs:
   verify:
     name: "Verify release candidate macOS {{ artifact }}"
-    runs-on: {{ github_runner }}
+    runs-on: {{ github_runner|default("self-hosted") }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
@@ -40,7 +40,10 @@ jobs:
       - name: Run verification
         shell: bash
         env:
-          SOURCE_REPOSITORY: {{ arrow.remote }}
+          TEST_DEFAULT: 0
+        {% if target is defined %}
+          TEST_{{ target|upper }}: 1
+        {% endif %}
         run: |
           export PATH="$(brew --prefix node@16)/bin:$PATH"
           export PATH="$(brew --prefix ruby)/bin:$PATH"

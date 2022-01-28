@@ -31,7 +31,6 @@ jobs:
         shell: bash
         run: |
           archery docker run \
-            -e SOURCE_REPOSITORY="{{ arrow.remote }}" \
             -e VERIFY_VERSION="{{ release|default(arrow.head) }}" \
             -e VERIFY_RC="{{ rc|default("") }}" \
             -e TEST_DEFAULT=0 \

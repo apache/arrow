@@ -33,6 +33,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
+      {% if not ((use_conda is defined) and use_conda) %}
       - name: Install System Dependencies
         run: |
           # TODO: don't require removing newer llvms
@@ -51,28 +52,37 @@ jobs:
             ninja-build \
             qemu-user-static \
             wget
+      {% endif %}
 
-          if [ "$TEST_JAVA" = "1" ]; then
-            # Maven
-            MAVEN_VERSION=3.6.3
-            wget https://downloads.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
-            unzip apache-maven-$MAVEN_VERSION-bin.zip
-            mkdir -p $HOME/java
-            mv apache-maven-$MAVEN_VERSION $HOME/java
-            export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
-          fi
+    {% if target is defined %}
+      {% if target == "java" %}
+      - name: Install Maven
+        run: |
+          MAVEN_VERSION=3.6.3
+          wget https://downloads.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
+          unzip apache-maven-$MAVEN_VERSION-bin.zip
+          mkdir -p $HOME/java
+          mv apache-maven-$MAVEN_VERSION $HOME/java
+          export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
+      {% elif target == "ruby" %}
+      - name: Install Bundler
+        run: |
+          ruby --version
+          sudo gem install bundler
+      {% endif %}
+    {% endif %}
 
-          if [ "$TEST_RUBY" = "1" ]; then
-            ruby --version
-            sudo gem install bundler
-          fi
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '16'
+
       - name: Run verification
         shell: bash
         env:
-          SOURCE_REPOSITORY: {{ arrow.remote }}
+          TEST_DEFAULT: 0
+        {% if target is defined %}
+          TEST_{{ target|upper }}: 1
+        {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \

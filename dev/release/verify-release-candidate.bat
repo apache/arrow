@@ -35,7 +35,7 @@ set RC_NUMBER=%2
 
 if "%RC_NUMBER%"=="" (
     @rem verify a specific git revision
-    if "%SOURCE_REPOSITORY%"=="" set SOURCE_REPOSITORY="https://github.com/apache/arrow.git"
+    if "%SOURCE_REPOSITORY%"=="" set SOURCE_REPOSITORY="%~dp0..\..\"
     git clone --recurse-submodules %SOURCE_REPOSITORY% %ARROW_SOURCE%
     git -C %ARROW_SOURCE% checkout %VERSION%
 ) else (
@@ -45,6 +45,13 @@ if "%RC_NUMBER%"=="" (
     set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
     wget --no-check-certificate -O %TARBALL_NAME% %TARBALL_URL% || exit /B 1
     tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
+
+    @rem Get testing datasets for Parquet unit tests
+    git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
+    set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
+
+    git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
+    set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 )
 
 set PYTHON=3.8
@@ -105,13 +112,6 @@ cmake -G "%GENERATOR%" ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
-
-@rem Get testing datasets for Parquet unit tests
-git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
-
-git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
-set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%

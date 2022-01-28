@@ -77,14 +77,17 @@ detect_cuda() {
   return $((${n_gpus} < 1))
 }
 
-# Build options for the C++ library
+# Execute tests in a conda enviroment
+: ${USE_CONDA:=0}
 
+# Build options for the C++ library
 if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
+: ${ARROW_DEPENDENCY_SOURCE:=${DEFAULT_DEPENDENCY_SOURCE}}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -149,7 +152,7 @@ test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
-  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir}
 
   verify_dir_artifact_signatures ${download_dir}
@@ -243,7 +246,7 @@ setup_tempdir() {
   fi
 }
 
-setup_miniconda() {
+setup_conda() {
   # Setup short-lived miniconda for Python and integration tests
   OS="$(uname)"
   if [ "${OS}" == "Darwin" ]; then
@@ -264,22 +267,7 @@ setup_miniconda() {
 
   . $MINICONDA/etc/profile.d/conda.sh
   conda activate base
-
-  # Dependencies from python/requirements-build.txt and python/requirements-test.txt
-  # with the exception of oldest-supported-numpy since it doesn't have a conda package
-  mamba create -n arrow-test -y \
-    cffi \
-    cython \
-    hypothesis \
-    numpy \
-    pandas \
-    pytest \
-    pytest-lazy-fixture \
-    python=3.8 \
-    pytz \
-    setuptools \
-    setuptools_scm
-
+  mamba create -n arrow-test -y
   conda activate arrow-test
   echo "Using conda environment ${CONDA_PREFIX}"
 }
@@ -298,6 +286,22 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    mamba install -y --file ci/conda_env_cpp.txt
+  elif [ ! -z ${CONDA_PREFIX} ]; then
+    echo "Conda environment is active despite that USE_CONDA is set to 0."
+    echo "Deactivate the environment before running the verification script."
+    exit 1
+  else
+    DEFAULT_DEPENDENCY_SOURCE="AUTO"
+    # Create a python virtualenv
+    ${PYTHON:-python3} -m venv venv
+    source venv/bin/activate
+    # Install build dependencies (numpy is required here)
+    pip install -r ${ARROW_DIR}/python/requirements-build.txt
+  fi
+
   mkdir -p cpp/build
   pushd cpp/build
 
@@ -325,7 +329,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_BUILD_TESTS=ON
 -DARROW_BUILD_INTEGRATION=ON
 -DARROW_CUDA=${ARROW_CUDA}
--DARROW_DEPENDENCY_SOURCE=AUTO
+-DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE}
 "
   cmake $ARROW_CMAKE_OPTIONS ..
 
@@ -401,12 +405,18 @@ test_csharp() {
 }
 
 # Build and test Python
-
 test_python() {
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    mamba install -y --file ci/conda_env_python.txt
+  elif [ ! -z ${CONDA_PREFIX} ]; then
+    echo "Conda environment is active despite that USE_CONDA is set to 0."
+    echo "Deactivate the environment before running the verification script."
+    exit 1
+  fi
+
   pushd python
 
   export PYARROW_PARALLEL=$NPROC
-
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -420,8 +430,41 @@ test_python() {
     export PYARROW_WITH_GANDIVA=1
   fi
 
+  # Build pyarrow
   python setup.py build_ext --inplace
+
+  # Check mandatory and optional imports
+  python -c "
+import pyarrow
+import pyarrow._s3
+import pyarrow._gcs
+import pyarrow._hdfs
+import pyarrow.csv
+import pyarrow.dataset
+import pyarrow.fs
+import pyarrow.json
+import pyarrow.orc
+import pyarrow.parquet
+import pyarrow.plasma
+"
+  if [ "${PYARROW_WITH_CUDA}" == "ON" ]; then
+    python -c "import pyarrow.cuda"
+  fi
+  if [ "${PYARROW_WITH_FLIGHT}" == "ON" ]; then
+    python -c "import pyarrow.flight"
+  fi
+  if [ "${ARROW_WITH_GANDIVA}" == "ON" ]; then
+    python -c "import pyarrow.gandiva"
+  fi
+
+  # Install test dependencies
+  pip install -r requirements-test.txt
+
+  # Execute pyarrow unittests
   pytest pyarrow -v --pdb
+
+  # Deactivate virtualenv
+  deactivate
 
   popd
 }
@@ -562,7 +605,7 @@ test_integration() {
 ensure_source_directory() {
   dist_name="apache-arrow-${VERSION}"
   if [ "${SOURCE_KIND}" = "git" ]; then
-    git clone --recurse-submodules ${SOURCE_REPOSITORY:-"https://github.com/apache/arrow.git"} arrow
+    git clone --recurse-submodules ${SOURCE_REPOSITORY:-"${SOURCE_DIR}/../.."} arrow
     pushd arrow
     git checkout ${VERSION}
   else
@@ -782,7 +825,7 @@ test_jars() {
   local download_dir=jars
   mkdir -p ${download_dir}
 
-  ${PYTHON:-python} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --dest=${download_dir} \
          --package_type=jars
 
@@ -792,6 +835,10 @@ test_jars() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
+
+
+# Install and activate conda environment automatically
+: ${INSTALL_CONDA:=$USE_CONDA}
 
 # Install NodeJS locally for running the JavaScript tests rather than using the
 # system Node installation, which may be too old.
@@ -857,29 +904,6 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-case "${ARTIFACT}" in
-  source)
-    NEED_MINICONDA=$((${TEST_CPP} + ${TEST_INTEGRATION}))
-    ;;
-  binaries)
-    if [ -z "${PYTHON:-}" ]; then
-      NEED_MINICONDA=$((${TEST_BINARY}))
-    else
-      NEED_MINICONDA=0
-    fi
-    ;;
-  wheels)
-    NEED_MINICONDA=$((${TEST_WHEELS}))
-    ;;
-  jars)
-    if [ -z "${PYTHON:-}" ]; then
-      NEED_MINICONDA=1
-    else
-      NEED_MINICONDA=0
-    fi
-    ;;
-esac
-
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
   /*)
@@ -895,8 +919,8 @@ setup_tempdir "arrow-${VERSION}"
 echo "Working in sandbox ${ARROW_TMPDIR}"
 cd ${ARROW_TMPDIR}
 
-if [ ${NEED_MINICONDA} -gt 0 ]; then
-  setup_miniconda
+if [ "${INSTALL_CONDA}" -gt 0 ]; then
+  setup_conda
 fi
 
 case "${ARTIFACT}" in
