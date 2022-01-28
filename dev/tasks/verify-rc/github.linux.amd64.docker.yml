@@ -21,8 +21,7 @@
 
 jobs:
   test:
-    name: |
-      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
+    name: "Verify release candidate {{ distro }} source"
     runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth if fetch_depth is defined else 1)|indent }}
@@ -32,8 +31,8 @@ jobs:
         shell: bash
         run: |
           archery docker run \
-            -e SOURCE_REPOSITORY="{{ arrow.repo }}" \
-            -e VERIFY_VERSION="{{ release|arrow.head }}" \
+            -e SOURCE_REPOSITORY="{{ arrow.remote }}" \
+            -e VERIFY_VERSION="{{ release|default(arrow.head) }}" \
             -e VERIFY_RC="{{ rc|default("") }}" \
             -e TEST_DEFAULT=0 \
             -e TEST_{{ target|upper }}=1
