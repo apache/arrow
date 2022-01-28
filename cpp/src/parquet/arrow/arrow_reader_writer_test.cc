@@ -3706,7 +3706,7 @@ Status NoOverflowMemoryPool::Allocate(int64_t size, uint8_t** out) {
   if (s.ok()) {
     buffers_[out] = size;
 
-    for (int i = size; i < size + padding_; ++i) {
+    for (int64_t i = size; i < size + padding_; ++i) {
       (*out)[i] = check_value_;
     }
   }
@@ -3719,7 +3719,7 @@ Status NoOverflowMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
   if (s.ok()) {
     buffers_[ptr] = new_size;
 
-    for (int i = new_size; i < new_size + padding_; ++i) {
+    for (int64_t i = new_size; i < new_size + padding_; ++i) {
       (*ptr)[i] = check_value_;
     }
   }
@@ -3728,7 +3728,7 @@ Status NoOverflowMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
 
 void NoOverflowMemoryPool::Free(uint8_t* buffer, int64_t size) {
   // DCHECK_EQ(size, buffers_[&buffer]);
-  for (int i = size; i < size + padding_; ++i) {
+  for (int64_t i = size; i < size + padding_; ++i) {
     DCHECK_EQ(buffer[i], check_value_);
   }
   pool_->Free(buffer, size + padding_);
@@ -3746,20 +3746,20 @@ TEST(TestArrowReaderAdHoc, RepeatReadNullableStructColumn) {
   // This pool validates that no bytes are modified past the end of the buffer
   auto pool_obj = NoOverflowMemoryPool(default_memory_pool(), /*padding=*/3);
   auto pool = &pool_obj;
-  
+
   auto gen = ::arrow::random::RandomArrayGenerator(42);
   auto float_arr = gen.Float64(320 * 8, /*min=*/-10.0, /*max=*/10.0,
                                /*null_probability=*/0.1, /*nan_probability=*/0.0);
-  ASSERT_OK_AND_ASSIGN(auto struct_arr, ::arrow::StructArray::Make(
-                           {float_arr}, {std::make_shared<::arrow::Field>(
-                                            "x", ::arrow::float64(), true)}));
+  ASSERT_OK_AND_ASSIGN(
+      auto struct_arr,
+      ::arrow::StructArray::Make({float_arr}, {std::make_shared<::arrow::Field>(
+                                                  "x", ::arrow::float64(), true)}));
   auto list_arr = gen.List(*struct_arr.get(), 800, /*null_probability=*/0.1,
                            /*force_empty_nulls=*/false);
-  auto fields = {std::make_shared<::arrow::Field>(
-          "records", list_arr->type(), /*nullable=*/true)};
-  auto batch = ::arrow::RecordBatch::Make(
-      std::make_shared<::arrow::Schema>(fields),
-      list_arr->length(), {list_arr});
+  auto fields = {
+      std::make_shared<::arrow::Field>("records", list_arr->type(), /*nullable=*/true)};
+  auto batch = ::arrow::RecordBatch::Make(std::make_shared<::arrow::Schema>(fields),
+                                          list_arr->length(), {list_arr});
   ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
 
   // Write table
