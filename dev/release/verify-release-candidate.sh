@@ -299,7 +299,7 @@ test_and_install_cpp() {
     ${PYTHON:-python3} -m venv venv
     source venv/bin/activate
     # Install build dependencies (numpy is required here)
-    pip install -r ${ARROW_DIR}/python/requirements-build.txt
+    pip install numpy
   fi
 
   mkdir -p cpp/build
