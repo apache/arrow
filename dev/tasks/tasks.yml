@@ -876,12 +876,10 @@ tasks:
 
   verify-rc-source-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
     ci: github
-    template: docker-tests/github.linux.yml
+    template: docker-tests/github.linux.amd64.docker.yml
     params:
-      flags: >-
-        -e TEST_DEFAULT=0
-        -e TEST_{{ target|upper }}=1
-      image: {{ distribution }}-verify-rc-source
+      target: {{ target }}
+      distro: {{ distribution }}
   {% endfor %}
 {% endfor %}
 

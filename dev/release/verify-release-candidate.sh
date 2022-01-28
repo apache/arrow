@@ -35,9 +35,20 @@
 # directory is not cleaned up automatically.
 
 case $# in
+  2) ARTIFACT="$1"
+     VERSION="$2"
+     SOURCE_KIND="git"
+     case $ARTIFACT in
+       source) ;;
+       *) echo "Invalid argument: '${ARTIFACT}', only valid option is 'source'"
+          exit 1
+          ;;
+     esac
+     ;;
   3) ARTIFACT="$1"
      VERSION="$2"
      RC_NUMBER="$3"
+     SOURCE_KIND="tarball"
      case $ARTIFACT in
        source|binaries|wheels|jars) ;;
        *) echo "Invalid argument: '${ARTIFACT}', valid options are \
@@ -544,27 +555,33 @@ test_integration() {
 
 ensure_source_directory() {
   dist_name="apache-arrow-${VERSION}"
-  if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
-    import_gpg_keys
-    if [ ! -d "${dist_name}" ]; then
-      fetch_archive ${dist_name}
-      tar xf ${dist_name}.tar.gz
-    fi
+  if [ "${SOURCE_KIND}" = "git" ]; then
+    git clone --recurse-submodules ${SOURCE_REPOSITORY:-"https://github.com/apache/arrow.git"} arrow
+    pushd arrow
+    git checkout ${VERSION}
   else
-    mkdir -p ${dist_name}
-    if [ ! -f ${TEST_ARCHIVE} ]; then
-      echo "${TEST_ARCHIVE} not found"
-      exit 1
+    if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
+      import_gpg_keys
+      if [ ! -d "${dist_name}" ]; then
+        fetch_archive ${dist_name}
+        tar xf ${dist_name}.tar.gz
+      fi
+    else
+      mkdir -p ${dist_name}
+      if [ ! -f ${TEST_ARCHIVE} ]; then
+        echo "${TEST_ARCHIVE} not found"
+        exit 1
+      fi
+      tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
     fi
-    tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
-  fi
-  # clone testing repositories
-  pushd ${dist_name}
-  if [ ! -d "testing/data" ]; then
-    git clone https://github.com/apache/arrow-testing.git testing
-  fi
-  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
-    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+    # clone testing repositories
+    pushd ${dist_name}
+    if [ ! -d "testing/data" ]; then
+      git clone https://github.com/apache/arrow-testing.git testing
+    fi
+    if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
+      git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+    fi
   fi
   export ARROW_DIR=$PWD
   export ARROW_TEST_DATA=$PWD/testing/data

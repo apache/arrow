@@ -40,6 +40,6 @@ jobs:
           choco install wget
       - name: Run verification
         shell: cmd
-        run: |
-          cd arrow
-          dev/release/{{ script }} {{ release|default("1.0.0") }} {{ rc|default("0") }}
+        env:
+          SOURCE_REPOSITORY: {{ arrow.repo }}
+        run: arrow/dev/release/{{ script }} {{ release|arrow.head }} {{ rc|default("") }}
