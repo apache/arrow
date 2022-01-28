@@ -288,7 +288,8 @@ test_package_java() {
 test_and_install_cpp() {
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
-    mamba install -y --file ci/conda_env_cpp.txt
+    # TODO(kszucs): we should define orc in the conda_env_cpp.txt file
+    mamba install -y --file ci/conda_env_cpp.txt orc
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment before running the verification script."
