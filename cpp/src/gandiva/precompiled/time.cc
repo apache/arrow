@@ -266,12 +266,12 @@ static const int WEEK_LEN[] = {6, 6, 7, 9, 8, 6, 8};
       return 0;                                                                         \
     }                                                                                   \
                                                                                         \
-    int32_t distanceDay = dateSearch - presentDate;                                     \
+    int64_t distanceDay = dateSearch - presentDate;                                     \
     if (distanceDay <= 0) {                                                             \
       distanceDay = 7 + distanceDay;                                                    \
     }                                                                                   \
                                                                                         \
-    gdv_date64 next_date = date_add_int64_timestamp(                                    \
+    int64_t next_date = date_add_int64_timestamp(                                       \
         distanceDay, day_without_hours_and_sec.MillisSinceEpoch());                     \
                                                                                         \
     return next_date;                                                                   \
