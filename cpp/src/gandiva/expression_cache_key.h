@@ -52,7 +52,10 @@ class ExpressionCacheKey {
 
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
                      Expression& expression)
-      : schema_(schema), uniqifier_(0), configuration_(configuration) {
+      : schema_(schema),
+        mode_(SelectionVector::MODE_NONE),
+        uniqifier_(0),
+        configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     expressions_as_strings_.push_back(expression.ToString());
