@@ -413,9 +413,9 @@ test_python() {
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment before running the verification script."
     exit 1
+  else
+    pip install -r python/requirements-build.txt
   fi
-
-  pushd python
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -430,6 +430,8 @@ test_python() {
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
   fi
+
+  pushd python
 
   # Build pyarrow
   python setup.py build_ext --inplace
