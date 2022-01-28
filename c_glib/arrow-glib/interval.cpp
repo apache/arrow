@@ -56,9 +56,9 @@ enum {
 
 static void
 garrow_day_millisecond_set_property(GObject *object,
-                                     guint prop_id,
-                                     const GValue *value,
-                                     GParamSpec *pspec)
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
 {
   auto priv = GARROW_DAY_MILLISECOND_GET_PRIVATE(object);
 
@@ -216,7 +216,7 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNano,
                            G_TYPE_OBJECT)
 
 #define GARROW_MONTH_DAY_NANO_GET_PRIVATE(object)  \
-  static_cast<GArrowMonthDayNanoPrivate *>(       \
+  static_cast<GArrowMonthDayNanoPrivate *>(        \
     garrow_month_day_nano_get_instance_private(    \
       GARROW_MONTH_DAY_NANO(object)))
 
@@ -228,9 +228,9 @@ enum {
 
 static void
 garrow_month_day_nano_set_property(GObject *object,
-                                     guint prop_id,
-                                     const GValue *value,
-                                     GParamSpec *pspec)
+                                   guint prop_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
 {
   auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(object);
 
@@ -252,9 +252,9 @@ garrow_month_day_nano_set_property(GObject *object,
 
 static void
 garrow_month_day_nano_get_property(GObject *object,
-                                    guint prop_id,
-                                    GValue *value,
-                                    GParamSpec *pspec)
+                                   guint prop_id,
+                                   GValue *value,
+                                   GParamSpec *pspec)
 {
   auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(object);
 
