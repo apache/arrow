@@ -92,8 +92,20 @@ def test_logging_memory_pool_envvar(capfd):
     check_allocated_bytes(pool)
     out, err = capfd.readouterr()
     assert err == ""
-    assert out.count("Allocate:") > 0
+    first_count = out.count("Allocate:")
+    assert first_count > 0
     assert out.count("Allocate:") == out.count("Free:")
+
+    # Make sure there aren't duplicates using both env var and log_memory_allocations
+    pa.log_memory_allocations()
+    pool = pa.default_memory_pool()
+    check_allocated_bytes(pool)
+    out, err = capfd.readouterr()
+    second_count = out.count("Allocate:")
+    assert first_count == second_count
+
+    # Cleanup
+    pa.log_memory_allocations(False)
     del os.environ["ARROW_LOG_ALLOCATIONS"]
 
 
