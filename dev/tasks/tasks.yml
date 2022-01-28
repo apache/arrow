@@ -131,6 +131,7 @@ groups:
 {######################## Tasks to run regularly #############################}
 
   nightly:
+    - verify-rc-source-*
     - almalinux-*
     - amazon-linux-*
     - debian-*
