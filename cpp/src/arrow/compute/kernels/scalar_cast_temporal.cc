@@ -338,12 +338,10 @@ struct CastFunctor<Time64Type, TimestampType> {
 };
 
 // ----------------------------------------------------------------------
-// From one time32 or time64 to another or to duration
+// From one time32 or time64 to another
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<(is_time_type<I>::value && is_time_type<O>::value) ||
-                               (is_time_type<I>::value && is_duration_type<O>::value)>> {
+struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::value>> {
   using in_t = typename I::c_type;
   using out_t = typename O::c_type;
 
@@ -520,16 +518,6 @@ std::shared_ptr<CastFunction> GetDurationCast() {
 
   // Between durations
   AddCrossUnitCast<DurationType>(func.get());
-
-  // time32/64 -> duration
-  AddSimpleCast<Time64Type, DurationType>(InputType(Type::TIME64), kOutputTargetType,
-                                          func.get());
-  AddSimpleCast<Time64Type, DurationType>(InputType(Type::TIME64), kOutputTargetType,
-                                          func.get());
-  AddSimpleCast<Time32Type, DurationType>(InputType(Type::TIME32), kOutputTargetType,
-                                          func.get());
-  AddSimpleCast<Time32Type, DurationType>(InputType(Type::TIME32), kOutputTargetType,
-                                          func.get());
 
   return func;
 }
