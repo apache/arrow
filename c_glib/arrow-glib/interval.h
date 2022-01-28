@@ -38,7 +38,7 @@ struct _GArrowDayMillisecondClass
 
 GARROW_AVAILABLE_IN_8_0
 GArrowDayMillisecond *
-garrow_day_millisecond_new(gint32 days, gint32 milliseconds);
+garrow_day_millisecond_new(gint32 day, gint32 millisecond);
 GARROW_AVAILABLE_IN_8_0
 gboolean
 garrow_day_millisecond_equal(GArrowDayMillisecond *day_millisecond,
@@ -63,7 +63,7 @@ struct _GArrowMonthDayNanoClass
 
 GARROW_AVAILABLE_IN_8_0
 GArrowMonthDayNano *
-garrow_month_day_nano_new(gint32 months, gint32 days, gint64 nanoseconds);
+garrow_month_day_nano_new(gint32 month, gint32 day, gint64 nanosecond);
 GARROW_AVAILABLE_IN_8_0
 gboolean
 garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,

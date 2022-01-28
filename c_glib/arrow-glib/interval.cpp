@@ -152,8 +152,8 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
 
 /**
  * garrow_day_millisecond_new:
- * @days: day
- * @milliseconds: milliseconds
+ * @day: A day part value.
+ * @millisecond: A millisecond part value.
  *
  * Returns: (nullable):
  *   A newly created #GArrowDayMillisecond.
@@ -161,9 +161,10 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
  * Since: 8.0.0
  */
 GArrowDayMillisecond *
-garrow_day_millisecond_new(gint32 days, gint32 milliseconds)
+garrow_day_millisecond_new(gint32 day, gint32 millisecond)
 {
-  arrow::DayTimeIntervalType::DayMilliseconds arrow_day_millisecond(days, milliseconds);
+  arrow::DayTimeIntervalType::DayMilliseconds
+    arrow_day_millisecond(day, millisecond);
   return garrow_day_millisecond_new_raw(&arrow_day_millisecond);
 }
 
@@ -348,9 +349,9 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
 
 /**
  * garrow_month_day_nano_new:
- * @months: months
- * @days: days
- * @nanoseconds: nanoseconds
+ * @month: A month part value.
+ * @day: A day part value.
+ * @nanosecond: The nanosecond value.
  *
  * Returns: (nullable):
  *   A newly created #GArrowMonthDayNano.
@@ -358,12 +359,12 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
  * Since: 8.0.0
  */
 GArrowMonthDayNano *
-garrow_month_day_nano_new(gint32 months, gint32 days, gint64 nanoseconds)
+garrow_month_day_nano_new(gint32 month, gint32 day, gint64 nanosecond)
 {
   arrow::MonthDayNanoIntervalType::MonthDayNanos arrow_month_day_nano;
-  arrow_month_day_nano.months = months;
-  arrow_month_day_nano.days = days;
-  arrow_month_day_nano.nanoseconds = nanoseconds;
+  arrow_month_day_nano.months = month;
+  arrow_month_day_nano.days = day;
+  arrow_month_day_nano.nanoseconds = nanosecond;
   return garrow_month_day_nano_new_raw(&arrow_month_day_nano);
 }
 
