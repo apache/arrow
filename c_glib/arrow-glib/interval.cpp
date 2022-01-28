@@ -106,28 +106,27 @@ garrow_day_millisecond_init(GArrowDayMillisecond *object)
 static void
 garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->set_property = garrow_day_millisecond_set_property;
   gobject_class->get_property = garrow_day_millisecond_get_property;
 
   arrow::DayTimeIntervalType::DayMilliseconds day_millisecond;
+  GParamSpec *spec;
   /**
    * GArrowDayMillisecond:day:
    *
-   * #GArrowDayMillisecond day value
+   * The day part value.
    *
    * Since: 8.0.0
    */
   spec = g_param_spec_int("day",
-                            "Day",
-                            "GArrowDayMillisecond day value",
-                            G_MININT32,
-                            G_MAXINT32,
-                            day_millisecond.days,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+                          "Day",
+                          "The day part value",
+                          G_MININT32,
+                          G_MAXINT32,
+                          day_millisecond.days,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_DAY_MILLISECOND_DAY,
                                   spec);
@@ -135,17 +134,17 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
   /**
    * GArrowDayMillisecond:millisecond:
    *
-   * #GArrowDayMillisecond millisecond value
+   * The millisecond part value.
    *
    * Since: 8.0.0
    */
   spec = g_param_spec_int("millisecond",
-                            "Millisecond",
-                            "GArrowDayMillisecond millisecond value",
-                            G_MININT32,
-                            G_MAXINT32,
-                            day_millisecond.milliseconds,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+                          "Millisecond",
+                          "The millisecond part value",
+                          G_MININT32,
+                          G_MAXINT32,
+                          day_millisecond.milliseconds,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_DAY_MILLISECOND_MILLISECOND,
                                   spec);
@@ -284,28 +283,28 @@ garrow_month_day_nano_init(GArrowMonthDayNano *object)
 static void
 garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->set_property = garrow_month_day_nano_set_property;
   gobject_class->get_property = garrow_month_day_nano_get_property;
 
-  arrow::MonthDayNanoIntervalType::MonthDayNanos month_day_nano;
+  arrow::MonthDayNanoIntervalType::MonthDayNanos month_day_nano = {0, 0, 0};
+
+  GParamSpec *spec;
   /**
    * GArrowMonthDayNano:month:
    *
-   * #GArrowMonthDayNano month value
+   * The month part value.
    *
    * Since: 8.0.0
    */
   spec = g_param_spec_int("month",
-                            "Month",
-                            "GArrowMonthDayNano month value",
-                            G_MININT32,
-                            G_MAXINT32,
-                            month_day_nano.months,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+                          "Month",
+                          "The month part value",
+                          G_MININT32,
+                          G_MAXINT32,
+                          month_day_nano.months,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_MONTH_DAY_NANO_MONTH,
                                   spec);
@@ -313,17 +312,17 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
   /**
    * GArrowMonthDayNano:day:
    *
-   * #GArrowMonthDayNano day value
+   * The day part value.
    *
    * Since: 8.0.0
    */
   spec = g_param_spec_int("day",
-                            "Day",
-                            "GArrowMonthDayNano day value",
-                            G_MININT32,
-                            G_MAXINT32,
-                            month_day_nano.days,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+                          "Day",
+                          "The day part value",
+                          G_MININT32,
+                          G_MAXINT32,
+                          month_day_nano.days,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_MONTH_DAY_NANO_DAY,
                                   spec);
@@ -331,13 +330,13 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
   /**
    * GArrowMonthDayNano:nanosecond:
    *
-   * #GArrowMonthDayNano nanosecond value
+   * The nanosecond part value.
    *
    * Since: 8.0.0
    */
   spec = g_param_spec_int64("nanosecond",
-                            "nanosecond",
-                            "GArrowMonthDayNano nanosecond value",
+                            "Nanosecond",
+                            "The nanosecond part value",
                             G_MININT64,
                             G_MAXINT64,
                             month_day_nano.nanoseconds,
