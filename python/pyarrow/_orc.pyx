@@ -37,7 +37,7 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           get_reader,
                           get_writer)
 from pyarrow.lib import frombytes, tobytes
-from pyarrow.utils import _stringify_path
+from pyarrow.util import _stringify_path
 
 
 cdef compression_type_from_enum(CCompressionType compression_type):
