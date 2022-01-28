@@ -289,6 +289,7 @@ test_and_install_cpp() {
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
     # TODO(kszucs): we should define orc and sqlite in the conda_env_cpp.txt file
+    conda activate arrow-test
     mamba install -y --file ci/conda_env_cpp.txt numpy orc sqlite
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
@@ -409,6 +410,7 @@ test_csharp() {
 # Build and test Python
 test_python() {
   if [ "${USE_CONDA}" -gt 0 ]; then
+    conda activate arrow-test
     mamba install -y --file ci/conda_env_python.txt
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
