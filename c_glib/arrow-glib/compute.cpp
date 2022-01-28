@@ -3674,7 +3674,7 @@ garrow_utf8_normalize_options_class_init(GArrowUTF8NormalizeOptionsClass *klass)
                            "Form",
                            "The Unicode normalization form to apply",
                            GARROW_TYPE_UTF8_NORMALIZE_FORM,
-                           static_cast<GArrowRoundMode>(options.form),
+                           static_cast<GArrowUTF8NormalizeForm>(options.form),
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_UTF8_NORMALIZE_OPTIONS_FORM,
