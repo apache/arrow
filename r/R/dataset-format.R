@@ -328,6 +328,47 @@ FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
     update = function(table, ...) {
+      check_additional_args <- function(format, passed_args) {
+        if (format == "parquet") {
+          supported_args <- names(formals(write_parquet))
+          supported_args <- supported_args[supported_args != c("x", "sink")]
+        } else if (format == "ipc") {
+          supported_args <- c(
+            "use_legacy_format",
+            "metadata_version",
+            "codec",
+            "null_fallback"
+          )
+        } else if (format == "csv") {
+          supported_args <- names(formals(CsvWriteOptions$create))
+        }
+
+        unsupported_passed_args <- setdiff(passed_args, supported_args)
+
+        if (length(unsupported_passed_args) > 0) {
+          err_header <- paste0(
+            oxford_paste(unsupported_passed_args, quote_symbol = "`"),
+            ngettext(length(unsupported_passed_args),
+                     " is not a valid argument ",
+                     " are not valid arguments "),
+            "for your chosen `format`."
+          )
+          err_info <- NULL
+          arg_info <- paste0(
+            "Supported arguments: ",
+            oxford_paste(supported_args, quote_symbol = "`"),
+            "."
+          )
+          if ("compression" %in% unsupported_passed_args) {
+            err_info <- "You could try using `codec` instead of `compression`."
+          }
+          abort(c(err_header, i = err_info, i = arg_info))
+        }
+      }
+
+      args <- list(...)
+      check_additional_args(self$type, names(args))
+
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
@@ -335,7 +376,6 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {
-        args <- list(...)
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
             self,
