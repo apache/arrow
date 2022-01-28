@@ -36,11 +36,13 @@ set RC_NUMBER=%2
 if "%RC_NUMBER%"=="" (
     @rem verify a specific git revision
     if "%SOURCE_REPOSITORY%"=="" (
-        git clone --recurse-submodules "file://%~dp0..\..\" %ARROW_SOURCE%
+        pushd "%~dp0..\..\"
     ) else (
-        git clone --recurse-submodules %SOURCE_REPOSITORY% %ARROW_SOURCE%
+        pushd %SOURCE_REPOSITORY%
     )
+    git clone --recurse-submodules . %ARROW_SOURCE%
     git -C %ARROW_SOURCE% checkout %VERSION%
+    popd
 ) else (
     @rem verify a release candidate tarball
     @rem Requires GNU Wget for Windows
