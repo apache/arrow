@@ -296,7 +296,8 @@ test_and_install_cpp() {
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
     # Create a python virtualenv
-    ${PYTHON:-python3} -m venv venv
+    ${PYTHON:-python3} -m pip install virtualenv
+    ${PYTHON:-python3} -m virtualenv venv
     source venv/bin/activate
     # Install build dependencies (numpy is required here)
     pip install numpy
@@ -744,7 +745,7 @@ test_macos_wheels() {
   local check_flight=ON
 
   # macOS version <= 10.13
-  if [ $(echo "${macos_short_version}\n10.14" | sort -V | head -n1) == "${macos_short_version}" ]; then
+  if [ $(echo "${macos_short_version}\n10.14" | sort | head -n1) == "${macos_short_version}" ]; then
     local check_s3=OFF
   fi
   # apple silicon processor
