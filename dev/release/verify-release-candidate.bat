@@ -36,7 +36,7 @@ set RC_NUMBER=%2
 if "%RC_NUMBER%"=="" (
     @rem verify a specific git revision
     if "%SOURCE_REPOSITORY%"=="" (
-        git clone --recurse-submodules "%~dp0..\..\" %ARROW_SOURCE%
+        git clone --recurse-submodules "file://%~dp0..\..\" %ARROW_SOURCE%
     ) else (
         git clone --recurse-submodules %SOURCE_REPOSITORY% %ARROW_SOURCE%
     )
