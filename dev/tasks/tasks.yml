@@ -850,7 +850,6 @@ tasks:
     params:
       target: {{ target }}
       distro: {{ distribution }}
-      fetch_depth: 0
   {% endfor %}
 
 {% endfor %}
@@ -883,7 +882,6 @@ tasks:
       target: {{ target }}
       artifact: "source"
       github_runner: "macos-10.15"
-      fetch_depth: 0
   {% endfor %}
 
   {% for target in ["cpp",
@@ -904,7 +902,6 @@ tasks:
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       artifact: "source"
       github_runner: "self-hosted"
-      fetch_depth: 0
   {% endfor %}
 
   ######################## Windows source verification ########################

@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: rm -rf arrow
 
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       - name: Run verification
         shell: bash

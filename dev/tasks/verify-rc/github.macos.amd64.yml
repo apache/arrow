@@ -33,7 +33,7 @@ jobs:
     {% endif %}
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       - name: Install System Dependencies
         shell: bash

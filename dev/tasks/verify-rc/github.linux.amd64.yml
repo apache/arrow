@@ -33,7 +33,7 @@ jobs:
     {% endif %}
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       {% if not use_conda %}
       - name: Install System Dependencies
