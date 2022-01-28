@@ -347,6 +347,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
                            CFlightDescriptor& descriptor,
                            unique_ptr[CFlightStreamWriter]* writer,
                            unique_ptr[CFlightStreamReader]* reader)
+        CStatus Close()
 
     cdef cppclass CFlightStatusCode" arrow::flight::FlightStatusCode":
         bint operator==(CFlightStatusCode)
