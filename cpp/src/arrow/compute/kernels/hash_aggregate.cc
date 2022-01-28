@@ -102,6 +102,11 @@ struct GrouperImpl : Grouper {
         continue;
       }
 
+      if (key->id() == Type::NA) {
+        impl->encoders_[i] = ::arrow::internal::make_unique<NullKeyEncoder>();
+        continue;
+      }
+
       return Status::NotImplemented("Keys of type ", *key);
     }
 
@@ -147,10 +152,13 @@ struct GrouperImpl : Grouper {
       if (it_success.second) {
         // new key; update offsets and key_bytes
         ++num_groups_;
-        auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-        key_bytes_.resize(next_key_offset + key_length);
-        offsets_.push_back(next_key_offset + key_length);
-        memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        // Skip if there are no keys
+        if (key_length > 0) {
+          auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+          key_bytes_.resize(next_key_offset + key_length);
+          offsets_.push_back(next_key_offset + key_length);
+          memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        }
       }
 
       group_ids_batch.UnsafeAppend(group_id);
@@ -237,6 +245,9 @@ struct GrouperFastImpl : Grouper {
       } else if (is_binary_like(key->id())) {
         impl->col_metadata_[icol] =
             arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+      } else if (key->id() == Type::NA) {
+        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+            true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
       }
@@ -322,14 +333,19 @@ struct GrouperFastImpl : Grouper {
         group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
 
     for (int icol = 0; icol < num_columns; ++icol) {
-      const uint8_t* non_nulls = nullptr;
-      if (batch[icol].array()->buffers[0] != NULLPTR) {
-        non_nulls = batch[icol].array()->buffers[0]->data();
-      }
-      const uint8_t* fixedlen = batch[icol].array()->buffers[1]->data();
-      const uint8_t* varlen = nullptr;
-      if (!col_metadata_[icol].is_fixed_length) {
-        varlen = batch[icol].array()->buffers[2]->data();
+      const uint8_t* non_nulls = NULLPTR;
+      const uint8_t* fixedlen = NULLPTR;
+      const uint8_t* varlen = NULLPTR;
+
+      // Skip if the key's type is NULL
+      if (key_types_[icol]->id() != Type::NA) {
+        if (batch[icol].array()->buffers[0] != NULLPTR) {
+          non_nulls = batch[icol].array()->buffers[0]->data();
+        }
+        fixedlen = batch[icol].array()->buffers[1]->data();
+        if (!col_metadata_[icol].is_fixed_length) {
+          varlen = batch[icol].array()->buffers[2]->data();
+        }
       }
 
       int64_t offset = batch[icol].array()->offset;
@@ -413,8 +429,15 @@ struct GrouperFastImpl : Grouper {
     std::vector<std::shared_ptr<Buffer>> varlen_bufs(num_columns);
 
     for (size_t i = 0; i < num_columns; ++i) {
+      if (col_metadata_[i].is_null_type) {
+        uint8_t* non_nulls = NULLPTR;
+        uint8_t* fixedlen = NULLPTR;
+        cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+            col_metadata_[i], num_groups, non_nulls, fixedlen, NULLPTR);
+        continue;
+      }
       ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
-      if (col_metadata_[i].is_fixed_length) {
+      if (col_metadata_[i].is_fixed_length && !col_metadata_[i].is_null_type) {
         if (col_metadata_[i].fixed_length == 0) {
           ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i], AllocatePaddedBitmap(num_groups));
         } else {
@@ -463,6 +486,10 @@ struct GrouperFastImpl : Grouper {
     ExecBatch out({}, num_groups);
     out.values.resize(num_columns);
     for (size_t i = 0; i < num_columns; ++i) {
+      if (col_metadata_[i].is_null_type) {
+        out.values[i] = ArrayData::Make(null(), num_groups, {nullptr}, num_groups);
+        continue;
+      }
       auto valid_count = arrow::internal::CountSetBits(
           non_null_bufs[i]->data(), /*offset=*/0, static_cast<int64_t>(num_groups));
       int null_count = static_cast<int>(num_groups) - static_cast<int>(valid_count);

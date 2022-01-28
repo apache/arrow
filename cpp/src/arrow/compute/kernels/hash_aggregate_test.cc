@@ -288,6 +288,8 @@ TEST(Grouper, SupportedKeys) {
   ASSERT_OK(internal::Grouper::Make(
       {day_time_interval(), month_interval(), month_day_nano_interval()}));
 
+  ASSERT_OK(internal::Grouper::Make({null()}));
+
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
 
   ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({})}));
@@ -611,6 +613,50 @@ TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
         *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
     g.ConsumeAndValidate(key_batch);
   }
+}
+
+TEST(Grouper, NullKeys) {
+  TestGrouper g({null()});
+  g.ExpectConsume("[[null], [null]]", "[0, 0]");
+}
+
+TEST(Grouper, MultipleNullKeys) {
+  TestGrouper g({null(), null(), null(), null()});
+  g.ExpectConsume("[[null, null, null, null], [null, null, null, null]]", "[0, 0]");
+}
+
+TEST(Grouper, Int64NullKeys) {
+  TestGrouper g({int64(), null()});
+  g.ExpectConsume("[[1, null], [2, null], [1, null]]", "[0, 1, 0]");
+}
+
+TEST(Grouper, StringNullKeys) {
+  TestGrouper g({utf8(), null()});
+  g.ExpectConsume(R"([["be", null], ["eh", null]])", "[0, 1]");
+}
+
+TEST(Grouper, DoubleNullStringKey) {
+  TestGrouper g({float64(), null(), utf8()});
+
+  g.ExpectConsume(R"([[1.5, null, "eh"], [1.5, null, "eh"]])", "[0, 0]");
+  g.ExpectConsume(R"([[null, null, "eh"], [1.0, null, null]])", "[1, 2]");
+  g.ExpectConsume(R"([
+    [1.0,  null, "wh"],
+    [4.4,  null, null],
+    [5.2,  null, "eh"],
+    [6.5,  null, "be"],
+    [7.3,  null, null],
+    [1.0,  null, "wh"],
+    [9.1,  null, "eh"],
+    [10.2, null, "be"],
+    [1.0, null, null]
+  ])",
+                  "[3, 4, 5, 6, 7, 3, 8, 9, 2]");
+}
+
+TEST(Grouper, EmptyNullKeys) {
+  TestGrouper g({null()});
+  g.ExpectConsume("[]", "[]");
 }
 
 TEST(Grouper, MakeGroupings) {
@@ -1927,7 +1973,6 @@ TEST(GroupBy, MinMaxScalar) {
 }
 
 TEST(GroupBy, AnyAndAll) {
-  ScalarAggregateOptions options(/*skip_nulls=*/false);
   for (bool use_threads : {true, false}) {
     SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
@@ -2900,6 +2945,128 @@ TEST(GroupBy, CountWithNullTypeEmptyTable) {
       for (auto& field : struct_arr->fields()) {
         AssertDatumsEqual(ArrayFromJSON(int64(), "[]"), field, /*verbose=*/true);
       }
+    }
+  }
+}
+
+TEST(GroupBy, SingleNullTypeKey) {
+  auto table =
+      TableFromJSON(schema({field("argument", int64()), field("key", null())}), {R"([
+    [1,    null],
+    [1,    null]
+                        ])",
+                                                                                 R"([
+    [2,    null],
+    [3,    null],
+    [null, null],
+    [1,    null],
+    [2,    null]
+                        ])",
+                                                                                 R"([
+    [2,    null],
+    [null, null],
+    [3,    null]
+                        ])"});
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_count", nullptr},
+                                   {"hash_sum", nullptr},
+                                   {"hash_mean", nullptr},
+                                   {"hash_min_max", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_count", int64()),
+                                          field("hash_sum", int64()),
+                                          field("hash_mean", float64()),
+                                          field("hash_min_max", struct_({
+                                                                    field("min", int64()),
+                                                                    field("max", int64()),
+                                                                })),
+                                          field("key_0", null()),
+                                      }),
+                                      R"([
+    [8, 15, 1.875, {"min": 1, "max": 3}, null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, MultipleKeysIncludesNullType) {
+  auto table = TableFromJSON(schema({field("argument", float64()), field("key_0", utf8()),
+                                     field("key_1", null())}),
+                             {R"([
+    [1.0,   "a",      null],
+    [null,  "a",      null]
+                        ])",
+                              R"([
+    [0.0,   "bcdefg", null],
+    [null,  "aa",     null],
+    [4.0,   null,     null],
+    [3.25,  "a",      null],
+    [0.125, "bcdefg", null]
+                        ])",
+                              R"([
+    [-0.25, "bcdefg", null],
+    [0.75,  null,     null],
+    [null,  "aa",     null]
+                        ])"});
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest(
+              {
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+                  table->GetColumnByName("argument"),
+              },
+              {table->GetColumnByName("key_0"), table->GetColumnByName("key_1")},
+              {
+                  {"hash_count", nullptr},
+                  {"hash_sum", nullptr},
+                  {"hash_min_max", nullptr},
+              },
+              use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(
+          ArrayFromJSON(struct_({
+                            field("hash_count", int64()),
+                            field("hash_sum", float64()),
+                            field("hash_min_max", struct_({
+                                                      field("min", float64()),
+                                                      field("max", float64()),
+                                                  })),
+                            field("key_0", utf8()),
+                            field("key_1", null()),
+                        }),
+                        R"([
+    [2, 4.25,   {"min": 1,     "max": 3.25},  "a",      null],
+    [0, null,   {"min": null,  "max": null},  "aa",     null],
+    [3, -0.125, {"min": -0.25, "max": 0.125}, "bcdefg", null],
+    [2, 4.75,   {"min": 0.75,  "max": 4},     null,     null]
+  ])"),
+          aggregated_and_grouped,
+          /*verbose=*/true);
     }
   }
 }
