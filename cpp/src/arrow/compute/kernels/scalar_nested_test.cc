@@ -24,7 +24,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace compute {

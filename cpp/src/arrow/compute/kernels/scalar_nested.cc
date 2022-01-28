@@ -518,7 +518,7 @@ struct MapArrayLookupFunctor {
       }
       ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
       out->value = result->data();
-    } else {
+    } else { /* occurrence == FIRST || LAST */
       RETURN_NOT_OK(
           MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(), &builder));
 
