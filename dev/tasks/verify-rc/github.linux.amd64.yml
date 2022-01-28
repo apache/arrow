@@ -71,7 +71,9 @@ jobs:
           node-version: '16'
       - name: Run verification
         shell: bash
+        env:
+          SOURCE_REPOSITORY: {{ arrow.repo }}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
-            {{ release|default("1.0.0") }} {{ rc|default("0") }}
+            {{ release|arrow.head }} {{ rc|default("") }}

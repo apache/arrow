@@ -27,15 +27,25 @@ if not exist "C:\tmp\arrow-verify-release" mkdir C:\tmp\arrow-verify-release
 set _VERIFICATION_DIR=C:\tmp\arrow-verify-release
 set _VERIFICATION_DIR_UNIX=C:/tmp/arrow-verify-release
 set _VERIFICATION_CONDA_ENV=%_VERIFICATION_DIR%\conda-env
-set _DIST_URL=https://dist.apache.org/repos/dist/dev/arrow
-set _TARBALL=apache-arrow-%1.tar.gz
 set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
 set INSTALL_DIR=%_VERIFICATION_DIR%\install
 
-@rem Requires GNU Wget for Windows
-wget --no-check-certificate -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B 1
+set VERSION=%1
+set RC_NUMBER=%2
 
-tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
+if "%RC_NUMBER%"=="" (
+    @rem verify a specific git revision
+    if "%SOURCE_REPOSITORY%"=="" set SOURCE_REPOSITORY="https://github.com/apache/arrow.git"
+    git clone --recurse-submodules %SOURCE_REPOSITORY% %ARROW_SOURCE%
+    git -C %ARROW_SOURCE% checkout %VERSION%
+) else (
+    @rem verify a release candidate tarball
+    @rem Requires GNU Wget for Windows
+    set TARBALL_NAME=apache-arrow-%VERSION%.tar.gz
+    set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
+    wget --no-check-certificate -O %TARBALL_NAME% %TARBALL_URL% || exit /B 1
+    tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
+)
 
 set PYTHON=3.8
 
