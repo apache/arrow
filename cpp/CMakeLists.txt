@@ -972,6 +972,10 @@ endif()
 
 add_subdirectory(src/arrow)
 
+if(ARROW_ADBC)
+  add_subdirectory(src/adbc)
+endif()
+
 if(ARROW_PARQUET)
   add_subdirectory(src/parquet)
   add_subdirectory(tools/parquet)
