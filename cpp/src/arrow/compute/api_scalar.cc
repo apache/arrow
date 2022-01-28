@@ -820,11 +820,13 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
 }
 
 // ----------------------------------------------------------------------
-
+// Structural transforms
 Result<Datum> MapArrayLookup(const Datum& arg, MapArrayLookupOptions options,
                              ExecContext* ctx) {
   return CallFunction("map_array_lookup", {arg}, &options, ctx);
 }
+
+// ----------------------------------------------------------------------
 
 }  // namespace compute
 }  // namespace arrow

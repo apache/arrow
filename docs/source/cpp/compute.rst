@@ -1639,17 +1639,19 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
-+=====================+============+=====================================+==================+==============================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
-+---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Options class                   | Notes  |
++=====================+============+=====================================+==================+=================================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                                 | \(1)   |
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  |                                 | \(2)   |
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int64            |                                 | \(3)   |
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions`    | \(4)   |
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
+| map_array_lookup    | Unary      | MapArray                            | Computed         | :struct:`MapArrayLookupOptions` | \(5)   |
++---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
@@ -1684,6 +1686,11 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+* \(5) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+  map array whose key match the given query key passed via options.
+  The output type is an Array of items for the ``FIRST``/``LAST`` options
+  and an Array of List of items for the ``ALL`` option.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.

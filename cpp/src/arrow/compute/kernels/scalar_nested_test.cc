@@ -484,6 +484,48 @@ TEST_F(TestMapArrayLookupKernel, FixedSizeBinary) {
                                           expected_first, expected_last);
 }
 
+TEST_F(TestMapArrayLookupKernel, Errors) {
+  auto map_type = map(int32(), utf8());
+  const char* input = R"(
+    [
+      [
+        [0, "zero"], [1, "first one"], [2, "two"], [1, null], [3, "three"], [1, "second one"],
+        [1, "last one"]
+      ],
+      null,
+      [
+        [0, "zero hero"], [9, "almost six"], [1, "the dumb one"], [7, "eleven"],
+        [1, "the chosen one"], [42, "meaning of life?"], [1, "just_one"],
+        [1, "no more ones!"]
+      ],
+      [
+        [4, "this"], [6, "has"], [8, "no"], [2, "ones"]
+      ],
+      [
+        [1, "this"], [1, "should"], [1, "also"], [1, "be"], [1, "null"]
+      ],
+      []
+    ])";
+  auto map_array = ArrayFromJSON(map_type, input);
+  auto query_key_int16 = MakeScalar(int16(), 1).ValueOrDie();
+  FieldVector fields = {field("a", int32()), field("b", utf8()),
+                        field("c", struct_({
+                                       field("d", int64()),
+                                       field("e", float64()),
+                                   }))};
+  auto unsupported_scalar = ScalarFromJSON(struct_(fields), R"([1, "a", [10, 10.0]])");
+
+  MapArrayLookupOptions unsupported(unsupported_scalar);
+  MapArrayLookupOptions all(query_key_int16, MapArrayLookupOptions::ALL);
+  MapArrayLookupOptions first(query_key_int16, MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions last(query_key_int16, MapArrayLookupOptions::LAST);
+  MapArrayLookupOptions null_key;
+
+  for (auto option : {all, first, last, null_key, unsupported}) {
+    ASSERT_RAISES(TypeError, CallFunction("map_array_lookup", {map_array}, &option));
+  }
+}
+
 template <typename KeyType>
 class TestMapArrayLookupIntegralKeys : public ::testing ::Test {
  protected:

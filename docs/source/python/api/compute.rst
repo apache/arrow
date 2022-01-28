@@ -482,6 +482,7 @@ Structural Transforms
    list_parent_indices
    list_value_length
    make_struct
+   map_array_lookup
    replace_with_mask
    struct_field
 
@@ -504,6 +505,7 @@ Compute Options
    IndexOptions
    JoinOptions
    MakeStructOptions
+   MapArrayLookupOptions
    MatchSubstringOptions
    ModeOptions
    NullOptions

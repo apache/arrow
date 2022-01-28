@@ -432,12 +432,12 @@ template <typename KeyType>
 struct MapArrayLookupFunctor {
   static Result<int64_t> GetOneMatchingIndex(const Array& keys,
                                              const Scalar& query_key_scalar,
-                                             const bool& from_back) {
+                                             const bool* from_back) {
     int64_t match_index = -1;
     RETURN_NOT_OK(
         FindMatchingIndices(keys, query_key_scalar, [&](int64_t index) -> Status {
           match_index = index;
-          if (from_back) {
+          if (*from_back) {
             return Status::OK();
           } else {
             return Status::Cancelled("Found key match for FIRST");
@@ -447,13 +447,12 @@ struct MapArrayLookupFunctor {
     return match_index;
   }
 
-  static Status BuildListOfItemsArray(const Array& keys, const Array& items,
-                                      const Scalar& query_key_scalar,
-                                      bool& found_at_least_one_key,
-                                      ArrayBuilder* builder) {
+  static Status BuildItemsArray(const Array& keys, const Array& items,
+                                const Scalar& query_key_scalar,
+                                bool* found_at_least_one_key, ArrayBuilder* builder) {
     RETURN_NOT_OK(
         FindMatchingIndices(keys, query_key_scalar, [&](int64_t index) -> Status {
-          found_at_least_one_key = true;
+          *found_at_least_one_key = true;
           RETURN_NOT_OK(builder->AppendArraySlice(*items.data(), index, 1));
           return Status::OK();
         }));
@@ -468,12 +467,11 @@ struct MapArrayLookupFunctor {
     ARROW_UNUSED(VisitArrayValuesInline<KeyType>(
         *keys.data(),
         [&](decltype(query_key) key) -> Status {
-          Status to_return = Status::OK();
           if (key == query_key) {
-            to_return = callback(index);
+            return callback(index++);
           }
           ++index;
-          return to_return;
+          return Status::OK();
         },
         [&]() -> Status {
           ++index;
@@ -508,8 +506,8 @@ struct MapArrayLookupFunctor {
         RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(),
                                   &list_builder));
 
-        RETURN_NOT_OK(BuildListOfItemsArray(*keys, *items, *query_key,
-                                            found_at_least_one_key, list_builder.get()));
+        RETURN_NOT_OK(BuildItemsArray(*keys, *items, *query_key, &found_at_least_one_key,
+                                      list_builder.get()));
         if (!found_at_least_one_key) {
           RETURN_NOT_OK(builder->AppendNull());
         } else {
@@ -536,7 +534,7 @@ struct MapArrayLookupFunctor {
         auto items = checked_cast<const StructArray&>(*map).field(1);
         bool from_back = (occurrence == MapArrayLookupOptions::LAST);
         ARROW_ASSIGN_OR_RAISE(int64_t key_match_idx,
-                              GetOneMatchingIndex(*keys, *query_key, from_back));
+                              GetOneMatchingIndex(*keys, *query_key, &from_back));
 
         if (key_match_idx != -1) {
           RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), key_match_idx, 1));
@@ -577,8 +575,8 @@ struct MapArrayLookupFunctor {
       bool found_at_least_one_key = false;
       std::unique_ptr<ArrayBuilder> builder;
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items->type(), &builder));
-      RETURN_NOT_OK(BuildListOfItemsArray(*keys, *items, *query_key,
-                                          found_at_least_one_key, builder.get()));
+      RETURN_NOT_OK(BuildItemsArray(*keys, *items, *query_key, &found_at_least_one_key,
+                                    builder.get()));
 
       if (!found_at_least_one_key) {
         out->value = MakeNullScalar(list(items->type()));
@@ -590,7 +588,7 @@ struct MapArrayLookupFunctor {
       bool from_back = (occurrence == MapArrayLookupOptions::LAST);
 
       ARROW_ASSIGN_OR_RAISE(int64_t key_match_idx,
-                            GetOneMatchingIndex(*keys, *query_key, from_back));
+                            GetOneMatchingIndex(*keys, *query_key, &from_back));
       if (key_match_idx != -1) {
         ARROW_ASSIGN_OR_RAISE(out->value, items->GetScalar(key_match_idx));
       } else {
@@ -613,7 +611,7 @@ Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
     return Status::TypeError(
         "map_array_lookup: query_key type and MapArray key_type don't match. Expected "
         "type: ",
-        *item_type, ", but got type: ", *options.query_key->type);
+        *key_type, ", but got type: ", *options.query_key->type);
   }
 
   if (options.occurrence == MapArrayLookupOptions::Occurrence::ALL) {
