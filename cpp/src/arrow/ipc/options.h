@@ -93,8 +93,8 @@ struct ARROW_EXPORT IpcWriteOptions {
   ///
   /// If this option is true, RecordBatchWriter::WriteTable will attempt
   /// to unify dictionaries across each table column.  If this option is
-  /// false, unequal dictionaries across a table column will simply raise
-  /// an error.
+  /// false, incompatible dictionaries across a table column will simply
+  /// raise an error.
   ///
   /// Note that enabling this option has a runtime cost. Also, not all types
   /// currently support dictionary unification.
