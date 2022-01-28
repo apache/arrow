@@ -181,7 +181,8 @@ G_BEGIN_DECLS
  * #GArrowRoundToMultipleOptions is a class to customize the
  * `round_to_multiple` function.
  *
- * #GArrowUTF8NormalizeOptions is a class to customize the `utf8_normalize` function.
+ * #GArrowUTF8NormalizeOptions is a class to customize the
+ * `utf8_normalize` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -3608,12 +3609,14 @@ garrow_utf8_normalize_options_set_property(GObject *object,
                                            const GValue *value,
                                            GParamSpec *pspec)
 {
-  auto options = garrow_utf8_normalize_options_get_raw(GARROW_UTF8_NORMALIZE_OPTIONS(object));
+  auto options = garrow_utf8_normalize_options_get_raw(
+    GARROW_UTF8_NORMALIZE_OPTIONS(object));
 
   switch (prop_id) {
   case PROP_UTF8_NORMALIZE_OPTIONS_FORM:
     options->form =
-      static_cast<arrow::compute::Utf8NormalizeOptions::Form>(g_value_get_enum(value));
+      static_cast<arrow::compute::Utf8NormalizeOptions::Form>(
+        g_value_get_enum(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -3627,7 +3630,8 @@ garrow_utf8_normalize_options_get_property(GObject *object,
                                            GValue *value,
                                            GParamSpec *pspec)
 {
-  auto options = garrow_utf8_normalize_options_get_raw(GARROW_UTF8_NORMALIZE_OPTIONS(object));
+  auto options = garrow_utf8_normalize_options_get_raw(
+    GARROW_UTF8_NORMALIZE_OPTIONS(object));
 
   switch (prop_id) {
   case PROP_UTF8_NORMALIZE_OPTIONS_FORM:
@@ -3687,7 +3691,8 @@ garrow_utf8_normalize_options_class_init(GArrowUTF8NormalizeOptionsClass *klass)
 GArrowUTF8NormalizeOptions *
 garrow_utf8_normalize_options_new(void)
 {
-  return GARROW_UTF8_NORMALIZE_OPTIONS(g_object_new(GARROW_TYPE_UTF8_NORMALIZE_OPTIONS, NULL));
+  return GARROW_UTF8_NORMALIZE_OPTIONS(
+    g_object_new(GARROW_TYPE_UTF8_NORMALIZE_OPTIONS, NULL));
 }
 
 
@@ -4956,7 +4961,8 @@ garrow_function_options_new_raw(
   } else if (arrow_type_name == "UTF8NormalizedOptions") {
     const auto arrow_utf8_normalize_options =
       static_cast<const arrow::compute::Utf8NormalizeOptions *>(arrow_options);
-    auto options = garrow_utf8_normalize_options_new_raw(arrow_utf8_normalize_options);
+    auto options = garrow_utf8_normalize_options_new_raw(
+      arrow_utf8_normalize_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS,
@@ -4990,7 +4996,8 @@ garrow_function_doc_get_raw(GArrowFunctionDoc *doc)
 
 
 GArrowFunction *
-garrow_function_new_raw(std::shared_ptr<arrow::compute::Function> *arrow_function)
+garrow_function_new_raw(
+  std::shared_ptr<arrow::compute::Function> *arrow_function)
 {
   return GARROW_FUNCTION(g_object_new(GARROW_TYPE_FUNCTION,
                                       "function", arrow_function,

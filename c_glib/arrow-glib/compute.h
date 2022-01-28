@@ -678,9 +678,11 @@ garrow_round_to_multiple_options_new(void);
 /**
  * GArrowUTF8NormalizeForm:
  * @GARROW_UTF8_NORMALIZE_FORM_NFC: Normalization Form Canonical Composition.
- * @GARROW_UTF8_NORMALIZE_FORM_NFKC: Normalization Form Compatibility Composition.
+ * @GARROW_UTF8_NORMALIZE_FORM_NFKC: Normalization Form Compatibility
+ *   Composition.
  * @GARROW_UTF8_NORMALIZE_FORM_NFD: Normalization Form Canonical Decomposition.
- * @GARROW_UTF8_NORMALIZE_FORM_NFKD: Normalization Form Compatibility Decomposition.
+ * @GARROW_UTF8_NORMALIZE_FORM_NFKD: Normalization Form Compatibility
+ *   Decomposition.
  *
  * They correspond to the values of `arrow::compute::Utf8NormalizeOptions::Form`.
  *
@@ -693,7 +695,8 @@ typedef enum /*< underscore_name=garrow_utf8_normalize_form >*/ {
   GARROW_UTF8_NORMALIZE_FORM_NFKD,
 } GArrowUTF8NormalizeForm;
 
-#define GARROW_TYPE_UTF8_NORMALIZE_OPTIONS (garrow_utf8_normalize_options_get_type())
+#define GARROW_TYPE_UTF8_NORMALIZE_OPTIONS      \
+  (garrow_utf8_normalize_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowUTF8NormalizeOptions,
                          garrow_utf8_normalize_options,
                          GARROW,
