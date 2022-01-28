@@ -540,9 +540,12 @@ Status mimalloc_memory_pool(MemoryPool** out) {
 MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();
 
-  bool use_logging = false;  // TODO: allow more values as true
+  bool use_logging = false;
   std::string logging_var =
       internal::GetEnvVar(kAllocationLoggingEnvVar).ValueOr("false");
+  // Make case-insensitive
+  std::transform(logging_var.begin(), logging_var.end(), logging_var.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
   if (logging_var == "true") {
     use_logging = true;
   }
