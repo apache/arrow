@@ -131,8 +131,8 @@ cdef class IpcWriteOptions(_Weakrefable):
         but requires computing the unified dictionary and then remapping
         the indices arrays.
 
-        This property is ignored when writing to the streaming format as
-        the streaming format can support replacement dictionaries.
+        This parameter is ignored when writing to the IPC stream format as
+        the IPC stream format can support replacement dictionaries.
     """
     __slots__ = ()
 
