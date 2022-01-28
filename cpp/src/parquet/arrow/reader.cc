@@ -729,7 +729,7 @@ Status StructReader::GetRepLevels(const int16_t** data, int64_t* length) {
   *data = nullptr;
   if (children_.size() == 0) {
     *length = 0;
-    return Status::Invalid("StructReader had no childre");
+    return Status::Invalid("StructReader had no children");
   }
 
   // This method should only be called when this struct or one of its parents
