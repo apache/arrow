@@ -791,8 +791,8 @@ def test_struct_chunked_array_sort():
     sorted_arr = chunked_arr.sort("ascending")
     assert sorted_arr.to_pylist() == [
         {"a": 5, "b": "foo"},
-        {"a": 7, "b": "car"},
         {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
         {"a": 8, "b": "far"},
         {"a": 9, "b": "tar"},
         {"a": 35, "b": "foobar"},
@@ -828,6 +828,52 @@ def test_struct_chunked_array_sort():
         {"a": "far", "b": 9},
         {"a": "car", "b": 7},
         {"a": "bar", "b": 7},
+    ]
+
+    arr1 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 5], type=pa.int64()),
+        pa.array([3, 2, 2], type=pa.int64()),
+        pa.array(["foo", "car", "tar"])
+    ], names=["a", "b", "c"])
+
+    arr2 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 2], type=pa.int64()),
+        pa.array([2, 8, 3], type=pa.int64()),
+        pa.array(["bar", "foobar", "far"])
+    ], names=["a", "b", "c"])
+
+    arr3 = pa.StructArray.from_arrays([
+        pa.array([5, 5, 2], type=pa.int64()),
+        pa.array([2, 8, 1], type=pa.int64()),
+        pa.array(["cat", "dog", "mouse"])
+    ], names=["a", "b", "c"])
+
+    chunked_arr = pa.chunked_array([arr1, arr2, arr3])
+
+    sorted_arr = chunked_arr.sort("ascending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 2, "b":1, "c": "mouse"},
+        {"a": 2, "b":3, "c": "far"},
+        {"a": 5, "b":2, "c": "bar"},
+        {"a": 5, "b":2, "c": "car"},
+        {"a": 5, "b":2, "c": "cat"},
+        {"a": 5, "b":2, "c": "tar"},
+        {"a": 5, "b":3, "c": "foo"},
+        {"a": 5, "b":8, "c": "dog"},
+        {"a": 5, "b":8, "c": "foobar"}
+    ]
+
+    sorted_arr = chunked_arr.sort("descending")
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b":8, "c": "foobar"},
+        {"a": 5, "b":8, "c": "dog"},
+        {"a": 5, "b":3, "c": "foo"},
+        {"a": 5, "b":2, "c": "tar"},
+        {"a": 5, "b":2, "c": "cat"},
+        {"a": 5, "b":2, "c": "car"},
+        {"a": 5, "b":2, "c": "bar"},
+        {"a": 2, "b":3, "c": "far"},
+        {"a": 2, "b":1, "c": "mouse"}
     ]
 
 

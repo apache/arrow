@@ -272,21 +272,18 @@ class ChunkedArraySorter : public TypeVisitor {
   template <typename ArrayType>
   void MergeNonNulls(uint64_t* range_begin, uint64_t* range_middle, uint64_t* range_end,
                      const std::vector<const Array*>& arrays, uint64_t* temp_indices) {
-    const ChunkedArrayResolver left_resolver(arrays);
-    const ChunkedArrayResolver right_resolver(arrays);
+    const ChunkedArrayResolver chunk_resolver(arrays);
     ResolvedChunkComparator<ArrayType> resolved_chunk_comparator;
 
     if (order_ == SortOrder::Ascending) {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   return resolved_chunk_comparator.CompareChunks(
-                       left_resolver, right_resolver, left, right);
+                   return resolved_chunk_comparator.Compare(chunk_resolver, left, right);
                  });
     } else {
       std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                  [&](uint64_t left, uint64_t right) {
-                   return resolved_chunk_comparator.CompareChunks(
-                       right_resolver, left_resolver, right, left);
+                   return resolved_chunk_comparator.Compare(chunk_resolver, right, left);
                  });
     }
     // Copy back temp area into main buffer
@@ -771,9 +768,7 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 
   template <typename Type>
   enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
-    using ArrayType = typename TypeTraits<Type>::ArrayType;
     const auto& first_sort_key = sort_keys_[0];
-    // const ArrayType& array = checked_cast<const ArrayType&>(first_sort_key.array);
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
@@ -794,8 +789,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
                          }
                        }
 
-                       auto sort_keys_len = sort_keys_.size();
-                       for (auto i = 1; i < sort_keys_len; i++) {
+                       int sort_keys_len = sort_keys_.size();
+                       for (int i = 1; i < sort_keys_len; i++) {
                          int val = nested_values_comparator_.Compare(
                              batch_, null_placement_, sort_keys_[i].order,
                              sort_keys_[i].field_index, 0, left, right);
