@@ -290,7 +290,13 @@ test_and_install_cpp() {
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
     # TODO(kszucs): we should define orc and sqlite in the conda_env_cpp.txt file
     conda activate arrow-test
-    mamba install -y --file ci/conda_env_cpp.txt numpy orc sqlite
+    mamba install -y \
+      --file ci/conda_env_cpp.txt \
+      --file ci/conda_env_gandiva.txt \
+      --file ci/conda_env_unix.txt \
+      ncurses \
+      numpy \
+      sqlite
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment before running the verification script."
@@ -424,7 +430,7 @@ test_python() {
     exit 1
   else
     source venv/bin/activate
-    pip install -r python/requirements-build.txt
+    pip install cython numpy setuptools_scm setuptools
   fi
 
   export PYARROW_PARALLEL=$NPROC
