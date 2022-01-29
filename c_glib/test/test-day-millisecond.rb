@@ -16,8 +16,6 @@
 # under the License.
 
 class TestDayMillisecond < Test::Unit::TestCase
-  include Helper::Omittable
-
   def test_equal
     day_millisecond = Arrow::DayMillisecond.new(3, 100)
     other_day_millisecond1 = Arrow::DayMillisecond.new(3, 100)
@@ -48,16 +46,13 @@ class TestDayMillisecond < Test::Unit::TestCase
 
   def test_less_than
     day_millisecond = Arrow::DayMillisecond.new(3, 100)
-    other_day_millisecond1 = Arrow::DayMillisecond.new(3, 100)
-    other_day_millisecond2 = Arrow::DayMillisecond.new(3, 101)
+    other_day_millisecond = Arrow::DayMillisecond.new(5, 100)
     assert_equal([
-                   false,
                    true,
-                   false
+                   false,
                  ],
                  [
-                   day_millisecond < other_day_millisecond1,
-                   day_millisecond < other_day_millisecond2,
+                   day_millisecond < other_day_millisecond,
                    day_millisecond < day_millisecond,
                  ])
   end

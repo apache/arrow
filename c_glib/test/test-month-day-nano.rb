@@ -16,8 +16,6 @@
 # under the License.
 
 class TestMonthDayNano < Test::Unit::TestCase
-  include Helper::Omittable
-
   def test_equal
     month_day_nano = Arrow::MonthDayNano.new(3, 10, 100)
     other_month_day_nano1 = Arrow::MonthDayNano.new(3, 10, 100)

@@ -16,23 +16,7 @@
 # under the License.
 
 class TestMonthIntervalArray < Test::Unit::TestCase
-  include Helper::Buildable
-  include Helper::Omittable
-
-  def test_new
-    after_month = 1
-    raw_data = [0, after_month]
-    assert_equal(build_month_interval_array([*raw_data, nil]),
-                 Arrow::MonthIntervalArray.new(3,
-                                               Arrow::Buffer.new(raw_data.pack("l*")),
-                                               Arrow::Buffer.new([0b011].pack("C*")),
-                                               -1))
-  end
-
   def test_buffer
-    before_month = 1
-    after_month = 12
-
     builder = Arrow::MonthIntervalArrayBuilder.new
     builder.append_value(0)
     builder.append_value(1)
@@ -43,8 +27,6 @@ class TestMonthIntervalArray < Test::Unit::TestCase
   end
 
   def test_value
-    after_month = 1
-
     builder = Arrow::MonthIntervalArrayBuilder.new
     builder.append_value(1)
     array = builder.finish
@@ -52,9 +34,6 @@ class TestMonthIntervalArray < Test::Unit::TestCase
   end
 
   def test_values
-    before_month = 1
-    after_month = 12
-
     builder = Arrow::MonthIntervalArrayBuilder.new
     builder.append_value(0)
     builder.append_value(1)

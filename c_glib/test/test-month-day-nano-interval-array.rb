@@ -16,17 +16,6 @@
 # under the License.
 
 class TestMonthDayNanoIntervalArray < Test::Unit::TestCase
-  include Helper::Buildable
-
-  def test_new
-    zero_month_day_nano = Arrow::MonthDayNano.new(0, 0, 0)
-    first_month_day_nano = Arrow::MonthDayNano.new(1, 10, 100)
-    second_month_day_nano = Arrow::MonthDayNano.new(3, 30, 100)
-    raw_data = [zero_month_day_nano, first_month_day_nano, second_month_day_nano]
-    array = build_month_day_nano_interval_array(raw_data)
-    assert_equal(first_month_day_nano, array.get_value(1))
-  end
-
   def test_value
     month_day_nano = Arrow::MonthDayNano.new(3, 30, 100)
 
