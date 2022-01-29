@@ -24,7 +24,7 @@ class TestMonthDayNanoIntervalArray < Test::Unit::TestCase
     second_month_day_nano = Arrow::MonthDayNano.new(3, 30, 100)
     raw_data = [zero_month_day_nano, first_month_day_nano, second_month_day_nano]
     array = build_month_day_nano_interval_array(raw_data)
-    assert_equal(array.get_value(1).month, first_month_day_nano.month)
+    assert_equal(first_month_day_nano, array.get_value(1))
   end
 
   def test_value
