@@ -512,6 +512,15 @@ class NestedValuesComparator {
     return comparators_[field_index]->Compare(*field, offset, leftrowidx, rightrowidx);
   }
 
+  // RecordBatch Compare overload
+  int Compare(RecordBatch const& batch, NullPlacement null_placement,
+              SortOrder sort_order, uint64_t field_index, uint64_t offset,
+              uint64_t leftrowidx, uint64_t rightrowidx) {
+    std::shared_ptr<Array> field = batch.column(static_cast<int>(field_index));
+    return comparators_[field_index]->Compare(*field, null_placement, sort_order, offset,
+                                              leftrowidx, rightrowidx);
+  }
+
   // RecordBatch Prepare overload
   Status Prepare(RecordBatch const& batch) {
     auto fields = batch.columns();
@@ -533,6 +542,10 @@ class NestedValuesComparator {
                         uint64_t rightidx) = 0;
 
     virtual int Compare(ChunkedArray const& array, uint64_t offset, uint64_t leftidx,
+                        uint64_t rightidx) = 0;
+
+    virtual int Compare(Array const& array, NullPlacement null_placement,
+                        SortOrder sort_order, uint64_t offset, uint64_t leftidx,
                         uint64_t rightidx) = 0;
 
     virtual ~NestedValueComparator() = default;
@@ -589,6 +602,36 @@ class NestedValuesComparator {
         return -1;
       else
         return 1;
+    }
+
+    virtual int Compare(Array const& array, NullPlacement null_placement,
+                        SortOrder sort_order, uint64_t offset, uint64_t leftidx,
+                        uint64_t rightidx) {
+      // Null values
+      if (array.null_count() > 0) {
+        const bool is_null_left = array.IsNull(leftidx);
+        const bool is_null_right = array.IsNull(rightidx);
+        if (is_null_left && is_null_right) {
+          return 0;
+        } else if (is_null_left) {
+          return null_placement == NullPlacement::AtStart ? -1 : 1;
+        } else if (is_null_right) {
+          return null_placement == NullPlacement::AtStart ? 1 : -1;
+        }
+      }
+
+      const FieldArrayType& values = checked_cast<const FieldArrayType&>(array);
+      auto left_value = GetView::LogicalValue(values.GetView(leftidx - offset));
+      auto right_value = GetView::LogicalValue(values.GetView(rightidx - offset));
+      if (left_value == right_value)
+        return 0;
+      else if (left_value < right_value)
+        return -1;
+      else
+        return 1;
+
+      // Supports NaN values
+      return CompareTypeValues<Type>(left_value, right_value, sort_order, null_placement);
     }
   };
 

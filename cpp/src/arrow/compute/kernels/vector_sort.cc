@@ -396,7 +396,7 @@ class ConcreteRecordBatchColumnSorter : public RecordBatchColumnSorter {
       std::stable_sort(q.non_nulls_begin, q.non_nulls_end,
                        [&](uint64_t left, uint64_t right) {
                          return nested_values_comparator_->Compare(
-                                    batch_, field_index_, offset, right, left) == -1;
+                                    batch_, field_index_, offset, left, right) == 1;
                        });
     }
 
@@ -773,30 +773,44 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     const auto& first_sort_key = sort_keys_[0];
-    const ArrayType& array = checked_cast<const ArrayType&>(first_sort_key.array);
+    // const ArrayType& array = checked_cast<const ArrayType&>(first_sort_key.array);
     const auto p = PartitionNullsInternal<Type>(first_sort_key);
 
     // Sort first-key non-nulls
     std::stable_sort(p.non_nulls_begin, p.non_nulls_end,
                      [&](uint64_t left, uint64_t right) {
                        // Both values are never null nor NaN
-                       -  // (otherwise they've been partitioned away above).
-                           for (const auto& sort_key : sort_keys_) {
-                         int val = nested_values_comparator_.Compare(
-                             batch_, sort_key.field_index, 0, left, right);
+                       // (otherwise they've been partitioned away above).
+                       int val = nested_values_comparator_.Compare(
+                           batch_, sort_keys_[0].field_index, 0, left, right);
 
-                         if (val == 0) {
-                           continue;
-                         }
-
-                         if (sort_key.order == SortOrder::Ascending) {
+                       if (val != 0) {
+                         // this overload of compare does not take sort order
+                         // so it needs to be handled here
+                         if (sort_keys_[0].order == SortOrder::Ascending) {
                            return val == -1;
                          } else {
                            return val == 1;
                          }
                        }
 
-                       return true;
+                       auto sort_keys_len = sort_keys_.size();
+                       for (auto i = 1; i < sort_keys_len; i++) {
+                         int val = nested_values_comparator_.Compare(
+                             batch_, null_placement_, sort_keys_[i].order,
+                             sort_keys_[i].field_index, 0, left, right);
+
+                         if (val == 0) {
+                           continue;
+                         }
+
+                         // overload of compare taking in sort key order takes care of
+                         // sort order
+                         return val < 0;
+                       }
+
+                       // all column values are equal
+                       return false;
                      });
 
     return Status::OK();
