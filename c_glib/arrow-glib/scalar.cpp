@@ -22,6 +22,7 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/interval.hpp>
 #include <arrow-glib/scalar.hpp>
 
 G_BEGIN_DECLS
@@ -90,6 +91,13 @@ G_BEGIN_DECLS
  * #GArrowTimestampScalar is a class for the number of
  * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
  * a 64-bit signed integer scalar.
+ *
+ * #GArrowMonthIntervalScalar is a class for the month intarval scalar.
+ *
+ * #GArrowDayTimeIntervalScalar is a class for the day time intarval scalar.
+ *
+ * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano
+ * intarval scalar.
  *
  * #GArrowDecimal128Scalar is a class for a 128-bit decimal scalar.
  *
@@ -1501,6 +1509,188 @@ garrow_timestamp_scalar_get_value(GArrowTimestampScalar *scalar)
 }
 
 
+G_DEFINE_TYPE(GArrowMonthIntervalScalar,
+              garrow_month_interval_scalar,
+              GARROW_TYPE_SCALAR)
+
+static void
+garrow_month_interval_scalar_init(GArrowMonthIntervalScalar *object)
+{
+}
+
+static void
+garrow_month_interval_scalar_class_init(GArrowMonthIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_month_interval_scalar_new:
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowMonthIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthIntervalScalar *
+garrow_month_interval_scalar_new(gint32 value)
+{
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::MonthIntervalScalar>(value));
+  return GARROW_MONTH_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_month_interval_scalar_get_value:
+ * @scalar: A #GArrowMonthIntervalScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+gint32
+garrow_month_interval_scalar_get_value(GArrowMonthIntervalScalar *scalar)
+{
+  const auto arrow_scalar =
+    std::static_pointer_cast<arrow::MonthIntervalScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
+
+typedef struct GArrowDayTimeIntervalScalarPrivate_ {
+  GArrowDayMillisecond *value;
+} GArrowDayTimeIntervalScalarPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayTimeIntervalScalar,
+                           garrow_day_time_interval_scalar,
+                           GARROW_TYPE_SCALAR)
+
+#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowDayTimeIntervalScalarPrivate *>(             \
+    garrow_day_time_interval_scalar_get_instance_private(        \
+      GARROW_DAY_TIME_INTERVAL_SCALAR(obj)))
+
+static void
+garrow_day_time_interval_scalar_init(GArrowDayTimeIntervalScalar *object)
+{
+}
+
+static void
+garrow_day_time_interval_scalar_class_init(
+  GArrowDayTimeIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_day_time_interval_scalar_new:
+ * @value: The value of GArrowDayMillisecond.
+ *
+ * Returns: A newly created #GArrowDayTimeIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayTimeIntervalScalar *
+garrow_day_time_interval_scalar_new(GArrowDayMillisecond *value)
+{
+  auto arrow_value = garrow_day_millisecond_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::DayTimeIntervalScalar>(*arrow_value));
+  return GARROW_DAY_TIME_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_day_time_interval_scalar_get_value:
+ * @scalar: A #GArrowDayTimeIntervalScalar.
+ *
+ * Returns: (transfer none): The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayMillisecond *
+garrow_day_time_interval_scalar_get_value(GArrowDayTimeIntervalScalar *scalar)
+{
+  auto priv = GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar =
+      std::static_pointer_cast<arrow::DayTimeIntervalScalar>(
+        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_value = arrow_scalar->value;
+    priv->value = garrow_day_millisecond_new_raw(&arrow_value);
+  }
+
+  return priv->value;
+}
+
+
+typedef struct GArrowMonthDayNanoIntervalScalarPrivate_ {
+  GArrowMonthDayNano *value;
+} GArrowMonthDayNanoIntervalScalarPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNanoIntervalScalar,
+                           garrow_month_day_nano_interval_scalar,
+                           GARROW_TYPE_SCALAR)
+
+#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(              \
+    garrow_month_day_nano_interval_scalar_get_instance_private(        \
+      GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(obj)))
+
+static void
+garrow_month_day_nano_interval_scalar_init(
+  GArrowMonthDayNanoIntervalScalar *object)
+{
+}
+
+static void
+garrow_month_day_nano_interval_scalar_class_init(
+  GArrowMonthDayNanoIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_month_day_nano_interval_scalar_new:
+ * @value: The value of GArrowMonthDayNano.
+ *
+ * Returns: A newly created #GArrowMonthDayNanoIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNanoIntervalScalar *
+garrow_month_day_nano_interval_scalar_new(GArrowMonthDayNano *value)
+{
+  auto arrow_value = garrow_month_day_nano_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::MonthDayNanoIntervalScalar>(*arrow_value));
+  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(
+    garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_month_day_nano_interval_scalar_get_value:
+ * @scalar: A #GArrowMonthDayNanoIntervalScalar.
+ *
+ * Returns: (transfer none): The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar *scalar)
+{
+  auto priv = GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar =
+      std::static_pointer_cast<arrow::MonthDayNanoIntervalScalar>(
+        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    priv->value = garrow_month_day_nano_new_raw(&arrow_scalar->value);
+  }
+
+  return priv->value;
+}
+
+
 typedef struct GArrowDecimal128ScalarPrivate_ {
   GArrowDecimal128 *value;
 } GArrowDecimal128ScalarPrivate;
@@ -2364,6 +2554,15 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::TIMESTAMP:
     type = GARROW_TYPE_TIMESTAMP_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    type = GARROW_TYPE_MONTH_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    type = GARROW_TYPE_DAY_TIME_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_SCALAR;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_SCALAR;

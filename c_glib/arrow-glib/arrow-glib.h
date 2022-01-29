@@ -33,6 +33,7 @@
 #include <arrow-glib/error.h>
 #include <arrow-glib/expression.h>
 #include <arrow-glib/field.h>
+#include <arrow-glib/interval.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/scalar.h>
 #include <arrow-glib/schema.h>

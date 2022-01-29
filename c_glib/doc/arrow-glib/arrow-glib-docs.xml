@@ -54,6 +54,7 @@
     <chapter id="value">
       <title>Value</title>
       <xi:include href="xml/decimal.xml"/>
+      <xi:include href="xml/interval.xml"/>
     </chapter>
     <chapter id="scalar">
       <title>Scalar</title>
