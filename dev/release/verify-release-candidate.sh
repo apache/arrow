@@ -599,6 +599,16 @@ test_go() {
 
 # Run integration tests
 test_integration() {
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda activat arrow-test
+  elif [ ! -z ${CONDA_PREFIX} ]; then
+    echo "Conda environment is active despite that USE_CONDA is set to 0."
+    echo "Deactivate the environment before running the verification script."
+    exit 1
+  else
+    source venv/bin/activate
+  fi
+
   JAVA_DIR=$PWD/java
   CPP_BUILD_DIR=$PWD/cpp/build
 
@@ -622,6 +632,12 @@ test_integration() {
               --with-js=${TEST_INTEGRATION_JS} \
               --with-go=${TEST_INTEGRATION_GO} \
               $INTEGRATION_TEST_ARGS
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda deactivate
+  else
+    deactivate
+  fi
 }
 
 ensure_source_directory() {
