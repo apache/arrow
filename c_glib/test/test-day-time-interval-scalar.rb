@@ -42,6 +42,6 @@ class TestDayTimeIntervalScalar < Test::Unit::TestCase
   end
 
   def test_value
-    assert_equal(@value.day, @scalar.value.day)
+    assert_equal(@value, @scalar.value)
   end
 end
