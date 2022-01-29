@@ -46,9 +46,9 @@ class TestMonthIntervalArray < Test::Unit::TestCase
     after_month = 1
 
     builder = Arrow::MonthIntervalArrayBuilder.new
-    builder.append_value(after_month)
+    builder.append_value(1)
     array = builder.finish
-    assert_equal(after_month, array.get_value(0))
+    assert_equal(1, array.get_value(0))
   end
 
   def test_values
