@@ -286,6 +286,7 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
+  # TODO(kszucs): factor out to functions
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
     # TODO(kszucs): we should define orc and sqlite in the conda_env_cpp.txt file
@@ -494,6 +495,18 @@ import pyarrow.plasma
 test_glib() {
   pushd c_glib
 
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda activate arrow-test
+    mamba install -y meson
+  elif [ ! -z ${CONDA_PREFIX} ]; then
+    echo "Conda environment is active despite that USE_CONDA is set to 0."
+    echo "Deactivate the environment before running the verification script."
+    exit 1
+  else
+    source venv/bin/activate
+    pip install meson
+  fi
+
   pip install meson
 
   meson build --prefix=$ARROW_HOME --libdir=lib
@@ -509,6 +522,12 @@ test_glib() {
   bundle config set --local path 'vendor/bundle'
   bundle install
   bundle exec ruby test/run-test.rb
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda deactivate
+  else
+    deactivate
+  fi
 
   popd
 }
