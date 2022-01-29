@@ -42,6 +42,6 @@ class TestMonthDayNanoIntervalScalar < Test::Unit::TestCase
   end
 
   def test_value
-    assert_equal(@value.month, @scalar.value.month)
+    assert_equal(@value, @scalar.value)
   end
 end
