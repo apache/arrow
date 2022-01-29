@@ -26,12 +26,14 @@ G_BEGIN_DECLS
 /**
  * SECTION: interval
  * @section_id: interval
- * @title: day milliseconds and month day nanoseconds interval classes
+ * @title: Interval classes
  * @include: arrow-glib/arrow-glib.h
  *
- * #GArrowDayMillisecond is a day milliseconds value class.
+ * #GArrowDayMillisecond is the class for day and millisecond
+ * interval.
  *
- * #GArrowMonthDayNano is a month day nanoseconds value class.
+ * #GArrowMonthDayNano is the class for month, day and nanosecond
+ * interval.
  *
  * Since: 8.0.0
  */
