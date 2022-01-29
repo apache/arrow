@@ -33,7 +33,7 @@ class TestMonthDayNanoIntervalArray < Test::Unit::TestCase
     builder = Arrow::MonthDayNanoIntervalArrayBuilder.new
     builder.append_value(month_day_nano)
     array = builder.finish
-    assert_equal(month_day_nano.day, array.get_value(0).day)
+    assert_equal(month_day_nano, array.get_value(0))
   end
 
   def test_values
