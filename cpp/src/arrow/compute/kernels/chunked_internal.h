@@ -30,25 +30,6 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-// Visit all physical types for which sorting is implemented.
-#define VISIT_SORTABLE_PHYSICAL_TYPES(VISIT) \
-  VISIT(BooleanType)                         \
-  VISIT(Int8Type)                            \
-  VISIT(Int16Type)                           \
-  VISIT(Int32Type)                           \
-  VISIT(Int64Type)                           \
-  VISIT(UInt8Type)                           \
-  VISIT(UInt16Type)                          \
-  VISIT(UInt32Type)                          \
-  VISIT(UInt64Type)                          \
-  VISIT(FloatType)                           \
-  VISIT(DoubleType)                          \
-  VISIT(BinaryType)                          \
-  VISIT(LargeBinaryType)                     \
-  VISIT(FixedSizeBinaryType)                 \
-  VISIT(Decimal128Type)                      \
-  VISIT(Decimal256Type)
-
 // The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {

@@ -667,6 +667,29 @@ class NestedValuesComparator {
     }
   };
 
+  struct ConcreteNullNestedValueComparator : NestedValueComparator {
+    virtual int Compare(Array const& array, uint64_t offset, uint64_t leftidx,
+                        uint64_t rightidx) {
+      return 0;
+    }
+
+    virtual int Compare(Array const& array, NullPlacement null_placement,
+                        SortOrder sort_order, uint64_t offset, uint64_t leftidx,
+                        uint64_t rightidx) {
+      return 0;
+    }
+
+    virtual int Compare(Array const& left_array, Array const& right_array,
+                        uint64_t leftidx, uint64_t rightidx) {
+      return 0;
+    }
+
+    virtual int Compare(ChunkedArray const& chunked_array, uint64_t offset,
+                        uint64_t leftidx, uint64_t rightidx) {
+      return 0;
+    }
+  };
+
   /**
    * Internal use factory whose purpose is to detect the right type
    * of comparator that should be built to be able to compare two
@@ -695,6 +718,12 @@ class NestedValuesComparator {
     Status VisitGeneric(const Type&) {
       current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
           new ConcreteNestedValueComparator<Type>());
+      return Status::OK();
+    }
+
+    Status Visit(const NullType&) {
+      current_field_comparator_ =
+          std::shared_ptr<NestedValueComparator>(new ConcreteNullNestedValueComparator());
       return Status::OK();
     }
 

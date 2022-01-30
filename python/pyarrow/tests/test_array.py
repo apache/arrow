@@ -852,28 +852,28 @@ def test_struct_chunked_array_sort():
 
     sorted_arr = chunked_arr.sort("ascending")
     assert sorted_arr.to_pylist() == [
-        {"a": 2, "b":1, "c": "mouse"},
-        {"a": 2, "b":3, "c": "far"},
-        {"a": 5, "b":2, "c": "bar"},
-        {"a": 5, "b":2, "c": "car"},
-        {"a": 5, "b":2, "c": "cat"},
-        {"a": 5, "b":2, "c": "tar"},
-        {"a": 5, "b":3, "c": "foo"},
-        {"a": 5, "b":8, "c": "dog"},
-        {"a": 5, "b":8, "c": "foobar"}
+        {"a": 2, "b": 1, "c": "mouse"},
+        {"a": 2, "b": 3, "c": "far"},
+        {"a": 5, "b": 2, "c": "bar"},
+        {"a": 5, "b": 2, "c": "car"},
+        {"a": 5, "b": 2, "c": "cat"},
+        {"a": 5, "b": 2, "c": "tar"},
+        {"a": 5, "b": 3, "c": "foo"},
+        {"a": 5, "b": 8, "c": "dog"},
+        {"a": 5, "b": 8, "c": "foobar"}
     ]
 
     sorted_arr = chunked_arr.sort("descending")
     assert sorted_arr.to_pylist() == [
-        {"a": 5, "b":8, "c": "foobar"},
-        {"a": 5, "b":8, "c": "dog"},
-        {"a": 5, "b":3, "c": "foo"},
-        {"a": 5, "b":2, "c": "tar"},
-        {"a": 5, "b":2, "c": "cat"},
-        {"a": 5, "b":2, "c": "car"},
-        {"a": 5, "b":2, "c": "bar"},
-        {"a": 2, "b":3, "c": "far"},
-        {"a": 2, "b":1, "c": "mouse"}
+        {"a": 5, "b": 8, "c": "foobar"},
+        {"a": 5, "b": 8, "c": "dog"},
+        {"a": 5, "b": 3, "c": "foo"},
+        {"a": 5, "b": 2, "c": "tar"},
+        {"a": 5, "b": 2, "c": "cat"},
+        {"a": 5, "b": 2, "c": "car"},
+        {"a": 5, "b": 2, "c": "bar"},
+        {"a": 2, "b": 3, "c": "far"},
+        {"a": 2, "b": 1, "c": "mouse"}
     ]
 
 
@@ -925,6 +925,36 @@ def test_record_batch_sort():
     assert sorted_rb1_dict["h"] == [2, 2, 4, 4]
     assert sorted_rb1_dict["i"] == [3, 4, 1, 2]
     assert sorted_rb1_dict["j"] == ["foobar", "bar", "car", "foo"]
+
+    # test radix sort with nulls
+    rb2_names = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+    rb2 = pa.RecordBatch.from_arrays([
+        pa.array([None, None, None, None]),
+        pa.array([4, 4, 4, 4], type=pa.int64()),
+        pa.array([4, 4, 4, 4], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([4, 4, 2, 2], type=pa.int64()),
+        pa.array([2, 1, 4, 3], type=pa.int64()),
+        pa.array([2, 1, 4, 3], type=pa.int64()),
+    ], names=rb2_names)
+
+    sort_keys_list = [("a", "ascending"), ("j", "ascending")]
+    sorted_rb2 = rb2.sort_by(sort_keys_list)
+    sorted_rb2_dict = sorted_rb2.to_pydict()
+
+    assert sorted_rb2_dict["a"] == [None, None, None, None]
+    assert sorted_rb2_dict["b"] == [4, 4, 4, 4]
+    assert sorted_rb2_dict["c"] == [4, 4, 4, 4]
+    assert sorted_rb2_dict["d"] == [4, 4, 2, 2]
+    assert sorted_rb2_dict["e"] == [4, 4, 2, 2]
+    assert sorted_rb2_dict["f"] == [4, 4, 2, 2]
+    assert sorted_rb2_dict["g"] == [4, 4, 2, 2]
+    assert sorted_rb2_dict["h"] == [4, 4, 2, 2]
+    assert sorted_rb2_dict["i"] == [1, 2, 3, 4]
+    assert sorted_rb2_dict["j"] == [1, 2, 3, 4]
 
 
 def test_table_sort():
