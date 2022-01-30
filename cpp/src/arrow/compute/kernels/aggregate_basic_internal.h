@@ -122,10 +122,10 @@ struct SumImpl : public ScalarAggregator {
 };
 
 template <typename ArrowType>
-struct NullSumImpl : public ScalarAggregator {
+struct NullImpl : public ScalarAggregator {
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
-  explicit NullSumImpl(const ScalarAggregateOptions& options_) : options(options_) {}
+  explicit NullImpl(const ScalarAggregateOptions& options_) : options(options_) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     if (batch[0].is_scalar() || batch[0].array()->GetNullCount() > 0) {
@@ -136,7 +136,7 @@ struct NullSumImpl : public ScalarAggregator {
   }
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
-    const auto& other = checked_cast<const NullSumImpl&>(src);
+    const auto& other = checked_cast<const NullImpl&>(src);
     this->is_empty &= other.is_empty;
     return Status::OK();
   }
@@ -144,15 +144,29 @@ struct NullSumImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
       // Return 0 if the remaining data is empty
-      out->value = std::make_shared<ScalarType>(0);
+      out->value = output_empty();
     } else {
       out->value = MakeNullScalar(TypeTraits<ArrowType>::type_singleton());
     }
     return Status::OK();
   }
 
+  virtual std::shared_ptr<Scalar> output_empty() = 0;
+
   bool is_empty = true;
   ScalarAggregateOptions options;
+};
+
+template <typename ArrowType>
+struct NullSumImpl : public NullImpl<ArrowType> {
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  explicit NullSumImpl(const ScalarAggregateOptions& options_)
+      : NullImpl<ArrowType>(options_) {}
+
+  std::shared_ptr<Scalar> output_empty() override {
+    return std::make_shared<ScalarType>(0);
+  }
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
