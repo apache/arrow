@@ -69,7 +69,7 @@ cdef class FileFormat(_Weakrefable):
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options)
 
     # Return a WrittenFile after a file was written.
-    # May be overriden by subclasses, e.g. to add metadata.
+    # May be overridden by subclasses, e.g. to add metadata.
     cdef WrittenFile _finish_write(self, path, base_dir,
                                    CFileWriter* file_writer)
 

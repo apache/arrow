@@ -209,7 +209,7 @@ class BaseTestJSONRead:
         assert table.num_rows == 2
 
     def test_reconcile_accross_blocks(self):
-        # ARROW-12065: reconciling inferred types accross blocks
+        # ARROW-12065: reconciling inferred types across blocks
         first_row = b'{                               }\n'
         read_options = ReadOptions(block_size=len(first_row))
         for next_rows, expected_pylist in [
