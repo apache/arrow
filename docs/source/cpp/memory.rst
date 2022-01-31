@@ -240,22 +240,222 @@ symbols for the relevant methods. Here, we'll look at the ``Allocate``, ``Free``
 
 :: 
 
-   > nm ./libarrow.so | grep 'Jemalloc'
-   ...
-   000000000178bdbc t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE10ReallocateEllPPh
-   000000000178c112 t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE13ReleaseUnusedEv
-   000000000178bfdc t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE4FreeEPhl
-   000000000178bbae t _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh
-   ...
+   perf probe -x libarrow.so je_arrow_mallocx '$params' 
+   perf probe -x libarrow.so je_arrow_mallocx%return '$retval' 
+   perf probe -x libarrow.so je_arrow_rallocx '$params' 
+   perf probe -x libarrow.so je_arrow_rallocx%return '$retval' 
+   perf probe -x libarrow.so je_arrow_dallocx '$params' 
+
+
+::
+   
+   perf record -g --call-graph dwarf \
+    -e probe_libarrow:je_arrow_mallocx \
+    -e probe_libarrow:je_arrow_mallocx__return \
+    -e probe_libarrow:je_arrow_rallocx \
+    -e probe_libarrow:je_arrow_rallocx__return \
+    -e probe_libarrow:je_arrow_dallocx \
+    ./arrow-array-test --gtest_filter=StructArray*
+
+
+.. code-block:: python
+
+   import sys
+   import re
+   import json
+
+   # Example non-traceback line
+   # arrow-array-tes 14344 [003]  7501.073802: probe_libarrow:je_arrow_mallocx: (7fbcd20bb640) size=0x80 flags=6
+
+   current = {}
+   current_traceback = ''
+
+   def new_row():
+       global current_traceback
+       current['traceback'] = current_traceback
+       print(json.dumps(current))
+       current_traceback = ''
+
+   for line in sys.stdin:
+       if line == '\n':
+           continue
+       elif line[0] == '\t':
+           # traceback line
+           current_traceback += line.strip("\t")
+       else:
+           line = line.rstrip('\n')
+           if not len(current) == 0:
+               new_row()
+           parts = re.sub(' +', ' ', line).split(' ')
+
+           parts.reverse()
+           parts.pop() # file
+           parts.pop() # "14344"
+           parts.pop() # "[003]"
+
+           current['time'] = float(parts.pop().rstrip(":"))
+           current['event'] = parts.pop().rstrip(":")
+
+           parts.pop() # (7fbcd20bddf0)
+           if parts[-1] == "<-":
+               parts.pop()
+               parts.pop()
+
+           params = {}
+
+           for pair in parts:
+               key, value = pair.split("=")
+               params[key] = value
+
+           current['params'] = params
+
+
+Running the above script gives us JSON lines file with all the events parsed::
+
+   > perf script | python3 /arrow/process_perf_events.py > processed_events.jsonl
+   > head head processed_events.jsonl | cut -c -120
+   {"time": 14814.954378, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x80"}, "traceback"
+   {"time": 14814.95443, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e09000"}, "traceba
+   {"time": 14814.95448, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback":
+   {"time": 14814.954486, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a000"}, "traceb
+   {"time": 14814.954502, "event": "probe_libarrow:je_arrow_rallocx", "params": {"flags": "6", "size": "0x40", "ptr": "0x7f
+   {"time": 14814.954507, "event": "probe_libarrow:je_arrow_rallocx__return", "params": {"arg1": "0x7f4a97e0a040"}, "traceb
+   {"time": 14814.954796, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback"
+   {"time": 14814.954805, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a080"}, "traceb
+   {"time": 14814.954817, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback"
+   {"time": 14814.95482, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a0c0"}, "traceba
+
+
+From there one can answer a number of questions. For example, the following script will
+find which allocations were never freed, and print the associated tracebacks along with
+the count of dangling allocations:
+
+.. code-block:: python
+
+   '''Find tracebacks of allocations with no corresponding free'''
+   import sys
+   import json
+   from collections import defaultdict
+
+   allocated = dict()
+
+   for line in sys.stdin:
+       line = line.rstrip('\n')
+       data = json.loads(line)
+
+       if data['event'] == "probe_libarrow:je_arrow_mallocx__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       if data['event'] == "probe_libarrow:je_arrow_rallocx__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       elif data['event'] == "probe_libarrow:je_arrow_dallocx":
+           address = data['params']['ptr']
+           del allocated[address]
+
+   traceback_counts = defaultdict(int)
+
+   for traceback in allocated.values():
+       traceback_counts[traceback] += 1
+
+   for traceback, count in sorted(traceback_counts.items(), key=lambda x: -x[1]):
+       print("Num of dangling allocations:", count)
+       print(traceback)
 
 
 ::
 
-   perf probe -x libarrow.so _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh
-   perf record -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE8AllocateElPPh \
-      -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE4FreeEPhl \
-      -e _ZN5arrow18BaseMemoryPoolImplINS_12_GLOBAL__N_117JemallocAllocatorEE10ReallocateEllPPh \
-      ./arrow-array-test
+   > cat processed_events.jsonl | python3 /arrow/count_tracebacks.py
+   Num of dangling allocations: 1
+       7f4a9b4f7e3b arrow::(anonymous namespace)::JemallocAllocator::AllocateAligned+0x63 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fac3c arrow::BaseMemoryPoolImpl<arrow::(anonymous namespace)::JemallocAllocator>::Allocate+0x8e (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fc75a arrow::PoolBuffer::Reserve+0x16e (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fc99a arrow::PoolBuffer::Resize+0x190 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4f988a arrow::(anonymous namespace)::ResizePoolBuffer<std::unique_ptr<arrow::ResizableBuffer, std::default_delete<arrow::ResizableBuffer> >, std::unique_ptr<arrow::PoolBuffer, std::default_delete<arrow::PoolBuffer> > >+0x47 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4f9229 arrow::AllocateResizableBuffer+0x51 (/build/cpp/debug/libarrow.so.700.0.0)
+       564fb42a178c arrow::BufferBuilder::Resize+0x60 (/build/cpp/debug/arrow-array-test)
+       564fb4406d81 arrow::TypedBufferBuilder<int, void>::Resize+0x4f (/build/cpp/debug/arrow-array-test)
+       564fb43fa751 arrow::NumericBuilder<arrow::Int32Type>::Resize+0xe7 (/build/cpp/debug/arrow-array-test)
+       564fb42a26e0 arrow::ArrayBuilder::Reserve+0xaa (/build/cpp/debug/arrow-array-test)
+       564fb42afc5a arrow::NumericBuilder<arrow::Int32Type>::Append+0x3e (/build/cpp/debug/arrow-array-test)
+       7f4a9ca3c6c0 arrow::ipc::internal::json::(anonymous namespace)::IntegerConverter<arrow::Int32Type, arrow::NumericBuilder<arrow::Int32Type> >::AppendValue+0x10c (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca3c791 arrow::ipc::internal::json::(anonymous namespace)::ConcreteConverter<arrow::ipc::internal::json::(anonymous namespace)::IntegerConverter<arrow::Int32Type, arrow::NumericBuilder<arrow::Int32Type> > >::AppendValues+0xb1 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca0f1be arrow::ipc::internal::json::ArrayFromJSON+0x1e9 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9e533858 arrow::ArrayFromJSON+0x64 (/build/cpp/debug/libarrow_testing.so.700.0.0)
+       564fb47b53f3 arrow::StructArray_FlattenOfSlice_Test::TestBody+0x79 (/build/cpp/debug/arrow-array-test)
+       7f4a99d24633 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1c32a testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf05eb testing::Test::Run+0xf1 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf102d testing::TestInfo::Run+0x13f (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf1947 testing::TestSuite::Run+0x14b (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d013f5 testing::internal::UnitTestImpl::RunAllTests+0x433 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d25b61 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1d568 testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cffb0c testing::UnitTest::Run+0xcc (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d6b299 RUN_ALL_TESTS+0x14 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a99d6b21b main+0x42 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a998820b2 __libc_start_main+0xf2 (/usr/lib/x86_64-linux-gnu/libc-2.31.so)
+       564fb424850d _start+0x2d (/build/cpp/debug/arrow-array-test)
+
+   Num of dangling allocations: 1
+       7f4a9b4f7e3b arrow::(anonymous namespace)::JemallocAllocator::AllocateAligned+0x63 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fac3c arrow::BaseMemoryPoolImpl<arrow::(anonymous namespace)::JemallocAllocator>::Allocate+0x8e (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fc75a arrow::PoolBuffer::Reserve+0x16e (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fc99a arrow::PoolBuffer::Resize+0x190 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4f988a arrow::(anonymous namespace)::ResizePoolBuffer<std::unique_ptr<arrow::ResizableBuffer, std::default_delete<arrow::ResizableBuffer> >, std::unique_ptr<arrow::PoolBuffer, std::default_delete<arrow::PoolBuffer> > >+0x47 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4f9229 arrow::AllocateResizableBuffer+0x51 (/build/cpp/debug/libarrow.so.700.0.0)
+       564fb42a178c arrow::BufferBuilder::Resize+0x60 (/build/cpp/debug/arrow-array-test)
+       564fb4402803 arrow::TypedBufferBuilder<long, void>::Resize+0x4f (/build/cpp/debug/arrow-array-test)
+       564fb43f6a3f arrow::NumericBuilder<arrow::Int64Type>::Resize+0xe7 (/build/cpp/debug/arrow-array-test)
+       564fb42a26e0 arrow::ArrayBuilder::Reserve+0xaa (/build/cpp/debug/arrow-array-test)
+       564fb42b5141 arrow::NumericBuilder<arrow::Int64Type>::Append+0x3f (/build/cpp/debug/arrow-array-test)
+       7f4a9ca3c3b7 arrow::ipc::internal::json::(anonymous namespace)::IntegerConverter<arrow::Int64Type, arrow::NumericBuilder<arrow::Int64Type> >::AppendValue+0x10d (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca3c489 arrow::ipc::internal::json::(anonymous namespace)::ConcreteConverter<arrow::ipc::internal::json::(anonymous namespace)::IntegerConverter<arrow::Int64Type, arrow::NumericBuilder<arrow::Int64Type> > >::AppendValues+0xb1 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca0f1be arrow::ipc::internal::json::ArrayFromJSON+0x1e9 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9e533858 arrow::ArrayFromJSON+0x64 (/build/cpp/debug/libarrow_testing.so.700.0.0)
+       564fb47afdf7 arrow::StructArray_FromFields_Test::TestBody+0x985 (/build/cpp/debug/arrow-array-test)
+       7f4a99d24633 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1c32a testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf05eb testing::Test::Run+0xf1 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf102d testing::TestInfo::Run+0x13f (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf1947 testing::TestSuite::Run+0x14b (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d013f5 testing::internal::UnitTestImpl::RunAllTests+0x433 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d25b61 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1d568 testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cffb0c testing::UnitTest::Run+0xcc (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d6b299 RUN_ALL_TESTS+0x14 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a99d6b21b main+0x42 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a998820b2 __libc_start_main+0xf2 (/usr/lib/x86_64-linux-gnu/libc-2.31.so)
+       564fb424850d _start+0x2d (/build/cpp/debug/arrow-array-test)
+
+   Num of dangling allocations: 1
+       7f4a9b4f7fd2 arrow::(anonymous namespace)::JemallocAllocator::ReallocateAligned+0x13b (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fae4f arrow::BaseMemoryPoolImpl<arrow::(anonymous namespace)::JemallocAllocator>::Reallocate+0x93 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9b4fc8f7 arrow::PoolBuffer::Resize+0xed (/build/cpp/debug/libarrow.so.700.0.0)
+       564fb42a1859 arrow::BufferBuilder::Resize+0x12d (/build/cpp/debug/arrow-array-test)
+       564fb42a1bbe arrow::BufferBuilder::Finish+0x48 (/build/cpp/debug/arrow-array-test)
+       564fb42a1e3a arrow::BufferBuilder::Finish+0x50 (/build/cpp/debug/arrow-array-test)
+       564fb42a1f90 arrow::BufferBuilder::FinishWithLength+0x4e (/build/cpp/debug/arrow-array-test)
+       564fb4406fa7 arrow::TypedBufferBuilder<int, void>::FinishWithLength+0x4f (/build/cpp/debug/arrow-array-test)
+       564fb43face7 arrow::NumericBuilder<arrow::Int32Type>::FinishInternal+0x107 (/build/cpp/debug/arrow-array-test)
+       7f4a9b2a15ae arrow::ArrayBuilder::Finish+0x5a (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca09d41 arrow::ipc::internal::json::(anonymous namespace)::Converter::Finish+0x123 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9ca0f26e arrow::ipc::internal::json::ArrayFromJSON+0x299 (/build/cpp/debug/libarrow.so.700.0.0)
+       7f4a9e533858 arrow::ArrayFromJSON+0x64 (/build/cpp/debug/libarrow_testing.so.700.0.0)
+       564fb47b53f3 arrow::StructArray_FlattenOfSlice_Test::TestBody+0x79 (/build/cpp/debug/arrow-array-test)
+       7f4a99d24633 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1c32a testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf05eb testing::Test::Run+0xf1 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf102d testing::TestInfo::Run+0x13f (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cf1947 testing::TestSuite::Run+0x14b (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d013f5 testing::internal::UnitTestImpl::RunAllTests+0x433 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d25b61 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d1d568 testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99cffb0c testing::UnitTest::Run+0xcc (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+       7f4a99d6b299 RUN_ALL_TESTS+0x14 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a99d6b21b main+0x42 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+       7f4a998820b2 __libc_start_main+0xf2 (/usr/lib/x86_64-linux-gnu/libc-2.31.so)
+       564fb424850d _start+0x2d (/build/cpp/debug/arrow-array-test)
 
 
 Some other resources with tracing:
