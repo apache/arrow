@@ -70,7 +70,7 @@ func main() {
 		}
 	}
 
-	rdr, err := file.OpenParquetFile(config.File, !config.NoMemoryMap, nil, nil)
+	rdr, err := file.OpenParquetFile(config.File, !config.NoMemoryMap)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error opening parquet file: ", err)
 		os.Exit(1)
