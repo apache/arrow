@@ -2561,6 +2561,74 @@ TEST(TestStringBetweenKernel, 3Arrays) {
       Datum(ArrayFromJSON(TypeTraits<StringType>::type_singleton(), R"(["Д","Л","Ф"])")));
 }
 
+TEST(TestTimestampsBetweenKernel, 3Scalars) {
+  const std::string scalar1_json = R"("1980-02-02")";
+  const std::string scalar2_json = R"("1970-01-01")";
+  const std::string scalar3_json = R"("1970-01-02")";
+  // Same units should be fine
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json)));
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json)));
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json)));
+  // Different timezones should be fine
+  ValidateBetween(
+      Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND, "Africa/Cairo"), scalar3_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND, "America/Chicago"), scalar1_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND, "Asia/Beijing"), scalar2_json)));
+  ValidateBetween(
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), scalar1_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"), scalar3_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), scalar2_json)));
+  ValidateBetween(
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "Europe/Berlin"), scalar1_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "Asia/Tokyo"), scalar2_json)),
+      Datum(ScalarFromJSON(timestamp(TimeUnit::NANO, "Africa/Nairobi"), scalar3_json)));
+  // Different units should be fine
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::MILLI), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json)));
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::NANO), scalar3_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json)));
+  ValidateBetween(Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::NANO), scalar2_json)),
+                  Datum(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json)));
+  // But comparing naive to zoned is not OK
+  for (auto inclusive :
+       {BetweenOptions::Inclusive::BOTH, BetweenOptions::Inclusive::LEFT,
+        BetweenOptions::Inclusive::RIGHT, BetweenOptions::Inclusive::NEITHER}) {
+    auto options = BetweenOptions(inclusive);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND, "Asia/Tokyo"), scalar2_json),
+                options, nullptr));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar1_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), scalar3_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), scalar2_json),
+                options, nullptr));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError,
+        ::testing::HasSubstr(
+            "Cannot compare timestamp with timezone to timestamp without timezone"),
+        Between(ScalarFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), scalar1_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar3_json),
+                ScalarFromJSON(timestamp(TimeUnit::SECOND), scalar2_json), options, nullptr));
+  }
+}
+
 TEST(TestTimestampsBetweenKernel, 1Array2Scalars) {
   const std::string scalar1_json = R"("1980-02-02")";
   const std::string scalar2_json = R"("1970-01-01")";
@@ -2753,7 +2821,7 @@ TEST(TestTimestampsBetweenKernel, 3Arrays) {
 }
 
 class TestBetweenDecimal : public ::testing::Test {};
-/*
+
 TEST(TestBetweenDecimal, 2Arrays1Scalar) {
   for (auto decimal_factory : {decimal128, decimal256}) {
     auto ty = decimal_factory(3, 2);
@@ -2762,21 +2830,15 @@ TEST(TestBetweenDecimal, 2Arrays1Scalar) {
         ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
     auto lhs = ArrayFromJSON(
         ty, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23", "1.23", null])");
-    auto rhs = ScalarFromJSON(ty, "1.23");
+    auto rhs = ScalarFromJSON(ty, R"("1.23")");
 
-    ValidateBetween(Datum(ArrayFromJSON(ty, R"([])")),
-                    Datum(ArrayFromJSON(ty, R"([])")),
-                    Datum(ScalarFromJSON(ty, "[]")));
-    ValidateBetween(Datum(ArrayFromJSON(ty, R"([null])")),
-                    Datum(ArrayFromJSON(ty, R"([null])")),
-                    Datum(ScalarFromJSON(ty, R"(null)")));
-    ValidateBetween(Datum(val), Datum(lhs), Datum(rhs));
-    ValidateBetween(Datum(val), Datum(rhs), Datum(lhs));
-    ValidateBetween(Datum(lhs), Datum(val), Datum(rhs));
-    ValidateBetween(Datum(rhs), Datum(lhs), Datum(val));
+    ValidateBetween(val, lhs, ScalarFromJSON(ty, R"(null)"));
+    ValidateBetween(val, lhs, rhs);
+    ValidateBetween(val, rhs, lhs);
+    ValidateBetween(lhs, val, rhs);
+    ValidateBetween(rhs, lhs, val);
   }
 }
-*/
 
 TEST(TestBetweenDecimal, 3Arrays) {
  for (auto decimal_factory : {decimal128, decimal256}) {
@@ -2827,17 +2889,17 @@ struct BetweenCase {
   std::string lhs;
   std::string rhs;
 };
-/*
+
 TEST(TestFixedSizeBinaryBetweenKernel, 3Scalars) {
   auto ty1 = fixed_size_binary(3);
   auto ty2 = fixed_size_binary(1);
 
-  const std::string val1 = "abc";
-  const std::string lhs1 = "abc";
-  const std::string rhs1 = "abd";
-  const std::string val2 = "a";
-  const std::string lhs2 = "b";
-  const std::string rhs2 = "a";
+  const std::string val1 = R"("abc")";
+  const std::string lhs1 = R"("abc")";
+  const std::string rhs1 = R"("abd")";
+  const std::string val2 = R"("a")";
+  const std::string lhs2 = R"("b")";
+  const std::string rhs2 = R"("a")";
 
   std::vector<BetweenCase> types = {
       {ty1, ty1, ty1, val1, lhs1, rhs1},
@@ -2846,9 +2908,6 @@ TEST(TestFixedSizeBinaryBetweenKernel, 3Scalars) {
       {ty2, ty2, ty2, val2, lhs2, rhs2},
       {ty2, ty2, ty2, lhs2, val2, rhs2},
       {ty2, ty2, ty2, rhs2, lhs2, val2},
-      {ty1, ty2, ty2, lhs1, rhs2, val2},
-      {ty2, ty1, ty1, lhs2, rhs1, val1},
-      {ty2, ty1, ty1, lhs2, val1, rhs1},
       {ty1, binary(), ty1, lhs1, rhs1, val1},
       {binary(), ty1, binary(), lhs1, rhs1, val1},
       {ty1, large_binary(), ty1, lhs1, rhs1, val1},
@@ -2867,21 +2926,20 @@ TEST(TestFixedSizeBinaryBetweenKernel, 3Scalars) {
     auto lhs = Datum(ScalarFromJSON(lhs_type, test_case.lhs));
     auto rhs = Datum(ScalarFromJSON(rhs_type, test_case.rhs));
 
-    ValidateBetween(Datum(ScalarFromJSON(val_type, "null")),
-                    Datum(ScalarFromJSON(lhs_type, "null")),
-                    Datum(ScalarFromJSON(rhs_type, "null")));
-    ValidateBetween(Datum(ScalarFromJSON(val_type, "null")),
-                    Datum(ScalarFromJSON(lhs_type, "null]")),
-                    Datum(ScalarFromJSON(rhs_type, "null")));
-    ValidateBetween(Datum(ScalarFromJSON(val_type, "null")),
-                    Datum(ScalarFromJSON(lhs_type, "null")),
-                    Datum(ScalarFromJSON(rhs_type, "null")));
+    ValidateBetween(Datum(ScalarFromJSON(val_type, R"(null)")),
+                    Datum(ScalarFromJSON(lhs_type, R"(null)")),
+                    Datum(ScalarFromJSON(rhs_type, R"(null)")));
+    ValidateBetween(Datum(ScalarFromJSON(val_type, R"(null)")),
+                    Datum(ScalarFromJSON(lhs_type, R"(null)")),
+                    Datum(ScalarFromJSON(rhs_type, R"(null)")));
+    ValidateBetween(Datum(ScalarFromJSON(val_type, R"(null)")),
+                    Datum(ScalarFromJSON(lhs_type, R"(null)")),
+                    Datum(ScalarFromJSON(rhs_type, R"(null)")));
     ValidateBetween(val, lhs, rhs);
     ValidateBetween(lhs, val, rhs);
     ValidateBetween(rhs, lhs, val);
   }
 }
-
 
 TEST(TestFixedSizeBinaryBetweenKernel, 1Array2Scalars) {
   auto ty1 = fixed_size_binary(3);
@@ -2896,21 +2954,16 @@ TEST(TestFixedSizeBinaryBetweenKernel, 1Array2Scalars) {
 
   std::vector<BetweenCase> types = {
       {ty1, ty1, ty1, val1, lhs1, rhs1},
-      {ty1, ty1, ty1, rhs1, val1, lhs1},
-      {ty1, ty1, ty1, lhs1, val1, rhs1},
+      {ty1, ty1, ty1, val1, rhs1, lhs1},
       {ty2, ty2, ty2, val2, lhs2, rhs2},
-      {ty2, ty2, ty2, lhs2, val2, rhs2},
-      {ty2, ty2, ty2, rhs2, lhs2, val2},
-      {ty1, ty2, ty2, lhs1, rhs2, val2},
-      {ty2, ty1, ty1, lhs2, rhs1, val1},
-      {ty2, ty1, ty1, lhs2, val1, rhs1},
-      {ty1, binary(), ty1, lhs1, rhs1, val1},
-      {binary(), ty1, binary(), lhs1, rhs1, val1},
-      {ty1, large_binary(), ty1, lhs1, rhs1, val1},
+      {ty2, ty2, ty2, val2, rhs2, lhs2},
+      {ty1, binary(), ty1, val1, lhs1, rhs1},
+      {binary(), ty1, binary(), val1, rhs1, lhs1},
+      {ty1, large_binary(), ty1, val1, lhs1, rhs1},
       {large_binary(), ty1, large_binary(), val1, lhs1, rhs1},
       {ty1, utf8(), ty1, val1, lhs1, rhs1},
-      {utf8(), ty1, utf8(), val1, lhs1, rhs1},
-      {ty1, large_utf8(), ty1, lhs1, rhs1, val1},
+      {utf8(), ty1, utf8(), val1, rhs1, lhs1},
+      {ty1, large_utf8(), ty1, val1, lhs1, rhs1},
       {large_utf8(), ty1, large_utf8(), val1, lhs1, rhs1},
   };
 
@@ -2950,21 +3003,16 @@ TEST(TestFixedSizeBinaryBetweenKernel, 2Arrays1Scalar) {
 
   std::vector<BetweenCase> types = {
       {ty1, ty1, ty1, val1, lhs1, rhs1},
-      {ty1, ty1, ty1, rhs1, val1, lhs1},
       {ty1, ty1, ty1, lhs1, val1, rhs1},
       {ty2, ty2, ty2, val2, lhs2, rhs2},
       {ty2, ty2, ty2, lhs2, val2, rhs2},
-      {ty2, ty2, ty2, rhs2, lhs2, val2},
-      {ty1, ty2, ty2, lhs1, rhs2, val2},
-      {ty2, ty1, ty1, lhs2, rhs1, val1},
-      {ty2, ty1, ty1, lhs2, val1, rhs1},
-      {ty1, binary(), ty1, lhs1, rhs1, val1},
-      {binary(), ty1, binary(), lhs1, rhs1, val1},
-      {ty1, large_binary(), ty1, lhs1, rhs1, val1},
+      {ty1, binary(), ty1, lhs1, val1, rhs1},
+      {binary(), ty1, binary(), val1, lhs1, rhs1},
+      {ty1, large_binary(), ty1, lhs1, val1, rhs1},
       {large_binary(), ty1, large_binary(), val1, lhs1, rhs1},
       {ty1, utf8(), ty1, val1, lhs1, rhs1},
       {utf8(), ty1, utf8(), val1, lhs1, rhs1},
-      {ty1, large_utf8(), ty1, lhs1, rhs1, val1},
+      {ty1, large_utf8(), ty1, lhs1, val1, rhs1},
       {large_utf8(), ty1, large_utf8(), val1, lhs1, rhs1},
   };
 
@@ -2986,11 +3034,11 @@ TEST(TestFixedSizeBinaryBetweenKernel, 2Arrays1Scalar) {
                     ScalarFromJSON(lhs_type, "null"),
                     ArrayFromJSON(rhs_type, R"([null])"));
     ValidateBetween(val, lhs, rhs);
-    ValidateBetween(lhs, val, rhs);
+    ValidateBetween(val, rhs, lhs);
     ValidateBetween(rhs, lhs, val);
+    ValidateBetween(rhs, val, lhs);
   }
 }
-*/
 
 TEST(TestFixedSizeBinaryBetweenKernel, 3Arrays) {
   auto ty1 = fixed_size_binary(3);
