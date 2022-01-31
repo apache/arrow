@@ -1648,9 +1648,9 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
 | list_parent_indices | Unary      | List-like                           | Int64            |                                 | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions`    | \(4)   |
+| map_array_lookup    | Unary      | Map                                 | Computed         | :struct:`MapArrayLookupOptions` | \(4)   |
 +---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| map_array_lookup    | Unary      | MapArray                            | Computed         | :struct:`MapArrayLookupOptions` | \(5)   |
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions`    | \(5)   |
 +---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1664,7 +1664,12 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) Extract a child value based on a sequence of indices passed in
+* \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+  map array whose key match the given query key passed via options.
+  The output type is an Array of items for the ``FIRST``/``LAST`` options
+  and an Array of List of items for the ``ALL`` option.
+
+* \(5) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:
@@ -1686,11 +1691,6 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
-
-* \(5) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
-  map array whose key match the given query key passed via options.
-  The output type is an Array of items for the ``FIRST``/``LAST`` options
-  and an Array of List of items for the ``ALL`` option.
 
 These functions create a copy of the first input with some elements
 replaced, based on the remaining inputs.
