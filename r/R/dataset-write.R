@@ -58,13 +58,13 @@
 #' into many small files. The default is 900 which also allows some # of files to be 
 #' open by the scanner before hitting the default Linux limit of 1024.
 #' @param max_rows_per_file maximum number of rows to be placed in
-#' any single file
+#' any single file. Default is 0L. 
 #' @param min_rows_per_group write the row groups to the disk when this number of 
-#' rows have accumulated.
+#' rows have accumulated. Default is 0L. 
 #' @param max_rows_per_group maximum rows allowed in a single 
 #' group and when this number of rows is exceeded, it is split and the next set 
 #' of rows is written to the next group. This value must be set such that it is 
-#' greater than `min_rows_per_group`.
+#' greater than `min_rows_per_group`. Default is 1024 * 1024. 
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
