@@ -538,7 +538,7 @@ test_that("write_dataset checks for format-specific arguments", {
     write_dataset(df, dst_dir, format = "parquet", nonsensical_arg = "blah-blah"),
     error = TRUE
   )
-)}
+})
 
 get_num_of_files <- function(dir, format) {
     files <-  list.files(dir, pattern = paste(".", format, sep = ""), 

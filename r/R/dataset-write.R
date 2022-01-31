@@ -127,7 +127,7 @@ write_dataset <- function(dataset,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
                           max_open_files = 900L,
-                          max_rows_per_file = NULL,
+                          max_rows_per_file = NA,
                           min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
