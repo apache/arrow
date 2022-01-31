@@ -272,13 +272,28 @@ def test_to_pandas_zero_copy():
 def test_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     import pandas as pd
-    import numpy as np
-
-    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
     data = pa.array([1, 2, 3], pa.int64())
-    result = data.to_pandas(types_mapper=types_mapper)
 
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
     assert result.dtype == types_mapper(data.type)
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
+
+    # Test for the interval extension dtype
+    # -> ignores mapping and uses default conversion
+    types_mapper = {pa.float64(): pd.IntervalDtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
 
 
 @pytest.mark.skipif(
@@ -288,13 +303,29 @@ def test_to_pandas_types_mapper():
 def test_chunked_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     import pandas as pd
-
-    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
     data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
-    result = data.to_pandas(types_mapper=types_mapper)
-
     assert isinstance(data, pa.ChunkedArray)
+
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
     assert result.dtype == types_mapper(data.type)
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
+
+    # Test for the interval extension dtype
+    # -> ignores mapping and uses default conversion
+    types_mapper = {pa.float64(): pd.IntervalDtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == data.type.to_pandas_dtype()
 
 
 @pytest.mark.nopandas
