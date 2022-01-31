@@ -30,8 +30,13 @@ import org.apache.arrow.driver.jdbc.authentication.Authentication;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
+import org.apache.arrow.flight.CallHeaders;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.Location;
+import org.apache.arrow.flight.RequestContext;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -58,6 +63,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private FlightSqlProducer producer;
   private final Authentication authentication;
 
+  private final FlightServerTestRule.MiddlwareCookie.Factory factory = new FlightServerTestRule.MiddlwareCookie.Factory();
+
   private FlightServerTestRule(final Properties properties,
                                final ArrowFlightConnectionConfigImpl config,
                                final BufferAllocator allocator,
@@ -74,7 +81,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
    * Create a {@link FlightServerTestRule} with standard values such as: user, password, localhost.
    *
    * @param producer the producer used to create the FlightServerTestRule.
-   * @return         the FlightServerTestRule.
+   * @return the FlightServerTestRule.
    */
   public static FlightServerTestRule createStandardTestRule(final FlightSqlProducer producer) {
     UserPasswordAuthentication authentication =
@@ -111,6 +118,10 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return this.createDataSource().getConnection();
   }
 
+  public FlightServerTestRule.MiddlwareCookie.Factory getFactory() {
+    return factory;
+  }
+
   @Override
   public Statement apply(Statement base, Description description) {
     return new Statement() {
@@ -120,6 +131,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                  getStartServer(location ->
                      FlightServer.builder(allocator, location, producer)
                          .headerAuthenticator(authentication.authenticate())
+                         .middleware(FlightServerMiddleware.Key.of("KEY"), factory)
                          .build(), 3)) {
           LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
           base.evaluate();
@@ -170,8 +182,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     /**
      * Sets the host for the server rule.
+     *
      * @param host the host value.
-     * @return     the Builder.
+     * @return the Builder.
      */
     public Builder host(final String host) {
       properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(), host);
@@ -180,6 +193,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     /**
      * Sets a random port to be used by the server rule.
+     *
      * @return the Builder.
      */
     public Builder randomPort() {
@@ -190,8 +204,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     /**
      * Sets a specific port to be used by the server rule.
-     * @param port  the port value.
-     * @return      the Builder.
+     *
+     * @param port the port value.
+     * @return the Builder.
      */
     public Builder port(final int port) {
       properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(), port);
@@ -200,8 +215,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     /**
      * Sets the producer that will be used in the server rule.
-     * @param producer  the flight sql producer.
-     * @return          the Builder.
+     *
+     * @param producer the flight sql producer.
+     * @return the Builder.
      */
     public Builder producer(final FlightSqlProducer producer) {
       this.producer = producer;
@@ -212,8 +228,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * Sets the type of the authentication that will be used in the server rules.
      * There are two types of authentication: {@link UserPasswordAuthentication} and
      * {@link TokenAuthentication}.
-     * @param authentication  the type of authentication.
-     * @return                the Builder.
+     *
+     * @param authentication the type of authentication.
+     * @return the Builder.
      */
     public Builder authentication(final Authentication authentication) {
       this.authentication = authentication;
@@ -222,7 +239,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     /**
      * Builds the {@link FlightServerTestRule} using the provided values.
-     * @return  a {@link FlightServerTestRule}.
+     *
+     * @return a {@link FlightServerTestRule}.
      */
     public FlightServerTestRule build() {
       authentication.populateProperties(properties);
@@ -231,4 +249,46 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
           new RootAllocator(Long.MAX_VALUE), producer, authentication);
     }
   }
+
+  static class MiddlwareCookie implements FlightServerMiddleware {
+
+    private final Factory factory;
+
+    public MiddlwareCookie(Factory factory) {
+      this.factory = factory;
+    }
+
+    @Override
+    public void onBeforeSendingHeaders(CallHeaders callHeaders) {
+      callHeaders.insert("Set-Cookie", "k=v");
+    }
+
+    @Override
+    public void onCallCompleted(CallStatus callStatus) {
+
+    }
+
+    @Override
+    public void onCallErrored(Throwable throwable) {
+
+    }
+
+    static class Factory implements FlightServerMiddleware.Factory<MiddlwareCookie> {
+
+      private boolean receivedCookieHeader = false;
+      private String cookie;
+
+      @Override
+      public MiddlwareCookie onCallStarted(CallInfo callInfo, CallHeaders callHeaders, RequestContext requestContext) {
+        cookie = callHeaders.get("Cookie");
+        receivedCookieHeader = null != cookie;
+        return new MiddlwareCookie(this);
+      }
+
+      public String getCookie() {
+        return cookie;
+      }
+    }
+  }
+
 }
