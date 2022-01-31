@@ -34,7 +34,7 @@ Options:
 
 func main() {
 	args, _ := docopt.ParseDoc(usage)
-	rdr, err := file.OpenParquetFile(args["<file>"].(string), false, nil, nil)
+	rdr, err := file.OpenParquetFile(args["<file>"].(string), false)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error opening parquet file: ", err)
 		os.Exit(1)
