@@ -35,11 +35,8 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
-      {% if not use_conda %}
       - name: Install System Dependencies
         run: |
-          # TODO: don't require removing newer llvms
-          sudo apt-get --purge remove -y llvm-9 clang-9
           sudo apt-get update -y
           sudo apt-get install -y \
             autoconf-archive \
@@ -48,13 +45,8 @@ jobs:
             curl \
             flex \
             gtk-doc-tools \
-            jq \
-            libboost-all-dev \
             libgirepository1.0-dev \
-            ninja-build \
-            qemu-user-static \
             wget
-      {% endif %}
 
     {% if target is defined %}
       {% if target == "java" %}
