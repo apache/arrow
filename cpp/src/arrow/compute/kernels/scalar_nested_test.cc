@@ -515,12 +515,12 @@ TEST_F(TestMapArrayLookupKernel, Errors) {
                                    }))};
   auto unsupported_scalar = ScalarFromJSON(struct_(fields), R"([1, "a", [10, 10.0]])");
 
-  MapArrayLookupOptions unsupported(unsupported_scalar);
+  MapArrayLookupOptions unsupported(unsupported_scalar, MapArrayLookupOptions::FIRST);
   MapArrayLookupOptions all(query_key_int16, MapArrayLookupOptions::ALL);
   MapArrayLookupOptions first(query_key_int16, MapArrayLookupOptions::FIRST);
   MapArrayLookupOptions last(query_key_int16, MapArrayLookupOptions::LAST);
-  MapArrayLookupOptions empty_key(nullptr);
-  MapArrayLookupOptions null_key(MakeNullScalar(int32()));
+  MapArrayLookupOptions empty_key(nullptr, MapArrayLookupOptions::FIRST);
+  MapArrayLookupOptions null_key(MakeNullScalar(int32()), MapArrayLookupOptions::FIRST);
 
   for (auto option : {unsupported, all, first, last, empty_key, null_key}) {
     ASSERT_RAISES(TypeError, CallFunction("map_array_lookup", {map_array}, &option));
