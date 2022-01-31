@@ -264,7 +264,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     @Override
     public void onBeforeSendingHeaders(CallHeaders callHeaders) {
-      callHeaders.insert("Set-Cookie", "k=v");
+      if (!factory.receivedCookieHeader) {
+        callHeaders.insert("Set-Cookie", "k=v");
+      }
     }
 
     @Override
