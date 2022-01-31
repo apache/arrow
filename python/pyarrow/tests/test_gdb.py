@@ -228,7 +228,7 @@ def check_heap_repr(gdb, expr, expected):
     Check printing a heap-located value, given its address.
     """
     s = gdb.print_value(f"*{expr}")
-    # GDB may prefix the value with an adress or type specification
+    # GDB may prefix the value with an address or type specification
     if s != expected:
         assert s.endswith(f" {expected}")
 

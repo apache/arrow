@@ -96,7 +96,7 @@ def _ensure_filesystem(
         if use_mmap:
             raise ValueError(
                 "Specifying to use memory mapping not supported for "
-                "filesytem specified as an URI string"
+                "filesystem specified as an URI string"
             )
         return _filesystem_from_str(filesystem)
 

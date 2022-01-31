@@ -639,7 +639,7 @@ class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
 
 
 class HeaderAuthServerMiddleware(ServerMiddleware):
-    """A ServerMiddleware that transports incoming username and passowrd."""
+    """A ServerMiddleware that transports incoming username and password."""
 
     def __init__(self, token):
         self.token = token

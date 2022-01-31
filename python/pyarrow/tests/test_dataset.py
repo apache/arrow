@@ -3130,7 +3130,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     with assert_opens([]):
         fragments[0].split_by_row_group(ds.field("f1") > 15)
 
-    # ensuring metadata of splitted fragment should also not open any file
+    # ensuring metadata of split fragment should also not open any file
     with assert_opens([]):
         rg_fragments = fragments[0].split_by_row_group()
         rg_fragments[0].ensure_complete_metadata()
@@ -4196,7 +4196,7 @@ def test_write_dataset_s3(s3_example_simple):
         table, "mybucket/dataset", filesystem=fs, format="feather",
         partitioning=part
     )
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
@@ -4205,7 +4205,7 @@ def test_write_dataset_s3(s3_example_simple):
     # writing with URI
     uri = uri_template.format("mybucket/dataset2")
     ds.write_dataset(table, uri, format="feather", partitioning=part)
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset2", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
@@ -4216,7 +4216,7 @@ def test_write_dataset_s3(s3_example_simple):
     ds.write_dataset(
         table, "dataset3", filesystem=uri, format="feather", partitioning=part
     )
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()

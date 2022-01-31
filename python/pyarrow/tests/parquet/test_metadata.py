@@ -501,7 +501,7 @@ def test_parquet_metadata_empty_to_dict(tempdir):
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_metadata_exceeds_message_size():
-    # ARROW-13655: Thrift may enable a defaut message size that limits
+    # ARROW-13655: Thrift may enable a default message size that limits
     # the size of Parquet metadata that can be written.
     NCOLS = 1000
     NREPEATS = 4000
