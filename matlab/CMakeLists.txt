@@ -398,14 +398,10 @@ endif()
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
 # Install MATLAB source files.
-if(APPLE)
-  # On macOS, exclude '.DS_Store' files in the source tree from installation.
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
-          DESTINATION ${CMAKE_INSTALL_DIR}
-          PATTERN ".DS_Store" EXCLUDE)
-else()
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/" DESTINATION ${CMAKE_INSTALL_DIR})
-endif()
+# On macOS, exclude '.DS_Store' files in the source tree from installation.
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
+        DESTINATION ${CMAKE_INSTALL_DIR}
+        PATTERN ".DS_Store" EXCLUDE)
 
 # Install arrow_matlab and mexfcn.
 if(WIN32)
