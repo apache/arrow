@@ -494,8 +494,6 @@ import pyarrow.plasma
 }
 
 test_glib() {
-  pushd c_glib
-
   if [ "${USE_CONDA}" -gt 0 ]; then
     conda activate arrow-test
     mamba install -y meson
@@ -507,6 +505,8 @@ test_glib() {
     source venv/bin/activate
     pip install meson
   fi
+
+  pushd c_glib
 
   pip install meson
 
