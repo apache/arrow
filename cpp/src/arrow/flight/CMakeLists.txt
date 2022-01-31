@@ -245,6 +245,19 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_dependencies(arrow_flight flight-test-server)
 endif()
 
+if(ARROW_CUDA AND ARROW_BUILD_TESTS)
+  add_arrow_test(flight_cuda_test
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                 LABELS
+                 "arrow_flight")
+  if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(arrow-flight-cuda-test PUBLIC arrow_cuda_static)
+  else()
+    target_link_libraries(arrow-flight-cuda-test PUBLIC arrow_cuda_shared)
+  endif()
+endif()
+
 if(ARROW_BUILD_BENCHMARKS)
   # Perf server for benchmarks
   set(PERF_PROTO_GENERATED_FILES "${CMAKE_CURRENT_BINARY_DIR}/perf.pb.cc"

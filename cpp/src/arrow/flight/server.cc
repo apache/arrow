@@ -105,8 +105,11 @@ class FlightIpcMessageReader : public ipc::MessageReader {
  public:
   explicit FlightIpcMessageReader(
       std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader,
+      std::shared_ptr<MemoryManager> memory_manager,
       std::shared_ptr<Buffer>* app_metadata)
-      : peekable_reader_(peekable_reader), app_metadata_(app_metadata) {}
+      : peekable_reader_(peekable_reader),
+        memory_manager_(std::move(memory_manager)),
+        app_metadata_(app_metadata) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
     if (stream_finished_) {
@@ -122,12 +125,16 @@ class FlightIpcMessageReader : public ipc::MessageReader {
       }
       return nullptr;
     }
+    if (ARROW_PREDICT_FALSE(!memory_manager_->is_cpu())) {
+      ARROW_ASSIGN_OR_RAISE(data->body, Buffer::ViewOrCopy(data->body, memory_manager_));
+    }
     *app_metadata_ = std::move(data->app_metadata);
     return data->OpenMessage();
   }
 
  protected:
   std::shared_ptr<internal::PeekableFlightDataReader<Reader*>> peekable_reader_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   // A reference to FlightMessageReaderImpl.app_metadata_. That class
   // can't access the app metadata because when it Peek()s the stream,
   // it may be looking at a dictionary batch, not the record
@@ -143,8 +150,10 @@ class FlightMessageReaderImpl : public FlightMessageReader {
  public:
   using GrpcStream = grpc::ServerReaderWriter<WritePayload, pb::FlightData>;
 
-  explicit FlightMessageReaderImpl(GrpcStream* reader)
+  explicit FlightMessageReaderImpl(GrpcStream* reader,
+                                   std::shared_ptr<MemoryManager> memory_manager)
       : reader_(reader),
+        memory_manager_(std::move(memory_manager)),
         peekable_reader_(new internal::PeekableFlightDataReader<GrpcStream*>(reader)) {}
 
   Status Init() {
@@ -208,8 +217,9 @@ class FlightMessageReaderImpl : public FlightMessageReader {
       if (!peekable_reader_->SkipToData()) {
         return Status::IOError("Client never sent a data message");
       }
-      auto message_reader = std::unique_ptr<ipc::MessageReader>(
-          new FlightIpcMessageReader<GrpcStream>(peekable_reader_, &app_metadata_));
+      auto message_reader =
+          std::unique_ptr<ipc::MessageReader>(new FlightIpcMessageReader<GrpcStream>(
+              peekable_reader_, memory_manager_, &app_metadata_));
       ARROW_ASSIGN_OR_RAISE(
           batch_reader_, ipc::RecordBatchStreamReader::Open(std::move(message_reader)));
     }
@@ -218,6 +228,7 @@ class FlightMessageReaderImpl : public FlightMessageReader {
 
   FlightDescriptor descriptor_;
   GrpcStream* reader_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   std::shared_ptr<internal::PeekableFlightDataReader<GrpcStream*>> peekable_reader_;
   std::shared_ptr<RecordBatchReader> batch_reader_;
   std::shared_ptr<Buffer> app_metadata_;
@@ -436,10 +447,14 @@ class FlightServiceImpl : public FlightService::Service {
  public:
   explicit FlightServiceImpl(
       std::shared_ptr<ServerAuthHandler> auth_handler,
+      std::shared_ptr<MemoryManager> memory_manager,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
       FlightServerBase* server)
-      : auth_handler_(auth_handler), middleware_(middleware), server_(server) {}
+      : auth_handler_(auth_handler),
+        memory_manager_(std::move(memory_manager)),
+        middleware_(middleware),
+        server_(server) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
@@ -683,7 +698,7 @@ class FlightServiceImpl : public FlightService::Service {
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoPut, context, flight_context));
 
     auto message_reader = std::unique_ptr<FlightMessageReaderImpl<pb::PutResult>>(
-        new FlightMessageReaderImpl<pb::PutResult>(reader));
+        new FlightMessageReaderImpl<pb::PutResult>(reader, memory_manager_));
     SERVICE_RETURN_NOT_OK(flight_context, message_reader->Init());
     auto metadata_writer =
         std::unique_ptr<FlightMetadataWriter>(new GrpcMetadataWriter(reader));
@@ -698,7 +713,7 @@ class FlightServiceImpl : public FlightService::Service {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoExchange, context, flight_context));
     auto message_reader = std::unique_ptr<FlightMessageReaderImpl<pb::FlightData>>(
-        new FlightMessageReaderImpl<pb::FlightData>(stream));
+        new FlightMessageReaderImpl<pb::FlightData>(stream, memory_manager_));
     SERVICE_RETURN_NOT_OK(flight_context, message_reader->Init());
     auto writer =
         std::unique_ptr<DoExchangeMessageWriter>(new DoExchangeMessageWriter(stream));
@@ -753,6 +768,7 @@ class FlightServiceImpl : public FlightService::Service {
 
  private:
   std::shared_ptr<ServerAuthHandler> auth_handler_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware_;
   FlightServerBase* server_;
@@ -900,6 +916,7 @@ FlightServerOptions::FlightServerOptions(const Location& location_)
       verify_client(false),
       root_certificates(),
       middleware(),
+      memory_manager(CPUDevice::Instance()->default_memory_manager()),
       builder_hook(nullptr) {}
 
 FlightServerOptions::~FlightServerOptions() = default;
@@ -909,8 +926,8 @@ FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 FlightServerBase::~FlightServerBase() {}
 
 Status FlightServerBase::Init(const FlightServerOptions& options) {
-  impl_->service_.reset(
-      new FlightServiceImpl(options.auth_handler, options.middleware, this));
+  impl_->service_.reset(new FlightServiceImpl(
+      options.auth_handler, options.memory_manager, options.middleware, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length

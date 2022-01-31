@@ -47,6 +47,8 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/device.h"
+#include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
@@ -150,13 +152,21 @@ static void ReleaseBuffer(void* buf_ptr) {
 }
 
 // Initialize gRPC Slice from arrow Buffer
-grpc::Slice SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
+arrow::Result<grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
   // Allocate persistent shared_ptr to control Buffer lifetime
-  auto ptr = new std::shared_ptr<Buffer>(buf);
-  grpc::Slice slice(const_cast<uint8_t*>(buf->data()), static_cast<size_t>(buf->size()),
-                    &ReleaseBuffer, ptr);
+  std::shared_ptr<Buffer>* ptr = nullptr;
+  if (ARROW_PREDICT_TRUE(buf->is_cpu())) {
+    ptr = new std::shared_ptr<Buffer>(buf);
+  } else {
+    // Non-CPU buffer, must copy to CPU-accessible buffer first
+    ARROW_ASSIGN_OR_RAISE(auto cpu_buf,
+                          Buffer::ViewOrCopy(buf, default_cpu_memory_manager()));
+    ptr = new std::shared_ptr<Buffer>(cpu_buf);
+  }
+  grpc::Slice slice(const_cast<uint8_t*>((*ptr)->data()),
+                    static_cast<size_t>((*ptr)->size()), &ReleaseBuffer, ptr);
   // Make sure no copy was done (some grpc::Slice() constructors do an implicit memcpy)
-  DCHECK_EQ(slice.begin(), buf->data());
+  DCHECK_EQ(slice.begin(), (*ptr)->data());
   return slice;
 }
 
@@ -272,7 +282,13 @@ grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
         // entries are invalid.
         if (!buffer) continue;
 
-        slices.push_back(SliceFromBuffer(buffer));
+        grpc::Slice slice;
+        auto status = SliceFromBuffer(buffer).Value(&slice);
+        if (ARROW_PREDICT_FALSE(!status.ok())) {
+          // This will likely lead to abort as gRPC cannot recover from an error here
+          return ToGrpcStatus(status);
+        }
+        slices.push_back(std::move(slice));
 
         // Write padding if not multiple of 8
         const auto remainder = static_cast<int>(
