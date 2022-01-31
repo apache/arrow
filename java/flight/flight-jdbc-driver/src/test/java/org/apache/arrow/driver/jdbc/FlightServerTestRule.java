@@ -63,7 +63,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private FlightSqlProducer producer;
   private final Authentication authentication;
 
-  private final FlightServerTestRule.MiddlwareCookie.Factory factory = new FlightServerTestRule.MiddlwareCookie.Factory();
+  private final MiddlewareCookie.Factory factory = new MiddlewareCookie.Factory();
 
   private FlightServerTestRule(final Properties properties,
                                final ArrowFlightConnectionConfigImpl config,
@@ -118,7 +118,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return this.createDataSource().getConnection();
   }
 
-  public FlightServerTestRule.MiddlwareCookie.Factory getFactory() {
+  public MiddlewareCookie.Factory getFactory() {
     return factory;
   }
 
@@ -250,11 +250,15 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
   }
 
-  static class MiddlwareCookie implements FlightServerMiddleware {
+  /**
+   * A middleware to handle with the cookies in the server. It is used to test if cookies are
+   * being sent properly.
+   */
+  static class MiddlewareCookie implements FlightServerMiddleware {
 
     private final Factory factory;
 
-    public MiddlwareCookie(Factory factory) {
+    public MiddlewareCookie(Factory factory) {
       this.factory = factory;
     }
 
@@ -273,16 +277,19 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
 
     }
 
-    static class Factory implements FlightServerMiddleware.Factory<MiddlwareCookie> {
+    /**
+     * A factory for the MiddlewareCookkie.
+     */
+    static class Factory implements FlightServerMiddleware.Factory<MiddlewareCookie> {
 
       private boolean receivedCookieHeader = false;
       private String cookie;
 
       @Override
-      public MiddlwareCookie onCallStarted(CallInfo callInfo, CallHeaders callHeaders, RequestContext requestContext) {
+      public MiddlewareCookie onCallStarted(CallInfo callInfo, CallHeaders callHeaders, RequestContext requestContext) {
         cookie = callHeaders.get("Cookie");
         receivedCookieHeader = null != cookie;
-        return new MiddlwareCookie(this);
+        return new MiddlewareCookie(this);
       }
 
       public String getCookie() {
