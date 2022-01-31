@@ -803,7 +803,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
     case Type::type::TIME32: {
-      TimeUnit::type unit = std::dynamic_pointer_cast<Time32Type>(field.type())->unit();
+      TimeUnit::type unit =
+          internal::checked_pointer_cast<Time32Type>(field.type())->unit();
       using c_type = typename Time32Type::c_type;
       const c_type min_value = 0;
       const c_type max_value =
@@ -814,7 +815,8 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
     case Type::type::TIME64: {
-      TimeUnit::type unit = std::dynamic_pointer_cast<Time64Type>(field.type())->unit();
+      TimeUnit::type unit =
+          internal::checked_pointer_cast<Time64Type>(field.type())->unit();
       using c_type = typename Time64Type::c_type;
       const c_type min_value = 0;
       const c_type max_value = (unit == TimeUnit::MICRO)

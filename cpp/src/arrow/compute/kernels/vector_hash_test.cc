@@ -162,7 +162,7 @@ TYPED_TEST(TestHashKernelPrimitive, Unique) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
-  if (type->name() == "date64") {
+  if (type->id() == Type::DATE64) {
     CheckUnique<Date64Type, int64_t>(
         type, {172800000LL, 86400000LL, 172800000LL, 86400000LL},
         {true, false, true, true}, {172800000LL, 0, 86400000LL}, {1, 0, 1});
@@ -191,7 +191,7 @@ TYPED_TEST(TestHashKernelPrimitive, ValueCounts) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
-  if (type->name() == "date64") {
+  if (type->id() == Type::DATE64) {
     CheckValueCounts<Date64Type, int64_t>(
         type,
         {172800000LL, 86400000LL, 172800000LL, 86400000LL, 172800000LL, 259200000LL,
@@ -225,7 +225,7 @@ TYPED_TEST(TestHashKernelPrimitive, DictEncode) {
   using T = typename TypeParam::c_type;
   auto type = TypeTraits<TypeParam>::type_singleton();
 
-  if (type->name() == "date64") {
+  if (type->id() == Type::DATE64) {
     CheckDictEncode<Date64Type, int64_t>(
         type,
         {172800000LL, 86400000LL, 172800000LL, 86400000LL, 172800000LL, 345600000LL},
@@ -277,7 +277,7 @@ TYPED_TEST(TestHashKernelPrimitive, PrimitiveResizeTable) {
   std::vector<int32_t> indices;
   std::vector<int64_t> counts;
 
-  if (type->name() == "date64") {
+  if (type->id() == Type::DATE64) {
     for (int64_t i = 0; i < kTotalDate64Values * kRepeats; i += kFullDayMillis) {
       const auto val = static_cast<T>(i % kTotalDate64Values);
       values.push_back(val);
