@@ -346,7 +346,7 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
   # names in column_names but not in schema
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("int", "dbl", "lgl", "chr")),
-    "`lgl` and `chr` not present in schema"
+    "`lgl` and `chr` not present in `schema`"
   )
 
   # names in schema but not in column_names
@@ -358,12 +358,12 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
   # mismatches both ways
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
-    "`these`, `wont`, and `match` not present in schema.*`int` and `dbl` not present in `column_names`"
+    "`these`, `wont`, and `match` not present in `schema`.*`int` and `dbl` not present in `column_names`"
   )
 
   # correct names wrong order
   expect_error(
     open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("dbl", "int")),
-    "`column_names` and schema field names match but are not in the same order"
+    "`column_names` and `schema` field names match but are not in the same order"
   )
 })
