@@ -3694,7 +3694,7 @@ class NoOverflowMemoryPool : public MemoryPool {
  private:
   MemoryPool* pool_;
   int64_t padding_;
-  std::unordered_map<uint8_t**, int64_t> buffers_;
+  std::unordered_map<uint8_t*, int64_t> buffers_;
   const uint8_t check_value_ = '\xff';
 };
 
@@ -3704,7 +3704,7 @@ NoOverflowMemoryPool::NoOverflowMemoryPool(MemoryPool* pool, int64_t padding)
 Status NoOverflowMemoryPool::Allocate(int64_t size, uint8_t** out) {
   Status s = pool_->Allocate(size + padding_, out);
   if (s.ok()) {
-    buffers_[out] = size;
+    buffers_[*out] = size;
 
     for (int64_t i = size; i < size + padding_; ++i) {
       (*out)[i] = check_value_;
@@ -3717,7 +3717,7 @@ Status NoOverflowMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
                                         uint8_t** ptr) {
   Status s = pool_->Reallocate(old_size + padding_, new_size + padding_, ptr);
   if (s.ok()) {
-    buffers_[ptr] = new_size;
+    buffers_[*ptr] = new_size;
 
     for (int64_t i = new_size; i < new_size + padding_; ++i) {
       (*ptr)[i] = check_value_;
@@ -3727,7 +3727,7 @@ Status NoOverflowMemoryPool::Reallocate(int64_t old_size, int64_t new_size,
 }
 
 void NoOverflowMemoryPool::Free(uint8_t* buffer, int64_t size) {
-  // DCHECK_EQ(size, buffers_[&buffer]);
+  DCHECK_EQ(size, buffers_[buffer]);
   for (int64_t i = size; i < size + padding_; ++i) {
     DCHECK_EQ(buffer[i], check_value_);
   }
