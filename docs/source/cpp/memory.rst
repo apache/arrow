@@ -204,39 +204,32 @@ simply do::
 
 
 Memory Profiling
-----------------
+================
 
-Using LoggingMemoryPool
-~~~~~~~~~~~~~~~~~~~~~~~
-
-
-Using perf on Linux
-~~~~~~~~~~~~~~~~~~~
-
-On Linux, more detailed profiles can be done using perf. These profiles can show the
+On Linux, detailed profiles of memory allocations can be generated using perf record,
+without any need to modify the binaries. These profiles can show the
 traceback in addition to allocation parameters (like size).
 
 .. TODO: This requires a debug build, right? Or maybe not if symbols in header file
 
-As an example, we can show how to profile one of the unit tests in Arrow. The same principal
-applies to any binary that uses the Arrow libraries.
 
-If you are following along on another platform, you can run the following docker container
-using archery:
+.. note::
+   If you profiling Arrow's tests on another platform, you can run the following docker container
+   using archery:::
 
-::
+      archery docker run ubuntu-cpp bash
+      /arrow/ci/scripts/cpp_build.sh /arrow /build
+      cd build/cpp/debug
+      ./arrow-array-test # Run a test
+      apt-get update
+      apt-get install -y linux-tools-generic
+      alias perf=/usr/lib/linux-tools/<something>/perf
 
-   archery docker run ubuntu-cpp bash
-   /arrow/ci/scripts/cpp_build.sh /arrow /build
-   cd build/cpp/debug
-   ./arrow-array-test # Run a test
-   apt-get update
-   apt-get install -y linux-tools-generic
-   alias perf=/usr/lib/linux-tools/<something>/perf
 
-To track allocations, we can set events on MemoryPool methods. Use ``nm`` to find the
-symbols for the relevant methods. Here, we'll look at the ``Allocate``, ``Free``, and
-``Reallocate`` methods on ``JemallocAllocator``.
+To track allocations, create probe points on each of the jemalloc methods used.
+Collecting ``'$params'`` allows us to record the size of the allocations requested,
+while collecting ``$retval`` allows us to record the address of recorded allocations,
+so we can correlate them with the call to free/dealloc.
 
 :: 
 
@@ -246,8 +239,8 @@ symbols for the relevant methods. Here, we'll look at the ``Allocate``, ``Free``
    perf probe -x libarrow.so je_arrow_rallocx%return '$retval' 
    perf probe -x libarrow.so je_arrow_dallocx '$params' 
 
-
-::
+Then you can record calls with associated tracebacks using ``perf record``. In this 
+example, we are running the StructArray unit tests in Arrow::
    
    perf record -g --call-graph dwarf \
     -e probe_libarrow:je_arrow_mallocx \
@@ -256,6 +249,8 @@ symbols for the relevant methods. Here, we'll look at the ``Allocate``, ``Free``
     -e probe_libarrow:je_arrow_rallocx__return \
     -e probe_libarrow:je_arrow_dallocx \
     ./arrow-array-test --gtest_filter=StructArray*
+
+.. TODO: What are the equivalent probe calls for mimalloc and system allocator?
 
 
 .. code-block:: python
