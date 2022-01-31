@@ -186,7 +186,7 @@ to Arrow list type (which is a "list of" some type).
 | fixed_size_list   | arrow_fixed_size_list ^5^    |
 | struct            | data.frame                   |
 | null              | vctrs::vctrs_unspecified     |
-| map               | arrow_list ^5^                         |
+| map               | arrow_list ^5^               |
 | union             | -^2^                         |
 
 ^1^: These integer types may contain values that exceed the range of R's 
