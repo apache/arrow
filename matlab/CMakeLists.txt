@@ -404,13 +404,9 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
         PATTERN ".DS_Store" EXCLUDE)
 
 # Install arrow_matlab and mexfcn.
-if(WIN32)
-  install(TARGETS arrow_matlab mexfcn RUNTIME DESTINATION ${CMAKE_INSTALL_DIR})
-else()
-  # On Linux install arrow_matlab.so and on macOS install arrow_matlab.dylib
-  # using the LIBRARY keyword.
-  install(TARGETS arrow_matlab mexfcn LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
-endif()
+install(TARGETS arrow_matlab mexfcn
+        RUNTIME DESTINATION ${CMAKE_INSTALL_DIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
 
 get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
