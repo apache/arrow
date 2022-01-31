@@ -1072,6 +1072,18 @@ def test_empty_table():
     assert table.equals(pa.Table.from_arrays([], []))
 
 
+@pytest.mark.pandas
+def test_roundtrip_empty_table_with_intervalrange_index():
+    import pandas as pd
+
+    df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
+    table = pa.table(df)
+    table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
+                                         {'left': 1, 'right': 2},
+                                         {'left': 2, 'right': 3}],
+                                        dtype='object')
+
+
 def test_table_rename_columns():
     data = [
         pa.array(range(5)),
