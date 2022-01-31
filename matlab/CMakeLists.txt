@@ -36,19 +36,17 @@ function(build_arrow)
   set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-prefix")
 
   if(WIN32)
-    # On Windows, the link time suffix (.lib) and runtime library suffixes (.dll) are different.
-    set(ARROW_LINK_SUFFIX ${CMAKE_IMPORT_LIBRARY_SUFFIX})
     # The shared library is located in the "bin" directory.
     set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
+
+    # Imported libraries are used
+    set(ARROW_IMPORT_LIB_FILENAME
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    set(ARROW_IMPORT_LIB "${ARROW_PREFIX}/lib/${ARROW_IMPORT_LIB_FILENAME}")
   else()
-    # On Linux and macOS, the link time suffix and runtime suffixes are consistent, (.so and .dylib).
-    set(ARROW_LINK_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
     # The shared library is located in the "lib" directory.
     set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
   endif()
-
-  set(ARROW_LINK_LIB_FILENAME "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${ARROW_LINK_SUFFIX}")
-  set(ARROW_LINK_LIB "${ARROW_PREFIX}/lib/${ARROW_LINK_LIB_FILENAME}")
 
   set(ARROW_SHARED_LIB_FILENAME
       "${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
@@ -63,7 +61,7 @@ function(build_arrow)
   # executables.
   if(WIN32)
     # On Windows, add the Arrow link library as a BUILD_BYPRODUCTS for arrow_ep.
-    set(ARROW_BUILD_BYPRODUCTS "${ARROW_LINK_LIB}")
+    set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
   else()
     # On Linux and macOS, add the Arrow shared library as a BUILD_BYPRODUCTS for arrow_ep.
     set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
@@ -99,8 +97,10 @@ function(build_arrow)
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${ARROW_INCLUDE_DIR}
                                    IMPORTED_LOCATION ${ARROW_SHARED_LIB})
   if(WIN32)
+    # On Windows, IMPORTED_IMPLIB is set to the location of arrow.lib, which is
+    # for linking arrow_matlab against the Arrow C++ library.
     set_target_properties(${ARROW_LIBRARY_TARGET} PROPERTIES IMPORTED_IMPLIB
-                                                             ${ARROW_LINK_LIB})
+                                                             ${ARROW_IMPORT_LIB})
   endif()
 
   add_dependencies(${ARROW_LIBRARY_TARGET} arrow_ep)
@@ -115,38 +115,36 @@ macro(enable_gtest)
   set(ARROW_GTEST_MAIN_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
 
   if(WIN32)
-    set(ARROW_GTEST_LINK_SUFFIX ${CMAKE_IMPORT_LIBRARY_SUFFIX})
     set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/bin")
-    set(ARROW_GTEST_MAIN_LINK_SUFFIX ${CMAKE_IMPORT_LIBRARY_SUFFIX})
     set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/bin")
+
+    set(ARROW_GTEST_LINK_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
+    set(ARROW_GTEST_LINK_LIB
+        "${ARROW_GTEST_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
+
+    set(ARROW_GTEST_MAIN_LINK_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
+    set(ARROW_GTEST_MAIN_LINK_LIB
+        "${ARROW_GTEST_MAIN_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest_main${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+    )
   else()
-    set(ARROW_GTEST_LINK_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
     set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-    set(ARROW_GTEST_MAIN_LINK_SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
     set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
   endif()
 
   set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_PREFIX}/include")
-  set(ARROW_GTEST_LINK_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-  set(ARROW_GTEST_LINK_LIB
-      "${ARROW_GTEST_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest${ARROW_GTEST_LINK_SUFFIX}"
-  )
   set(ARROW_GTEST_SHARED_LIB
       "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}"
   )
 
   set(ARROW_GTEST_MAIN_INCLUDE_DIR "${ARROW_GTEST_MAIN_PREFIX}/include")
-  set(ARROW_GTEST_MAIN_LINK_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
-  set(ARROW_GTEST_MAIN_LINK_LIB
-      "${ARROW_GTEST_MAIN_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest_main${ARROW_GTEST_MAIN_LINK_SUFFIX}"
-  )
   set(ARROW_GTEST_MAIN_SHARED_LIB
       "${ARROW_GTEST_MAIN_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}"
   )
 
   list(APPEND ARROW_CMAKE_ARGS "-DARROW_BUILD_TESTS=ON")
 
-  # The appropriate libraries need to be guaranteed to be available for linking the test
+  # The appropriate libraries need to be guaranteed to be available when linking the test
   # executables.
   if(WIN32)
     # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
@@ -398,23 +396,22 @@ endif()
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
 # Install MATLAB source files.
-if(APPLE)
-  # On macOS, exclude '.DS_Store' files in the source tree from installation.
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
-          DESTINATION ${CMAKE_INSTALL_DIR}
-          PATTERN ".DS_Store" EXCLUDE)
-else()
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/" DESTINATION ${CMAKE_INSTALL_DIR})
-endif()
+# On macOS, exclude '.DS_Store' files in the source tree from installation.
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
+        DESTINATION ${CMAKE_INSTALL_DIR}
+        PATTERN ".DS_Store" EXCLUDE)
 
-# Install arrow_matlab and mexfcn.
-if(WIN32)
-  install(TARGETS arrow_matlab mexfcn RUNTIME DESTINATION ${CMAKE_INSTALL_DIR})
-else()
-  # On Linux install arrow_matlab.so and on macOS install arrow_matlab.dylib
-  # using the LIBRARY keyword.
-  install(TARGETS arrow_matlab mexfcn LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
-endif()
+# # Install arrow_matlab and mexfcn.
+# if(WIN32)
+#   install(TARGETS arrow_matlab mexfcn RUNTIME DESTINATION ${CMAKE_INSTALL_DIR})
+# else()
+#   # On Linux install arrow_matlab.so and on macOS install arrow_matlab.dylib
+#   # using the LIBRARY keyword.
+#   install(TARGETS arrow_matlab mexfcn LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
+# endif()
+install(TARGETS arrow_matlab mexfcn
+        RUNTIME DESTINATION ${CMAKE_INSTALL_DIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
 
 get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
@@ -450,7 +447,7 @@ if(APPLE)
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
             DESTINATION ${CMAKE_INSTALL_DIR}
             FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\..*dylib"
+            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
             PATTERN "cmake" EXCLUDE
             PATTERN "pkgconfig" EXCLUDE)
 
@@ -486,7 +483,7 @@ if(UNIX
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
             DESTINATION ${CMAKE_INSTALL_DIR}
             FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\.so.*"
+            REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
             PATTERN "cmake" EXCLUDE
             PATTERN "pkgconfig" EXCLUDE)
 
