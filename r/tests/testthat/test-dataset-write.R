@@ -540,8 +540,8 @@ test_that("write_dataset checks for format-specific arguments", {
   )
 )}
 
-get_num_of_files = function(dir, format) {
-    files <-  list.files(dir, pattern = paste('.', format, sep=""), 
+get_num_of_files <- function(dir, format) {
+    files <-  list.files(dir, pattern = paste(".", format, sep = ""), 
     all.files = FALSE, recursive = TRUE, full.names = TRUE)
     length(files)
 }
@@ -554,26 +554,27 @@ test_that("Dataset write max open files", {
   partitioning <- c("c2")
   num_of_unique_c2_groups = 5
 
-  record_batch_1 <- record_batch(c1=c(1, 2, 3, 4, 0, 10),
-                                     c2=c('a', 'b', 'c', 'd', 'e', 'a'))
-  record_batch_2 <- record_batch(c1=c(5, 6, 7, 8, 0, 1),
-                                    c2=c('a', 'b', 'c', 'd', 'e', 'c'))
-  record_batch_3 <- record_batch(c1=c(9, 10, 11, 12, 0, 1),
-                                    c2=c('a', 'b', 'c', 'd', 'e', 'd'))
-  record_batch_4 <- record_batch(c1=c(13, 14, 15, 16, 0, 1),
-                                    c2=c('a', 'b', 'c', 'd', 'e', 'b'))
+  record_batch_1 <- record_batch(c1 = c(1, 2, 3, 4, 0, 10),
+                                     c2 = c("a", "b", "c", "d", "e", "a"))
+  record_batch_2 <- record_batch(c1 = c(5, 6, 7, 8, 0, 1),
+                                    c2 = c("a", "b", "c", "d", "e", "c"))
+  record_batch_3 <- record_batch(c1 = c(9, 10, 11, 12, 0, 1),
+                                    c2 = c("a", "b", "c", "d", "e", "d"))
+  record_batch_4 <- record_batch(c1 = c(13, 14, 15, 16, 0, 1),
+                                    c2 = c("a", "b", "c", "d", "e", "b"))
 
-  table = Table$create(d1=record_batch_1, d2=record_batch_2,
-                                  d3=record_batch_3, d4=record_batch_4)
+  table = Table$create(d1 = record_batch_1, d2 = record_batch_2,
+                                  d3 = record_batch_3, d4 = record_batch_4)
 
-  write_dataset(table, path=dst_dir, format=file_format, partitioning=partitioning)
+  write_dataset(table, path = dst_dir, format = file_format, partitioning = partitioning)
 
   # reduce 1 from the length of list of directories, since it list the search path)
   expect_equal(length(list.dirs(dst_dir)) - 1, num_of_unique_c2_groups)
 
   max_open_files = 3
   dst_dir <- make_temp_dir()
-  write_dataset(table, path=dst_dir, format=file_format, partitioning=partitioning, max_open_files=max_open_files)
+  write_dataset(table, path = dst_dir, format = file_format, partitioning = partitioning,
+   max_open_files = max_open_files)
 
   expect_gt(get_num_of_files(dst_dir, file_format), max_open_files)
 })
@@ -594,7 +595,7 @@ test_that("Dataset write max rows per files", {
   dst_dir <- make_temp_dir()
   file_format <- "parquet"
   
-  write_dataset(table, path=dst_dir, format=file_format, max_rows_per_file=max_rows_per_file, 
+  write_dataset(table, path = dst_dir, format = file_format, max_rows_per_file = max_rows_per_file, 
   max_rows_per_group=max_rows_per_group)
 
   expected_partitions = num_of_records %/% max_rows_per_file + 1
@@ -615,16 +616,16 @@ test_that("Dataset write max rows per files", {
 
 test_that("Dataset min_rows_per_group", {
   skip_if_not_available("parquet")
-  rb1 <- record_batch(c1=c(1, 2, 3, 4),
-                               c2=c('a', 'b', 'e', 'a'))
-  rb2 <- record_batch(c1=c(5, 6, 7, 8, 9),
-                                c2=c('a', 'b', 'c', 'd', 'h'))
-  rb3 <- record_batch(c1=c(9, 10, 11, 12, 0, 1, 100, 200, 300),
-                                c2=c('a', 'b', 'c', 'd', 'e', 'd', 'g', 'h', 'i'))
-  rb4 <- record_batch(c1=c(13, 14, 15, 16, 0, 1),
-                                c2=c('a', 'b', 'c', 'd', 'e', 'b'))
+  rb1 <- record_batch(c1 = c(1, 2, 3, 4),
+                               c2 = c("a", "b", "e", "a"))
+  rb2 <- record_batch(c1 = c(5, 6, 7, 8, 9),
+                                c2 = c("a", "b", "c", "d", "h"))
+  rb3 <- record_batch(c1 = c(9, 10, 11, 12, 0, 1, 100, 200, 300),
+                                c2 = c("a", "b", "c", "d", "e", "d", "g", "h", "i"))
+  rb4 <- record_batch(c1 = c(13, 14, 15, 16, 0, 1),
+                                c2 = c("a", "b", "c", "d", "e", "b"))
 
-  dataset = Table$create(d1=rb1, d2=rb2, d3=rb3, d4=rb4)
+  dataset = Table$create(d1 = rb1, d2 = rb2, d3 = rb3, d4 = rb4)
 
   dst_dir <- make_temp_dir()
   min_rows_per_group = 4
@@ -665,7 +666,7 @@ test_that("Dataset write max rows per group", {
   dst_dir <- make_temp_dir()
   file_format <- "parquet"
 
-  write_dataset(table, path=dst_dir, format=file_format, max_rows_per_group=max_rows_per_group)
+  write_dataset(table, path = dst_dir, format = file_format, max_rows_per_group = max_rows_per_group)
 
   written_files = list.files(dst_dir)
   record_combination = list()

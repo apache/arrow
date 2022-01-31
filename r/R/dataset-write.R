@@ -51,15 +51,20 @@
 #' @param max_partitions maximum number of partitions any batch may be
 #' written into. Default is 1024L.
 #' @param max_open_files maximum number of files that can be left opened
-#' during a write operation. Default is 900L.
-#' @param max_rows_per_file maximum limit how many rows are placed in 
+#' during a write operation. If greater than 0 then this will limit the 
+#' maximum number of files that can be left open. If an attempt is made to open 
+#' too many files then the least recently used file will be closed.  
+#' If this setting is set too low you may end up fragmenting your data
+#' into many small files. The default is 900 which also allows some # of files to be 
+#' open by the scanner before hitting the default Linux limit of 1024.
+#' @param max_rows_per_file maximum number of rows to be placed in
 #' any single file
-#' @param min_rows_per_group write the row groups to the disk when sufficient 
+#' @param min_rows_per_group write the row groups to the disk when this number of 
 #' rows have accumulated.
-#' @param max_rows_per_group maximum number of row groups allowed in a single 
-#' group and when the rows execeeds, it is splitted and excess is written to 
-#' another group. This value must be set such that it is greater than 
-#' min_rows_per_group. 
+#' @param max_rows_per_group maximum rows allowed in a single 
+#' group and when this number of rows is exceeded, it is split and the next set 
+#' of rows is written to the next group. This value must be set such that it is 
+#' greater than `min_rows_per_group`.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -122,8 +127,8 @@ write_dataset <- function(dataset,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
                           max_open_files = 900L,
-                          max_rows_per_file = 0L,
-                          min_rows_per_group = 0L, 
+                          max_rows_per_file = NULL,
+                          min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
@@ -161,7 +166,7 @@ write_dataset <- function(dataset,
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template, scanner,
     existing_data_behavior, max_partitions,
-    max_open_files, max_rows_per_file, 
+    max_open_files, max_rows_per_file,
     min_rows_per_group, max_rows_per_group
   )
 }
