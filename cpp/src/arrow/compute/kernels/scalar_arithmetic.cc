@@ -1636,6 +1636,23 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
       });
 }
 
+Result<ValueDescr> ResolveTemporalOutput(KernelContext*,
+                                         const std::vector<ValueDescr>& args) {
+  auto left_type = checked_cast<const TimestampType*>(args[0].type.get());
+  auto right_type = checked_cast<const TimestampType*>(args[1].type.get());
+  DCHECK_EQ(left_type->id(), right_type->id());
+
+  if ((left_type->timezone() == "" || right_type->timezone() == "") &&
+      left_type->timezone() != right_type->timezone()) {
+    RETURN_NOT_OK(
+        Status::Invalid("Subtraction of zoned and non-zoned times is ambiguous. (",
+                        left_type->timezone(), right_type->timezone(), ")."));
+  }
+
+  auto type = duration(std::max(left_type->unit(), right_type->unit()));
+  return ValueDescr(std::move(type), GetBroadcastShape(args));
+}
+
 template <typename Op>
 void AddDecimalUnaryKernels(ScalarFunction* func) {
   OutputType out_type(FirstType);
@@ -2451,7 +2468,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
-    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+    DCHECK_OK(subtract->AddKernel({in_type, in_type},
+                                  OutputType::Resolver(ResolveTemporalOutput),
+                                  std::move(exec)));
   }
 
   // Add subtract(timestamp, duration) -> timestamp
@@ -2486,8 +2505,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
         ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
-    DCHECK_OK(
-        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+    DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
+                                          OutputType::Resolver(ResolveTemporalOutput),
+                                          std::move(exec)));
   }
 
   // Add subtract_checked(timestamp, duration) -> timestamp
