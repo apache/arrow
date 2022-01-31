@@ -54,11 +54,10 @@ jobs:
         with:
           ruby-version: 3.1
 
-      - name: Setup Maven Action
-        uses: s4u/setup-maven-action@v1.3.1
+      - uses: actions/setup-java@v2
         with:
-          java-version: 8
-          maven-version: 3.5.4
+          distribution: 'temurin'
+          java-version: '11'
 
       - uses: actions/setup-node@v2
         with:
