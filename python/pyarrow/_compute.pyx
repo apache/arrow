@@ -1356,7 +1356,7 @@ cdef class _MapArrayLookupOptions(FunctionOptions):
 class MapArrayLookupOptions(_MapArrayLookupOptions):
     """
     Options for the `map_array_lookup` function.
-    
+
     Parameters
     ----------
     query_key : Scalar

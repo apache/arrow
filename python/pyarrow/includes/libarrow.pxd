@@ -2148,10 +2148,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         shared_ptr[CScalar] value
 
     cdef enum CMapArrayLookupOccurrence \
-                "arrow::compute::MapArrayLookupOptions::Occurrence":
-            CMapArrayLookupOccurrence_ALL "arrow::compute::MapArrayLookupOptions::ALL"
-            CMapArrayLookupOccurrence_FIRST "arrow::compute::MapArrayLookupOptions::FIRST"
-            CMapArrayLookupOccurrence_LAST "arrow::compute::MapArrayLookupOptions::LAST"
+            "arrow::compute::MapArrayLookupOptions::Occurrence":
+        CMapArrayLookupOccurrence_ALL "arrow::compute::MapArrayLookupOptions::ALL"
+        CMapArrayLookupOccurrence_FIRST "arrow::compute::MapArrayLookupOptions::FIRST"
+        CMapArrayLookupOccurrence_LAST "arrow::compute::MapArrayLookupOptions::LAST"
 
     cdef cppclass CMapArrayLookupOptions \
             "arrow::compute::MapArrayLookupOptions"(CFunctionOptions):
