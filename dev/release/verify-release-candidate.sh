@@ -295,7 +295,6 @@ test_and_install_cpp() {
       --file ci/conda_env_cpp.txt \
       --file ci/conda_env_gandiva.txt \
       --file ci/conda_env_unix.txt \
-      compilers \
       ncurses \
       numpy \
       sqlite
@@ -458,7 +457,6 @@ test_python() {
   # Check mandatory and optional imports
   python -c "
 import pyarrow
-import pyarrow._gcs
 import pyarrow._hdfs
 import pyarrow._s3fs
 import pyarrow.csv
