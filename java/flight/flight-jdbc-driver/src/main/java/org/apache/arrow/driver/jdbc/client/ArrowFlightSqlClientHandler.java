@@ -38,6 +38,7 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.client.ClientCookieMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
@@ -515,7 +516,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
         }
-        final FlightClient client = clientBuilder.build();
+        ClientCookieMiddleware.Factory factory = new ClientCookieMiddleware.Factory();
+        final FlightClient client = clientBuilder.intercept(factory).build();
         if (authFactory != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
