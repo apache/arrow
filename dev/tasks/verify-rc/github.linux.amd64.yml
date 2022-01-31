@@ -42,31 +42,25 @@ jobs:
             autoconf-archive \
             binfmt-support \
             bison \
+            build-essential \
             curl \
             flex \
             gtk-doc-tools \
             libgirepository1.0-dev \
             wget
 
-    {% if target is defined %}
-      {% if target == "java" %}
-      - name: Install Maven
-        run: |
-          MAVEN_VERSION=3.6.3
-          wget https://downloads.apache.org/maven/maven-3/$MAVEN_VERSION/binaries/apache-maven-$MAVEN_VERSION-bin.zip
-          unzip apache-maven-$MAVEN_VERSION-bin.zip
-          mkdir -p $HOME/java
-          mv apache-maven-$MAVEN_VERSION $HOME/java
-          export PATH=$HOME/java/apache-maven-$MAVEN_VERSION/bin:$PATH
-      {% elif target == "ruby" %}
-      - name: Install Bundler
-        run: |
-          ruby --version
-          sudo gem install bundler
-      {% endif %}
-    {% endif %}
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.1
 
-      - uses: actions/setup-node@v2-beta
+      - name: Setup Maven Action
+        uses: s4u/setup-maven-action@v1
+        with:
+          java-version: 8
+          maven-version: 3.5.4
+
+      - uses: actions/setup-node@v2
         with:
           node-version: '16'
 
