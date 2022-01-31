@@ -23,6 +23,7 @@
 #include "arrow/result.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bitmap_generate.h"
+#include "arrow/array/builder_nested.h"
 
 namespace arrow {
 namespace compute {
@@ -464,7 +465,7 @@ struct MapArrayLookupFunctor {
                                     FoundItem callback) {
     const auto query_key = UnboxScalar<KeyType>::Unbox(query_key_scalar);
     int64_t index = 0;
-    ARROW_UNUSED(VisitArrayValuesInline<KeyType>(
+    Status status = VisitArrayValuesInline<KeyType>(
         *keys.data(),
         [&](decltype(query_key) key) -> Status {
           if (key == query_key) {
@@ -476,7 +477,10 @@ struct MapArrayLookupFunctor {
         [&]() -> Status {
           ++index;
           return Status::OK();
-        }));
+        });
+    if (!status.ok() && !status.IsCancelled()) {
+      return status;
+    }
     return Status::OK();
   }
 
@@ -490,11 +494,13 @@ struct MapArrayLookupFunctor {
     if (occurrence == MapArrayLookupOptions::Occurrence::ALL) {
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
                                 list(map_array.map_type()->item_type()), &builder));
+      auto list_builder = checked_cast<ListBuilder*>(builder.get());
+      auto value_builder = list_builder->value_builder();
 
       for (int64_t map_array_idx = 0; map_array_idx < map_array.length();
            ++map_array_idx) {
         if (!map_array.IsValid(map_array_idx)) {
-          RETURN_NOT_OK(builder->AppendNull());
+          RETURN_NOT_OK(list_builder->AppendNull());
           continue;
         }
 
@@ -502,26 +508,23 @@ struct MapArrayLookupFunctor {
         auto keys = checked_cast<const StructArray&>(*map).field(0);
         auto items = checked_cast<const StructArray&>(*map).field(1);
         bool found_at_least_one_key = false;
-        std::unique_ptr<ArrayBuilder> list_builder;
-        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(),
-                                  &list_builder));
-
-        RETURN_NOT_OK(BuildItemsArray(*keys, *items, *query_key, &found_at_least_one_key,
-                                      list_builder.get()));
+        RETURN_NOT_OK(
+            FindMatchingIndices(*keys, *query_key, [&](int64_t index) -> Status {
+              if (!found_at_least_one_key) RETURN_NOT_OK(list_builder->Append(true));
+              found_at_least_one_key = true;
+              RETURN_NOT_OK(value_builder->AppendArraySlice(*items->data(), index, 1));
+              return Status::OK();
+            }));
         if (!found_at_least_one_key) {
-          RETURN_NOT_OK(builder->AppendNull());
-        } else {
-          ARROW_ASSIGN_OR_RAISE(auto list_result, list_builder->Finish());
-          RETURN_NOT_OK(builder->AppendScalar(ListScalar(list_result)));
+          RETURN_NOT_OK(list_builder->AppendNull());
         }
-        list_builder->Reset();
       }
-      ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+      ARROW_ASSIGN_OR_RAISE(auto result, list_builder->Finish());
       out->value = result->data();
     } else { /* occurrence == FIRST || LAST */
       RETURN_NOT_OK(
           MakeBuilder(ctx->memory_pool(), map_array.map_type()->item_type(), &builder));
-
+      RETURN_NOT_OK(builder->Reserve(batch.length));
       for (int64_t map_array_idx = 0; map_array_idx < map_array.length();
            ++map_array_idx) {
         if (!map_array.IsValid(map_array_idx)) {
