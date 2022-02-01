@@ -179,15 +179,15 @@ struct CastStruct {
 
       DCHECK(!out_scalar->is_valid);
       if (in_scalar.is_valid) {
-	for (int64_t i = 0; i < in_field_count; i++) {
-	  auto values = in_scalar.value[i];
-	  auto target_type = out->type()->field(i)->type();
-	  ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-				Cast(values, target_type, options, ctx->exec_context()));
-	  DCHECK_EQ(Datum::SCALAR, cast_values.kind());
-	  out_scalar->value.push_back(cast_values.scalar());
-	}
-	out_scalar->is_valid = true;	
+        for (int64_t i = 0; i < in_field_count; i++) {
+          auto values = in_scalar.value[i];
+          auto target_type = out->type()->field(i)->type();
+          ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                                Cast(values, target_type, options, ctx->exec_context()));
+          DCHECK_EQ(Datum::SCALAR, cast_values.kind());
+          out_scalar->value.push_back(cast_values.scalar());
+        }
+        out_scalar->is_valid = true;
       }
       return Status::OK();
     }
