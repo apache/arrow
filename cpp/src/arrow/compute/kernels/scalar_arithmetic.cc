@@ -1513,7 +1513,6 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
     case Type::UINT32:
       return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
     case Type::INT64:
-    case Type::DURATION:
     case Type::TIMESTAMP:
       return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
     case Type::UINT64:
@@ -2474,13 +2473,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                   std::move(exec)));
   }
 
-  // Add subtract(duration, duration) -> duration
-  for (auto unit : TimeUnit::values()) {
-    InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
-    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
-  }
-
   // Add subtract(timestamp, duration) -> timestamp
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
@@ -2530,15 +2522,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
                                           OutputType::Resolver(ResolveTemporalOutput),
                                           std::move(exec)));
-  }
-
-  // Add subtract_checked(duration, duration) -> duration
-  for (auto unit : TimeUnit::values()) {
-    InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
-    DCHECK_OK(
-        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   // Add subtract_checked(timestamp, duration) -> timestamp
