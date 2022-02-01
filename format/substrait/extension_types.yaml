@@ -90,10 +90,6 @@ type_variations:
     name: u32
     description: an unsigned 32 bit integer
     functions: SEPARATE
-  - parent: i32
-    name: u32
-    description: an unsigned 32 bit integer
-    functions: SEPARATE
   - parent: i64
     name: u64
     description: an unsigned 64 bit integer
