@@ -255,7 +255,9 @@ Arrow::
      -e probe_libarrow:je_arrow_dallocx \
      ./arrow-array-test --gtest_filter=StructArray*
 
-.. TODO: Example call on already running process
+If you want to profile a running process, you can run ``perf record -p <PID>``
+and it will record until you interrupt with CTRL+C. Alternatively, you can do
+``perf record -P <PID> sleep 10`` to record for 10 seconds.
 
 The resulting data can be processed with standard tools to work with perf or 
 ``perf script`` can be used to pipe a text format of the data to custom scripts.
