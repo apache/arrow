@@ -259,7 +259,7 @@ setup_conda() {
 
   if [ ! -d "${MINICONDA}" ]; then
     # Setup miniconda only if the directory doesn't exist yet
-    wget -q -O miniconda.sh $MINICONDA_URL
+    curl -sL -o miniconda.sh $MINICONDA_URL
     bash miniconda.sh -b -p $MINICONDA
     rm -f miniconda.sh
   fi
@@ -403,11 +403,11 @@ test_csharp() {
     esac
     local dotnet_download_thank_you_url=https://dotnet.microsoft.com/download/thank-you/dotnet-sdk-${dotnet_version}-${dotnet_platform}-x64-binaries
     local dotnet_download_url=$( \
-      curl --location ${dotnet_download_thank_you_url} | \
+      curl -sL ${dotnet_download_thank_you_url} | \
         grep 'window\.open' | \
         grep -E -o '[^"]+' | \
         sed -n 2p)
-    curl ${dotnet_download_url} | \
+    curl -sL ${dotnet_download_url} | \
       tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
   fi
@@ -556,7 +556,7 @@ test_js() {
   if [ "${INSTALL_NODE}" -gt 0 ]; then
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
+    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
@@ -615,7 +615,7 @@ test_go() {
   fi
 
   local GO_ARCHIVE=go$VERSION.$OS-$ARCH.tar.gz
-  wget https://dl.google.com/go/$GO_ARCHIVE
+  curl -sLO https://dl.google.com/go/$GO_ARCHIVE
 
   mkdir -p local-go
   tar -xzf $GO_ARCHIVE -C local-go
