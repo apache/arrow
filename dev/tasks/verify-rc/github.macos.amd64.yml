@@ -44,6 +44,11 @@ jobs:
           brew bundle --file=arrow/c_glib/Brewfile
       {% endif %}
 
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
       - uses: actions/setup-node@v2-beta
         with:
           node-version: '16'
