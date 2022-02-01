@@ -84,6 +84,7 @@ detect_cuda() {
 if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
+: ${ARROW_S3:=OFF}
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
@@ -345,7 +346,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_PARQUET=ON
 -DARROW_PLASMA=ON
 -DARROW_PYTHON=ON
--DARROW_S3=ON
+-DARROW_S3=${ARROW_S3}
 -DARROW_VERBOSE_THIRDPARTY_BUILD=ON
 -DARROW_WITH_BROTLI=ON
 -DARROW_WITH_BZ2=ON
@@ -456,7 +457,9 @@ test_python() {
   export PYARROW_WITH_ORC=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
-  export PYARROW_WITH_S3=1
+  if [ "${ARROW_S3}" = "ON" ]; then
+    export PYARROW_WITH_S3=1
+  fi
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1
   fi
@@ -476,7 +479,6 @@ test_python() {
   python -c "
 import pyarrow
 import pyarrow._hdfs
-import pyarrow._s3fs
 import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.fs
@@ -485,6 +487,9 @@ import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 "
+  if [ "${PYARROW_WITH_S3}" == "ON" ]; then
+    python -c "import pyarrow._s3fs"
+  fi
   if [ "${PYARROW_WITH_CUDA}" == "ON" ]; then
     python -c "import pyarrow.cuda"
   fi
