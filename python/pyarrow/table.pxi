@@ -1831,6 +1831,22 @@ cdef class Table(_PandasConvertible):
                 raise TypeError(type(item))
 
         result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
+
+        # In case of an empty dataframe with RangeIndex -> create an empty Table with
+        # number of rows equal to Index length
+        if arrays == [] and schema is not None:
+            try:
+                kind = schema.pandas_metadata["index_columns"][0]["kind"]
+                if kind =="range":
+                    start = schema.pandas_metadata["index_columns"][0]["start"]
+                    stop = schema.pandas_metadata["index_columns"][0]["stop"]
+                    step = schema.pandas_metadata["index_columns"][0]["step"]
+                    n_rows = (stop - start - 1)//step + 1
+                    result = pyarrow_wrap_table(
+                        CTable.MakeWithRows(c_schema, columns, n_rows))
+            except IndexError:
+                pass
+
         result.validate()
         return result
 
