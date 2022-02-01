@@ -159,8 +159,7 @@ struct CastStruct {
         checked_cast<const StructType&>(*out->type()).num_fields();
 
     if (in_field_count != out_field_count) {
-      ARROW_RETURN_NOT_OK(
-          Status(StatusCode::TypeError, "struct field sizes do not match"));
+      return Status(StatusCode::TypeError, "struct field sizes do not match");
     }
 
     for (int64_t i = 0; i < in_field_count; ++i) {
