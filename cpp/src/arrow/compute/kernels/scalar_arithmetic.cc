@@ -42,6 +42,7 @@ using internal::SubtractWithOverflow;
 namespace compute {
 namespace internal {
 
+using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
 using applicator::ScalarBinaryNotNullEqualTypes;
 using applicator::ScalarUnary;
@@ -180,7 +181,6 @@ struct Subtract {
   template <typename T, typename Arg0, typename Arg1>
   static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
                                                           Arg1 right, Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return arrow::internal::SafeSignedSubtract(left, right);
   }
 
@@ -194,7 +194,6 @@ struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
       *st = Status::Invalid("overflow");
@@ -1693,7 +1692,9 @@ struct ArithmeticFunction : ScalarFunction {
     if (values->size() == 2) {
       ReplaceNullWithOtherType(values);
 
-      if (auto type = CommonNumeric(*values)) {
+      if (auto type = CommonTemporalResolution(values->data(), values->size())) {
+        ReplaceTemporalTypes(type, values);
+      } else if (auto type = CommonNumeric(*values)) {
         ReplaceTypes(type, values);
       }
     }
@@ -2428,12 +2429,30 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
+  // Add subtract(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<TimestampType, DurationType, TimestampType, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                  std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
   auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
       "subtract_checked", &sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
+
+  // Add subtract(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec =
+        ScalarBinary<TimestampType, DurationType, TimestampType, SubtractChecked>::Exec;
+    DCHECK_OK(subtract_checked->AddKernel({in_type, duration(unit)},
+                                          OutputType(FirstType), std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------

@@ -35,6 +35,26 @@
 
 namespace arrow {
 
+/// \defgroup numeric-builders Concrete builder subclasses for numeric types
+/// @{
+/// @}
+
+/// \defgroup temporal-builders Concrete builder subclasses for temporal types
+/// @{
+/// @}
+
+/// \defgroup binary-builders Concrete builder subclasses for binary types
+/// @{
+/// @}
+
+/// \defgroup nested-builders Concrete builder subclasses for nested types
+/// @{
+/// @}
+
+/// \defgroup dictionary-builders Concrete builder subclasses for dictionary types
+/// @{
+/// @}
+
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
 

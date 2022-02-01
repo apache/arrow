@@ -33,6 +33,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-builders
+///
+/// @{
+
 /// \brief Base class for union array builds.
 ///
 /// Note that while we subclass ArrayBuilder, as union types do not have a
@@ -238,5 +242,7 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   Status AppendArraySlice(const ArrayData& array, int64_t offset,
                           int64_t length) override;
 };
+
+/// @}
 
 }  // namespace arrow

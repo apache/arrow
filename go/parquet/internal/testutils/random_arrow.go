@@ -159,14 +159,14 @@ func RandomNonNull(dt arrow.DataType, size int) arrow.Array {
 			bldr.Append(buf)
 		}
 		return bldr.NewArray()
-	// case arrow.DECIMAL:
-	// 	dectype := dt.(*arrow.Decimal128Type)
-	// 	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
-	// 	defer bldr.Release()
+	case arrow.DECIMAL:
+		dectype := dt.(*arrow.Decimal128Type)
+		bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
+		defer bldr.Release()
 
-	// 	data := RandomDecimals(int64(size), 0, dectype.Precision)
-	// 	bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), nil)
-	// 	return bldr.NewArray()
+		data := RandomDecimals(int64(size), 0, dectype.Precision)
+		bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), nil)
+		return bldr.NewArray()
 	case arrow.BOOL:
 		bldr := array.NewBooleanBuilder(memory.DefaultAllocator)
 		defer bldr.Release()
@@ -451,22 +451,22 @@ func RandomNullable(dt arrow.DataType, size int, numNulls int) arrow.Array {
 			bldr.Append(buf)
 		}
 		return bldr.NewArray()
-	// case arrow.DECIMAL:
-	// 	dectype := dt.(*arrow.Decimal128Type)
-	// 	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
-	// 	defer bldr.Release()
+	case arrow.DECIMAL:
+		dectype := dt.(*arrow.Decimal128Type)
+		bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
+		defer bldr.Release()
 
-	// 	valid := make([]bool, size)
-	// 	for idx := range valid {
-	// 		valid[idx] = true
-	// 	}
-	// 	for i := 0; i < numNulls; i++ {
-	// 		valid[i*2] = false
-	// 	}
+		valid := make([]bool, size)
+		for idx := range valid {
+			valid[idx] = true
+		}
+		for i := 0; i < numNulls; i++ {
+			valid[i*2] = false
+		}
 
-	// 	data := RandomDecimals(int64(size), 0, dectype.Precision)
-	// 	bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), valid)
-	// 	return bldr.NewArray()
+		data := RandomDecimals(int64(size), 0, dectype.Precision)
+		bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), valid)
+		return bldr.NewArray()
 	case arrow.BOOL:
 		bldr := array.NewBooleanBuilder(memory.DefaultAllocator)
 		defer bldr.Release()

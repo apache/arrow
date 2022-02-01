@@ -39,3 +39,4 @@ User Guide
    json
    dataset
    flight
+   gdb

@@ -540,7 +540,8 @@ if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set_urls(ORC_SOURCE_URL
-           "https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://downloads.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
            "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   )
 endif()
@@ -705,7 +706,8 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
     -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
-    -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY})
+    -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
   set(EP_LOG_OPTIONS
@@ -3547,6 +3549,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
+  if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
+    # ARROW-15495: Protobuf/gRPC must come from the same source
+    message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
+    set(gRPC_SOURCE "${Protobuf_SOURCE}")
+  endif()
   resolve_dependency(gRPC
                      HAVE_ALT
                      TRUE
@@ -3589,7 +3596,6 @@ macro(build_crc32c_once)
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCMAKE_CXX_STANDARD=11
         -DCRC32C_BUILD_TESTS=OFF
         -DCRC32C_BUILD_BENCHMARKS=OFF
         -DCRC32C_USE_GLOG=OFF)
@@ -3625,11 +3631,8 @@ macro(build_nlohmann_json_once)
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
     set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        -DCMAKE_CXX_STANDARD=11
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DBUILD_TESTING=OFF
-        -DJSON_BuildTests=OFF)
+        ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        -DBUILD_TESTING=OFF -DJSON_BuildTests=OFF)
 
     set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 

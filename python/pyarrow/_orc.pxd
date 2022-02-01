@@ -67,9 +67,9 @@ cdef extern from "arrow/adapters/orc/options.h" \
         _WriterVersion_MAX" arrow::adapters::orc::WriterVersion::kMax"
 
     cdef cppclass FileVersion" arrow::adapters::orc::FileVersion":
-        FileVersion(uint32_t major, uint32_t minor)
-        uint32_t major()
-        uint32_t minor()
+        FileVersion(uint32_t major_version, uint32_t minor_version)
+        uint32_t major_version()
+        uint32_t minor_version()
         c_string ToString()
 
     cdef struct WriteOptions" arrow::adapters::orc::WriteOptions":

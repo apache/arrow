@@ -976,6 +976,134 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
+  std::string op = "subtract";
+  std::string milliseconds_between_time_and_date =
+      "[31535941000, -31706603000, 2674840000, -2604800000, 82495000,"
+      "-180610000, -11715000, -15620000, -19525000, -23430000, -27335000,"
+      "-31240000, -35145000, -86400000, -26352000000, 5180277000, null]";
+  std::string microseconds_between_time_and_date =
+      "[31535941000000, -31706603000000, 2674840000000, -2604800000000, 82495000000,"
+      "-180610000000, -11715000000, -15620000000, -19525000000, -23430000000, "
+      "-27335000000, -31240000000, -35145000000, -86400000000, -26352000000000, "
+      "5180277000000, null]";
+  auto dates32 = ArrayFromJSON(date32(), date32s2);
+  auto dates64 = ArrayFromJSON(date64(), date64s2);
+
+  auto durations_ms =
+      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time_and_date);
+  auto timestamps_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+  CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
+  CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+
+  auto durations_us =
+      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time_and_date);
+  auto timestamps_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+  CheckScalarBinary(op, dates32, durations_us, timestamps_us);
+  CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDurationChecked) {
+  std::string op = "subtract_checked";
+  std::string milliseconds_between_time_and_date =
+      "[31535941000, -31706603000, 2674840000, -2604800000, 82495000,"
+      "-180610000, -11715000, -15620000, -19525000, -23430000, -27335000,"
+      "-31240000, -35145000, -86400000, -26352000000, 5180277000, null]";
+  std::string microseconds_between_time_and_date =
+      "[31535941000000, -31706603000000, 2674840000000, -2604800000000, 82495000000,"
+      "-180610000000, -11715000000, -15620000000, -19525000000, -23430000000, "
+      "-27335000000, -31240000000, -35145000000, -86400000000, -26352000000000, "
+      "5180277000000, null]";
+  auto dates32 = ArrayFromJSON(date32(), date32s2);
+  auto dates64 = ArrayFromJSON(date64(), date64s2);
+
+  auto durations_ms =
+      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time_and_date);
+  auto timestamps_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+  CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
+  CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+
+  auto durations_us =
+      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time_and_date);
+  auto timestamps_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+  CheckScalarBinary(op, dates32, durations_us, timestamps_us);
+  CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestampAndDuration) {
+  std::string op = "subtract";
+  for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+    auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+    auto duration_unit_s = duration(TimeUnit::SECOND);
+    auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+    auto duration_unit_ms = duration(TimeUnit::MILLI);
+    auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+    auto duration_unit_us = duration(TimeUnit::MICRO);
+    auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+    auto duration_unit_ns = duration(TimeUnit::NANO);
+
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_s, seconds_between),
+                      ArrayFromJSON(timestamp_unit_s, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_ms, milliseconds_between),
+                      ArrayFromJSON(timestamp_unit_ms, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_us, microseconds_between),
+                      ArrayFromJSON(timestamp_unit_us, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                      ArrayFromJSON(timestamp_unit_ns, times_seconds_precision));
+  }
+
+  auto seconds_3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([3, null])");
+  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+  auto milliseconds_1k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([1000, null])");
+  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+
+  auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
+  auto milliseconds_1k_tz =
+      ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
+  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractCheckedTimestampAndDuration) {
+  std::string op = "subtract_checked";
+  for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+    auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+    auto duration_unit_s = duration(TimeUnit::SECOND);
+    auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+    auto duration_unit_ms = duration(TimeUnit::MILLI);
+    auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+    auto duration_unit_us = duration(TimeUnit::MICRO);
+    auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+    auto duration_unit_ns = duration(TimeUnit::NANO);
+
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_s, seconds_between),
+                      ArrayFromJSON(timestamp_unit_s, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_ms, milliseconds_between),
+                      ArrayFromJSON(timestamp_unit_ms, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_us, microseconds_between),
+                      ArrayFromJSON(timestamp_unit_us, times_seconds_precision));
+    CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2),
+                      ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                      ArrayFromJSON(timestamp_unit_ns, times_seconds_precision));
+  }
+
+  auto seconds_3 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([3, null])");
+  auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+  auto milliseconds_1k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([1000, null])");
+  CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+
+  auto seconds_3_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([3, null])");
+  auto milliseconds_1k_tz =
+      ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([1000, null])");
+  CheckScalarBinary(op, seconds_3_tz, milliseconds_2k, milliseconds_1k_tz);
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
   auto raw_days = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([
     "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",

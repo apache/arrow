@@ -25,6 +25,7 @@ import io
 import itertools
 import os
 import pickle
+import select
 import shutil
 import signal
 import string
@@ -1373,43 +1374,68 @@ class BaseCSVTableRead(BaseTestCSV):
             pytest.skip("test only works from main Python thread")
         # Skips test if not available
         raise_signal = util.get_raise_signal()
-
-        # Make the interruptible workload large enough to not finish
-        # before the interrupt comes, even in release mode on fast machines.
-        last_duration = 0.0
-        workload_size = 100_000
-
-        while last_duration < 1.0:
-            print("workload size:", workload_size)
-            large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
-            t1 = time.time()
-            self.read_bytes(large_csv)
-            last_duration = time.time() - t1
-            workload_size = workload_size * 3
+        signum = signal.SIGINT
 
         def signal_from_thread():
+            # Give our workload a chance to start up
             time.sleep(0.2)
-            raise_signal(signal.SIGINT)
+            raise_signal(signum)
 
-        t1 = time.time()
-        try:
+        # We start with a small CSV reading workload and increase its size
+        # until it's large enough to get an interruption during it, even in
+        # release mode on fast machines.
+        last_duration = 0.0
+        workload_size = 100_000
+        attempts = 0
+
+        while last_duration < 5.0 and attempts < 10:
+            print("workload size:", workload_size)
+            large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
+            exc_info = None
+
             try:
-                t = threading.Thread(target=signal_from_thread)
-                with pytest.raises(KeyboardInterrupt) as exc_info:
-                    t.start()
-                    self.read_bytes(large_csv)
-            finally:
-                t.join()
-        except KeyboardInterrupt:
-            # In case KeyboardInterrupt didn't interrupt `self.read_bytes`
-            # above, at least prevent it from stopping the test suite
-            pytest.fail("KeyboardInterrupt didn't interrupt CSV reading")
-        dt = time.time() - t1
+                # We use a signal fd to reliably ensure that the signal
+                # has been delivered to Python, regardless of how exactly
+                # it was caught.
+                with util.signal_wakeup_fd() as sigfd:
+                    try:
+                        t = threading.Thread(target=signal_from_thread)
+                        t.start()
+                        t1 = time.time()
+                        try:
+                            self.read_bytes(large_csv)
+                        except KeyboardInterrupt as e:
+                            exc_info = e
+                            last_duration = time.time() - t1
+                    finally:
+                        # Wait for signal to arrive if it didn't already,
+                        # to avoid getting a KeyboardInterrupt after the
+                        # `except` block below.
+                        select.select([sigfd], [], [sigfd], 10.0)
+
+            except KeyboardInterrupt:
+                # KeyboardInterrupt didn't interrupt `read_bytes` above.
+                pass
+
+            if exc_info is not None:
+                # We managed to get `self.read_bytes` interrupted, see if it
+                # was actually interrupted inside Arrow C++ or in the Python
+                # scaffolding.
+                if exc_info.__context__ is not None:
+                    # Interrupted inside Arrow C++, we're satisfied now
+                    break
+
+            # Increase workload size to get a better chance
+            workload_size = workload_size * 3
+
+        if exc_info is None:
+            pytest.fail("Failed to get an interruption during CSV reading")
+
         # Interruption should have arrived timely
-        assert dt <= 1.0
-        e = exc_info.value.__context__
+        assert last_duration <= 1.0
+        e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
-        assert e.signum == signal.SIGINT
+        assert e.signum == signum
 
     def test_cancellation_disabled(self):
         # ARROW-12622: reader would segfault when the cancelling signal

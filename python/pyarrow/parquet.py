@@ -219,7 +219,7 @@ class ParquetFile:
     coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-        and therefore INT96 timestamps will be infered as timestamps
+        and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds.
     """
 
@@ -1343,7 +1343,7 @@ pre_buffer : bool, default True
 coerce_int96_timestamp_unit : str, default None.
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
-    timestamps will be infered as timestamps in nanoseconds.
+    timestamps will be inferred as timestamps in nanoseconds.
 """.format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
@@ -1933,7 +1933,7 @@ pre_buffer : bool, default True
 coerce_int96_timestamp_unit : str, default None.
     Cast timestamps that are stored in INT96 format to a particular
     resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-    and therefore INT96 timestamps will be infered as timestamps
+    and therefore INT96 timestamps will be inferred as timestamps
     in nanoseconds.
 
 Returns

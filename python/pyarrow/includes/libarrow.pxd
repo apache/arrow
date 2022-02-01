@@ -69,6 +69,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string git_id
         c_string git_description
         c_string package_kind
+        c_string build_type
 
     const CBuildInfo& GetBuildInfo()
 
@@ -1437,6 +1438,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         shared_ptr[CCodec] codec
         c_bool use_threads
         c_bool emit_dictionary_deltas
+        c_bool unify_dictionaries
 
         @staticmethod
         CIpcWriteOptions Defaults()

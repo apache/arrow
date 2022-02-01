@@ -684,3 +684,30 @@ test_that("leap_year mirror lubridate", {
   )
 
 })
+
+test_that("am/pm mirror lubridate", {
+
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        am = am(test_time),
+        pm = pm(test_time)
+      ) %>%
+      collect(),
+    data.frame(
+      test_time = strptime(
+        x = c(
+          "2022-01-25 11:50:59",
+          "2022-01-25 12:00:00",
+          "2022-01-25 00:00:00"
+        ),
+        format = "%Y-%m-%d %H:%M:%S"
+      )
+
+    )
+  )
+
+})

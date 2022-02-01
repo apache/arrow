@@ -3390,7 +3390,7 @@ def test_array_uses_memory_pool():
     arr = pa.array(np.arange(N, dtype=np.int64),
                    mask=np.random.randint(0, 2, size=N).astype(np.bool_))
 
-    # In the case the gc is caught loafing
+    # In the case the gc is caught loading
     gc.collect()
 
     prior_allocation = pa.total_allocated_bytes()

@@ -165,7 +165,7 @@ def _break_traceback_cycle_from_frame(frame):
         # somewhere along the chain of execution frames).
         frame.clear()
         # To visit the inner frame, we need to find it among the
-        # referers of this frame (while `frame.f_back` would let
+        # referrers of this frame (while `frame.f_back` would let
         # us visit the outer frame).
         refs = gc.get_referrers(frame)
     refs = frame = this_frame = None

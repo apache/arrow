@@ -119,6 +119,14 @@ class ARROW_EXPORT DictionaryMemoTable {
   std::unique_ptr<DictionaryMemoTableImpl> impl_;
 };
 
+}  // namespace internal
+
+/// \addtogroup dictionary-builders
+///
+/// @{
+
+namespace internal {
+
 /// \brief Array builder for created encoded DictionaryArray from
 /// dense array
 ///
@@ -708,5 +716,7 @@ using BinaryDictionaryBuilder = DictionaryBuilder<BinaryType>;
 using StringDictionaryBuilder = DictionaryBuilder<StringType>;
 using BinaryDictionary32Builder = Dictionary32Builder<BinaryType>;
 using StringDictionary32Builder = Dictionary32Builder<StringType>;
+
+/// @}
 
 }  // namespace arrow

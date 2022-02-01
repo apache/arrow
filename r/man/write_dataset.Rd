@@ -57,13 +57,13 @@ partitions which data is not written to.
 written into. Default is 1024L.}
 
 \item{...}{additional format-specific arguments. For available Parquet
-options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are
+options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
 \itemize{
 \item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
 versions 0.14 and lower can read it. Default is \code{FALSE}. You can also
 enable this by setting the environment variable \code{ARROW_PRE_0_15_IPC_FORMAT=1}.
 \item \code{metadata_version}: A string like "V5" or the equivalent integer indicating
-the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+the Arrow IPC MetadataVersion. Default (\code{NULL}) will use the latest version,
 unless the environment variable \code{ARROW_PRE_1_0_METADATA_VERSION=1}, in
 which case it will be V4.
 \item \code{codec}: A \link{Codec} which will be used to compress body buffers of written

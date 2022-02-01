@@ -344,7 +344,8 @@ Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferFrom(
   if (from->is_cpu()) {
     // CPU-to-device copy
     ARROW_ASSIGN_OR_RAISE(auto to_context, cuda_device()->GetContext());
-    ARROW_ASSIGN_OR_RAISE(auto dest, to_context->Allocate(buf->size()));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> dest,
+                          to_context->Allocate(buf->size()));
     RETURN_NOT_OK(
         to_context->CopyHostToDevice(dest->address(), buf->data(), buf->size()));
     return dest;
@@ -355,7 +356,8 @@ Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferFrom(
     ARROW_ASSIGN_OR_RAISE(
         auto from_context,
         checked_cast<const CudaMemoryManager&>(*from).cuda_device()->GetContext());
-    ARROW_ASSIGN_OR_RAISE(auto dest, to_context->Allocate(buf->size()));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> dest,
+                          to_context->Allocate(buf->size()));
     if (to_context->handle() == from_context->handle()) {
       // Same context
       RETURN_NOT_OK(

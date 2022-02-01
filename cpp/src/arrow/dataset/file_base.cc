@@ -337,9 +337,10 @@ class DatasetWritingSinkNodeConsumer : public compute::SinkNodeConsumer {
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
   const io::IOContext& io_context = scanner->options()->io_context;
+  auto cpu_executor =
+      scanner->options()->use_threads ? ::arrow::internal::GetCpuThreadPool() : nullptr;
   std::shared_ptr<compute::ExecContext> exec_context =
-      std::make_shared<compute::ExecContext>(io_context.pool(),
-                                             ::arrow::internal::GetCpuThreadPool());
+      std::make_shared<compute::ExecContext>(io_context.pool(), cpu_executor);
 
   ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make(exec_context.get()));
 

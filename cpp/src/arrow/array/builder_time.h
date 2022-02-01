@@ -26,6 +26,10 @@
 
 namespace arrow {
 
+/// \addtogroup temporal-builders
+///
+/// @{
+
 // TODO(ARROW-7938): this class is untested
 
 class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeIntervalType> {
@@ -52,5 +56,7 @@ class ARROW_EXPORT MonthDayNanoIntervalBuilder
                                        MemoryPool* pool = default_memory_pool())
       : NumericBuilder<MonthDayNanoIntervalType>(type, pool) {}
 };
+
+/// @}
 
 }  // namespace arrow

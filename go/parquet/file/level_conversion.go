@@ -19,6 +19,7 @@ package file
 import (
 	"math"
 	"math/bits"
+	"unsafe"
 
 	"github.com/apache/arrow/go/v7/parquet"
 	"github.com/apache/arrow/go/v7/parquet/internal/bmi"
@@ -136,28 +137,37 @@ type ValidityBitmapInputOutput struct {
 }
 
 // create a bitmap out of the definition Levels and return the number of non-null values
-func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) uint64 {
-	definedBitmap := bmi.GreaterThanBitmap(defLevels, info.DefLevel-1)
+func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) (count uint64) {
+	const maxbatch = 8 * int(unsafe.Sizeof(uint64(0)))
 
-	if hasRepeatedParent {
-		// Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
-		// repeated_ancestor_def_level
-		presentBitmap := bmi.GreaterThanBitmap(defLevels, info.RepeatedAncestorDefLevel-1)
-		selectedBits := bmi.ExtractBits(definedBitmap, presentBitmap)
-		selectedCount := int64(bits.OnesCount64(presentBitmap))
-		if selectedCount > remainingUpperBound {
-			panic("values read exceeded upper bound")
-		}
-		wr.AppendWord(selectedBits, selectedCount)
-		return uint64(bits.OnesCount64(selectedBits))
-	}
-
-	if int64(len(defLevels)) > remainingUpperBound {
+	if !hasRepeatedParent && int64(len(defLevels)) > remainingUpperBound {
 		panic("values read exceed upper bound")
 	}
 
-	wr.AppendWord(definedBitmap, int64(len(defLevels)))
-	return uint64(bits.OnesCount64(definedBitmap))
+	var batch []int16
+	for len(defLevels) > 0 {
+		batchSize := utils.MinInt(maxbatch, len(defLevels))
+		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
+		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
+
+		if hasRepeatedParent {
+			// Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
+			// repeated_ancestor_def_level
+			presentBitmap := bmi.GreaterThanBitmap(batch, info.RepeatedAncestorDefLevel-1)
+			selectedBits := bmi.ExtractBits(definedBitmap, presentBitmap)
+			selectedCount := int64(bits.OnesCount64(presentBitmap))
+			if selectedCount > remainingUpperBound {
+				panic("values read exceeded upper bound")
+			}
+			wr.AppendWord(selectedBits, selectedCount)
+			count += uint64(bits.OnesCount64(selectedBits))
+			continue
+		}
+
+		wr.AppendWord(definedBitmap, int64(len(batch)))
+		count += uint64(bits.OnesCount64(definedBitmap))
+	}
+	return
 }
 
 // create a bitmap out of the definition Levels

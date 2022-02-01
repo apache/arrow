@@ -98,7 +98,7 @@ uint8_t ReverseUint8(uint8_t num) {
 // part of a left block and right block, length indicates the number of bits
 // to be taken from the right block
 uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length) {
-  return ReverseUint8(block_left >> (length) | block_right << (8 - length));
+  return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
 template <TransferMode mode>

@@ -33,7 +33,6 @@ These functions are recommended for creating data types.  They may return
 new objects or existing singletons, depending on the type requested.
 
 .. doxygengroup:: type-factories
-   :project: arrow_cpp
    :content-only:
 
 Concrete type subclasses
@@ -92,11 +91,21 @@ Fields and Schemas
 ==================
 
 .. doxygengroup:: schema-factories
-   :project: arrow_cpp
    :content-only:
 
 .. doxygenclass:: arrow::Field
    :members:
 
 .. doxygenclass:: arrow::Schema
+   :members:
+
+.. doxygenclass:: arrow::KeyValueMetadata
+
+Helpers for looking up fields
+-----------------------------
+
+.. doxygenclass:: arrow::FieldPath
+   :members:
+
+.. doxygenclass:: arrow::FieldRef
    :members:

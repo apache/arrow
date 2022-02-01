@@ -1418,6 +1418,180 @@ class TestArrayBuilder < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("MonthIntervalArrayBuilder") do
+    def create_builder
+      Arrow::MonthIntervalArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::MonthIntervalDataType.new
+    end
+
+    def builder_class_name
+      "month-interval-array-builder"
+    end
+
+    def sample_values
+      [
+        0,
+        1,
+        12,
+      ]
+    end
+
+    def empty_value
+      0
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("DayTimeIntervalArrayBuilder") do
+    def create_builder
+      Arrow::DayTimeIntervalArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::DayTimeIntervalDataType.new
+    end
+
+    def builder_class_name
+      "day-time-interval-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::DayMillisecond.new(1, 100),
+        Arrow::DayMillisecond.new(3, 100),
+        Arrow::DayMillisecond.new(5, 100),
+      ]
+    end
+
+    def empty_value
+      Arrow::DayMillisecond.new(0, 0)
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("MonthDayNanoIntervalArrayBuilder") do
+    def create_builder
+      Arrow::MonthDayNanoIntervalArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::MonthDayNanoIntervalDataType.new
+    end
+
+    def builder_class_name
+      "month-day-nano-interval-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::MonthDayNano.new(1, 10, 100),
+        Arrow::MonthDayNano.new(3, 30, 100),
+        Arrow::MonthDayNano.new(5, 30, 100),
+      ]
+    end
+
+    def empty_value
+      Arrow::MonthDayNano.new(0, 0, 0)
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
   sub_test_case("BinaryArrayBuilder") do
     def create_builder
       Arrow::BinaryArrayBuilder.new
