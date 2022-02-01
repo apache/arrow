@@ -707,7 +707,7 @@ write_csv_arrow <- function(x,
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x) | inherits(x, "FileSystemDataset"))
+  assert_that(is_writable_table(x) || inherits(x, "FileSystemDataset"))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
