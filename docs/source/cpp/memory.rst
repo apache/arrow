@@ -206,16 +206,14 @@ simply do::
 Memory Profiling
 ================
 
-On Linux, detailed profiles of memory allocations can be generated using perf record,
-without any need to modify the binaries. These profiles can show the
-traceback in addition to allocation parameters (like size).
-
-.. TODO: This requires a debug build, right? Or maybe not if symbols in header file
-
+On Linux, detailed profiles of memory allocations can be generated using 
+``perf record``, without any need to modify the binaries. These profiles can
+show the traceback in addition to allocation size. This does require debug
+symbols, from either a debug build or a release with debug symbols build.
 
 .. note::
-   If you profiling Arrow's tests on another platform, you can run the following docker container
-   using archery:::
+   If you profiling Arrow's tests on another platform, you can run the following
+   docker container using archery to access a Linux environment:::
 
       archery docker run ubuntu-cpp bash
       /arrow/ci/scripts/cpp_build.sh /arrow /build
@@ -223,13 +221,13 @@ traceback in addition to allocation parameters (like size).
       ./arrow-array-test # Run a test
       apt-get update
       apt-get install -y linux-tools-generic
-      alias perf=/usr/lib/linux-tools/<something>/perf
+      alias perf=/usr/lib/linux-tools/<version-path>/perf
 
 
 To track allocations, create probe points on each of the jemalloc methods used.
-Collecting ``'$params'`` allows us to record the size of the allocations requested,
-while collecting ``$retval`` allows us to record the address of recorded allocations,
-so we can correlate them with the call to free/dealloc.
+Collecting ``$params`` allows us to record the size of the allocations
+requested, while collecting ``$retval`` allows us to record the address of
+recorded allocations, so we can correlate them with the call to free/deallocate.
 
 :: 
 
@@ -239,21 +237,33 @@ so we can correlate them with the call to free/dealloc.
    perf probe -x libarrow.so je_arrow_rallocx%return '$retval' 
    perf probe -x libarrow.so je_arrow_dallocx '$params' 
 
-Then you can record calls with associated tracebacks using ``perf record``. In this 
-example, we are running the StructArray unit tests in Arrow::
+.. note::
+   These commands and the following script are for the jemalloc memory pool.
+   To find the equivalent probe calls for mimalloc or your platform's system
+   allocator, reference the methods used in
+   `cpp/src/arrow/memory_pool.cc <https://github.com/apache/arrow/blob/master/cpp/src/arrow/memory_pool.cc>`_.
+
+Once probes have been set, you can record calls with associated tracebacks using
+``perf record``. In this example, we are running the StructArray unit tests in
+Arrow::
    
    perf record -g --call-graph dwarf \
-    -e probe_libarrow:je_arrow_mallocx \
-    -e probe_libarrow:je_arrow_mallocx__return \
-    -e probe_libarrow:je_arrow_rallocx \
-    -e probe_libarrow:je_arrow_rallocx__return \
-    -e probe_libarrow:je_arrow_dallocx \
-    ./arrow-array-test --gtest_filter=StructArray*
+     -e probe_libarrow:je_arrow_mallocx \
+     -e probe_libarrow:je_arrow_mallocx__return \
+     -e probe_libarrow:je_arrow_rallocx \
+     -e probe_libarrow:je_arrow_rallocx__return \
+     -e probe_libarrow:je_arrow_dallocx \
+     ./arrow-array-test --gtest_filter=StructArray*
 
-.. TODO: What are the equivalent probe calls for mimalloc and system allocator?
+.. TODO: Example call on already running process
 
+The resulting data can be processed with standard tools to work with perf or 
+``perf script`` can be used to pipe a text format of the data to custom scripts.
+The following script parses ``perf script`` output and prints the output in 
+new lines delimited JSON for easier processing.
 
 .. code-block:: python
+   :caption: process_perf_events.py
 
    import sys
    import re
@@ -305,7 +315,7 @@ example, we are running the StructArray unit tests in Arrow::
            current['params'] = params
 
 
-Running the above script gives us JSON lines file with all the events parsed::
+Here's an example invocation of that script, with a preview of output data::
 
    > perf script | python3 /arrow/process_perf_events.py > processed_events.jsonl
    > head head processed_events.jsonl | cut -c -120
@@ -321,11 +331,12 @@ Running the above script gives us JSON lines file with all the events parsed::
    {"time": 14814.95482, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a0c0"}, "traceba
 
 
-From there one can answer a number of questions. For example, the following script will
-find which allocations were never freed, and print the associated tracebacks along with
-the count of dangling allocations:
+From there one can answer a number of questions. For example, the following
+script will find which allocations were never freed, and print the associated 
+tracebacks along with the count of dangling allocations:
 
 .. code-block:: python
+   :caption: count_tracebacks.py
 
    '''Find tracebacks of allocations with no corresponding free'''
    import sys
@@ -357,6 +368,8 @@ the count of dangling allocations:
        print("Num of dangling allocations:", count)
        print(traceback)
 
+
+The script can be invoked like so:
 
 ::
 
@@ -451,11 +464,3 @@ the count of dangling allocations:
        7f4a99d6b21b main+0x42 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
        7f4a998820b2 __libc_start_main+0xf2 (/usr/lib/x86_64-linux-gnu/libc-2.31.so)
        564fb424850d _start+0x2d (/build/cpp/debug/arrow-array-test)
-
-
-Some other resources with tracing:
-
-https://www.maartenbreddels.com/perf/jupyter/python/tracing/gil/2021/01/14/Tracing-the-Python-GIL.html
-https://jvns.ca/linux-tracing-zine.pdf
-https://jvns.ca/perf-zine.pdf
-https://www.brendangregg.com/blog/2015-06-28/linux-ftrace-uprobe.html
