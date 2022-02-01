@@ -501,7 +501,7 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
 
       auto basic_data = MakeBasicBatches();
 
-      TableSinkNodeOptions options{&out, basic_data.schema, finish};
+      TableSinkNodeOptions options{&out, basic_data.schema};
 
       ASSERT_OK_AND_ASSIGN(
           auto source, MakeExecNode("source", plan.get(), {},
@@ -516,10 +516,6 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
                            TableFromExecBatches(basic_data.schema, basic_data.batches));
       ASSERT_EQ(5, out->num_rows());
       AssertTablesEqual(*actual, *out);
-      // Consumer isn't finished and so plan shouldn't have finished
-      AssertNotFinished(plan->finished());
-      // Mark consumption complete, plan should finish
-      finish.MarkFinished();
       ASSERT_FINISHES_OK(plan->finished());
     }
   }

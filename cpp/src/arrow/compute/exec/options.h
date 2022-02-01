@@ -282,8 +282,8 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 
 /// \brief Adapt an Table as a sink node
 ///
-/// plan->exec_context()->executor() will be used to parallelize pushing to
-/// outputs, if provided.
+/// obtains the output of a execution plan to 
+/// a table pointer. 
 class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
  public:
   TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
