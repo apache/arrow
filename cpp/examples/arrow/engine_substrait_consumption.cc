@@ -37,8 +37,6 @@ namespace cp = ::arrow::compute;
     }                                              \
   } while (0);
 
-arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer();
-
 class IgnoringConsumer : public cp::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
@@ -63,66 +61,6 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
  private:
   size_t tag_;
 };
-
-int main(int argc, char** argv) {
-  // Plans arrive at the consumer serialized in a substrait-formatted Buffer
-  auto maybe_serialized_plan = GetSubstraitFromServer().result();
-  ABORT_ON_FAILURE(maybe_serialized_plan.status());
-  std::shared_ptr<arrow::Buffer> serialized_plan =
-      std::move(maybe_serialized_plan).ValueOrDie();
-
-  // Print the received plan to stdout as JSON
-  arrow::Result<std::string> maybe_plan_json =
-      eng::internal::SubstraitToJSON("Plan", *serialized_plan);
-  ABORT_ON_FAILURE(maybe_plan_json.status());
-  std::cout << std::string('#', 50) << " received substrait::Plan:" << std::endl;
-  std::cout << maybe_plan_json.ValueOrDie() << std::endl;
-
-  // Deserializing a plan requires a factory for consumers: each time a sink node is
-  // deserialized, a consumer is constructed into which its batches will be piped.
-  std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
-  std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
-    // All batches produced by the plan will be fed into IgnoringConsumers:
-    auto tag = consumers.size();
-    consumers.emplace_back(new IgnoringConsumer{tag});
-    return consumers.back();
-  };
-
-  // NOTE Although most of the Deserialize functions require a const ExtensionSet& to
-  // resolve extension references, a Plan is what we use to construct that ExtensionSet.
-  // (It should be an optional output later.) In particular, it does not need to be kept
-  // alive nor does the serialized plan- none of the arrow:: objects in the output will
-  // contain references to memory owned by either.
-  auto maybe_decls = eng::DeserializePlan(*serialized_plan, consumer_factory);
-  ABORT_ON_FAILURE(maybe_decls.status());
-  std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
-
-  // It's safe to drop the serialized plan; we don't leave references to its memory
-  serialized_plan.reset();
-
-  // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  auto maybe_plan = cp::ExecPlan::Make();
-  ABORT_ON_FAILURE(maybe_plan.status());
-  std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
-
-  for (const cp::Declaration& decl : decls) {
-    // Add decl to plan (note: configure ExecNode registry here)
-    ABORT_ON_FAILURE(decl.AddToPlan(plan.get()).status());
-  }
-
-  // Validate the plan and print it to stdout
-  ABORT_ON_FAILURE(plan->Validate());
-  std::cout << std::string('#', 50) << " produced arrow::ExecPlan:" << std::endl;
-  std::cout << plan->ToString() << std::endl;
-
-  // Start the plan...
-  std::cout << std::string('#', 50) << " consuming batches:" << std::endl;
-  ABORT_ON_FAILURE(plan->StartProducing());
-
-  // ... and wait for it to finish
-  ABORT_ON_FAILURE(plan->finished().status());
-  return EXIT_SUCCESS;
-}
 
 arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
   // Emulate server interaction by parsing hard coded JSON
@@ -184,4 +122,64 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
       }}
     ]
   })");
+}
+
+int main(int argc, char** argv) {
+  // Plans arrive at the consumer serialized in a substrait-formatted Buffer
+  auto maybe_serialized_plan = GetSubstraitFromServer().result();
+  ABORT_ON_FAILURE(maybe_serialized_plan.status());
+  std::shared_ptr<arrow::Buffer> serialized_plan =
+      std::move(maybe_serialized_plan).ValueOrDie();
+
+  // Print the received plan to stdout as JSON
+  arrow::Result<std::string> maybe_plan_json =
+      eng::internal::SubstraitToJSON("Plan", *serialized_plan);
+  ABORT_ON_FAILURE(maybe_plan_json.status());
+  std::cout << std::string('#', 50) << " received substrait::Plan:" << std::endl;
+  std::cout << maybe_plan_json.ValueOrDie() << std::endl;
+
+  // Deserializing a plan requires a factory for consumers: each time a sink node is
+  // deserialized, a consumer is constructed into which its batches will be piped.
+  std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
+  std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
+    // All batches produced by the plan will be fed into IgnoringConsumers:
+    auto tag = consumers.size();
+    consumers.emplace_back(new IgnoringConsumer{tag});
+    return consumers.back();
+  };
+
+  // NOTE Although most of the Deserialize functions require a const ExtensionSet& to
+  // resolve extension references, a Plan is what we use to construct that ExtensionSet.
+  // (It should be an optional output later.) In particular, it does not need to be kept
+  // alive nor does the serialized plan- none of the arrow:: objects in the output will
+  // contain references to memory owned by either.
+  auto maybe_decls = eng::DeserializePlan(*serialized_plan, consumer_factory);
+  ABORT_ON_FAILURE(maybe_decls.status());
+  std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
+
+  // It's safe to drop the serialized plan; we don't leave references to its memory
+  serialized_plan.reset();
+
+  // Construct an empty plan (note: configure Function registry and ThreadPool here)
+  auto maybe_plan = cp::ExecPlan::Make();
+  ABORT_ON_FAILURE(maybe_plan.status());
+  std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
+
+  for (const cp::Declaration& decl : decls) {
+    // Add decl to plan (note: configure ExecNode registry here)
+    ABORT_ON_FAILURE(decl.AddToPlan(plan.get()).status());
+  }
+
+  // Validate the plan and print it to stdout
+  ABORT_ON_FAILURE(plan->Validate());
+  std::cout << std::string('#', 50) << " produced arrow::ExecPlan:" << std::endl;
+  std::cout << plan->ToString() << std::endl;
+
+  // Start the plan...
+  std::cout << std::string('#', 50) << " consuming batches:" << std::endl;
+  ABORT_ON_FAILURE(plan->StartProducing());
+
+  // ... and wait for it to finish
+  ABORT_ON_FAILURE(plan->finished().status());
+  return EXIT_SUCCESS;
 }
