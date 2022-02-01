@@ -272,15 +272,28 @@ setup_conda() {
   conda deactivate
 }
 
+# setup_conda_env() {}
+# setup_virtual_env() {}
+
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
 
 test_package_java() {
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda activate base
+    mamba install -y -n arrow-test maven
+    conda activate arrow-test
+  fi
+
   pushd java
 
   mvn test
   mvn package
 
   popd
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    conda deactivate
+  fi
 }
 
 # Build and test C++
@@ -297,7 +310,8 @@ test_and_install_cpp() {
       --file ci/conda_env_unix.txt \
       ncurses \
       numpy \
-      sqlite
+      sqlite \
+      compilers
     conda activate arrow-test
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
@@ -343,8 +357,7 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE}
 "
   cmake $ARROW_CMAKE_OPTIONS ..
-
-  make -j$NPROC install
+  cmake --build . --target install
 
   # TODO: ARROW-5036: plasma-serialization_tests broken
   # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
@@ -662,7 +675,9 @@ test_integration() {
 ensure_source_directory() {
   dist_name="apache-arrow-${VERSION}"
   if [ "${SOURCE_KIND}" = "git" ]; then
-    git clone --recurse-submodules ${SOURCE_REPOSITORY:-"${SOURCE_DIR}/../.."} arrow
+    if [ ! -d "arrow" ]; then
+      git clone --recurse-submodules ${SOURCE_REPOSITORY:-"${SOURCE_DIR}/../.."} arrow
+    fi
     pushd arrow
     git checkout ${VERSION}
   else

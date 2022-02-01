@@ -111,6 +111,7 @@ x-hierarchy:
         - conda-python-kartothek
         - conda-python-spark
         - conda-python-turbodbc
+  - conda-verify-rc-source
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -157,6 +158,8 @@ x-hierarchy:
   - python-wheel-windows-test
 
 volumes:
+  almalinux-ccache:
+    name: ${ARCH}-almalinux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
   debian-ccache:
@@ -1702,6 +1705,22 @@ services:
 
   ################################# Source Verification #####################################
 
+  conda-verify-rc-source:
+    image: ubuntu:${UBUNTU}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
+    shm_size: '1gb'
+    environment:
+      <<: *ccache
+      USE_CONDA: 1
+      DEBIAN_FRONTEND: "noninteractive"
+      ARROW_CMAKE_OPTIONS: "-DARROW_USE_CCACHE=ON -G Ninja"
+    command: >
+      /bin/bash -c "
+        apt update -y && apt install -y wget git tzdata &&
+        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION:-HEAD} $${VERIFY_RC}"
+
   almalinux-verify-rc-source:
     # Usage:
     #   docker-compose build almalinux-verify-rc-source
@@ -1711,11 +1730,15 @@ services:
     image: almalinux:${ALMALINUX}
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
     shm_size: '1gb'
+    environment:
+      <<: *ccache
+      ARROW_CMAKE_OPTIONS: "-DARROW_USE_CCACHE=ON"
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-rhel-rebuilds.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION:-HEAD} $${VERIFY_RC}"
 
   ubuntu-verify-rc-source:
     # Usage:
@@ -1726,8 +1749,13 @@ services:
     image: ubuntu:${UBUNTU}
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     shm_size: '1gb'
+    environment:
+      <<: *ccache
+      DEBIAN_FRONTEND: "noninteractive"
+      ARROW_CMAKE_OPTIONS: "-DARROW_USE_CCACHE=ON"
     command: >
       /bin/bash -c "
-        DEBIAN_FRONTEND=noninteractive /arrow/dev/release/setup-ubuntu.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/setup-ubuntu.sh &&
+        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION:-HEAD} $${VERIFY_RC}"

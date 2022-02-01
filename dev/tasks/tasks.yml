@@ -826,11 +826,10 @@ tasks:
 {% for target in ["cpp", "integration", "python"] %}
   verify-rc-source-{{ target }}-linux-conda-amd64:
     ci: github
-    template: verify-rc/github.linux.amd64.yml
+    template: verify-rc/github.linux.amd64.docker.yml
     params:
       target: {{ target }}
-      artifact: source
-      use_conda: True
+      distro: conda
 {% endfor %}
 
 {% for distribution, version in [("almalinux", "8"),
