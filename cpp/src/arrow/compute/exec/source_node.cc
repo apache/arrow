@@ -196,7 +196,7 @@ struct TableSourceNode : public SourceNode {
   const char* kind_name() const override { return "TableSourceNode"; }
 
   static arrow::Status ValidateTableSourceNodeInpute(const std::shared_ptr<Table> table,
-                                                     const int batch_size,
+                                                     const int64_t batch_size,
                                                      const char* kind_name) {
     if (table == nullptr) {
       return Status::Invalid(kind_name, " node requires table which is not null");
@@ -221,7 +221,7 @@ struct TableSourceNode : public SourceNode {
   }
 
   static std::vector<ExecBatch> ConvertTableToExecBatches(const Table& table,
-                                                          const int batch_size) {
+                                                          const int64_t batch_size) {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
 
     // setting chunksize for the batch reader
