@@ -129,7 +129,8 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
 }
 
 int main(int argc, char** argv) {
-  // Plans arrive at the consumer serialized in a substrait-formatted Buffer
+  // Plans arrive at the consumer serialized in a Buffer, using the binary protobuf
+  // serialization of a substrait Plan
   auto maybe_serialized_plan = GetSubstraitFromServer().result();
   ABORT_ON_FAILURE(maybe_serialized_plan.status());
   std::shared_ptr<arrow::Buffer> serialized_plan =
