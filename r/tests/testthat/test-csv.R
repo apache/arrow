@@ -513,9 +513,10 @@ test_that("write_csv_arrow can write from FileSystemDataset objects", {
 
   csv_file <- tempfile()
   tbl_out <- write_csv_arrow(data_in, csv_file)
-
-
   expect_true(file.exists(csv_file))
-  expect_identical(tbl_out, tbl_no_dates)
+
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_named(tbl_in, c("dbl", "false", "chr", "lgl"))
+  expect_equal(nrow(tbl_in), 10)
 
 })

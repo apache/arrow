@@ -719,7 +719,8 @@ write_csv_arrow <- function(x,
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
   } else if (inherits(x, "FileSystemDataset")) {
-    csv___WriteCSV__RecordBatchReader(x, write_options, sink)
+    rb_reader <- Scanner$create(x)$ToRecordBatchReader()
+    csv___WriteCSV__RecordBatchReader(rb_reader, write_options, sink)
   }
 
   invisible(x_out)
