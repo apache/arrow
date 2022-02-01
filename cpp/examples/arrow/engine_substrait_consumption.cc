@@ -155,12 +155,9 @@ int main(int argc, char** argv) {
     return consumers.back();
   };
 
-  // NOTE Although most of the Deserialize functions require a const ExtensionSet& to
-  // resolve extension references, a Plan is what we use to construct that ExtensionSet.
-  // (It should be an optional output later.) In particular, it does not need to be kept
-  // alive nor does the serialized plan- none of the arrow:: objects in the output will
-  // contain references to memory owned by either.
-  auto maybe_decls = eng::DeserializePlan(*serialized_plan, consumer_factory);
+  // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
+  arrow::Result<std::vector<cp::Declaration>> maybe_decls =
+      eng::DeserializePlan(*serialized_plan, consumer_factory);
   ABORT_ON_FAILURE(maybe_decls.status());
   std::vector<cp::Declaration> decls = std::move(maybe_decls).ValueOrDie();
 
@@ -168,7 +165,7 @@ int main(int argc, char** argv) {
   serialized_plan.reset();
 
   // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  auto maybe_plan = cp::ExecPlan::Make();
+  arrow::Result<std::shared_ptr<cp::ExecPlan>> maybe_plan = cp::ExecPlan::Make();
   ABORT_ON_FAILURE(maybe_plan.status());
   std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
 
