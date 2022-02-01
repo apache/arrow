@@ -26,6 +26,7 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
@@ -178,42 +179,41 @@ struct SourceNode : ExecNode {
 };
 
 struct TableSourceNode : public SourceNode {
-  TableSourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
-                  std::shared_ptr<Table> table, int64_t batch_size)
-      : SourceNode(plan, output_schema,
-                   generator(ConvertTableToExecBatches(*table.get()).ValueOrDie())),
-        batch_size(batch_size) {}
+  TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
+      : SourceNode(plan, table->schema(), TableGenerator(*table.get(), batch_size)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
     const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
-    return plan->EmplaceNode<TableSourceNode>(plan, table_options.table->schema(),
-                                              table_options.table,
-                                              table_options.batch_size);
+    auto table = table_options.table;
+    auto batch_size = table_options.batch_size;
+
+    RETURN_NOT_OK(ValidateTableSourceNodeInpute(table, batch_size, "TableSourceNode"));
+
+    return plan->EmplaceNode<TableSourceNode>(plan, table, batch_size);
   }
+
   const char* kind_name() const override { return "TableSourceNode"; }
 
-  [[noreturn]] void InputReceived(ExecNode* input, ExecBatch batch) override {
-    SourceNode::InputReceived(input, batch);
+  static arrow::Status ValidateTableSourceNodeInpute(const std::shared_ptr<Table> table,
+                                                     const int batch_size,
+                                                     const char* kind_name) {
+    if (table == nullptr) {
+      return Status::Invalid(kind_name, " node requires table which is not null");
+    }
+
+    if (batch_size <= 0) {
+      return Status::Invalid(
+          kind_name, " node requires, batch_size > 0 , but got batch size ", batch_size);
+    }
+
+    return Status::OK();
   }
-  [[noreturn]] void ErrorReceived(ExecNode* input, Status status) override {
-    SourceNode::ErrorReceived(input, status);
-  }
-  [[noreturn]] void InputFinished(ExecNode* input, int total_batches) override {
-    SourceNode::InputFinished(input, total_batches);
-  }
 
-  Status StartProducing() override { return SourceNode::StartProducing(); }
-
-  void PauseProducing(ExecNode* output) override { SourceNode::PauseProducing(output); }
-
-  void StopProducing() override { SourceNode::StopProducing(); }
-
-  Future<> finished() override { return SourceNode::finished(); }
-
-  arrow::AsyncGenerator<util::optional<ExecBatch>> generator(
-      std::vector<ExecBatch> batches) {
+  static arrow::AsyncGenerator<util::optional<ExecBatch>> TableGenerator(
+      const Table& table, const int batch_size) {
+    auto batches = ConvertTableToExecBatches(table, batch_size);
     auto opt_batches = MapVector(
         [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
     AsyncGenerator<util::optional<ExecBatch>> gen;
@@ -221,7 +221,8 @@ struct TableSourceNode : public SourceNode {
     return gen;
   }
 
-  arrow::Result<std::vector<ExecBatch>> ConvertTableToExecBatches(const Table& table) {
+  static std::vector<ExecBatch> ConvertTableToExecBatches(const Table& table,
+                                                          const int batch_size) {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
 
     // setting chunksize for the batch reader
@@ -230,10 +231,9 @@ struct TableSourceNode : public SourceNode {
     }
 
     std::shared_ptr<arrow::RecordBatch> batch;
-    std::vector<std::shared_ptr<arrow::RecordBatch>> batch_vector;
     std::vector<ExecBatch> exec_batches;
     while (true) {
-      ARROW_ASSIGN_OR_RAISE(batch, reader->Next());
+      ASSIGN_OR_ABORT(batch, reader->Next());
       if (batch == NULLPTR) {
         break;
       }
@@ -242,9 +242,6 @@ struct TableSourceNode : public SourceNode {
     }
     return exec_batches;
   }
-
- private:
-  int64_t batch_size;
 };
 
 }  // namespace

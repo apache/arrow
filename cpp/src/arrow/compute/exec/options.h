@@ -56,15 +56,19 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 };
 
 /// \brief Adapt an Table as a source node
-///
-/// plan->exec_context()->executor() will be used to parallelize pushing to
-/// outputs, if provided.
+/// The table will be sent through the exec plan in batches.
+/// Each batch will be submitted as a new thread task
+/// if plan->exec_context()->executor() is not null.
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
   TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t batch_size)
       : table(table), batch_size(batch_size) {}
 
+  // arrow table which acts as the data source
   std::shared_ptr<Table> table;
+  // batch size which used to set the chunk_size to
+  // the table batch reader used in building the data source
+  // from the table
   int64_t batch_size;
 };
 
