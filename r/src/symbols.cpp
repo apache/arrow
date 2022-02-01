@@ -34,6 +34,7 @@ SEXP symbols::arrow_attributes = Rf_install("arrow_attributes");
 SEXP symbols::new_ = Rf_install("new");
 SEXP symbols::create = Rf_install("create");
 SEXP symbols::arrow = Rf_install("arrow");
+SEXP symbols::systzone= Rf_install("Sys.timezone");
 
 // persistently protect `x` and return it
 SEXP precious(SEXP x) {
