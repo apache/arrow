@@ -22,12 +22,10 @@
 #include <utility>
 
 #include "arrow/builder.h"
-#include "arrow/compute/cast.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/expression_internal.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/type_internal.h"
-#include "arrow/engine/visibility.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/make_unique.h"
@@ -153,7 +151,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       size_t name_counter = 0;
       args.reserve(if_then.ifs_size() + 2);
       args.emplace_back();
-      for (auto if_ : if_then.ifs()) {
+      for (const auto& if_ : if_then.ifs()) {
         ARROW_ASSIGN_OR_RAISE(auto compute_if, FromProto(if_.if_(), ext_set));
         ARROW_ASSIGN_OR_RAISE(auto compute_then, FromProto(if_.then(), ext_set));
         conditions.emplace_back(std::move(compute_if));
@@ -325,7 +323,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
         }
       }
 
-      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(std::move(element_type)));
+      ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(element_type));
       RETURN_NOT_OK(builder->AppendScalars(values));
       ARROW_ASSIGN_OR_RAISE(auto arr, builder->Finish());
       return Datum(ListScalar(std::move(arr)));
