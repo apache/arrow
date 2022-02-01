@@ -401,14 +401,9 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
         DESTINATION ${CMAKE_INSTALL_DIR}
         PATTERN ".DS_Store" EXCLUDE)
 
-# # Install arrow_matlab and mexfcn.
-# if(WIN32)
-#   install(TARGETS arrow_matlab mexfcn RUNTIME DESTINATION ${CMAKE_INSTALL_DIR})
-# else()
-#   # On Linux install arrow_matlab.so and on macOS install arrow_matlab.dylib
-#   # using the LIBRARY keyword.
-#   install(TARGETS arrow_matlab mexfcn LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
-# endif()
+# Install arrow_matlab and mexfcn.
+# Use the RUNTIME output artifact keyword for Windows.
+# Use the LIBRARY output artifact keyword for macOS and Linux.
 install(TARGETS arrow_matlab mexfcn
         RUNTIME DESTINATION ${CMAKE_INSTALL_DIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
