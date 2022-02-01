@@ -26,7 +26,6 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
-#include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
@@ -233,7 +232,10 @@ struct TableSourceNode : public SourceNode {
     std::shared_ptr<arrow::RecordBatch> batch;
     std::vector<ExecBatch> exec_batches;
     while (true) {
-      ASSIGN_OR_ABORT(batch, reader->Next());
+      auto batch_res = reader->Next();
+      if (batch_res.ok()) {
+        batch = batch_res.ValueOrDie();
+      }
       if (batch == NULLPTR) {
         break;
       }
