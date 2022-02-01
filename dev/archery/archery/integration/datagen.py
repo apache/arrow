@@ -227,7 +227,7 @@ class DateField(IntegerField):
             return super().generate_range(size, lower, upper, name)
 
         full_day_millis = 1000 * 60 * 60 * 24
-        lower //= full_day_millis
+        lower = -1 * (abs(lower) // full_day_millis)
         upper //= full_day_millis
 
         values = [val * full_day_millis for val in np.random.randint(
