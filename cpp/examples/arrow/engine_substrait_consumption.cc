@@ -25,8 +25,8 @@
 #include <memory>
 #include <vector>
 
-namespace eng = ::arrow::engine;
-namespace cp = ::arrow::compute;
+namespace eng = arrow::engine;
+namespace cp = arrow::compute;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
