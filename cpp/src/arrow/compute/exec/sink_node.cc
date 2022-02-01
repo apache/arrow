@@ -243,9 +243,7 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
  public:
   TableSinkNodeConsumer(std::shared_ptr<Table>* out,
                         std::shared_ptr<Schema> output_schema, MemoryPool* pool)
-      : out_(out),
-        output_schema_(std::move(output_schema)),
-        pool_(pool) {}
+      : out_(out), output_schema_(std::move(output_schema)), pool_(pool) {}
 
   Status Consume(ExecBatch batch) override {
     std::lock_guard<std::mutex> guard(consum_mutex);
