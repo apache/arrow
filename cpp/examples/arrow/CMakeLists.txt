@@ -105,7 +105,6 @@ if(ARROW_PARQUET AND ARROW_DATASET)
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(execution_plan_documentation_examples parquet)
 
-  add_arrow_example(join_example EXTRA_LINK_LIBS
-                    ${DATASET_EXAMPLES_LINK_LIBS})
+  add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(join_example parquet)
 endif()
