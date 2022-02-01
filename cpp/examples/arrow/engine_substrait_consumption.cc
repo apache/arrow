@@ -169,8 +169,8 @@ int main(int argc, char** argv) {
   ABORT_ON_FAILURE(maybe_plan.status());
   std::shared_ptr<cp::ExecPlan> plan = std::move(maybe_plan).ValueOrDie();
 
+  // Add decls to plan (note: configure ExecNode registry before this point)
   for (const cp::Declaration& decl : decls) {
-    // Add decl to plan (note: configure ExecNode registry here)
     ABORT_ON_FAILURE(decl.AddToPlan(plan.get()).status());
   }
 
