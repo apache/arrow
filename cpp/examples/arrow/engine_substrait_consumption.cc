@@ -59,6 +59,10 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
   }
 
  private:
+  // A unique label for instances to help distinguish logging output if a plan has
+  // multiple sinks
+  //
+  // In this example, this is set to the zero-based index of the relation tree in the plan
   size_t tag_;
 };
 
