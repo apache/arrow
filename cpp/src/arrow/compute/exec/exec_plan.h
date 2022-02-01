@@ -46,7 +46,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ExecContext* exec_context() const { return exec_context_; }
 
   /// Make an empty exec plan
-  static Result<std::shared_ptr<ExecPlan>> Make(ExecContext* = default_exec_context());
+  static Result<std::shared_ptr<ExecPlan>> Make(
+      ExecContext* = default_exec_context(),
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
@@ -80,6 +82,12 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// \brief A future which will be marked finished when all nodes have stopped producing.
   Future<> finished();
+
+  /// \brief Return whether the plan has non-empty metadata
+  bool HasMetadata() const;
+
+  /// \brief Return the plan's attached metadata
+  std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   std::string ToString() const;
 

@@ -44,7 +44,9 @@ namespace compute {
 namespace {
 
 struct ExecPlanImpl : public ExecPlan {
-  explicit ExecPlanImpl(ExecContext* exec_context) : ExecPlan(exec_context) {}
+  explicit ExecPlanImpl(ExecContext* exec_context,
+                        std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR)
+      : ExecPlan(exec_context), metadata_(std::move(metadata)) {}
 
   ~ExecPlanImpl() override {
     if (started_ && !finished_.is_finished()) {
@@ -183,6 +185,7 @@ struct ExecPlanImpl : public ExecPlan {
   NodeVector sorted_nodes_;
   uint32_t auto_label_counter_ = 0;
   util::tracing::Span span_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 ExecPlanImpl* ToDerived(ExecPlan* ptr) { return checked_cast<ExecPlanImpl*>(ptr); }
@@ -201,8 +204,9 @@ util::optional<int> GetNodeIndex(const std::vector<ExecNode*>& nodes,
 
 }  // namespace
 
-Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(ExecContext* ctx) {
-  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx});
+Result<std::shared_ptr<ExecPlan>> ExecPlan::Make(
+    ExecContext* ctx, std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::shared_ptr<ExecPlan>(new ExecPlanImpl{ctx, metadata});
 }
 
 ExecNode* ExecPlan::AddNode(std::unique_ptr<ExecNode> node) {
@@ -222,6 +226,12 @@ Status ExecPlan::StartProducing() { return ToDerived(this)->StartProducing(); }
 void ExecPlan::StopProducing() { ToDerived(this)->StopProducing(); }
 
 Future<> ExecPlan::finished() { return ToDerived(this)->finished_; }
+
+bool ExecPlan::HasMetadata() const { return !!(ToDerived(this)->metadata_); }
+
+std::shared_ptr<const KeyValueMetadata> ExecPlan::metadata() const {
+  return ToDerived(this)->metadata_;
+}
 
 std::string ExecPlan::ToString() const { return ToDerived(this)->ToString(); }
 
