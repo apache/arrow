@@ -229,7 +229,7 @@ struct TableSourceNode : public SourceNode {
       reader->set_chunksize(batch_size);
     }
 
-    std::shared_ptr<arrow::RecordBatch> batch;
+    std::shared_ptr<RecordBatch> batch;
     std::vector<ExecBatch> exec_batches;
     while (true) {
       auto batch_res = reader->Next();
