@@ -2822,6 +2822,39 @@ TEST(TestTimestampsBetweenKernel, 3Arrays) {
 
 class TestBetweenDecimal : public ::testing::Test {};
 
+TEST(TestBetweenDecimal, 3Scalars) {
+  for (auto decimal_factory : {decimal128, decimal256}) {
+    auto ty = decimal_factory(3, 2);
+    ARROW_SCOPED_TRACE("Type =", ty->ToString());
+    auto val = ScalarFromJSON(ty, R"("1.23")");
+    auto lhs = ScalarFromJSON(ty, R"("2.34")");
+    auto rhs = ScalarFromJSON(ty, R"("1.23")");
+
+    ValidateBetween(val, lhs, ScalarFromJSON(ty, R"(null)"));
+    ValidateBetween(val, lhs, rhs);
+    ValidateBetween(val, rhs, lhs);
+    ValidateBetween(lhs, val, rhs);
+    ValidateBetween(rhs, lhs, val);
+  }
+}
+
+TEST(TestBetweenDecimal, 1Array2Scalars) {
+  for (auto decimal_factory : {decimal128, decimal256}) {
+    auto ty = decimal_factory(3, 2);
+    ARROW_SCOPED_TRACE("Type =", ty->ToString());
+    auto val = ArrayFromJSON(
+        ty, R"(["1.23", "1.22", "2.35", "-1.23", "-2.24", "1.23", "1.24", null])");
+    auto lhs = ScalarFromJSON(ty, R"("2.34")");
+    auto rhs = ScalarFromJSON(ty, R"("1.23")");
+
+    ValidateBetween(val, lhs, ScalarFromJSON(ty, R"(null)"));
+    ValidateBetween(val, lhs, rhs);
+    ValidateBetween(val, rhs, lhs);
+    ValidateBetween(lhs, val, rhs);
+    ValidateBetween(rhs, lhs, val);
+  }
+}
+
 TEST(TestBetweenDecimal, 2Arrays1Scalar) {
   for (auto decimal_factory : {decimal128, decimal256}) {
     auto ty = decimal_factory(3, 2);
