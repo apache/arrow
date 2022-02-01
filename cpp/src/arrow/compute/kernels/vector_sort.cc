@@ -789,8 +789,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
                          }
                        }
 
-                       int sort_keys_len = sort_keys_.size();
-                       for (int i = 1; i < sort_keys_len; i++) {
+                       const auto sort_keys_len = sort_keys_.size();
+                       for (size_t i = 1; i < sort_keys_len; i++) {
                          int val = nested_values_comparator_.Compare(
                              batch_, null_placement_, sort_keys_[i].order,
                              sort_keys_[i].field_index, 0, left, right);
@@ -1622,7 +1622,7 @@ class RecordBatchSelecter : public TypeVisitor {
     std::vector<ResolvedSortKey> resolved;
     for (const auto& key : sort_keys) {
       auto array = key.target.GetOne(batch).ValueOr(nullptr);
-      resolved.emplace_back(array, key.order, key.target.field_path()->indices()[0]);
+      resolved.emplace_back(array, key.order, -1);
     }
     return resolved;
   }
