@@ -771,7 +771,7 @@ arrow::Status ScanFilterWriteExample(cp::ExecContext& exec_context,
   write_options.partitioning = partitioning;
   write_options.basename_template = "part{i}.parquet";
 
-  arrow::dataset::WriteNodeOptions write_node_options{write_options, dataset->schema()};
+  arrow::dataset::WriteNodeOptions write_node_options{write_options};
 
   ARROW_RETURN_NOT_OK(cp::MakeExecNode("write", plan.get(), {scan}, write_node_options));
 

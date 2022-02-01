@@ -359,9 +359,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
               {"filter", compute::FilterNodeOptions{scanner->options()->filter}},
               {"project",
                compute::ProjectNodeOptions{std::move(exprs), std::move(names)}},
-              {"write",
-               WriteNodeOptions{write_options, scanner->options()->projected_schema,
-                                backpressure_toggle}},
+              {"write", WriteNodeOptions{write_options, backpressure_toggle}},
           })
           .AddToPlan(plan.get()));
 
@@ -380,7 +378,8 @@ Result<compute::ExecNode*> MakeWriteNode(compute::ExecPlan* plan,
   const WriteNodeOptions write_node_options =
       checked_cast<const WriteNodeOptions&>(options);
   const FileSystemDatasetWriteOptions& write_options = write_node_options.write_options;
-  const std::shared_ptr<Schema>& schema = write_node_options.schema;
+  // write schema should be the output schema of the input to the write node.
+  const std::shared_ptr<Schema>& schema = inputs[0]->output_schema();
   const std::shared_ptr<util::AsyncToggle>& backpressure_toggle =
       write_node_options.backpressure_toggle;
 
