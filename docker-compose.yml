@@ -1718,7 +1718,7 @@ services:
       ARROW_CMAKE_OPTIONS: "-DARROW_USE_CCACHE=ON -G Ninja"
     command: >
       /bin/bash -c "
-        apt update -y && apt install -y wget git tzdata &&
+        apt update -y && apt install -y curl git tzdata wget &&
         /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION:-HEAD} $${VERIFY_RC}"
 
   almalinux-verify-rc-source:
