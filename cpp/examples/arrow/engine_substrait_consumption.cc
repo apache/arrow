@@ -138,8 +138,10 @@ int main(int argc, char** argv) {
   std::cout << std::string('#', 50) << " received substrait::Plan:" << std::endl;
   std::cout << maybe_plan_json.ValueOrDie() << std::endl;
 
-  // Deserializing a plan requires a factory for consumers: each time a sink node is
-  // deserialized, a consumer is constructed into which its batches will be piped.
+  // The data sink(s) for plans is/are implicit in substrait plans, but explicit in
+  // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
+  // time the root of a substrait relation tree is deserialized, an Arrow consumer is
+  // constructed into which its batches will be piped.
   std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
   std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
     // All batches produced by the plan will be fed into IgnoringConsumers:
