@@ -17,8 +17,7 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
-#include <arrow/compute/exec/options.h>
-#include <arrow/engine/substrait/serde.h>
+#include <arrow/engine/api.h>
 
 #include <cstdlib>
 #include <iostream>
