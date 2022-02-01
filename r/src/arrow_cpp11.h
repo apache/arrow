@@ -176,7 +176,6 @@ struct symbols {
   static SEXP new_;
   static SEXP create;
   static SEXP arrow;
-  static SEXP systzone;
 };
 
 struct data {
