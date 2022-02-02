@@ -499,28 +499,47 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
 
 #define TRUNCATE_INTEGER_WITH_OUT_SCALE(TYPE)                                         \
   FORCE_INLINE                                                                        \
-  gdv_##TYPE truncate_##TYPE##_int32(gdv_##TYPE in, gdv_int32 out_scale) {            \
+  gdv_##TYPE truncate_##TYPE##_int32(int64_t context, gdv_##TYPE in,                  \
+                                     gdv_int32 out_scale) {                           \
     bool overflow = false;                                                            \
     arrow::BasicDecimal128 decimal =                                                  \
         gandiva::decimalops::FromInt64(static_cast<int64_t>(in), 38, 0, &overflow);   \
+                                                                                      \
     arrow::BasicDecimal128 decimal_with_outscale =                                    \
         gandiva::decimalops::Truncate(gandiva::BasicDecimalScalar128(decimal, 38, 0), \
                                       38, out_scale, out_scale, &overflow);           \
+                                                                                      \
+    if (overflow) {                                                                   \
+      gdv_fn_context_set_error_msg(context, "The value overflow during truncate");    \
+      return static_cast<gdv_##TYPE>(0);                                              \
+    }                                                                                 \
+                                                                                      \
     if (out_scale < 0) {                                                              \
       out_scale = 0;                                                                  \
     }                                                                                 \
-    return static_cast<gdv_##TYPE>(gandiva::decimalops::ToInt64(                      \
+                                                                                      \
+    gdv_##TYPE return_value = static_cast<gdv_##TYPE>(gandiva::decimalops::ToInt64(   \
         gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale),         \
         &overflow));                                                                  \
+                                                                                      \
+    if (overflow) {                                                                   \
+      gdv_fn_context_set_error_msg(context, "The value overflow during truncate");    \
+      return static_cast<gdv_##TYPE>(0);                                              \
+    }                                                                                 \
+                                                                                      \
+    return return_value;                                                              \
   }
 
-#define TRUNCATE_REAL(TYPE) \
-  FORCE_INLINE              \
-  gdv_##TYPE truncate_##TYPE(gdv_##TYPE in) { return truncate_##TYPE##_int32(in, 0); }
+#define TRUNCATE_REAL(TYPE)                                    \
+  FORCE_INLINE                                                 \
+  gdv_##TYPE truncate_##TYPE(int64_t context, gdv_##TYPE in) { \
+    return truncate_##TYPE##_int32(context, in, 0);            \
+  }
 
 #define TRUNCATE_REAL_WITH_OUT_SCALE(TYPE)                                           \
   FORCE_INLINE                                                                       \
-  gdv_##TYPE truncate_##TYPE##_int32(gdv_##TYPE in, gdv_int32 out_scale) {           \
+  gdv_##TYPE truncate_##TYPE##_int32(int64_t context, gdv_##TYPE in,                 \
+                                     gdv_int32 out_scale) {                          \
     bool overflow = false;                                                           \
     auto roundType = gandiva::decimalops::RoundType::kRoundTypeTrunc;                \
     int32_t conversionScale = out_scale >= 0 ? out_scale : 0;                        \
@@ -530,13 +549,26 @@ gdv_int64 get_power_of_10(gdv_int32 exp) {
     arrow::BasicDecimal128 decimal_with_outscale = gandiva::decimalops::Truncate(    \
         gandiva::BasicDecimalScalar128(decimal, 38, conversionScale), 38, out_scale, \
         out_scale, &overflow);                                                       \
+                                                                                     \
+    if (overflow) {                                                                  \
+      gdv_fn_context_set_error_msg(context, "The value overflow during truncate");   \
+      return static_cast<gdv_##TYPE>(0);                                             \
+    }                                                                                \
+                                                                                     \
     if (out_scale < 0) {                                                             \
       out_scale = 0;                                                                 \
     }                                                                                \
                                                                                      \
-    return static_cast<gdv_##TYPE>(gandiva::decimalops::ToDouble(                    \
+    gdv_##TYPE return_value = static_cast<gdv_##TYPE>(gandiva::decimalops::ToDouble( \
         gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale),        \
         &overflow));                                                                 \
+                                                                                     \
+    if (overflow) {                                                                  \
+      gdv_fn_context_set_error_msg(context, "The value overflow during truncate");   \
+      return static_cast<gdv_##TYPE>(0);                                             \
+    }                                                                                \
+                                                                                     \
+    return return_value;                                                             \
   }
 
 ESIGNED_INTEGER_TYPES(TRUNCATE_INTEGER)

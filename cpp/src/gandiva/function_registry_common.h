@@ -102,6 +102,17 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - NULL handling is of type NULL_IF_NULL
 //
 // The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
+#define BINARY_GENERIC_UNSAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE1, IN_TYPE2, OUT_TYPE) \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
+                 DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(), kResultNullIfNull, \
+                 ARROW_STRINGIFY(NAME##_##IN_TYPE1##_##IN_TYPE2),                       \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
+// Binary functions that :
+// - have different input types, or output type
+// - NULL handling is of type NULL_IF_NULL
+//
+// The pre-compiled fn name includes the base name & input type names. eg. mod_int64_int32
 #define BINARY_GENERIC_SAFE_NULL_IF_NULL(NAME, ALIASES, IN_TYPE1, IN_TYPE2, OUT_TYPE)   \
   NativeFunction(#NAME, std::vector<std::string> ALIASES,                               \
                  DataTypeVector{IN_TYPE1(), IN_TYPE2()}, OUT_TYPE(), kResultNullIfNull, \

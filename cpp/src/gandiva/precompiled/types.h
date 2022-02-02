@@ -443,12 +443,12 @@ gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
 int32_t truncate_int32(int32_t in);
 int64_t truncate_int64(int64_t in);
-float truncate_float32(float in);
-double truncate_float64(double in);
-int32_t truncate_int32_int32(int32_t in, int32_t out_scale);
-int64_t truncate_int64_int32(int64_t in, int32_t out_scale);
-float truncate_float32_int32(float in, int32_t out_scale);
-double truncate_float64_int32(double in, int32_t out_scale);
+float truncate_float32(int64_t context, float in);
+double truncate_float64(int64_t context, double in);
+int32_t truncate_int32_int32(int64_t context, int32_t in, int32_t out_scale);
+int64_t truncate_int64_int32(int64_t context, int64_t in, int32_t out_scale);
+float truncate_float32_int32(int64_t context, float in, int32_t out_scale);
+double truncate_float64_int32(int64_t context, double in, int32_t out_scale);
 
 const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_len,
                               gdv_int32 repeat_times, gdv_int32* out_len);

@@ -117,12 +117,12 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(rshift, {"shiftrightunsigned"}, uint64, uint64),
       UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int64, int64),
-      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, float32),
-      UNARY_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, float64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int32, int32, int32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, int64, int32, int64),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, int32, float32),
-      BINARY_GENERIC_SAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, int32, float64),
+      UNARY_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, float32),
+      UNARY_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, float64),
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, int32, int32, int32),
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, int64, int32, int64),
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, float32, int32, float32),
+      BINARY_GENERIC_UNSAFE_NULL_IF_NULL(truncate, {"trunc"}, float64, int32, float64),
 
       // decimal functions
       UNARY_SAFE_NULL_IF_NULL(abs, {}, decimal128, decimal128),

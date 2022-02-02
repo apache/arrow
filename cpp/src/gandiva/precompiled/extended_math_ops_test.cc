@@ -210,20 +210,23 @@ TEST(TestExtendedMathOps, TestRound) {
 
 TEST(TestExtendedMathOps, TestTruncateWithScale) {
   // Test the truncate function for longs
-  EXPECT_EQ(truncate_int64_int32(1234, 4), 1234);
-  EXPECT_EQ(truncate_int64_int32(-1234, 4), -1234);
-  EXPECT_EQ(truncate_int64_int32(1234, -4), 0);
-  EXPECT_EQ(truncate_int64_int32(-1234, -2), -1200);
-  EXPECT_EQ(truncate_int64_int32(8124674407369523212, 0), 8124674407369523212);
-  EXPECT_EQ(truncate_int64_int32(8124674407369523212, -2), 8124674407369523200);
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(truncate_int64_int32(ctx, 1234, 4), 1234);
+  EXPECT_EQ(truncate_int64_int32(ctx, -1234, 4), -1234);
+  EXPECT_EQ(truncate_int64_int32(ctx, 1234, -4), 0);
+  EXPECT_EQ(truncate_int64_int32(ctx, -1234, -2), -1200);
+  EXPECT_EQ(truncate_int64_int32(ctx, 8124674407369523212, 0), 8124674407369523212);
+  EXPECT_EQ(truncate_int64_int32(ctx, 8124674407369523212, -2), 8124674407369523200);
 
   // Test truncate function for integers
-  EXPECT_EQ(truncate_int32_int32(1234, 4), 1234);
-  EXPECT_EQ(truncate_int32_int32(-1234, 4), -1234);
-  EXPECT_EQ(truncate_int32_int32(1234, -4), 0);
-  EXPECT_EQ(truncate_int32_int32(-1234, -2), -1200);
-  EXPECT_EQ(truncate_int32_int32(8124674, 0), 8124674);
-  EXPECT_EQ(truncate_int32_int32(8124674, -2), 8124600);
+  EXPECT_EQ(truncate_int32_int32(ctx, 1234, 4), 1234);
+  EXPECT_EQ(truncate_int32_int32(ctx, -1234, 4), -1234);
+  EXPECT_EQ(truncate_int32_int32(ctx, 1234, -4), 0);
+  EXPECT_EQ(truncate_int32_int32(ctx, -1234, -2), -1200);
+  EXPECT_EQ(truncate_int32_int32(ctx, 8124674, 0), 8124674);
+  EXPECT_EQ(truncate_int32_int32(ctx, 8124674, -2), 8124600);
 }
 
 TEST(TestExtendedMathOps, TestTruncateWithoutScale) {
@@ -239,33 +242,38 @@ TEST(TestExtendedMathOps, TestTruncateWithoutScale) {
 }
 
 TEST(TestExtendedMathOps, TestTruncateFloat) {
-  VerifyFuzzyEquals(truncate_float32(1234.245f), 1234.0f);
-  VerifyFuzzyEquals(truncate_float32(-11.7892f), -11.0f);
-  VerifyFuzzyEquals(truncate_float32(1.4999999f), 1.0f);
-  EXPECT_EQ(std::signbit(truncate_float32(0)), 0);
-  VerifyFuzzyEquals(truncate_float32_int32(1234.789f, 2), 1234.78f);
-  VerifyFuzzyEquals(truncate_float32_int32(1234.12345f, -3), 1000.0f);
-  VerifyFuzzyEquals(truncate_float32_int32(-1234.4567f, 3), -1234.456f);
-  VerifyFuzzyEquals(truncate_float32_int32(-1234.4567f, -3), -1000.0f);
-  VerifyFuzzyEquals(truncate_float32_int32(1234.4567f, 0), 1234);
-  VerifyFuzzyEquals(truncate_float32_int32(1.5499999523162842f, 1), 1.5f);
-  EXPECT_EQ(std::signbit(truncate_float32_int32(0, 5)), 0);
-  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(1.55), 1), 1.5f);
-  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(9.134123), 2), 9.13f);
-  VerifyFuzzyEquals(truncate_float32_int32(static_cast<float>(-1.923), 1), -1.9f);
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<int64_t>(&context);
 
-  VerifyFuzzyEquals(truncate_float64(1234.245), 1234.0);
-  VerifyFuzzyEquals(truncate_float64(-11.7892), -11.0);
-  VerifyFuzzyEquals(truncate_float64(1.4999999), 1.0);
-  EXPECT_EQ(std::signbit(truncate_float64(0)), 0);
-  VerifyFuzzyEquals(truncate_float64_int32(1234.789, 2), 1234.78);
-  VerifyFuzzyEquals(truncate_float64_int32(1234.12345, -3), 1000.0);
-  VerifyFuzzyEquals(truncate_float64_int32(-1234.4567, 3), -1234.456);
-  VerifyFuzzyEquals(truncate_float64_int32(-1234.4567, -3), -1000.0);
-  VerifyFuzzyEquals(truncate_float64_int32(1234.4567, 0), 1234.0);
-  EXPECT_EQ(std::signbit(truncate_float64_int32(0, -2)), 0);
-  VerifyFuzzyEquals(truncate_float64_int32((double)INT_MAX + 1, 0), (double)INT_MAX + 1);
-  VerifyFuzzyEquals(truncate_float64_int32((double)INT_MIN - 1, 0), (double)INT_MIN - 1);
+  VerifyFuzzyEquals(truncate_float32(ctx, 1234.245f), 1234.0f);
+  VerifyFuzzyEquals(truncate_float32(ctx, -11.7892f), -11.0f);
+  VerifyFuzzyEquals(truncate_float32(ctx, 1.4999999f), 1.0f);
+  EXPECT_EQ(std::signbit(truncate_float32(ctx, 0)), 0);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, 1234.789f, 2), 1234.78f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, 1234.12345f, -3), 1000.0f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, -1234.4567f, 3), -1234.456f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, -1234.4567f, -3), -1000.0f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, 1234.4567f, 0), 1234);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, 1.5499999523162842f, 1), 1.5f);
+  EXPECT_EQ(std::signbit(truncate_float32_int32(ctx, 0, 5)), 0);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, static_cast<float>(1.55), 1), 1.5f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, static_cast<float>(9.134123), 2), 9.13f);
+  VerifyFuzzyEquals(truncate_float32_int32(ctx, static_cast<float>(-1.923), 1), -1.9f);
+
+  VerifyFuzzyEquals(truncate_float64(ctx, 1234.245), 1234.0);
+  VerifyFuzzyEquals(truncate_float64(ctx, -11.7892), -11.0);
+  VerifyFuzzyEquals(truncate_float64(ctx, 1.4999999), 1.0);
+  EXPECT_EQ(std::signbit(truncate_float64(ctx, 0)), 0);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, 1234.789, 2), 1234.78);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, 1234.12345, -3), 1000.0);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, -1234.4567, 3), -1234.456);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, -1234.4567, -3), -1000.0);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, 1234.4567, 0), 1234.0);
+  EXPECT_EQ(std::signbit(truncate_float64_int32(ctx, 0, -2)), 0);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, (double)INT_MAX + 1, 0),
+                    (double)INT_MAX + 1);
+  VerifyFuzzyEquals(truncate_float64_int32(ctx, (double)INT_MIN - 1, 0),
+                    (double)INT_MIN - 1);
 }
 
 TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
