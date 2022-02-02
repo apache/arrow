@@ -114,7 +114,7 @@ existing R function from ``lubridate``. The issue can be found on
 
 .. note::
 
-   If you do not have a issue and you need help finding one please refer
+   If you do not have an issue and you need help finding one please refer
    to the :ref:`finding-issues` part of the guide.
 
 Once you have an issue picked out and assigned to yourself, you can
@@ -136,10 +136,10 @@ create a new branch from the updated master.
 Now we can start with researching the R function and the C++ Arrow
 compute function we want to expose or connect to.
 
-**Examine the lubridate ``mday()`` function**
+**Examine the lubridate mday() function**
 
 Going through the `lubridate documentation <https://lubridate.tidyverse.org/reference/day.html>`_
-we can see that ``mday()`` takes a date object (different options)
+we can see that ``mday()`` takes a date object
 and returns the day of the month as a numeric object.
 
 We can run some examples in the R console to help us understand
@@ -148,17 +148,16 @@ the function better:
 .. code-block:: R
 
    > library(lubridate)
-   > x <- as.Date("2000-12-31")
-   > mday(x)
+   > mday(as.Date("2000-12-31"))
    [1] 31
    > mday(ymd(080306))
    [1] 6
 
-**Examine the Arrow C++ ``day()`` function**
+**Examine the Arrow C++ day() function**
 
 From the `compute function documentation <https://arrow.apache.org/docs/cpp/compute.html#containment-tests>`_
 we can see that ``day`` is a unary function, which means that it takes
-a single data input. The data input must be a ``Temporal class``, and
+a single data input. The data input must be a ``Temporal class`` and
 the returned value is an ``Integer/numeric`` type.
 
 The ``Temporal class`` is specified as: Date types (Date32, Date64),
@@ -178,10 +177,12 @@ equivalent data types. Lubridate ``mday()`` function has no additional
 arguments and there are also no option classes associated with Arrow C++
 function ``day()``.
 
-To see what to do if there is an option class associated with the
-function you are binding, refer to
-`Examining the C++ function <https://arrow.apache.org/docs/r/articles/developers/bindings.html#examining-the-c-function>`_ from the Writing Bindings
-article.
+.. note::
+
+   To see what to do if there is an option class associated with the
+   function you are binding, refer to
+   `Examining the C++ function <https://arrow.apache.org/docs/r/articles/developers/bindings.html#examining-the-c-function>`_ from the Writing Bindings
+   article.
 
 Looking at the code in ``expressions.R`` we can see the day function
 is already specified/mapped on the R package side:
@@ -204,8 +205,8 @@ Adding a test
 Now we need to add a test that checks if everything works well.
 If there are additional options or edge cases, we would have to
 add more. Looking at tests for similar functions (for example
-``yday()`` or ``day())`` we will add two tests to
-``test-dplyr-funcs-datetime.R``:
+``yday()`` or ``day())`` we can see that a good place to add two
+tests we have is in ``test-dplyr-funcs-datetime.R``:
 
 .. code-block:: R
 
@@ -258,16 +259,17 @@ more research and code corrections.
 
    [ FAIL 1 | WARN 0 | SKIP 0 | PASS 230 ]
 
-There is a fail produced for the ``strftime`` function but looking
+There is a fail we get for the ``strftime`` function but looking
 at the code we see is not connected to our work. We can move on and
-maybe ask others if they are getting similar fail in the tests.
+maybe ask others if they are getting similar fail when running the tests.
+It could be we only need to rebuild the library.
 
 Check styling
 -------------
 
 As we did not change any part of the C++ code we will not
 run any linters. In case we would need to check the styling
-for the C++ part we would need to run ``arrow/r/lint.sh`` to lint the code.
+for the C++ part we would run ``arrow/r/lint.sh`` to lint the code.
 
 Creating a Pull Request
 -----------------------
@@ -348,7 +350,7 @@ Everything looks OK. Now we can make the commit
    [ARROW-14816 ed37d3a3b] Adding a binding and a test for mday() lubridate
     2 files changed, 19 insertions(+)
 
-We can use git log to check the history of commits:
+We can use ``git log`` to check the history of commits:
 
 .. code:: console
 
@@ -427,7 +429,7 @@ We will also add a description to make it clear to others what we are trying to 
 
    Editing the title and the description of our Pull Request.
 
-Once we click **Create pull request** my code can be reviewed as
+Once we click **Create pull request** our code can be reviewed as
 a Pull Request in the Apache Arrow repository.
 
 .. figure:: R_tutorial_pr.jpeg
@@ -441,8 +443,8 @@ The Pull Request gets connected to the JIRA issue and the CI is running.
 After some time passes and we get a review we can correct the code,
 comment, resolve conversations and so on.
 
-The Pull Request we made can be viewed `here <https://github.com/apache/arrow/pull/12218>`_.
-
 .. seealso::
 
    For more information about Pull Request workflow see :ref:`pr_and_github`.
+
+The Pull Request we made can be viewed `here <https://github.com/apache/arrow/pull/12218>`_.
