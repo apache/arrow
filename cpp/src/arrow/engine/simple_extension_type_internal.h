@@ -36,8 +36,6 @@ template <const util::string_view& kExtensionName, typename Params,
           std::shared_ptr<DataType> GetStorage(const Params&)>
 class SimpleExtensionType : public ExtensionType {
  public:
-  using ParamsType = Params;
-
   explicit SimpleExtensionType(std::shared_ptr<DataType> storage_type, Params params = {})
       : ExtensionType(std::move(storage_type)), params_(std::move(params)) {}
 
