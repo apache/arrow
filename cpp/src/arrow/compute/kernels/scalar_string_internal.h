@@ -213,7 +213,7 @@ static FunctionDoc StringPredicateDoc(std::string summary, std::string descripti
   return FunctionDoc{std::move(summary), std::move(description), {"strings"}};
 }
 
-static FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
+static inline FunctionDoc StringClassifyDoc(std::string class_summary, std::string class_desc,
                                      bool non_empty) {
   std::string summary, description;
   {
