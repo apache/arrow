@@ -76,4 +76,4 @@ jobs:
         run: |
           arrow/dev/release/verify-release-candidate.sh \
             {{ artifact }} \
-            {{ release|default(arrow.head) }} {{ rc|default("") }}
+            {{ release|default("") }} {{ rc|default("") }}

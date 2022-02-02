@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           archery docker run \
-            -e VERIFY_VERSION="{{ release|default(arrow.head) }}" \
+            -e VERIFY_VERSION="{{ release|default("") }}" \
             -e VERIFY_RC="{{ rc|default("") }}" \
             -e TEST_DEFAULT=0 \
             -e TEST_{{ target|upper }}=1 \

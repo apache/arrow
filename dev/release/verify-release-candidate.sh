@@ -34,7 +34,24 @@
 # a directory where the temporary files should be placed to, note that this
 # directory is not cleaned up automatically.
 
+set -e
+set -o pipefail
+
+if [ ${VERBOSE:-0} -gt 0 ]; then
+  set -x
+fi
+
 case $# in
+  1) ARTIFACT="$1"
+     VERSION="HEAD"
+     SOURCE_KIND="local"
+     case $ARTIFACT in
+       source) ;;
+       *) echo "Invalid argument: '${ARTIFACT}', only valid option is 'source'"
+          exit 1
+          ;;
+     esac
+     ;;
   2) ARTIFACT="$1"
      VERSION="$2"
      SOURCE_KIND="git"
@@ -62,10 +79,6 @@ case $# in
      ;;
 esac
 
-set -e
-set -x
-set -o pipefail
-
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 detect_cuda() {
@@ -88,7 +101,6 @@ fi
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
-: ${ARROW_DEPENDENCY_SOURCE:=${DEFAULT_DEPENDENCY_SOURCE}}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -227,7 +239,6 @@ test_yum() {
   done
 }
 
-
 setup_tempdir() {
   cleanup() {
     if [ "${TEST_SUCCESS}" = "yes" ]; then
@@ -239,159 +250,60 @@ setup_tempdir() {
 
   if [ -z "${ARROW_TMPDIR}" ]; then
     # clean up automatically if ARROW_TMPDIR is not defined
-    ARROW_TMPDIR=$(mktemp -d -t "$1.XXXXX")
+    ARROW_TMPDIR=$(mktemp -d -t "arrow-${VERSION}.XXXXX")
     trap cleanup EXIT
   else
     # don't clean up automatically
     mkdir -p "${ARROW_TMPDIR}"
   fi
+
+  echo "Working in sandbox ${ARROW_TMPDIR}"
 }
 
-setup_conda() {
-  # Setup short-lived miniconda for Python and integration tests
-  OS="$(uname)"
-  if [ "${OS}" == "Darwin" ]; then
-    OS=MacOSX
-  fi
-  ARCH="$(uname -m)"
-  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${OS}-${ARCH}.sh"
-
-  MINICONDA=$PWD/test-miniconda
-
-  if [ ! -d "${MINICONDA}" ]; then
-    # Setup miniconda only if the directory doesn't exist yet
-    curl -sL -o miniconda.sh $MINICONDA_URL
-    bash miniconda.sh -b -p $MINICONDA
-    rm -f miniconda.sh
-  fi
-  echo "Installed miniconda at ${MINICONDA}"
-
-  . $MINICONDA/etc/profile.d/conda.sh
-  conda activate base
-  mamba create -n arrow-test -y
-  echo "Created conda environment ${CONDA_PREFIX}"
-  conda deactivate
-}
-
-# setup_conda_env() {}
-# setup_virtual_env() {}
-
-# Build and test Java (Requires newer Maven -- I used 3.3.9)
-
-test_package_java() {
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda activate base
-    mamba install -y -n arrow-test maven
-    conda activate arrow-test
+install_nodejs() {
+  # Install NodeJS locally for running the JavaScript tests rather than using the
+  # system Node installation, which may be too old.
+  if [ "${NODEJS_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    return 0
   fi
 
-  pushd java
+  required_node_major_version=16
+  node_major_version=$(node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
 
-  mvn test
-  mvn package
-
-  popd
-
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda deactivate
-  fi
-}
-
-# Build and test C++
-
-test_and_install_cpp() {
-  # TODO(kszucs): factor out to functions
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    DEFAULT_DEPENDENCY_SOURCE="CONDA"
-    # TODO(kszucs): we should define orc and sqlite in the conda_env_cpp.txt file
-    conda activate base
-    mamba install -y -n arrow-test \
-      --file ci/conda_env_cpp.txt \
-      --file ci/conda_env_gandiva.txt \
-      --file ci/conda_env_unix.txt \
-      ncurses \
-      numpy \
-      sqlite \
-      compilers
-    conda activate arrow-test
-  elif [ ! -z ${CONDA_PREFIX} ]; then
-    echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment before running the verification script."
-    exit 1
+  if [ -n "${node_major_version}" -a
+      "${node_major_version}" -ge ${required_node_major_version} ]; then
+    echo "Found NodeJS installation with major version ${node_major_version}"
   else
-    DEFAULT_DEPENDENCY_SOURCE="AUTO"
-    # Create a python virtualenv
-    ${PYTHON:-python3} -m pip install virtualenv
-    ${PYTHON:-python3} -m virtualenv venv
-    source venv/bin/activate
-    # Install build dependencies (numpy is required here)
-    pip install numpy
+    export NVM_DIR="`pwd`/.nvm"
+    mkdir -p $NVM_DIR
+    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
+      PROFILE=/dev/null bash
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    nvm install --lts
+    npm install -g yarn
   fi
 
-  mkdir -p cpp/build
-  pushd cpp/build
-
-  ARROW_CMAKE_OPTIONS="
-${ARROW_CMAKE_OPTIONS:-}
--DARROW_BOOST_USE_SHARED=ON
--DARROW_BUILD_INTEGRATION=ON
--DARROW_BUILD_TESTS=ON
--DARROW_CUDA=${ARROW_CUDA}
--DARROW_DATASET=ON
--DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE}
--DARROW_FLIGHT=${ARROW_FLIGHT}
--DARROW_GANDIVA=${ARROW_GANDIVA}
--DARROW_HDFS=ON
--DARROW_ORC=ON
--DARROW_PARQUET=ON
--DARROW_PLASMA=ON
--DARROW_PYTHON=ON
--DARROW_S3=${ARROW_S3}
--DARROW_VERBOSE_THIRDPARTY_BUILD=ON
--DARROW_WITH_BROTLI=ON
--DARROW_WITH_BZ2=ON
--DARROW_WITH_LZ4=ON
--DARROW_WITH_SNAPPY=ON
--DARROW_WITH_ZLIB=ON
--DARROW_WITH_ZSTD=ON
--DCMAKE_BUILD_TYPE=release
--DCMAKE_INSTALL_LIBDIR=lib
--DCMAKE_INSTALL_PREFIX=$ARROW_HOME
--DPARQUET_REQUIRE_ENCRYPTION=ON
-"
-  cmake $ARROW_CMAKE_OPTIONS ..
-  cmake --build . --target install
-
-  # TODO: ARROW-5036: plasma-serialization_tests broken
-  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
-  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
-    --exclude-regex "plasma-serialization_tests" \
-    -j$NPROC \
-    --output-on-failure \
-    -L unittest
-  popd
-
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda deactivate
-  else
-    deactivate
-  fi
+  NODEJS_ALREADY_INSTALLED=1
 }
 
-test_csharp() {
-  pushd csharp
-
-  local csharp_bin=${PWD}/bin
-  mkdir -p ${csharp_bin}
+install_csharp() {
+  # Install C# if doesn't already exist
+  if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    return 0
+  fi
 
   if which dotnet > /dev/null 2>&1; then
+    local csharp_bin=$(dirname $(which dotnet))
     if ! which sourcelink > /dev/null 2>&1; then
       local dotnet_tools_dir=$HOME/.dotnet/tools
       if [ -d "${dotnet_tools_dir}" ]; then
         PATH="${dotnet_tools_dir}:$PATH"
       fi
     fi
+    echo "Found C# at ${csharp_bin}"
   else
+    local csharp_bin=${ARROW_TMPDIR}/csharp/bin
     local dotnet_version=3.1.405
     local dotnet_platform=
     case "$(uname)" in
@@ -408,21 +320,14 @@ test_csharp() {
         grep 'window\.open' | \
         grep -E -o '[^"]+' | \
         sed -n 2p)
+    mkdir -p ${csharp_bin}
     curl -sL ${dotnet_download_url} | \
       tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
+    echo "Installed C# to ${csharp_bin}"
   fi
 
-  dotnet test
-
-  if [ "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
-  else
-    mv dummy.git ../.git
-    dotnet pack -c Release
-    mv ../.git dummy.git
-  fi
-
+  # Ensure to have sourcelink installed
   if ! which sourcelink > /dev/null 2>&1; then
     dotnet tool install --tool-path ${csharp_bin} sourcelink
     PATH=${csharp_bin}:${PATH}
@@ -431,25 +336,210 @@ test_csharp() {
     fi
   fi
 
-  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
-
-  popd
+  CSHARP_ALREADY_INSTALLED=1
 }
 
-# Build and test Python
-test_python() {
+install_go() {
+  # Install go
+  if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    return 0
+  fi
+
+  local version=1.16.12
+
+  local arch="$(uname -m)"
+  if [ "$arch" == "x86_64" ]; then
+    arch=amd64
+  elif [ "$arch" == "aarch64" ]; then
+    arch=arm64
+  fi
+
+  if [ "$(uname)" == "Darwin" ]; then
+    local os=darwin
+  else
+    local os=linux
+  fi
+
+  local archive="go${version}.${os}-${arch}.tar.gz"
+  curl -sLO https://dl.google.com/go/$archive
+
+  local prefix=${ARROW_TMPDIR}/go
+  mkdir -p $prefix
+  tar -xzf $archive -C $prefix
+  rm -f $archive
+
+  export GOROOT=${prefix}/go
+  export GOPATH=${prefix}/gopath
+  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+
+  GO_ALREADY_INSTALLED=1
+}
+
+mamba() {
+  # Helper to access mamba directly instead after activating base conda environment
+  $ARROW_TMPDIR/verification-conda/bin/mamba "$@"
+}
+
+install_conda() {
+  # Setup short-lived miniconda for Python and integration tests
+  if [ "${CONDA_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    return 0
+  fi
+
+  local arch=$(uname -m)
+  local platform=$(uname)
+  local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
+  local prefix=$ARROW_TMPDIR/verification-conda
+
+  # Setup miniconda only if the directory doesn't exist yet
+  if [ ! -d "${prefix}" ]; then
+    curl -sL -o miniconda.sh $url
+    bash miniconda.sh -b -p $prefix
+    rm -f miniconda.sh
+    echo "Installed miniconda at ${MINICONDA}"
+  else
+    echo "Miniconda already installed at ${MINICONDA}"
+  fi
+
+  # Creating a separate conda environment
+  . $prefix/etc/profile.d/conda.sh
+  conda activate base
+
+  echo "Created conda environment ${CONDA_PREFIX}"
+  CONDA_ALREADY_INSTALLED=1
+}
+
+setup_conda() {
+  # Optionally setup conda environment with the passed dependencies
+  local env="conda-${ENV:-source}"
+  local pyver=${PYTHON_VERSION:-3}
+
   if [ "${USE_CONDA}" -gt 0 ]; then
-    conda activate arrow-test
-    mamba install -y --file ci/conda_env_python.txt
+    # Deactivate previous env
+    conda deactivate || :
+    # Ensure that conda is installed
+    install_conda
+    # Create environment
+    if ! conda env list | grep $env; then
+      mamba create -y -n $env python=${pyver}
+    fi
+    conda activate $env
+    # Install dependencies
+    if [ $# -gt 0 ]; then
+      mamba install -y $@
+    fi
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment before running the verification script."
     exit 1
-  else
-    source venv/bin/activate
-    pip install cython numpy setuptools_scm setuptools
   fi
+}
+
+setup_virtualenv() {
+  # Optionally setup pip virtualenv with the passed dependencies
+  local env="venv-${ENV:-source}"
+  local pyver=${PYTHON_VERSION:-3}
+  local python=${PYTHON:-"python${pyver}"}
+  local virtualenv="${ARROW_TMPDIR}/${env}"
+
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    if [ ! -z ${CONDA_PREFIX} ]; then
+      echo "Conda environment is active despite that USE_CONDA is set to 0."
+      echo "Deactivate the environment before running the verification script."
+      exit 1
+    fi
+    # Deactivate previous env
+    deactivate || :
+    # Create environment
+    if [ ! -d "${virtualenv}" ]; then
+      $python -m pip install virtualenv
+      $python -m virtualenv ${virtualenv}
+      source "${virtualenv}/bin/activate"
+    fi
+    # Install dependencies
+    if [ $# -gt 0 ]; then
+      pip install $@
+    fi
+  fi
+}
+
+test_package_java() {
+  # Build and test Java (Requires newer Maven -- I used 3.3.9)
+  setup_conda maven
+
+  pushd java
+  mvn test
+  mvn package
+  popd
+}
+
+test_and_install_cpp() {
+  # Build and test C++
+  setup_virtualenv numpy
+  setup_conda \
+    --file ci/conda_env_unix.txt \
+    --file ci/conda_env_cpp.txt \
+    --file ci/conda_env_gandiva.txt \
+    ncurses \
+    numpy \
+    sqlite \
+    compilers
+
+  if [ "${USE_CONDA}" -gt 0 ]; then
+    DEFAULT_DEPENDENCY_SOURCE="CONDA"
+  else
+    DEFAULT_DEPENDENCY_SOURCE="AUTO"
+  fi
+
+  mkdir -p cpp/build
+  pushd cpp/build
+
+  cmake \
+    -DARROW_BOOST_USE_SHARED=ON \
+    -DARROW_BUILD_INTEGRATION=ON \
+    -DARROW_BUILD_TESTS=ON \
+    -DARROW_CUDA=${ARROW_CUDA} \
+    -DARROW_DATASET=ON \
+    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE} \
+    -DARROW_FLIGHT=${ARROW_FLIGHT} \
+    -DARROW_GANDIVA=${ARROW_GANDIVA} \
+    -DARROW_HDFS=ON \
+    -DARROW_ORC=ON \
+    -DARROW_PARQUET=ON \
+    -DARROW_PLASMA=ON \
+    -DARROW_PYTHON=ON \
+    -DARROW_S3=${ARROW_S3} \
+    -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-OFF} \
+    -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+    -DARROW_WITH_BROTLI=ON \
+    -DARROW_WITH_BZ2=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DCMAKE_BUILD_TYPE=release \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+    -DPARQUET_REQUIRE_ENCRYPTION=ON \
+    ${ARROW_CMAKE_OPTIONS:-} \
+    ..
+  cmake --build . --target install
+
+  # TODO: ARROW-5036: plasma-serialization_tests broken
+  # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
+  ctest \
+    --exclude-regex "plasma-serialization_tests" \
+    -j$NPROC \
+    --output-on-failure \
+    -L unittest
+
+  popd
+}
+
+test_python() {
+  # Build and test Python
+  setup_virtualenv cython numpy setuptools_scm setuptools
+  setup_conda --file ci/conda_env_python.txt
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -507,79 +597,39 @@ import pyarrow.plasma
   # Execute pyarrow unittests
   pytest pyarrow -v --pdb
 
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda deactivate
-  else
-    deactivate
-  fi
-
   popd
 }
 
 test_glib() {
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda activate arrow-test
-    mamba install -y meson
-  elif [ ! -z ${CONDA_PREFIX} ]; then
-    echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment before running the verification script."
-    exit 1
-  else
-    source venv/bin/activate
-    pip install meson
-  fi
+  # Build and test C GLib
+  setup_virtualenv meson
+  setup_conda meson
 
-  pushd c_glib
-
-  pip install meson
-
-  meson build --prefix=$ARROW_HOME --libdir=lib
-  ninja -C build
-  ninja -C build install
-
-  export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
-
+  # Install bundler if doesn't exist
   if ! bundle --version; then
     gem install --no-document bundler
   fi
 
+  pushd c_glib
+
+  # Build the C GLib bindings
+  meson build --prefix=$ARROW_HOME --libdir=lib
+  ninja -C build
+  ninja -C build install
+
+  # Test the C GLib bindings
+  export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
   bundle config set --local path 'vendor/bundle'
   bundle install
   bundle exec ruby test/run-test.rb
 
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda deactivate
-  else
-    deactivate
-  fi
-
-  popd
-}
-
-test_js() {
-  pushd js
-
-  if [ "${INSTALL_NODE}" -gt 0 ]; then
-    export NVM_DIR="`pwd`/.nvm"
-    mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
-      PROFILE=/dev/null bash
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-    nvm install --lts
-    npm install -g yarn
-  fi
-
-  yarn --frozen-lockfile
-  yarn clean:all
-  yarn lint
-  yarn build
-  yarn test
-  yarn test:bundle
   popd
 }
 
 test_ruby() {
+  setup_conda
+  setup_virtualenv
+
   pushd ruby
 
   local modules="red-arrow red-arrow-dataset red-plasma red-parquet"
@@ -604,94 +654,98 @@ test_ruby() {
   popd
 }
 
-test_go() {
-  local VERSION=1.16.12
+test_csharp() {
+  install_csharp
 
-  local ARCH="$(uname -m)"
-  if [ "$ARCH" == "x86_64" ]; then
-    ARCH=amd64
-  elif [ "$ARCH" == "aarch64" ]; then
-    ARCH=arm64
-  fi
+  pushd csharp
 
-  if [ "$(uname)" == "Darwin" ]; then
-    local OS=darwin
+  dotnet test
+
+  if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
+    dotnet pack -c Release
   else
-    local OS=linux
+    mv dummy.git ../.git
+    dotnet pack -c Release
+    mv ../.git dummy.git
   fi
 
-  local GO_ARCHIVE=go$VERSION.$OS-$ARCH.tar.gz
-  curl -sLO https://dl.google.com/go/$GO_ARCHIVE
+  sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
+  sourcelink test artifacts/Apache.Arrow/Release/netcoreapp2.1/Apache.Arrow.pdb
 
-  mkdir -p local-go
-  tar -xzf $GO_ARCHIVE -C local-go
-  rm -f $GO_ARCHIVE
+  popd
+}
 
-  export GOROOT=`pwd`/local-go/go
-  export GOPATH=`pwd`/local-go/gopath
-  export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+test_js() {
+  install_nodejs
+
+  pushd js
+  yarn --frozen-lockfile
+  yarn clean:all
+  yarn lint
+  yarn build
+  yarn test
+  yarn test:bundle
+  popd
+}
+
+test_go() {
+  install_go
 
   pushd go/arrow
-
   go get -v ./...
   go test ./...
   go clean -modcache
-
   popd
 }
 
 # Run integration tests
 test_integration() {
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda activat arrow-test
-  elif [ ! -z ${CONDA_PREFIX} ]; then
-    echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment before running the verification script."
-    exit 1
-  else
-    source venv/bin/activate
-  fi
+  setup_conda
+  setup_virtualenv
+
+  pip install -e dev/archery
 
   JAVA_DIR=$PWD/java
   CPP_BUILD_DIR=$PWD/cpp/build
 
-  export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-  export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
-
-  pip install -e dev/archery
+  # export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
+  # export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   INTEGRATION_TEST_ARGS=""
-
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run-flight"
   fi
 
   # Flight integration test executable have runtime dependency on
   # release/libgtest.so
-  LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
+  #LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
       archery integration \
               --with-cpp=${TEST_INTEGRATION_CPP} \
               --with-java=${TEST_INTEGRATION_JAVA} \
               --with-js=${TEST_INTEGRATION_JS} \
               --with-go=${TEST_INTEGRATION_GO} \
               $INTEGRATION_TEST_ARGS
-
-  if [ "${USE_CONDA}" -gt 0 ]; then
-    conda deactivate
-  else
-    deactivate
-  fi
 }
 
 ensure_source_directory() {
   dist_name="apache-arrow-${VERSION}"
-  if [ "${SOURCE_KIND}" = "git" ]; then
-    if [ ! -d "arrow" ]; then
-      git clone --recurse-submodules ${SOURCE_REPOSITORY:-"${SOURCE_DIR}/../.."} arrow
+
+  if [ "${SOURCE_KIND}" = "local" ]; then
+    # Local arrow repository, testing repositories should be already present
+    if [ -z "$ARROW_SOURCE_DIR" ]; then
+      export ARROW_SOURCE_DIR="$(cd ${SOURCE_DIR}/../.. && pwd)"
     fi
-    pushd arrow
-    git checkout ${VERSION}
+  elif [ "${SOURCE_KIND}" = "git" ]; then
+    # Remote arrow repository, testing repositories must be cloned
+    export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
+    if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
+      : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
+      git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
+      git -C $ARROW_SOURCE_DIR checkout $VERSION
+    fi
   else
+    # Release tarball, testing repositories must be cloned separately
+    export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
     if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
       import_gpg_keys
       if [ ! -d "${dist_name}" ]; then
@@ -706,20 +760,20 @@ ensure_source_directory() {
       fi
       tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
     fi
-    # clone testing repositories
-    pushd ${dist_name}
+    # Clone testing repositories
+    pushd $ARROW_SOURCE_DIR
     if [ ! -d "testing/data" ]; then
       git clone https://github.com/apache/arrow-testing.git testing
     fi
     if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
       git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
     fi
+    popd
   fi
-  export ARROW_DIR=$PWD
+
   export ARROW_TEST_DATA=$PWD/testing/data
   export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
   export ARROW_GDB_SCRIPT=$PWD/cpp/gdb_arrow.py
-  popd
 }
 
 test_source_distribution() {
@@ -734,14 +788,19 @@ test_source_distribution() {
     NPROC=$(nproc)
   fi
 
-  if [ ${TEST_JAVA} -gt 0 ]; then
-    test_package_java
-  fi
-  if [ ${TEST_CPP} -gt 0 ]; then
-    test_and_install_cpp
+  pushd $ARROW_SOURCE_DIR
+
+  if [ ${TEST_GO} -gt 0 ]; then
+    test_go
   fi
   if [ ${TEST_CSHARP} -gt 0 ]; then
     test_csharp
+  fi
+  if [ ${TEST_JS} -gt 0 ]; then
+    test_js
+  fi
+  if [ ${TEST_CPP} -gt 0 ]; then
+    test_and_install_cpp
   fi
   if [ ${TEST_PYTHON} -gt 0 ]; then
     test_python
@@ -752,15 +811,14 @@ test_source_distribution() {
   if [ ${TEST_RUBY} -gt 0 ]; then
     test_ruby
   fi
-  if [ ${TEST_JS} -gt 0 ]; then
-    test_js
-  fi
-  if [ ${TEST_GO} -gt 0 ]; then
-    test_go
+  if [ ${TEST_JAVA} -gt 0 ]; then
+    test_package_java
   fi
   if [ ${TEST_INTEGRATION} -gt 0 ]; then
     test_integration
   fi
+
+  popd
 }
 
 test_binary_distribution() {
@@ -782,36 +840,23 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local py_arches="3.7m 3.8 3.9 3.10"
+  local python_versions="3.7 3.8 3.9 3.10"
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
-  for py_arch in ${py_arches}; do
-    local env=_verify_wheel-${py_arch}
-
-    if [ "${USE_CONDA}" -gt 0 ]; then
-      mamba create -yq -n ${env} python=${py_arch//[mu]/}
-      conda activate ${env}
-    elif [ ! -z ${CONDA_PREFIX} ]; then
-      echo "Conda environment is active despite that USE_CONDA is set to 0."
-      echo "Deactivate the environment before running the verification script."
-      exit 1
-    elif [ command -v "python${py_ver}" ]; then
-      local venv="${ARROW_TMPDIR}/test-virtualenv"
-      local python="python${py_ver}"
-      $python -m virtualenv $venv
-      source $venv/bin/activate
-    else
+  for pyver in ${python_versions}; do
+    if [ "${USE_CONDA}" -eq 0 -a ! command -v "python${py_ver}"]; then
       echo "Couldn't locate python interpreter with version ${py_arch}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       continue
     fi
+    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
+    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_virtualenv
 
-    pip install -U pip
-
-    for tag in ${platform_tags}; do
+    for platform in ${platform_tags}; do
       # check the mandatory and optional imports
-      pip install --force-reinstall python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-${tag}.whl
-      INSTALL_PYARROW=OFF ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
+      # TODO(kszucs): may need to define --target $(python -c 'import site; print(site.getsitepackages()[0])') --only-binary=:all:
+      pip install --force-reinstall --platform ${platform} --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
+      INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
 
     if [ "${USE_CONDA}" -gt 0 ]; then
@@ -823,7 +868,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="3.7m 3.8 3.9 3.10"
+  local python_versions="3.7m 3.8 3.9 3.10"
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 
@@ -836,61 +881,40 @@ test_macos_wheels() {
   fi
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local py_arches="3.8 3.9 3.10"
+    local python_versions="3.8 3.9 3.10"
     local check_flight=OFF
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
-  for py_arch in ${py_arches}; do
-    local env=_verify_wheel-${py_arch}
-
-    if [ "${USE_CONDA}" -gt 0 ]; then
-      mamba create -yq -n ${env} python=${py_arch//m/}
-      conda activate ${env}
-    elif [ ! -z ${CONDA_PREFIX} ]; then
-      echo "Conda environment is active despite that USE_CONDA is set to 0."
-      echo "Deactivate the environment before running the verification script."
-      exit 1
-    elif [ command -v "python${py_ver}" ]; then
-      local venv="${ARROW_TMPDIR}/test-virtualenv"
-      local python="python${py_ver}"
-      $python -m virtualenv $venv
-      source $venv/bin/activate
-    else
+  for pyver in ${python_versions}; do
+    if [ "${USE_CONDA}" -eq 0 -a ! command -v "python${py_ver}"]; then
       echo "Couldn't locate python interpreter with version ${py_arch}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       continue
     fi
-
-    pip install -U pip
+    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
+    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_virtualenv
 
     # check the mandatory and optional imports
-    pip install --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
+    # TODO(kszucs): may need to define --target $(python -c 'import site; print(site.getsitepackages()[0])') --only-binary=:all:
+    pip install --force-reinstall --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
     INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-      ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-
-    if [ "${USE_CONDA}" -gt 0 ]; then
-      conda deactivate
-    else
-      deactivate
-    fi
+      ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
   done
 
   # verify arm64 and universal2 wheels using an universal2 python binary
   # the interpreter should be installed from python.org:
   #   https://www.python.org/ftp/python/3.9.6/python-3.9.6-macosx10.9.pkg
   if [ "$(uname -m)" = "arm64" ]; then
-    for py_arch in "3.9"; do
-      local pyver=${py_arch//m/}
+    for pyver in "3.9 3.10"; do
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-
+      if [ ! command -v "python${py_ver}" ]; then
+        echo "Couldn't locate python interpreter with version ${py_arch}"
+        continue
+      fi
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        local venv="${ARROW_TMPDIR}/test-${arch}-virtualenv"
-        $python -m virtualenv $venv
-        source $venv/bin/activate
-        pip install -U pip
-
+        ENV=wheel-${pyver}-${arch} PYTHON=${python} setup_virtualenv
         # install pyarrow's universal2 wheel
         pip install \
             --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
@@ -900,9 +924,7 @@ test_macos_wheels() {
             pyarrow==${VERSION}
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-          arch -${arch} ${ARROW_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_DIR}
-
-        deactivate
+          arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
   fi
@@ -950,22 +972,6 @@ test_jars() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
-
-
-# Install and activate conda environment automatically
-: ${INSTALL_CONDA:=$USE_CONDA}
-
-# Install NodeJS locally for running the JavaScript tests rather than using the
-# system Node installation, which may be too old.
-node_major_version=$( \
-  node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-required_node_major_version=16
-if [ -n "${node_major_version}" -a \
-     "${node_major_version}" -ge ${required_node_major_version} ]; then
-  : ${INSTALL_NODE:=0}
-else
-  : ${INSTALL_NODE:=1}
-fi
 
 case "${ARTIFACT}" in
   source)
@@ -1030,19 +1036,12 @@ case "${TEST_ARCHIVE}" in
 esac
 
 TEST_SUCCESS=no
-
-setup_tempdir "arrow-${VERSION}"
-echo "Working in sandbox ${ARROW_TMPDIR}"
-cd ${ARROW_TMPDIR}
-
-if [ "${INSTALL_CONDA}" -gt 0 ]; then
-  setup_conda
-fi
+setup_tempdir
 
 case "${ARTIFACT}" in
   source)
     ensure_source_directory
-    pushd ${ARROW_DIR}
+    pushd ${ARROW_SOURCE_DIR}
     test_source_distribution
     popd
     ;;
