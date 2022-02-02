@@ -232,91 +232,190 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
   this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
                this->array("[]"), this->array("[]"));
 
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[1]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
-               this->array("[0]"), this->array("[0]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
-               this->array("[2, 0]"), this->array("[2]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->Assert(ReplaceWithMask, this->array("[86400000]"), this->mask_scalar(false),
+                 this->array("[]"), this->array("[86400000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000]"), this->mask_scalar(true),
+                 this->array("[0]"), this->array("[0]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000]"), this->mask_scalar(true),
+                 this->array("[172800000, 0]"), this->array("[172800000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000]"), this->null_mask_scalar(),
+                 this->array("[]"), this->array("[null]"));
 
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(false),
-               this->scalar("1"), this->array("[0, 0]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
-               this->scalar("1"), this->array("[1, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
-               this->scalar("null"), this->array("[null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(false),
+                 this->scalar("86400000"), this->array("[0, 0]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
+                 this->scalar("86400000"), this->array("[86400000, 86400000]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
+                 this->scalar("null"), this->array("[null, null]"));
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[0, 1, 2, 3]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
-               this->array("[10, 11, 12, 13]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[0, 1, 2, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
-               this->array("[10, 11, 12, 13]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3, 4, 5]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[10, null]"), this->array("[0, 1, null, null, 10, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[10, null]"),
-               this->array("[null, null, null, null, 10, null]"));
+    this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
+                 this->array("[]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, 259200000]"),
+                 this->mask("[false, false, false, false]"), this->array("[]"),
+                 this->array("[0, 86400000, 172800000, 259200000]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, 259200000]"),
+                 this->mask("[true, true, true, true]"),
+                 this->array("[864000000, 950400000, 1036800000, 1123200000]"),
+                 this->array("[864000000, 950400000, 1036800000, 1123200000]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, 259200000]"),
+                 this->mask("[null, null, null, null]"), this->array("[]"),
+                 this->array("[null, null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, null]"),
+                 this->mask("[false, false, false, false]"), this->array("[]"),
+                 this->array("[0, 86400000, 172800000, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, null]"),
+                 this->mask("[true, true, true, true]"),
+                 this->array("[864000000, 950400000, 1036800000, 1123200000]"),
+                 this->array("[864000000, 950400000, 1036800000, 1123200000]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000, null]"),
+                 this->mask("[null, null, null, null]"), this->array("[]"),
+                 this->array("[null, null, null, null]"));
+    this->Assert(ReplaceWithMask,
+                 this->array("[0, 86400000, 172800000, 259200000, 345600000, 432000000]"),
+                 this->mask("[false, false, null, null, true, true]"),
+                 this->array("[864000000, null]"),
+                 this->array("[0, 86400000, null, null, 864000000, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
+                 this->mask("[false, false, null, null, true, true]"),
+                 this->array("[864000000, null]"),
+                 this->array("[null, null, null, null, 864000000, null]"));
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->scalar("1"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
-               this->scalar("10"), this->array("[10, 10]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
-               this->scalar("null"), this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2]"),
-               this->mask("[false, null, true]"), this->scalar("10"),
-               this->array("[0, null, 10]"));
+    this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
+                 this->scalar("86400000"), this->array("[]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000]"),
+                 this->mask("[true, true]"), this->scalar("864000000"),
+                 this->array("[864000000, 864000000]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000]"),
+                 this->mask("[true, true]"), this->scalar("null"),
+                 this->array("[null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 86400000, 172800000]"),
+                 this->mask("[false, null, true]"), this->scalar("864000000"),
+                 this->array("[0, null, 864000000]"));
+  } else {
+    this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(false),
+                 this->array("[]"), this->array("[1]"));
+    this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
+                 this->array("[0]"), this->array("[0]"));
+    this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
+                 this->array("[2, 0]"), this->array("[2]"));
+    this->Assert(ReplaceWithMask, this->array("[1]"), this->null_mask_scalar(),
+                 this->array("[]"), this->array("[null]"));
+
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(false),
+                 this->scalar("1"), this->array("[0, 0]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
+                 this->scalar("1"), this->array("[1, 1]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
+                 this->scalar("null"), this->array("[null, null]"));
+
+    this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
+                 this->array("[]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
+                 this->mask("[false, false, false, false]"), this->array("[]"),
+                 this->array("[0, 1, 2, 3]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
+                 this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
+                 this->array("[10, 11, 12, 13]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
+                 this->mask("[null, null, null, null]"), this->array("[]"),
+                 this->array("[null, null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
+                 this->mask("[false, false, false, false]"), this->array("[]"),
+                 this->array("[0, 1, 2, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
+                 this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
+                 this->array("[10, 11, 12, 13]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
+                 this->mask("[null, null, null, null]"), this->array("[]"),
+                 this->array("[null, null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3, 4, 5]"),
+                 this->mask("[false, false, null, null, true, true]"),
+                 this->array("[10, null]"), this->array("[0, 1, null, null, 10, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
+                 this->mask("[false, false, null, null, true, true]"),
+                 this->array("[10, null]"),
+                 this->array("[null, null, null, null, 10, null]"));
+
+    this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->scalar("1"),
+                 this->array("[]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
+                 this->scalar("10"), this->array("[10, 10]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
+                 this->scalar("null"), this->array("[null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[0, 1, 2]"),
+                 this->mask("[false, null, true]"), this->scalar("10"),
+                 this->array("[0, null, 10]"));
+  }
 }
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskForNullValuesAndMaskEnabled) {
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->array("[7]"),
-               this->array("[1, 7, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1, 7]"),
-               this->mask("[false, true, false, true]"), this->array("[7, 20]"),
-               this->array("[1, 7, 1, 20]"));
-  this->Assert(ReplaceWithMask, this->array("[1, 2, 3, 4]"),
-               this->mask("[false, true, false, true]"), this->array("[null, null]"),
-               this->array("[1, null, 3, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, 2, 3, 4]"),
-               this->mask("[true, true, false, true]"), this->array("[1, null, null]"),
-               this->array("[1, null, 3, null]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->scalar("null"),
-               this->array("[1, null, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->array("[7, 7, 7]"),
-               this->array("[7, 7, 7]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->array("[null, null, null]"),
-               this->array("[null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->scalar("null"),
-               this->array("[1, null, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->scalar("null"),
-               this->array("[null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
-               this->array("[1, 1]"), this->array("[1, 1]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[false, true, false]"), this->array("[604800000]"),
+                 this->array("[86400000, 604800000, 86400000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000, 604800000]"),
+                 this->mask("[false, true, false, true]"),
+                 this->array("[604800000, 1728000000]"),
+                 this->array("[86400000, 604800000, 86400000, 1728000000]"));
+    this->Assert(ReplaceWithMask,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 this->mask("[false, true, false, true]"), this->array("[null, null]"),
+                 this->array("[86400000, null, 259200000, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, 172800000, 259200000, 345600000]"),
+                 this->mask("[true, true, false, true]"),
+                 this->array("[86400000, null, null]"),
+                 this->array("[86400000, null, 259200000, null]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[false, true, false]"), this->scalar("null"),
+                 this->array("[86400000, null, 86400000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[true, true, true]"),
+                 this->array("[604800000, 604800000, 604800000]"),
+                 this->array("[604800000, 604800000, 604800000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[true, true, true]"), this->array("[null, null, null]"),
+                 this->array("[null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[false, true, false]"), this->scalar("null"),
+                 this->array("[86400000, null, 86400000]"));
+    this->Assert(ReplaceWithMask, this->array("[86400000, null, 86400000]"),
+                 this->mask("[true, true, true]"), this->scalar("null"),
+                 this->array("[null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
+                 this->array("[86400000, 86400000]"),
+                 this->array("[86400000, 86400000]"));
+  } else {
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[false, true, false]"), this->array("[7]"),
+                 this->array("[1, 7, 1]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1, 7]"),
+                 this->mask("[false, true, false, true]"), this->array("[7, 20]"),
+                 this->array("[1, 7, 1, 20]"));
+    this->Assert(ReplaceWithMask, this->array("[1, 2, 3, 4]"),
+                 this->mask("[false, true, false, true]"), this->array("[null, null]"),
+                 this->array("[1, null, 3, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, 2, 3, 4]"),
+                 this->mask("[true, true, false, true]"), this->array("[1, null, null]"),
+                 this->array("[1, null, 3, null]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[false, true, false]"), this->scalar("null"),
+                 this->array("[1, null, 1]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[true, true, true]"), this->array("[7, 7, 7]"),
+                 this->array("[7, 7, 7]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[true, true, true]"), this->array("[null, null, null]"),
+                 this->array("[null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[false, true, false]"), this->scalar("null"),
+                 this->array("[1, null, 1]"));
+    this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
+                 this->mask("[true, true, true]"), this->scalar("null"),
+                 this->array("[null, null, null]"));
+    this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
+                 this->array("[1, 1]"), this->array("[1, 1]"));
+  }
 }
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
@@ -879,37 +978,92 @@ TYPED_TEST(TestFillNullNumeric, FillNullValuesForward) {
 
   this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, null]"),
                             this->array("[null, null, null, null]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4]"),
-                            this->array("[null, null, null, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, 4, null]"),
-                            this->array("[null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4, null]"),
-                            this->array("[null, null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4, null]"),
-                            this->array("[null, null, null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4,null, 5, null]"),
-                            this->array("[null, null, 4, 4, 5, 5]"));
 
-  this->AssertFillNullArray(FillNullForward, this->array("[1,4,null]"),
-                            this->array("[1,4,4]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, null, null, null]"),
-                            this->array("[1, 4 ,4, 4, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, null]"),
-                            this->array("[1, 4 ,4, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, null, 6]"),
-                            this->array("[1, 4 ,4, 5, 5, 5, 6]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, null, 5]"),
-                            this->array("[1, 4 ,4, 5, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, 6, null]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 6]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, 6, 7]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4 ,4, 5, 5, 6, 7]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, null, 345600000]"),
+                              this->array("[null, null, null, 345600000]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, 345600000, null]"),
+                              this->array("[null, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, 345600000, null]"),
+                              this->array("[null, null, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, null, 345600000, null]"),
+                              this->array("[null, null, null, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward, this->array("[null, null, 345600000, null, 432000000, null]"),
+        this->array("[null, null, 345600000, 345600000, 432000000, 432000000]"));
+
+    this->AssertFillNullArray(FillNullForward, this->array("[86400000, 345600000, null]"),
+                              this->array("[86400000, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward, this->array("[86400000, 345600000, null, null, null, null]"),
+        this->array("[86400000, 345600000 ,345600000, 345600000, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null, 518400000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000, "
+                    "518400000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null, 432000000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000, "
+                    "432000000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, 518400000, null]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "518400000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, 518400000, 604800000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"));
+  } else {
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4]"),
+                              this->array("[null, null, null, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, 4, null]"),
+                              this->array("[null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4, null]"),
+                              this->array("[null, null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4, null]"),
+                              this->array("[null, null, null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, 4,null, 5, null]"),
+                              this->array("[null, null, 4, 4, 5, 5]"));
+
+    this->AssertFillNullArray(FillNullForward, this->array("[1,4,null]"),
+                              this->array("[1,4,4]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, null, null, null]"),
+                              this->array("[1, 4 ,4, 4, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, null]"),
+                              this->array("[1, 4 ,4, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, null, 6]"),
+                              this->array("[1, 4 ,4, 5, 5, 5, 6]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, null, 5]"),
+                              this->array("[1, 4 ,4, 5, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, 6, null]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 6]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, 6, 7]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4 ,4, 5, 5, 6, 7]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+  }
 }
 
 TYPED_TEST(TestFillNullDecimal, FillNullValuesForward) {
@@ -1010,40 +1164,104 @@ TYPED_TEST(TestFillNullNumeric, FillNullValuesBackward) {
   this->AssertFillNullArray(FillNullBackward, this->array("[]"), this->array("[]"));
   this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, null]"),
                             this->array("[null, null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null, null, null]"),
-                            this->array("[4, 4,null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4]"),
-                            this->array("[4, 4, 4, 4]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null]"),
-                            this->array("[4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, 4, null]"),
-                            this->array("[4, 4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4, null]"),
-                            this->array("[4, 4, 4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[null, null, 4,null, 5, null]"),
-                            this->array("[4, 4, 4, 5, 5, null]"));
 
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null]"),
-                            this->array("[1, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, null, null, null]"),
-                            this->array("[1, 4 ,null, null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, null]"),
-                            this->array("[1, 4 , 5, 5, null, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, null, 6]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 6]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, null, 5]"),
-                            this->array("[1, 4 ,5 , 5, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, 6, null]"),
-                            this->array("[1, 4 ,5 , 5, 6, 6, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, 6, 7]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4 ,5, 5, 6, 6, 7]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, 345600000, null, null, null]"),
+                              this->array("[345600000, 345600000,null, null, null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[null, null, null, 345600000]"),
+        this->array("[345600000, 345600000, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, 345600000, null]"),
+                              this->array("[345600000, 345600000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, 345600000, null]"),
+                              this->array("[345600000, 345600000, 345600000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, null, 345600000, null]"),
+                              this->array("[345600000, 345600000, 345600000, 345600000, "
+                                          "null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[null, null, 345600000,null, 432000000, null]"),
+        this->array("[345600000, 345600000, 345600000, 432000000, "
+                    "432000000, null]"));
+
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null]"),
+                              this->array("[86400000, 345600000, null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[86400000, 345600000, null, null, null, null]"),
+        this->array("[86400000, 345600000 ,null, null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "null]"),
+                              this->array("[86400000, 345600000 , 432000000, 432000000, "
+                                          "null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null,"
+                                          "null, 518400000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 518400000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "null, 432000000]"),
+                              this->array("[86400000, 345600000 ,432000000 , 432000000, "
+                                          "432000000, 432000000, 432000000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "518400000, null]"),
+                              this->array("[86400000, 345600000 ,432000000 , 432000000, "
+                                          "518400000, 518400000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "518400000, 604800000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, 432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"));
+  } else {
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, 4, null, null, null]"),
+                              this->array("[4, 4,null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4]"),
+                              this->array("[4, 4, 4, 4]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null]"),
+                              this->array("[4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, null, 4, null]"),
+                              this->array("[4, 4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, null, 4, null]"),
+                              this->array("[4, 4, 4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, 4,null, 5, null]"),
+                              this->array("[4, 4, 4, 5, 5, null]"));
+
+    this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null]"),
+                              this->array("[1, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, null, null, null]"),
+                              this->array("[1, 4 ,null, null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null]"),
+                              this->array("[1, 4 , 5, 5, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null, 6]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 6]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null, 5]"),
+                              this->array("[1, 4 ,5 , 5, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, 6, null]"),
+                              this->array("[1, 4 ,5 , 5, 6, 6, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, 6, 7]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[1, 4 ,5, 5, 6, 6, 7]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+  }
 }
 
 TYPED_TEST(TestFillNullDecimal, FillNullValuesBackward) {
@@ -1190,15 +1408,33 @@ TYPED_TEST(TestFillNullNumeric, FillNullBackwardLargeInput) {
 }
 
 TYPED_TEST(TestFillNullNumeric, FillNullForwardSliced) {
-  auto first_input_array =
-      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
-  auto expected_slice_length_2 =
-      this->array("[1, 4, null, null, 7, 7, null, 8, 9, 5, null]");
-  auto expected_slice_length_3 = this->array("[1, 4, 4, null, 7, 7, null, 8, 9, 5, 5]");
-  auto expected_slice_length_4 = this->array("[1, 4, 4, 4, 7, 7, 7, 8, 9, 5, 5]");
-  this->AssertFillNullArraySlices(FillNullForward, first_input_array,
-                                  expected_slice_length_2, expected_slice_length_3,
-                                  expected_slice_length_4);
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto first_input_array = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, null, 691200000, "
+        "777600000, 432000000, null]");
+    auto expected_slice_length_2 = this->array(
+        "[86400000, 345600000, null, null, 604800000, 604800000, null, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_3 = this->array(
+        "[86400000, 345600000, 345600000, null, 604800000, 604800000, null, "
+        "691200000, 777600000, 432000000, 432000000]");
+    auto expected_slice_length_4 = this->array(
+        "[86400000, 345600000, 345600000, 345600000, 604800000, 604800000, "
+        "604800000, 691200000, 777600000, 432000000, 432000000]");
+    this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  } else {
+    auto first_input_array =
+        this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+    auto expected_slice_length_2 =
+        this->array("[1, 4, null, null, 7, 7, null, 8, 9, 5, null]");
+    auto expected_slice_length_3 = this->array("[1, 4, 4, null, 7, 7, null, 8, 9, 5, 5]");
+    auto expected_slice_length_4 = this->array("[1, 4, 4, 4, 7, 7, 7, 8, 9, 5, 5]");
+    this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullForwardSliced) {
@@ -1217,18 +1453,37 @@ TYPED_TEST(TestFillNullBinary, FillNullForwardSliced) {
 }
 
 TYPED_TEST(TestFillNullNumeric, FillNullBackwardSliced) {
-  auto first_input_array =
-      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
-  auto expected_slice_length_2 =
-      this->array("[1, 4, null, null, 7, null, 8, 8, 9, 5, null]");
-  auto expected_slice_length_3 =
-      this->array("[1, 4, null, 7, 7, null, 8, 8, 9, 5, null]");
-  auto expected_slice_length_4 =
-      this->array("[1, 4, null, null, 7, 8, 8, 8, 9, 5, null]");
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto first_input_array = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, null, 691200000, "
+        "777600000, 432000000, null]");
+    auto expected_slice_length_2 = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, 691200000, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_3 = this->array(
+        "[86400000, 345600000, null, 604800000, 604800000, null, 691200000, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_4 = this->array(
+        "[86400000, 345600000, null, null, 604800000, 691200000, 691200000, "
+        "691200000, 777600000, 432000000, null]");
 
-  this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
-                                  expected_slice_length_2, expected_slice_length_3,
-                                  expected_slice_length_4);
+    this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  } else {
+    auto first_input_array =
+        this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+    auto expected_slice_length_2 =
+        this->array("[1, 4, null, null, 7, null, 8, 8, 9, 5, null]");
+    auto expected_slice_length_3 =
+        this->array("[1, 4, null, 7, 7, null, 8, 8, 9, 5, null]");
+    auto expected_slice_length_4 =
+        this->array("[1, 4, null, null, 7, 8, 8, 8, 9, 5, null]");
+
+    this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullBackwardSliced) {
@@ -1253,61 +1508,149 @@ TYPED_TEST(TestFillNullNumeric, FillNullForwardChunkedArray) {
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
       this->chunked_array(
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[]", "[null, null]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, null, null]", "[8, 8, 8]", "[8]", "[8, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 3, 3, 4]", "[5, 5, 5]", "[5, 7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 3, 3, 3]", "[3, 3, 3]", "[3, 7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[1, 2, 2]", "[2, 2, 2]", "[2]", "[2, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, 2, 2]", "[2, 2, 3]", "[3]", "[3, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, 2, 2]", "[4, 4, 3]", "[3]", "[3, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[null, null, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[2, 4, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[2, 4, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[]", "[null, null]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, null]", "[691200000, null, null]", "[null]",
+                             "[null, 604800000]"}),
+        this->chunked_array({"[null, null, null]", "[691200000, 691200000, 691200000]",
+                             "[691200000]", "[691200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, 345600000]",
+                             "[432000000, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 259200000, 259200000, 345600000]",
+             "[432000000, 432000000, 432000000]", "[432000000, 604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, null]",
+                             "[null, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 259200000, 259200000, 259200000]",
+             "[259200000, 259200000, 259200000]", "[259200000, 604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, null]", "[null, null, null]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[86400000, 172800000, 172800000]",
+                             "[172800000, 172800000, 172800000]", "[172800000]",
+                             "[172800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 172800000, null]", "[null, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[null, 172800000, 172800000]",
+                             "[172800000, 172800000, 259200000]", "[259200000]",
+                             "[259200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 172800000, null]", "[345600000, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[null, 172800000, 172800000]",
+                             "[345600000, 345600000, 259200000]", "[259200000]",
+                             "[259200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}),
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[null, null, 86400000]", "[86400000, 86400000, 86400000]",
+                             "[432000000]", "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[172800000, 345600000, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[172800000, 345600000, 86400000]",
+                             "[86400000, 86400000, 86400000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+  } else {
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[]", "[null, null]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, null, null]", "[8, 8, 8]", "[8]", "[8, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 3, 3, 4]", "[5, 5, 5]", "[5, 7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 3, 3, 3]", "[3, 3, 3]", "[3, 7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[1, 2, 2]", "[2, 2, 2]", "[2]", "[2, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, 2, 2]", "[2, 2, 3]", "[3]", "[3, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, 2, 2]", "[4, 4, 3]", "[3]", "[3, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[null, null, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[2, 4, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[2, 4, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullForwardChunkedArray) {
@@ -1395,56 +1738,140 @@ TYPED_TEST(TestFillNullNumeric, FillBackwardChunkedArray) {
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
       this->chunked_array(
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[8, 8, 8]", "[8, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 4, 4, 4]", "[5, 7, 7]", "[7, 7, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 7, 7, 7]", "[7, 7, 7]", "[7, 7, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[1, 2, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[2, 2, 3]", "[3, 3, 3]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[2, 2, 4]", "[4, 3, 3]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[5, 5, 5]", "[5, 5, 5]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[1, 1, 1]", "[5, 5, 5]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[9, 0]", "[5, 7]"}),
-      this->chunked_array({"[1, 1, 1]", "[9, 9, 9]", "[9, 0]", "[5, 7]"}));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, null]", "[691200000, null, null]", "[null]",
+                             "[null, 604800000]"}),
+        this->chunked_array({"[691200000, 691200000, 691200000]",
+                             "[691200000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, 345600000]",
+                             "[432000000, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 345600000, 345600000, 345600000]",
+             "[432000000, 604800000, 604800000]", "[604800000, 604800000, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, null]",
+                             "[null, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 604800000, 604800000, 604800000]",
+             "[604800000, 604800000, 604800000]", "[604800000, 604800000, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, null]", "[null, null, null]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[86400000, 172800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 172800000, null]", "[null, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[172800000, 172800000, 259200000]",
+                             "[259200000, 259200000, 259200000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 172800000, null]", "[345600000, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[172800000, 172800000, 345600000]",
+                             "[345600000, 259200000, 259200000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}),
+        this->chunked_array({"[432000000, 432000000, 432000000]",
+                             "[432000000, 432000000, 432000000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[86400000, 86400000, 86400000]",
+                             "[432000000, 432000000, 432000000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[777600000, 0]", "[432000000, 604800000]"}),
+        this->chunked_array({"[86400000, 86400000, 86400000]",
+                             "[777600000, 777600000, 777600000]", "[777600000, 0]",
+                             "[432000000, 604800000]"}));
+  } else {
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[8, 8, 8]", "[8, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 4, 4, 4]", "[5, 7, 7]", "[7, 7, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 7, 7, 7]", "[7, 7, 7]", "[7, 7, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[1, 2, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[2, 2, 3]", "[3, 3, 3]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[2, 2, 4]", "[4, 3, 3]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[5, 5, 5]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[1, 1, 1]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, 1]", "[null, null, null]", "[9, 0]", "[5, 7]"}),
+        this->chunked_array({"[1, 1, 1]", "[9, 9, 9]", "[9, 0]", "[5, 7]"}));
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {

@@ -1662,14 +1662,12 @@ TEST(GroupBy, MinMaxTypes) {
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
   types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
   types.push_back(month_interval());
-  for (const auto& ty : types) {
-    SCOPED_TRACE(ty->ToString());
-    auto in_schema = schema({field("argument0", ty), field("key", int64())});
-    auto table = TableFromJSON(in_schema, {R"([
+
+  const std::vector<std::string> default_table = {R"([
     [1,    1],
     [null, 1]
 ])",
-                                           R"([
+                                                  R"([
     [0,    2],
     [null, 3],
     [3,    4],
@@ -1678,11 +1676,54 @@ TEST(GroupBy, MinMaxTypes) {
     [3,    1],
     [0,    2]
 ])",
-                                           R"([
+                                                  R"([
     [0,    2],
     [1,    null],
     [null, 3]
-])"});
+])"};
+
+  const std::vector<std::string> date64_table = {R"([
+    [86400000,    1],
+    [null, 1]
+])",
+                                                 R"([
+    [0,    2],
+    [null, 3],
+    [259200000,    4],
+    [432000000,    4],
+    [345600000,    null],
+    [259200000,    1],
+    [0,    2]
+])",
+                                                 R"([
+    [0,    2],
+    [86400000,    null],
+    [null, 3]
+])"};
+
+  const std::string default_expected =
+      R"([
+    [{"min": 1, "max": 3},       1],
+    [{"min": 0, "max": 0},       2],
+    [{"min": null, "max": null}, 3],
+    [{"min": 3, "max": 5},       4],
+    [{"min": 1, "max": 4},       null]
+    ])";
+
+  const std::string date64_expected =
+      R"([
+    [{"min": 86400000, "max": 259200000},       1],
+    [{"min": 0, "max": 0},       2],
+    [{"min": null, "max": null}, 3],
+    [{"min": 259200000, "max": 432000000},       4],
+    [{"min": 86400000, "max": 345600000},       null]
+    ])";
+
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table =
+        TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
 
     ASSERT_OK_AND_ASSIGN(
         Datum aggregated_and_grouped,
@@ -1698,13 +1739,7 @@ TEST(GroupBy, MinMaxTypes) {
                 field("hash_min_max", struct_({field("min", ty), field("max", ty)})),
                 field("key_0", int64()),
             }),
-            R"([
-    [{"min": 1, "max": 3},       1],
-    [{"min": 0, "max": 0},       2],
-    [{"min": null, "max": null}, 3],
-    [{"min": 3, "max": 5},       4],
-    [{"min": 1, "max": 4},       null]
-  ])"),
+            (ty->name() == "date64") ? date64_expected : default_expected),
         aggregated_and_grouped,
         /*verbose=*/true);
   }

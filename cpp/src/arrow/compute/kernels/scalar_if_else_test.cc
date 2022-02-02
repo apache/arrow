@@ -185,45 +185,95 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
   auto type = default_type_instance<TypeParam>();
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
-                           ArrayFromJSON(type, "[1, 2, 3, 8]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[true, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, 691200000]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, 691200000]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, null]"),
-                           ArrayFromJSON(type, "[1, 2, 3, null]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[true, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, null]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, null]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, null, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, null]"),
-                           ArrayFromJSON(type, "[1, 2, null, null]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[true, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, null]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, null]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, null, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
-                           ArrayFromJSON(type, "[1, 2, null, 8]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[true, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, 691200000]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, 691200000]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, null, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
-                           ArrayFromJSON(type, "[null, 2, null, 8]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[null, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, 691200000]"),
+        ArrayFromJSON(type, "[null, 172800000, null, 691200000]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, null, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, null]"),
-                           ArrayFromJSON(type, "[null, 2, null, null]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[null, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, null, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, null]"),
+        ArrayFromJSON(type, "[null, 172800000, null, null]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, null]"),
-                           ArrayFromJSON(type, "[null, 2, 3, null]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[null, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, null]"),
+        ArrayFromJSON(type, "[null, 172800000, 259200000, null]"));
 
-  CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
-                           ArrayFromJSON(type, "[1, 2, 3, 4]"),
-                           ArrayFromJSON(type, "[5, 6, 7, 8]"),
-                           ArrayFromJSON(type, "[null, 2, 3, 8]"));
+    CheckWithDifferentShapes(
+        ArrayFromJSON(boolean(), "[null, true, true, false]"),
+        ArrayFromJSON(type, "[86400000, 172800000, 259200000, 345600000]"),
+        ArrayFromJSON(type, "[432000000, 518400000, 604800000, 691200000]"),
+        ArrayFromJSON(type, "[null, 172800000, 259200000, 691200000]"));
+  } else {
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                             ArrayFromJSON(type, "[1, 2, 3, 8]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, null]"),
+                             ArrayFromJSON(type, "[1, 2, 3, null]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, null, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, null]"),
+                             ArrayFromJSON(type, "[1, 2, null, null]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, null, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                             ArrayFromJSON(type, "[1, 2, null, 8]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, null, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                             ArrayFromJSON(type, "[null, 2, null, 8]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, null, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, null]"),
+                             ArrayFromJSON(type, "[null, 2, null, null]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, null]"),
+                             ArrayFromJSON(type, "[null, 2, 3, null]"));
+
+    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[null, true, true, false]"),
+                             ArrayFromJSON(type, "[1, 2, 3, 4]"),
+                             ArrayFromJSON(type, "[5, 6, 7, 8]"),
+                             ArrayFromJSON(type, "[null, 2, 3, 8]"));
+  }
 }
 
 TEST_F(TestIfElseKernel, IfElseBoolean) {
@@ -332,10 +382,18 @@ TEST_F(TestIfElseKernel, TimestampTypes) {
 
 TEST_F(TestIfElseKernel, TemporalTypes) {
   for (const auto& ty : TemporalTypes()) {
-    CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
-                             ArrayFromJSON(ty, "[1, 2, 3, 4]"),
-                             ArrayFromJSON(ty, "[5, 6, 7, 8]"),
-                             ArrayFromJSON(ty, "[1, 2, 3, 8]"));
+    if (ty->name() == "date64") {
+      CheckWithDifferentShapes(
+          ArrayFromJSON(boolean(), "[true, true, true, false]"),
+          ArrayFromJSON(ty, "[86400000, 172800000, 259200000, 4]"),
+          ArrayFromJSON(ty, "[5, 6, 7, 691200000]"),
+          ArrayFromJSON(ty, "[86400000, 172800000, 259200000, 691200000]"));
+    } else {
+      CheckWithDifferentShapes(ArrayFromJSON(boolean(), "[true, true, true, false]"),
+                               ArrayFromJSON(ty, "[1, 2, 3, 4]"),
+                               ArrayFromJSON(ty, "[5, 6, 7, 8]"),
+                               ArrayFromJSON(ty, "[1, 2, 3, 8]"));
+    }
   }
 }
 
@@ -978,89 +1036,196 @@ TYPED_TEST(TestCaseWhenNumeric, FixedSize) {
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto scalar_null = ScalarFromJSON(type, "null");
-  auto scalar1 = ScalarFromJSON(type, "1");
-  auto scalar2 = ScalarFromJSON(type, "2");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
-  auto values1 = ArrayFromJSON(type, "[3, null, 5, 6]");
-  auto values2 = ArrayFromJSON(type, "[7, 8, null, 10]");
 
-  CheckScalar("case_when", {MakeStruct({}), values1}, values1);
-  CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto scalar1 = ScalarFromJSON(type, "86400000");
+    auto scalar2 = ScalarFromJSON(type, "172800000");
+    auto values1 = ArrayFromJSON(type, "[259200000, null, 432000000, 518400000]");
+    auto values2 = ArrayFromJSON(type, "[604800000, 691200000, null, 864000000]");
 
-  CheckScalar("case_when", {MakeStruct({cond_true}), scalar1, values1},
-              *MakeArrayFromScalar(*scalar1, 4));
-  CheckScalar("case_when", {MakeStruct({cond_false}), scalar1, values1}, values1);
+    CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
 
-  CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
-  CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
-  CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
-  CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
-  CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
-  CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_true}), scalar1, values1},
+                *MakeArrayFromScalar(*scalar1, 4));
+    CheckScalar("case_when", {MakeStruct({cond_false}), scalar1, values1}, values1);
 
-  CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
-              values1);
-  CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
-              values_null);
-  CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
-              values1);
-  CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
-              values2);
-  CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
-              values2);
-  CheckScalar("case_when",
-              {MakeStruct({cond_false, cond_false}), values1, values2, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
 
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
-              ArrayFromJSON(type, "[1, 1, 2, null]"));
-  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
-  CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
-              ArrayFromJSON(type, "[null, null, 1, 1]"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
-              ArrayFromJSON(type, "[1, 1, 2, 1]"));
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+                values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when",
+                {MakeStruct({cond_false, cond_false}), values1, values2, values2},
+                values2);
 
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
-              ArrayFromJSON(type, "[3, null, null, null]"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
-              ArrayFromJSON(type, "[3, null, null, 6]"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
-              ArrayFromJSON(type, "[null, null, null, 6]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
+                ArrayFromJSON(type, "[86400000, 86400000, 172800000, null]"));
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
+                ArrayFromJSON(type, "[null, null, 86400000, 86400000]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
+                ArrayFromJSON(type, "[86400000, 86400000, 172800000, 86400000]"));
 
-  CheckScalar(
-      "case_when",
-      {MakeStruct(
-           {ArrayFromJSON(boolean(),
-                          "[true, true, true, false, false, false, null, null, null]"),
-            ArrayFromJSON(boolean(),
-                          "[true, false, null, true, false, null, true, false, null]")}),
-       ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
-       ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]")},
-      ArrayFromJSON(type, "[10, 11, 12, 23, null, null, 26, null, null]"));
-  CheckScalar(
-      "case_when",
-      {MakeStruct(
-           {ArrayFromJSON(boolean(),
-                          "[true, true, true, false, false, false, null, null, null]"),
-            ArrayFromJSON(boolean(),
-                          "[true, false, null, true, false, null, true, false, null]")}),
-       ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                ArrayFromJSON(type, "[259200000, null, null, null]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+                ArrayFromJSON(type, "[259200000, null, null, 518400000]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+                ArrayFromJSON(type, "[null, null, null, 518400000]"));
 
-       ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]"),
-       ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
-      ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
+    CheckScalar(
+        "case_when",
+        {MakeStruct(
+             {ArrayFromJSON(boolean(),
+                            "[true, true, true, false, false, false, null, null, null]"),
+              ArrayFromJSON(
+                  boolean(),
+                  "[true, false, null, true, false, null, true, false, null]")}),
+         ArrayFromJSON(type,
+                       "[864000000, 950400000, 1036800000, 1123200000, 1209600000, "
+                       "1296000000, 1382400000, 1468800000, 1555200000]"),
+         ArrayFromJSON(type,
+                       "[1728000000, 1814400000, 1900800000, 1987200000, 2073600000, "
+                       "2160000000, 2246400000, 2332800000, 2419200000]")},
+        ArrayFromJSON(type,
+                      "[864000000, 950400000, 1036800000, 1987200000, null, null, "
+                      "2246400000, null, null]"));
+    CheckScalar(
+        "case_when",
+        {MakeStruct(
+             {ArrayFromJSON(boolean(),
+                            "[true, true, true, false, false, false, null, null, null]"),
+              ArrayFromJSON(
+                  boolean(),
+                  "[true, false, null, true, false, null, true, false, null]")}),
+         ArrayFromJSON(type,
+                       "[864000000, 950400000, 1036800000, 1123200000, 1209600000, "
+                       "1296000000, 1382400000, 1468800000, 1555200000]"),
 
-  // Error cases
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("cond struct must not be null"),
-      CallFunction(
-          "case_when",
-          {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
-           Datum(scalar1)}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
-      CallFunction(
-          "case_when",
-          {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)), Datum(values1)}));
+         ArrayFromJSON(type,
+                       "[1728000000, 1814400000, 1900800000, 1987200000, 2073600000, "
+                       "2160000000, 2246400000, 2332800000, 2419200000]"),
+         ArrayFromJSON(type,
+                       "[2592000000, 2678400000, 2764800000, 2851200000, 2937600000, "
+                       "null, 3110400000, 3196800000, null]")},
+        ArrayFromJSON(type,
+                      "[864000000, 950400000, 1036800000, 1987200000, 2937600000, null, "
+                      "2246400000, 3196800000, null]"));
+
+    // Error cases
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("cond struct must not be null"),
+        CallFunction(
+            "case_when",
+            {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
+             Datum(scalar1)}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
+        CallFunction("case_when",
+                     {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)),
+                      Datum(values1)}));
+
+  } else {
+    auto scalar1 = ScalarFromJSON(type, "1");
+    auto scalar2 = ScalarFromJSON(type, "2");
+    auto values1 = ArrayFromJSON(type, "[3, null, 5, 6]");
+    auto values2 = ArrayFromJSON(type, "[7, 8, null, 10]");
+
+    CheckScalar("case_when", {MakeStruct({}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({}), values_null}, values_null);
+
+    CheckScalar("case_when", {MakeStruct({cond_true}), scalar1, values1},
+                *MakeArrayFromScalar(*scalar1, 4));
+    CheckScalar("case_when", {MakeStruct({cond_false}), scalar1, values1}, values1);
+
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true}), values1, values2}, values1);
+    CheckScalar("case_when", {MakeStruct({cond_false}), values1, values2}, values2);
+    CheckScalar("case_when", {MakeStruct({cond_null}), values1, values2}, values2);
+
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_true}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_false}), values1, values2},
+                values_null);
+    CheckScalar("case_when", {MakeStruct({cond_true, cond_false}), values1, values2},
+                values1);
+    CheckScalar("case_when", {MakeStruct({cond_false, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when", {MakeStruct({cond_null, cond_true}), values1, values2},
+                values2);
+    CheckScalar("case_when",
+                {MakeStruct({cond_false, cond_false}), values1, values2, values2},
+                values2);
+
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2},
+                ArrayFromJSON(type, "[1, 1, 2, null]"));
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null}, values_null);
+    CheckScalar("case_when", {MakeStruct({cond1}), scalar_null, scalar1},
+                ArrayFromJSON(type, "[null, null, 1, 1]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), scalar1, scalar2, scalar1},
+                ArrayFromJSON(type, "[1, 1, 2, 1]"));
+
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                ArrayFromJSON(type, "[3, null, null, null]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+                ArrayFromJSON(type, "[3, null, null, 6]"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+                ArrayFromJSON(type, "[null, null, null, 6]"));
+
+    CheckScalar(
+        "case_when",
+        {MakeStruct(
+             {ArrayFromJSON(boolean(),
+                            "[true, true, true, false, false, false, null, null, null]"),
+              ArrayFromJSON(
+                  boolean(),
+                  "[true, false, null, true, false, null, true, false, null]")}),
+         ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
+         ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]")},
+        ArrayFromJSON(type, "[10, 11, 12, 23, null, null, 26, null, null]"));
+    CheckScalar(
+        "case_when",
+        {MakeStruct(
+             {ArrayFromJSON(boolean(),
+                            "[true, true, true, false, false, false, null, null, null]"),
+              ArrayFromJSON(
+                  boolean(),
+                  "[true, false, null, true, false, null, true, false, null]")}),
+         ArrayFromJSON(type, "[10, 11, 12, 13, 14, 15, 16, 17, 18]"),
+
+         ArrayFromJSON(type, "[20, 21, 22, 23, 24, 25, 26, 27, 28]"),
+         ArrayFromJSON(type, "[30, 31, 32, 33, 34, null, 36, 37, null]")},
+        ArrayFromJSON(type, "[10, 11, 12, 23, 34, null, 26, 37, null]"));
+
+    // Error cases
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("cond struct must not be null"),
+        CallFunction(
+            "case_when",
+            {Datum(std::make_shared<StructScalar>(struct_({field("", boolean())}))),
+             Datum(scalar1)}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("cond struct must not have top-level nulls"),
+        CallFunction("case_when",
+                     {Datum(*MakeArrayOfNull(struct_({field("", boolean())}), 4)),
+                      Datum(values1)}));
+  }
 }
 
 TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
@@ -1069,15 +1234,32 @@ TYPED_TEST(TestCaseWhenNumeric, ListOfType) {
   auto cond1 = ArrayFromJSON(boolean(), "[true, true, null, null]");
   auto cond2 = ArrayFromJSON(boolean(), "[true, false, true, null]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
-  auto values1 = ArrayFromJSON(type, R"([[1, 2], null, [3, 4, 5], [6, null]])");
-  auto values2 = ArrayFromJSON(type, R"([[8, 9, 10], [11], null, [12]])");
 
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
-              ArrayFromJSON(type, R"([[1, 2], null, null, null])"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
-              ArrayFromJSON(type, R"([[1, 2], null, null, [6, null]])"));
-  CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
-              ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto values1 = ArrayFromJSON(
+        type,
+        R"([[86400000, 172800000], null, [259200000, 345600000, 432000000], [518400000, null]])");
+    auto values2 = ArrayFromJSON(
+        type, R"([[691200000, 777600000, 864000000], [950400000], null, [1036800000]])");
+
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                ArrayFromJSON(type, R"([[86400000, 172800000], null, null, null])"));
+    CheckScalar(
+        "case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+        ArrayFromJSON(type, R"([[86400000, 172800000], null, null, [518400000, null]])"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+                ArrayFromJSON(type, R"([null, null, null, [518400000, null]])"));
+  } else {
+    auto values1 = ArrayFromJSON(type, R"([[1, 2], null, [3, 4, 5], [6, null]])");
+    auto values2 = ArrayFromJSON(type, R"([[8, 9, 10], [11], null, [12]])");
+
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2},
+                ArrayFromJSON(type, R"([[1, 2], null, null, null])"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values1, values2, values1},
+                ArrayFromJSON(type, R"([[1, 2], null, null, [6, null]])"));
+    CheckScalar("case_when", {MakeStruct({cond1, cond2}), values_null, values2, values1},
+                ArrayFromJSON(type, R"([null, null, null, [6, null]])"));
+  }
 }
 
 template <typename Type>
@@ -2186,55 +2368,123 @@ TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
 TYPED_TEST(TestCoalesceNumeric, Basics) {
   auto type = default_type_instance<TypeParam>();
   auto scalar_null = ScalarFromJSON(type, "null");
-  auto scalar1 = ScalarFromJSON(type, "20");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
-  auto values1 = ArrayFromJSON(type, "[null, 10, 11, 12]");
-  auto values2 = ArrayFromJSON(type, "[13, 14, 15, 16]");
-  auto values3 = ArrayFromJSON(type, "[17, 18, 19, null]");
-  // N.B. all-scalar cases are checked in CheckScalar
-  CheckScalar("coalesce", {values_null}, values_null);
-  CheckScalar("coalesce", {values_null, scalar1},
-              ArrayFromJSON(type, "[20, 20, 20, 20]"));
-  CheckScalar("coalesce", {values_null, values1}, values1);
-  CheckScalar("coalesce", {values_null, values2}, values2);
-  CheckScalar("coalesce", {values1, values_null}, values1);
-  CheckScalar("coalesce", {values2, values_null}, values2);
-  CheckScalar("coalesce", {scalar_null, values1}, values1);
-  CheckScalar("coalesce", {values1, scalar_null}, values1);
-  CheckScalar("coalesce", {values2, values1, values_null}, values2);
-  CheckScalar("coalesce", {values1, scalar1}, ArrayFromJSON(type, "[20, 10, 11, 12]"));
-  CheckScalar("coalesce", {values1, values2}, ArrayFromJSON(type, "[13, 10, 11, 12]"));
-  CheckScalar("coalesce", {values1, values2, values3},
-              ArrayFromJSON(type, "[13, 10, 11, 12]"));
-  CheckScalar("coalesce", {scalar1, values1}, ArrayFromJSON(type, "[20, 20, 20, 20]"));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto scalar1 = ScalarFromJSON(type, "1728000000");
+    auto values1 = ArrayFromJSON(type, "[null, 864000000, 950400000, 1036800000]");
+    auto values2 =
+        ArrayFromJSON(type, "[1123200000, 1209600000, 1296000000, 1382400000]");
+    auto values3 = ArrayFromJSON(type, "[17, 18, 19, null]");
+    // N.B. all-scalar cases are checked in CheckScalar
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1},
+                ArrayFromJSON(type, "[1728000000, 1728000000, 1728000000, 1728000000]"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar("coalesce", {values1, scalar1},
+                ArrayFromJSON(type, "[1728000000, 864000000, 950400000, 1036800000]"));
+    CheckScalar("coalesce", {values1, values2},
+                ArrayFromJSON(type, "[1123200000, 864000000, 950400000, 1036800000]"));
+    CheckScalar("coalesce", {values1, values2, values3},
+                ArrayFromJSON(type, "[1123200000, 864000000, 950400000, 1036800000]"));
+    CheckScalar("coalesce", {scalar1, values1},
+                ArrayFromJSON(type, "[1728000000, 1728000000, 1728000000, 1728000000]"));
+  } else {
+    auto scalar1 = ScalarFromJSON(type, "20");
+    auto values1 = ArrayFromJSON(type, "[null, 10, 11, 12]");
+    auto values2 = ArrayFromJSON(type, "[13, 14, 15, 16]");
+    auto values3 = ArrayFromJSON(type, "[17, 18, 19, null]");
+    // N.B. all-scalar cases are checked in CheckScalar
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1},
+                ArrayFromJSON(type, "[20, 20, 20, 20]"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar("coalesce", {values1, scalar1}, ArrayFromJSON(type, "[20, 10, 11, 12]"));
+    CheckScalar("coalesce", {values1, values2}, ArrayFromJSON(type, "[13, 10, 11, 12]"));
+    CheckScalar("coalesce", {values1, values2, values3},
+                ArrayFromJSON(type, "[13, 10, 11, 12]"));
+    CheckScalar("coalesce", {scalar1, values1}, ArrayFromJSON(type, "[20, 20, 20, 20]"));
+  }
 }
 
 TYPED_TEST(TestCoalesceNumeric, ListOfType) {
   auto type = list(default_type_instance<TypeParam>());
   auto scalar_null = ScalarFromJSON(type, "null");
-  auto scalar1 = ScalarFromJSON(type, "[20, 24]");
   auto values_null = ArrayFromJSON(type, "[null, null, null, null]");
-  auto values1 = ArrayFromJSON(type, "[null, [10, null, 20], [], [null, null]]");
-  auto values2 = ArrayFromJSON(type, "[[23], [14, 24], [null, 15], [16]]");
-  auto values3 = ArrayFromJSON(type, "[[17, 18], [19], [], null]");
-  CheckScalar("coalesce", {values_null}, values_null);
-  CheckScalar("coalesce", {values_null, scalar1},
-              ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
-  CheckScalar("coalesce", {values_null, values1}, values1);
-  CheckScalar("coalesce", {values_null, values2}, values2);
-  CheckScalar("coalesce", {values1, values_null}, values1);
-  CheckScalar("coalesce", {values2, values_null}, values2);
-  CheckScalar("coalesce", {scalar_null, values1}, values1);
-  CheckScalar("coalesce", {values1, scalar_null}, values1);
-  CheckScalar("coalesce", {values2, values1, values_null}, values2);
-  CheckScalar("coalesce", {values1, scalar1},
-              ArrayFromJSON(type, "[[20, 24], [10, null, 20], [], [null, null]]"));
-  CheckScalar("coalesce", {values1, values2},
-              ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
-  CheckScalar("coalesce", {values1, values2, values3},
-              ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
-  CheckScalar("coalesce", {scalar1, values1},
-              ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto scalar1 = ScalarFromJSON(type, "[1728000000, 2073600000]");
+    auto values1 =
+        ArrayFromJSON(type, "[null, [864000000, null, 1728000000], [], [null, null]]");
+    auto values2 = ArrayFromJSON(
+        type,
+        "[[1987200000], [1209600000, 2073600000], [null, 1296000000], [1382400000]]");
+    auto values3 =
+        ArrayFromJSON(type, "[[1468800000, 1555200000], [1641600000], [], null]");
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1},
+                ArrayFromJSON(type,
+                              "[[1728000000, 2073600000], [1728000000, 2073600000], "
+                              "[1728000000, 2073600000], [1728000000, 2073600000]]"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar("coalesce", {values1, scalar1},
+                ArrayFromJSON(type,
+                              "[[1728000000, 2073600000], [864000000, null, 1728000000], "
+                              "[], [null, null]]"));
+    CheckScalar(
+        "coalesce", {values1, values2},
+        ArrayFromJSON(type,
+                      "[[1987200000], [864000000, null, 1728000000], [], [null, null]]"));
+    CheckScalar(
+        "coalesce", {values1, values2, values3},
+        ArrayFromJSON(type,
+                      "[[1987200000], [864000000, null, 1728000000], [], [null, null]]"));
+    CheckScalar("coalesce", {scalar1, values1},
+                ArrayFromJSON(type,
+                              "[[1728000000, 2073600000], [1728000000, 2073600000], "
+                              "[1728000000, 2073600000], [1728000000, 2073600000]]"));
+  } else {
+    auto scalar1 = ScalarFromJSON(type, "[20, 24]");
+    auto values1 = ArrayFromJSON(type, "[null, [10, null, 20], [], [null, null]]");
+    auto values2 = ArrayFromJSON(type, "[[23], [14, 24], [null, 15], [16]]");
+    auto values3 = ArrayFromJSON(type, "[[17, 18], [19], [], null]");
+    CheckScalar("coalesce", {values_null}, values_null);
+    CheckScalar("coalesce", {values_null, scalar1},
+                ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
+    CheckScalar("coalesce", {values_null, values1}, values1);
+    CheckScalar("coalesce", {values_null, values2}, values2);
+    CheckScalar("coalesce", {values1, values_null}, values1);
+    CheckScalar("coalesce", {values2, values_null}, values2);
+    CheckScalar("coalesce", {scalar_null, values1}, values1);
+    CheckScalar("coalesce", {values1, scalar_null}, values1);
+    CheckScalar("coalesce", {values2, values1, values_null}, values2);
+    CheckScalar("coalesce", {values1, scalar1},
+                ArrayFromJSON(type, "[[20, 24], [10, null, 20], [], [null, null]]"));
+    CheckScalar("coalesce", {values1, values2},
+                ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
+    CheckScalar("coalesce", {values1, values2, values3},
+                ArrayFromJSON(type, "[[23], [10, null, 20], [], [null, null]]"));
+    CheckScalar("coalesce", {scalar1, values1},
+                ArrayFromJSON(type, "[[20, 24], [20, 24], [20, 24], [20, 24]]"));
+  }
 }
 
 TYPED_TEST(TestCoalesceBinary, Basics) {
@@ -2938,25 +3188,49 @@ TYPED_TEST_SUITE(TestChooseBinary, BaseBinaryArrowTypes);
 TYPED_TEST(TestChooseNumeric, FixedSize) {
   auto type = default_type_instance<TypeParam>();
   auto indices1 = ArrayFromJSON(int64(), "[0, 1, 0, 1, null]");
-  auto values1 = ArrayFromJSON(type, "[10, 11, null, null, 14]");
-  auto values2 = ArrayFromJSON(type, "[20, 21, null, null, 24]");
-  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
-  CheckScalar("choose", {indices1, values1, values2},
-              ArrayFromJSON(type, "[10, 21, null, null, null]"));
-  CheckScalar("choose", {indices1, ScalarFromJSON(type, "1"), values1},
-              ArrayFromJSON(type, "[1, 11, 1, null, null]"));
-  // Mixed scalar and array (note CheckScalar checks all-scalar cases for us)
-  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
-  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
-  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
-  auto scalar1 = ScalarFromJSON(type, "42");
-  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
-              *MakeArrayFromScalar(*scalar1, 5));
-  CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
-  CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
   auto scalar_null = ScalarFromJSON(type, "null");
-  CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
-              *MakeArrayOfNull(type, 5));
+  auto nulls = ArrayFromJSON(type, "[null, null, null, null, null]");
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto values1 = ArrayFromJSON(type, "[864000000, 950400000, null, null, 1209600000]");
+    auto values2 =
+        ArrayFromJSON(type, "[1728000000, 1814400000, null, null, 2073600000]");
+    auto scalar1 = ScalarFromJSON(type, "3628800000");
+
+    CheckScalar("choose", {indices1, values1, values2},
+                ArrayFromJSON(type, "[864000000, 1814400000, null, null, null]"));
+    CheckScalar("choose", {indices1, ScalarFromJSON(type, "864000000"), values1},
+                ArrayFromJSON(type, "[864000000, 950400000, 864000000, null, null]"));
+    // Mixed scalar and array (note CheckScalar checks all-scalar cases for us)
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+                *MakeArrayFromScalar(*scalar1, 5));
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+                *MakeArrayOfNull(type, 5));
+  } else {
+    auto values1 = ArrayFromJSON(type, "[10, 11, null, null, 14]");
+    auto values2 = ArrayFromJSON(type, "[20, 21, null, null, 24]");
+    auto scalar1 = ScalarFromJSON(type, "42");
+
+    CheckScalar("choose", {indices1, values1, values2},
+                ArrayFromJSON(type, "[10, 21, null, null, null]"));
+    CheckScalar("choose", {indices1, ScalarFromJSON(type, "1"), values1},
+                ArrayFromJSON(type, "[1, 11, 1, null, null]"));
+    // Mixed scalar and array (note CheckScalar checks all-scalar cases for us)
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), values1, values2}, values1);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), values1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar1, values2},
+                *MakeArrayFromScalar(*scalar1, 5));
+    CheckScalar("choose", {ScalarFromJSON(int64(), "1"), scalar1, values2}, values2);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "null"), values1, values2}, nulls);
+    CheckScalar("choose", {ScalarFromJSON(int64(), "0"), scalar_null, values2},
+                *MakeArrayOfNull(type, 5));
+  }
 }
 
 TYPED_TEST(TestChooseBinary, Basics) {

@@ -534,7 +534,7 @@ static ScalarVector GetScalars() {
       std::make_shared<UInt64Scalar>(3),
       std::make_shared<DoubleScalar>(3.0),
       std::make_shared<Date32Scalar>(10),
-      std::make_shared<Date64Scalar>(11),
+      std::make_shared<Date64Scalar>(864000000),
       std::make_shared<Time32Scalar>(1000, time32(TimeUnit::SECOND)),
       std::make_shared<Time64Scalar>(1111, time64(TimeUnit::MICRO)),
       std::make_shared<TimestampScalar>(1111, timestamp(TimeUnit::MILLI)),
