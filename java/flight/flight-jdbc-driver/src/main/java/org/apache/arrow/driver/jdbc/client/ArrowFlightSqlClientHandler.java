@@ -503,6 +503,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           withMiddlewareFactories(authFactory);
         }
         final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
+        withMiddlewareFactories(new ClientCookieMiddleware.Factory());
         middlewareFactories.forEach(clientBuilder::intercept);
         Location location;
         if (useTls) {
@@ -516,8 +517,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           clientBuilder.trustedCertificates(
               ClientAuthenticationUtils.getCertificateStream(keyStorePath, keyStorePassword));
         }
-        ClientCookieMiddleware.Factory factory = new ClientCookieMiddleware.Factory();
-        final FlightClient client = clientBuilder.intercept(factory).build();
+        final FlightClient client = clientBuilder.build();
         if (authFactory != null) {
           options.add(
               ClientAuthenticationUtils.getAuthenticate(client, username, password, authFactory));
@@ -526,7 +526,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
               ClientAuthenticationUtils.getAuthenticate(
                   client, new CredentialCallOption(new BearerCredentialWriter(token))));
         }
-
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
         throw new SQLException(e);
