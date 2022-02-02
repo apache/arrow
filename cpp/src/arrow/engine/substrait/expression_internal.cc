@@ -275,12 +275,16 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       const auto& struct_ = lit.struct_();
 
       ScalarVector fields(struct_.fields_size());
-      std::vector<std::string> field_names(fields.size(), "");
       for (int i = 0; i < struct_.fields_size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto field, FromProto(struct_.fields(i), ext_set));
         DCHECK(field.is_scalar());
         fields[i] = field.scalar();
       }
+
+      // Note that Substrait struct types don't have field names, but Arrow does, so we
+      // just use empty strings for them.
+      std::vector<std::string> field_names(fields.size(), "");
+
       ARROW_ASSIGN_OR_RAISE(
           auto scalar, StructScalar::Make(std::move(fields), std::move(field_names)));
       return Datum(std::move(scalar));
