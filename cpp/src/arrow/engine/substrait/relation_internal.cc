@@ -119,6 +119,21 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         }
         auto path = item.uri_file().substr(7);
 
+        if (item.partition_index() != 0) {
+          return Status::NotImplemented(
+              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::partition_index");
+        }
+
+        if (item.start() != 0) {
+          return Status::NotImplemented(
+              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::start offset");
+        }
+
+        if (item.length() != 0) {
+          return Status::NotImplemented(
+              "non-default substrait::ReadRel::LocalFiles::FileOrFiles::length");
+        }
+
         ARROW_ASSIGN_OR_RAISE(auto fragment, format->MakeFragment(dataset::FileSource{
                                                  std::move(path), filesystem}));
         fragments.push_back(std::move(fragment));
