@@ -22,7 +22,7 @@
 .. using git.
 
 
-.. _pr_and_github:
+.. _pr_lifecycle:
 
 ***************************
 Lifecycle of a pull request
