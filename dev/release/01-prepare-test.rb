@@ -198,7 +198,7 @@ class PrepareTest < Test::Unit::TestCase
             "+        \"version\": \"dev\"",
             "+    },",
             "+    {",
-            "+        \"name\": \"#{release_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@release_compatible_version} (stable)\",",
             "+    {",
             "+        \"name\": \"#{@previous_compatible_version}\",",
             "+        \"version\": \"#{@previous_compatible_version + "/"}\"",
