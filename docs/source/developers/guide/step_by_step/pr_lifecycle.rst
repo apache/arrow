@@ -42,8 +42,8 @@ have successfully built Arrow and have a JIRA issue to work on.
 **Before making changes to the code, you should create a new
 branch in Git.**
 
-1. Update/sync the code from your ``upstream``
-   in the master branch. Run it in the shell from the ``arrow`` directory.
+1. Update your fork’s master branch with ``upstream/master``.
+   Run this in the shell from the ``arrow`` directory.
 
    .. code:: console
 
