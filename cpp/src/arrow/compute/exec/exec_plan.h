@@ -28,8 +28,10 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/cancel.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/tracing.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -45,7 +47,9 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
   ExecContext* exec_context() const { return exec_context_; }
 
   /// Make an empty exec plan
-  static Result<std::shared_ptr<ExecPlan>> Make(ExecContext* = default_exec_context());
+  static Result<std::shared_ptr<ExecPlan>> Make(
+      ExecContext* = default_exec_context(),
+      std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   ExecNode* AddNode(std::unique_ptr<ExecNode> node);
 
@@ -79,6 +83,12 @@ class ARROW_EXPORT ExecPlan : public std::enable_shared_from_this<ExecPlan> {
 
   /// \brief A future which will be marked finished when all nodes have stopped producing.
   Future<> finished();
+
+  /// \brief Return whether the plan has non-empty metadata
+  bool HasMetadata() const;
+
+  /// \brief Return the plan's attached metadata
+  std::shared_ptr<const KeyValueMetadata> metadata() const;
 
   std::string ToString() const;
 
@@ -245,6 +255,11 @@ class ARROW_EXPORT ExecNode {
   std::shared_ptr<Schema> output_schema_;
   int num_outputs_;
   NodeVector outputs_;
+
+  // Future to sync finished
+  Future<> finished_ = Future<>::MakeFinished();
+
+  util::tracing::Span span_;
 };
 
 /// \brief MapNode is an ExecNode type class which process a task like filter/project
@@ -284,9 +299,6 @@ class MapNode : public ExecNode {
  protected:
   // Counter for the number of batches received
   AtomicCounter input_counter_;
-
-  // Future to sync finished
-  Future<> finished_ = Future<>::Make();
 
   // The task group for the corresponding batches
   util::AsyncTaskGroup task_group_;

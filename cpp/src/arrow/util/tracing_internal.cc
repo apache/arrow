@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/util/tracing_internal.h"
+#include "arrow/util/tracing.h"
 
 #include <iostream>
 #include <sstream>
@@ -106,7 +107,7 @@ class ThreadIdSpanProcessor : public sdktrace::BatchSpanProcessor {
   void OnEnd(std::unique_ptr<sdktrace::Recordable>&& span) noexcept override {
     std::stringstream thread_id;
     thread_id << std::this_thread::get_id();
-    span->SetAttribute("thread_id", thread_id.str());
+    span->SetAttribute("thread.id", thread_id.str());
     sdktrace::BatchSpanProcessor::OnEnd(std::move(span));
   }
 };
@@ -152,9 +153,10 @@ class FlushLog {
   explicit FlushLog(nostd::shared_ptr<sdktrace::TracerProvider> provider)
       : provider_(std::move(provider)) {}
   ~FlushLog() {
-    if (provider_) {
-      provider_->ForceFlush(std::chrono::microseconds(1000000));
-    }
+    // TODO: ForceFlush apparently sends data that OTLP connector can't handle
+    // if (provider_) {
+    //   provider_->ForceFlush(std::chrono::microseconds(1000000));
+    // }
   }
   nostd::shared_ptr<sdktrace::TracerProvider> provider_;
 };
@@ -181,6 +183,15 @@ opentelemetry::trace::Tracer* GetTracer() {
       GetTracerProvider()->GetTracer("arrow");
   return tracer.get();
 }
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
+    const util::tracing::Span& parent_span) {
+  opentelemetry::trace::StartSpanOptions options;
+  options.parent = parent_span.Get().span->GetContext();
+  return options;
+}
+#endif
 
 }  // namespace tracing
 }  // namespace internal

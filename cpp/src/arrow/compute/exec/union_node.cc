@@ -27,6 +27,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -75,6 +76,7 @@ class UnionNode : public ExecNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     if (finished_.is_finished()) {
@@ -87,6 +89,7 @@ class UnionNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
     outputs_[0]->ErrorReceived(this, std::move(error));
 
@@ -94,6 +97,8 @@ class UnionNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+    EVENT(span_, "InputFinished",
+          {{"input", input_count_.count()}, {"batches.length", total_batches}});
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
     total_batches_.fetch_add(total_batches);
@@ -107,15 +112,21 @@ class UnionNode : public ExecNode {
   }
 
   Status StartProducing() override {
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
-  void PauseProducing(ExecNode* output) override {}
+  void PauseProducing(ExecNode* output) override { EVENT(span_, "PauseProducing"); }
 
-  void ResumeProducing(ExecNode* output) override {}
+  void ResumeProducing(ExecNode* output) override { EVENT(span_, "ResumeProducing"); }
 
   void StopProducing(ExecNode* output) override {
+    EVENT(span_, "StopProducing");
     DCHECK_EQ(output, outputs_[0]);
     if (batch_count_.Cancel()) {
       finished_.MarkFinished();
@@ -140,7 +151,6 @@ class UnionNode : public ExecNode {
   AtomicCounter batch_count_;
   AtomicCounter input_count_;
   std::atomic<int> total_batches_{0};
-  Future<> finished_ = Future<>::MakeFinished();
 };
 
 namespace internal {

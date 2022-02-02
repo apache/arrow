@@ -43,6 +43,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    EVENT(span_, "InputReceived");
+
     if (QueueBatchIfNeeded(side, batch)) {
       return Status::OK();
     } else {
@@ -55,6 +57,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    EVENT(span_, "InputFinished", {{"side", side}});
     if (side == 0) {
       bool proceed;
       {
@@ -86,6 +89,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
               FinishedCallback finished_callback,
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
+
+    START_SPAN(span_, "HashJoinBasicImpl",
+               {{"detail", filter.ToString()},
+                {"join.kind", ToString(join_type)},
+                {"join.threads", static_cast<uint32_t>(num_threads)}});
 
     ctx_ = ctx;
     join_type_ = join_type;
@@ -122,6 +130,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) override {
+    EVENT(span_, "Abort");
+    END_SPAN(span_);
     cancelled_ = true;
     scheduler_->Abort(std::move(pos_abort_callback));
   }
@@ -775,6 +785,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    END_SPAN(span_);
     finished_callback_(num_batches_produced_.load());
     return Status::OK();
   }

@@ -169,6 +169,8 @@ enum class JoinType {
   FULL_OUTER
 };
 
+std::string ToString(JoinType t);
+
 enum class JoinKeyCmp { EQ, IS };
 
 /// \addtogroup execnode-options
@@ -247,12 +249,12 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   std::vector<FieldRef> left_output;
   // output fields passed from right input
   std::vector<FieldRef> right_output;
-  // key comparison function (determines whether a null key is equal another null key or
-  // not)
+  // key comparison function (determines whether a null key is equal another null
+  // key or not)
   std::vector<JoinKeyCmp> key_cmp;
-  // prefix added to names of output fields coming from left input (used to distinguish,
-  // if necessary, between fields of the same name in left and right input and can be left
-  // empty if there are no name collisions)
+  // prefix added to names of output fields coming from left input (used to
+  // distinguish, if necessary, between fields of the same name in left and right
+  // input and can be left empty if there are no name collisions)
   std::string output_prefix_for_left;
   // prefix added to names of output fields coming from right input
   std::string output_prefix_for_right;
