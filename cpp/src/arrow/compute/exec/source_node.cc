@@ -211,7 +211,7 @@ struct TableSourceNode : public SourceNode {
   }
 
   static arrow::AsyncGenerator<util::optional<ExecBatch>> TableGenerator(
-      const Table& table, const int batch_size) {
+      const Table& table, const int64_t batch_size) {
     auto batches = ConvertTableToExecBatches(table, batch_size);
     auto opt_batches = MapVector(
         [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
