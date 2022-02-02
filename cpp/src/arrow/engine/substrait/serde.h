@@ -34,43 +34,126 @@
 namespace arrow {
 namespace engine {
 
+/// Factory function type for generating the node that consumes the batches produced by
+/// each toplevel Substrait relation when deserializing a Substrait Plan.
 using ConsumerFactory = std::function<std::shared_ptr<compute::SinkNodeConsumer>()>;
 
+/// \brief Deserializes a Substrait Plan message to a list of ExecNode declarations
+///
+/// \param[in] buffer a buffer containing the protobuf serialization of a Substrait Plan
+/// message
+/// \param[in] consumer_factory factory function for generating the node that consumes
+/// the batches produced by each toplevel Substrait relation
+/// \param[out] ext_set if non-null, the extension mapping used by the Substrait Plan is
+/// returned here.
+/// \return a vector of ExecNode declarations, one for each toplevel relation in the
+/// Substrait Plan
 ARROW_ENGINE_EXPORT Result<std::vector<compute::Declaration>> DeserializePlan(
     const Buffer&, const ConsumerFactory&, ExtensionSet* ext_set = NULLPTR);
 
+/// \brief Deserializes a Substrait Type message to the corresponding Arrow type
+///
+/// \param[in] buffer a buffer containing the protobuf serialization of a Substrait Type
+/// message
+/// \param[in] extension_set the extension mapping to use, normally provided by the
+/// surrounding Plan message
+/// \return the corresponding Arrow data type
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<DataType>> DeserializeType(const Buffer&, const ExtensionSet&);
 
+/// \brief Serializes an Arrow type to a Substrait Type message
+///
+/// \param[in] type the Arrow data type to serialize
+/// \param[in,out] extension_set the extension mapping to use; may be updated to add a
+/// mapping for the given type
+/// \return a buffer containing the protobuf serialization of the corresponding Substrait
+/// Type message
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeType(const DataType&, ExtensionSet*);
 
+/// \brief Deserializes a Substrait NamedStruct message to an Arrow schema
+///
+/// \param[in] buffer a buffer containing the protobuf serialization of a Substrait
+/// NamedStruct message
+/// \param[in] extension_set the extension mapping to use, normally provided by the
+/// surrounding Plan message
+/// \return the corresponding Arrow schema
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Schema>> DeserializeSchema(const Buffer&, const ExtensionSet&);
 
+/// \brief Serializes an Arrow schema to a Substrait NamedStruct message
+///
+/// \param[in] schema the Arrow schema to serialize
+/// \param[in,out] extension_set the extension mapping to use; may be updated to add
+/// mappings for the types used in the schema
+/// \return a buffer containing the protobuf serialization of the corresponding Substrait
+/// NamedStruct message
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema&, ExtensionSet*);
 
+/// \brief Deserializes a Substrait Expression message to a compute expression
+///
+/// \param[in] buffer a buffer containing the protobuf serialization of a Substrait
+/// Expression message
+/// \param[in] extension_set the extension mapping to use, normally provided by the
+/// surrounding Plan message
+/// \return the corresponding Arrow compute expression
 ARROW_ENGINE_EXPORT
 Result<compute::Expression> DeserializeExpression(const Buffer&, const ExtensionSet&);
 
+/// \brief Serializes an Arrow compute expression to a Substrait Expression message
+///
+/// \param[in] expression the Arrow compute expression to serialize
+/// \param[in,out] extension_set the extension mapping to use; may be updated to add
+/// mappings for the types used in the expression
+/// \return a buffer containing the protobuf serialization of the corresponding Substrait
+/// Expression message
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SerializeExpression(const compute::Expression&,
                                                     ExtensionSet*);
 
+/// \brief Deserializes a Substrait Rel (relation) message to an ExecNode declaration
+///
+/// \param[in] buffer a buffer containing the protobuf serialization of a Substrait
+/// Rel message
+/// \param[in] extension_set the extension mapping to use, normally provided by the
+/// surrounding Plan message
+/// \return the corresponding ExecNode declaration
 ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializeRelation(const Buffer&,
                                                                      const ExtensionSet&);
 
 namespace internal {
 
+/// \brief Checks whether two protobuf serializations of a particular Substrait message
+/// type are equivalent
+///
+/// Note that a binary comparison of the two buffers is pessimistic, among other reasons
+/// because the fields of a message can be specified in any order in the serialization.
+///
+/// \param[in] message_name the name of the Substrait message type to check
+/// \param[in] l_buf buffer containing the first protobuf serialization to compare
+/// \param[in] r_buf buffer containing the second protobuf serialization to compare
+/// \return success if equivalent, failure if not
 ARROW_ENGINE_EXPORT
 Status CheckMessagesEquivalent(util::string_view message_name, const Buffer&,
                                const Buffer&);
 
+/// \brief Utility function to convert a JSON serialization of a Substrait message to
+/// its binary serialization
+///
+/// \param[in] type_name the name of the Substrait message type to convert
+/// \param[in] json the JSON string to convert
+/// \return a buffer filled with the binary protobuf serialization of message
 ARROW_ENGINE_EXPORT
 Result<std::shared_ptr<Buffer>> SubstraitFromJSON(util::string_view type_name,
                                                   util::string_view json);
 
+/// \brief Utility function to convert a binary protobuf serialization of a Substrait
+/// message to JSON
+///
+/// \param[in] type_name the name of the Substrait message type to convert
+/// \param[in] buf the buffer containing the binary protobuf serialization of the message
+/// \return a JSON string representing the message
 ARROW_ENGINE_EXPORT
 Result<std::string> SubstraitToJSON(util::string_view type_name, const Buffer& buf);
 
