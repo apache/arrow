@@ -193,15 +193,15 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "docs/source/_static/versions.json",
         hunks: [
-          [ "-        \"name\": \"#{@previous_minor_version} (stable)\",",
-            "+        \"name\": \"#{@next_minor_version} (dev)\",",
+          [ "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
+            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
             "+        \"version\": \"dev\"",
             "+    },",
             "+    {",
-            "+        \"name\": \"#{@release_minor_version} (stable)\",",
+            "+        \"name\": \"#{release_compatible_version} (stable)\",",
             "+    {",
-            "+        \"name\": \"#{@previous_minor_version}\",",
-            "+        \"version\": \"#{@previous_minor_version + "/"}\"",
+            "+        \"name\": \"#{@previous_compatible_version}\",",
+            "+        \"version\": \"#{@previous_compatible_version + "/"}\"",
             "+    },"
           ]
         ]
@@ -250,8 +250,9 @@ class PrepareTest < Test::Unit::TestCase
             "+        \"name\": \"#{@release_version} (release)\",",
             "+    {",
             "+        \"name\": \"#{@previous_version}\",",
-            "+        \"version\": \"#{@previous_minor_version + "/"}\"",
-            "+    },",
+            "+        \"version\": \"#{@previous_compatible_version + "/"}\"",
+            "+    },"],
+            ["-]", "+]     "]]],
           ]
         ]
       }
