@@ -496,7 +496,6 @@ TEST(ExecPlanExecution, SourceTableConsumingSink) {
       SCOPED_TRACE(parallel ? "parallel" : "single threaded");
       ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
 
-      Future<> finish = Future<>::Make();
       std::shared_ptr<Table> out;
 
       auto basic_data = MakeBasicBatches();

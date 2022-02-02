@@ -246,14 +246,14 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
       : out_(out), output_schema_(std::move(output_schema)), pool_(pool) {}
 
   Status Consume(ExecBatch batch) override {
-    std::lock_guard<std::mutex> guard(consum_mutex);
+    std::lock_guard<std::mutex> guard(consume_mutex_);
     ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(output_schema_, pool_));
-    batch_vector.push_back(rb);
+    batches_.push_back(rb);
     return Status::OK();
   }
 
   Future<> Finish() override {
-    ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batch_vector));
+    ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
     return Status::OK();
   }
 
@@ -261,8 +261,8 @@ struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
   std::shared_ptr<Table>* out_;
   std::shared_ptr<Schema> output_schema_;
   MemoryPool* pool_;
-  std::vector<std::shared_ptr<RecordBatch>> batch_vector;
-  std::mutex consum_mutex;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::mutex consume_mutex_;
 };
 
 static Result<ExecNode*> MakeTableConsumingSinkNode(
