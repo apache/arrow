@@ -18,7 +18,7 @@
 // String functions
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
-#include "gandiva/precompiled/time_constants.h"
+
 extern "C" {
 
 #include <algorithm>

@@ -443,9 +443,6 @@ gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
 gdv_time32 castTIME_int32(int32_t int_val);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 
-const char* castVARCHAR_date_int64(int64_t context, int64_t date, int64_t length,
-                                   int32_t* out_len);
-
 const char* castVARCHAR_time_int64(int64_t context, int32_t millis_in_day, int64_t length,
                                    int32_t* out_len);
 
