@@ -3070,5 +3070,234 @@ TEST(GroupBy, MultipleKeysIncludesNullType) {
     }
   }
 }
+
+TEST(GroupBy, SumNullType) {
+  auto table =
+      TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
+    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, 3],
+    [null, null],
+    [null, 1],
+    [null, 2]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, null],
+    [null, 3]
+                        ])"});
+
+  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_sum", &no_min},
+                                   {"hash_sum", &keep_nulls},
+                                   {"hash_sum", &min_count},
+                                   {"hash_sum", &keep_nulls_min_count},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_sum", int64()),
+                                          field("hash_sum", int64()),
+                                          field("hash_sum", int64()),
+                                          field("hash_sum", int64()),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    [0, null, null, null, 1],
+    [0, null, null, null, 2],
+    [0, null, null, null, 3],
+    [0, null, null, null, null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, ProductNullType) {
+  auto table =
+      TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
+    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, 3],
+    [null, null],
+    [null, 1],
+    [null, 2]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, null],
+    [null, 3]
+                        ])"});
+
+  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_product", &no_min},
+                                   {"hash_product", &keep_nulls},
+                                   {"hash_product", &min_count},
+                                   {"hash_product", &keep_nulls_min_count},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_product", int64()),
+                                          field("hash_product", int64()),
+                                          field("hash_product", int64()),
+                                          field("hash_product", int64()),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    [1, null, null, null, 1],
+    [1, null, null, null, 2],
+    [1, null, null, null, 3],
+    [1, null, null, null, null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, MeanNullType) {
+  auto table =
+      TableFromJSON(schema({field("argument", null()), field("key", int64())}), {R"([
+    [null,  1],
+    [null,  1]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, 3],
+    [null, null],
+    [null, 1],
+    [null, 2]
+                        ])",
+                                                                                 R"([
+    [null, 2],
+    [null, null],
+    [null, 3]
+                        ])"});
+
+  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_mean", &no_min},
+                                   {"hash_mean", &keep_nulls},
+                                   {"hash_mean", &min_count},
+                                   {"hash_mean", &keep_nulls_min_count},
+                               },
+                               use_threads, use_exec_plan));
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_mean", float64()),
+                                          field("hash_mean", float64()),
+                                          field("hash_mean", float64()),
+                                          field("hash_mean", float64()),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    [0, null, null, null, 1],
+    [0, null, null, null, 2],
+    [0, null, null, null, 3],
+    [0, null, null, null, null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, NullTypeEmptyTable) {
+  auto table = TableFromJSON(schema({field("argument", null()), field("key", int64())}),
+                             {R"([])"});
+
+  ScalarAggregateOptions no_min(/*skip_nulls=*/true, /*min_count=*/0);
+  ScalarAggregateOptions min_count(/*skip_nulls=*/true, /*min_count=*/3);
+  ScalarAggregateOptions keep_nulls(/*skip_nulls=*/false, /*min_count=*/0);
+  ScalarAggregateOptions keep_nulls_min_count(/*skip_nulls=*/false, /*min_count=*/3);
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                                   table->GetColumnByName("argument"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_sum", &no_min},
+                                   {"hash_product", &min_count},
+                                   {"hash_mean", &keep_nulls},
+                               },
+                               use_threads, use_exec_plan));
+      auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+      AssertDatumsEqual(ArrayFromJSON(int64(), "[]"), struct_arr->field(0),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(int64(), "[]"), struct_arr->field(1),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(float64(), "[]"), struct_arr->field(2),
+                        /*verbose=*/true);
+    }
+  }
+}
 }  // namespace compute
 }  // namespace arrow
