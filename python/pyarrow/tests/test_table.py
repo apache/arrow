@@ -356,6 +356,7 @@ def test_table_roundtrip_to_pandas_empty_dataframe():
     assert table.num_rows == 10
     assert data.shape == (10, 0)
     assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
 
     data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
     table = pa.table(data)
@@ -364,6 +365,7 @@ def test_table_roundtrip_to_pandas_empty_dataframe():
     assert table.num_rows == 4
     assert data.shape == (4, 0)
     assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
 
 
 @pytest.mark.pandas
