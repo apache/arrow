@@ -22,10 +22,6 @@
 
 namespace gandiva {
 
-static bool IsArrowStringLiteral(arrow::Type::type type) {
-  return type == arrow::Type::STRING || type == arrow::Type::BINARY;
-}
-
 Status ReplaceHolder::Make(const FunctionNode& node,
                            std::shared_ptr<ReplaceHolder>* holder) {
   ARROW_RETURN_IF(node.children().size() != 3,
@@ -38,7 +34,7 @@ Status ReplaceHolder::Make(const FunctionNode& node,
 
   auto literal_type = literal->return_type()->id();
   ARROW_RETURN_IF(
-      !IsArrowStringLiteral(literal_type),
+      !(literal_type == arrow::Type::STRING || literal_type == arrow::Type::BINARY),
       Status::Invalid(
           "'replace' function requires a string literal as the second parameter"));
 

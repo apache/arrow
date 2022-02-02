@@ -45,6 +45,10 @@ test_that("type() infers from R type", {
     time32(unit = TimeUnit$SECOND)
   )
   expect_equal(
+    type(as.difftime(123, units = "days")),
+    duration(unit = TimeUnit$SECOND)
+  )
+  expect_equal(
     type(bit64::integer64()),
     int64()
   )
@@ -157,8 +161,16 @@ test_that("Type strings are correctly canonicalized", {
     sub("^([^([<]+).*$", "\\1", timestamp()$ToString())
   )
   expect_equal(
-    canonical_type_str("decimal"),
+    canonical_type_str("decimal128"),
     sub("^([^([<]+).*$", "\\1", decimal(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal128"),
+    sub("^([^([<]+).*$", "\\1", decimal128(3, 2)$ToString())
+  )
+  expect_equal(
+    canonical_type_str("decimal256"),
+    sub("^([^([<]+).*$", "\\1", decimal256(3, 2)$ToString())
   )
   expect_equal(
     canonical_type_str("struct"),
@@ -188,6 +200,10 @@ test_that("Type strings are correctly canonicalized", {
     canonical_type_str("fixed_size_list"),
     sub("^([^([<]+).*$", "\\1", fixed_size_list_of(int32(), 42)$ToString())
   )
+  expect_equal(
+    canonical_type_str("map_of"),
+    sub("^([^([<]+).*$", "\\1", map_of(utf8(), utf8())$ToString())
+  )
 
   # unsupported data types
   expect_error(
@@ -196,6 +212,10 @@ test_that("Type strings are correctly canonicalized", {
   )
   expect_error(
     canonical_type_str("list<item: int32>"),
+    "parameters"
+  )
+  expect_error(
+    canonical_type_str("map<key: int32, item: int32>"),
     "parameters"
   )
   expect_error(

@@ -34,7 +34,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/visitor_inline.h"
 
 #include "parquet/arrow/path_internal.h"
 #include "parquet/arrow/reader_internal.h"

@@ -13,7 +13,10 @@ parts of the project to be able to read and write data with different storage
 backends. In the `arrow` R package, support has been enabled for AWS S3.
 This vignette provides an overview of working with S3 data using Arrow.
 
-> In Windows and macOS binary packages, S3 support is included. On Linux when installing from source, S3 support is not enabled by default, and it has additional system requirements. See `vignette("install", package = "arrow")` for details.
+> In Windows and macOS binary packages, S3 support is included. On Linux when 
+installing from source, S3 support is not enabled by default, and it has 
+additional system requirements. See `vignette("install", package = "arrow")` 
+for details.
 
 ## URIs
 
@@ -144,3 +147,32 @@ s3://minioadmin:minioadmin@?scheme=http&endpoint_override=localhost%3A9000
 
 Among other applications, this can be useful for testing out code locally before
 running on a remote S3 bucket.
+
+## Disabling the use of environment variables
+
+As mentioned above, it is possible to make use of environment variables to 
+configure access.  However, if you wish to pass in connection details via a URI
+or alternative methods but also have existing AWS environment variables defined,
+these may interfere with your session.  For example, you may see an error message like:
+
+```r
+Error: IOError: When resolving region for bucket 'analysis': AWS Error [code 99]: curlCode: 6, Couldn't resolve host name 
+```
+
+You can unset these environment 
+variables using `Sys.unsetenv()`, for example:
+
+```{r, eval = FALSE}
+Sys.unsetenv("AWS_DEFAULT_REGION")
+Sys.unsetenv("AWS_S3_ENDPOINT")
+```
+
+By default, the AWS SDK tries to retrieve metadata about user configuration, 
+which can cause conficts when passing in connection details via URI (for example
+when accessing a MINIO bucket).  To disable the use of AWS environment 
+variables, you can set environment variable `AWS_EC2_METADATA_DISABLED` to 
+`TRUE`.
+
+```{r, eval = FALSE}
+Sys.setenv(AWS_EC2_METADATA_DISABLED = TRUE)
+```

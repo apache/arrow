@@ -21,6 +21,7 @@
 
 #include <arrow/builder.h>
 #include <arrow/chunked_array.h>
+#include <arrow/util/byte_size.h>
 
 // [[arrow::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
@@ -141,6 +142,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
   }
 
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
+}
+
+// [[arrow::export]]
+int64_t ChunkedArray__ReferencedBufferSize(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*chunked_array));
 }
 
 #endif

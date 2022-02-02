@@ -114,6 +114,30 @@ gdv_int64 timestampaddMonth_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddQuarter_timestamp_int64(gdv_timestamp, gdv_int64);
 gdv_int64 timestampaddYear_timestamp_int64(gdv_timestamp, gdv_int64);
 
+gdv_boolean isnull_day_time_interval(gdv_day_time_interval in, gdv_boolean is_valid);
+
+gdv_boolean istrue_boolean(gdv_boolean in);
+gdv_boolean isfalse_boolean(gdv_boolean in);
+gdv_boolean istrue_int32(gdv_int32 in);
+gdv_boolean istrue_int64(gdv_int64 in);
+gdv_boolean istrue_uint32(gdv_uint32 in);
+gdv_boolean istrue_uint64(gdv_uint64 in);
+gdv_boolean isfalse_int32(gdv_int32 in);
+gdv_boolean isfalse_int64(gdv_int64 in);
+gdv_boolean isfalse_uint32(gdv_uint32 in);
+gdv_boolean isfalse_uint64(gdv_uint64 in);
+
+gdv_int32 nvl_int32_int32(gdv_int32 in, gdv_boolean is_valid_in, gdv_int32 replace,
+                          gdv_boolean is_valid_value);
+gdv_int64 nvl_int64_int64(gdv_int64 in, gdv_boolean is_valid_in, gdv_int64 replace,
+                          gdv_boolean is_valid_value);
+gdv_float32 nvl_float32_float32(gdv_float32 in, gdv_boolean is_valid_in,
+                                gdv_float32 replace, gdv_boolean is_valid_value);
+gdv_float64 nvl_float64_float64(gdv_float64 in, gdv_boolean is_valid_in,
+                                gdv_float64 replace, gdv_boolean is_valid_value);
+gdv_boolean nvl_boolean_boolean(gdv_boolean in, gdv_boolean is_valid_in,
+                                gdv_boolean replace, gdv_boolean is_valid_value);
+
 gdv_int64 date_add_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_int64 add_int32_timestamp(gdv_int32, gdv_timestamp);
@@ -262,6 +286,89 @@ gdv_int64 bitwise_xor_int64_int64(gdv_int64 in1, gdv_int64 in2);
 gdv_int32 bitwise_not_int32(gdv_int32);
 gdv_int64 bitwise_not_int64(gdv_int64);
 
+gdv_int32 greatest_int32_int32(gdv_int32 in1, gdv_int32 in2);
+gdv_int64 greatest_int64_int64(gdv_int64 in1, gdv_int64 in2);
+gdv_int32 greatest_int32_int32_int32(gdv_int32 in1, gdv_int32 in2, gdv_int32 in3);
+gdv_int64 greatest_int64_int64_int64(gdv_int64 in1, gdv_int64 in2, gdv_int64 in3);
+gdv_int32 greatest_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2, gdv_int32 in3,
+                                           gdv_int32 in4);
+gdv_int64 greatest_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2, gdv_int64 in3,
+                                           gdv_int64 in4);
+gdv_int32 greatest_int32_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2,
+                                                 gdv_int32 in3, gdv_int32 in4,
+                                                 gdv_int32 in5);
+gdv_int64 greatest_int64_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2,
+                                                 gdv_int64 in3, gdv_int64 in4,
+                                                 gdv_int64 in5);
+gdv_int32 greatest_int32_int32_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2,
+                                                       gdv_int32 in3, gdv_int32 in4,
+                                                       gdv_int32 in5, gdv_int32 in6);
+gdv_int64 greatest_int64_int64_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2,
+                                                       gdv_int64 in3, gdv_int64 in4,
+                                                       gdv_int64 in5, gdv_int64 in6);
+gdv_float32 greatest_float32_float32(gdv_float32 in1, gdv_float32 in2);
+gdv_float64 greatest_float64_float64(gdv_float64 in1, gdv_float64 in2);
+gdv_float32 greatest_float32_float32_float32(gdv_float32 in1, gdv_float32 in2,
+                                             gdv_float32 in3);
+gdv_float64 greatest_float64_float64_float64(gdv_float64 in1, gdv_float64 in2,
+                                             gdv_float64 in3);
+gdv_float32 greatest_float32_float32_float32_float32(gdv_float32 in1, gdv_float32 in2,
+                                                     gdv_float32 in3, gdv_float32 in4);
+gdv_float64 greatest_float64_float64_float64_float64(gdv_float64 in1, gdv_float64 in2,
+                                                     gdv_float64 in3, gdv_float64 in4);
+gdv_float32 greatest_float32_float32_float32_float32_float32(
+    gdv_float32 in1, gdv_float32 in2, gdv_float32 in3, gdv_float32 in4, gdv_float32 in5);
+gdv_float64 greatest_float64_float64_float64_float64_float64(
+    gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5);
+gdv_float32 greatest_float32_float32_float32_float32_float32_float32(
+    gdv_float32 in1, gdv_float32 in2, gdv_float32 in3, gdv_float32 in4, gdv_float32 in5,
+    gdv_float32 in6);
+gdv_float64 greatest_float64_float64_float64_float64_float64_float64(
+    gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5,
+    gdv_float64 in6);
+
+gdv_int32 least_int32_int32(gdv_int32 in1, gdv_int32 in2);
+gdv_int64 least_int64_int64(gdv_int64 in1, gdv_int64 in2);
+gdv_int32 least_int32_int32_int32(gdv_int32 in1, gdv_int32 in2, gdv_int32 in3);
+gdv_int64 least_int64_int64_int64(gdv_int64 in1, gdv_int64 in2, gdv_int64 in3);
+gdv_int32 least_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2, gdv_int32 in3,
+                                        gdv_int32 in4);
+gdv_int64 least_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2, gdv_int64 in3,
+                                        gdv_int64 in4);
+gdv_int32 least_int32_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2, gdv_int32 in3,
+                                              gdv_int32 in4, gdv_int32 in5);
+gdv_int64 least_int64_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2, gdv_int64 in3,
+                                              gdv_int64 in4, gdv_int64 in5);
+gdv_int32 least_int32_int32_int32_int32_int32_int32(gdv_int32 in1, gdv_int32 in2,
+                                                    gdv_int32 in3, gdv_int32 in4,
+                                                    gdv_int32 in5, gdv_int32 in6);
+gdv_int64 least_int64_int64_int64_int64_int64_int64(gdv_int64 in1, gdv_int64 in2,
+                                                    gdv_int64 in3, gdv_int64 in4,
+                                                    gdv_int64 in5, gdv_int64 in6);
+gdv_float32 least_float32_float32(gdv_float32 in1, gdv_float32 in2);
+gdv_float64 least_float64_float64(gdv_float64 in1, gdv_float64 in2);
+gdv_float32 least_float32_float32_float32(gdv_float32 in1, gdv_float32 in2,
+                                          gdv_float32 in3);
+gdv_float64 least_float64_float64_float64(gdv_float64 in1, gdv_float64 in2,
+                                          gdv_float64 in3);
+gdv_float32 least_float32_float32_float32_float32(gdv_float32 in1, gdv_float32 in2,
+                                                  gdv_float32 in3, gdv_float32 in4);
+gdv_float64 least_float64_float64_float64_float64(gdv_float64 in1, gdv_float64 in2,
+                                                  gdv_float64 in3, gdv_float64 in4);
+gdv_float32 least_float32_float32_float32_float32_float32(
+    gdv_float32 in1, gdv_float32 in2, gdv_float32 in3, gdv_float32 in4, gdv_float32 in5);
+gdv_float64 least_float64_float64_float64_float64_float64(
+    gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5);
+gdv_float32 least_float32_float32_float32_float32_float32_float32(
+    gdv_float32 in1, gdv_float32 in2, gdv_float32 in3, gdv_float32 in4, gdv_float32 in5,
+    gdv_float32 in6);
+gdv_float64 least_float64_float64_float64_float64_float64_float64(
+    gdv_float64 in1, gdv_float64 in2, gdv_float64 in3, gdv_float64 in4, gdv_float64 in5,
+    gdv_float64 in6);
+
+gdv_int64 factorial_int32(gdv_int64 context, gdv_int32 value);
+gdv_int64 factorial_int64(gdv_int64 context, gdv_int64 value);
+
 gdv_float64 power_float64_float64(gdv_float64, gdv_float64);
 
 gdv_float64 log_int32_int32(gdv_int64 context, gdv_int32 base, gdv_int32 value);
@@ -290,7 +397,9 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
 gdv_timestamp castTIMESTAMP_date64(gdv_date64);
 gdv_timestamp castTIMESTAMP_int64(gdv_int64);
 gdv_date64 castDATE_timestamp(gdv_timestamp);
+gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length);
 gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis);
+gdv_time32 castTIME_int32(int32_t int_val);
 const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
 gdv_date64 last_day_from_timestamp(gdv_date64 millis);
 
@@ -428,6 +537,9 @@ const char* castVARBINARY_utf8_int64(gdv_int64 context, const char* data,
 const char* castVARBINARY_binary_int64(gdv_int64 context, const char* data,
                                        gdv_int32 data_len, int64_t out_len,
                                        int32_t* out_length);
+
+gdv_int32 levenshtein(int64_t context, const char* in1, int32_t in1_len, const char* in2,
+                      int32_t in2_len);
 
 const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                          int32_t* out_len);
@@ -661,5 +773,8 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
     const char* word3, int32_t word3_len, bool word3_validity, const char* word4,
     int32_t word4_len, bool word4_validity, const char* word5, int32_t word5_len,
     bool word5_validity, bool* out_valid, int32_t* out_len);
+
+int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
+                   int32_t substring_len);
 
 }  // extern "C"

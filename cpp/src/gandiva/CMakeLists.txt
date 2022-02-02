@@ -63,6 +63,7 @@ set(SRC_FILES
     decimal_xlarge.cc
     engine.cc
     date_utils.cc
+    encrypt_utils.cc
     expr_decomposer.cc
     expr_validator.cc
     expression.cc
@@ -78,8 +79,10 @@ set(SRC_FILES
     function_registry_string.cc
     function_registry_timestamp_arithmetic.cc
     function_signature.cc
+    gandiva_object_cache.cc
     gdv_function_stubs.cc
     hash_utils.cc
+    interval_holder.cc
     llvm_generator.cc
     llvm_types.cc
     like_holder.cc
@@ -224,10 +227,11 @@ add_gandiva_test(internals-test
                  llvm_generator_test.cc
                  annotator_test.cc
                  tree_expr_test.cc
+                 encrypt_utils_test.cc
                  expr_decomposer_test.cc
                  expression_registry_test.cc
                  selection_vector_test.cc
-                 greedy_dual_size_cache_test.cc
+                 lru_cache_test.cc
                  to_date_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
@@ -236,6 +240,7 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
+                 interval_holder_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
                  ${GANDIVA_OPENSSL_LIBS}

@@ -31,11 +31,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -45,6 +45,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
@@ -129,16 +130,16 @@ class DatasetFixtureMixin : public ::testing::Test {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
-  void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
+  void AssertScanTaskEquals(RecordBatchReader* expected, RecordBatchGenerator batch_gen,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, task->Execute());
-    ARROW_EXPECT_OK(it.Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
-      std::shared_ptr<RecordBatch> lhs;
-      RETURN_NOT_OK(expected->ReadNext(&lhs));
-      EXPECT_NE(lhs, nullptr);
-      AssertBatchesEqual(*lhs, *rhs);
-      return Status::OK();
-    }));
+    ASSERT_FINISHES_OK(VisitAsyncGenerator(
+        batch_gen, [expected](std::shared_ptr<RecordBatch> rhs) -> Status {
+          std::shared_ptr<RecordBatch> lhs;
+          RETURN_NOT_OK(expected->ReadNext(&lhs));
+          EXPECT_NE(lhs, nullptr);
+          AssertBatchesEqual(*lhs, *rhs);
+          return Status::OK();
+        }));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -157,12 +158,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_));
-
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
-      AssertScanTaskEquals(expected, task.get(), false);
-      return Status::OK();
-    }));
+    ASSERT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(options_));
+    AssertScanTaskEquals(expected, batch_gen);
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -290,7 +287,9 @@ class DatasetFixtureMixin : public ::testing::Test {
     schema_ = schema(std::move(fields));
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema_;
-    ASSERT_OK(SetProjection(options_.get(), schema_->field_names()));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::FromNames(schema_->field_names(), *schema_));
+    SetProjection(options_.get(), std::move(projection));
     SetFilter(literal(true));
   }
 
@@ -299,7 +298,10 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   void SetProjectedColumns(std::vector<std::string> column_names) {
-    ASSERT_OK(SetProjection(options_.get(), std::move(column_names)));
+    ASSERT_OK_AND_ASSIGN(
+        auto projection,
+        ProjectionDescr::FromNames(std::move(column_names), *options_->dataset_schema));
+    SetProjection(options_.get(), std::move(projection));
   }
 
   std::shared_ptr<Schema> schema_;
@@ -311,7 +313,6 @@ class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
                                      public ::testing::WithParamInterface<P> {};
 
 struct TestFormatParams {
-  bool use_async;
   bool use_threads;
   int num_batches;
   int items_per_batch;
@@ -321,8 +322,8 @@ struct TestFormatParams {
   std::string ToString() const {
     // GTest requires this to be alphanumeric
     std::stringstream ss;
-    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
-       << num_batches << "b" << items_per_batch << "r";
+    ss << (use_threads ? "Threaded" : "Serial") << num_batches << "b" << items_per_batch
+       << "r";
     return ss.str();
   }
 
@@ -333,10 +334,8 @@ struct TestFormatParams {
 
   static std::vector<TestFormatParams> Values() {
     std::vector<TestFormatParams> values;
-    for (const bool async : std::vector<bool>{true, false}) {
-      for (const bool use_threads : std::vector<bool>{true, false}) {
-        values.push_back(TestFormatParams{async, use_threads, 16, 1024});
-      }
+    for (const bool use_threads : std::vector<bool>{true, false}) {
+      values.push_back(TestFormatParams{use_threads, 16, 1024});
     }
     return values;
   }
@@ -397,7 +396,9 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::Default(*opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
   }
 
   void SetFilter(compute::Expression filter) {
@@ -405,7 +406,21 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   void Project(std::vector<std::string> names) {
-    ASSERT_OK(SetProjection(opts_.get(), std::move(names)));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
+                                              std::move(names), *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
+  }
+
+  void ProjectNested(std::vector<std::string> names) {
+    std::vector<compute::Expression> exprs;
+    for (const auto& name : names) {
+      ASSERT_OK_AND_ASSIGN(auto ref, FieldRef::FromDotPath(name));
+      exprs.push_back(field_ref(ref));
+    }
+    ASSERT_OK_AND_ASSIGN(
+        auto descr, ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
+                                                     *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(descr));
   }
 
   // Shared test cases
@@ -486,11 +501,15 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto format = format_;
     SetSchema(schema->fields());
     EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
-
     if (!options) options = format->DefaultWriteOptions();
-    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options, {}));
+
+    EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+    EXPECT_OK_AND_ASSIGN(auto writer,
+                         format->MakeWriter(sink, schema, options, {fs, "<buffer>"}));
     ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
-    ARROW_EXPECT_OK(writer->Finish());
+    auto fut = writer->Finish();
+    EXPECT_FINISHES(fut);
+    ARROW_EXPECT_OK(fut.status());
     EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
     return written;
   }
@@ -552,7 +571,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     auto dataset = std::make_shared<FragmentDataset>(opts_->dataset_schema,
                                                      FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
-    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
@@ -563,15 +581,9 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
     opts_->use_threads = GetParam().use_threads;
-    if (GetParam().use_async) {
-      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
-      auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
-      return batch_it;
-    }
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    auto batch_it = MakeGeneratorIterator(std::move(batch_gen));
+    return batch_it;
   }
 
   // Shared test cases
@@ -631,11 +643,109 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
     for (auto maybe_batch : PhysicalBatches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
+      ASSERT_THAT(
+          batch->schema()->fields(),
+          ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
+          << "EXPECTED:\n"
+          << expected_schema->ToString() << "\nACTUAL:\n"
+          << batch->schema()->ToString();
     }
 
     ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanProjectedNested(bool fine_grained_selection = false) {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    auto struct1 = field("struct1", struct_({f32, i32}));
+    auto struct2 = field("struct2", struct_({f64, i64, struct1}));
+    this->SetSchema({struct1, struct2, f32, f64, i32, i64});
+    this->ProjectNested({".struct1.f32", ".struct2.struct1", ".struct2.struct1.f32"});
+    this->SetFilter(greater_equal(field_ref(FieldRef("struct2", "i64")), literal(0)));
+
+    std::shared_ptr<Schema> physical_schema;
+    if (fine_grained_selection) {
+      // Some formats, like Parquet, let you pluck only a part of a complex type
+      physical_schema = schema(
+          {field("struct1", struct_({f32})), field("struct2", struct_({i64, struct1}))});
+    } else {
+      // Otherwise, the entire top-level field is returned
+      physical_schema = schema({struct1, struct2});
+    }
+    std::shared_ptr<Schema> projected_schema = schema({
+        field(".struct1.f32", float32()),
+        field(".struct2.struct1", struct1->type()),
+        field(".struct2.struct1.f32", float32()),
+    });
+
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+    {
+      auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : Batches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        AssertSchemaEqual(*batch->schema(), *projected_schema, /*check_metadata=*/false);
+      }
+      ASSERT_LE(row_count, expected_rows());
+      ASSERT_GT(row_count, 0);
+    }
+    {
+      // File includes a duplicated name in struct2
+      auto struct2_physical = field("struct2", struct_({f64, i64, struct1, i64}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1, struct2_physical, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      auto iterator = PhysicalBatches(fragment);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("i64"),
+                                      iterator.Next().status());
+    }
+    {
+      // File is missing a child in struct1
+      auto struct1_physical = field("struct1", struct_({i32}));
+      auto reader = this->GetRecordBatchReader(
+          schema({struct1_physical, struct2, f32, f64, i32, i64}));
+      auto source = this->GetFileSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+
+      physical_schema = schema({physical_schema->field(1)});
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
+            << "EXPECTED:\n"
+            << physical_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
   }
   void TestScanProjectedMissingCols() {
     auto f32 = field("f32", float32());
@@ -675,8 +785,12 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       for (auto maybe_batch : PhysicalBatches(fragment)) {
         ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
         row_count += batch->num_rows();
-        AssertSchemaEqual(*batch->schema(), *expected_schema,
-                          /*check_metadata=*/false);
+        ASSERT_THAT(
+            batch->schema()->fields(),
+            ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
+            << "EXPECTED:\n"
+            << expected_schema->ToString() << "\nACTUAL:\n"
+            << batch->schema()->ToString();
       }
       ASSERT_EQ(row_count, expected_rows());
     }
@@ -709,6 +823,36 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
       ASSERT_EQ(row_count, expected_rows());
     }
   }
+  void TestScanWithDuplicateColumn() {
+    // A duplicate column is ignored if not requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    this->Project({"i64"});
+    auto expected_schema = schema({i64});
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    auto fragment = this->MakeFragment(*source);
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+  void TestScanWithDuplicateColumnError() {
+    // A duplicate column leads to an error if requested.
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->opts_->dataset_schema = schema({i32, i32, i64});
+    ASSERT_RAISES(Invalid,
+                  ProjectionDescr::FromNames({"i32"}, *this->opts_->dataset_schema));
+  }
 
  protected:
   using FileFormatFixtureMixin<FormatHelper>::opts_;
@@ -733,11 +877,11 @@ class DummyFileFormat : public FileFormat {
     return schema_;
   }
 
-  /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(
+  /// \brief Open a file for scanning (always returns an empty generator)
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
-    return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
+    return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -774,8 +918,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     return resolver_(source);
   }
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
@@ -784,8 +927,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
 
     RecordBatchVector batches{RecordBatchFromJSON(schema, util::string_view{*buffer})};
-    return std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches))
-        ->Scan(std::move(options));
+    return MakeVectorGenerator(std::move(batches));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -1069,7 +1211,10 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
     scan_options_ = std::make_shared<ScanOptions>();
     scan_options_->dataset_schema = dataset_->schema();
-    ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
+    ASSERT_OK_AND_ASSIGN(
+        auto projection,
+        ProjectionDescr::FromNames(source_schema_->field_names(), *dataset_->schema()));
+    SetProjection(scan_options_.get(), std::move(projection));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
@@ -1086,7 +1231,6 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
     auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
-    ASSERT_OK(scanner_builder.UseAsync(true));
     ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
@@ -1275,7 +1419,9 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
             compute::SortIndices(batch->GetColumnByName("sales"),
                                  compute::SortOptions({compute::SortKey{"sales"}})));
         ASSERT_OK_AND_ASSIGN(Datum sorted_batch, compute::Take(batch, sort_indices));
-        ASSERT_OK_AND_ASSIGN(actual_struct, sorted_batch.record_batch()->ToStructArray());
+        ASSERT_OK_AND_ASSIGN(auto struct_array,
+                             sorted_batch.record_batch()->ToStructArray());
+        actual_struct = std::dynamic_pointer_cast<Array>(struct_array);
       }
 
       auto expected_struct = ArrayFromJSON(struct_(expected_physical_schema_->fields()),

@@ -58,26 +58,26 @@ enum class ArrowLogLevel : int {
 
 #define ARROW_IGNORE_EXPR(expr) ((void)(expr))
 
-#define ARROW_CHECK(condition)                                               \
-  ARROW_PREDICT_TRUE(condition)                                              \
-  ? ARROW_IGNORE_EXPR(0)                                                     \
-  : ::arrow::util::Voidify() &                                               \
-          ::arrow::util::ArrowLog(__FILE__, __LINE__,                        \
-                                  ::arrow::util::ArrowLogLevel::ARROW_FATAL) \
-              << " Check failed: " #condition " "
+#define ARROW_CHECK_OR_LOG(condition, level) \
+  ARROW_PREDICT_TRUE(condition)              \
+  ? ARROW_IGNORE_EXPR(0)                     \
+  : ::arrow::util::Voidify() & ARROW_LOG(level) << " Check failed: " #condition " "
+
+#define ARROW_CHECK(condition) ARROW_CHECK_OR_LOG(condition, FATAL)
 
 // If 'to_call' returns a bad status, CHECK immediately with a logged message
 // of 'msg' followed by the status.
-#define ARROW_CHECK_OK_PREPEND(to_call, msg)                                         \
-  do {                                                                               \
-    ::arrow::Status _s = (to_call);                                                  \
-    ARROW_CHECK(_s.ok()) << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
-                         << (msg) << ": " << _s.ToString();                          \
+#define ARROW_CHECK_OK_PREPEND(to_call, msg, level)                 \
+  do {                                                              \
+    ::arrow::Status _s = (to_call);                                 \
+    ARROW_CHECK_OR_LOG(_s.ok(), level)                              \
+        << "Operation failed: " << ARROW_STRINGIFY(to_call) << "\n" \
+        << (msg) << ": " << _s.ToString();                          \
   } while (false)
 
 // If the status is bad, CHECK immediately, appending the status to the
 // logged message.
-#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status")
+#define ARROW_CHECK_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status", FATAL)
 
 #define ARROW_CHECK_EQ(val1, val2) ARROW_CHECK((val1) == (val2))
 #define ARROW_CHECK_NE(val1, val2) ARROW_CHECK((val1) != (val2))
@@ -85,6 +85,8 @@ enum class ArrowLogLevel : int {
 #define ARROW_CHECK_LT(val1, val2) ARROW_CHECK((val1) < (val2))
 #define ARROW_CHECK_GE(val1, val2) ARROW_CHECK((val1) >= (val2))
 #define ARROW_CHECK_GT(val1, val2) ARROW_CHECK((val1) > (val2))
+
+#define ARROW_WARN_NOT_OK(s) ARROW_CHECK_OK_PREPEND(s, "Bad status", WARNING)
 
 #ifdef NDEBUG
 #define ARROW_DFATAL ::arrow::util::ArrowLogLevel::ARROW_WARNING

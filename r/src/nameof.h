@@ -55,9 +55,9 @@ const size_t typename_prefix = search(raw<double>(), "double");
 template <typename T>
 size_t struct_class_prefix() {
 #ifdef _MSC_VER
-  return starts_with(raw<T>() + typename_prefix, "struct ")
-             ? 7
-             : starts_with(raw<T>() + typename_prefix, "class ") ? 6 : 0;
+  return starts_with(raw<T>() + typename_prefix, "struct ")  ? 7
+         : starts_with(raw<T>() + typename_prefix, "class ") ? 6
+                                                             : 0;
 #else
   return 0;
 #endif

@@ -29,6 +29,7 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 \itemize{
 \item \verb{$length()}: Size in the number of elements this array contains
 \item \verb{$chunk(i)}: Extract an \code{Array} chunk by integer position
+\item `$nbytes() : Total number of bytes consumed by the elements of the array
 \item \verb{$as_vector()}: convert to an R vector
 \item \verb{$Slice(offset, length = NULL)}: Construct a zero-copy slice of the array
 with the indicated offset and length. If length is \code{NULL}, the slice goes

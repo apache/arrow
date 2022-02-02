@@ -35,7 +35,7 @@ namespace internal {
 template <typename T>
 using maybe_make_unsigned =
     typename std::conditional<std::is_integral<T>::value && !std::is_same<T, bool>::value,
-                              std::make_unsigned<T>, std::common_type<T> >::type;
+                              std::make_unsigned<T>, std::common_type<T>>::type;
 
 template <typename T, typename Unsigned = typename maybe_make_unsigned<T>::type>
 constexpr Unsigned to_unsigned(T signed_) {

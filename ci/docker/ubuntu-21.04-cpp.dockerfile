@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG base=amd64/ubuntu:20.04
+ARG base=amd64/ubuntu:21.04
 FROM ${base}
-ARG arch
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -30,20 +29,27 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN if [ "${llvm}" -gt "10" ]; then \
+RUN latest_system_llvm=12 && \
+    if [ ${llvm} -gt ${latest_system_llvm} -o \
+         ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
       apt-get install -y -q --no-install-recommends \
           apt-transport-https \
           ca-certificates \
           gnupg \
+          lsb-release \
           wget && \
       wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-      echo "deb https://apt.llvm.org/hirsute/ llvm-toolchain-hirsute-${llvm} main" > \
-         /etc/apt/sources.list.d/llvm.list && \
-      if [ "${clang_tools}" != "${llvm}" -a "${clang_tools}" -gt 10 ]; then \
-        echo "deb https://apt.llvm.org/hirsute/ llvm-toolchain-hirsute-${clang_tools} main" > \
+      code_name=$(lsb_release --codename --short) && \
+      if [ ${llvm} -gt 10 ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${llvm} main" > \
+           /etc/apt/sources.list.d/llvm.list; \
+      fi && \
+      if [ ${clang_tools} -ne ${llvm} -a \
+           ${clang_tools} -gt ${latest_system_llvm} ]; then \
+        echo "deb https://apt.llvm.org/${code_name}/ llvm-toolchain-${code_name}-${clang_tools} main" > \
            /etc/apt/sources.list.d/clang-tools.list; \
-      fi \
+      fi; \
     fi && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
@@ -80,6 +86,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libsqlite3-dev \
         libthrift-dev \
         libutf8proc-dev \
         libzstd-dev \
@@ -90,15 +97,17 @@ RUN apt-get update -y -q && \
         protobuf-compiler-grpc \
         python3-pip \
         rapidjson-dev \
+        rsync \
         tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest /usr/local
+RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
+
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
+RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -110,7 +119,8 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh ${arch} default
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
-    ARROW_FLIGHT=OFF \
+    ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
@@ -134,6 +144,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
+    Protobuf_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3
 

@@ -181,6 +181,24 @@ test_that("Lists are preserved when writing/reading from Parquet", {
   expect_equal(df, df_read, ignore_attr = TRUE)
 })
 
+test_that("Maps are preserved when writing/reading from Parquet", {
+  string_bool <- Array$create(list(data.frame(key = c("a", "b"), value = c(TRUE, FALSE), stringsAsFactors = FALSE)),
+                              type = map_of(utf8(), boolean()))
+  int_struct <- Array$create(
+    list(tibble::tibble(key = c(2, 4), value = data.frame(x = c(1, 2), y = c("a", "b"), stringsAsFactors = FALSE))),
+    type = map_of(int64(), struct(x = int64(), y = utf8()))
+  )
+
+  df <- arrow_table(string_bool = string_bool, int_struct = int_struct)
+
+  pq_tmp_file <- tempfile()
+  on.exit(unlink(pq_tmp_file))
+
+  write_parquet(df, pq_tmp_file)
+  df_read <- read_parquet(pq_tmp_file, as_data_frame = FALSE)
+  expect_equal(df, df_read, ignore_attr = TRUE)
+})
+
 test_that("write_parquet() to stream", {
   df <- tibble::tibble(x = 1:5)
   tf <- tempfile()
@@ -218,7 +236,7 @@ test_that("ParquetFileWriter raises an error for non-OutputStream sink", {
   # ARROW-9946
   expect_error(
     ParquetFileWriter$create(schema = sch, sink = tempfile()),
-    regex = "OutputStream"
+    regexp = "OutputStream"
   )
 })
 
@@ -251,10 +269,12 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
   msg <- paste0(
-    "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, ",
+    ".*",
     "you will need to reinstall arrow with additional features enabled.\nSet one of these ",
-    "environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional ",
-    "features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\n",
+    "environment variables before installing:",
+    "\n\n \\* Sys\\.setenv\\(LIBARROW_MINIMAL = \"false\"\\) ",
+    "\\(for all optional features, including 'snappy'\\)",
+    "\n \\* Sys\\.setenv\\(ARROW_WITH_SNAPPY = \"ON\"\\) \\(for just 'snappy')\n\n",
     "See https://arrow.apache.org/docs/r/articles/install.html for details"
   )
 
@@ -262,7 +282,7 @@ test_that("Error messages are shown when the compression algorithm snappy is not
     d <- read_parquet(pq_file)
     expect_s3_class(d, "data.frame")
   } else {
-    expect_error(read_parquet(pq_file), msg, fixed = TRUE)
+    expect_error(read_parquet(pq_file), msg)
   }
 })
 
@@ -310,4 +330,55 @@ test_that("ParquetFileWrite chunk_size defaults", {
       expect_true(reader$ReadRowGroup(1) == Table$create(x = 52:101))
       expect_error(reader$ReadRowGroup(2), "Some index in row_group_indices")
     })
+})
+
+test_that("ParquetFileWrite chunk_size calculation doesn't have integer overflow issues (ARROW-14894)", {
+  expect_equal(calculate_chunk_size(31869547, 108, 2.5e8, 200), 2451504)
+
+  # we can set the target cells per group, and it rounds appropriately
+  expect_equal(calculate_chunk_size(100, 1, 25), 25)
+  expect_equal(calculate_chunk_size(101, 1, 25), 26)
+
+  # but our max_chunks is respected
+  expect_equal(calculate_chunk_size(101, 1, 25, 2), 51)
+})
+
+test_that("deprecated int96 timestamp unit can be specified when reading Parquet files", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  table <- Table$create(
+    some_datetime = as.POSIXct("2001-01-01 12:34:56.789")
+  )
+
+  write_parquet(
+    table,
+    tf,
+    use_deprecated_int96_timestamps = TRUE
+  )
+
+  props <- ParquetArrowReaderProperties$create()
+  props$set_coerce_int96_timestamp_unit(TimeUnit$MILLI)
+  expect_identical(props$coerce_int96_timestamp_unit(), TimeUnit$MILLI)
+
+  result <- read_parquet(
+    tf,
+    as_data_frame = FALSE,
+    props = props
+  )
+
+  expect_identical(result$some_datetime$type$unit(), TimeUnit$MILLI)
+  expect_true(result$some_datetime == table$some_datetime)
+})
+
+test_that("Can read parquet with nested lists and maps", {
+  parquet_test_data <- test_path("../../../cpp/submodules/parquet-testing/data")
+  skip_if_not(dir.exists(parquet_test_data), "Parquet test data missing")
+
+  pq <- read_parquet(paste0(parquet_test_data, "/nested_lists.snappy.parquet"), as_data_frame = FALSE)
+  # value name is "element" from parquet reader, but type default is "item"
+  expect_equal(pq$a$type, list_of(field("element", list_of(field("element", list_of(field("element", utf8())))))))
+
+  pq <- read_parquet(paste0(parquet_test_data, "/nested_maps.snappy.parquet"), as_data_frame = FALSE)
+  expect_equal(pq$a$type, map_of(utf8(), map_of(int32(), boolean())))
 })

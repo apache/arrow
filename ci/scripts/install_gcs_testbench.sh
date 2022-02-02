@@ -19,18 +19,17 @@
 
 set -e
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <arch> <storage-testbench version>"
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <storage-testbench version>"
   exit 1
 fi
 
-arch=$1
-if [ "${arch}" != "amd64" ]; then
+if [ "$(uname -m)" != "x86_64" ]; then
   echo "GCS testbench won't install on non-x86 architecture"
   exit 0
 fi
 
-version=$2
+version=$1
 if [[ "${version}" -eq "default" ]]; then
   version="v0.7.0"
 fi

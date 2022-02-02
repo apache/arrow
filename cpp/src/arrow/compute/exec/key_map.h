@@ -153,8 +153,10 @@ class SwissTable {
 
   static int num_groupid_bits_from_log_blocks(int log_blocks) {
     int required_bits = log_blocks + 3;
-    return required_bits <= 8 ? 8
-                              : required_bits <= 16 ? 16 : required_bits <= 32 ? 32 : 64;
+    return required_bits <= 8    ? 8
+           : required_bits <= 16 ? 16
+           : required_bits <= 32 ? 32
+                                 : 64;
   }
 
   // Use 32-bit hash for now

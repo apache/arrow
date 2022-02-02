@@ -188,6 +188,16 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
                                              std::move(columns));
 }
 
+Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
+    std::shared_ptr<Schema> schema, MemoryPool* memory_pool) {
+  ArrayVector empty_batch(schema->num_fields());
+  for (int i = 0; i < schema->num_fields(); i++) {
+    ARROW_ASSIGN_OR_RAISE(empty_batch[i],
+                          MakeEmptyArray(schema->field(i)->type(), memory_pool));
+  }
+  return RecordBatch::Make(schema, 0, empty_batch);
+}
+
 Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     const std::shared_ptr<Array>& array) {
   if (array->type_id() != Type::STRUCT) {

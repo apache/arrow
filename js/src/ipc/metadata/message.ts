@@ -17,42 +17,37 @@
 
 /* eslint-disable brace-style */
 
-import { flatbuffers } from 'flatbuffers';
+import * as flatbuffers from 'flatbuffers';
 
-import {
-    Type,
-    Int as _Int,
-    Field as _Field,
-    Schema as _Schema,
-    Buffer as _Buffer,
-    KeyValue as _KeyValue,
-    Endianness as _Endianness,
-    DictionaryEncoding as _DictionaryEncoding,
-    FloatingPoint as _FloatingPoint,
-    Decimal as _Decimal,
-    Date as _Date,
-    Time as _Time,
-    Timestamp as _Timestamp,
-    Interval as _Interval,
-    Union as _Union,
-    FixedSizeBinary as _FixedSizeBinary,
-    FixedSizeList as _FixedSizeList,
-    Map as _Map,
-} from '../../fb/Schema';
+import { Schema as _Schema } from '../../fb/schema.js';
+import { Int as _Int } from '../../fb/int.js';
+import { RecordBatch as _RecordBatch } from '../../fb/record-batch.js';
+import { DictionaryBatch as _DictionaryBatch } from '../../fb/dictionary-batch.js';
+import { Buffer as _Buffer } from '../../fb/buffer.js';
+import { Field as _Field } from '../../fb/field.js';
+import { FieldNode as _FieldNode } from '../../fb/field-node.js';
+import { DictionaryEncoding as _DictionaryEncoding } from '../../fb/dictionary-encoding.js';
+import { Type } from '../../fb/type.js';
+import { KeyValue as _KeyValue } from '../../fb/key-value.js';
+import { Endianness as _Endianness } from '../../fb/endianness.js';
+import { FloatingPoint as _FloatingPoint } from '../../fb/floating-point.js';
+import { Decimal as _Decimal } from '../../fb/decimal.js';
+import { Date as _Date } from '../../fb/date.js';
+import { Time as _Time } from '../../fb/time.js';
+import { Timestamp as _Timestamp } from '../../fb/timestamp.js';
+import { Interval as _Interval } from '../../fb/interval.js';
+import { Union as _Union } from '../../fb/union.js';
+import { FixedSizeBinary as _FixedSizeBinary } from '../../fb/fixed-size-binary.js';
+import { FixedSizeList as _FixedSizeList } from '../../fb/fixed-size-list.js';
+import { Map as _Map } from '../../fb/map.js';
+import { Message as _Message } from '../../fb/message.js';
 
-import {
-    Message as _Message,
-    FieldNode as _FieldNode,
-    RecordBatch as _RecordBatch,
-    DictionaryBatch as _DictionaryBatch,
-} from '../../fb/Message';
-
-import { Schema, Field } from '../../schema';
-import { toUint8Array } from '../../util/buffer';
-import { ArrayBufferViewInput } from '../../util/buffer';
-import { MessageHeader, MetadataVersion } from '../../enum';
-import { instance as typeAssembler } from '../../visitor/typeassembler';
-import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json';
+import { Schema, Field } from '../../schema.js';
+import { toUint8Array } from '../../util/buffer.js';
+import { ArrayBufferViewInput } from '../../util/buffer.js';
+import { MessageHeader, MetadataVersion } from '../../enum.js';
+import { instance as typeAssembler } from '../../visitor/typeassembler.js';
+import { fieldFromJSON, schemaFromJSON, recordBatchFromJSON, dictionaryBatchFromJSON } from './json.js';
 
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
@@ -63,7 +58,7 @@ import {
     Utf8, Binary, Decimal, FixedSizeBinary,
     List, FixedSizeList, Map_, Struct, Union,
     Bool, Null, Int, Float, Date_, Time, Interval, Timestamp, IntBitWidth, Int32, TKeys,
-} from '../../type';
+} from '../../type.js';
 
 /**
  * @ignore
@@ -132,7 +127,7 @@ export class Message<T extends MessageHeader = any> {
     public get version() { return this._version; }
     public get headerType() { return this._headerType; }
     public get bodyLength() { return this._bodyLength; }
-    protected _createHeader!: MessageHeaderDecoder;
+    declare protected _createHeader: MessageHeaderDecoder;
     public header() { return this._createHeader<T>(); }
     public isSchema(): this is Message<MessageHeader.Schema> { return this.headerType === MessageHeader.Schema; }
     public isRecordBatch(): this is Message<MessageHeader.RecordBatch> { return this.headerType === MessageHeader.RecordBatch; }
@@ -336,10 +331,10 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
     const bufferRegions = [] as BufferRegion[];
     for (let b, i = -1, j = -1, n = batch.buffersLength(); ++i < n;) {
         if (b = batch.buffers(i)) {
-        // If this Arrow buffer was written before version 4,
-        // advance the buffer's bb_pos 8 bytes to skip past
-        // the now-removed page_id field
-        if (version < MetadataVersion.V4) {
+            // If this Arrow buffer was written before version 4,
+            // advance the buffer's bb_pos 8 bytes to skip past
+            // the now-removed page_id field
+            if (version < MetadataVersion.V4) {
                 b.bb_pos += (8 * (i + 1));
             }
             bufferRegions[++j] = BufferRegion.decode(b);
@@ -410,7 +405,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
 function decodeCustomMetadata(parent?: _Schema | _Field | null) {
     const data = new Map<string, string>();
     if (parent) {
-        for (let entry, key, i = -1, n = parent.customMetadataLength() | 0; ++i < n;) {
+        for (let entry, key, i = -1, n = Math.trunc(parent.customMetadataLength()); ++i < n;) {
             if ((entry = parent.customMetadata(i)) && (key = entry.key()) != null) {
                 data.set(key, entry.value()!);
             }
@@ -430,12 +425,12 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     const typeId = f.typeType();
 
     switch (typeId) {
-        case Type['NONE']:     return new Null();
-        case Type['Null']:     return new Null();
-        case Type['Binary']:   return new Binary();
-        case Type['Utf8']:     return new Utf8();
-        case Type['Bool']:     return new Bool();
-        case Type['List']:    return new List((children || [])[0]);
+        case Type['NONE']: return new Null();
+        case Type['Null']: return new Null();
+        case Type['Binary']: return new Binary();
+        case Type['Utf8']: return new Utf8();
+        case Type['Bool']: return new Bool();
+        case Type['List']: return new List((children || [])[0]);
         case Type['Struct_']: return new Struct(children || []);
     }
 
@@ -450,7 +445,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
         }
         case Type['Decimal']: {
             const t = f.type(new _Decimal())!;
-            return new Decimal(t.scale(), t.precision());
+            return new Decimal(t.scale(), t.precision(), t.bitWidth());
         }
         case Type['Date']: {
             const t = f.type(new _Date())!;
@@ -524,7 +519,7 @@ function encodeField(b: Builder, field: Field) {
     let dictionaryOffset = -1;
 
     const type = field.type;
-    let typeId: Type = <any> field.typeId;
+    let typeId: Type = <any>field.typeId;
 
     if (!DataType.isDictionary(type)) {
         typeOffset = typeAssembler.visit(type, b)!;
@@ -571,12 +566,12 @@ function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
     const buffers = recordBatch.buffers || [];
 
     _RecordBatch.startNodesVector(b, nodes.length);
-    nodes.slice().reverse().forEach((n) => FieldNode.encode(b, n));
+    for (const n of nodes.slice().reverse()) FieldNode.encode(b, n);
 
     const nodesVectorOffset = b.endVector();
 
     _RecordBatch.startBuffersVector(b, buffers.length);
-    buffers.slice().reverse().forEach((b_) => BufferRegion.encode(b, b_));
+    for (const b_ of buffers.slice().reverse()) BufferRegion.encode(b, b_);
 
     const buffersVectorOffset = b.endVector();
 
@@ -608,7 +603,7 @@ function encodeBufferRegion(b: Builder, node: BufferRegion) {
 }
 
 /** @ignore */
-const platformIsLittleEndian = (function() {
+const platformIsLittleEndian = (() => {
     const buffer = new ArrayBuffer(2);
     new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
     // Int16Array uses the platform's endianness.
@@ -617,5 +612,5 @@ const platformIsLittleEndian = (function() {
 
 /** @ignore */
 type MessageHeaderDecoder = <T extends MessageHeader>() => T extends MessageHeader.Schema ? Schema
-                                                         : T extends MessageHeader.RecordBatch ? RecordBatch
-                                                         : T extends MessageHeader.DictionaryBatch ? DictionaryBatch : never;
+    : T extends MessageHeader.RecordBatch ? RecordBatch
+    : T extends MessageHeader.DictionaryBatch ? DictionaryBatch : never;

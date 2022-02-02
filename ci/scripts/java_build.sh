@@ -20,9 +20,11 @@ set -ex
 
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-cdata_dist_dir=${2}/java/c
-with_docs=${3:-false}
+build_dir=${2}
+cpp_build_dir=${build_dir}/cpp/${ARROW_BUILD_TYPE:-debug}
+cdata_dist_dir=${build_dir}/java/c
+
+: ${BUILD_DOCS_JAVA:=OFF}
 
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
@@ -99,9 +101,11 @@ if [ "${ARROW_PLASMA}" = "ON" ]; then
   popd
 fi
 
-if [ "${with_docs}" == "true" ]; then
+if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
+  mkdir -p ${build_dir}/docs/java/reference
   ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
+  rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
 popd

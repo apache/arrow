@@ -122,13 +122,6 @@ endif
 
 cxx = meson.get_compiler('cpp')
 cxx_flags = []
-if get_option('development_mode')
-  if cxx.get_id() == 'msvc'
-    cxx_flags += ['/WX']
-  else
-    cxx_flags += ['-Werror']
-  endif
-endif
 if cxx.get_id() != 'msvc'
   cxx_flags += ['-Wmissing-declarations']
 endif

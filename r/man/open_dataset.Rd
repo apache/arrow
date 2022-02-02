@@ -8,6 +8,7 @@ open_dataset(
   sources,
   schema = NULL,
   partitioning = hive_partition(),
+  hive_style = NA,
   unify_schemas = NULL,
   format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
   ...
@@ -17,6 +18,8 @@ open_dataset(
 \item{sources}{One of:
 \itemize{
 \item a string path or URI to a directory containing data files
+\item a \link{FileSystem} that references a directory containing data files
+(such as what is returned by \code{\link[=s3_bucket]{s3_bucket()}})
 \item a string path or URI to a single file
 \item a character vector of paths or URIs to individual data files
 \item a list of \code{Dataset} objects as created by this function
@@ -33,21 +36,22 @@ will be inferred from the data sources.}
 \item{partitioning}{When \code{sources} is a directory path/URI, one of:
 \itemize{
 \item a \code{Schema}, in which case the file paths relative to \code{sources} will be
-parsed, and path segments will be matched with the schema fields. For
-example, \code{schema(year = int16(), month = int8())} would create partitions
-for file paths like \code{"2019/01/file.parquet"}, \code{"2019/02/file.parquet"},
-etc.
+parsed, and path segments will be matched with the schema fields.
 \item a character vector that defines the field names corresponding to those
 path segments (that is, you're providing the names that would correspond
 to a \code{Schema} but the types will be autodetected)
-\item a \code{HivePartitioning} or \code{HivePartitioningFactory}, as returned
-by \code{\link[=hive_partition]{hive_partition()}} which parses explicit or autodetected fields from
-Hive-style path segments
+\item a \code{Partitioning} or \code{PartitioningFactory}, such as returned
+by \code{\link[=hive_partition]{hive_partition()}}
 \item \code{NULL} for no partitioning
 }
 
-The default is to autodetect Hive-style partitions. When \code{sources} is not a
-directory path/URI, \code{partitioning} is ignored.}
+The default is to autodetect Hive-style partitions unless
+\code{hive_style = FALSE}. See the "Partitioning" section for details.
+When \code{sources} is not a directory path/URI, \code{partitioning} is ignored.}
+
+\item{hive_style}{Logical: should \code{partitioning} be interpreted as
+Hive-style? Default is \code{NA}, which means to inspect the file paths for
+Hive-style partitioning and behave accordingly.}
 
 \item{unify_schemas}{logical: should all data fragments (files, \code{Dataset}s)
 be scanned in order to create a unified schema from them? If \code{FALSE}, only
@@ -90,6 +94,50 @@ can accelerate queries that only touch some partitions (files). Call
 \code{open_dataset()} to point to a directory of data files and return a
 \code{Dataset}, then use \code{dplyr} methods to query it.
 }
+\section{Partitioning}{
+
+
+Data is often split into multiple files and nested in subdirectories based on the value of one or more
+columns in the data. It may be a column that is commonly referenced in
+queries, or it may be time-based, for some examples. Data that is divided
+this way is "partitioned," and the values for those partitioning columns are
+encoded into the file path segments.
+These path segments are effectively virtual columns in the dataset, and
+because their values are known prior to reading the files themselves, we can
+greatly speed up filtered queries by skipping some files entirely.
+
+Arrow supports reading partition information from file paths in two forms:
+\itemize{
+\item "Hive-style", deriving from the Apache Hive project and common to some
+database systems. Partitions are encoded as "key=value" in path segments,
+such as \code{"year=2019/month=1/file.parquet"}. While they may be awkward as
+file names, they have the advantage of being self-describing.
+\item "Directory" partitioning, which is Hive without the key names, like
+\code{"2019/01/file.parquet"}. In order to use these, we need know at least
+what names to give the virtual columns that come from the path segments.
+}
+
+The default behavior in \code{open_dataset()} is to inspect the file paths
+contained in the provided directory, and if they look like Hive-style, parse
+them as Hive. If your dataset has Hive-style partioning in the file paths,
+you do not need to provide anything in the \code{partitioning} argument to
+\code{open_dataset()} to use them. If you do provide a character vector of
+partition column names, they will be ignored if they match what is detected,
+and if they don't match, you'll get an error. (If you want to rename
+partition columns, do that using \code{select()} or \code{rename()} after opening the
+dataset.). If you provide a \code{Schema} and the names match what is detected,
+it will use the types defined by the Schema. In the example file path above,
+you could provide a Schema to specify that "month" should be \code{int8()}
+instead of the \code{int32()} it will be parsed as by default.
+
+If your file paths do not appear to be Hive-style, or if you pass
+\code{hive_style = FALSE}, the \code{partitioning} argument will be used to create
+Directory partitioning. A character vector of names is required to create
+partitions; you may instead provide a \code{Schema} to map those names to desired
+column types, as described above. If neither are provided, no partitioning
+information will be taken from the file paths.
+}
+
 \examples{
 \dontshow{if (arrow_with_dataset() & arrow_with_parquet()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 # Set up directory for examples

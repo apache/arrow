@@ -47,7 +47,8 @@ except ImportError:
 
 try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3)
+        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,
+        resolve_s3_region)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
@@ -95,7 +96,7 @@ def _ensure_filesystem(
         if use_mmap:
             raise ValueError(
                 "Specifying to use memory mapping not supported for "
-                "filesytem specified as an URI string"
+                "filesystem specified as an URI string"
             )
         return _filesystem_from_str(filesystem)
 
@@ -165,7 +166,7 @@ def _resolve_filesystem_and_path(
     filesystem = LocalFileSystem()
     try:
         file_info = filesystem.get_file_info(path)
-    except OSError:
+    except ValueError:  # ValueError means path is likely an URI
         file_info = None
         exists_locally = False
     else:
@@ -258,7 +259,7 @@ class FSSpecHandler(FileSystemHandler):
 
     Parameters
     ----------
-    fs : The FSSpec-compliant filesystem instance.
+    fs : FSSpec-compliant filesystem instance.
 
     Examples
     --------

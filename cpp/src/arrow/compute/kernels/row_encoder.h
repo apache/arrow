@@ -21,7 +21,7 @@
 
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -229,6 +229,24 @@ struct VarLengthKeyEncoder : KeyEncoder {
   explicit VarLengthKeyEncoder(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
 
   std::shared_ptr<DataType> type_;
+};
+
+struct NullKeyEncoder : KeyEncoder {
+  void AddLength(const Datum&, int64_t batch_length, int32_t* lengths) override {}
+
+  void AddLengthNull(int32_t* length) override {}
+
+  Status Encode(const Datum& data, int64_t batch_length,
+                uint8_t** encoded_bytes) override {
+    return Status::OK();
+  }
+
+  void EncodeNull(uint8_t** encoded_bytes) override {}
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    return ArrayData::Make(null(), length, {NULLPTR}, length);
+  }
 };
 
 class ARROW_EXPORT RowEncoder {

@@ -29,9 +29,9 @@ namespace arrow {
 
 class Array;
 
-namespace BitUtil {
+namespace bit_util {
 class BitWriter;
-}  // namespace BitUtil
+}  // namespace bit_util
 
 namespace util {
 class RleEncoder;
@@ -76,7 +76,7 @@ class PARQUET_EXPORT LevelEncoder {
   int rle_length_;
   Encoding::type encoding_;
   std::unique_ptr<::arrow::util::RleEncoder> rle_encoder_;
-  std::unique_ptr<::arrow::BitUtil::BitWriter> bit_packed_encoder_;
+  std::unique_ptr<::arrow::bit_util::BitWriter> bit_packed_encoder_;
 };
 
 class PARQUET_EXPORT PageWriter {

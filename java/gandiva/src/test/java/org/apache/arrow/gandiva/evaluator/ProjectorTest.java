@@ -44,8 +44,12 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
@@ -73,7 +77,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
-    
+
     long dataBufferSize = 0L;
     for (String string : strings) {
       dataBufferSize += string.getBytes(charset).length;
@@ -706,6 +710,134 @@ public class ProjectorTest extends BaseEvaluatorTest {
     for (int i = 0; i < numRows - 1; i++) {
       assertFalse("Expect none value equals null", outVector.isNull(i));
       assertEquals(expected[i], new String(outVector.get(i)));
+    }
+
+    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
+  @Test
+  public void testCastIntervalDay() throws GandivaException {
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+
+    Field retType = Field.nullable("c", new ArrowType.Interval(IntervalUnit.DAY_TIME));
+
+    TreeNode cond =
+            TreeBuilder.makeFunction(
+                    "castintervalday",
+                    Lists.newArrayList(TreeBuilder.makeField(x)),
+                    new ArrowType.Interval(IntervalUnit.DAY_TIME));
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 7, 0};
+    String[] valuesX = new String[]{"1742461111", "P1Y1M1DT1H1M1S", "PT48H1M1S", "test"};
+    int[][] expected =
+            new int[][]{ // day and millis
+                {20, 14461111},
+                {1, 3661000},
+                {2, 61000},
+                null};
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1)));
+
+    // allocate data for output vector.
+    IntervalDayVector outVector = new IntervalDayVector(EMPTY_SCHEMA_PATH, allocator);
+    outVector.allocateNew();
+
+    // evaluate expression
+    List<ValueVector> output = new ArrayList<>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+    eval.close();
+
+    // match expected output.
+    NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
+    for (int i = 0; i < numRows - 1; i++) {
+      assertFalse("Expect none value equals null", outVector.isNull(i));
+      outVector.get(i, holder);
+
+      assertEquals(expected[i][0], holder.days);
+      assertEquals(expected[i][1], holder.milliseconds);
+    }
+
+    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+  }
+
+  @Test
+  public void testCastIntervalYear() throws GandivaException {
+
+    Field x = Field.nullable("x", new ArrowType.Utf8());
+
+    Field retType = Field.nullable("c", new ArrowType.Interval(IntervalUnit.YEAR_MONTH));
+
+    TreeNode cond =
+            TreeBuilder.makeFunction(
+                    "castintervalyear",
+                    Lists.newArrayList(TreeBuilder.makeField(x)),
+                    new ArrowType.Interval(IntervalUnit.YEAR_MONTH));
+    ExpressionTree expr = TreeBuilder.makeExpression(cond, retType);
+    Schema schema = new Schema(Lists.newArrayList(x));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 4;
+    byte[] validity = new byte[]{(byte) 7, 0};
+    String[] valuesX = new String[]{"65851111", "P1Y1M1DT1H1M1S", "P1Y", "test"};
+    int[][] expected =
+            new int[][]{ // year and month
+                {0, 65851111},
+                {1, 1},
+                {1, 0},
+                null};
+
+    ArrowBuf validityX = buf(validity);
+    List<ArrowBuf> dataBufsX = stringBufs(valuesX);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(validityX, dataBufsX.get(0), dataBufsX.get(1)));
+
+    // allocate data for output vector.
+    IntervalYearVector outVector = new IntervalYearVector(EMPTY_SCHEMA_PATH, allocator);
+    outVector.allocateNew();
+
+    // evaluate expression
+    List<ValueVector> output = new ArrayList<>();
+    output.add(outVector);
+    eval.evaluate(batch, output);
+    eval.close();
+
+    // match expected output.
+    NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
+    for (int i = 0; i < numRows - 1; i++) {
+      assertFalse("Expect none value equals null", outVector.isNull(i));
+      outVector.get(i, holder);
+
+      int numberMonths = expected[i][0] * 12 + // number of years
+              expected[i][1]; // number of months
+
+      assertEquals(numberMonths, holder.value);
     }
 
     assertTrue("Last value must be null", outVector.isNull(numRows - 1));
@@ -2213,7 +2345,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     releaseValueVectors(output);
     eval.close();
-  }  
+  }
 
   @Test
   public void testCastVarcharFromInteger() throws Exception {

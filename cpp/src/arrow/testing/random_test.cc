@@ -23,6 +23,7 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/pcg_random.h"
 
@@ -66,9 +67,6 @@ TEST_P(RandomArrayTest, GenerateBatch) {
 
 TEST_P(RandomArrayTest, GenerateZeroLengthArray) {
   auto field = GetField();
-  if (field->type()->id() == Type::type::DENSE_UNION) {
-    GTEST_SKIP() << "Cannot generate zero-length dense union arrays";
-  }
   auto array = GenerateArray(*field, 0, 0xDEADBEEF);
   AssertTypeEqual(field->type(), array->type());
   ASSERT_EQ(0, array->length());

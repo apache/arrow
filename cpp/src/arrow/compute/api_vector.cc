@@ -220,6 +220,14 @@ Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,
   return CallFunction("replace_with_mask", {values, mask, replacements}, ctx);
 }
 
+Result<Datum> FillNullForward(const Datum& values, ExecContext* ctx) {
+  return CallFunction("fill_null_forward", {values}, ctx);
+}
+
+Result<Datum> FillNullBackward(const Datum& values, ExecContext* ctx) {
+  return CallFunction("fill_null_backward", {values}, ctx);
+}
+
 Result<std::shared_ptr<Array>> SortIndices(const Array& values,
                                            const ArraySortOptions& options,
                                            ExecContext* ctx) {

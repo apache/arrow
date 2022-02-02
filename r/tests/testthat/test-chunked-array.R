@@ -196,9 +196,14 @@ test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
-test_that("ChunkedArray supports difftime", {
+test_that("ChunkedArray supports hms", {
   time <- hms::hms(56, 34, 12)
   expect_chunked_roundtrip(list(time, time), time32("s"))
+})
+
+test_that("ChunkedArray supports difftime", {
+  dur <- as.difftime(123, units = "secs")
+  expect_chunked_roundtrip(list(dur, dur), duration(unit = "s"))
 })
 
 test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
@@ -206,7 +211,8 @@ test_that("ChunkedArray supports empty arrays (ARROW-13761)", {
     int8(), int16(), int32(), int64(), uint8(), uint16(), uint32(),
     uint64(), float32(), float64(), timestamp("ns"), binary(),
     large_binary(), fixed_size_binary(32), date32(), date64(),
-    decimal(4, 2), dictionary(), struct(x = int32())
+    decimal128(4, 2), decimal256(4, 2),
+    dictionary(), struct(x = int32())
   )
 
   empty_filter <- ChunkedArray$create(type = bool())

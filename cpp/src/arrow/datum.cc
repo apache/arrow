@@ -34,20 +34,6 @@
 
 namespace arrow {
 
-static bool CollectionEquals(const std::vector<Datum>& left,
-                             const std::vector<Datum>& right) {
-  if (left.size() != right.size()) {
-    return false;
-  }
-
-  for (size_t i = 0; i < left.size(); i++) {
-    if (!left[i].Equals(right[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
 Datum::Datum(const Array& value) : Datum(value.data()) {}
 
 Datum::Datum(const std::shared_ptr<Array>& value)
@@ -56,7 +42,6 @@ Datum::Datum(const std::shared_ptr<Array>& value)
 Datum::Datum(std::shared_ptr<ChunkedArray> value) : value(std::move(value)) {}
 Datum::Datum(std::shared_ptr<RecordBatch> value) : value(std::move(value)) {}
 Datum::Datum(std::shared_ptr<Table> value) : value(std::move(value)) {}
-Datum::Datum(std::vector<Datum> value) : value(std::move(value)) {}
 
 Datum::Datum(bool value) : value(std::make_shared<BooleanScalar>(value)) {}
 Datum::Datum(int8_t value) : value(std::make_shared<Int8Scalar>(value)) {}
@@ -188,8 +173,6 @@ bool Datum::Equals(const Datum& other) const {
       return internal::SharedPtrEquals(this->record_batch(), other.record_batch());
     case Datum::TABLE:
       return internal::SharedPtrEquals(this->table(), other.table());
-    case Datum::COLLECTION:
-      return CollectionEquals(this->collection(), other.collection());
     default:
       return false;
   }
@@ -268,19 +251,6 @@ std::string Datum::ToString() const {
       return "RecordBatch";
     case Datum::TABLE:
       return "Table";
-    case Datum::COLLECTION: {
-      std::stringstream ss;
-      ss << "Collection(";
-      const auto& values = this->collection();
-      for (size_t i = 0; i < values.size(); ++i) {
-        if (i > 0) {
-          ss << ", ";
-        }
-        ss << values[i].ToString();
-      }
-      ss << ')';
-      return ss.str();
-    }
     default:
       DCHECK(false);
       return "";

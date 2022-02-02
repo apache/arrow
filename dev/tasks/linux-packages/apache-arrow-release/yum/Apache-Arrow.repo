@@ -38,7 +38,14 @@ gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
 
 [apache-arrow-rhel]
 name=Apache Arrow for RHEL $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$releasever/$basearch/
+baseurl=https://apache.jfrog.io/artifactory/arrow/almalinux/$releasever/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
+[apache-arrow-rhel7]
+name=Apache Arrow for RHEL 7 - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/7/$basearch/
 gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow

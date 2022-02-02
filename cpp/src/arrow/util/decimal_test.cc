@@ -81,6 +81,11 @@ Decimal256 Decimal256FromLE(const std::array<uint64_t, 4>& a) {
   return Decimal256(Decimal256::LittleEndianArray, a);
 }
 
+Decimal128 Decimal128FromInt128(int128_t value) {
+  return Decimal128(static_cast<int64_t>(value >> 64),
+                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL));
+}
+
 template <typename DecimalType>
 struct DecimalTraits {};
 
@@ -1260,11 +1265,6 @@ std::vector<CType> GetRandomNumbers(int32_t size) {
   return ret;
 }
 
-Decimal128 Decimal128FromInt128(int128_t value) {
-  return Decimal128(static_cast<int64_t>(value >> 64),
-                    static_cast<uint64_t>(value & 0xFFFFFFFFFFFFFFFFULL));
-}
-
 TEST(Decimal128Test, Multiply) {
   ASSERT_EQ(Decimal128(60501), Decimal128(301) * Decimal128(201));
 
@@ -1545,6 +1545,102 @@ TEST(Decimal128Test, FitsInPrecision) {
       Decimal128("-100000000000000000000000000000000000000").FitsInPrecision(38));
 }
 
+TEST(Decimal128Test, LeftShift) {
+  auto check = [](int128_t x, uint32_t bits) {
+    auto expected = Decimal128FromInt128(x << bits);
+    auto actual = Decimal128FromInt128(x) << bits;
+    ASSERT_EQ(actual.low_bits(), expected.low_bits());
+    ASSERT_EQ(actual.high_bits(), expected.high_bits());
+  };
+
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") << 0);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") << 1);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") << 63);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") << 127);
+
+  check(123, 0);
+  check(123, 1);
+  check(123, 63);
+  check(123, 64);
+  check(123, 120);
+
+  ASSERT_EQ(Decimal128("199999999999998"), Decimal128("99999999999999") << 1);
+  ASSERT_EQ(Decimal128("3435973836799965640261632"), Decimal128("99999999999999") << 35);
+  ASSERT_EQ(Decimal128("120892581961461708544797985370825293824"),
+            Decimal128("99999999999999") << 80);
+
+  ASSERT_EQ(Decimal128("1234567890123456789012"), Decimal128("1234567890123456789012")
+                                                      << 0);
+  ASSERT_EQ(Decimal128("2469135780246913578024"), Decimal128("1234567890123456789012")
+                                                      << 1);
+  ASSERT_EQ(Decimal128("88959991838777271103427858320412639232"),
+            Decimal128("1234567890123456789012") << 56);
+
+  check(-123, 0);
+  check(-123, 1);
+  check(-123, 63);
+  check(-123, 64);
+  check(-123, 120);
+
+  ASSERT_EQ(Decimal128("-199999999999998"), Decimal128("-99999999999999") << 1);
+  ASSERT_EQ(Decimal128("-3435973836799965640261632"), Decimal128("-99999999999999")
+                                                          << 35);
+  ASSERT_EQ(Decimal128("-120892581961461708544797985370825293824"),
+            Decimal128("-99999999999999") << 80);
+
+  ASSERT_EQ(Decimal128("-1234567890123456789012"), Decimal128("-1234567890123456789012")
+                                                       << 0);
+  ASSERT_EQ(Decimal128("-2469135780246913578024"), Decimal128("-1234567890123456789012")
+                                                       << 1);
+  ASSERT_EQ(Decimal128("-88959991838777271103427858320412639232"),
+            Decimal128("-1234567890123456789012") << 56);
+}
+
+TEST(Decimal128Test, RightShift) {
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") >> 0);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") >> 1);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") >> 63);
+  ASSERT_EQ(Decimal128("0"), Decimal128("0") >> 127);
+
+  ASSERT_EQ(Decimal128("1"), Decimal128("1") >> 0);
+  ASSERT_EQ(Decimal128("0"), Decimal128("1") >> 1);
+  ASSERT_EQ(Decimal128("0"), Decimal128("1") >> 63);
+  ASSERT_EQ(Decimal128("0"), Decimal128("1") >> 127);
+
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1") >> 0);
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1") >> 1);
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1") >> 63);
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1") >> 127);
+
+  ASSERT_EQ(Decimal128("1096516"), Decimal128("1234567890123456789012") >> 50);
+  ASSERT_EQ(Decimal128("66"), Decimal128("1234567890123456789012") >> 64);
+  ASSERT_EQ(Decimal128("2"), Decimal128("1234567890123456789012") >> 69);
+  ASSERT_EQ(Decimal128("0"), Decimal128("1234567890123456789012") >> 71);
+  ASSERT_EQ(Decimal128("0"), Decimal128("1234567890123456789012") >> 127);
+
+  ASSERT_EQ(Decimal128("-1096517"), Decimal128("-1234567890123456789012") >> 50);
+  ASSERT_EQ(Decimal128("-67"), Decimal128("-1234567890123456789012") >> 64);
+  ASSERT_EQ(Decimal128("-3"), Decimal128("-1234567890123456789012") >> 69);
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1234567890123456789012") >> 71);
+  ASSERT_EQ(Decimal128("-1"), Decimal128("-1234567890123456789012") >> 127);
+}
+
+TEST(Decimal128Test, Negate) {
+  auto check = [](Decimal128 pos, Decimal128 neg) {
+    EXPECT_EQ(-pos, neg);
+    EXPECT_EQ(-neg, pos);
+  };
+
+  check(Decimal128(0, 0), Decimal128(0, 0));
+  check(Decimal128(0, 1), Decimal128(-1, 0xFFFFFFFFFFFFFFFFULL));
+  check(Decimal128(0, 2), Decimal128(-1, 0xFFFFFFFFFFFFFFFEULL));
+  check(Decimal128(0, 0x8000000000000000ULL), Decimal128(-1, 0x8000000000000000ULL));
+  check(Decimal128(0, 0xFFFFFFFFFFFFFFFFULL), Decimal128(-1, 1));
+  check(Decimal128(12, 0), Decimal128(-12, 0));
+  check(Decimal128(12, 1), Decimal128(-13, 0xFFFFFFFFFFFFFFFFULL));
+  check(Decimal128(12, 0xFFFFFFFFFFFFFFFFULL), Decimal128(-13, 1));
+}
+
 static constexpr std::array<uint64_t, 4> kSortedDecimal256Bits[] = {
     {0, 0, 0, 0x8000000000000000ULL},  // min
     {0xFFFFFFFFFFFFFFFEULL, 0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL,
@@ -1568,11 +1664,10 @@ TEST(Decimal256Test, TestComparators) {
   constexpr size_t num_values =
       sizeof(kSortedDecimal256Bits) / sizeof(kSortedDecimal256Bits[0]);
   for (size_t i = 0; i < num_values; ++i) {
-    Decimal256 left(
-        ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[i]));
+    Decimal256 left(::arrow::bit_util::little_endian::ToNative(kSortedDecimal256Bits[i]));
     for (size_t j = 0; j < num_values; ++j) {
       Decimal256 right(
-          ::arrow::BitUtil::LittleEndianArray::ToNative(kSortedDecimal256Bits[j]));
+          ::arrow::bit_util::little_endian::ToNative(kSortedDecimal256Bits[j]));
       EXPECT_EQ(i == j, left == right);
       EXPECT_EQ(i != j, left != right);
       EXPECT_EQ(i < j, left < right);
@@ -1585,7 +1680,7 @@ TEST(Decimal256Test, TestComparators) {
 
 TEST(Decimal256Test, TestToBytesRoundTrip) {
   for (const std::array<uint64_t, 4>& bits : kSortedDecimal256Bits) {
-    Decimal256 decimal(::arrow::BitUtil::LittleEndianArray::ToNative(bits));
+    Decimal256 decimal(::arrow::bit_util::little_endian::ToNative(bits));
     EXPECT_EQ(decimal, Decimal256(decimal.ToBytes().data()));
   }
 }
@@ -1608,20 +1703,20 @@ TYPED_TEST(Decimal256Test, ConstructibleFromAnyIntegerType) {
   using UInt64Array = std::array<uint64_t, 4>;
   Decimal256 value(TypeParam{42});
   EXPECT_EQ(UInt64Array({42, 0, 0, 0}),
-            ::arrow::BitUtil::LittleEndianArray::FromNative(value.native_endian_array()));
+            ::arrow::bit_util::little_endian::FromNative(value.native_endian_array()));
 
   TypeParam max = std::numeric_limits<TypeParam>::max();
   Decimal256 max_value(max);
   EXPECT_EQ(
       UInt64Array({static_cast<uint64_t>(max), 0, 0, 0}),
-      ::arrow::BitUtil::LittleEndianArray::FromNative(max_value.native_endian_array()));
+      ::arrow::bit_util::little_endian::FromNative(max_value.native_endian_array()));
 
   TypeParam min = std::numeric_limits<TypeParam>::min();
   Decimal256 min_value(min);
   uint64_t high_bits = std::is_signed<TypeParam>::value ? ~uint64_t{0} : uint64_t{0};
   EXPECT_EQ(
       UInt64Array({static_cast<uint64_t>(min), high_bits, high_bits, high_bits}),
-      ::arrow::BitUtil::LittleEndianArray::FromNative(min_value.native_endian_array()));
+      ::arrow::bit_util::little_endian::FromNative(min_value.native_endian_array()));
 }
 
 TEST(Decimal256Test, ConstructibleFromBool) {

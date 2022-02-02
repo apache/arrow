@@ -35,7 +35,7 @@ class ARROW_EXPORT HashJoinSchema {
  public:
   Status Init(JoinType join_type, const Schema& left_schema,
               const std::vector<FieldRef>& left_keys, const Schema& right_schema,
-              const std::vector<FieldRef>& right_keys,
+              const std::vector<FieldRef>& right_keys, const Expression& filter,
               const std::string& left_field_name_prefix,
               const std::string& right_field_name_prefix);
 
@@ -43,7 +43,7 @@ class ARROW_EXPORT HashJoinSchema {
               const std::vector<FieldRef>& left_keys,
               const std::vector<FieldRef>& left_output, const Schema& right_schema,
               const std::vector<FieldRef>& right_keys,
-              const std::vector<FieldRef>& right_output,
+              const std::vector<FieldRef>& right_output, const Expression& filter,
               const std::string& left_field_name_prefix,
               const std::string& right_field_name_prefix);
 
@@ -56,8 +56,14 @@ class ARROW_EXPORT HashJoinSchema {
                                 const std::string& left_field_name_prefix,
                                 const std::string& right_field_name_prefix);
 
+  Result<Expression> BindFilter(Expression filter, const Schema& left_schema,
+                                const Schema& right_schema);
   std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_prefix,
                                            const std::string& right_field_name_prefix);
+
+  bool LeftPayloadIsEmpty() { return PayloadIsEmpty(0); }
+
+  bool RightPayloadIsEmpty() { return PayloadIsEmpty(1); }
 
   static int kMissingField() {
     return SchemaProjectionMaps<HashJoinProjection>::kMissingField;
@@ -67,9 +73,26 @@ class ARROW_EXPORT HashJoinSchema {
 
  private:
   static bool IsTypeSupported(const DataType& type);
-  static Result<std::vector<FieldRef>> VectorDiff(const Schema& schema,
-                                                  const std::vector<FieldRef>& a,
-                                                  const std::vector<FieldRef>& b);
+
+  Status CollectFilterColumns(std::vector<FieldRef>& left_filter,
+                              std::vector<FieldRef>& right_filter,
+                              const Expression& filter, const Schema& left_schema,
+                              const Schema& right_schema);
+
+  Expression RewriteFilterToUseFilterSchema(int right_filter_offset,
+                                            const SchemaProjectionMap& left_to_filter,
+                                            const SchemaProjectionMap& right_to_filter,
+                                            const Expression& filter);
+
+  bool PayloadIsEmpty(int side) {
+    ARROW_DCHECK(side == 0 || side == 1);
+    return proj_maps[side].num_cols(HashJoinProjection::PAYLOAD) == 0;
+  }
+
+  static Result<std::vector<FieldRef>> ComputePayload(const Schema& schema,
+                                                      const std::vector<FieldRef>& output,
+                                                      const std::vector<FieldRef>& filter,
+                                                      const std::vector<FieldRef>& key);
 };
 
 class HashJoinImpl {
@@ -80,7 +103,7 @@ class HashJoinImpl {
   virtual ~HashJoinImpl() = default;
   virtual Status Init(ExecContext* ctx, JoinType join_type, bool use_sync_execution,
                       size_t num_threads, HashJoinSchema* schema_mgr,
-                      std::vector<JoinKeyCmp> key_cmp,
+                      std::vector<JoinKeyCmp> key_cmp, Expression filter,
                       OutputBatchCallback output_batch_callback,
                       FinishedCallback finished_callback,
                       TaskScheduler::ScheduleImpl schedule_task_callback) = 0;

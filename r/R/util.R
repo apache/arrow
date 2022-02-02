@@ -29,9 +29,12 @@ if (!exists("str2lang")) {
   }
 }
 
-oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
+oxford_paste <- function(x,
+                         conjunction = "and",
+                         quote = TRUE,
+                         quote_symbol = '"') {
   if (quote && is.character(x)) {
-    x <- paste0('"', x, '"')
+    x <- paste0(quote_symbol, x, quote_symbol)
   }
   if (length(x) < 2) {
     return(x)
@@ -113,8 +116,9 @@ read_compressed_error <- function(e) {
       msg,
       "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
       "\nSet one of these environment variables before installing:",
-      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
-      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\n * Sys.setenv(LIBARROW_MINIMAL = \"false\") ",
+      sprintf("(for all optional features, including '%s')", compression),
+      sprintf("\n * Sys.setenv(ARROW_WITH_%s = \"ON\") (for just '%s')", toupper(compression), compression),
       "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
   }
@@ -200,11 +204,13 @@ handle_csv_read_error <- function(e, schema) {
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     abort(c(
       msg,
-      i = paste("If you have supplied a schema and your data contains a header",
-                "row, you should supply the argument `skip = 1` to prevent the",
-                "header being read in as data.")
+      i = paste(
+        "If you have supplied a schema and your data contains a header",
+        "row, you should supply the argument `skip = 1` to prevent the",
+        "header being read in as data."
+      )
     ))
   }
 
-  abort(e)
+  abort(msg)
 }

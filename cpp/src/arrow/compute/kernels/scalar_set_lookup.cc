@@ -24,7 +24,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/hashing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -342,8 +342,8 @@ struct IsInVisitor {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
     ArrayData* output = out->mutable_array();
     // skip_nulls is honored for consistency with other types
-    BitUtil::SetBitsTo(output->buffers[1]->mutable_data(), output->offset, output->length,
-                       state.value_set_has_null);
+    bit_util::SetBitsTo(output->buffers[1]->mutable_data(), output->offset,
+                        output->length, state.value_set_has_null);
     return Status::OK();
   }
 
@@ -452,7 +452,8 @@ const FunctionDoc is_in_doc{
      "By default, nulls are matched against the value set, this can be\n"
      "changed in SetLookupOptions."),
     {"values"},
-    "SetLookupOptions"};
+    "SetLookupOptions",
+    /*options_required=*/true};
 
 const FunctionDoc is_in_meta_doc{
     "Find each element in a set of values",
@@ -468,7 +469,8 @@ const FunctionDoc index_in_doc{
      "By default, nulls are matched against the value set, this can be\n"
      "changed in SetLookupOptions."),
     {"values"},
-    "SetLookupOptions"};
+    "SetLookupOptions",
+    /*options_required=*/true};
 
 const FunctionDoc index_in_meta_doc{
     "Return index of each element in a set of values",

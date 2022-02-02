@@ -259,7 +259,7 @@ Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  SumLikeInit<MeanImplDefault> visitor(
+  MeanKernelInit<MeanImplDefault> visitor(
       ctx, args.inputs[0].type,
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -344,6 +344,15 @@ struct ProductImpl : public ScalarAggregator {
   bool nulls_observed;
 };
 
+struct NullProductImpl : public NullImpl<Int64Type> {
+  explicit NullProductImpl(const ScalarAggregateOptions& options_)
+      : NullImpl<Int64Type>(options_) {}
+
+  std::shared_ptr<Scalar> output_empty() override {
+    return std::make_shared<Int64Scalar>(1);
+  }
+};
+
 struct ProductInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -378,6 +387,11 @@ struct ProductInit {
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
     state.reset(new ProductImpl<Type>(type, options));
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    state.reset(new NullProductImpl(options));
     return Status::OK();
   }
 
@@ -894,7 +908,8 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
                             ("-1 is returned if the value is not found in the array.\n"
                              "The search value is specified in IndexOptions."),
                             {"array"},
-                            "IndexOptions"};
+                            "IndexOptions",
+                            /*options_required=*/true};
 
 }  // namespace
 
@@ -929,6 +944,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumInit, SignedIntTypes(), int64(), func.get());
   AddArrayScalarAggKernels(SumInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumInit, FloatingPointTypes(), float64(), func.get());
+  AddArrayScalarAggKernels(SumInit, {null()}, int64(), func.get());
   // Add the SIMD variants for sum
 #if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
   auto cpu_info = arrow::internal::CpuInfo::GetInstance();
@@ -955,6 +971,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       MeanInit, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(MeanInit, {null()}, float64(), func.get());
   // Add the SIMD variants for mean
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
@@ -1017,6 +1034,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       ProductInit::Init, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(ProductInit::Init, {null()}, int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any

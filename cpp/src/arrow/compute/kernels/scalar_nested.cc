@@ -335,7 +335,7 @@ const FunctionDoc struct_field_doc(
      "child is always index 0.\n"
      "\n"
      "An empty list of indices returns the argument unchanged."),
-    {"values"}, "StructFieldOptions");
+    {"values"}, "StructFieldOptions", /*options_required=*/true);
 
 Result<ValueDescr> MakeStructResolve(KernelContext* ctx,
                                      const std::vector<ValueDescr>& descrs) {

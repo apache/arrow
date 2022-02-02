@@ -25,7 +25,6 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
@@ -70,12 +69,24 @@ TEST_F(TestOrcFileFormat, CountRows) { TestCountRows(); }
 class TestOrcFileFormatScan : public FileFormatScanMixin<OrcFormatHelper> {};
 
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestOrcFileFormatScan, ScanBatchSize) {
+  // TODO(ARROW-14153): TestScanBatchSize();
+}
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
+  TestScanProjectedNested();
+}
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols();
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
 }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),

@@ -69,6 +69,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string git_id
         c_string git_description
         c_string package_kind
+        c_string build_type
 
     const CBuildInfo& GetBuildInfo()
 
@@ -309,10 +310,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
 
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset, int64_t length)
-    shared_ptr[CBuffer] SliceBuffer(const shared_ptr[CBuffer]& buffer,
-                                    int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset)
+    CResult[shared_ptr[CBuffer]] SliceBufferSafe(
+        const shared_ptr[CBuffer]& buffer, int64_t offset, int64_t length)
 
     cdef cppclass CMutableBuffer" arrow::MutableBuffer"(CBuffer):
         CMutableBuffer(const uint8_t* data, int64_t size)
@@ -333,6 +334,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
     cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
         CMemoryPool** out)
+    cdef vector[c_string] c_supported_memory_backends" arrow::SupportedMemoryBackendNames"()
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
@@ -945,6 +947,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CNullScalar()
 
     cdef cppclass CBooleanScalar" arrow::BooleanScalar"(CScalar):
+        CBooleanScalar(c_bool value)
         c_bool value
 
     cdef cppclass CInt8Scalar" arrow::Int8Scalar"(CScalar):
@@ -1435,6 +1438,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         shared_ptr[CCodec] codec
         c_bool use_threads
         c_bool emit_dictionary_deltas
+        c_bool unify_dictionaries
 
         @staticmethod
         CIpcWriteOptions Defaults()
@@ -1599,6 +1603,31 @@ cdef extern from "arrow/util/value_parsing.h" namespace "arrow" nogil:
 
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
+    cdef cppclass CCSVInvalidRow" arrow::csv::InvalidRow":
+        int32_t expected_columns
+        int32_t actual_columns
+        int64_t number
+        c_string text
+
+    ctypedef enum CInvalidRowResult" arrow::csv::InvalidRowResult":
+        CInvalidRowResult_Error" arrow::csv::InvalidRowResult::Error"
+        CInvalidRowResult_Skip" arrow::csv::InvalidRowResult::Skip"
+
+    ctypedef CInvalidRowResult CInvalidRowHandler(const CCSVInvalidRow&)
+
+
+ctypedef CInvalidRowResult PyInvalidRowCallback(object,
+                                                const CCSVInvalidRow&)
+
+
+cdef extern from "arrow/python/csv.h" namespace "arrow::py::csv":
+
+    function[CInvalidRowHandler] MakeInvalidRowHandler(
+        function[PyInvalidRowCallback], object handler)
+
+
+cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
+
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
         unsigned char delimiter
         c_bool quoting
@@ -1608,6 +1637,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         unsigned char escape_char
         c_bool newlines_in_values
         c_bool ignore_empty_lines
+        function[CInvalidRowHandler] invalid_row_handler
 
         CCSVParseOptions()
         CCSVParseOptions(CCSVParseOptions&&)
@@ -1780,6 +1810,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string description
         vector[c_string] arg_names
         c_string options_class
+        c_bool options_required
 
     cdef cppclass CFunctionOptionsType" arrow::compute::FunctionOptionsType":
         const char* type_name() const
@@ -1864,6 +1895,37 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CRoundOptions(int64_t ndigits, CRoundMode round_mode)
         int64_t ndigits
         CRoundMode round_mode
+
+    ctypedef enum CCalendarUnit \
+            "arrow::compute::CalendarUnit":
+        CCalendarUnit_NANOSECOND \
+            "arrow::compute::CalendarUnit::NANOSECOND"
+        CCalendarUnit_MICROSECOND \
+            "arrow::compute::CalendarUnit::MICROSECOND"
+        CCalendarUnit_MILLISECOND \
+            "arrow::compute::CalendarUnit::MILLISECOND"
+        CCalendarUnit_SECOND \
+            "arrow::compute::CalendarUnit::SECOND"
+        CCalendarUnit_MINUTE \
+            "arrow::compute::CalendarUnit::MINUTE"
+        CCalendarUnit_HOUR \
+            "arrow::compute::CalendarUnit::HOUR"
+        CCalendarUnit_DAY \
+            "arrow::compute::CalendarUnit::DAY"
+        CCalendarUnit_WEEK \
+            "arrow::compute::CalendarUnit::WEEK"
+        CCalendarUnit_MONTH \
+            "arrow::compute::CalendarUnit::MONTH"
+        CCalendarUnit_QUARTER \
+            "arrow::compute::CalendarUnit::QUARTER"
+        CCalendarUnit_YEAR \
+            "arrow::compute::CalendarUnit::YEAR"
+
+    cdef cppclass CRoundTemporalOptions \
+            "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
+        CRoundTemporalOptions(int multiple, CCalendarUnit unit)
+        int multiple
+        CCalendarUnit unit
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
@@ -2097,6 +2159,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         vector[c_bool] field_nullability
         vector[shared_ptr[const CKeyValueMetadata]] field_metadata
 
+    cdef cppclass CStructFieldOptions \
+            "arrow::compute::StructFieldOptions"(CFunctionOptions):
+        CStructFieldOptions(vector[int] indices)
+        vector[int] indices
+
     ctypedef enum CSortOrder" arrow::compute::SortOrder":
         CSortOrder_Ascending \
             "arrow::compute::SortOrder::Ascending"
@@ -2166,6 +2233,34 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool skip_nulls
         uint32_t min_count
 
+    cdef enum CUtf8NormalizeForm \
+            "arrow::compute::Utf8NormalizeOptions::Form":
+        CUtf8NormalizeForm_NFC "arrow::compute::Utf8NormalizeOptions::NFC"
+        CUtf8NormalizeForm_NFKC "arrow::compute::Utf8NormalizeOptions::NFKC"
+        CUtf8NormalizeForm_NFD "arrow::compute::Utf8NormalizeOptions::NFD"
+        CUtf8NormalizeForm_NFKD "arrow::compute::Utf8NormalizeOptions::NFKD"
+
+    cdef cppclass CUtf8NormalizeOptions \
+            "arrow::compute::Utf8NormalizeOptions"(CFunctionOptions):
+        CUtf8NormalizeOptions(CUtf8NormalizeForm form)
+        CUtf8NormalizeForm form
+
+    cdef cppclass CSetLookupOptions \
+            "arrow::compute::SetLookupOptions"(CFunctionOptions):
+        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
+        CDatum value_set
+        c_bool skip_nulls
+
+    cdef cppclass CRandomOptions \
+            "arrow::compute::RandomOptions"(CFunctionOptions):
+        CRandomOptions(CRandomOptions)
+
+        @staticmethod
+        CRandomOptions FromSystemRandom(int64_t length)
+
+        @staticmethod
+        CRandomOptions FromSeed(int64_t length, uint64_t seed)
+
     cdef enum DatumType" arrow::Datum::type":
         DatumType_NONE" arrow::Datum::NONE"
         DatumType_SCALAR" arrow::Datum::SCALAR"
@@ -2191,12 +2286,6 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         const shared_ptr[CRecordBatch]& record_batch() const
         const shared_ptr[CTable]& table() const
         const shared_ptr[CScalar]& scalar() const
-
-    cdef cppclass CSetLookupOptions \
-            "arrow::compute::SetLookupOptions"(CFunctionOptions):
-        CSetLookupOptions(CDatum value_set, c_bool skip_nulls)
-        CDatum value_set
-        c_bool skip_nulls
 
 
 cdef extern from * namespace "arrow::compute":
@@ -2227,6 +2316,56 @@ cdef extern from "arrow/compute/api_aggregate.h" namespace \
     CResult[CDatum] GroupBy(const vector[CDatum]& arguments,
                             const vector[CDatum]& keys,
                             const vector[CAggregate]& aggregates)
+
+
+cdef extern from * namespace "arrow::compute":
+    # inlined from expression_internal.h to avoid
+    # proliferation of #include <unordered_map>
+    """
+    #include <unordered_map>
+
+    #include "arrow/type.h"
+    #include "arrow/datum.h"
+
+    namespace arrow {
+    namespace compute {
+    struct KnownFieldValues {
+      std::unordered_map<FieldRef, Datum, FieldRef::Hash> map;
+    };
+    } //  namespace compute
+    } //  namespace arrow
+    """
+    cdef struct CKnownFieldValues "arrow::compute::KnownFieldValues":
+        unordered_map[CFieldRef, CDatum, CFieldRefHash] map
+
+cdef extern from "arrow/compute/exec/expression.h" \
+        namespace "arrow::compute" nogil:
+
+    cdef cppclass CExpression "arrow::compute::Expression":
+        c_bool Equals(const CExpression& other) const
+        c_string ToString() const
+        CResult[CExpression] Bind(const CSchema&)
+
+    cdef CExpression CMakeScalarExpression \
+        "arrow::compute::literal"(shared_ptr[CScalar] value)
+
+    cdef CExpression CMakeFieldExpression \
+        "arrow::compute::field_ref"(c_string name)
+
+    cdef CExpression CMakeCallExpression \
+        "arrow::compute::call"(c_string function,
+                               vector[CExpression] arguments,
+                               shared_ptr[CFunctionOptions] options)
+
+    cdef CResult[shared_ptr[CBuffer]] CSerializeExpression \
+        "arrow::compute::Serialize"(const CExpression&)
+
+    cdef CResult[CExpression] CDeserializeExpression \
+        "arrow::compute::Deserialize"(shared_ptr[CBuffer])
+
+    cdef CResult[CKnownFieldValues] \
+        CExtractKnownFieldValues "arrow::compute::ExtractKnownFieldValues"(
+            const CExpression& partition_expression)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
@@ -2625,3 +2764,17 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
                                     ArrowArrayStream*)
     CResult[shared_ptr[CRecordBatchReader]] ImportRecordBatchReader(
         ArrowArrayStream*)
+
+
+cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
+    void GdbTestSession "arrow::gdb::TestSession"()
+
+cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
+    CResult[int64_t] ReferencedBufferSize(const CArray& array_data)
+    CResult[int64_t] ReferencedBufferSize(const CRecordBatch& record_batch)
+    CResult[int64_t] ReferencedBufferSize(const CChunkedArray& chunked_array)
+    CResult[int64_t] ReferencedBufferSize(const CTable& table)
+    int64_t TotalBufferSize(const CArray& array)
+    int64_t TotalBufferSize(const CChunkedArray& array)
+    int64_t TotalBufferSize(const CRecordBatch& record_batch)
+    int64_t TotalBufferSize(const CTable& table)

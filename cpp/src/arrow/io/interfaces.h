@@ -113,6 +113,13 @@ class ARROW_EXPORT FileInterface {
   /// available for further operations.
   virtual Status Close() = 0;
 
+  /// \brief Close the stream asynchronously
+  ///
+  /// By default, this will just submit the synchronous Close() to the
+  /// default I/O thread pool. Subclasses may implement this in a more
+  /// efficient manner.
+  virtual Future<> CloseAsync();
+
   /// \brief Close the stream abruptly
   ///
   /// This method does not guarantee that any pending data is flushed.

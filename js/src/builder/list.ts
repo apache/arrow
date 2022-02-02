@@ -15,15 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Run } from './run';
-import { Field } from '../schema';
-import { DataType, List } from '../type';
-import { OffsetsBufferBuilder } from './buffer';
-import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder';
+import { Field } from '../schema.js';
+import { DataType, List } from '../type.js';
+import { OffsetsBufferBuilder } from './buffer.js';
+import { Builder, BuilderOptions, VariableWidthBuilder } from '../builder.js';
 
 /** @ignore */
 export class ListBuilder<T extends DataType = any, TNull = any> extends VariableWidthBuilder<List<T>, TNull> {
-    protected _run = new Run<T, TNull>();
     protected _offsets: OffsetsBufferBuilder;
     constructor(opts: BuilderOptions<List<T>, TNull>) {
         super(opts);
@@ -37,21 +35,18 @@ export class ListBuilder<T extends DataType = any, TNull = any> extends Variable
         this.type = new List(new Field(name, child.type, true));
         return this.numChildren - 1;
     }
-    public clear() {
-        this._run.clear();
-        return super.clear();
-    }
     protected _flushPending(pending: Map<number, T['TValue'] | undefined>) {
-        const run = this._run;
         const offsets = this._offsets;
-        const setValue = this._setValue;
-        let index = 0, value: Uint8Array | undefined;
-        for ([index, value] of pending) {
+        const [child] = this.children;
+        for (const [index, value] of pending) {
             if (value === undefined) {
                 offsets.set(index, 0);
             } else {
-                offsets.set(index, value.length);
-                setValue(this, index, run.bind(value));
+                const n = value.length;
+                const start = offsets.set(index, n).buffer[index];
+                for (let i = -1; ++i < n;) {
+                    child.set(start + i, value[i]);
+                }
             }
         }
     }

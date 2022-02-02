@@ -63,6 +63,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    opentelemetry-cpp
     ORC
     re2
     Protobuf
@@ -160,6 +161,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
+    build_opentelemetry()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
     build_orc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
@@ -269,6 +272,10 @@ if(PARQUET_REQUIRE_ENCRYPTION)
   set(ARROW_JSON ON)
 endif()
 
+if(ARROW_WITH_OPENTELEMETRY)
+  set(ARROW_WITH_PROTOBUF ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -286,7 +293,9 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
-  # gRPC requires zlib
+endif()
+
+if(ARROW_WITH_GRPC)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
@@ -355,6 +364,8 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
+set(THIRDPARTY_MIRROR_URL "https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0")
+
 if(DEFINED ENV{ARROW_ABSL_URL})
   set(ABSL_SOURCE_URL "$ENV{ARROW_ABSL_URL}")
 else()
@@ -392,8 +403,7 @@ if(DEFINED ENV{ARROW_AWSSDK_URL})
 else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -407,7 +417,7 @@ else()
            # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
            # our currently used packages and doesn't fall out of sync with
            # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
            "https://boostorg.jfrog.io/artifactory/main/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
            "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
   )
@@ -418,8 +428,7 @@ if(DEFINED ENV{ARROW_BROTLI_URL})
 else()
   set_urls(BROTLI_SOURCE_URL
            "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BZIP2_URL})
@@ -427,8 +436,7 @@ if(DEFINED ENV{ARROW_BZIP2_URL})
 else()
   set_urls(ARROW_BZIP2_SOURCE_URL
            "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_CARES_URL})
@@ -436,8 +444,7 @@ if(DEFINED ENV{ARROW_CARES_URL})
 else()
   set_urls(CARES_SOURCE_URL
            "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_CRC32C_URL})
@@ -453,8 +460,7 @@ if(DEFINED ENV{ARROW_GBENCHMARK_URL})
 else()
   set_urls(GBENCHMARK_SOURCE_URL
            "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
@@ -462,8 +468,7 @@ if(DEFINED ENV{ARROW_GFLAGS_URL})
 else()
   set_urls(GFLAGS_SOURCE_URL
            "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GLOG_URL})
@@ -471,8 +476,7 @@ if(DEFINED ENV{ARROW_GLOG_URL})
 else()
   set_urls(GLOG_SOURCE_URL
            "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
@@ -488,8 +492,7 @@ if(DEFINED ENV{ARROW_GRPC_URL})
 else()
   set_urls(GRPC_SOURCE_URL
            "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
@@ -498,8 +501,7 @@ else()
   set_urls(GTEST_SOURCE_URL
            "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
            "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
@@ -507,8 +509,7 @@ if(DEFINED ENV{ARROW_JEMALLOC_URL})
 else()
   set_urls(JEMALLOC_SOURCE_URL
            "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
-  )
+           "${THIRDPARTY_MIRROR_URL}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2")
 endif()
 
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
@@ -516,8 +517,7 @@ if(DEFINED ENV{ARROW_MIMALLOC_URL})
 else()
   set_urls(MIMALLOC_SOURCE_URL
            "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_NLOHMANN_JSON_URL})
@@ -533,16 +533,35 @@ if(DEFINED ENV{ARROW_LZ4_URL})
 else()
   set_urls(LZ4_SOURCE_URL
            "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
   set_urls(ORC_SOURCE_URL
-           "https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://www.apache.org/dyn/closer.cgi?action=download&filename=/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+           "https://downloads.apache.org/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
            "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_URL})
+  set(OPENTELEMETRY_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_URL}")
+else()
+  # TODO: add mirror
+  set_urls(OPENTELEMETRY_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_PROTO_URL})
+  set(OPENTELEMETRY_PROTO_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_PROTO_URL}")
+else()
+  # TODO: add mirror
+  # N.B. upstream pins to particular commits, not tags
+  set_urls(OPENTELEMETRY_PROTO_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-proto/archive/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -554,8 +573,7 @@ else()
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
            "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RE2_URL})
@@ -563,8 +581,7 @@ if(DEFINED ENV{ARROW_RE2_URL})
 else()
   set_urls(RE2_SOURCE_URL
            "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/re2-${ARROW_RE2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
@@ -572,8 +589,7 @@ if(DEFINED ENV{ARROW_RAPIDJSON_URL})
 else()
   set_urls(RAPIDJSON_SOURCE_URL
            "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -584,14 +600,12 @@ else()
     # There is a bug in GCC < 4.9 with Snappy 1.1.9, so revert to 1.1.8 "SNAPPY_OLD" for those (ARROW-14661)
     set_urls(SNAPPY_SOURCE_URL
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz"
-    )
+             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_OLD_BUILD_VERSION}.tar.gz")
     set(ARROW_SNAPPY_BUILD_SHA256_CHECKSUM ${ARROW_SNAPPY_OLD_BUILD_SHA256_CHECKSUM})
   else()
     set_urls(SNAPPY_SOURCE_URL
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-             "https://github.com/ursa-labs/thirdparty/releases/download/latest/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
-    )
+             "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
   endif()
 endif()
 
@@ -613,8 +627,7 @@ else()
            "https://mirrors.ocf.berkeley.edu/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
            "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_UTF8PROC_URL})
@@ -638,17 +651,14 @@ if(DEFINED ENV{ARROW_ZLIB_URL})
 else()
   set_urls(ZLIB_SOURCE_URL
            "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
-  )
+           "${THIRDPARTY_MIRROR_URL}/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
   set_urls(ZSTD_SOURCE_URL
-           "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
-           "https://github.com/ursa-labs/thirdparty/releases/download/latest/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
-  )
+           "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -696,7 +706,8 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS}
     -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
-    -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY})
+    -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
+    -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
 if(NOT ARROW_VERBOSE_THIRDPARTY_BUILD)
   set(EP_LOG_OPTIONS
@@ -968,6 +979,23 @@ if(ARROW_BOOST_REQUIRED)
 
   include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 endif()
+
+# ----------------------------------------------------------------------
+# cURL
+
+macro(find_curl)
+  if(NOT TARGET CURL::libcurl)
+    find_package(CURL REQUIRED)
+    if(NOT TARGET CURL::libcurl)
+      # For CMake 3.11 or older
+      add_library(CURL::libcurl UNKNOWN IMPORTED)
+      set_target_properties(CURL::libcurl
+                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
+                                                              "${CURL_LIBRARIES}")
+    endif()
+  endif()
+endmacro()
 
 # ----------------------------------------------------------------------
 # Snappy
@@ -1931,8 +1959,7 @@ macro(build_benchmark)
 endmacro()
 
 if(ARROW_BUILD_BENCHMARKS)
-  # ArgsProduct() is available since 1.5.2
-  set(BENCHMARK_REQUIRED_VERSION 1.5.2)
+  set(BENCHMARK_REQUIRED_VERSION 1.6.0)
   resolve_dependency(benchmark
                      REQUIRED_VERSION
                      ${BENCHMARK_REQUIRED_VERSION}
@@ -3522,6 +3549,11 @@ endmacro()
 
 if(ARROW_WITH_GRPC)
   set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
+  if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
+    # ARROW-15495: Protobuf/gRPC must come from the same source
+    message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
+    set(gRPC_SOURCE "${Protobuf_SOURCE}")
+  endif()
   resolve_dependency(gRPC
                      HAVE_ALT
                      TRUE
@@ -3564,7 +3596,6 @@ macro(build_crc32c_once)
         ${EP_COMMON_CMAKE_ARGS}
         -DCMAKE_INSTALL_LIBDIR=lib
         "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCMAKE_CXX_STANDARD=11
         -DCRC32C_BUILD_TESTS=OFF
         -DCRC32C_BUILD_BENCHMARKS=OFF
         -DCRC32C_USE_GLOG=OFF)
@@ -3600,8 +3631,8 @@ macro(build_nlohmann_json_once)
     set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
     set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
     set(NLOHMANN_JSON_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS} -DCMAKE_CXX_STANDARD=11
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" -DBUILD_TESTING=OFF)
+        ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
+        -DBUILD_TESTING=OFF -DJSON_BuildTests=OFF)
 
     set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
 
@@ -3635,7 +3666,7 @@ macro(build_google_cloud_cpp_storage)
 
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
-  find_package(CURL 7.47.0 REQUIRED)
+  find_curl()
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
 
   # Build google-cloud-cpp, with only storage_client
@@ -3672,19 +3703,6 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies absl_ep)
   add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json_ep)
-  # Typically the steps to build the AWKSSDK provide `CURL::libcurl`, but if that is
-  # disabled we need to provide our own.
-  if(NOT TARGET CURL::libcurl)
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
-  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -3788,6 +3806,7 @@ include_directories(SYSTEM "${HADOOP_HOME}/include")
 
 macro(build_orc)
   message("Building Apache ORC from source")
+
   set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
   set(ORC_HOME "${ORC_PREFIX}")
   set(ORC_INCLUDE_DIR "${ORC_PREFIX}/include")
@@ -3796,7 +3815,8 @@ macro(build_orc)
 
   get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+  get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
+
   get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
                       IMPORTED_LOCATION)
 
@@ -3820,12 +3840,16 @@ macro(build_orc)
       -DINSTALL_VENDORED_LIBS=OFF
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
-      "-DPROTOBUF_HOME=${ORC_PB_ROOT}"
+      "-DPROTOBUF_HOME=${ORC_PROTOBUF_ROOT}"
       "-DPROTOBUF_INCLUDE_DIR=${ORC_PROTOBUF_INCLUDE_DIR}"
       "-DPROTOBUF_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DPROTOC_LIBRARY=${ORC_PROTOBUF_LIBRARY}"
       "-DLZ4_HOME=${LZ4_HOME}"
       "-DZSTD_HOME=${ZSTD_HOME}")
+  if(ORC_PROTOBUF_EXECUTABLE)
+    set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS}
+                       "-DPROTOBUF_EXECUTABLE:FILEPATH=${ORC_PROTOBUF_EXECUTABLE}")
+  endif()
   if(ZLIB_ROOT)
     set(ORC_CMAKE_ARGS ${ORC_CMAKE_ARGS} "-DZLIB_HOME=${ZLIB_ROOT}")
   endif()
@@ -3866,6 +3890,222 @@ if(ARROW_ORC)
 endif()
 
 # ----------------------------------------------------------------------
+# OpenTelemetry C++
+
+macro(build_opentelemetry)
+  message("Building OpenTelemetry from source")
+
+  build_nlohmann_json_once()
+  find_curl()
+
+  set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
+  set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
+  set(OPENTELEMETRY_STATIC_LIB
+      "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+  set(_OPENTELEMETRY_APIS api ext sdk)
+  set(_OPENTELEMETRY_LIBS
+      common
+      http_client_curl
+      ostream_span_exporter
+      otlp_http_client
+      otlp_http_exporter
+      otlp_recordable
+      proto
+      resources
+      trace
+      version)
+  set(OPENTELEMETRY_BUILD_BYPRODUCTS)
+  set(OPENTELEMETRY_LIBRARIES)
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENTELEMETRY_INCLUDE_DIR}")
+  endforeach()
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    # N.B. OTel targets and libraries don't follow any consistent naming scheme
+    if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    else()
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    endif()
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_BUILD_BYPRODUCTS ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
+  endforeach()
+
+  set(OPENTELEMETRY_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DBUILD_TESTING=OFF
+      -DWITH_EXAMPLES=OFF)
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST)
+  # Don't specify the DEPENDS unless we actually have dependencies, else
+  # Ninja/other build systems may consider this target to always be dirty
+  set(_OPENTELEMETRY_DEPENDENCIES)
+  add_custom_target(opentelemetry_dependencies)
+
+  set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+  list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+
+  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      IMPORTED_LOCATION)
+  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
+  list(APPEND
+       OPENTELEMETRY_CMAKE_ARGS
+       -DWITH_OTLP=ON
+       -DWITH_OTLP_HTTP=ON
+       -DWITH_OTLP_GRPC=OFF
+       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
+       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
+
+  # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
+  # submodule. This submodule path is hardcoded into their CMake definitions,
+  # and submodules are not included in their releases. Add a custom build step
+  # to download and extract the Protobufs.
+
+  # Adding such a step is rather complicated, so instead: create a separate
+  # ExternalProject that just fetches the Protobufs, then add a custom step
+  # to the main build to copy the Protobufs.
+  externalproject_add(opentelemetry_proto_ep
+                      ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+                      URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                      BUILD_COMMAND ""
+                      CONFIGURE_COMMAND ""
+                      INSTALL_COMMAND ""
+                      EXCLUDE_FROM_ALL OFF)
+
+  add_dependencies(opentelemetry_dependencies nlohmann_json_ep opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
+
+  set(OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR "|")
+  # JOIN is CMake >=3.12 only
+  string(REPLACE ";" "${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}"
+                 OPENTELEMETRY_PREFIX_PATH "${OPENTELEMETRY_PREFIX_PATH_LIST}")
+  list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
+
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
+    # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
+    # on s390x, even though it doesn't use vcpkg there. Tell it ARCH manually
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
+                        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
+                                          ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
+                                          "<SOURCE_DIR><SOURCE_SUBDIR>"
+                                          ${OPENTELEMETRY_CMAKE_ARGS}
+                        BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
+                        INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
+                                        install
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
+  else()
+    externalproject_add(opentelemetry_ep
+                        ${EP_LOG_OPTIONS}
+                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                        LIST_SEPARATOR ${OPENTELEMETRY_PREFIX_PATH_LIST_SEP_CHAR}
+                        CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                        URL ${OPENTELEMETRY_SOURCE_URL}
+                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                        EXCLUDE_FROM_ALL NOT
+                        ${ARROW_WITH_OPENTELEMETRY}
+                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
+  endif()
+
+  externalproject_add_step(opentelemetry_ep download_proto
+                           COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                   $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
+                                   $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
+                           DEPENDEES download
+                           DEPENDERS configure)
+
+  add_dependencies(toolchain opentelemetry_ep)
+  add_dependencies(toolchain-tests opentelemetry_ep)
+
+  set(OPENTELEMETRY_VENDORED 1)
+
+  set_target_properties(opentelemetry-cpp::common
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
+  )
+  set_target_properties(opentelemetry-cpp::resources
+                        PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
+  set_target_properties(opentelemetry-cpp::trace
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::common;opentelemetry-cpp::resources"
+  )
+  set_target_properties(opentelemetry-cpp::http_client_curl
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::ext;CURL::libcurl")
+  set_target_properties(opentelemetry-cpp::proto
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "${ARROW_PROTOBUF_LIBPROTOBUF}")
+  set_target_properties(opentelemetry-cpp::otlp_recordable
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::trace;opentelemetry-cpp::resources;opentelemetry-cpp::proto"
+  )
+  set_target_properties(opentelemetry-cpp::otlp_http_client
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::sdk;opentelemetry-cpp::proto;opentelemetry-cpp::http_client_curl;nlohmann_json::nlohmann_json"
+  )
+  set_target_properties(opentelemetry-cpp::otlp_http_exporter
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::otlp_recordable;opentelemetry-cpp::otlp_http_client"
+  )
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
+  endforeach()
+
+  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
+  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
+
+endmacro()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  set(opentelemetry-cpp_SOURCE "AUTO")
+  resolve_dependency(opentelemetry-cpp)
+  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
+  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
 # AWS SDK for C++
 
 macro(build_awssdk)
@@ -3898,14 +4138,29 @@ macro(build_awssdk)
       "-DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}"
       "-DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}")
 
+  # provide hint for AWS SDK to link with the already located openssl
+  get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
+
   set(AWSSDK_CMAKE_ARGS
       ${AWSSDK_COMMON_CMAKE_ARGS}
+      -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_HINT}
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
-  if(UNIX AND TARGET zlib_ep)
-    list(APPEND AWSSDK_CMAKE_ARGS -DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}
-         -DZLIB_LIBRARY=${ZLIB_LIBRARIES})
+
+  if(UNIX)
+    # on Linux and macOS curl seems to be required
+    find_curl()
+    get_filename_component(CURL_ROOT_HINT "${CURL_INCLUDE_DIRS}" DIRECTORY)
+    get_filename_component(ZLIB_ROOT_HINT "${ZLIB_INCLUDE_DIRS}" DIRECTORY)
+
+    # provide hint for AWS SDK to link with the already located libcurl and zlib
+    list(APPEND
+         AWSSDK_CMAKE_ARGS
+         -DCURL_LIBRARY=${CURL_ROOT_HINT}/lib
+         -DCURL_INCLUDE_DIR=${CURL_ROOT_HINT}/include
+         -DZLIB_LIBRARY=${ZLIB_ROOT_HINT}/lib
+         -DZLIB_INCLUDE_DIR=${ZLIB_ROOT_HINT}/include)
   endif()
 
   file(MAKE_DIRECTORY ${AWSSDK_INCLUDE_DIR})
@@ -3976,6 +4231,7 @@ macro(build_awssdk)
     set(AWSSDK_PATCH_COMMAND "sed" "-i.bak" "-e" "s/\"-Werror\"//g"
                              "<SOURCE_DIR>/cmake/compiler_settings.cmake")
   endif()
+
   externalproject_add(awssdk_ep
                       ${EP_LOG_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
@@ -4000,15 +4256,6 @@ macro(build_awssdk)
   set(AWSSDK_LINK_LIBRARIES ${AWSSDK_LIBRARIES})
   if(UNIX)
     # on Linux and macOS curl seems to be required
-    find_package(CURL REQUIRED)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}" IMPORTED_LOCATION
-                                                              "${CURL_LIBRARIES}")
-    endif()
     set_property(TARGET aws-cpp-sdk-core
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl)
@@ -4021,6 +4268,15 @@ macro(build_awssdk)
                    PROPERTY INTERFACE_LINK_LIBRARIES ZLIB::ZLIB)
       add_dependencies(awssdk_ep zlib_ep)
     endif()
+  elseif(WIN32)
+    set_property(TARGET aws-cpp-sdk-core
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                          "winhttp.lib"
+                          "bcrypt.lib"
+                          "wininet.lib"
+                          "userenv.lib"
+                          "version.lib")
   endif()
 
   # AWSSDK is static-only build

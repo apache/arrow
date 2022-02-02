@@ -38,6 +38,19 @@ test_that("Schema print method", {
   )
 })
 
+test_that("Schema$code()", {
+  expect_code_roundtrip(
+    schema(a = int32(), b = struct(c = double(), d = utf8()), e = list_of(binary()))
+  )
+
+  skip("until rlang 1.0")
+  expect_snapshot({
+    (expect_error(
+      schema(x = int32(), y = DayTimeInterval__initialize())$code()
+    ))
+  })
+})
+
 test_that("Schema with non-nullable fields", {
   expect_output(
     print(

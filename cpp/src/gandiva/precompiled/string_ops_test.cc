@@ -995,6 +995,59 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLevenshtein) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "kitten", 6, "sitting", 7), 3);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "book", 4, "back", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "", 0, "a", 1), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "test", 4, "task", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "cat", 3, "coat", 4), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "coat", 4, "coat", 4), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "AAAA", 4, "aAAa", 4), 2);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "color", 5, "colour", 6), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "Test String1", 12, "Test String2", 12), 1);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "TEST STRING1", 12, "test string2", 12), 11);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "", 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, nullptr, 0, "Test String2", 12), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "Test String2", 12, nullptr, 0), 12);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, nullptr, 0, nullptr, 0), 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  EXPECT_EQ(levenshtein(ctx_ptr, "book", -5, "back", 4), 0);
+  EXPECT_TRUE(ctx.has_error());
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("String length must be greater than 0"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestQuote) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
@@ -1764,6 +1817,9 @@ TEST(TestStringOps, TestSplitPart) {
   gdv_int32 out_len = 0;
   const char* out_str;
 
+  out_str = split_part(ctx_ptr, "abc::def", 8, ":", 1, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
   out_str = split_part(ctx_ptr, "A,B,C", 5, ",", 1, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(
@@ -2271,4 +2327,125 @@ TEST(TestStringOps, TestSoundex) {
   EXPECT_EQ(std::string(out, out_len), std::string(out2, out_len));
 }
 
+TEST(TestStringOps, TestInstr) {
+  std::string s1 = "hello world!";
+  auto s1_len = static_cast<int32_t>(s1.size());
+  std::string s2 = "world";
+  auto s2_len = static_cast<int32_t>(s2.size());
+
+  auto result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 7);
+
+  s1 = "apple banana mango";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "apple";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "mango";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "open the door";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "hi john";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "johny";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "cool";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "cooler";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hello";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "Hell0";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "Hello";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "H3ll";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "wow";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "wou";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 0);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "alpha";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 1);
+
+  s1 = "alphabetic";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "bet";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 6);
+
+  s1 = "kaleidoscope";
+  s1_len = static_cast<int32_t>(s1.size());
+  s2 = "scope";
+  s2_len = static_cast<int32_t>(s2.size());
+
+  result = instr_utf8(s1.c_str(), s1_len, s2.c_str(), s2_len);
+  EXPECT_EQ(result, 8);
+}
 }  // namespace gandiva

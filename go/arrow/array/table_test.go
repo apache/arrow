@@ -61,7 +61,7 @@ func TestChunked(t *testing.T) {
 
 	c2 := array.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c2.Release()
 
@@ -93,7 +93,7 @@ func TestChunked(t *testing.T) {
 		{i: 10, j: 10, len: 0, nulls: 0, chunks: 0},
 	} {
 		t.Run("", func(t *testing.T) {
-			sub := c2.NewSlice(tc.i, tc.j)
+			sub := array.NewChunkedSlice(c2, tc.i, tc.j)
 			defer sub.Release()
 
 			if got, want := sub.Len(), tc.len; got != want {
@@ -128,7 +128,7 @@ func TestChunkedEqualDataType(t *testing.T) {
 	v2 := lb2.NewArray()
 	defer v2.Release()
 
-	c1 := array.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []array.Interface{
+	c1 := array.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []arrow.Array{
 		v1, v2,
 	})
 	defer c1.Release()
@@ -162,7 +162,7 @@ func TestChunkedInvalid(t *testing.T) {
 		}
 	}()
 
-	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, []array.Interface{
+	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, []arrow.Array{
 		f1, f2,
 	})
 	defer c1.Release()
@@ -189,7 +189,7 @@ func TestChunkedSliceInvalid(t *testing.T) {
 
 	c := array.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c.Release()
 
@@ -210,7 +210,7 @@ func TestChunkedSliceInvalid(t *testing.T) {
 					t.Fatalf("invalid error. got=%q, want=%q", got, want)
 				}
 			}()
-			sub := c.NewSlice(tc.i, tc.j)
+			sub := array.NewChunkedSlice(c, tc.i, tc.j)
 			defer sub.Release()
 		})
 	}
@@ -248,7 +248,7 @@ func TestColumn(t *testing.T) {
 
 				c := array.NewChunked(
 					arrow.PrimitiveTypes.Int32,
-					[]array.Interface{i1, i2},
+					[]arrow.Array{i1, i2},
 				)
 				return c
 			}(),
@@ -282,7 +282,7 @@ func TestColumn(t *testing.T) {
 
 				c := array.NewChunked(
 					arrow.PrimitiveTypes.Float64,
-					[]array.Interface{f1, f2, f3},
+					[]arrow.Array{f1, f2, f3},
 				)
 				return c
 			}(),
@@ -308,7 +308,7 @@ func TestColumn(t *testing.T) {
 
 				c := array.NewChunked(
 					arrow.PrimitiveTypes.Float64,
-					[]array.Interface{f1},
+					[]arrow.Array{f1},
 				)
 				return c
 			}(),
@@ -367,7 +367,7 @@ func TestColumn(t *testing.T) {
 
 			for _, slice := range tc.slices {
 				t.Run("", func(t *testing.T) {
-					sub := col.NewSlice(slice.i, slice.j)
+					sub := array.NewColumnSlice(col, slice.i, slice.j)
 					defer sub.Release()
 
 					if got, want := sub.Len(), slice.len; got != want {
@@ -415,7 +415,7 @@ func TestTable(t *testing.T) {
 
 			c := array.NewChunked(
 				arrow.PrimitiveTypes.Int32,
-				[]array.Interface{i1, i2},
+				[]arrow.Array{i1, i2},
 			)
 			return c
 		}()
@@ -444,7 +444,7 @@ func TestTable(t *testing.T) {
 
 			c := array.NewChunked(
 				arrow.PrimitiveTypes.Float64,
-				[]array.Interface{f1, f2, f3},
+				[]arrow.Array{f1, f2, f3},
 			)
 			return c
 		}()
@@ -600,7 +600,7 @@ func TestTableFromRecords(t *testing.T) {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	tbl := array.NewTableFromRecords(schema, []array.Record{rec1, rec2})
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1, rec2})
 	defer tbl.Release()
 
 	if got, want := tbl.Schema(), schema; !got.Equal(want) {
@@ -644,7 +644,7 @@ func TestTableReader(t *testing.T) {
 
 			c := array.NewChunked(
 				arrow.PrimitiveTypes.Int32,
-				[]array.Interface{i1, i2},
+				[]arrow.Array{i1, i2},
 			)
 			return c
 		}()
@@ -673,7 +673,7 @@ func TestTableReader(t *testing.T) {
 
 			c := array.NewChunked(
 				arrow.PrimitiveTypes.Float64,
-				[]array.Interface{f1, f2, f3},
+				[]arrow.Array{f1, f2, f3},
 			)
 			return c
 		}()

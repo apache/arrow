@@ -25,32 +25,42 @@ Array Builders
 Concrete builder subclasses
 ===========================
 
+Primitive
+---------
+
 .. doxygenclass:: arrow::NullBuilder
    :members:
 
 .. doxygenclass:: arrow::BooleanBuilder
    :members:
 
-.. doxygenclass:: arrow::NumericBuilder
+.. doxygengroup:: numeric-builders
+   :content-only:
    :members:
 
-.. doxygenclass:: arrow::BinaryBuilder
+Temporal
+--------
+
+.. doxygengroup:: temporal-builders
+   :content-only:
    :members:
 
-.. doxygenclass:: arrow::StringBuilder
+Binary-like
+-----------
+
+.. doxygengroup:: binary-builders
+   :content-only:
    :members:
 
-.. doxygenclass:: arrow::FixedSizeBinaryBuilder
+Nested
+------
+
+.. doxygengroup:: nested-builders
+   :content-only:
    :members:
 
-.. doxygenclass:: arrow::Decimal128Builder
-   :members:
-
-.. doxygenclass:: arrow::ListBuilder
-   :members:
-
-.. doxygenclass:: arrow::StructBuilder
-   :members:
+Dictionary-encoded
+------------------
 
 .. doxygenclass:: arrow::DictionaryBuilder
    :members:

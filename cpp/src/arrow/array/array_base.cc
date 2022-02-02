@@ -39,8 +39,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -271,7 +271,7 @@ Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset, int64_t length) 
 Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset) const {
   if (offset < 0) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative array slice offset");
   }
   return SliceSafe(offset, data_->length - offset);
 }

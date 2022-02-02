@@ -89,7 +89,7 @@ class TempVectorStack {
     // using SIMD when number of vector elements is not divisible
     // by the number of SIMD lanes.
     //
-    return ::arrow::BitUtil::RoundUp(num_bytes, sizeof(int64_t)) + kPadding;
+    return ::arrow::bit_util::RoundUp(num_bytes, sizeof(int64_t)) + kPadding;
   }
   void alloc(uint32_t num_bytes, uint8_t** data, int* id) {
     int64_t old_top = top_;
@@ -144,7 +144,7 @@ class TempVectorHolder {
   uint32_t num_elements_;
 };
 
-class BitUtil {
+class bit_util {
  public:
   static void bits_to_indexes(int bit_to_search, int64_t hardware_flags,
                               const int num_bits, const uint8_t* bits, int* num_indexes,

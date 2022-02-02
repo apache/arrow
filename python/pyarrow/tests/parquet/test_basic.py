@@ -353,6 +353,105 @@ def test_byte_stream_split(use_legacy_dataset):
 
 
 @parametrize_legacy_dataset
+def test_column_encoding(use_legacy_dataset):
+    arr_float = pa.array(list(map(float, range(100))))
+    arr_int = pa.array(list(map(int, range(100))))
+    mixed_table = pa.Table.from_arrays([arr_float, arr_int],
+                                       names=['a', 'b'])
+
+    # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
+    # column 'b'.
+    _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
+                     column_encoding={'a': "BYTE_STREAM_SPLIT", 'b': "PLAIN"},
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "PLAIN" for all columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding="PLAIN",
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.
+    # This should throw an error as it is only supports FLOAT and DOUBLE.
+    with pytest.raises(IOError,
+                       match="BYTE_STREAM_SPLIT only supports FLOAT and"
+                             " DOUBLE"):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "DELTA_BINARY_PACKED".
+    # This should throw an error as it is only supported for reading.
+    with pytest.raises(IOError,
+                       match="Not yet implemented: Selected encoding is"
+                             " not supported."):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'b': "DELTA_BINARY_PACKED"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass "RLE_DICTIONARY".
+    # This should throw an error as dictionary encoding is already used by
+    # default and not supported to be specified as "fallback" encoding
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding="RLE_DICTIONARY",
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass unsupported encoding.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding={'a': "MADE_UP_ENCODING"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_dictionary.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=['b'],
+                         column_encoding={'b': "PLAIN"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_dictionary=True (default value).
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         column_encoding={'b': "PLAIN"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_byte_stream_split on same column.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         use_byte_stream_split=['a'],
+                         column_encoding={'a': "RLE",
+                                          'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding and use_byte_stream_split=True.
+    # This should throw an error.
+    with pytest.raises(ValueError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         use_byte_stream_split=True,
+                         column_encoding={'a': "RLE",
+                                          'b': "BYTE_STREAM_SPLIT"},
+                         use_legacy_dataset=use_legacy_dataset)
+
+    # Try to pass column_encoding=True.
+    # This should throw an error.
+    with pytest.raises(TypeError):
+        _check_roundtrip(mixed_table, expected=mixed_table,
+                         use_dictionary=False,
+                         column_encoding=True,
+                         use_legacy_dataset=use_legacy_dataset)
+
+
+@parametrize_legacy_dataset
 def test_compression_level(use_legacy_dataset):
     arr = pa.array(list(map(int, range(1000))))
     data = [arr, arr]
@@ -379,13 +478,23 @@ def test_compression_level(use_legacy_dataset):
                      compression_level={'a': 2, 'b': 3},
                      use_legacy_dataset=use_legacy_dataset)
 
+    # Check if both LZ4 compressors are working
+    # (level < 3 -> fast, level >= 3 -> HC)
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=1,
+                     use_legacy_dataset=use_legacy_dataset)
+
+    _check_roundtrip(table, expected=table, compression="lz4",
+                     compression_level=9,
+                     use_legacy_dataset=use_legacy_dataset)
+
     # Check that specifying a compression level for a codec which does allow
     # specifying one, results into an error.
-    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # Uncompressed, snappy and lzo do not support specifying a compression
     # level.
     # GZIP (zlib) allows for specifying a compression level but as of up
     # to version 1.2.11 the valid range is [-1, 9].
-    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+    invalid_combinations = [("snappy", 4), ("gzip", -1337),
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
@@ -645,7 +754,7 @@ def test_permutation_of_column_order(tempdir):
 
     table = pq.read_table(str(case))
     table2 = pa.table([[1, 2, 3, 4, 5, 6],
-                      [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
+                       [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]],
                       names=['a', 'b'])
 
     assert table == table2

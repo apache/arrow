@@ -48,7 +48,6 @@ env:
   ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
-
   docker:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
@@ -70,10 +69,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
+          submodules: recursive
       - name: Cache Docker Volumes
         uses: actions/cache@v2
         with:
@@ -108,7 +104,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Run
+          submodules: recursive
+      - name: Check CMake presets
+        run: |
+          cd cpp
+          cmake --list-presets
+      - name: Run minimal example
         run: |
           cd cpp/examples/minimal_build
           docker-compose run --rm minimal
@@ -144,15 +145,26 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Install Dependencies
         shell: bash
         run: |
           rm -f /usr/local/bin/2to3
           brew update --preinstall
           brew bundle --file=cpp/Brewfile
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -165,7 +177,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++
+    name: AMD64 ${{ matrix.name }} C++17
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 45
@@ -184,6 +196,7 @@ jobs:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
+      ARROW_CXXFLAGS: "/std:c++17"
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
@@ -205,7 +218,7 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      NPROC: 2
+      NPROC: 3
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -223,13 +236,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Build
         shell: bash
-        run: |
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
@@ -287,17 +297,14 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW${{ matrix.mingw-n-bits }}
           update: true
       - name: Setup MSYS2
         shell: msys2 {0}
-        run: |
-          ci/scripts/msys2_setup.sh cpp
+        run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
         uses: actions/cache@v2
         with:

@@ -18,7 +18,7 @@
 Tabular File Formats
 ====================
 
-.. _api.csv:
+.. _py-api-csv:
 
 CSV Files
 ---------
@@ -38,6 +38,7 @@ CSV Files
    open_csv
    read_csv
    write_csv
+   InvalidRow
 
 .. _api.feather:
 
@@ -99,3 +100,6 @@ ORC Files
    :toctree: ../generated/
 
    ORCFile
+   ORCWriter
+   read_table
+   write_table

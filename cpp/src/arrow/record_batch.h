@@ -60,6 +60,17 @@ class ARROW_EXPORT RecordBatch {
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<ArrayData>> columns);
 
+  /// \brief Create an empty RecordBatch of a given schema
+  ///
+  /// The output RecordBatch will be created with DataTypes from
+  /// the given schema.
+  ///
+  /// \param[in] schema the schema of the empty RecordBatch
+  /// \param[in] pool the memory pool to allocate memory from
+  /// \return the resulting RecordBatch
+  static Result<std::shared_ptr<RecordBatch>> MakeEmpty(
+      std::shared_ptr<Schema> schema, MemoryPool* pool = default_memory_pool());
+
   /// \brief Convert record batch to struct array
   ///
   /// Create a struct array whose child arrays are the record batch's columns.
@@ -222,6 +233,68 @@ class ARROW_EXPORT RecordBatchReader {
     ARROW_RETURN_NOT_OK(ReadNext(&batch));
     return batch;
   }
+
+  class RecordBatchReaderIterator {
+   public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = std::shared_ptr<RecordBatch>;
+    using pointer = value_type const*;
+    using reference = value_type const&;
+
+    RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
+
+    explicit RecordBatchReaderIterator(RecordBatchReader* reader)
+        : batch_(RecordBatchEnd()), reader_(reader) {
+      Next();
+    }
+
+    bool operator==(const RecordBatchReaderIterator& other) const {
+      return batch_ == other.batch_;
+    }
+
+    bool operator!=(const RecordBatchReaderIterator& other) const {
+      return !(*this == other);
+    }
+
+    Result<std::shared_ptr<RecordBatch>> operator*() {
+      ARROW_RETURN_NOT_OK(batch_.status());
+
+      return batch_;
+    }
+
+    RecordBatchReaderIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    RecordBatchReaderIterator operator++(int) {
+      RecordBatchReaderIterator tmp(*this);
+      Next();
+      return tmp;
+    }
+
+   private:
+    std::shared_ptr<RecordBatch> RecordBatchEnd() {
+      return std::shared_ptr<RecordBatch>(NULLPTR);
+    }
+
+    void Next() {
+      if (reader_ == NULLPTR) {
+        batch_ = RecordBatchEnd();
+        return;
+      }
+      batch_ = reader_->Next();
+    }
+
+    Result<std::shared_ptr<RecordBatch>> batch_;
+    RecordBatchReader* reader_;
+  };
+  /// \brief Return an iterator to the first record batch in the stream
+  RecordBatchReaderIterator begin() { return RecordBatchReaderIterator(this); }
+
+  /// \brief Return an iterator to the end of the stream
+  RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(RecordBatchVector* batches);

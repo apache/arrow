@@ -750,6 +750,9 @@ inline typename Future<internal::Empty>::SyncType FutureToSync<internal::Empty>(
   return fut.status();
 }
 
+template <>
+inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s))) {}
+
 template <typename T>
 class WeakFuture {
  public:
@@ -760,6 +763,9 @@ class WeakFuture {
  private:
   std::weak_ptr<FutureImpl> impl_;
 };
+
+/// \defgroup future-utilities Functions for working with Futures
+/// @{
 
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future
 /// holding that error.
@@ -829,9 +835,6 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   return out;
 }
 
-template <>
-inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s))) {}
-
 /// \brief Create a Future which completes when all of `futures` complete.
 ///
 /// The future will be marked complete if all `futures` complete
@@ -874,6 +877,8 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   waiter->Wait(seconds);
   return waiter->MoveFinishedFutures();
 }
+
+/// @}
 
 struct Continue {
   template <typename T>

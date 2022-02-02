@@ -330,7 +330,8 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] force_empty_nulls if true, null list entries must have 0 length
   ///
   /// \return a generated Array
-  std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
+  std::shared_ptr<Array> List(const Array& values, int64_t size,
+                              double null_probability = 0,
                               bool force_empty_nulls = false);
 
   /// \brief Generate a random MapArray
@@ -344,7 +345,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \return a generated Array
   std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
                              const std::shared_ptr<Array>& items, int64_t size,
-                             double null_probability, bool force_empty_nulls = false);
+                             double null_probability = 0, bool force_empty_nulls = false);
 
   /// \brief Generate a random SparseUnionArray
   ///
@@ -378,7 +379,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// \param[in] null_probability the probability of a slot being null
   /// \return a generated Array
   std::shared_ptr<Array> ArrayOf(std::shared_ptr<DataType> type, int64_t size,
-                                 double null_probability);
+                                 double null_probability = 0);
 
   /// \brief Generate an array with random data based on the given field. See BatchOf
   /// for usage info.

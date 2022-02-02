@@ -303,7 +303,7 @@ def test_coerce_int96_timestamp_overflow(pq_reader_method, tempdir):
         elif pq_reader_method == "read_table":
             return pq.read_table(filename, **kwargs)
 
-    # Recreating the initial JIRA issue referrenced in ARROW-12096
+    # Recreating the initial JIRA issue referenced in ARROW-12096
     oob_dts = [
         datetime.datetime(1000, 1, 1),
         datetime.datetime(2000, 1, 1),

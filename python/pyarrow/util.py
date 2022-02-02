@@ -20,7 +20,6 @@
 import contextlib
 import functools
 import gc
-import pathlib
 import socket
 import sys
 import types
@@ -74,11 +73,7 @@ def _is_iterable(obj):
 
 
 def _is_path_like(path):
-    # PEP519 filesystem path protocol is available from python 3.6, so pathlib
-    # doesn't implement __fspath__ for earlier versions
-    return (isinstance(path, str) or
-            hasattr(path, '__fspath__') or
-            isinstance(path, pathlib.Path))
+    return isinstance(path, str) or hasattr(path, '__fspath__')
 
 
 def _stringify_path(path):
@@ -90,11 +85,9 @@ def _stringify_path(path):
 
     # checking whether path implements the filesystem protocol
     try:
-        return path.__fspath__()  # new in python 3.6
+        return path.__fspath__()
     except AttributeError:
-        # fallback pathlib ckeck for earlier python versions than 3.6
-        if isinstance(path, pathlib.Path):
-            return str(path)
+        pass
 
     raise TypeError("not a path-like object")
 
@@ -172,7 +165,7 @@ def _break_traceback_cycle_from_frame(frame):
         # somewhere along the chain of execution frames).
         frame.clear()
         # To visit the inner frame, we need to find it among the
-        # referers of this frame (while `frame.f_back` would let
+        # referrers of this frame (while `frame.f_back` would let
         # us visit the outer frame).
         refs = gc.get_referrers(frame)
     refs = frame = this_frame = None

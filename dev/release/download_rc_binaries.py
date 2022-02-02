@@ -25,27 +25,31 @@ import subprocess
 import urllib.request
 
 
-ARTIFACTORY_ROOT = "https://apache.jfrog.io/artifactory/arrow"
 DEFAULT_PARALLEL_DOWNLOADS = 8
 
 
-class Artifactory:
+class Downloader:
 
-    def get_file_list(self, prefix):
+    def get_file_list(self, prefix, filter=None):
         def traverse(directory, files, directories):
-            url = f'{ARTIFACTORY_ROOT}/{directory}'
+            url = f'{self.URL_ROOT}/{directory}'
             response = urllib.request.urlopen(url).read().decode()
             paths = re.findall('<a href="(.+?)"', response)
             for path in paths:
+                path = re.sub(f'^{re.escape(url)}',
+                              '',
+                              path)
                 if path == '../':
                     continue
                 resolved_path = f'{directory}{path}'
+                if filter and not filter(path):
+                    continue
                 if path.endswith('/'):
                     directories.append(resolved_path)
                 else:
                     files.append(resolved_path)
         files = []
-        if not prefix.endswith('/'):
+        if prefix != '' and not prefix.endswith('/'):
             prefix += '/'
         directories = [prefix]
         while len(directories) > 0:
@@ -98,7 +102,7 @@ class Artifactory:
 
         print("Downloading {} to {}".format(path, dest_path))
 
-        url = f'{ARTIFACTORY_ROOT}/{path}'
+        url = f'{self.URL_ROOT}/{path}'
 
         cmd = [
             'curl', '--fail', '--location', '--retry', '5',
@@ -110,6 +114,15 @@ class Artifactory:
         if proc.returncode != 0:
             raise Exception("Downloading {} failed\nstdout: {}\nstderr: {}"
                             .format(path, stdout, stderr))
+
+
+class Artifactory(Downloader):
+    URL_ROOT = "https://apache.jfrog.io/artifactory/arrow"
+
+
+class Maven(Downloader):
+    URL_ROOT = "https://repository.apache.org" + \
+        "/content/repositories/staging/org/apache/arrow"
 
 
 def parallel_map_terminate_early(f, iterable, num_parallel):
@@ -133,7 +146,7 @@ ARROW_REPOSITORY_PACKAGE_TYPES = [
     'debian',
     'ubuntu',
 ]
-ARROW_STANDALONE_PACKAGE_TYPES = ['java', 'nuget', 'python']
+ARROW_STANDALONE_PACKAGE_TYPES = ['nuget', 'python']
 ARROW_PACKAGE_TYPES = \
     ARROW_REPOSITORY_PACKAGE_TYPES + \
     ARROW_STANDALONE_PACKAGE_TYPES
@@ -141,30 +154,33 @@ ARROW_PACKAGE_TYPES = \
 
 def download_rc_binaries(version, rc_number, re_match=None, dest=None,
                          num_parallel=None, target_package_type=None):
-    artifactory = Artifactory()
-
     version_string = '{}-rc{}'.format(version, rc_number)
+    version_pattern = re.compile(r'\d+\.\d+\.\d+')
     if target_package_type:
         package_types = [target_package_type]
     else:
         package_types = ARROW_PACKAGE_TYPES
     for package_type in package_types:
-        if package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
+        def is_target(path):
+            match = version_pattern.search(path)
+            if not match:
+                return True
+            return match[0] == version
+        filter = is_target
+
+        if package_type == 'jars':
+            downloader = Maven()
+            prefix = ''
+        elif package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
+            downloader = Artifactory()
             prefix = f'{package_type}-rc'
         else:
+            downloader = Artifactory()
             prefix = f'{package_type}-rc/{version_string}'
-        files = artifactory.get_file_list(prefix)
-        if package_type in ARROW_REPOSITORY_PACKAGE_TYPES:
-            version_pattern = re.compile(r'\d+\.\d+\.\d+')
-
-            def is_old_release(path):
-                match = version_pattern.search(path)
-                if not match:
-                    return False
-                return match[0] != version
-            files = [x for x in files if not is_old_release(x)]
-        artifactory.download_files(files, re_match=re_match, dest=dest,
-                                   num_parallel=num_parallel)
+            filter = None
+        files = downloader.get_file_list(prefix, filter=filter)
+        downloader.download_files(files, re_match=re_match, dest=dest,
+                                  num_parallel=num_parallel)
 
 
 if __name__ == '__main__':

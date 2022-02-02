@@ -121,6 +121,54 @@ struct SumImpl : public ScalarAggregator {
   ScalarAggregateOptions options;
 };
 
+template <typename ArrowType>
+struct NullImpl : public ScalarAggregator {
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  explicit NullImpl(const ScalarAggregateOptions& options_) : options(options_) {}
+
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
+    if (batch[0].is_scalar() || batch[0].array()->GetNullCount() > 0) {
+      // If the batch is a scalar or an array with elements, set is_empty to false
+      is_empty = false;
+    }
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const NullImpl&>(src);
+    this->is_empty &= other.is_empty;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    if ((options.skip_nulls || this->is_empty) && options.min_count == 0) {
+      // Return 0 if the remaining data is empty
+      out->value = output_empty();
+    } else {
+      out->value = MakeNullScalar(TypeTraits<ArrowType>::type_singleton());
+    }
+    return Status::OK();
+  }
+
+  virtual std::shared_ptr<Scalar> output_empty() = 0;
+
+  bool is_empty = true;
+  ScalarAggregateOptions options;
+};
+
+template <typename ArrowType>
+struct NullSumImpl : public NullImpl<ArrowType> {
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+
+  explicit NullSumImpl(const ScalarAggregateOptions& options_)
+      : NullImpl<ArrowType>(options_) {}
+
+  std::shared_ptr<Scalar> output_empty() override {
+    return std::make_shared<ScalarType>(0);
+  }
+};
+
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   using SumImpl<ArrowType, SimdLevel>::SumImpl;
@@ -200,9 +248,26 @@ struct SumLikeInit {
     return Status::OK();
   }
 
+  virtual Status Visit(const NullType&) {
+    state.reset(new NullSumImpl<Int64Type>(options));
+    return Status::OK();
+  }
+
   Result<std::unique_ptr<KernelState>> Create() {
     RETURN_NOT_OK(VisitTypeInline(*type, this));
     return std::move(state);
+  }
+};
+
+template <template <typename> class KernelClass>
+struct MeanKernelInit : public SumLikeInit<KernelClass> {
+  MeanKernelInit(KernelContext* ctx, const std::shared_ptr<DataType>& type,
+                 const ScalarAggregateOptions& options)
+      : SumLikeInit<KernelClass>(ctx, type, options) {}
+
+  Status Visit(const NullType&) override {
+    this->state.reset(new NullSumImpl<DoubleType>(this->options));
+    return Status::OK();
   }
 };
 
@@ -454,7 +519,7 @@ struct MinMaxImpl : public ScalarAggregator {
     // First handle the leading bits
     const int64_t leading_bits = p.leading_bits;
     while (idx < leading_bits) {
-      if (BitUtil::GetBit(bitmap, offset)) {
+      if (bit_util::GetBit(bitmap, offset)) {
         local.MergeOne(arr.GetView(idx));
       }
       idx++;

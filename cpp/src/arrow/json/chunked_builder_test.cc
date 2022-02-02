@@ -27,6 +27,7 @@
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"

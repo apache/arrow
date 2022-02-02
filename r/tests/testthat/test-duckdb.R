@@ -66,6 +66,7 @@ test_that("to_duckdb", {
 })
 
 test_that("to_duckdb then to_arrow", {
+  skip("Flaky, unskip when ARROW-14745 is merged")
   ds <- InMemoryDataset$create(example_data)
 
   ds_rt <- ds %>%

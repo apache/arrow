@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock-matchers.h>
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -26,9 +29,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include <gmock/gmock-matchers.h>
-#include <gtest/gtest.h>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_binary.h"
@@ -46,8 +46,8 @@
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -60,7 +60,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_data_inline.h"
 
 // This file is compiled together with array-*-test.cc into a single
 // executable array-test.
@@ -150,12 +150,12 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7, 0));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, 8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1, 0));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(0, -1));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, 2));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, 8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1, 0));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(0, -1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, 2));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(6, std::numeric_limits<int64_t>::max() - 5));
 
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(0));
   check_data(*sliced, original_data);
@@ -166,8 +166,8 @@ TEST_F(TestArray, TestSliceSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, arr->SliceSafe(7));
   check_data(*sliced, {});
 
-  ASSERT_RAISES(Invalid, arr->SliceSafe(8));
-  ASSERT_RAISES(Invalid, arr->SliceSafe(-1));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(8));
+  ASSERT_RAISES(IndexError, arr->SliceSafe(-1));
 }
 
 Status MakeArrayFromValidBytes(const std::vector<uint8_t>& v, MemoryPool* pool,
@@ -364,6 +364,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       dense_union(union_fields1, union_type_codes),
       dense_union(union_fields2, union_type_codes),
       smallint(),  // extension type
+      list_extension_type(), // nested extension type
       // clang-format on
   };
 
@@ -371,6 +372,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     for (auto type : types) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
+      ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       if (is_union(type->id())) {
@@ -654,6 +656,44 @@ TEST_F(TestArray, TestMakeArrayFromMapScalar) {
   AssertAppendScalar(pool_, std::make_shared<MapScalar>(scalar));
 }
 
+TEST_F(TestArray, TestMakeEmptyArray) {
+  FieldVector union_fields1({field("a", utf8()), field("b", int32())});
+  FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
+  std::vector<int8_t> union_type_codes{7, 42};
+
+  std::shared_ptr<DataType> types[] = {null(),
+                                       boolean(),
+                                       int8(),
+                                       uint16(),
+                                       int32(),
+                                       uint64(),
+                                       float64(),
+                                       binary(),
+                                       large_binary(),
+                                       fixed_size_binary(3),
+                                       decimal(16, 4),
+                                       utf8(),
+                                       large_utf8(),
+                                       list(utf8()),
+                                       list(int64()),
+                                       large_list(large_utf8()),
+                                       fixed_size_list(utf8(), 3),
+                                       fixed_size_list(int64(), 4),
+                                       dictionary(int32(), utf8()),
+                                       struct_({field("a", utf8()), field("b", int32())}),
+                                       sparse_union(union_fields1, union_type_codes),
+                                       sparse_union(union_fields2, union_type_codes),
+                                       dense_union(union_fields1, union_type_codes),
+                                       dense_union(union_fields2, union_type_codes)};
+
+  for (auto type : types) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 0);
+  }
+}
+
 TEST_F(TestArray, TestAppendArraySlice) {
   auto scalars = GetScalars();
   for (const auto& scalar : scalars) {
@@ -801,6 +841,12 @@ TEST(TestPrimitiveArray, CtorNoValidityBitmap) {
   Int32Array arr(10, data);
   ASSERT_EQ(arr.data()->null_count, 0);
 }
+
+class TestBuilder : public ::testing::Test {
+ protected:
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_;
+};
 
 TEST_F(TestBuilder, TestReserve) {
   UInt8Builder builder(pool_);
@@ -1050,7 +1096,7 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
       ASSERT_FALSE(result->IsNull(i));
     }
     if (!result->IsNull(i)) {
-      bool actual = BitUtil::GetBit(result->values()->data(), i);
+      bool actual = bit_util::GetBit(result->values()->data(), i);
       ASSERT_EQ(draws_[i] != 0, actual) << i;
     }
   }
@@ -1058,11 +1104,11 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
 
   // buffers are correctly sized
   if (result->data()->buffers[0]) {
-    ASSERT_EQ(result->data()->buffers[0]->size(), BitUtil::BytesForBits(size));
+    ASSERT_EQ(result->data()->buffers[0]->size(), bit_util::BytesForBits(size));
   } else {
     ASSERT_EQ(result->data()->null_count, 0);
   }
-  ASSERT_EQ(result->data()->buffers[1]->size(), BitUtil::BytesForBits(size));
+  ASSERT_EQ(result->data()->buffers[1]->size(), bit_util::BytesForBits(size));
 
   // Builder is now reset
   ASSERT_EQ(0, builder->length());
@@ -1699,27 +1745,52 @@ void CheckApproxEquals() {
   std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
 
   ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.0}, &a);
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5000001f, 1.0000001f}, &b);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.5000001f, 2.0}, &b);
   ASSERT_TRUE(a->ApproxEquals(b));
   ASSERT_TRUE(b->ApproxEquals(a));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_TRUE(a->ApproxEquals(b, opts));
+      ASSERT_TRUE(b->ApproxEquals(a, opts));
+    }
+  }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5001f, 1.000001f}, &b);
+  // Default tolerance too small
+  ArrayFromVector<TYPE>(type, {true, false}, {0.5001f, 2.0}, &b);
   ASSERT_FALSE(a->ApproxEquals(b));
   ASSERT_FALSE(b->ApproxEquals(a));
-  ASSERT_FALSE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_FALSE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
   ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3)));
   ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3)));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3).nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3).nans_equal(true)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_FALSE(a->ApproxEquals(b, opts));
+      ASSERT_FALSE(b->ApproxEquals(a, opts));
+      ASSERT_TRUE(a->ApproxEquals(b, opts.atol(1e-3)));
+      ASSERT_TRUE(b->ApproxEquals(a, opts.atol(1e-3)));
+    }
+  }
 
-  ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.25}, &b);
-  ASSERT_TRUE(a->ApproxEquals(b));
-  ASSERT_TRUE(b->ApproxEquals(a));
-  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().nans_equal(true)));
-  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().nans_equal(true)));
+  // Values on other sides of 0
+  ArrayFromVector<TYPE>(type, {true, false}, {-0.0001f, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0001f, 2.0}, &b);
+  ASSERT_FALSE(a->ApproxEquals(b));
+  ASSERT_FALSE(b->ApproxEquals(a));
+  ASSERT_TRUE(a->ApproxEquals(b, EqualOptions().atol(1e-3)));
+  ASSERT_TRUE(b->ApproxEquals(a, EqualOptions().atol(1e-3)));
+  for (bool nans_equal : {false, true}) {
+    for (bool signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_FALSE(a->ApproxEquals(b, opts));
+      ASSERT_FALSE(b->ApproxEquals(a, opts));
+      ASSERT_TRUE(a->ApproxEquals(b, opts.atol(1e-3)));
+      ASSERT_TRUE(b->ApproxEquals(a, opts.atol(1e-3)));
+    }
+  }
 
   // Mismatching validity
   ArrayFromVector<TYPE>(type, {true, false}, {0.5, 1.0}, &a);
@@ -1894,6 +1965,47 @@ void CheckFloatingInfinityEquality() {
   }
 }
 
+template <typename TYPE>
+void CheckFloatingZeroEquality() {
+  std::shared_ptr<Array> a, b;
+  std::shared_ptr<DataType> type = TypeTraits<TYPE>::type_singleton();
+
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &b);
+  ASSERT_TRUE(a->Equals(b));
+  ASSERT_TRUE(b->Equals(a));
+  for (auto nans_equal : {false, true}) {
+    for (auto signed_zeros_equal : {false, true}) {
+      auto opts =
+          EqualOptions().nans_equal(nans_equal).signed_zeros_equal(signed_zeros_equal);
+      ASSERT_TRUE(a->Equals(b, opts));
+      ASSERT_TRUE(b->Equals(a, opts));
+      ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0, opts));
+      ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0, opts));
+      ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1, opts));
+      ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1, opts));
+    }
+  }
+
+  ArrayFromVector<TYPE>(type, {true, false}, {0.0, 1.0}, &a);
+  ArrayFromVector<TYPE>(type, {true, false}, {-0.0, 1.0}, &b);
+  for (auto nans_equal : {false, true}) {
+    auto opts = EqualOptions().nans_equal(nans_equal);
+    ASSERT_TRUE(a->Equals(b, opts));
+    ASSERT_TRUE(b->Equals(a, opts));
+    ASSERT_FALSE(a->Equals(b, opts.signed_zeros_equal(false)));
+    ASSERT_FALSE(b->Equals(a, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(a->RangeEquals(b, 0, 2, 0));
+    ASSERT_TRUE(b->RangeEquals(a, 0, 2, 0));
+    ASSERT_FALSE(a->RangeEquals(b, 0, 2, 0, opts.signed_zeros_equal(false)));
+    ASSERT_FALSE(b->RangeEquals(a, 0, 2, 0, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1));
+    ASSERT_TRUE(a->RangeEquals(b, 1, 2, 1, opts.signed_zeros_equal(false)));
+    ASSERT_TRUE(b->RangeEquals(a, 1, 2, 1, opts.signed_zeros_equal(false)));
+  }
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -1912,6 +2024,11 @@ TEST(TestPrimitiveAdHoc, FloatingNanEquality) {
 TEST(TestPrimitiveAdHoc, FloatingInfinityEquality) {
   CheckFloatingInfinityEquality<FloatType>();
   CheckFloatingInfinityEquality<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingZeroEquality) {
+  CheckFloatingZeroEquality<FloatType>();
+  CheckFloatingZeroEquality<DoubleType>();
 }
 
 // ----------------------------------------------------------------------
@@ -2160,6 +2277,16 @@ TEST_F(TestFWBinaryArray, ArrayDataVisitorSliced) {
   ASSERT_OK(visitor.Visit(*array->data(), &appender));
   ASSERT_THAT(appender.data, ::testing::ElementsAreArray({"(null)", "def"}));
   ARROW_UNUSED(visitor);  // Workaround weird MSVC warning
+}
+
+TEST_F(TestFWBinaryArray, ArrayIndexOperator) {
+  auto type = fixed_size_binary(3);
+  auto arr = ArrayFromJSON(type, R"(["abc", null, "def"])");
+  auto fsba = checked_pointer_cast<FixedSizeBinaryArray>(arr);
+
+  ASSERT_EQ("abc", (*fsba)[0].value());
+  ASSERT_EQ(util::nullopt, (*fsba)[1]);
+  ASSERT_EQ("def", (*fsba)[2].value());
 }
 
 // ----------------------------------------------------------------------
@@ -3345,6 +3472,63 @@ TEST(TestSwapEndianArrayData, InvalidLength) {
     ASSERT_OK_AND_ASSIGN(auto swapped_data, ::arrow::internal::SwapEndianArrayData(data));
     auto swapped = MakeArray(swapped_data);
     ASSERT_RAISES(Invalid, swapped->Validate());
+  }
+}
+
+template <typename PType>
+class TestPrimitiveArray : public ::testing::Test {
+ public:
+  using ElementType = typename PType::T;
+
+  void SetUp() {
+    pool_ = default_memory_pool();
+    GenerateInput();
+  }
+
+  void GenerateInput() {
+    validity_ = std::vector<bool>{true, false, true, true, false, true};
+    values_ = std::vector<ElementType>{0, 1, 1, 0, 1, 1};
+  }
+
+ protected:
+  MemoryPool* pool_;
+  std::vector<bool> validity_;
+  std::vector<ElementType> values_;
+};
+
+template <>
+void TestPrimitiveArray<PDayTimeInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{true, false};
+  values_ = std::vector<DayTimeIntervalType::DayMilliseconds>{{0, 10}, {1, 0}};
+}
+
+template <>
+void TestPrimitiveArray<PMonthDayNanoInterval>::GenerateInput() {
+  validity_ = std::vector<bool>{false, true};
+  values_ =
+      std::vector<MonthDayNanoIntervalType::MonthDayNanos>{{0, 10, 100}, {1, 0, 10}};
+}
+
+TYPED_TEST_SUITE(TestPrimitiveArray, Primitives);
+
+TYPED_TEST(TestPrimitiveArray, IndexOperator) {
+  typename TypeParam::BuilderType builder;
+  ASSERT_OK(builder.Reserve(this->values_.size()));
+  ASSERT_OK(builder.AppendValues(this->values_, this->validity_));
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+
+  const auto& carray = checked_cast<typename TypeParam::ArrayType&>(*array);
+
+  ASSERT_EQ(this->values_.size(), carray.length());
+  for (int64_t i = 0; i < carray.length(); ++i) {
+    auto res = carray[i];
+    if (this->validity_[i]) {
+      ASSERT_TRUE(res.has_value());
+      ASSERT_EQ(this->values_[i], res.value());
+    } else {
+      ASSERT_FALSE(res.has_value());
+      ASSERT_EQ(res, util::nullopt);
+    }
   }
 }
 

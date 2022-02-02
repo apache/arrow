@@ -52,7 +52,7 @@ Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
   if (ARROW_PREDICT_FALSE(offset < 0)) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative buffer slice offset");
   }
   return CheckBufferSlice(buffer, offset, buffer.size() - offset);
 }
@@ -171,7 +171,7 @@ MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_
 }
 
 Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(bit_util::BytesForBits(length), pool));
   // Zero out any trailing bits
   if (buf->size() > 0) {
     buf->mutable_data()[buf->size() - 1] = 0;
@@ -180,7 +180,7 @@ Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool)
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(BitUtil::BytesForBits(length), pool));
+  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(bit_util::BytesForBits(length), pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
   return std::move(buf);
 }

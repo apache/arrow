@@ -26,7 +26,7 @@
 #include "arrow/array/builder_nested.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -305,11 +305,9 @@ TEST(StructArray, FlattenOfSlice) {
 
 // ----------------------------------------------------------------------------------
 // Struct test
-class TestStructBuilder : public TestBuilder {
+class TestStructBuilder : public ::testing::Test {
  public:
   void SetUp() {
-    TestBuilder::SetUp();
-
     auto int32_type = int32();
     auto char_type = int8();
     auto list_type = list(char_type);
@@ -337,6 +335,8 @@ class TestStructBuilder : public TestBuilder {
  protected:
   std::vector<std::shared_ptr<Field>> value_fields_;
 
+  MemoryPool* pool_ = default_memory_pool();
+  std::shared_ptr<DataType> type_;
   std::shared_ptr<StructBuilder> builder_;
   std::shared_ptr<StructArray> result_;
 };

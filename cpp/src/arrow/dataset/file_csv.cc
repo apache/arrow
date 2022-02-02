@@ -39,6 +39,7 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
 
@@ -85,7 +86,11 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        util::string_view view{reinterpret_cast<const char*>(data), size};
+        // Skip BOM when reading column names (ARROW-14644)
+        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+        size = size - static_cast<uint32_t>(data_no_bom - data);
+
+        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
         if (column_names.emplace(std::string(view)).second) {
           return Status::OK();
         }
@@ -111,9 +116,28 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
   if (!scan_options) return convert_options;
 
-  auto materialized = scan_options->MaterializedFields();
-  std::unordered_set<std::string> materialized_fields(materialized.begin(),
-                                                      materialized.end());
+  auto field_refs = scan_options->MaterializedFields();
+  std::unordered_set<std::string> materialized_fields;
+  materialized_fields.reserve(field_refs.size());
+  // Preprocess field refs. We try to avoid FieldRef::GetFoo here since that's
+  // quadratic (and this is significant overhead with 1000+ columns)
+  for (const auto& ref : field_refs) {
+    if (const std::string* name = ref.name()) {
+      // Common case
+      materialized_fields.emplace(*name);
+      continue;
+    }
+    // Currently CSV reader doesn't support reading any nested types, so this
+    // path shouldn't be hit. However, implement it in the same way as IPC/ORC:
+    // load the entire top-level field if a nested field is selected.
+    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOneOrNone(*scan_options->dataset_schema));
+    if (column_names.find(field->name()) == column_names.end()) continue;
+    // Only read the requested columns
+    convert_options.include_columns.push_back(field->name());
+    // Properly set conversion types
+    convert_options.column_types[field->name()] = field->type();
+  }
+
   for (auto field : scan_options->dataset_schema->fields()) {
     if (materialized_fields.find(field->name()) == materialized_fields.end()) continue;
     // Ignore virtual columns.
@@ -193,42 +217,6 @@ static RecordBatchGenerator GeneratorFromReader(
   return MakeFromFuture(std::move(gen_fut));
 }
 
-/// \brief A ScanTask backed by an Csv file.
-class CsvScanTask : public ScanTask {
- public:
-  CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options,
-              std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), fragment),
-        format_(std::move(format)),
-        source_(fragment->source()) {}
-
-  Result<RecordBatchIterator> Execute() override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(),
-                                      ::arrow::internal::GetCpuThreadPool());
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return MakeGeneratorIterator(std::move(reader_gen));
-  }
-
-  Future<RecordBatchVector> SafeExecute(Executor* executor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return CollectAsyncGenerator(reader_gen);
-  }
-
-  Future<> SafeVisit(
-      Executor* executor,
-      std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return VisitAsyncGenerator(reader_gen, visitor);
-  }
-
- private:
-  std::shared_ptr<const CsvFileFormat> format_;
-  FileSource source_;
-};
-
 bool CsvFileFormat::Equals(const FileFormat& format) const {
   if (type_name() != format.type_name()) return false;
 
@@ -253,15 +241,6 @@ Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source, *this));
   return reader->schema();
-}
-
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), options, fragment);
-
-  return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }
 
 Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
@@ -329,7 +308,11 @@ Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> CsvFileWriter::FinishInternal() {
+  // The CSV writer's Close() is a no-op, so just treat it as synchronous
+  RETURN_NOT_OK(batch_writer_->Close());
+  return Status::OK();
+}
 
 }  // namespace dataset
 }  // namespace arrow

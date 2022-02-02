@@ -109,6 +109,33 @@ void ReplaceNullWithOtherType(ValueDescr* first, size_t count) {
   }
 }
 
+void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<ValueDescr>* descrs) {
+  auto* end = descrs->data() + descrs->size();
+
+  for (auto* it = descrs->data(); it != end; it++) {
+    switch (it->type->id()) {
+      case Type::TIMESTAMP: {
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
+        it->type = timestamp(unit, ty.timezone());
+        continue;
+      }
+      case Type::TIME32:
+      case Type::TIME64:
+      case Type::DURATION: {
+        it->type = duration(unit);
+        continue;
+      }
+      case Type::DATE32:
+      case Type::DATE64: {
+        it->type = timestamp(unit);
+        continue;
+      }
+      default:
+        continue;
+    }
+  }
+}
+
 void ReplaceTypes(const std::shared_ptr<DataType>& type,
                   std::vector<ValueDescr>* descrs) {
   ReplaceTypes(type, descrs->data(), descrs->size());
@@ -170,7 +197,7 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   }
 
   if (max_width_signed <= max_width_unsigned) {
-    max_width_signed = static_cast<int>(BitUtil::NextPower2(max_width_unsigned + 1));
+    max_width_signed = static_cast<int>(bit_util::NextPower2(max_width_unsigned + 1));
   }
 
   if (max_width_signed >= 64) return int64();
@@ -178,6 +205,47 @@ std::shared_ptr<DataType> CommonNumeric(const ValueDescr* begin, size_t count) {
   if (max_width_signed == 16) return int16();
   DCHECK_EQ(max_width_signed, 8);
   return int8();
+}
+
+TimeUnit::type CommonTemporalResolution(const ValueDescr* begin, size_t count) {
+  TimeUnit::type finest_unit = TimeUnit::SECOND;
+  const ValueDescr* end = begin + count;
+  for (auto it = begin; it != end; it++) {
+    auto id = it->type->id();
+    switch (id) {
+      case Type::DATE32: {
+        // Date32's unit is days, but the coarsest we have is seconds
+        continue;
+      }
+      case Type::DATE64: {
+        finest_unit = std::max(finest_unit, TimeUnit::MILLI);
+        continue;
+      }
+      case Type::TIMESTAMP: {
+        const auto& ty = checked_cast<const TimestampType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::DURATION: {
+        const auto& ty = checked_cast<const DurationType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::TIME32: {
+        const auto& ty = checked_cast<const Time32Type&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      case Type::TIME64: {
+        const auto& ty = checked_cast<const Time64Type&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        continue;
+      }
+      default:
+        continue;
+    }
+  }
+  return finest_unit;
 }
 
 std::shared_ptr<DataType> CommonTemporal(const ValueDescr* begin, size_t count) {

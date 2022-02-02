@@ -17,7 +17,9 @@
 
 #include <benchmark/benchmark.h>
 
+#include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/util.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"

@@ -34,6 +34,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"

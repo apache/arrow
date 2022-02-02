@@ -40,13 +40,12 @@ jobs:
   matlab:
     name: AMD64 Ubuntu 20.04 MATLAB
     runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB

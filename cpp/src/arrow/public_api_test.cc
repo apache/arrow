@@ -62,6 +62,10 @@
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
 #endif
 
+#ifdef OPENTELEMETRY_VERSION
+#error "OpenTelemetry should not be visible from Arrow public headers."
+#endif
+
 #ifdef XSIMD_VERSION_MAJOR
 #error "xsimd should not be visible from Arrow public headers."
 #endif

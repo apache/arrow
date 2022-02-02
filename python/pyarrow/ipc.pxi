@@ -124,6 +124,15 @@ cdef class IpcWriteOptions(_Weakrefable):
     emit_dictionary_deltas : bool
         Whether to emit dictionary deltas.  Default is false for maximum
         stream compatibility.
+    unify_dictionaries : bool
+        If true then calls to write_table will attempt to unify dictionaries
+        across all batches in the table.  This can help avoid the need for
+        replacement dictionaries (which the file format does not support)
+        but requires computing the unified dictionary and then remapping
+        the indices arrays.
+
+        This parameter is ignored when writing to the IPC stream format as
+        the IPC stream format can support replacement dictionaries.
     """
     __slots__ = ()
 
@@ -132,7 +141,8 @@ cdef class IpcWriteOptions(_Weakrefable):
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  bint allow_64bit=False, use_legacy_format=False,
                  compression=None, bint use_threads=True,
-                 bint emit_dictionary_deltas=False):
+                 bint emit_dictionary_deltas=False,
+                 bint unify_dictionaries=False):
         self.c_options = CIpcWriteOptions.Defaults()
         self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
@@ -141,6 +151,7 @@ cdef class IpcWriteOptions(_Weakrefable):
             self.compression = compression
         self.use_threads = use_threads
         self.emit_dictionary_deltas = emit_dictionary_deltas
+        self.unify_dictionaries = unify_dictionaries
 
     @property
     def allow_64bit(self):
@@ -201,6 +212,14 @@ cdef class IpcWriteOptions(_Weakrefable):
     @emit_dictionary_deltas.setter
     def emit_dictionary_deltas(self, bint value):
         self.c_options.emit_dictionary_deltas = value
+
+    @property
+    def unify_dictionaries(self):
+        return self.c_options.unify_dictionaries
+
+    @unify_dictionaries.setter
+    def unify_dictionaries(self, bint value):
+        self.c_options.unify_dictionaries = value
 
 
 cdef class Message(_Weakrefable):
@@ -332,7 +351,8 @@ cdef class MessageReader(_Weakrefable):
 
         Parameters
         ----------
-        source : a readable source, like an InputStream
+        source
+            A readable source, like an InputStream
         """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
@@ -356,7 +376,8 @@ cdef class MessageReader(_Weakrefable):
 
         Raises
         ------
-        StopIteration : at end of stream
+        StopIteration
+            At end of stream
         """
         cdef Message result = Message.__new__(Message)
 
@@ -515,7 +536,8 @@ class _ReadPandasMixin:
 
         Parameters
         ----------
-        **options : arguments to forward to Table.to_pandas
+        **options
+            Arguments to forward to Table.to_pandas.
 
         Returns
         -------
@@ -595,7 +617,7 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
 
@@ -608,12 +630,14 @@ cdef class RecordBatchReader(_Weakrefable):
         consumer, array memory will leak.  This is a low-level function
         intended for expert users.
         """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
         with nogil:
             check_status(ExportRecordBatchReader(
-                self.reader, <ArrowArrayStream*> out_ptr))
+                self.reader, <ArrowArrayStream*> c_ptr))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import RecordBatchReader from a C ArrowArrayStream struct,
         given its pointer.
@@ -626,12 +650,13 @@ cdef class RecordBatchReader(_Weakrefable):
         This is a low-level function intended for expert users.
         """
         cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
             shared_ptr[CRecordBatchReader] c_reader
             RecordBatchReader self
 
         with nogil:
             c_reader = GetResultValue(ImportRecordBatchReader(
-                <ArrowArrayStream*> in_ptr))
+                <ArrowArrayStream*> c_ptr))
 
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader

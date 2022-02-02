@@ -9,6 +9,7 @@ dataset_factory(
   filesystem = NULL,
   format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
   partitioning = NULL,
+  hive_style = NA,
   ...
 )
 }
@@ -50,6 +51,11 @@ by \code{\link[=hive_partition]{hive_partition()}} which parses explicit or auto
 Hive-style path segments
 \item \code{NULL} for no partitioning
 }}
+
+\item{hive_style}{Logical: if \code{partitioning} is a character vector or a
+\code{Schema}, should it be interpreted as specifying Hive-style partitioning?
+Default is \code{NA}, which means to inspect the file paths for Hive-style
+partitioning and behave accordingly.}
 
 \item{...}{Additional format-specific options, passed to
 \code{FileFormat$create()}. For CSV options, note that you can specify them either

@@ -46,6 +46,7 @@
 #' - `$column(i)`: Extract an `Array` by integer position from the batch
 #' - `$column_name(i)`: Get a column's name by integer position
 #' - `$names()`: Get all column names (called by `names(batch)`)
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the record batch
 #' - `$RenameColumns(value)`: Set all column names (called by `names(batch) <- value`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
@@ -83,6 +84,7 @@ RecordBatch <- R6Class("RecordBatch",
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    nbytes = function() RecordBatch__ReferencedBufferSize(self),
     RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))

@@ -34,8 +34,8 @@ TEST(FieldMap, Trivial) {
   auto left = schema({field("i32", int32())});
   auto right = schema({field("i32", int32())});
 
-  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"}, kLeftPrefix,
-                            kRightPrefix));
+  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
+                            literal(true), kLeftPrefix, kRightPrefix));
 
   auto output = schema_mgr.MakeOutputSchema(kLeftPrefix, kRightPrefix);
   EXPECT_THAT(*output, Eq(Schema({
@@ -54,7 +54,8 @@ TEST(FieldMap, TrivialDuplicates) {
   auto left = schema({field("i32", int32())});
   auto right = schema({field("i32", int32())});
 
-  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"}, "", ""));
+  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
+                            literal(true), "", ""));
 
   auto output = schema_mgr.MakeOutputSchema("", "");
   EXPECT_THAT(*output, Eq(Schema({
@@ -73,8 +74,8 @@ TEST(FieldMap, SingleKeyField) {
   auto left = schema({field("i32", int32()), field("str", utf8())});
   auto right = schema({field("f32", float32()), field("i32", int32())});
 
-  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"}, kLeftPrefix,
-                            kRightPrefix));
+  ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32"}, *right, {"i32"},
+                            literal(true), kLeftPrefix, kRightPrefix));
 
   EXPECT_EQ(schema_mgr.proj_maps[0].num_cols(HashJoinProjection::INPUT), 2);
   EXPECT_EQ(schema_mgr.proj_maps[1].num_cols(HashJoinProjection::INPUT), 2);
@@ -112,7 +113,7 @@ TEST(FieldMap, TwoKeyFields) {
   });
 
   ASSERT_OK(schema_mgr.Init(JoinType::INNER, *left, {"i32", "str"}, *right,
-                            {"i32", "str"}, kLeftPrefix, kRightPrefix));
+                            {"i32", "str"}, literal(true), kLeftPrefix, kRightPrefix));
 
   auto output = schema_mgr.MakeOutputSchema(kLeftPrefix, kRightPrefix);
   EXPECT_THAT(*output, Eq(Schema({
