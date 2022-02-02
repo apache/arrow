@@ -41,17 +41,6 @@ namespace internal {
 using ::arrow::internal::make_unique;
 }  // namespace internal
 
-namespace {
-
-std::shared_ptr<FixedSizeBinaryScalar> FixedSizeBinaryScalarFromBytes(
-    const std::string& bytes) {
-  auto buf = Buffer::FromString(bytes);
-  auto type = fixed_size_binary(static_cast<int>(buf->size()));
-  return std::make_shared<FixedSizeBinaryScalar>(std::move(buf), std::move(type));
-}
-
-}  // namespace
-
 Result<compute::Expression> FromProto(const substrait::Expression& expr,
                                       const ExtensionSet& ext_set) {
   switch (expr.rex_type_case()) {
@@ -216,7 +205,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     case substrait::Expression::Literal::kString:
       return Datum(lit.string());
     case substrait::Expression::Literal::kBinary:
-      return Datum(BinaryScalar(Buffer::FromString(lit.binary())));
+      return Datum(BinaryScalar(lit.binary()));
 
     case substrait::Expression::Literal::kTimestamp:
       return Datum(
@@ -250,11 +239,11 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     }
 
     case substrait::Expression::Literal::kUuid:
-      return Datum(ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.uuid()), uuid()));
+      return Datum(ExtensionScalar(FixedSizeBinaryScalar(lit.uuid()), uuid()));
 
     case substrait::Expression::Literal::kFixedChar:
       return Datum(
-          ExtensionScalar(FixedSizeBinaryScalarFromBytes(lit.fixed_char()),
+          ExtensionScalar(FixedSizeBinaryScalar(lit.fixed_char()),
                           fixed_char(static_cast<int32_t>(lit.fixed_char().size()))));
 
     case substrait::Expression::Literal::kVarChar:
@@ -263,7 +252,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
                           varchar(static_cast<int32_t>(lit.var_char().length()))));
 
     case substrait::Expression::Literal::kFixedBinary:
-      return Datum(FixedSizeBinaryScalarFromBytes(lit.fixed_binary()));
+      return Datum(FixedSizeBinaryScalar(lit.fixed_binary()));
 
     case substrait::Expression::Literal::kDecimal: {
       if (lit.decimal().value().size() != sizeof(Decimal128)) {
