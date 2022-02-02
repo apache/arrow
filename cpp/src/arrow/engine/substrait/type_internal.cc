@@ -129,7 +129,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
                                           TimestampTzTimezoneString());
     case substrait::Type::kDate:
-      return FromProtoImpl<Date64Type>(type.date());
+      return FromProtoImpl<Date32Type>(type.date());
 
     case substrait::Type::kTime:
       return FromProtoImpl<Time64Type>(type.time(), TimeUnit::MICRO);
@@ -269,10 +269,10 @@ struct DataTypeToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const Date32Type& t) { return NotImplemented(t); }
-  Status Visit(const Date64Type& t) {
+  Status Visit(const Date32Type& t) {
     return SetWith(&substrait::Type::set_allocated_date);
   }
+  Status Visit(const Date64Type& t) { return NotImplemented(t); }
 
   Status Visit(const TimestampType& t) {
     if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);

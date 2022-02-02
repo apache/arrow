@@ -216,9 +216,9 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
                                    TimeUnit::MICRO, TimestampTzTimezoneString()));
 
     case substrait::Expression::Literal::kDate:
-      return Datum(Date64Scalar(static_cast<int64_t>(lit.date())));
+      return Datum(Date32Scalar(lit.date()));
     case substrait::Expression::Literal::kTime:
-      return Datum(Time64Scalar(static_cast<int64_t>(lit.time()), TimeUnit::MICRO));
+      return Datum(Time64Scalar(lit.time(), TimeUnit::MICRO));
 
     case substrait::Expression::Literal::kIntervalYearToMonth:
     case substrait::Expression::Literal::kIntervalDayToSecond: {
@@ -466,8 +466,8 @@ struct ScalarToProtoImpl {
     return FromBuffer(&Lit::set_fixed_binary, s);
   }
 
-  Status Visit(const Date32Scalar& s) { return NotImplemented(s); }
-  Status Visit(const Date64Scalar& s) { return Primitive(&Lit::set_date, s); }
+  Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
+  Status Visit(const Date64Scalar& s) { return NotImplemented(s); }
 
   Status Visit(const TimestampScalar& s) {
     const auto& t = checked_cast<const TimestampType&>(*s.type);

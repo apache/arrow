@@ -154,7 +154,7 @@ TEST(Substrait, SupportedTypes) {
   ExpectEq(R"({"binary": {}})", binary());
 
   ExpectEq(R"({"timestamp": {}})", timestamp(TimeUnit::MICRO));
-  ExpectEq(R"({"date": {}})", date64());
+  ExpectEq(R"({"date": {}})", date32());
   ExpectEq(R"({"time": {}})", time64(TimeUnit::MICRO));
   ExpectEq(R"({"timestamp_tz": {}})", timestamp(TimeUnit::MICRO, "UTC"));
   ExpectEq(R"({"interval_year": {}})", interval_year());
@@ -278,7 +278,7 @@ TEST(Substrait, NoEquivalentArrowType) {
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
-           date32(),
+           date64(),
            timestamp(TimeUnit::SECOND),
            timestamp(TimeUnit::NANO),
            timestamp(TimeUnit::MICRO, "New York"),
@@ -343,9 +343,7 @@ TEST(Substrait, SupportedLiterals) {
 
   ExpectEq(R"({"timestamp": "579"})", TimestampScalar(579, TimeUnit::MICRO));
 
-  constexpr int64_t kDayFiveOfEpoch = 24 * 60 * 60 * 1000 * 5;
-  static_assert(kDayFiveOfEpoch == 432000000, "until c++ gets string interpolation");
-  ExpectEq(R"({"date": "432000000"})", Date64Scalar(kDayFiveOfEpoch));
+  ExpectEq(R"({"date": "5"})", Date32Scalar(5));
 
   ExpectEq(R"({"time": "64"})", Time64Scalar(64, TimeUnit::MICRO));
 
