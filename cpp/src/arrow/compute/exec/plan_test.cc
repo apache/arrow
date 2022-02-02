@@ -239,33 +239,24 @@ TEST(ExecPlanExecution, SourceSink) {
 }
 
 TEST(ExecPlanExecution, TableSourceSink) {
-  for (bool slow : {false, true}) {
-    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+  for (int batch_size : {1, 4}) {
+    ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+    AsyncGenerator<util::optional<ExecBatch>> sink_gen;
 
-    for (bool parallel : {false, true}) {
-      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+    auto exp_batches = MakeBasicBatches();
+    ASSERT_OK_AND_ASSIGN(auto table,
+                         TableFromExecBatches(exp_batches.schema, exp_batches.batches));
 
-      for (int batch_size : {1, 4}) {
-        ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
-        AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+    ASSERT_OK(Declaration::Sequence(
+                  {
+                      {"table_source", TableSourceNodeOptions{table, batch_size}},
+                      {"sink", SinkNodeOptions{&sink_gen}},
+                  })
+                  .AddToPlan(plan.get()));
 
-        auto exp_batches = MakeBasicBatches();
-        ASSERT_OK_AND_ASSIGN(
-            auto table, TableFromExecBatches(exp_batches.schema, exp_batches.batches));
-
-        ASSERT_OK(Declaration::Sequence(
-                      {
-                          {"table_source", TableSourceNodeOptions{table, batch_size}},
-                          {"sink", SinkNodeOptions{&sink_gen}},
-                      })
-                      .AddToPlan(plan.get()));
-
-        ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
-        ASSERT_OK_AND_ASSIGN(auto out_table,
-                             TableFromExecBatches(exp_batches.schema, res));
-        AssertTablesEqual(table, out_table);
-      }
-    }
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto res, StartAndCollect(plan.get(), sink_gen));
+    ASSERT_OK_AND_ASSIGN(auto out_table, TableFromExecBatches(exp_batches.schema, res));
+    AssertTablesEqual(table, out_table);
   }
 }
 
@@ -277,7 +268,7 @@ TEST(ExecPlanExecution, TableSourceSinkError) {
   ASSERT_OK_AND_ASSIGN(auto table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
 
-  auto null_table_options = TableSourceNodeOptions{nullptr, 1};
+  auto null_table_options = TableSourceNodeOptions{NULLPTR, 1};
   ASSERT_THAT(MakeExecNode("table_source", plan.get(), {}, null_table_options),
               Raises(StatusCode::Invalid, HasSubstr("not null")));
 
