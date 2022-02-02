@@ -604,7 +604,7 @@ Result<ValueDescr> ResolveMapLookupType(KernelContext* ctx,
     return Status::Invalid("map_lookup: query_key can't be empty.");
   } else if (!options.query_key->is_valid) {
     return Status::Invalid("map_lookup: query_key can't be null.");
-  } else if (!options.query_key->type || !options.query_key->type->Equals(key_type)) {
+  } else if (!options.query_key->type->Equals(key_type)) {
     return Status::TypeError(
         "map_lookup: query_key type and Map key_type don't match. Expected "
         "type: ",
@@ -651,10 +651,7 @@ struct ResolveMapLookup {
     return Execute<KeyType>();
   }
 
-  template <typename KeyType>
-  enable_if_same<KeyType, FixedSizeBinaryType, Status> Visit(const KeyType& key) {
-    return Execute<KeyType>();
-  }
+  Status Visit(const FixedSizeBinaryType& key) { return Execute<FixedSizeBinaryType>(); }
 
   Status Visit(const MonthDayNanoIntervalType& key) {
     return Execute<MonthDayNanoIntervalType>();
