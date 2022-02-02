@@ -1638,18 +1638,18 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
 
 Result<ValueDescr> ResolveTemporalOutput(KernelContext*,
                                          const std::vector<ValueDescr>& args) {
+  DCHECK_EQ(args[0].type->id(), args[1].type->id());
   auto left_type = checked_cast<const TimestampType*>(args[0].type.get());
   auto right_type = checked_cast<const TimestampType*>(args[1].type.get());
-  DCHECK_EQ(left_type->id(), right_type->id());
+  DCHECK_EQ(left_type->unit(), left_type->unit());
 
   if ((left_type->timezone() == "" || right_type->timezone() == "") &&
       left_type->timezone() != right_type->timezone()) {
-    RETURN_NOT_OK(
-        Status::Invalid("Subtraction of zoned and non-zoned times is ambiguous. (",
-                        left_type->timezone(), right_type->timezone(), ")."));
+    return Status::Invalid("Subtraction of zoned and non-zoned times is ambiguous. (",
+                           left_type->timezone(), right_type->timezone(), ").");
   }
 
-  auto type = duration(std::max(left_type->unit(), right_type->unit()));
+  auto type = duration(right_type->unit());
   return ValueDescr(std::move(type), GetBroadcastShape(args));
 }
 
