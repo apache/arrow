@@ -224,10 +224,10 @@ symbols, from either a debug build or a release with debug symbols build.
       alias perf=/usr/lib/linux-tools/<version-path>/perf
 
 
-To track allocations, create probe points on each of the jemalloc methods used.
+To track allocations, create probe points on each of the allocator methods used.
 Collecting ``$params`` allows us to record the size of the allocations
 requested, while collecting ``$retval`` allows us to record the address of
-recorded allocations, so we can correlate them with the call to free/deallocate.
+recorded allocations, so we can correlate them with the call to free/de-allocate.
 
 .. tabs::
 
@@ -364,8 +364,6 @@ tracebacks along with the count of dangling allocations:
    for line in sys.stdin:
        line = line.rstrip('\n')
        data = json.loads(line)
-
-
 
        if data['event'] == "probe_libarrow:je_arrow_mallocx__return":
            address = data['params']['arg1']
