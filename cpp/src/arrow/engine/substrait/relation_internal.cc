@@ -178,8 +178,9 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       break;
   }
 
-  return Status::NotImplemented("conversion to arrow::compute::Declaration from ",
-                                rel.DebugString());
+  return Status::NotImplemented(
+      "conversion to arrow::compute::Declaration from Substrait relation ",
+      rel.DebugString());
 }
 
 }  // namespace engine

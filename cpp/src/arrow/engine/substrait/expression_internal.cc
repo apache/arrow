@@ -171,8 +171,9 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       break;
   }
 
-  return Status::NotImplemented("conversion to arrow::compute::Expression from ",
-                                expr.DebugString());
+  return Status::NotImplemented(
+      "conversion to arrow::compute::Expression from Substrait expression ",
+      expr.DebugString());
 }
 
 Result<Datum> FromProto(const substrait::Expression::Literal& lit,
@@ -413,7 +414,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
     case substrait::Expression::Literal::kNull: {
       ARROW_ASSIGN_OR_RAISE(auto type_nullable, FromProto(lit.null(), ext_set));
       if (!type_nullable.second) {
-        return Status::Invalid("Null literal ", lit.DebugString(),
+        return Status::Invalid("Substrait null literal ", lit.DebugString(),
                                " is of non-nullable type");
       }
 
@@ -424,7 +425,8 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       break;
   }
 
-  return Status::NotImplemented("conversion to arrow::Datum from ", lit.DebugString());
+  return Status::NotImplemented("conversion to arrow::Datum from Substrait literal ",
+                                lit.DebugString());
 }
 
 namespace {

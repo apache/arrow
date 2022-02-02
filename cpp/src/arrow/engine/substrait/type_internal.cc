@@ -220,7 +220,7 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
       break;
   }
 
-  return Status::NotImplemented("conversion to arrow::DataType from ",
+  return Status::NotImplemented("conversion to arrow::DataType from Substrait type ",
                                 type.DebugString());
 }
 
@@ -425,7 +425,7 @@ Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_st
                                           const ExtensionSet& ext_set) {
   if (!named_struct.has_struct_()) {
     return Status::Invalid("While converting ", named_struct.DebugString(),
-                           " no anonymous struct type was provided to which to names "
+                           " no anonymous struct type was provided to which names "
                            "could be attached.");
   }
   const auto& struct_ = named_struct.struct_();
