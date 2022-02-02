@@ -990,7 +990,7 @@ cdef class Array(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the array.
 
-        In other words, the sum of bytes from all buffer 
+        In other words, the sum of bytes from all buffer
         ranges referenced.
 
         Unlike `get_total_buffer_size` this method will account for array
@@ -999,7 +999,7 @@ cdef class Array(_PandasConvertible):
         If buffers are shared between arrays then the shared
         portion will be counted multiple times.
 
-        The dictionary of dictionary arrays will always be counted in their 
+        The dictionary of dictionary arrays will always be counted in their
         entirety even if the array only references a portion of the dictionary.
         """
         cdef:
@@ -1707,7 +1707,7 @@ cdef class ListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
         """
         Construct ListArray from arrays of int32 offsets and values.
 
@@ -1715,6 +1715,9 @@ cdef class ListArray(BaseListArray):
         ----------
         offsets : Array (int32 type)
         values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
         pool : MemoryPool
 
         Returns
@@ -1761,9 +1764,16 @@ cdef class ListArray(BaseListArray):
         _offsets = asarray(offsets, type='int32')
         _values = asarray(values)
 
-        with nogil:
-            out = GetResultValue(
-                CListArray.FromArrays(_offsets.ap[0], _values.ap[0], cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CListArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CListArray.FromArrays(
+                        _offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1789,7 +1799,7 @@ cdef class LargeListArray(BaseListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, values, MemoryPool pool=None):
+    def from_arrays(offsets, values, DataType type=None, MemoryPool pool=None):
         """
         Construct LargeListArray from arrays of int64 offsets and values.
 
@@ -1797,6 +1807,9 @@ cdef class LargeListArray(BaseListArray):
         ----------
         offsets : Array (int64 type)
         values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
         pool : MemoryPool
 
         Returns
@@ -1811,10 +1824,16 @@ cdef class LargeListArray(BaseListArray):
         _offsets = asarray(offsets, type='int64')
         _values = asarray(values)
 
-        with nogil:
-            out = GetResultValue(
-                CLargeListArray.FromArrays(_offsets.ap[0], _values.ap[0],
-                                           cpool))
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _values.ap[0], cpool))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListArray.FromArrays(
+                        _offsets.ap[0], _values.ap[0], cpool))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1888,7 +1907,7 @@ cdef class FixedSizeListArray(Array):
     """
 
     @staticmethod
-    def from_arrays(values, int32_t list_size):
+    def from_arrays(values, list_size=None, DataType type=None):
         """
         Construct FixedSizeListArray from array of values and a list length.
 
@@ -1897,20 +1916,59 @@ cdef class FixedSizeListArray(Array):
         values : Array (any type)
         list_size : int
             The fixed length of the lists.
+        type : DataType, optional
+            If not specified, a default ListType with the values' type and
+            `list_size` length is used.
 
         Returns
         -------
         FixedSizeListArray
+
+        Examples
+        --------
+
+        Create from a values array and a list size:
+
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, 2)
+        >>> arr
+        <pyarrow.lib.FixedSizeListArray object at 0x7f6436df3a00>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+
+        Or create from a values array and matching type:
+
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, type=pa.list_(2))
+
         """
         cdef:
             Array _values
+            int32_t _list_size
             CResult[shared_ptr[CArray]] c_result
 
         _values = asarray(values)
 
-        with nogil:
-            c_result = CFixedSizeListArray.FromArrays(
-                _values.sp_array, list_size)
+        if type is not None:
+            if list_size is not None:
+                raise ValueError("Cannot specify both list_size and type")
+            with nogil:
+                c_result = CFixedSizeListArray.FromArraysAndType(
+                    _values.sp_array, type.sp_type)
+        else:
+            if list_size is None:
+                raise ValueError("Should specify one of list_size and type")
+            _list_size = <int32_t>list_size
+            with nogil:
+                c_result = CFixedSizeListArray.FromArrays(
+                    _values.sp_array, _list_size)
         cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result
