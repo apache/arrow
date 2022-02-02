@@ -214,7 +214,7 @@ static FunctionDoc StringPredicateDoc(std::string summary, std::string descripti
 }
 
 static inline FunctionDoc StringClassifyDoc(std::string class_summary,
-                                                                     std::string class_desc, bool non_empty) {
+                                            std::string class_desc, bool non_empty) {
   std::string summary, description;
   {
     std::stringstream ss;
