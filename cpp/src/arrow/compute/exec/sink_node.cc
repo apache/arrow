@@ -341,6 +341,8 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void Finish() override {
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {
       producer_.Push(std::move(st));
