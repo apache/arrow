@@ -496,6 +496,10 @@ test_and_install_cpp() {
   mkdir -p cpp/verification-build
   pushd cpp/verification-build
 
+  if [ ! -z "$CMAKE_GENERATOR" ]; then
+    ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G Ninja"
+  fi
+
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_INTEGRATION=ON \
