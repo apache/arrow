@@ -639,6 +639,8 @@ class MakeFormatterImpl {
       auto fmt = fmt_str.c_str();
       auto unit = checked_cast<const T&>(*array.type()).unit();
       auto value = checked_cast<const NumericArray<T>&>(array).Value(index);
+      // Using unqualified `format` directly would produce ambiguous
+      // lookup because of `std::format` (ARROW-15520).
       namespace avd = arrow_vendored::date;
       using std::chrono::nanoseconds;
       using std::chrono::microseconds;
