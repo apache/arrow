@@ -369,6 +369,32 @@ def test_table_roundtrip_to_pandas_empty_dataframe():
 
 
 @pytest.mark.pandas
+def test_recordbatch_roundtrip_to_pandas_empty_dataframe():
+    # https://issues.apache.org/jira/browse/ARROW-10643
+    # The conversion should not results in a RecordBatch with 0 rows if
+    #  the original DataFrame has a RangeIndex but is empty.
+    import pandas as pd
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 10
+    assert data.shape == (10, 0)
+    assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 4
+    assert data.shape == (4, 0)
+    assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
+
+
+@pytest.mark.pandas
 def test_to_pandas_empty_table():
     # https://issues.apache.org/jira/browse/ARROW-15370
     import pandas as pd

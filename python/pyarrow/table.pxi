@@ -1177,13 +1177,13 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema=schema)
+        return cls.from_arrays(arrays, schema=schema, n_rows=n_rows)
 
     @staticmethod
-    def from_arrays(list arrays, names=None, schema=None, metadata=None):
+    def from_arrays(list arrays, names=None, schema=None, metadata=None, n_rows=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -1197,6 +1197,8 @@ cdef class RecordBatch(_PandasConvertible):
             Schema for the created batch. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
+        n_rows : int, default None
+            Optional length of row index
 
         Returns
         -------
@@ -1210,6 +1212,8 @@ cdef class RecordBatch(_PandasConvertible):
 
         if len(arrays) > 0:
             num_rows = len(arrays[0])
+        elif n_rows:
+            num_rows = n_rows  # In case of a RangeIndex of length > 0
         else:
             num_rows = 0
 
@@ -1779,7 +1783,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1787,10 +1791,10 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, schema=schema)
+        return cls.from_arrays(arrays, schema=schema, n_rows=n_rows)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None, n_rows=None):
         """
         Construct a Table from Arrow arrays.
 
@@ -1804,6 +1808,8 @@ cdef class Table(_PandasConvertible):
             Schema for the created table. If not passed, names must be passed.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
+        n_rows : int, default None
+            Optional length of row index
 
         Returns
         -------
@@ -1830,23 +1836,11 @@ cdef class Table(_PandasConvertible):
             else:
                 raise TypeError(type(item))
 
-        result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
-
-        # In case of an empty dataframe with RangeIndex -> create an empty Table with
-        # number of rows equal to Index length
-        if len(arrays) == 0 and schema is not None:
-            try:
-                kind = schema.pandas_metadata["index_columns"][0]["kind"]
-                if kind =="range":
-                    start = schema.pandas_metadata["index_columns"][0]["start"]
-                    stop = schema.pandas_metadata["index_columns"][0]["stop"]
-                    step = schema.pandas_metadata["index_columns"][0]["step"]
-                    n_rows = (stop - start - 1)//step + 1
-                    result = pyarrow_wrap_table(
-                        CTable.MakeWithRows(c_schema, columns, n_rows))
-            except IndexError:
-                pass
-
+        if n_rows:
+            result = pyarrow_wrap_table(
+                CTable.MakeWithRows(c_schema, columns, n_rows))
+        else:
+            result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
         result.validate()
         return result
 
