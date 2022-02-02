@@ -4082,7 +4082,7 @@ def test_array_to_pandas():
         # tm.assert_series_equal(result, expected)
 
 
-def test_roundtrip_empty_table_with_intervalrange_index():
+def test_roundtrip_empty_table_with_extension_dtype_index():
     if Version(pd.__version__) < Version("1.0.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
