@@ -15,26 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# A script to install dependencies required for release
-# verification on Ubuntu 20.04
+{% import 'macros.jinja' as macros with context %}
 
-apt-get update
-apt-get -y install \
-  build-essential \
-  clang \
-  cmake \
-  curl \
-  git \
-  libcurl4-openssl-dev \
-  libgirepository1.0-dev \
-  libglib2.0-dev \
-  libsqlite3-dev \
-  libssl-dev \
-  llvm-dev \
-  maven \
-  ninja-build \
-  openjdk-11-jdk \
-  pkg-config \
-  python3-pip \
-  ruby-dev \
-  wget
+{{ macros.github_header() }}
+
+jobs:
+  test:
+    name: "Verify release candidate {{ distro }} source"
+    runs-on: ubuntu-latest
+    steps:
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
+      {{ macros.github_install_archery()|indent }}
+
+      - name: Execute Docker Build
+        shell: bash
+        run: |
+          archery docker run \
+            -e VERIFY_VERSION="{{ release|default(arrow.head) }}" \
+            -e VERIFY_RC="{{ rc|default("") }}" \
+            -e TEST_DEFAULT=0 \
+            -e TEST_{{ target|upper }}=1 \
+            {{ distro }}-verify-rc-source

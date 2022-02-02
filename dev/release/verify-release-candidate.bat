@@ -27,23 +27,45 @@ if not exist "C:\tmp\arrow-verify-release" mkdir C:\tmp\arrow-verify-release
 set _VERIFICATION_DIR=C:\tmp\arrow-verify-release
 set _VERIFICATION_DIR_UNIX=C:/tmp/arrow-verify-release
 set _VERIFICATION_CONDA_ENV=%_VERIFICATION_DIR%\conda-env
-set _DIST_URL=https://dist.apache.org/repos/dist/dev/arrow
-set _TARBALL=apache-arrow-%1.tar.gz
 set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
 set INSTALL_DIR=%_VERIFICATION_DIR%\install
 
-@rem Requires GNU Wget for Windows
-wget --no-check-certificate -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B 1
+set VERSION=%1
+set RC_NUMBER=%2
 
-tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
+if "%RC_NUMBER%"=="" (
+    @rem verify a specific git revision
+    if "%SOURCE_REPOSITORY%"=="" (
+        pushd "%~dp0..\..\"
+    ) else (
+        pushd %SOURCE_REPOSITORY%
+    )
+    git clone . %ARROW_SOURCE%
+    git -C %ARROW_SOURCE% checkout %VERSION%
+    popd
+) else (
+    @rem verify a release candidate tarball
+    @rem Requires GNU Wget for Windows
+    set TARBALL_NAME=apache-arrow-%VERSION%.tar.gz
+    set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
+    wget --no-check-certificate -O %TARBALL_NAME% %TARBALL_URL% || exit /B 1
+    tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
+)
+
+ @rem Get testing datasets for Parquet unit tests
+git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
+set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
+
+git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
+set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 set PYTHON=3.8
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
 call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA_ENV% ^
-    --file=ci\conda_env_cpp.txt ^
-    --file=ci\conda_env_python.txt ^
+    --file=%ARROW_SOURCE%\ci\conda_env_cpp.txt ^
+    --file=%ARROW_SOURCE%\ci\conda_env_python.txt ^
     git ^
     python=%PYTHON% ^
     || exit /B 1
@@ -96,13 +118,6 @@ cmake -G "%GENERATOR%" ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
-
-@rem Get testing datasets for Parquet unit tests
-git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
-
-git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
-set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
 
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
