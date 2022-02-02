@@ -103,27 +103,26 @@ public class FlightCookieTest {
   }
 
   @Test
-  public void testeCookies() throws SQLException {
-    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection()) {
+  public void testCookies() throws SQLException {
+    try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection();
+         Statement statement = connection.createStatement()) {
 
       // Since the first cookie was just updated by the client it was not send yet.
       // That's why we're checking for null.
       Assert.assertNull(FLIGHT_SERVER_TEST_RULE.getFactory().getCookie());
 
       // Run another action for check if the cookies was sent by the client.
-      Statement statement = connection.createStatement();
       statement.execute(REGULAR_QUERY_SAMPLE);
       collector.checkThat(statement.execute(REGULAR_QUERY_SAMPLE),
           is(true)); // Meaning there was a select query.
       Assert.assertEquals("k=v", FLIGHT_SERVER_TEST_RULE.getFactory().getCookie());
 
       //Run another command to check if cookies keep being sent by subsequent requests
-      ResultSet catalogs = connection.getMetaData().getTableTypes();
+      ResultSet resultSet = connection.getMetaData().getTableTypes();
       Assert.assertEquals("k=v", FLIGHT_SERVER_TEST_RULE.getFactory().getCookie());
 
       // Closes resources
-      catalogs.close();
-      statement.close();
+      resultSet.close();
     }
   }
 }
