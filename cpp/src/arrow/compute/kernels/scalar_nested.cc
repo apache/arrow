@@ -448,18 +448,6 @@ struct MapArrayLookupFunctor {
     return match_index;
   }
 
-  static Status BuildItemsArray(const Array& keys, const Array& items,
-                                const Scalar& query_key_scalar,
-                                bool* found_at_least_one_key, ArrayBuilder* builder) {
-    RETURN_NOT_OK(
-        FindMatchingIndices(keys, query_key_scalar, [&](int64_t index) -> Status {
-          *found_at_least_one_key = true;
-          RETURN_NOT_OK(builder->AppendArraySlice(*items.data(), index, 1));
-          return Status::OK();
-        }));
-    return Status::OK();
-  }
-
   template <typename FoundItem>
   static Status FindMatchingIndices(const Array& keys, const Scalar& query_key_scalar,
                                     FoundItem callback) {
@@ -578,9 +566,12 @@ struct MapArrayLookupFunctor {
       bool found_at_least_one_key = false;
       std::unique_ptr<ArrayBuilder> builder;
       RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), items->type(), &builder));
-      RETURN_NOT_OK(BuildItemsArray(*keys, *items, *query_key, &found_at_least_one_key,
-                                    builder.get()));
 
+      RETURN_NOT_OK(FindMatchingIndices(*keys, *query_key, [&](int64_t index) -> Status {
+        found_at_least_one_key = true;
+        RETURN_NOT_OK(builder->AppendArraySlice(*items->data(), index, 1));
+        return Status::OK();
+      }));
       if (!found_at_least_one_key) {
         out->value = MakeNullScalar(list(items->type()));
       } else {
@@ -610,9 +601,9 @@ Result<ValueDescr> ResolveMapArrayLookupType(KernelContext* ctx,
   std::shared_ptr<DataType> key_type = checked_cast<const MapType&>(*type).key_type();
 
   if (!options.query_key) {
-    return Status::TypeError("map_array_lookup: query_key can't be empty.");
+    return Status::Invalid("map_array_lookup: query_key can't be empty.");
   } else if (!options.query_key->is_valid) {
-    return Status::TypeError("map_array_lookup: query_key can't be null.");
+    return Status::Invalid("map_array_lookup: query_key can't be null.");
   } else if (!options.query_key->type || !options.query_key->type->Equals(key_type)) {
     return Status::TypeError(
         "map_array_lookup: query_key type and MapArray key_type don't match. Expected "
@@ -681,14 +672,12 @@ struct ResolveMapArrayLookup {
 };
 
 void AddMapArrayLookupKernels(ScalarFunction* func) {
-  for (const auto shape : {ValueDescr::ARRAY, ValueDescr::SCALAR}) {
-    ScalarKernel kernel(
-        {InputType(Type::MAP, shape)}, OutputType(ResolveMapArrayLookupType),
-        ResolveMapArrayLookup::Exec, OptionsWrapper<MapArrayLookupOptions>::Init);
-    kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
+  ScalarKernel kernel({InputType(Type::MAP)}, OutputType(ResolveMapArrayLookupType),
+                      ResolveMapArrayLookup::Exec,
+                      OptionsWrapper<MapArrayLookupOptions>::Init);
+  kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
 }
 
 const FunctionDoc map_array_lookup_doc{

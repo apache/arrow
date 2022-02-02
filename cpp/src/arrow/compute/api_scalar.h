@@ -1384,8 +1384,9 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 /// \param[in] options to pass a query key and choose which matching keys to return
 /// (FIRST, LAST or ALL)
 /// \param[in] ctx the function execution context, optional
-///
 /// \return the resulting datum
+///
+/// \since 8.0.0
 /// \note API not yet finalized
 ARROW_EXPORT Result<Datum> MapArrayLookup(const Datum& map_array,
                                           MapArrayLookupOptions options,

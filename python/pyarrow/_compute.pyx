@@ -1335,22 +1335,22 @@ class IndexOptions(_IndexOptions):
 
 cdef class _MapArrayLookupOptions(FunctionOptions):
     _occurrence_map = {
-        "ALL": CMapArrayLookupOccurrence_ALL,
-        "FIRST": CMapArrayLookupOccurrence_FIRST,
-        "LAST": CMapArrayLookupOccurrence_LAST,
+        "all": CMapArrayLookupOccurrence_ALL,
+        "first": CMapArrayLookupOccurrence_FIRST,
+        "last": CMapArrayLookupOccurrence_LAST,
     }
 
-    def _set_options(self, scalar, occurrence):
+    def _set_options(self, query_key, occurrence):
         try:
             self.wrapped.reset(
                 new CMapArrayLookupOptions(
-                    pyarrow_unwrap_scalar(scalar),
+                    pyarrow_unwrap_scalar(query_key),
                     self._occurrence_map[occurrence]
                 )
             )
         except KeyError:
             _raise_invalid_function_option(occurrence,
-                                           "Should either be FIRST, LAST or ALL")
+                                           "Should either be first, last, or all")
 
 
 class MapArrayLookupOptions(_MapArrayLookupOptions):
@@ -1363,11 +1363,11 @@ class MapArrayLookupOptions(_MapArrayLookupOptions):
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the MapArray
-        Accepted values are "FIRST", "LAST", "ALL".
+        Accepted values are "first", "last", or "all".
     """
 
-    def __init__(self, scalar, occurrence):
-        self._set_options(scalar, occurrence)
+    def __init__(self, query_key, occurrence):
+        self._set_options(query_key, occurrence)
 
 
 cdef class _ModeOptions(FunctionOptions):

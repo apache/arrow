@@ -522,15 +522,15 @@ TEST_F(TestMapArrayLookupKernel, Errors) {
   MapArrayLookupOptions empty_key(nullptr, MapArrayLookupOptions::FIRST);
   MapArrayLookupOptions null_key(MakeNullScalar(int32()), MapArrayLookupOptions::FIRST);
 
-  for (auto option : {unsupported, all, first, last, empty_key, null_key}) {
+  for (auto option : {unsupported, all, first, last}) {
     ASSERT_RAISES(TypeError, CallFunction("map_array_lookup", {map_array}, &option));
   }
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError, ::testing::HasSubstr("key can't be empty"),
+      Invalid, ::testing::HasSubstr("key can't be empty"),
       CallFunction("map_array_lookup", {map_array}, &empty_key));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError, ::testing::HasSubstr("key can't be null"),
+      Invalid, ::testing::HasSubstr("key can't be null"),
       CallFunction("map_array_lookup", {map_array}, &null_key));
 }
 

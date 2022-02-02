@@ -141,7 +141,7 @@ def test_option_class_equality():
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
                                              pa.KeyValueMetadata({"b": "2"})]),
-        pc.MapArrayLookupOptions(pa.scalar(1), "FIRST"),
+        pc.MapArrayLookupOptions(pa.scalar(1), "first"),
         pc.MatchSubstringOptions("pattern"),
         pc.ModeOptions(),
         pc.NullOptions(),
@@ -2481,11 +2481,11 @@ def test_map_array_lookup():
                           type=pa.list_(pa.int32()))
 
     assert pc.map_array_lookup(arr, pa.scalar(
-        'one', type=pa.utf8()), 'FIRST') == result_first
+        'one', type=pa.utf8()), 'first') == result_first
     assert pc.map_array_lookup(arr, pa.scalar(
-        'one', type=pa.utf8()), 'LAST') == result_last
+        'one', type=pa.utf8()), 'last') == result_last
     assert pc.map_array_lookup(arr, pa.scalar(
-        'one', type=pa.utf8()), 'ALL') == result_all
+        'one', type=pa.utf8()), 'all') == result_all
 
 
 def test_struct_fields_options():
