@@ -65,12 +65,12 @@ This tutorial is different from the :ref:`step_by_step` as we
 will be working on a specific case. This tutorial is not meant
 as a step-by-step guide.
 
-**Lets start!**
+**Let's start!**
 
 Set up
 ------
 
-Let's setup the Arrow repository. We presume here that Git is
+Let's set up the Arrow repository. We presume here that Git is
 already installed. Otherwise please see the :ref:`set-up` section.
 
 Once the `Apache Arrow repository <https://github.com/apache/arrow>`_
