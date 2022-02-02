@@ -28,6 +28,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/cancel.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/tracing.h"

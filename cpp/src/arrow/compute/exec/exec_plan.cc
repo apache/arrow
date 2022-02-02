@@ -82,7 +82,15 @@ struct ExecPlanImpl : public ExecPlan {
 
   Status StartProducing() {
     START_SPAN(span_, "ExecPlan", {{"plan", ToString()}});
-
+#ifdef ARROW_WITH_OPENTELEMETRY
+    if (HasMetadata()) {
+      auto pairs = metadata().get()->sorted_pairs();
+      std::for_each(std::begin(pairs), std::end(pairs),
+                    [this](std::pair<std::string, std::string> const& pair) {
+                      span_.Get().span->SetAttribute(pair.first, pair.second);
+                    });
+    }
+#endif
     if (started_) {
       return Status::Invalid("restarted ExecPlan");
     }
