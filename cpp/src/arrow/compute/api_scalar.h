@@ -470,8 +470,8 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   uint64_t seed;
 };
 
-/// Options for map_array_lookup function
-class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
+/// Options for map_lookup function
+class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
  public:
   enum Occurrence {
     /// Return the first matching value
@@ -482,11 +482,10 @@ class ARROW_EXPORT MapArrayLookupOptions : public FunctionOptions {
     ALL
   };
 
-  explicit MapArrayLookupOptions(std::shared_ptr<Scalar> query_key,
-                                 Occurrence occurrence);
-  MapArrayLookupOptions();
+  explicit MapLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence);
+  MapLookupOptions();
 
-  constexpr static char const kTypeName[] = "MapArrayLookupOptions";
+  constexpr static char const kTypeName[] = "MapLookupOptions";
 
   /// The key to lookup in the map
   std::shared_ptr<Scalar> query_key;
@@ -1376,11 +1375,11 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           ExecContext* ctx = NULLPTR);
 
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
-/// query key in a map array.
+/// query key in a map.
 ///
 /// Returns an array of items for FIRST and LAST, and an array of list of items for ALL.
 ///
-/// \param[in] map_array to look in
+/// \param[in] map to look in
 /// \param[in] options to pass a query key and choose which matching keys to return
 /// (FIRST, LAST or ALL)
 /// \param[in] ctx the function execution context, optional
@@ -1388,8 +1387,7 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
 ///
 /// \since 8.0.0
 /// \note API not yet finalized
-ARROW_EXPORT Result<Datum> MapArrayLookup(const Datum& map_array,
-                                          MapArrayLookupOptions options,
-                                          ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
+                                     ExecContext* ctx = NULLPTR);
 }  // namespace compute
 }  // namespace arrow

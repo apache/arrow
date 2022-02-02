@@ -1639,19 +1639,19 @@ in the respective option classes.
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| Function name       | Arity      | Input types                         | Output type      | Options class                   | Notes  |
-+=====================+============+=====================================+==================+=================================+========+
-| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                                 | \(1)   |
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| list_flatten        | Unary      | List-like                           | List value type  |                                 | \(2)   |
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| list_parent_indices | Unary      | List-like                           | Int64            |                                 | \(3)   |
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| map_array_lookup    | Unary      | Map                                 | Computed         | :struct:`MapArrayLookupOptions` | \(4)   |
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions`    | \(5)   |
-+---------------------+------------+-------------------------------------+------------------+---------------------------------+--------+
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
++=====================+============+=====================================+==================+==============================+========+
+| list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(4)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(5)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
   output values are the values at the specified index of each child list.
@@ -1665,7 +1665,7 @@ Structural transforms
   are discarded.
 
 * \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
-  map array whose key match the given query key passed via options.
+  map whose key match the given query key passed via options.
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 

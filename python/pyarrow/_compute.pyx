@@ -1333,17 +1333,17 @@ class IndexOptions(_IndexOptions):
         self._set_options(value)
 
 
-cdef class _MapArrayLookupOptions(FunctionOptions):
+cdef class _MapLookupOptions(FunctionOptions):
     _occurrence_map = {
-        "all": CMapArrayLookupOccurrence_ALL,
-        "first": CMapArrayLookupOccurrence_FIRST,
-        "last": CMapArrayLookupOccurrence_LAST,
+        "all": CMapLookupOccurrence_ALL,
+        "first": CMapLookupOccurrence_FIRST,
+        "last": CMapLookupOccurrence_LAST,
     }
 
     def _set_options(self, query_key, occurrence):
         try:
             self.wrapped.reset(
-                new CMapArrayLookupOptions(
+                new CMapLookupOptions(
                     pyarrow_unwrap_scalar(query_key),
                     self._occurrence_map[occurrence]
                 )
@@ -1353,16 +1353,16 @@ cdef class _MapArrayLookupOptions(FunctionOptions):
                                            "Should either be first, last, or all")
 
 
-class MapArrayLookupOptions(_MapArrayLookupOptions):
+class MapLookupOptions(_MapLookupOptions):
     """
-    Options for the `map_array_lookup` function.
+    Options for the `map_lookup` function.
 
     Parameters
     ----------
     query_key : Scalar
         The key to search for.
     occurrence : str
-        The occurrence(s) to return from the MapArray
+        The occurrence(s) to return from the Map
         Accepted values are "first", "last", or "all".
     """
 

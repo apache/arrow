@@ -2147,17 +2147,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
 
-    cdef enum CMapArrayLookupOccurrence \
-            "arrow::compute::MapArrayLookupOptions::Occurrence":
-        CMapArrayLookupOccurrence_ALL "arrow::compute::MapArrayLookupOptions::ALL"
-        CMapArrayLookupOccurrence_FIRST "arrow::compute::MapArrayLookupOptions::FIRST"
-        CMapArrayLookupOccurrence_LAST "arrow::compute::MapArrayLookupOptions::LAST"
+    cdef enum CMapLookupOccurrence \
+            "arrow::compute::MapLookupOptions::Occurrence":
+        CMapLookupOccurrence_ALL "arrow::compute::MapLookupOptions::ALL"
+        CMapLookupOccurrence_FIRST "arrow::compute::MapLookupOptions::FIRST"
+        CMapLookupOccurrence_LAST "arrow::compute::MapLookupOptions::LAST"
 
-    cdef cppclass CMapArrayLookupOptions \
-            "arrow::compute::MapArrayLookupOptions"(CFunctionOptions):
-        CMapArrayLookupOptions(shared_ptr[CScalar] query_key,
-                               CMapArrayLookupOccurrence occurrence)
-        CMapArrayLookupOccurrence occurrence
+    cdef cppclass CMapLookupOptions \
+            "arrow::compute::MapLookupOptions"(CFunctionOptions):
+        CMapLookupOptions(shared_ptr[CScalar] query_key,
+                               CMapLookupOccurrence occurrence)
+        CMapLookupOccurrence occurrence
         shared_ptr[CScalar] query_key
 
     cdef cppclass CMakeStructOptions \

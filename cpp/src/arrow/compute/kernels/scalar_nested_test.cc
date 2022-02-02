@@ -225,23 +225,23 @@ TEST(TestScalarNested, StructField) {
   }
 }
 
-void CheckMapArrayLookupWithDifferentOptions(
-    const std::shared_ptr<Array>& map, const std::shared_ptr<Scalar>& query_key,
-    const std::shared_ptr<Array>& expected_all,
-    const std::shared_ptr<Array>& expected_first,
-    const std::shared_ptr<Array>& expected_last) {
-  MapArrayLookupOptions all_matches(query_key, MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions first_matches(query_key, MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions last_matches(query_key, MapArrayLookupOptions::LAST);
+void CheckMapLookupWithDifferentOptions(const std::shared_ptr<Array>& map,
+                                        const std::shared_ptr<Scalar>& query_key,
+                                        const std::shared_ptr<Array>& expected_all,
+                                        const std::shared_ptr<Array>& expected_first,
+                                        const std::shared_ptr<Array>& expected_last) {
+  MapLookupOptions all_matches(query_key, MapLookupOptions::ALL);
+  MapLookupOptions first_matches(query_key, MapLookupOptions::FIRST);
+  MapLookupOptions last_matches(query_key, MapLookupOptions::LAST);
 
-  CheckScalar("map_array_lookup", {map}, expected_all, &all_matches);
-  CheckScalar("map_array_lookup", {map}, expected_first, &first_matches);
-  CheckScalar("map_array_lookup", {map}, expected_last, &last_matches);
+  CheckScalar("map_lookup", {map}, expected_all, &all_matches);
+  CheckScalar("map_lookup", {map}, expected_first, &first_matches);
+  CheckScalar("map_lookup", {map}, expected_last, &last_matches);
 }
 
-class TestMapArrayLookupKernel : public ::testing::Test {};
+class TestMapLookupKernel : public ::testing::Test {};
 
-TEST_F(TestMapArrayLookupKernel, Basic) {
+TEST_F(TestMapLookupKernel, Basic) {
   auto type = map(utf8(), int32());
   const char* input = R"(
     [
@@ -253,14 +253,14 @@ TEST_F(TestMapArrayLookupKernel, Basic) {
     ])";
   auto map_array = ArrayFromJSON(type, input);
 
-  CheckMapArrayLookupWithDifferentOptions(
+  CheckMapLookupWithDifferentOptions(
       map_array, MakeScalar("foo"),
       ArrayFromJSON(list(int32()), R"([[99, 3], null, [101, 22], null])"),
       ArrayFromJSON(int32(), R"([99, null, 101, null])"),
       ArrayFromJSON(int32(), R"([3, null, 22, null])"));
 }
 
-TEST_F(TestMapArrayLookupKernel, NestedItems) {
+TEST_F(TestMapLookupKernel, NestedItems) {
   auto type = map(utf8(), map(int16(), int16()));
   const char* input = R"(
     [
@@ -358,11 +358,11 @@ TEST_F(TestMapArrayLookupKernel, NestedItems) {
                                   null
                                 ])");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array, MakeScalar("foo"), expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array, MakeScalar("foo"), expected_all,
+                                     expected_first, expected_last);
 }
 
-TEST_F(TestMapArrayLookupKernel, BooleanKey) {
+TEST_F(TestMapLookupKernel, BooleanKey) {
   auto true_scalar = ScalarFromJSON(boolean(), R"(true)");
   auto map_type = map(boolean(), int32());
   const char* input = R"(
@@ -393,11 +393,11 @@ TEST_F(TestMapArrayLookupKernel, BooleanKey) {
   auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
   auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, true_scalar, expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array_tweaked, true_scalar, expected_all,
+                                     expected_first, expected_last);
 }
 
-TEST_F(TestMapArrayLookupKernel, MonthDayNanoIntervalKeys) {
+TEST_F(TestMapLookupKernel, MonthDayNanoIntervalKeys) {
   auto key_type = month_day_nano_interval();
   auto map_type = map(key_type, utf8());
   auto key_scalar = ScalarFromJSON(month_day_nano_interval(), R"([1, 2, -3])");
@@ -444,11 +444,11 @@ TEST_F(TestMapArrayLookupKernel, MonthDayNanoIntervalKeys) {
                                         ]
                                       )");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
+                                     expected_first, expected_last);
 }
 
-TEST_F(TestMapArrayLookupKernel, FixedSizeBinary) {
+TEST_F(TestMapLookupKernel, FixedSizeBinary) {
   auto key_type = fixed_size_binary(6);
   auto map_type = map(key_type, int32());
   auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
@@ -480,11 +480,11 @@ TEST_F(TestMapArrayLookupKernel, FixedSizeBinary) {
   auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
   auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
+                                     expected_first, expected_last);
 }
 
-TEST_F(TestMapArrayLookupKernel, Errors) {
+TEST_F(TestMapLookupKernel, Errors) {
   auto map_type = map(int32(), utf8());
   const char* input = R"(
     [
@@ -515,27 +515,25 @@ TEST_F(TestMapArrayLookupKernel, Errors) {
                                    }))};
   auto unsupported_scalar = ScalarFromJSON(struct_(fields), R"([1, "a", [10, 10.0]])");
 
-  MapArrayLookupOptions unsupported(unsupported_scalar, MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions all(query_key_int16, MapArrayLookupOptions::ALL);
-  MapArrayLookupOptions first(query_key_int16, MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions last(query_key_int16, MapArrayLookupOptions::LAST);
-  MapArrayLookupOptions empty_key(nullptr, MapArrayLookupOptions::FIRST);
-  MapArrayLookupOptions null_key(MakeNullScalar(int32()), MapArrayLookupOptions::FIRST);
+  MapLookupOptions unsupported(unsupported_scalar, MapLookupOptions::FIRST);
+  MapLookupOptions all(query_key_int16, MapLookupOptions::ALL);
+  MapLookupOptions first(query_key_int16, MapLookupOptions::FIRST);
+  MapLookupOptions last(query_key_int16, MapLookupOptions::LAST);
+  MapLookupOptions empty_key(nullptr, MapLookupOptions::FIRST);
+  MapLookupOptions null_key(MakeNullScalar(int32()), MapLookupOptions::FIRST);
 
   for (auto option : {unsupported, all, first, last}) {
-    ASSERT_RAISES(TypeError, CallFunction("map_array_lookup", {map_array}, &option));
+    ASSERT_RAISES(TypeError, CallFunction("map_lookup", {map_array}, &option));
   }
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("key can't be empty"),
-      CallFunction("map_array_lookup", {map_array}, &empty_key));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("key can't be null"),
-      CallFunction("map_array_lookup", {map_array}, &null_key));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("key can't be empty"),
+                                  CallFunction("map_lookup", {map_array}, &empty_key));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("key can't be null"),
+                                  CallFunction("map_lookup", {map_array}, &null_key));
 }
 
 template <typename KeyType>
-class TestMapArrayLookupIntegralKeys : public ::testing ::Test {
+class TestMapLookupIntegralKeys : public ::testing ::Test {
  protected:
   std::shared_ptr<DataType> type_singleton() const {
     std::shared_ptr<DataType> type = default_type_instance<KeyType>();
@@ -543,9 +541,9 @@ class TestMapArrayLookupIntegralKeys : public ::testing ::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestMapArrayLookupIntegralKeys, PhysicalIntegralArrowTypes);
+TYPED_TEST_SUITE(TestMapLookupIntegralKeys, PhysicalIntegralArrowTypes);
 
-TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
+TYPED_TEST(TestMapLookupIntegralKeys, StringItems) {
   auto map_type = this->type_singleton();
   const char* input = R"(
     [
@@ -584,12 +582,12 @@ TYPED_TEST(TestMapArrayLookupIntegralKeys, StringItems) {
   auto expected_last =
       ArrayFromJSON(utf8(), R"(["last_one", null, "no more ones!", null, null, null])");
 
-  CheckMapArrayLookupWithDifferentOptions(
+  CheckMapLookupWithDifferentOptions(
       map_array_tweaked, MakeScalar(default_type_instance<TypeParam>(), 1).ValueOrDie(),
       expected_all, expected_first, expected_last);
 }
 template <typename KeyType>
-class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
+class TestMapLookupDecimalKeys : public ::testing ::Test {
  protected:
   std::shared_ptr<DataType> type_singleton() const {
     return std::make_shared<KeyType>(/*precision=*/5,
@@ -597,9 +595,9 @@ class TestMapArrayLookupDecimalKeys : public ::testing ::Test {
   }
 };
 
-TYPED_TEST_SUITE(TestMapArrayLookupDecimalKeys, DecimalArrowTypes);
+TYPED_TEST_SUITE(TestMapLookupDecimalKeys, DecimalArrowTypes);
 
-TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
+TYPED_TEST(TestMapLookupDecimalKeys, StringItems) {
   auto type = this->type_singleton();
   auto map_type = map(type, utf8());
   auto key_scalar = DecimalScalarFromJSON(type, R"("1.2345")");
@@ -642,21 +640,21 @@ TYPED_TEST(TestMapArrayLookupDecimalKeys, StringItems) {
                                         null
                                       ]
                                     )");
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array_tweaked, key_scalar, expected_all,
+                                     expected_first, expected_last);
 }
 
 template <typename KeyType>
-class TestMapArrayLookupBinaryKeys : public ::testing ::Test {
+class TestMapLookupBinaryKeys : public ::testing ::Test {
  protected:
   std::shared_ptr<DataType> type_singleton() const {
     return TypeTraits<KeyType>::type_singleton();
   }
 };
 
-TYPED_TEST_SUITE(TestMapArrayLookupBinaryKeys, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestMapLookupBinaryKeys, BaseBinaryArrowTypes);
 
-TYPED_TEST(TestMapArrayLookupBinaryKeys, IntegralItems) {
+TYPED_TEST(TestMapLookupBinaryKeys, IntegralItems) {
   auto key_type = this->type_singleton();
   auto sheesh_scalar = ScalarFromJSON(key_type, R"("sheesh")");
   auto map_type = map(key_type, int32());
@@ -688,8 +686,8 @@ TYPED_TEST(TestMapArrayLookupBinaryKeys, IntegralItems) {
   auto expected_first = ArrayFromJSON(int32(), "[99, null, 67, null, null, null]");
   auto expected_last = ArrayFromJSON(int32(), "[8, null, 80, null, null, null]");
 
-  CheckMapArrayLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
-                                          expected_first, expected_last);
+  CheckMapLookupWithDifferentOptions(map_array_tweaked, sheesh_scalar, expected_all,
+                                     expected_first, expected_last);
 }
 
 struct {

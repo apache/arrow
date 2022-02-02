@@ -255,19 +255,19 @@ struct EnumTraits<compute::RandomOptions::Initializer>
 };
 
 template <>
-struct EnumTraits<compute::MapArrayLookupOptions::Occurrence>
-    : BasicEnumTraits<compute::MapArrayLookupOptions::Occurrence,
-                      compute::MapArrayLookupOptions::Occurrence::FIRST,
-                      compute::MapArrayLookupOptions::Occurrence::LAST,
-                      compute::MapArrayLookupOptions::Occurrence::ALL> {
-  static std::string name() { return "MapArrayLookupOptions::Occurrence"; }
-  static std::string value_name(compute::MapArrayLookupOptions::Occurrence value) {
+struct EnumTraits<compute::MapLookupOptions::Occurrence>
+    : BasicEnumTraits<compute::MapLookupOptions::Occurrence,
+                      compute::MapLookupOptions::Occurrence::FIRST,
+                      compute::MapLookupOptions::Occurrence::LAST,
+                      compute::MapLookupOptions::Occurrence::ALL> {
+  static std::string name() { return "MapLookupOptions::Occurrence"; }
+  static std::string value_name(compute::MapLookupOptions::Occurrence value) {
     switch (value) {
-      case compute::MapArrayLookupOptions::Occurrence::FIRST:
+      case compute::MapLookupOptions::Occurrence::FIRST:
         return "FIRST";
-      case compute::MapArrayLookupOptions::Occurrence::LAST:
+      case compute::MapLookupOptions::Occurrence::LAST:
         return "LAST";
-      case compute::MapArrayLookupOptions::Occurrence::ALL:
+      case compute::MapLookupOptions::Occurrence::ALL:
         return "ALL";
     }
     return "<INVALID>";
@@ -307,9 +307,9 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
     DataMember("field_names", &MakeStructOptions::field_names),
     DataMember("field_nullability", &MakeStructOptions::field_nullability),
     DataMember("field_metadata", &MakeStructOptions::field_metadata));
-static auto kMapArrayLookupOptionsType = GetFunctionOptionsType<MapArrayLookupOptions>(
-    DataMember("occurrence", &MapArrayLookupOptions::occurrence),
-    DataMember("query_key", &MapArrayLookupOptions::query_key));
+static auto kMapLookupOptionsType = GetFunctionOptionsType<MapLookupOptions>(
+    DataMember("occurrence", &MapLookupOptions::occurrence),
+    DataMember("query_key", &MapLookupOptions::query_key));
 static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOptions>(
     DataMember("pattern", &MatchSubstringOptions::pattern),
     DataMember("ignore_case", &MatchSubstringOptions::ignore_case));
@@ -423,14 +423,14 @@ MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
 MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
 constexpr char MakeStructOptions::kTypeName[];
 
-MapArrayLookupOptions::MapArrayLookupOptions(std::shared_ptr<Scalar> query_key,
-                                             Occurrence occurrence)
-    : FunctionOptions(internal::kMapArrayLookupOptionsType),
+MapLookupOptions::MapLookupOptions(std::shared_ptr<Scalar> query_key,
+                                   Occurrence occurrence)
+    : FunctionOptions(internal::kMapLookupOptionsType),
       query_key(std::move(query_key)),
       occurrence(occurrence) {}
-MapArrayLookupOptions::MapArrayLookupOptions()
-    : MapArrayLookupOptions(std::make_shared<NullScalar>(), Occurrence::FIRST) {}
-constexpr char MapArrayLookupOptions::kTypeName[];
+MapLookupOptions::MapLookupOptions()
+    : MapLookupOptions(std::make_shared<NullScalar>(), Occurrence::FIRST) {}
+constexpr char MapLookupOptions::kTypeName[];
 
 MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
     : FunctionOptions(internal::kMatchSubstringOptionsType),
@@ -587,7 +587,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
-  DCHECK_OK(registry->AddFunctionOptionsType(kMapArrayLookupOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMapLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
@@ -821,9 +821,8 @@ Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
 
 // ----------------------------------------------------------------------
 // Structural transforms
-Result<Datum> MapArrayLookup(const Datum& arg, MapArrayLookupOptions options,
-                             ExecContext* ctx) {
-  return CallFunction("map_array_lookup", {arg}, &options, ctx);
+Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext* ctx) {
+  return CallFunction("map_lookup", {arg}, &options, ctx);
 }
 
 // ----------------------------------------------------------------------
