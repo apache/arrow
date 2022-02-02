@@ -377,7 +377,7 @@ install_go() {
 
 mamba() {
   # Helper to access mamba directly instead after activating base conda environment
-  $ARROW_TMPDIR/verification-conda/bin/mamba "$@"
+  $ARROW_TMPDIR/mambaforge/bin/mamba "$@"
 }
 
 install_conda() {
@@ -389,7 +389,7 @@ install_conda() {
   local arch=$(uname -m)
   local platform=$(uname)
   local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
-  local prefix=$ARROW_TMPDIR/verification-conda
+  local prefix=$ARROW_TMPDIR/mambaforge
 
   # Setup miniconda only if the directory doesn't exist yet
   if [ ! -d "${prefix}" ]; then
@@ -405,7 +405,6 @@ install_conda() {
   . $prefix/etc/profile.d/conda.sh
   conda activate base
 
-  echo "Created conda environment ${CONDA_PREFIX}"
   CONDA_ALREADY_INSTALLED=1
 }
 
@@ -422,6 +421,7 @@ setup_conda() {
     # Create environment
     if ! conda env list | grep $env; then
       mamba create -y -n $env python=${pyver}
+      echo "Created conda environment ${CONDA_PREFIX}"
     fi
     conda activate $env
     # Install dependencies
@@ -487,12 +487,14 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    mamba remove -y gtest
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
 
-  mkdir -p cpp/build
-  pushd cpp/build
+  rm -rf cpp/verification-build
+  mkdir -p cpp/verification-build
+  pushd cpp/verification-build
 
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
@@ -520,6 +522,7 @@ test_and_install_cpp() {
     -DCMAKE_BUILD_TYPE=release \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+    -DGTest_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ..
@@ -858,12 +861,6 @@ test_linux_wheels() {
       pip install --force-reinstall --platform ${platform} --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
-
-    if [ "${USE_CONDA}" -gt 0 ]; then
-      conda deactivate
-    else
-      deactivate
-    fi
   done
 }
 
