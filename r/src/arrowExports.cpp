@@ -658,6 +658,21 @@ extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
 }
 #endif
 
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots);
+extern "C" SEXP _arrow_arrow__Concatenate(SEXP dots_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type dots(dots_sexp);
+	return cpp11::as_sexp(arrow__Concatenate(dots));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_arrow__Concatenate(SEXP dots_sexp){
+	Rf_error("Cannot call arrow__Concatenate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // array_to_vector.cpp
 #if defined(ARROW_R_WITH_ARROW)
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
@@ -7576,11 +7591,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7623,6 +7638,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_MapArray__items_nested", (DL_FUNC) &_arrow_MapArray__items_nested, 1}, 
 		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__ReferencedBufferSize", (DL_FUNC) &_arrow_Array__ReferencedBufferSize, 1}, 
+		{ "_arrow_arrow__Concatenate", (DL_FUNC) &_arrow_arrow__Concatenate, 1}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 

@@ -38,6 +38,8 @@
 \alias{large_list_of}
 \alias{FixedSizeListType}
 \alias{fixed_size_list_of}
+\alias{MapType}
+\alias{map_of}
 \title{Apache Arrow data types}
 \usage{
 int8()
@@ -109,6 +111,8 @@ list_of(type)
 large_list_of(type)
 
 fixed_size_list_of(type, list_size)
+
+map_of(key_type, item_type, .keys_sorted = FALSE)
 }
 \arguments{
 \item{byte_width}{byte width for \code{FixedSizeBinary} type.}

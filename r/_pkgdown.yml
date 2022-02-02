@@ -135,6 +135,7 @@ reference:
       - ArrayData
       - buffer
       - read_message
+      - concat_arrays
   - title: Arrow data types and schema
     contents:
       - Schema

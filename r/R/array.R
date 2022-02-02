@@ -216,6 +216,41 @@ Array$create <- function(x, type = NULL) {
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
 
+
+#' Concatenate zero or more Arrays
+#'
+#' @param ... zero or more [Array] objects to concatenate
+#' @param type An optional `type` describing the desired
+#'   type for the final Array.
+#'
+#' @return An [Array]
+#' @export
+#'
+#' @examples
+#' concat_arrays(Array$create(1:3), Array$create(4:5))
+#'
+concat_arrays <- function(..., type = NULL) {
+  dots <- lapply(list2(...), Array$create, type = type)
+
+  if (length(dots) == 0 && is.null(type)) {
+    return(Array$create(logical(), type = null()))
+  } else if (length(dots) == 0) {
+    return(Array$create(logical(), type = null())$cast(type))
+  }
+
+  if (!is.null(type)) {
+    dots <- lapply(dots, function(array) array$cast(type))
+  }
+
+  arrow__Concatenate(dots)
+}
+
+#' @rdname concat_arrays
+#' @export
+c.Array <- function(...) {
+  concat_arrays(...)
+}
+
 #' @rdname array
 #' @usage NULL
 #' @format NULL
