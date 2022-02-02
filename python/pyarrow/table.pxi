@@ -1834,7 +1834,7 @@ cdef class Table(_PandasConvertible):
 
         # In case of an empty dataframe with RangeIndex -> create an empty Table with
         # number of rows equal to Index length
-        if arrays == [] and schema is not None:
+        if len(arrays) == 0 and schema is not None:
             try:
                 kind = schema.pandas_metadata["index_columns"][0]["kind"]
                 if kind =="range":
