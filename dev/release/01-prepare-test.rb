@@ -194,7 +194,7 @@ class PrepareTest < Test::Unit::TestCase
         path: "docs/source/_static/versions.json",
         hunks: [
           [ "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
-            "+        \"name\": \"#{@next_compatible_version} (dev)\",",
+            
             "+        \"version\": \"dev\"",
             "+    },",
             "+    {",
