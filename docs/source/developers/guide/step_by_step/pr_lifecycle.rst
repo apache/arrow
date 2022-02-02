@@ -209,7 +209,7 @@ When a pull request is open in the repository you and other developers
 can comment on the proposed solution.
 
 To create a general comment navigate to the **Conversation** tab of
-you pull request and start writing in the comment box at the bottom of
+your pull request and start writing in the comment box at the bottom of
 the page.
 
 You can also comment on a section of the file to point out something
