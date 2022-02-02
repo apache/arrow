@@ -4082,7 +4082,7 @@ def test_array_to_pandas():
         # tm.assert_series_equal(result, expected)
 
 
-def test_to_pandas_types_mapper():
+def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     if Version(pd.__version__) < Version("1.0.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
