@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
   arrow::Result<std::string> maybe_plan_json =
       eng::internal::SubstraitToJSON("Plan", *serialized_plan);
   ABORT_ON_FAILURE(maybe_plan_json.status());
-  std::cout << std::string('#', 50) << " received substrait::Plan:" << std::endl;
+  std::cout << std::string(50, '#') << " received substrait::Plan:" << std::endl;
   std::cout << maybe_plan_json.ValueOrDie() << std::endl;
 
   // The data sink(s) for plans is/are implicit in substrait plans, but explicit in
@@ -175,11 +175,11 @@ int main(int argc, char** argv) {
 
   // Validate the plan and print it to stdout
   ABORT_ON_FAILURE(plan->Validate());
-  std::cout << std::string('#', 50) << " produced arrow::ExecPlan:" << std::endl;
+  std::cout << std::string(50, '#') << " produced arrow::ExecPlan:" << std::endl;
   std::cout << plan->ToString() << std::endl;
 
   // Start the plan...
-  std::cout << std::string('#', 50) << " consuming batches:" << std::endl;
+  std::cout << std::string(50, '#') << " consuming batches:" << std::endl;
   ABORT_ON_FAILURE(plan->StartProducing());
 
   // ... and wait for it to finish
