@@ -156,9 +156,14 @@ update_versions() {
   git add .
   popd
 
-  pushd "${ARROW_DIR}"
-  python "./ci/scripts/util_update_docs_versions.py" . "${version}" "${r_version}"
-  git add r/pkgdown/assets/versions.json
-  git add docs/source/_static/versions.json
-  popd
+  case ${type} in
+    release)
+      pushd "${ARROW_DIR}"
+      python "./ci/scripts/util_update_docs_versions.py" . "${version}" "${r_version}"
+      git add r/pkgdown/assets/versions.json
+      git add docs/source/_static/versions.json
+      popd
+      ;;
+  esac
+
 }
