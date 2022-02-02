@@ -1025,7 +1025,7 @@ struct GroupedSumNullImpl final : public GroupedNullImpl {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   void output_empty(const std::shared_ptr<Buffer>& data) override {
-    std::memset(data->mutable_data(), 0, num_groups_ * sizeof(int64_t));
+    std::fill_n(reinterpret_cast<int64_t*>(data->mutable_data()), num_groups_, 0);
   }
 };
 
@@ -1157,7 +1157,7 @@ struct GroupedMeanNullImpl final : public GroupedNullImpl {
   std::shared_ptr<DataType> out_type() const override { return float64(); }
 
   void output_empty(const std::shared_ptr<Buffer>& data) override {
-    std::memset(data->mutable_data(), 0, num_groups_ * sizeof(double));
+    std::fill_n(reinterpret_cast<double*>(data->mutable_data()), num_groups_, 0);
   }
 };
 
