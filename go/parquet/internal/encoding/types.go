@@ -20,10 +20,10 @@ import (
 	"io"
 	"sync"
 
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 

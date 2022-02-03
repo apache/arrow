@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 )
 
 const defaultBatchSize = 128

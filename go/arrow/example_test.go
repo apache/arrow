@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/arrow/tensor"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.

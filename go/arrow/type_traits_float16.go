@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow/float16"
-	"github.com/apache/arrow/go/v7/arrow/endian"
+	"github.com/apache/arrow/go/v8/arrow/float16"
+	"github.com/apache/arrow/go/v8/arrow/endian"
 )
 
 // Float16 traits

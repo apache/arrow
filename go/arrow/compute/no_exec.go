@@ -25,8 +25,8 @@ package compute
 import (
 	"context"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 )
 
 // dummy function which always returns false when not loading the C++ lib

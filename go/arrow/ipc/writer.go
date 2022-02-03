@@ -24,11 +24,11 @@ import (
 	"math"
 	"sync"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/arrow/go/v7
+module github.com/apache/arrow/go/v8
 
 go 1.15
 
