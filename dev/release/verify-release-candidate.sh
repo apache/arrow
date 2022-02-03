@@ -423,6 +423,7 @@ setup_conda() {
       mamba create -y -n $env python=${pyver}
       echo "Created conda environment ${CONDA_PREFIX}"
     fi
+    # Activate the environment
     conda activate $env
     # Install dependencies
     if [ $# -gt 0 ]; then
@@ -454,8 +455,9 @@ setup_virtualenv() {
     if [ ! -d "${virtualenv}" ]; then
       $python -m pip install virtualenv
       $python -m virtualenv ${virtualenv}
-      source "${virtualenv}/bin/activate"
     fi
+    # Activate the environment
+    source "${virtualenv}/bin/activate"
     # Install dependencies
     if [ $# -gt 0 ]; then
       pip install $@
