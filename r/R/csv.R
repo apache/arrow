@@ -699,15 +699,21 @@ write_csv_arrow <- function(x,
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
       include_header = include_header,
-      batch_size = batch_size)
+      batch_size = batch_size
+    )
   }
 
   x_out <- x
+
+  if (inherits(x, "arrow_dplyr_query")) {
+    x <- as.data.frame(x)
+  }
+
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x) || inherits(x, "FileSystemDataset"))
+  assert_that(is_writable_table(x) || inherits(x, "Dataset"))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -718,7 +724,7 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
-  } else if (inherits(x, "FileSystemDataset")) {
+  } else if (inherits(x, "Dataset")) {
     rb_reader <- Scanner$create(x)$ToRecordBatchReader()
     csv___WriteCSV__RecordBatchReader(rb_reader, write_options, sink)
   }
