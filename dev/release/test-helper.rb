@@ -100,13 +100,16 @@ module VersionDetectable
     @snapshot_version = cpp_cmake_lists.read[/ARROW_VERSION "(.+?)"/, 1]
     @snapshot_major_version = @snapshot_version.split(".")[0]
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
+    @release_compatible_version = @release_version.split(".")[0, 2].join(".")
     @so_version = compute_so_version(@release_version)
     @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
     @next_major_version = @next_version.split(".")[0]
+    @next_compatible_version = @next_version.split(".")[0, 2].join(".")
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
     @previous_version = r_description.read[/^Version: (.+?)\.9000$/, 1]
+    @previous_compatible_version = @previous_version.split(".")[0, 2].join(".")
   end
 
   def compute_so_version(version)
