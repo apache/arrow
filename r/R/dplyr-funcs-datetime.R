@@ -51,34 +51,6 @@ register_bindings_datetime <- function() {
     Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
   })
 
-  binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
-    if (usetz) {
-      format <- paste(format, "%Z")
-    }
-
-    if (call_binding("is.POSIXct", x)) {
-      if (tz == "" && x$type()$timezone() != "") {
-        tz <- x$type()$timezone()
-      } else if (tz == "") {
-        tz <- Sys.timezone()
-      }
-      ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
-    } else {
-      ts <- x
-    }
-    Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
-  }
-
-  register_binding("format", function(x, ...) {
-    if (inherits(x, "Expression") &&
-        any(inherits(x$type(), "Timestamp"), inherits(x$type(), "Date32"))) {
-      binding_format_datetime(x, ...)
-    } else {
-      # other types
-      "WIP"
-    }
-  })
-
   register_binding("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
     ISO8601_precision_map <-
       list(

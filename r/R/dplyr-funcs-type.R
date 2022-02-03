@@ -20,6 +20,7 @@ register_bindings_type <- function() {
   register_bindings_type_cast()
   register_bindings_type_inspect()
   register_bindings_type_elementwise()
+  register_bindings_type_format()
 }
 
 register_bindings_type_cast <- function() {
@@ -291,4 +292,36 @@ register_bindings_type_elementwise <- function() {
     # for compatibility with base::is.infinite(), return FALSE for NA_real_
     is_inf & !call_binding("is.na", is_inf)
   })
+}
+
+register_bindings_type_format <- function() {
+  register_binding("format", function(x, ...) {
+    if (inherits(x, "Expression") &&
+        x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
+      binding_format_datetime(x, ...)
+    } else {
+      # other types
+      "WIP"
+    }
+  })
+}
+
+binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
+  base_format_args <- formals(format.POSIXct)[-5]
+
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+
+  if (call_binding("is.POSIXct", x)) {
+    if (tz == "" && x$type()$timezone() != "") {
+      tz <- x$type()$timezone()
+    } else if (tz == "") {
+      tz <- Sys.timezone()
+    }
+    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
+  } else {
+    ts <- x
+  }
+  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
