@@ -40,7 +40,7 @@ old_versions[0]["version"] = old_versions[0]["name"] + '/'
 
 # Create row for new version
 new_version = [
-    {'name': dev_version + " (dev)", 'version': 'dev'},
+    {'name': dev_version + " (dev)", 'version': 'dev/'},
     {'name': major_minor + " (stable)", 'version': ''}
 ]
 
