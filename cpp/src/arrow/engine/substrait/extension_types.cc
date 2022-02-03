@@ -17,11 +17,7 @@
 
 #include "arrow/engine/substrait/extension_types.h"
 
-#include <unordered_map>
-#include <unordered_set>
-
 #include "arrow/engine/simple_extension_type_internal.h"
-#include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/string_view.h"
 
