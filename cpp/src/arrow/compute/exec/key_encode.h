@@ -94,6 +94,7 @@ class KeyEncoder {
 
     /// Order in which fields are encoded.
     std::vector<uint32_t> column_order;
+    std::vector<uint32_t> inverse_column_order;
 
     /// Offsets within a row to fields in their encoding order.
     std::vector<uint32_t> column_offsets;
@@ -152,6 +153,10 @@ class KeyEncoder {
     }
 
     uint32_t encoded_field_order(uint32_t icol) const { return column_order[icol]; }
+
+    uint32_t pos_after_encoding(uint32_t icol) const {
+      return inverse_column_order[icol];
+    }
 
     uint32_t encoded_field_offset(uint32_t icol) const { return column_offsets[icol]; }
 
@@ -239,11 +244,14 @@ class KeyEncoder {
   /// length buffers sizes.
   void DecodeFixedLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                 int64_t num_rows, const KeyRowArray& rows,
-                                std::vector<KeyColumnArray>* cols);
+                                std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+                                util::TempVectorStack* temp_stack);
 
   void DecodeVaryingLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                   int64_t num_rows, const KeyRowArray& rows,
-                                  std::vector<KeyColumnArray>* cols);
+                                  std::vector<KeyColumnArray>* cols,
+                                  int64_t hardware_flags,
+                                  util::TempVectorStack* temp_stack);
 
   const std::vector<KeyColumnArray>& GetBatchColumns() const { return batch_all_cols_; }
 
@@ -413,8 +421,6 @@ class KeyEncoder {
                        std::vector<KeyColumnArray>* cols);
   };
 
-  KeyEncoderContext* ctx_;
-
   // Data initialized once, based on data types of key columns
   KeyRowMetadata row_metadata_;
 
@@ -495,6 +501,17 @@ inline void KeyEncoder::EncoderVarBinary::DecodeHelper(
     copy_fn(dst, src, length);
   }
 }
+
+KeyEncoder::KeyColumnMetadata ColumnMetadataFromDataType(
+    const std::shared_ptr<DataType>& type);
+KeyEncoder::KeyColumnArray ColumnArrayFromArrayData(
+    const std::shared_ptr<ArrayData>& array_data, int start_row, int num_rows);
+void ColumnMetadatasFromExecBatch(
+    const ExecBatch& batch, std::vector<KeyEncoder::KeyColumnMetadata>& column_metadatas);
+void ColumnArraysFromExecBatch(const ExecBatch& batch, int start_row, int num_rows,
+                               std::vector<KeyEncoder::KeyColumnArray>& column_arrays);
+void ColumnArraysFromExecBatch(const ExecBatch& batch,
+                               std::vector<KeyEncoder::KeyColumnArray>& column_arrays);
 
 }  // namespace compute
 }  // namespace arrow

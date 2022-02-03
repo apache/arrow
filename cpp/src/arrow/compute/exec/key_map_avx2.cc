@@ -24,21 +24,15 @@ namespace compute {
 
 #if defined(ARROW_HAVE_AVX2)
 
-// Why it is OK to round up number of rows internally:
-// All of the buffers: hashes, out_match_bitvector, out_group_ids, out_next_slot_ids
-// are temporary buffers of group id mapping.
-// Temporary buffers are buffers that live only within the boundaries of a single
-// minibatch. Temporary buffers add 64B at the end, so that SIMD code does not have to
-// worry about reading and writing outside of the end of the buffer up to 64B. If the
-// hashes array contains garbage after the last element, it cannot cause computation to
-// fail, since any random data is a valid hash for the purpose of lookup.
+// This is more or less translation of equivalent scalar code, adjusted for a
+// different instruction set (e.g. missing leading zero count instruction).
 //
-// This is more or less translation of equivalent scalar code, adjusted for a different
-// instruction set (e.g. missing leading zero count instruction).
+// Returns the number of hashes actually processed, which may be less than
+// requested due to alignment required by SIMD.
 //
-void SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
-                                          uint8_t* out_match_bitvector,
-                                          uint8_t* out_local_slots) const {
+int SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
+                                         uint8_t* out_match_bitvector,
+                                         uint8_t* out_local_slots) const {
   // Number of inputs processed together in a loop
   constexpr int unroll = 8;
 
@@ -46,8 +40,7 @@ void SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* 
   const __m256i* vhash_ptr = reinterpret_cast<const __m256i*>(hashes);
   const __m256i vstamp_mask = _mm256_set1_epi32((1 << bits_stamp_) - 1);
 
-  // TODO: explain why it is ok to process hashes outside of buffer boundaries
-  for (int i = 0; i < ((num_hashes + unroll - 1) / unroll); ++i) {
+  for (int i = 0; i < num_hashes / unroll; ++i) {
     constexpr uint64_t kEachByteIs8 = 0x0808080808080808ULL;
     constexpr uint64_t kByteSequenceOfPowersOf2 = 0x8040201008040201ULL;
 
@@ -139,6 +132,8 @@ void SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* 
     out_match_bitvector[i] = _pext_u32(_mm256_movemask_epi8(vmatch_found),
                                        0x11111111);  // 0b00010001 repeated 4x
   }
+
+  return num_hashes - (num_hashes % unroll);
 }
 
 // Take a set of 16 64-bit elements,
@@ -173,8 +168,8 @@ inline void split_bytes_avx2(__m256i word0, __m256i word1, __m256i word2, __m256
                                                   // k4, o4, l4, p4, ... k7, o7, l7, p7}
 
   __m256i byte01 = _mm256_unpacklo_epi32(
-      a, b);  // {a0, e0, b0, f0, i0, m0, j0, n0, a1, e1, b1, f1, i1, m1, j1, n1, c0, g0,
-              // d0, h0, k0, o0, l0, p0, ...}
+      a, b);  // {a0, e0, b0, f0, i0, m0, j0, n0, a1, e1, b1, f1, i1, m1, j1, n1,
+              // c0, g0, d0, h0, k0, o0, l0, p0, ...}
   __m256i shuffle_const =
       _mm256_setr_epi8(0, 2, 8, 10, 1, 3, 9, 11, 4, 6, 12, 14, 5, 7, 13, 15, 0, 2, 8, 10,
                        1, 3, 9, 11, 4, 6, 12, 14, 5, 7, 13, 15);
@@ -206,9 +201,13 @@ inline void split_bytes_avx2(__m256i word0, __m256i word1, __m256i word2, __m256
 // using a different method.
 // TODO: Explain the idea behind storing arrays in SIMD registers.
 // Explain why it is faster with SIMD than using memory loads.
-void SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* hashes,
-                                           uint8_t* out_match_bitvector,
-                                           uint8_t* out_local_slots) const {
+//
+// Returns the number of hashes actually processed, which may be less than
+// requested due to alignment required by SIMD.
+//
+int SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* hashes,
+                                          uint8_t* out_match_bitvector,
+                                          uint8_t* out_local_slots) const {
   constexpr int unroll = 32;
 
   // There is a limit on the number of input blocks,
@@ -366,12 +365,14 @@ void SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t*
     reinterpret_cast<uint32_t*>(out_match_bitvector)[i] =
         _mm256_movemask_epi8(vmatch_found);
   }
+
+  return num_hashes - (num_hashes % unroll);
 }
 
-void SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
-                                        const uint8_t* local_slots,
-                                        uint32_t* out_group_ids, int byte_offset,
-                                        int byte_multiplier, int byte_size) const {
+int SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
+                                       const uint8_t* local_slots,
+                                       uint32_t* out_group_ids, int byte_offset,
+                                       int byte_multiplier, int byte_size) const {
   ARROW_DCHECK(byte_size == 1 || byte_size == 2 || byte_size == 4);
   uint32_t mask = byte_size == 1 ? 0xFF : byte_size == 2 ? 0xFFFF : 0xFFFFFFFF;
   auto elements = reinterpret_cast<const int*>(blocks_ + byte_offset);
@@ -380,7 +381,7 @@ void SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hash
     ARROW_DCHECK(byte_size == 1 && byte_offset == 8 && byte_multiplier == 16);
     __m256i block_group_ids =
         _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(blocks_)[1]);
-    for (int i = 0; i < (num_keys + unroll - 1) / unroll; ++i) {
+    for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
       __m256i group_id = _mm256_shuffle_epi8(block_group_ids, local_slot);
@@ -390,7 +391,7 @@ void SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hash
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }
   } else {
-    for (int i = 0; i < (num_keys + unroll - 1) / unroll; ++i) {
+    for (int i = 0; i < num_keys / unroll; ++i) {
       __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
       __m256i local_slot =
           _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
@@ -406,6 +407,7 @@ void SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hash
       _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
     }
   }
+  return num_keys - (num_keys % unroll);
 }
 
 #endif
