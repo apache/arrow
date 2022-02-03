@@ -159,7 +159,7 @@ update_versions() {
   case ${type} in
     release)
       pushd "${ARROW_DIR}"
-      ${PYTHON:-python3} "./dev/release/util_update_docs_versions.py" . "${version}" "${r_version}"
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
       git add r/pkgdown/assets/versions.json
       git add docs/source/_static/versions.json
       popd
