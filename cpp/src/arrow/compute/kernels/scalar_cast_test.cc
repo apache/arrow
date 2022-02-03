@@ -2225,16 +2225,16 @@ static void CheckStructToStruct(
       std::shared_ptr<Array> a1, b1, a2, b2;
       a1 = ArrayFromJSON(src_value_type, "[1, 2]");
       a2 = ArrayFromJSON(dest_value_type, "[1, 2]");
-      auto src = StructArray::Make({a1}, field_names).ValueOrDie();
-      auto dest = StructArray::Make({a2}, field_names).ValueOrDie();
+      ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a1}, field_names));
+      ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2}, field_names));
 
       CheckCast(src, dest);
 
       // Test corner case using children with offsets
-      auto a3 = ArrayFromJSON(src_value_type, "[1, 2, 3]")->Slice(1, 2);
-      auto a4 = ArrayFromJSON(dest_value_type, "[2, 3]");
-      auto slicedSrc = StructArray::Make({a3}, field_names).ValueOrDie();
-      auto slicedDest = StructArray::Make({a4}, field_names).ValueOrDie();
+      auto a3 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, 5]")->Slice(1, 4);
+      auto a4 = ArrayFromJSON(dest_value_type, "[2, 3, 4, 5]");
+      ASSERT_OK_AND_ASSIGN(auto slicedSrc, StructArray::Make({a3}, field_names));
+      ASSERT_OK_AND_ASSIGN(auto slicedDest, StructArray::Make({a4}, field_names));
 
       CheckCast(slicedSrc, slicedDest);
     }
@@ -2250,17 +2250,18 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   std::shared_ptr<Array> a, b;
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
-  auto src = StructArray::Make({a, b}, field_names).ValueOrDie();
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
   std::vector<std::string> field_names2 = {"c", "d"};
   std::shared_ptr<Array> c, d;
   c = ArrayFromJSON(int8(), "[1, 2]");
   d = ArrayFromJSON(int8(), "[3, 4]");
-  auto dest = StructArray::Make({c, d}, field_names2).ValueOrDie();
-  auto options = CastOptions{};
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({c, d}, field_names2));
+  auto options = CastOptions::Safe(dest->type());
   options.to_type = dest->type();
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError, "Type error: struct field names do not match",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+				  ::testing::HasSubstr("Type error: struct field names do not match"),
                              Cast(src, options));
 }
 
@@ -2269,18 +2270,18 @@ TEST(Cast, StructToDifferentSizeStruct) {
   std::shared_ptr<Array> a, b;
   a = ArrayFromJSON(int8(), "[1, 2]");
   b = ArrayFromJSON(int8(), "[3, 4]");
-  auto src = StructArray::Make({a, b}, field_names).ValueOrDie();
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
   std::vector<std::string> field_names2 = {"a", "b", "c"};
   std::shared_ptr<Array> a2, b2, c;
   a2 = ArrayFromJSON(int8(), "[1, 2]");
   b2 = ArrayFromJSON(int8(), "[3, 4]");
   c = ArrayFromJSON(int8(), "[5, 6]");
-  auto dest = StructArray::Make({a2, b2, c}, field_names2).ValueOrDie();
+  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2, c}, field_names2));
   auto options = CastOptions{};
   options.to_type = dest->type();
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError, "Type error: struct field sizes do not match",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("Type error: struct field sizes do not match"),
                              Cast(src, options));
 }
 
