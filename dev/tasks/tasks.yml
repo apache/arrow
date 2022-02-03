@@ -504,60 +504,60 @@ tasks:
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib800_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-python-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python-flight700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python-flight700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-python700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-python700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python-flight800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-python-flight800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-python800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-python800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow800_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva800_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet800_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-plasma-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda800_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libplasma-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma-glib700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma-glib700_{no_rc_version}-1_[a-z0-9]+.deb
-      - libplasma700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libplasma700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma-glib800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma-glib800_{no_rc_version}-1_[a-z0-9]+.deb
+      - libplasma800-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libplasma800_{no_rc_version}-1_[a-z0-9]+.deb
       - plasma-store-server-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
       - plasma-store-server_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
