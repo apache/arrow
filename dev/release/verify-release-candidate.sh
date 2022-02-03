@@ -487,6 +487,7 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
+    # TODO(kszucs): remove
     mamba remove -y gtest
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
@@ -602,7 +603,7 @@ import pyarrow.plasma
   pip install -r requirements-test.txt
 
   # Execute pyarrow unittests
-  pytest pyarrow -v --pdb
+  pytest pyarrow -v
 
   popd
 }
@@ -767,16 +768,17 @@ ensure_source_directory() {
       fi
       tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
     fi
-    # Clone testing repositories
-    pushd $ARROW_SOURCE_DIR
-    if [ ! -d "testing/data" ]; then
-      git clone https://github.com/apache/arrow-testing.git testing
-    fi
-    if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
-      git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
-    fi
-    popd
   fi
+
+  # Ensure that the testing repositories are cloned
+  pushd $ARROW_SOURCE_DIR
+  if [ ! -d "testing/data" ]; then
+    git clone https://github.com/apache/arrow-testing.git testing
+  fi
+  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
+    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+  fi
+  popd
 
   export ARROW_TEST_DATA=$PWD/testing/data
   export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data

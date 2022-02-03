@@ -65,5 +65,4 @@ jobs:
         {% endif %}
         run: |
           arrow/dev/release/verify-release-candidate.sh \
-            {{ artifact }} \
-            {{ release|default("") }} {{ rc|default("") }}
+            {{ artifact }} {{ release|default("") }} {{ rc|default("") }}

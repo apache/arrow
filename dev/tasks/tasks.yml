@@ -949,6 +949,7 @@ tasks:
         ARROW_GANDIVA: 0
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
+      target: {{ target }}
       artifact: "source"
       github_runner: "self-hosted"
   {% endfor %}

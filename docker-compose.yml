@@ -1725,7 +1725,7 @@ services:
       CMAKE_GENERATOR: Ninja
     command: >
       /bin/bash -c "
-        apt update -y && apt install -y curl git tzdata &&
+        apt update -y && apt install -y curl git tzdata wget &&
         /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc-source:
