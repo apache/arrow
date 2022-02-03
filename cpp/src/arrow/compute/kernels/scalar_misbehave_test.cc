@@ -64,8 +64,8 @@ TEST(Misbehave, MisbehavingScalarKernel) {
   Datum datum(ArrayFromJSON(fixed_size_binary(6), R"(["123456"])"));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(ExecutionError,
-                                  testing::HasSubstr("ExecutionError in Gandiva: "
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid: "
                                                      "Unauthorized memory allocations "
                                                      "in function kernel"),
                                   func->Execute(args, options, &ctx));

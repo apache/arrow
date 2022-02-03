@@ -796,7 +796,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // (instead of using the preallocated ones)
       bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
       if (insertion_occured) {
-        return Status::ExecutionError(
+        return Status::Invalid(
             "Unauthorized memory allocations "
             "in function kernel");
       }
@@ -990,7 +990,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
       // (instead of using the preallocated ones)
       bool insertion_occured = AddBuffersToSet(out, &pre_buffers);
       if (insertion_occured) {
-        return Status::ExecutionError(
+        return Status::Invalid(
             "Unauthorized memory allocations "
             "in function kernel");
       }

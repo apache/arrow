@@ -31,6 +31,7 @@ struct VectorMisbehaveExec {
     // allocate new buffers even though we've promised not to
     ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->AllocateBitmap(8));
     ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+    printf("boom\n");
     return Status::OK();
   }
 };
@@ -67,8 +68,8 @@ TEST(Misbehave, MisbehavingVectorKernel) {
   Datum datum(ChunkedArray(ArrayVector{}, int32()));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(ExecutionError,
-                                  testing::HasSubstr("ExecutionError in Gandiva: "
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid: "
                                                      "Unauthorized memory allocations "
                                                      "in function kernel"),
                                   func->Execute(args, options, &ctx));
