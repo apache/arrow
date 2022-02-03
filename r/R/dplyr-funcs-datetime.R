@@ -57,7 +57,7 @@ register_bindings_datetime <- function() {
     }
 
     if (call_binding("is.POSIXct", x)) {
-      if(tz == "" && x$type()$timezone() != "") {
+      if (tz == "" && x$type()$timezone() != "") {
         tz <- x$type()$timezone()
       } else if (tz == "") {
         tz <- Sys.timezone()
