@@ -116,7 +116,7 @@ bool AddBuffersToSet(const ArrayData& array_data,
                      std::unordered_set<Buffer*>* seen_buffers) {
   bool insertion_occured = false;
   for (const auto& buffer : array_data.buffers) {
-    insertion_occured = (buffer && seen_buffers->insert(buffer.get()).second);
+    insertion_occured |= (buffer && seen_buffers->insert(buffer.get()).second);
   }
   for (const auto& child : array_data.child_data) {
     insertion_occured |= AddBuffersToSet(*child, seen_buffers);
