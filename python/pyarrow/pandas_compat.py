@@ -822,8 +822,12 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
 
     # infer the extension columns from the pandas metadata
     for col_meta in columns_metadata:
-        name = col_meta['name']
+        try:
+            name = col_meta['field_name']
+        except KeyError:
+            name = col_meta['name']
         dtype = col_meta['numpy_type']
+
         if dtype not in _pandas_supported_numpy_types:
             # pandas_dtype is expensive, so avoid doing this for types
             # that are certainly numpy dtypes
