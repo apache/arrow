@@ -33,20 +33,17 @@ with open(main_versions_path) as json_file:
 split_version = version.split(".")
 major_minor = split_version[0] + "." + split_version[1]
 dev_version = str(int(split_version[0]) + 1) + ".0"
+previous_major_minor = old_versions[1]["name"].split(" ")[0]
 
-# Update the old stable version to a numbered version
-old_versions[0]["name"] = old_versions[0]["name"].split(" ")[0]
-old_versions[0]["version"] = old_versions[0]["name"] + '/'
-
-# Create row for new version
-new_version = [
+# Create new versions
+new_versions = [
     {'name': dev_version + " (dev)", 'version': 'dev/'},
-    {'name': major_minor + " (stable)", 'version': ''}
+    {'name': major_minor + " (stable)", 'version': ''},
+    {'name': previous_major_minor, 'version': f'{previous_major_minor}/'},
+    *old_versions[2:],
 ]
-
-new_version.extend(old_versions)
 with open(main_versions_path, 'w') as json_file:
-    json.dump(new_version, json_file, indent=4)
+    json.dump(new_versions, json_file, indent=4)
     json_file.write("\n")
 
 # Update R package version script
