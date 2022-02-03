@@ -2260,9 +2260,11 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   auto options = CastOptions::Safe(dest->type());
   options.to_type = dest->type();
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
-				  ::testing::HasSubstr("Type error: struct field names do not match: struct<a: int8, b: int8> struct<c: int8, d: int8>"),
-                             Cast(src, options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field names do not match: struct<a: int8, "
+                           "b: int8> struct<c: int8, d: int8>"),
+      Cast(src, options));
 }
 
 TEST(Cast, StructToDifferentSizeStruct) {
@@ -2281,8 +2283,10 @@ TEST(Cast, StructToDifferentSizeStruct) {
   auto options = CastOptions{};
   options.to_type = dest->type();
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr("Type error: struct field sizes do not match: 2 and 3"),
-                             Cast(src, options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field sizes do not match: 2 and 3"),
+      Cast(src, options));
 }
 
 TEST(Cast, IdentityCasts) {
