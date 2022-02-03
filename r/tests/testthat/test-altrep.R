@@ -334,7 +334,7 @@ test_that("ChunkedArray$create(...) keeps Array even when from altrep vectors", 
 test_that("dictionaries chunked arrays are made altrep", {
   # without unification
   x <- ChunkedArray$create(
-    factor(c("a", "b")              , levels = letters[1:5]),
+    factor(c("a", "b"), levels = letters[1:5]),
     factor(c("d", "c", "a", NA, "e"), levels = letters[1:5])
   )
   f <- x$as_vector()

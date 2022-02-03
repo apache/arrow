@@ -23,7 +23,7 @@
 #include <arrow/chunked_array.h>
 #include <arrow/compute/api.h>
 #include <arrow/util/bitmap_reader.h>
-#include <arrow/visitor_data_inline.h>
+#include <arrow/visit_data_inline.h>
 
 #include <cpp11/altrep.hpp>
 #include <cpp11/declarations.hpp>
