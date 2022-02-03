@@ -300,8 +300,7 @@ register_bindings_type_format <- function() {
         x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
       binding_format_datetime(x, ...)
     } else {
-      # other types
-      abort(paste("`format()` not yet supported for ", x$type()))
+      abort(paste0("`format()` not yet supported for `", class(x$type())[[1]], "`"))
     }
   })
 }
