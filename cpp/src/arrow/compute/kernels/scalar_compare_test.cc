@@ -2234,6 +2234,8 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
   auto type_string = type->ToString();
   if (type_string == "duration[s]") {
     return int64();
+  } else if (type_string == "duration[us]") {
+    return int64();
   } else if (type_string == "duration[ms]") {
     return int64();
   } else if (type_string == "duration[ns]") {
@@ -2267,7 +2269,7 @@ std::shared_ptr<DataType> GetType(std::shared_ptr<DataType> type) {
   } else if (type_string == "large_string") {
     return large_utf8();
   } else {
-    return int64();
+     throw std::invalid_argument("Invalid type specified: " + std::string(type_string));
   }
 }
 
@@ -2275,7 +2277,7 @@ TEST(TestNumericBetweenKernel, 3Scalars) {
   for (const auto& types : {DurationTypes(), NumericTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
-      auto tt = GetType(ty);
+      auto tt =  GetType(ty);
       auto zero = Datum(ScalarFromJSON(tt, "0"));
       auto two = Datum(ScalarFromJSON(tt, "2"));
       auto four = Datum(ScalarFromJSON(tt, "4"));
@@ -2411,7 +2413,7 @@ TEST(TestNumericBetweenKernel, Random) {
 }
 
 class TestStringAndBinaryBetweenKernel : public ::testing::Test {};
-/*
+
 TEST(TestStringAndBinaryBetweenKernel, Random) {
   for (const auto& types : {BaseBinaryTypes(), StringTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
@@ -2428,12 +2430,12 @@ TEST(TestStringAndBinaryBetweenKernel, Random) {
           auto data2 = rand.ArrayOf(*field, length);
           auto data3 = rand.ArrayOf(*field, length);
 
-          auto array1 = Datum(ArrayFromJSON(ty, *data1->View(tt));
-          auto array2 = Datum(ArrayFromJSON(ty, *data2->View(tt));
-          auto array3 = Datum(ArrayFromJSON(ty, *data3->View(tt));
-          auto scalar1 = Datum(ScalarFromJSON(GetType(ty), R"("fupi")"));
-          auto scalar2 = Datum(ScalarFromJSON(GetType(ty), R"("tupu")"));
-          auto scalar3 = Datum(ScalarFromJSON(GetType(ty), R"("zito")"));
+          auto array1 = Datum(*data1->View(tt));
+          auto array2 = Datum(*data2->View(tt));
+          auto array3 = Datum(*data3->View(tt));
+          auto scalar1 = Datum(ScalarFromJSON(tt, R"("fupi")"));
+          auto scalar2 = Datum(ScalarFromJSON(tt, R"("tupu")"));
+          auto scalar3 = Datum(ScalarFromJSON(tt, R"("zito")"));
           ValidateBetween(scalar1, scalar2, scalar3);
           ValidateBetween(array1, scalar2, scalar3);
           ValidateBetween(scalar1, array2, scalar3);
@@ -2448,32 +2450,35 @@ TEST(TestStringAndBinaryBetweenKernel, Random) {
   }
 }
 
+
 TEST(TestStringAndBinaryBetweenKernel, 3Scalars) {
   for (const auto& types : {BaseBinaryTypes(), StringTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
-      auto a = Datum(ScalarFromJSON(GetType(ty), R"("a")"));
-      auto b = Datum(ScalarFromJSON(GetType(ty), R"("b")"));
-      auto c = Datum(ScalarFromJSON(GetType(ty), R"(("c")"));
-      auto null = Datum(ScalarFromJSON(GetType(ty), R"("null")"));
-      auto empty = Datum(ScalarFromJSON(GetType(ty), R"("[]")"));
+      auto tt = GetType(ty);
+      auto a = Datum(ScalarFromJSON(tt, R"("a")"));
+      auto b = Datum(ScalarFromJSON(tt, R"("b")"));
+      auto c = Datum(ScalarFromJSON(tt, R"("c")"));
+      auto null = Datum(ScalarFromJSON(tt, R"("null")"));
+      auto empty = Datum(ScalarFromJSON(tt, R"("")"));
 
       ValidateBetween(a, b, c);
       ValidateBetween(b, a, c);
       ValidateBetween(a, a, a);
       ValidateBetween(a, a, b);
       ValidateBetween(null, a, b);
-      ValidateBetween(empty, a, b);
+      ValidateBetween(empty, a, b); 
     }
   }
 }
-*/
+
 TEST(TestStringAndBinaryBetweenKernel, 1Array2Scalars) {
   for (const auto& types : {BaseBinaryTypes(), StringTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
-      auto l = Datum(ScalarFromJSON(GetType(ty), R"("abc")"));
-      auto r = Datum(ScalarFromJSON(GetType(ty), R"("zzz")"));
+      auto tt = GetType(ty);
+      auto l = Datum(ScalarFromJSON(tt, R"("abc")"));
+      auto r = Datum(ScalarFromJSON(tt, R"("zzz")"));
       ValidateBetween( Datum(ArrayFromJSON(ty, "[]")), l, r);
       ValidateBetween(Datum(ArrayFromJSON(ty, "[null]")), l, r);
       ValidateBetween(Datum(ArrayFromJSON(ty, R"(["aaa", "aaaa", "ccc", "z"])")), l, r);
@@ -2497,7 +2502,8 @@ TEST(TestStringAndBinaryBetweenKernel, 2Arrays1Scalar) {
   for (const auto& types : {BaseBinaryTypes(), StringTypes()}) {
     for (const std::shared_ptr<DataType>& ty : types) {
       ARROW_SCOPED_TRACE("type = ", ty->ToString());
-      auto r = Datum(ScalarFromJSON(GetType(ty), R"("zzz")"));
+      auto tt = GetType(ty); 
+      auto r = Datum(ScalarFromJSON(tt, R"("zzz")"));
       ValidateBetween(r, Datum(ArrayFromJSON(ty, "[]")),
                       Datum(ArrayFromJSON(ty, "[]")));
       ValidateBetween(r, Datum(ArrayFromJSON(ty, R"(["aaa", "aaaa", "ccc", "z"])")),
