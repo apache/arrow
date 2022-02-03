@@ -908,8 +908,7 @@ test_that("format date/time", {
   )
 })
 
-test_that("format for other types errors", {
-
+test_that("format() for unsupported types errors and pulls back to R", {
   expect_warning(
     example_data %>%
       record_batch() %>%
@@ -917,7 +916,6 @@ test_that("format for other types errors", {
       collect(),
     regexp = "not supported in Arrow; pulling data into R"
   )
-
   expect_warning(
     example_data %>%
       record_batch() %>%
@@ -925,5 +923,4 @@ test_that("format for other types errors", {
       collect(),
     regexp = "not supported in Arrow; pulling data into R"
   )
-
 })
