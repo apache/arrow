@@ -633,7 +633,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                 start = index_descriptors[0]["start"]
                 stop = index_descriptors[0]["stop"]
                 step = index_descriptors[0]["step"]
-                n_rows = (stop - start - 1)//step + 1
+                n_rows = len(range(start, stop, step))
         except IndexError:
             pass
 
