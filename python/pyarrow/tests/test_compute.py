@@ -1342,7 +1342,6 @@ def test_filter_null_type():
 
 @pytest.mark.parametrize("ty", ["inclusive"])
 def test_between_array_array_scalar(ty):
-    BetweenOptions = partial(pc.BetweenOptions)
 
     val = pa.array([1, 1, 4, 3, 2, 5])
     arr1 = pa.array([1, 2, 3, 2, None, 2])
