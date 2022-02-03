@@ -30,8 +30,9 @@ namespace arrow {
 namespace engine {
 
 /// A mapping from arrow types and functions to the (uri, name) which identifies
-/// the corresponding substrait extension. Substrait types and variations must be
-/// registered with their corresponding arrow::DataType before they can be used!
+/// the corresponding substrait extension. Substrait extension types and
+/// variations must be registered with their corresponding arrow::DataType before
+/// they can be used!
 class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
  public:
   /// All uris registered in this ExtensionIdRegistry
