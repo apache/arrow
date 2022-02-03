@@ -25,23 +25,22 @@
 namespace arrow {
 namespace compute {
 
-struct ScalarMisbehaveExec {
+struct ScalarReAllocValidBufExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // allocate a buffer even though we've promised not to
-    ARROW_ASSIGN_OR_RAISE(auto buffer, ctx->Allocate(64));
-    ARROW_ASSIGN_OR_RAISE(auto nullbitmap, ctx->AllocateBitmap(8));
-    BufferVector buffers{nullbitmap, buffer};
-    auto array = std::make_shared<ArrayData>(int64(), 8, buffers);
-    *out = Datum(array);
+    // allocate a validity buffer even though we've promised not to
+    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->AllocateBitmap(8));
     return Status::OK();
   }
 };
 
-void AddScalarMisbehaveKernels(const std::shared_ptr<ScalarFunction>& scalar_function) {
-  DCHECK_OK(scalar_function->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
-                                       OutputType(ValueDescr(fixed_size_binary(2))),
-                                       ScalarMisbehaveExec::Exec));
-}
+struct ScalarReAllocDataBufExec {
+    static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      // allocate a validity buffer even though we've promised not to
+      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+      return Status::OK();
+    }
+};
+
 
 const FunctionDoc misbehave_doc{
     "Test kernel that does nothing but allocate memory "
@@ -51,16 +50,31 @@ const FunctionDoc misbehave_doc{
     "(because of MemAllocation::PREALLOCATE).",
     {}};
 
-std::shared_ptr<const ScalarFunction> CreateScalarMisbehaveFunction() {
+
+TEST(Misbehave, ReallocValidBufferScalarKernel) {
+  ExecContext ctx;
   auto func = std::make_shared<ScalarFunction>("scalar_misbehave", Arity::Unary(),
                                                &misbehave_doc);
-  AddScalarMisbehaveKernels(func);
-  return func;
+  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                                       OutputType(ValueDescr(fixed_size_binary(2))),
+                                       ScalarReAllocValidBufExec::Exec));
+  Datum datum(ArrayFromJSON(fixed_size_binary(6), R"(["123456"])"));
+  const std::vector<Datum>& args = {datum};
+  const FunctionOptions* options = nullptr;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid: "
+                                                     "Pre-allocated validity buffer was modified "
+                                                     "in function kernel"),
+                                  func->Execute(args, options, &ctx));
 }
 
-TEST(Misbehave, MisbehavingScalarKernel) {
+TEST(Misbehave, ReallocDataBufferScalarKernel) {
   ExecContext ctx;
-  auto func = CreateScalarMisbehaveFunction();
+  auto func = std::make_shared<ScalarFunction>("scalar_misbehave", Arity::Unary(),
+                                               &misbehave_doc);
+  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
+                            OutputType(ValueDescr(fixed_size_binary(2))),
+                            ScalarReAllocDataBufExec::Exec));
   Datum datum(ArrayFromJSON(fixed_size_binary(6), R"(["123456"])"));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
@@ -70,5 +84,8 @@ TEST(Misbehave, MisbehavingScalarKernel) {
                                                      "in function kernel"),
                                   func->Execute(args, options, &ctx));
 }
+
+//TODO: add tests for only pre-allocating validity bitmap,
+//batched pre-allocation vs allocate_contiguous,
 }  // namespace compute
 }  // namespace arrow

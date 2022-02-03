@@ -26,18 +26,25 @@
 namespace arrow {
 namespace compute {
 
-struct VectorMisbehaveExec {
+struct VectorReAllocValidBufExec {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // allocate new buffers even though we've promised not to
     ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[0], ctx->AllocateBitmap(8));
-    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
-    printf("boom\n");
     return Status::OK();
   }
 };
 
-void AddVectorMisbehaveKernels(const std::shared_ptr<VectorFunction>& Vector_function) {
-  VectorKernel kernel({int32()}, int32(), VectorMisbehaveExec::Exec);
+struct VectorReAllocDataBufExec {
+    static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+      // allocate new buffers even though we've promised not to
+      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+      return Status::OK();
+    }
+};
+
+void AddVectorMisbehaveKernel(const std::shared_ptr<VectorFunction>& Vector_function,
+                              Status (*kernel_exec)(KernelContext*, const ExecBatch&, Datum*)) {
+  VectorKernel kernel({int32()}, int32(),kernel_exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = true;
@@ -55,16 +62,26 @@ const FunctionDoc misbehave_doc{
     "(because of MemAllocation::PREALLOCATE).",
     {}};
 
-std::shared_ptr<const VectorFunction> CreateVectorMisbehaveFunction() {
+TEST(Misbehave, ReallocValidBufferVectorKernel) {
+  ExecContext ctx;
   auto func = std::make_shared<VectorFunction>("vector_misbehave", Arity::Unary(),
                                                &misbehave_doc);
-  AddVectorMisbehaveKernels(func);
-  return func;
+  AddVectorMisbehaveKernel(func, VectorReAllocValidBufExec::Exec);
+  Datum datum(ChunkedArray(ArrayVector{}, int32()));
+  const std::vector<Datum>& args = {datum};
+  const FunctionOptions* options = nullptr;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid: "
+                                                     "Pre-allocated validity buffer was modified "
+                                                     "in function kernel"),
+                                  func->Execute(args, options, &ctx));
 }
 
-TEST(Misbehave, MisbehavingVectorKernel) {
+TEST(Misbehave, ReallocDataBufferVectorKernel) {
   ExecContext ctx;
-  auto func = CreateVectorMisbehaveFunction();
+  auto func = std::make_shared<VectorFunction>("vector_misbehave", Arity::Unary(),
+                                               &misbehave_doc);
+  AddVectorMisbehaveKernel(func, VectorReAllocDataBufExec::Exec);
   Datum datum(ChunkedArray(ArrayVector{}, int32()));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
