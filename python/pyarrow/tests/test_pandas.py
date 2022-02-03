@@ -4104,12 +4104,6 @@ def test_array_to_pandas_types_mapper():
     result = data.to_pandas(types_mapper=types_mapper)
     assert result.dtype == data.type.to_pandas_dtype()
 
-    # Test for the interval extension dtype
-    # -> ignores mapping and uses default conversion
-    types_mapper = {pa.float64(): pd.IntervalDtype()}.get
-    result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == data.type.to_pandas_dtype()
-
 
 @pytest.mark.pandas
 def test_chunked_array_to_pandas_types_mapper():
@@ -4132,12 +4126,6 @@ def test_chunked_array_to_pandas_types_mapper():
 
     # Test mapper function not containing the dtype
     types_mapper = {pa.float64(): pd.Float64Dtype()}.get
-    result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == data.type.to_pandas_dtype()
-
-    # Test for the interval extension dtype
-    # -> ignores mapping and uses default conversion
-    types_mapper = {pa.float64(): pd.IntervalDtype()}.get
     result = data.to_pandas(types_mapper=types_mapper)
     assert result.dtype == data.type.to_pandas_dtype()
 
