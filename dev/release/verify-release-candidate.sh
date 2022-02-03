@@ -495,9 +495,9 @@ test_and_install_cpp() {
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
 
-  rm -rf cpp/verification-build
-  mkdir -p cpp/verification-build
-  pushd cpp/verification-build
+  rm -rf cpp/build
+  mkdir -p cpp/build
+  pushd cpp/build
 
   if [ ! -z "$CMAKE_GENERATOR" ]; then
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G Ninja"
@@ -715,8 +715,8 @@ test_integration() {
 
   pip install -e dev/archery
 
-  JAVA_DIR=$PWD/java
-  CPP_BUILD_DIR=$PWD/cpp/build
+  JAVA_DIR=$ARROW_SOURCE_DIR/java
+  CPP_BUILD_DIR=$ARROW_SOURCE_DIR/cpp/build
 
   # export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   # export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
