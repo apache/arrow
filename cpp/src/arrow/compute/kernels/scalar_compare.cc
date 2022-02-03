@@ -841,7 +841,7 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
     switch (state.options.inclusive) {
       case BetweenOptions::Inclusive::BOTH:
         return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
-  	                               Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
+                                       Op<BetweenOptions::Inclusive::BOTH>>(type_id)(
             ctx, batch, out);
       case BetweenOptions::Inclusive::LEFT:
         return GeneratePhysicalNumeric<ScalarTernaryEqualTypes, BooleanType,
@@ -858,7 +858,6 @@ Status MakeBetweenArrayExec(Type::type type_id, KernelContext* ctx,
       default:
         return Status::NotImplemented("between inclusiveness not implemented: ",
                                       state.options.ToString());
-
     }
   }
 }

@@ -2423,9 +2423,8 @@ TEST(TestStringAndBinaryBetweenKernel, Random) {
         for (auto null_probability : {0.0, 0.01, 0.1, 0.25, 0.5, 1.0}) {
           const int64_t length = static_cast<int64_t>(1ULL << i);
           auto tt = GetType(ty);
-          auto metadata =
-            key_value_metadata({"null_probability"},
-                               {std::to_string(null_probability)});
+          auto metadata = key_value_metadata({"null_probability"},
+                                             {std::to_string(null_probability)});
           auto field = ::arrow::field("[0,16]", std::move(ty), std::move(metadata));
           auto data1 = rand.ArrayOf(*field, length);
           auto data2 = rand.ArrayOf(*field, length);
@@ -2802,17 +2801,19 @@ TEST(TestTimestampsBetweenKernel, 3Arrays) {
         TypeError,
         ::testing::HasSubstr(
             "Cannot compare timestamp with timezone to timestamp without timezone"),
-        Between(ArrayFromJSON(timestamp(TimeUnit::SECOND), array2_json),
-                ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), array3_json),
-                ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), array1_json),
-                options, nullptr));
+        Between(
+            ArrayFromJSON(timestamp(TimeUnit::SECOND), array2_json),
+            ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/New_York"), array3_json),
+            ArrayFromJSON(timestamp(TimeUnit::SECOND, "Europe/Berlin"), array1_json),
+            options, nullptr));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr(
             "Cannot compare timestamp with timezone to timestamp without timezone"),
         Between(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Africa/Nairobi"), array3_json),
                 ArrayFromJSON(timestamp(TimeUnit::SECOND), array1_json),
-                ArrayFromJSON(timestamp(TimeUnit::SECOND), array2_json), options, nullptr));
+                ArrayFromJSON(timestamp(TimeUnit::SECOND), array2_json), options,
+                nullptr));
   }
 }
 
@@ -2904,7 +2905,7 @@ TEST(TestBetweenDecimal, DifferentParameters) {
     auto ty2 = decimal_factory(4, 3);
     auto ty3 = decimal_factory(2, 3);
 
-    auto array1 = 
+    auto array1 =
         ArrayFromJSON(ty1, R"(["1.23", "1.23", "2.34", "-1.23", "-1.23", "1.23"])");
     auto array2 =
         ArrayFromJSON(ty2, R"(["1.230", "2.340", null, "-1.230", "1.230", "-1.230"])");
