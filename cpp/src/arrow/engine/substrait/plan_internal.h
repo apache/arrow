@@ -28,12 +28,28 @@
 namespace arrow {
 namespace engine {
 
+/// \brief Replaces the extension information of a Substrait Plan message with the given
+/// extension set, such that the anchors defined therein can be used in the rest of the
+/// plan.
+///
+/// \param[in] ext_set the extension set to copy the extension information from
+/// \param[in,out] plan the Substrait plan message that is to be updated
+/// \return success or failure
 ARROW_ENGINE_EXPORT
-Status AddExtensionSetToPlan(const ExtensionSet&, substrait::Plan*);
+Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan);
 
+/// \brief Interprets the extension information of a Substrait Plan message into an
+/// ExtensionSet.
+///
+/// Note that the extension registry is not currently mutated, but may be in the future.
+///
+/// \param[in] plan the plan message to take the information from
+/// \param[in,out] registry registry defining which Arrow types and compute functions
+/// correspond to Substrait's URI/name pairs
 ARROW_ENGINE_EXPORT
 Result<ExtensionSet> GetExtensionSetFromPlan(
-    const substrait::Plan&, ExtensionIdRegistry* = default_extension_id_registry());
+    const substrait::Plan& plan,
+    ExtensionIdRegistry* registry = default_extension_id_registry());
 
 }  // namespace engine
 }  // namespace arrow
