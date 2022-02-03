@@ -56,6 +56,9 @@ export _R_CHECK_TESTS_NLINES_=0
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
+# Enable memory debug checks.
+export ARROW_DEBUG_MEMORY_POOL=trap
+
 # Hack so that texlive2020 doesn't pollute the home dir
 export TEXMFCONFIG=/tmp/texmf-config
 export TEXMFVAR=/tmp/texmf-var
