@@ -726,6 +726,36 @@ class NestedValuesComparator {
       return Status::OK();
     }
 
+    Status Visit(const Date32Type&) {
+      current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<Date32Type>());
+      return Status::OK();
+    }
+
+    Status Visit(const Date64Type&) {
+      current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<Date64Type>());
+      return Status::OK();
+    }
+
+    Status Visit(const Time32Type&) {
+      current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<Time32Type>());
+      return Status::OK();
+    }
+
+    Status Visit(const Time64Type&) {
+      current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<Time64Type>());
+      return Status::OK();
+    }
+
+    Status Visit(const TimestampType&) {
+      current_field_comparator_ = std::shared_ptr<NestedValueComparator>(
+          new ConcreteNestedValueComparator<TimestampType>());
+      return Status::OK();
+    }
+
     std::shared_ptr<NestedValueComparator> current_field_comparator_;
   };
 
@@ -751,7 +781,7 @@ struct ResolvedChunkComparator<StructArray> {
     NestedValuesComparator nested_values_comparator;
     auto status = nested_values_comparator.Prepare(chunk_left, chunk_right);
 
-    if(!status.ok()) {
+    if (!status.ok()) {
       return false;
     }
 

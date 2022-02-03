@@ -499,7 +499,10 @@ class RadixRecordBatchSorter {
           field_index_(sort_key.field_index),
           nested_values_comparator_(nullptr) {
       nested_values_comparator_ = std::make_shared<NestedValuesComparator>();
-      nested_values_comparator_->Prepare(batch);
+      auto s = nested_values_comparator_->Prepare(batch);
+      if (!s.ok()) {
+        return;
+      }
     }
 
     Result<std::unique_ptr<RecordBatchColumnSorter>> MakeColumnSort() {
@@ -735,7 +738,10 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
         sort_keys_(ResolveSortKeys(batch, options.sort_keys, &status_)),
         null_placement_(options.null_placement),
         comparator_(sort_keys_, null_placement_) {
-    nested_values_comparator_.Prepare(batch);
+    auto s = nested_values_comparator_.Prepare(batch);
+    if (!s.ok()) {
+      return;
+    }
   }
 
   // This is optimized for the first sort key. The first sort key sort
