@@ -32,7 +32,7 @@ update_versions() {
       local r_version=${base_version}.9000
       ;;
   esac
-  local major_version=${version/.*/}
+  local major_version=${version%%.*}
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
@@ -157,7 +157,7 @@ update_versions() {
   popd
 
   case ${type} in
-    release)
+    snapshot)
       pushd "${ARROW_DIR}"
       ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
       git add r/pkgdown/assets/versions.json
@@ -165,5 +165,4 @@ update_versions() {
       popd
       ;;
   esac
-
 }
