@@ -208,11 +208,15 @@ ExtensionIdRegistry* default_extension_id_registry() {
         util::string_view name;
       };
 
+      // The type (variation) mappings listed below need to be kept in sync
+      // with the YAML at substrait/format/extension_types.yaml manually;
+      // see ARROW-15535.
       for (TypeName e : {
                TypeName{uint8(), "u8"},
                TypeName{uint16(), "u16"},
                TypeName{uint32(), "u32"},
                TypeName{uint64(), "u64"},
+               TypeName{float16(), "fp16"},
            }) {
         DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
                                /*is_variation=*/true));
@@ -220,11 +224,18 @@ ExtensionIdRegistry* default_extension_id_registry() {
 
       for (TypeName e : {
                TypeName{null(), "null"},
+               TypeName{month_interval(), "interval_month"},
+               TypeName{day_time_interval(), "interval_day_milli"},
+               TypeName{month_day_nano_interval(), "interval_month_day_nano"},
            }) {
         DCHECK_OK(RegisterType({kArrowExtTypesUri, e.name}, std::move(e.type),
                                /*is_variation=*/false));
       }
 
+      // TODO: this is just a placeholder right now. We'll need a YAML file for
+      // all functions (and prototypes) that Arrow provides that are relevant
+      // for Substrait, and include mappings for all of them here. See
+      // ARROW-15535.
       for (util::string_view name : {
                "add",
            }) {
