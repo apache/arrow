@@ -44,7 +44,7 @@
 #'   you encounter one that `arrow` should support. Also, the following options are
 #'   supported. From [CsvReadOptions]:
 #'   * `skip_rows`
-#'   * `column_names`
+#'   * `column_names`. Note that if a [Schema] is specified, `column_names` must match those specified in the schema.
 #'   * `autogenerate_column_names`
 #'   From [CsvFragmentScanOptions] (these values can be overridden at scan time):
 #'   * `convert_options`: a [CsvConvertOptions]
@@ -122,6 +122,25 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
+
+  # Evaluate opts first to catch any unsupported arguments
+  force(opts)
+
+  options <- list(...)
+  schema <- options[["schema"]]
+
+  column_names <- read_options$column_names
+  schema_names <- names(schema)
+
+  if (!is.null(schema) & !identical(schema_names, column_names)) {
+
+    abort(
+      paste(
+        "Values in `column_names` must match schema field names"
+      )
+    )
+  }
+
   dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
@@ -220,7 +239,7 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
   opts[convert_opts] <- NULL
-  if (!is.null(schema)) {
+  if (!is.null(schema) && is.null(opts[["column_names"]])) {
     opts[["column_names"]] <- names(schema)
   }
   do.call(CsvReadOptions$create, opts)
@@ -309,6 +328,47 @@ FileWriteOptions <- R6Class("FileWriteOptions",
   inherit = ArrowObject,
   public = list(
     update = function(table, ...) {
+      check_additional_args <- function(format, passed_args) {
+        if (format == "parquet") {
+          supported_args <- names(formals(write_parquet))
+          supported_args <- supported_args[supported_args != c("x", "sink")]
+        } else if (format == "ipc") {
+          supported_args <- c(
+            "use_legacy_format",
+            "metadata_version",
+            "codec",
+            "null_fallback"
+          )
+        } else if (format == "csv") {
+          supported_args <- names(formals(CsvWriteOptions$create))
+        }
+
+        unsupported_passed_args <- setdiff(passed_args, supported_args)
+
+        if (length(unsupported_passed_args) > 0) {
+          err_header <- paste0(
+            oxford_paste(unsupported_passed_args, quote_symbol = "`"),
+            ngettext(length(unsupported_passed_args),
+                     " is not a valid argument ",
+                     " are not valid arguments "),
+            "for your chosen `format`."
+          )
+          err_info <- NULL
+          arg_info <- paste0(
+            "Supported arguments: ",
+            oxford_paste(supported_args, quote_symbol = "`"),
+            "."
+          )
+          if ("compression" %in% unsupported_passed_args) {
+            err_info <- "You could try using `codec` instead of `compression`."
+          }
+          abort(c(err_header, i = err_info, i = arg_info))
+        }
+      }
+
+      args <- list(...)
+      check_additional_args(self$type, names(args))
+
       if (self$type == "parquet") {
         dataset___ParquetFileWriteOptions__update(
           self,
@@ -316,7 +376,6 @@ FileWriteOptions <- R6Class("FileWriteOptions",
           ParquetArrowWriterProperties$create(...)
         )
       } else if (self$type == "ipc") {
-        args <- list(...)
         if (is.null(args$codec)) {
           dataset___IpcFileWriteOptions__update1(
             self,

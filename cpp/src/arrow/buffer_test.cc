@@ -99,7 +99,7 @@ class MyMemoryManager : public MemoryManager {
     return Status::NotImplemented("");
   }
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override {
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override {
     return Status::NotImplemented("");
   }
 

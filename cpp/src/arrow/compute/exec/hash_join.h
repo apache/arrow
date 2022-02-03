@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -112,6 +113,9 @@ class HashJoinImpl {
   virtual void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) = 0;
 
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();
+
+ protected:
+  util::tracing::Span span_;
 };
 
 }  // namespace compute

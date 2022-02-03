@@ -27,7 +27,7 @@ namespace orc {
 
 std::string FileVersion::ToString() const {
   std::stringstream ss;
-  ss << major() << '.' << minor();
+  ss << major_version() << '.' << minor_version();
   return ss.str();
 }
 

@@ -819,6 +819,34 @@ TEST(TestProductKernel, Overflow) {
               ResultWith(Datum(static_cast<int64_t>(8589934592))));
 }
 
+TEST(TestNullProductKernel, Basics) {
+  auto ty = null();
+  Datum null_result = std::make_shared<Int64Scalar>();
+  Datum one_result = std::make_shared<Int64Scalar>(1);
+
+  EXPECT_THAT(Product(ScalarFromJSON(ty, "null")), ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]")), ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]")), ResultWith(null_result));
+  EXPECT_THAT(Product(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"})),
+              ResultWith(null_result));
+
+  ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+  EXPECT_THAT(Product(ScalarFromJSON(ty, "null"), options), ResultWith(one_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]"), options), ResultWith(one_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]"), options), ResultWith(one_result));
+  EXPECT_THAT(
+      Product(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+      ResultWith(one_result));
+
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0);
+  EXPECT_THAT(Product(ScalarFromJSON(ty, "null"), options), ResultWith(null_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[]"), options), ResultWith(one_result));
+  EXPECT_THAT(Product(ArrayFromJSON(ty, "[null]"), options), ResultWith(null_result));
+  EXPECT_THAT(
+      Product(ChunkedArrayFromJSON(ty, {"[null]", "[]", "[null, null]"}), options),
+      ResultWith(null_result));
+}
+
 //
 // Count
 //

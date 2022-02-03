@@ -33,6 +33,10 @@
 namespace arrow {
 namespace compute {
 
+/// \defgroup expression-core Expressions to describe transformations in execution plans
+///
+/// @{
+
 /// An unbound expression which maps a single Datum to another Datum.
 /// An expression is one of
 /// - A literal Datum.
@@ -173,6 +177,8 @@ ARROW_EXPORT
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
 
+/// @}
+
 /// \defgroup expression-passes Functions for modification of Expressions
 ///
 /// @{
@@ -239,7 +245,9 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression&);
 ARROW_EXPORT
 Result<Expression> Deserialize(std::shared_ptr<Buffer>);
 
-// Convenience aliases for factories
+/// \defgroup expression-convenience Functions convenient expression creation
+///
+/// @{
 
 ARROW_EXPORT Expression project(std::vector<Expression> values,
                                 std::vector<std::string> names);
@@ -265,6 +273,8 @@ ARROW_EXPORT Expression and_(const std::vector<Expression>&);
 ARROW_EXPORT Expression or_(Expression lhs, Expression rhs);
 ARROW_EXPORT Expression or_(const std::vector<Expression>&);
 ARROW_EXPORT Expression not_(Expression operand);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

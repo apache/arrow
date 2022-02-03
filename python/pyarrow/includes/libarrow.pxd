@@ -69,6 +69,7 @@ cdef extern from "arrow/config.h" namespace "arrow" nogil:
         c_string git_id
         c_string git_description
         c_string package_kind
+        c_string build_type
 
     const CBuildInfo& GetBuildInfo()
 
@@ -333,7 +334,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CMemoryPool** out)
     cdef CStatus c_mimalloc_memory_pool" arrow::mimalloc_memory_pool"(
         CMemoryPool** out)
-    cdef vector[c_string] c_supported_memory_backends" arrow::SupportedMemoryBackendNames"()
+    cdef vector[c_string] c_supported_memory_backends \
+        " arrow::SupportedMemoryBackendNames"()
 
     CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
@@ -590,6 +592,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] FromArrays(
             const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
+            CMemoryPool* pool)
+
         const int32_t* raw_value_offsets()
         int32_t value_offset(int i)
         int32_t value_length(int i)
@@ -602,6 +609,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CResult[shared_ptr[CArray]] FromArrays(
             const CArray& offsets, const CArray& values, CMemoryPool* pool)
 
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            shared_ptr[CDataType], const CArray& offsets, const CArray& values,
+            CMemoryPool* pool)
+
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()
@@ -612,6 +624,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         @staticmethod
         CResult[shared_ptr[CArray]] FromArrays(
             const shared_ptr[CArray]& values, int32_t list_size)
+
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
+            const shared_ptr[CArray]& values, shared_ptr[CDataType])
 
         int64_t value_offset(int i)
         int64_t value_length(int i)
@@ -1437,6 +1453,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         shared_ptr[CCodec] codec
         c_bool use_threads
         c_bool emit_dictionary_deltas
+        c_bool unify_dictionaries
 
         @staticmethod
         CIpcWriteOptions Defaults()

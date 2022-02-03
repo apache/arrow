@@ -16,10 +16,10 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include <time.h>
 
-#include "../execution_context.h"
+#include "gandiva/execution_context.h"
 #include "gandiva/precompiled/testing.h"
+#include "gandiva/precompiled/time_constants.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
@@ -129,6 +129,48 @@ TEST(TestTime, TestCastTimestamp) {
   EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
   EXPECT_EQ(context.get_error(),
             "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
+  context.Reset();
+}
+
+TEST(TestTime, TestCastTimeUtf8) {
+  ExecutionContext context;
+  auto context_ptr = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30", 7), 35130000);
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.920", 11), 35130920);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.1", 9),
+            castTIME_utf8(context_ptr, "9:45:30", 7) + 100);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.10", 10),
+            castTIME_utf8(context_ptr, "9:45:30", 7) + 100);
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.100", 11),
+            castTIME_utf8(context_ptr, "9:45:30", 7) + 100);
+
+  // error cases
+  EXPECT_EQ(castTIME_utf8(context_ptr, "24H00H00", 8), 0);
+  EXPECT_EQ(context.get_error(), "Invalid character in time 24H00H00");
+  context.Reset();
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "24:00:00", 8), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid time value 24:00:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:60:00", 8), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid time value 00:60:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:100", 9), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid time value 00:00:100");
+  context.Reset();
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.0001", 13), 0);
+  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.0001");
+  context.Reset();
+
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1000", 13), 0);
+  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.1000");
   context.Reset();
 }
 
@@ -787,6 +829,28 @@ TEST(TestTime, TestCastTimestampToTime) {
   ts = StringToTimestamp("2015-09-16 23:59:59");
   expected_response = static_cast<int32_t>(ts - StringToTimestamp("2015-09-16 00:00:00"));
   out = castTIME_timestamp(ts);
+  EXPECT_EQ(expected_response, out);
+}
+
+TEST(TestTime, TestIntToTime) {
+  int32_t val = 1000;
+  int32_t expected_response = val;
+  auto out = castTIME_int32(val);
+  EXPECT_EQ(expected_response, out);
+
+  val = MILLIS_IN_DAY - 1;
+  expected_response = val;
+  out = castTIME_int32(val);
+  EXPECT_EQ(expected_response, out);
+
+  val = MILLIS_IN_DAY + 1;
+  expected_response = 1;
+  out = castTIME_int32(val);
+  EXPECT_EQ(expected_response, out);
+
+  val = -1;
+  expected_response = 0;
+  out = castTIME_int32(val);
   EXPECT_EQ(expected_response, out);
 }
 

@@ -1004,9 +1004,14 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
-                                  ? arrow::r::data::classes_arrow_list
-                                  : arrow::r::data::classes_arrow_large_list;
+
+    if (std::is_same<ListArrayType, MapArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else if (std::is_same<ListArrayType, ListArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
+    }
 
     std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
@@ -1300,6 +1305,10 @@ std::shared_ptr<Converter> Converter::Make(
           chunked_array,
           checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
           checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
+
+    case Type::MAP:
+      return std::make_shared<arrow::r::Converter_List<arrow::MapArray>>(
+          chunked_array, checked_cast<const arrow::MapType&>(*type).value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);

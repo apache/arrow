@@ -51,9 +51,6 @@ set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
 
-@rem NOTE(kszucs): workaround for ARROW-15403 along with the ORC_* cmake variables
-vcpkg remove orc
-
 mkdir C:\arrow-build
 pushd C:\arrow-build
 cmake ^
@@ -80,13 +77,12 @@ cmake ^
     -DARROW_WITH_SNAPPY=%ARROW_WITH_SNAPPY% ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
+    -DAWSSDK_SOURCE=BUNDLED ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
-    -DORC_SOURCE=BUNDLED ^
-    -DORC_PROTOBUF_EXECUTABLE=%VCPKG_ROOT%\installed\%VCGPK_TARGET_TRIPLET%\tools\protobuf\protoc.exe ^
     -DVCPKG_MANIFEST_MODE=OFF ^
     -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^

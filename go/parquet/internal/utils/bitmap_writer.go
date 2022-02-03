@@ -63,9 +63,10 @@ type firstTimeBitmapWriter struct {
 	pos    int64
 	length int64
 
-	curByte    uint8
-	bitMask    uint8
-	byteOffset int64
+	curByte      uint8
+	bitMask      uint8
+	byteOffset   int64
+	endianBuffer [8]byte
 }
 
 // NewFirstTimeBitmapWriter creates a bitmap writer that might clobber any bit values
@@ -83,8 +84,6 @@ func NewFirstTimeBitmapWriter(buf []byte, start, length int64) BitmapWriter {
 	}
 	return ret
 }
-
-var endianBuffer [8]byte
 
 func (bw *firstTimeBitmapWriter) Reset(start, length int) {
 	bw.pos = 0
@@ -129,8 +128,8 @@ func (bw *firstTimeBitmapWriter) AppendWord(word uint64, nbits int64) {
 		nbits -= int64(carry)
 	}
 	bytesForWord := bitutil.BytesForBits(nbits)
-	binary.LittleEndian.PutUint64(endianBuffer[:], word)
-	copy(appslice, endianBuffer[:bytesForWord])
+	binary.LittleEndian.PutUint64(bw.endianBuffer[:], word)
+	copy(appslice, bw.endianBuffer[:bytesForWord])
 
 	// at this point, the previous curByte has been written, the new curByte
 	// is either the last relevant byte in word or cleared if the new position

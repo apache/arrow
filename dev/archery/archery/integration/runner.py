@@ -153,6 +153,8 @@ class IntegrationRunner(object):
                 # ARROW-13558: older versions generated decimal values that
                 # were out of range for the given precision.
                 quirks.add("no_decimal_validate")
+                quirks.add("no_date64_validate")
+                quirks.add("no_times_validate")
 
             yield datagen.File(name, None, None, skip=skip, path=out_path,
                                quirks=quirks)

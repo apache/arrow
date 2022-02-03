@@ -77,8 +77,11 @@ class IpcFixture:
 
 class FileFormatFixture(IpcFixture):
 
+    is_file = True
+    options = None
+
     def _get_writer(self, sink, schema):
-        return pa.ipc.new_file(sink, schema)
+        return pa.ipc.new_file(sink, schema, options=self.options)
 
     def _check_roundtrip(self, as_table=False):
         batches = self.write_batches(as_table=as_table)
@@ -105,6 +108,7 @@ class StreamFormatFixture(IpcFixture):
     use_legacy_ipc_format = False
     # ARROW-9395, for testing writing old metadata version
     options = None
+    is_file = False
 
     def _get_writer(self, sink, schema):
         return pa.ipc.new_stream(
@@ -134,6 +138,20 @@ def file_fixture():
 @pytest.fixture
 def stream_fixture():
     return StreamFormatFixture()
+
+
+@pytest.fixture(params=[
+    pytest.param(
+        pytest.lazy_fixture('file_fixture'),
+        id='File Format'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('stream_fixture'),
+        id='Stream Format'
+    )
+])
+def format_fixture(request):
+    return request.param
 
 
 def test_empty_file():
@@ -450,40 +468,79 @@ def test_stream_options_roundtrip(stream_fixture, options):
         reader.read_next_batch()
 
 
-def test_dictionary_delta(stream_fixture):
+def test_dictionary_delta(format_fixture):
     ty = pa.dictionary(pa.int8(), pa.utf8())
     data = [["foo", "foo", None],
             ["foo", "bar", "foo"],  # potential delta
-            ["foo", "bar"],
+            ["foo", "bar"],  # nothing new
             ["foo", None, "bar", "quux"],  # potential delta
             ["bar", "quux"],  # replacement
             ]
     batches = [
         pa.RecordBatch.from_arrays([pa.array(v, type=ty)], names=['dicts'])
         for v in data]
+    batches_delta_only = batches[:4]
     schema = batches[0].schema
 
-    def write_batches():
-        with stream_fixture._get_writer(pa.MockOutputStream(),
+    def write_batches(batches, as_table=False):
+        with format_fixture._get_writer(pa.MockOutputStream(),
                                         schema) as writer:
-            for batch in batches:
-                writer.write_batch(batch)
+            if as_table:
+                table = pa.Table.from_batches(batches)
+                writer.write_table(table)
+            else:
+                for batch in batches:
+                    writer.write_batch(batch)
             return writer.stats
 
-    st = write_batches()
-    assert st.num_record_batches == 5
-    assert st.num_dictionary_batches == 4
-    assert st.num_replaced_dictionaries == 3
-    assert st.num_dictionary_deltas == 0
+    if format_fixture.is_file:
+        # File format cannot handle replacement
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches)
+        # File format cannot handle delta if emit_deltas
+        # is not provided
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches_delta_only)
+    else:
+        st = write_batches(batches)
+        assert st.num_record_batches == 5
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 3
+        assert st.num_dictionary_deltas == 0
 
-    stream_fixture.use_legacy_ipc_format = None
-    stream_fixture.options = pa.ipc.IpcWriteOptions(
+    format_fixture.use_legacy_ipc_format = None
+    format_fixture.options = pa.ipc.IpcWriteOptions(
         emit_dictionary_deltas=True)
-    st = write_batches()
-    assert st.num_record_batches == 5
-    assert st.num_dictionary_batches == 4
-    assert st.num_replaced_dictionaries == 1
+    if format_fixture.is_file:
+        # File format cannot handle replacement
+        with pytest.raises(pa.ArrowInvalid):
+            write_batches(batches)
+    else:
+        st = write_batches(batches)
+        assert st.num_record_batches == 5
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 1
+        assert st.num_dictionary_deltas == 2
+
+    st = write_batches(batches_delta_only)
+    assert st.num_record_batches == 4
+    assert st.num_dictionary_batches == 3
+    assert st.num_replaced_dictionaries == 0
     assert st.num_dictionary_deltas == 2
+
+    format_fixture.options = pa.ipc.IpcWriteOptions(
+        unify_dictionaries=True
+    )
+    st = write_batches(batches, as_table=True)
+    assert st.num_record_batches == 5
+    if format_fixture.is_file:
+        assert st.num_dictionary_batches == 1
+        assert st.num_replaced_dictionaries == 0
+        assert st.num_dictionary_deltas == 0
+    else:
+        assert st.num_dictionary_batches == 4
+        assert st.num_replaced_dictionaries == 3
+        assert st.num_dictionary_deltas == 0
 
 
 def test_envvar_set_legacy_ipc_format():

@@ -57,28 +57,29 @@ enum class CompressionStrategy : int32_t { kSpeed = 0, kCompression };
 
 class ARROW_EXPORT FileVersion {
  private:
-  int32_t major_version;
-  int32_t minor_version;
+  int32_t major_version_;
+  int32_t minor_version_;
 
  public:
   static const FileVersion& v_0_11();
   static const FileVersion& v_0_12();
 
   FileVersion(int32_t major, int32_t minor)
-      : major_version(major), minor_version(minor) {}
+      : major_version_(major), minor_version_(minor) {}
 
   /**
    * Get major version
    */
-  int32_t major() const { return this->major_version; }
+  int32_t major_version() const { return this->major_version_; }
 
   /**
    * Get minor version
    */
-  int32_t minor() const { return this->minor_version; }
+  int32_t minor_version() const { return this->minor_version_; }
 
   bool operator==(const FileVersion& right) const {
-    return this->major_version == right.major() && this->minor_version == right.minor();
+    return this->major_version() == right.major_version() &&
+           this->minor_version() == right.minor_version();
   }
 
   bool operator!=(const FileVersion& right) const { return !(*this == right); }
@@ -92,12 +93,12 @@ struct ARROW_EXPORT WriteOptions {
   int64_t batch_size = 1024;
   /// Which ORC file version to use, default FileVersion(0, 12)
   FileVersion file_version = FileVersion(0, 12);
-  /// Size of each ORC stripe, default 64 MiB
+  /// Size of each ORC stripe in bytes, default 64 MiB
   int64_t stripe_size = 64 * 1024 * 1024;
   /// The compression codec of the ORC file, there is no compression by default
   Compression::type compression = Compression::UNCOMPRESSED;
-  /// The size of each compression block, default 65536
-  int64_t compression_block_size = 65536;
+  /// The size of each compression block in bytes, default 64 KiB
+  int64_t compression_block_size = 64 * 1024;
   /// The compression strategy i.e. speed vs size reduction, default
   /// CompressionStrategy::kSpeed
   CompressionStrategy compression_strategy = CompressionStrategy::kSpeed;

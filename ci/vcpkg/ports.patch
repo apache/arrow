@@ -164,7 +164,7 @@ index 00000000..4566cc66
 +-    "    set(LibCrypto_SHARED_LIBRARY ${OPENSSL_CRYPTO_LIBRARY} CACHE INTERNAL \"The OpenSSL crypto shared library\")\n"
 +-    "endif()\n"
 +     )
-+ 
++
 + if (NOT SIMPLE_INSTALL)
 diff --git a/ports/aws-sdk-cpp/portfile.cmake b/ports/aws-sdk-cpp/portfile.cmake
 index 2d6bba4d..0ac47887 100644
@@ -176,7 +176,7 @@ index 2d6bba4d..0ac47887 100644
          fix-aws-root.patch
 +        fix-find-crypto.patch
  )
- 
+
  string(COMPARE EQUAL "${VCPKG_CRT_LINKAGE}" "dynamic" FORCE_SHARED_CRT)
 diff --git a/ports/aws-sdk-cpp/vcpkg.json b/ports/aws-sdk-cpp/vcpkg.json
 index 3836e2b6..cd88ef07 100644
@@ -216,7 +216,7 @@ index 45b8c706..b409d8a7 100644
      HEAD_REF master
 +    PATCHES "snappy-disable-bmi.patch"
  )
- 
+
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
@@ -241,5 +241,5 @@ index 00000000..a57ce0c2
 +   return v & ~(mask << (8 * n));
 +-#endif
 + }
-+ 
++
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {

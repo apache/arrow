@@ -187,6 +187,8 @@ If you are unsure whether a function supports a concrete input type, we
 recommend you try it out.  Unsupported input types return a ``TypeError``
 :class:`Status`.
 
+.. _aggregation-option-list:
+
 Aggregations
 ------------
 
@@ -419,40 +421,41 @@ For functions which support decimal inputs (currently ``add``, ``subtract``,
 precisions/scales will be promoted appropriately. Mixed decimal and
 floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
+Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+----------------+----------------------+-------+
-| Function name    | Arity  | Input types    | Output type          | Notes |
-+==================+========+================+======================+=======+
-| abs              | Unary  | Numeric        | Numeric              |       |
-+------------------+--------+----------------+----------------------+-------+
-| abs_checked      | Unary  | Numeric        | Numeric              |       |
-+------------------+--------+----------------+----------------------+-------+
-| add              | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| add_checked      | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| divide           | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| divide_checked   | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| multiply         | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| multiply_checked | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| negate           | Unary  | Numeric        | Numeric              |       |
-+------------------+--------+----------------+----------------------+-------+
-| negate_checked   | Unary  | Signed Numeric | Signed Numeric       |       |
-+------------------+--------+----------------+----------------------+-------+
-| power            | Binary | Numeric        | Numeric              |       |
-+------------------+--------+----------------+----------------------+-------+
-| power_checked    | Binary | Numeric        | Numeric              |       |
-+------------------+--------+----------------+----------------------+-------+
-| sign             | Unary  | Numeric        | Int8/Float32/Float64 | \(2)  |
-+------------------+--------+----------------+----------------------+-------+
-| subtract         | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
-| subtract_checked | Binary | Numeric        | Numeric              | \(1)  |
-+------------------+--------+----------------+----------------------+-------+
++------------------+--------+----------------------------+----------------------------+-------+
+| Function name    | Arity  | Input types                | Output type                | Notes |
++==================+========+============================+============================+=======+
+| abs              | Unary  | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| abs_checked      | Unary  | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| add              | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| add_checked      | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| divide           | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| divide_checked   | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| multiply         | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| multiply_checked | Binary | Numeric                    | Numeric                    | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| negate           | Unary  | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| negate_checked   | Unary  | Signed Numeric             | Signed Numeric             |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| power            | Binary | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| power_checked    | Binary | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| sign             | Unary  | Numeric                    | Int8/Float32/Float64       | \(2)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| subtract         | Binary | Numeric/Temporal           | Numeric/Temporal           | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal           | Numeric/Temporal           | \(1)  |
++------------------+--------+----------------------------+----------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1587,7 +1590,7 @@ This function returns the indices at which array elements are non-null and non-z
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
+| indices_nonzero       | Unary | Boolean, Null, Numeric, Decimal   | UInt64         |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 Sorts and partitions

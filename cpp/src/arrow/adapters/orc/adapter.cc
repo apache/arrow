@@ -720,11 +720,7 @@ class ArrowOutputStream : public liborc::OutputStream {
     return filename;
   }
 
-  void close() override {
-    if (!output_stream_.closed()) {
-      ORC_THROW_NOT_OK(output_stream_.Close());
-    }
-  }
+  void close() override {}
 
   void set_length(int64_t length) { length_ = length; }
 
@@ -737,8 +733,8 @@ Result<liborc::WriterOptions> MakeOrcWriterOptions(
     arrow::adapters::orc::WriteOptions options) {
   liborc::WriterOptions orc_options;
   orc_options.setFileVersion(
-      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major()),
-                          static_cast<uint32_t>(options.file_version.minor())));
+      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major_version()),
+                          static_cast<uint32_t>(options.file_version.minor_version())));
   orc_options.setStripeSize(static_cast<uint64_t>(options.stripe_size));
   orc_options.setCompressionBlockSize(
       static_cast<uint64_t>(options.compression_block_size));

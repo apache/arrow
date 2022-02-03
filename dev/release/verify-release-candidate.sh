@@ -389,6 +389,8 @@ test_csharp() {
 test_python() {
   pushd python
 
+  export PYARROW_PARALLEL=$NPROC
+
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PLASMA=1
@@ -423,7 +425,8 @@ test_glib() {
     gem install --no-document bundler
   fi
 
-  bundle install --path vendor/bundle
+  bundle config set --local path 'vendor/bundle'
+  bundle install
   bundle exec ruby test/run-test.rb
 
   popd
@@ -567,6 +570,7 @@ ensure_source_directory() {
   export ARROW_DIR=$PWD
   export ARROW_TEST_DATA=$PWD/testing/data
   export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
+  export ARROW_GDB_SCRIPT=$PWD/cpp/gdb_arrow.py
   popd
 }
 
@@ -783,7 +787,7 @@ case "${ARTIFACT}" in
   source)
     : ${TEST_SOURCE:=1}
     ;;
-  binaires)
+  binaries)
     TEST_BINARY_DISTRIBUTIONS=1
     ;;
   wheels)

@@ -144,24 +144,28 @@ LargeListArray__raw_value_offsets <- function(array) {
   .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
+MapArray__keys <- function(array) {
+  .Call(`_arrow_MapArray__keys`, array)
+}
+
+MapArray__items <- function(array) {
+  .Call(`_arrow_MapArray__items`, array)
+}
+
+MapArray__keys_nested <- function(array) {
+  .Call(`_arrow_MapArray__keys_nested`, array)
+}
+
+MapArray__items_nested <- function(array) {
+  .Call(`_arrow_MapArray__items_nested`, array)
+}
+
 Array__Same <- function(x, y) {
   .Call(`_arrow_Array__Same`, x, y)
 }
 
-Array__ReferencedBufferSize <- function(array) {
-  .Call(`_arrow_Array__ReferencedBufferSize`, array)
-}
-
-ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
-  .Call(`_arrow_ChunkedArray__ReferencedBufferSize`, chunked_array)
-}
-
-RecordBatch__ReferencedBufferSize <- function(batch) {
-  .Call(`_arrow_RecordBatch__ReferencedBufferSize`, batch)
-}
-
-Table__ReferencedBufferSize <- function(table) {
-  .Call(`_arrow_Table__ReferencedBufferSize`, table)
+Array__ReferencedBufferSize <- function(x) {
+  .Call(`_arrow_Array__ReferencedBufferSize`, x)
 }
 
 Array__as_vector <- function(array) {
@@ -366,6 +370,10 @@ ChunkedArray__ToString <- function(x) {
 
 ChunkedArray__from_list <- function(chunks, s_type) {
   .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
+}
+
+ChunkedArray__ReferencedBufferSize <- function(chunked_array) {
+  .Call(`_arrow_ChunkedArray__ReferencedBufferSize`, chunked_array)
 }
 
 util___Codec__Create <- function(codec, compression_level) {
@@ -848,6 +856,10 @@ fixed_size_list__ <- function(x, list_size) {
   .Call(`_arrow_fixed_size_list__`, x, list_size)
 }
 
+map__ <- function(key, item, keys_sorted) {
+  .Call(`_arrow_map__`, key, item, keys_sorted)
+}
+
 struct__ <- function(fields) {
   .Call(`_arrow_struct__`, fields)
 }
@@ -970,6 +982,26 @@ FixedSizeListType__value_type <- function(type) {
 
 FixedSizeListType__list_size <- function(type) {
   .Call(`_arrow_FixedSizeListType__list_size`, type)
+}
+
+MapType__key_field <- function(type) {
+  .Call(`_arrow_MapType__key_field`, type)
+}
+
+MapType__item_field <- function(type) {
+  .Call(`_arrow_MapType__item_field`, type)
+}
+
+MapType__key_type <- function(type) {
+  .Call(`_arrow_MapType__key_type`, type)
+}
+
+MapType__item_type <- function(type) {
+  .Call(`_arrow_MapType__item_type`, type)
+}
+
+MapType__keys_sorted <- function(type) {
+  .Call(`_arrow_MapType__keys_sorted`, type)
 }
 
 compute___expr__equals <- function(lhs, rhs) {
@@ -1596,6 +1628,10 @@ RecordBatch__from_arrays <- function(schema_sxp, lst) {
   .Call(`_arrow_RecordBatch__from_arrays`, schema_sxp, lst)
 }
 
+RecordBatch__ReferencedBufferSize <- function(batch) {
+  .Call(`_arrow_RecordBatch__ReferencedBufferSize`, batch)
+}
+
 RecordBatchReader__schema <- function(reader) {
   .Call(`_arrow_RecordBatchReader__schema`, reader)
 }
@@ -1848,6 +1884,10 @@ Table__from_record_batches <- function(batches, schema_sxp) {
   .Call(`_arrow_Table__from_record_batches`, batches, schema_sxp)
 }
 
+Table__ReferencedBufferSize <- function(table) {
+  .Call(`_arrow_Table__ReferencedBufferSize`, table)
+}
+
 GetCpuThreadPoolCapacity <- function() {
   .Call(`_arrow_GetCpuThreadPoolCapacity`)
 }
@@ -1867,3 +1907,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+

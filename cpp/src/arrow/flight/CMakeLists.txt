@@ -45,9 +45,15 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
+  endif()
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
+  endif()
 endif()
 
 # TODO(wesm): Protobuf shared vs static linking
@@ -243,6 +249,14 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
+endif()
+
+if(ARROW_CUDA AND ARROW_BUILD_TESTS)
+  add_arrow_test(flight_cuda_test
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                 LABELS
+                 "arrow_flight")
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

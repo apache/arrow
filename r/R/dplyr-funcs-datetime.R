@@ -139,4 +139,13 @@ register_bindings_datetime <- function() {
     year <- Expression$create("year", date)
     (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
   })
+
+  register_binding("am", function(x) {
+    hour <- Expression$create("hour", x)
+    hour < 12
+  })
+  register_binding("pm", function(x) {
+    !call_binding("am", x)
+  })
+
 }

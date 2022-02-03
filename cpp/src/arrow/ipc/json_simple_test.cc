@@ -429,8 +429,8 @@ TEST(TestDate, Basics) {
   auto type = date32();
   AssertJSONArray<Date32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
   type = date64();
-  AssertJSONArray<Date64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
-                              {1, 0, 9999999999999LL});
+  AssertJSONArray<Date64Type>(type, R"([86400000, null, 172800000])", {true, false, true},
+                              {86400000, 0, 172800000});
 }
 
 TEST(TestTime, Basics) {
@@ -440,8 +440,8 @@ TEST(TestTime, Basics) {
   AssertJSONArray<Time32Type>(type, R"([5, null, 42])", {true, false, true}, {5, 0, 42});
 
   type = time64(TimeUnit::MICRO);
-  AssertJSONArray<Time64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
-                              {1, 0, 9999999999999LL});
+  AssertJSONArray<Time64Type>(type, R"([1, null, 9999999999])", {true, false, true},
+                              {1, 0, 9999999999LL});
   type = time64(TimeUnit::NANO);
   AssertJSONArray<Time64Type>(type, R"([1, null, 9999999999999])", {true, false, true},
                               {1, 0, 9999999999999LL});

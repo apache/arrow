@@ -331,7 +331,7 @@ KeyEncoder::KeyColumnArray::KeyColumnArray(const KeyColumnArray& from, int64_t s
                             : nullptr;
   bit_offset_[0] = (from.bit_offset_[0] + start) % 8;
 
-  if (fixed_size == 0) {
+  if (fixed_size == 0 && !metadata_.is_null_type) {
     buffers_[1] =
         from.buffers_[1] ? from.buffers_[1] + (from.bit_offset_[1] + start) / 8 : nullptr;
     mutable_buffers_[1] = from.mutable_buffers_[1] ? from.mutable_buffers_[1] +
@@ -380,7 +380,7 @@ void KeyEncoder::TransformBoolean::PostDecode(const KeyColumnArray& input,
 }
 
 bool KeyEncoder::EncoderInteger::IsBoolean(const KeyColumnMetadata& metadata) {
-  return metadata.is_fixed_length && metadata.fixed_length == 0;
+  return metadata.is_fixed_length && metadata.fixed_length == 0 && !metadata.is_null_type;
 }
 
 bool KeyEncoder::EncoderInteger::UsesTransform(const KeyColumnArray& column) {
@@ -493,6 +493,9 @@ void KeyEncoder::EncoderInteger::Decode(uint32_t start_row, uint32_t num_rows,
 }
 
 bool KeyEncoder::EncoderBinary::IsInteger(const KeyColumnMetadata& metadata) {
+  if (metadata.is_null_type) {
+    return false;
+  }
   bool is_fixed_length = metadata.is_fixed_length;
   auto size = metadata.fixed_length;
   return is_fixed_length &&
@@ -766,12 +769,15 @@ void KeyEncoder::EncoderNulls::Decode(uint32_t start_row, uint32_t num_rows,
   DCHECK_GT(cols->size(), 0);
   for (auto& col : *cols) {
     DCHECK(col.length() == num_rows);
-    DCHECK(col.mutable_data(0));
+    DCHECK(col.mutable_data(0) || col.metadata().is_null_type);
   }
 
   const uint8_t* null_masks = rows.null_masks();
   uint32_t null_masks_bytes_per_row = rows.metadata().null_masks_bytes_per_row;
   for (size_t col = 0; col < cols->size(); ++col) {
+    if ((*cols)[col].metadata().is_null_type) {
+      continue;
+    }
     uint8_t* non_nulls = (*cols)[col].mutable_data(0);
     const int bit_offset = (*cols)[col].bit_offset(0);
     DCHECK_LT(bit_offset, 8);
@@ -994,7 +1000,8 @@ void KeyEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
   // Process fixed length columns
   const auto num_cols = static_cast<uint32_t>(batch_all_cols_.size());
   for (uint32_t i = 0; i < num_cols;) {
-    if (!batch_all_cols_[i].metadata().is_fixed_length) {
+    if (!batch_all_cols_[i].metadata().is_fixed_length ||
+        batch_all_cols_[i].metadata().is_null_type) {
       i += 1;
       continue;
     }
@@ -1092,6 +1099,9 @@ void KeyEncoder::EncoderBinary::EncodeSelected(uint32_t offset_within_row,
                                                const KeyColumnArray& col,
                                                uint32_t num_selected,
                                                const uint16_t* selection) {
+  if (col.metadata().is_null_type) {
+    return;
+  }
   uint32_t col_width = col.metadata().fixed_length;
   if (col_width == 0) {
     int bit_offset = col.bit_offset(1);

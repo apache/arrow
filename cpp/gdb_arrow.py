@@ -1843,6 +1843,7 @@ printers = {
     "nonstd::sv_lite::basic_string_view": StringViewPrinter,
 }
 
+
 def arrow_pretty_print(val):
     name = val.type.strip_typedefs().name
     if name is None:
@@ -1891,4 +1892,17 @@ def arrow_pretty_print(val):
             return ScalarPrinter(val)
 
 
-gdb.pretty_printers.append(arrow_pretty_print)
+def main():
+    # This pattern allows for two modes of use:
+    # - manual loading using `source gdb-arrow.py`: current_objfile()
+    #   will be None;
+    # - automatic loading from the GDB `scripts-directory`: current_objfile()
+    #   will be tied to the inferior being debugged.
+    objfile = gdb.current_objfile()
+    if objfile is None:
+        objfile = gdb
+
+    objfile.pretty_printers.append(arrow_pretty_print)
+
+
+main()

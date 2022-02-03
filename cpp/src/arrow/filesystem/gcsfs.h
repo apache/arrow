@@ -25,8 +25,7 @@
 
 namespace arrow {
 namespace fs {
-class GcsFileSystem;
-struct GcsOptions;
+
 struct GcsCredentials;
 
 /// Options for the GcsFileSystem implementation.

@@ -155,4 +155,15 @@ update_versions() {
   find . -name "*.bak" -exec rm {} \;
   git add .
   popd
+
+  case ${type} in
+    release)
+      pushd "${ARROW_DIR}"
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
+      git add r/pkgdown/assets/versions.json
+      git add docs/source/_static/versions.json
+      popd
+      ;;
+  esac
+
 }

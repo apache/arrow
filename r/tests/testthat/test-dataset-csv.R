@@ -280,12 +280,47 @@ test_that("Error if no format specified and files are not parquet", {
   )
 })
 
-test_that("Column names inferred from schema for headerless CSVs (ARROW-14063)", {
-  headerless_csv_dir <- make_temp_dir()
+test_that("Column names can be inferred from schema", {
   tbl <- df1[, c("int", "dbl")]
+
+  # Data containing a header row
+  header_csv_dir <- make_temp_dir()
+  write.table(tbl, file.path(header_csv_dir, "file1.csv"), sep = ",", row.names = FALSE)
+
+  # First row must be skipped if file has header
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64()),
+    skip_rows = 1
+  )
+  expect_equal(collect(ds), tbl)
+
+  # If first row isn't skipped, supply user-friendly error
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64())
+  )
+
+  expect_error(
+    collect(ds),
+    regexp = paste0(
+      "If you have supplied a schema and your data contains a ",
+      "header row, you should supply the argument `skip = 1` to ",
+      "prevent the header being read in as data."
+    )
+  )
+
+  # Data with no header row
+  headerless_csv_dir <- make_temp_dir()
   write.table(tbl, file.path(headerless_csv_dir, "file1.csv"), sep = ",", row.names = FALSE, col.names = FALSE)
 
-  ds <- open_dataset(headerless_csv_dir, format = "csv", schema = schema(int = int32(), dbl = float64()))
+  ds <- open_dataset(
+    headerless_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64())
+  )
   expect_equal(ds %>% collect(), tbl)
 })
 
@@ -298,4 +333,21 @@ test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
     open_dataset(temp_dir, format = "csv") %>% collect() %>% arrange(b),
     tibble(a = c(1, 3), b = c(2, 4))
   )
+})
+
+test_that("Error if read_options$column_names and schema-names differ (ARROW-14744)", {
+
+  dst_dir  <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "file.csv")
+  df <- df1[, c("int", "dbl")]
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  # Mismatch of column names vs. schema-names should raise an error
+  schema  <- schema(int = int32(), dbl = float64())
+
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
+    "Values in `column_names` must match schema field names"
+  )
+
 })
