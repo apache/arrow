@@ -301,7 +301,7 @@ register_bindings_type_format <- function() {
       binding_format_datetime(x, ...)
     } else {
       # other types
-      "WIP"
+      abort(paste("`format()` not yet supported for ", x$type()))
     }
   })
 }

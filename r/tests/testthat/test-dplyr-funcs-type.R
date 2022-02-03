@@ -844,7 +844,7 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   )
 })
 
-test_that("format POSIXct", {
+test_that("format date/time", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   times <- tibble(
@@ -906,4 +906,24 @@ test_that("format POSIXct", {
       )
     }
   )
+})
+
+test_that("format for other types errors", {
+
+  expect_warning(
+    example_data %>%
+      record_batch() %>%
+      mutate(x = format(int, trim = TRUE)) %>%
+      collect(),
+    regexp = "not supported in Arrow; pulling data into R"
+  )
+
+  expect_warning(
+    example_data %>%
+      record_batch() %>%
+      mutate(y = format(dbl, nsmall = 3)) %>%
+      collect(),
+    regexp = "not supported in Arrow; pulling data into R"
+  )
+
 })
