@@ -108,7 +108,7 @@ fi
 
 if [ ${BUMP_TAG} -gt 0 ]; then
   dev_tag=apache-arrow-${next_version}.dev
-  echo "Tagging ${version_tag} and ${dev_tag}"
+  echo "Tagging ${dev_tag}"
   git tag ${dev_tag} master
   git push apache ${dev_tag}
 fi
