@@ -118,6 +118,42 @@ class PartitionLocks {
   /// \brief Release a partition so that other threads can work on it
   void ReleasePartitionLock(int prtn_id);
 
+  template <typename IS_PRTN_EMPTY_FN, typename PROCESS_PRTN_FN>
+  Status ForEachPartition(int* temp_unprocessed_prtns, IS_PRTN_EMPTY_FN is_prtn_empty_fn,
+                          PROCESS_PRTN_FN process_prtn_fn) {
+    int num_unprocessed_partitions = 0;
+    for (int i = 0; i < num_prtns_; ++i) {
+      bool is_prtn_empty = is_prtn_empty_fn(i);
+      if (!is_prtn_empty) {
+        temp_unprocessed_prtns[num_unprocessed_partitions++] = i;
+      }
+    }
+    while (num_unprocessed_partitions > 0) {
+      int locked_prtn_id;
+      int locked_prtn_id_pos;
+      AcquirePartitionLock(num_unprocessed_partitions, temp_unprocessed_prtns,
+                           /*limit_retries=*/false, /*max_retries=*/-1, &locked_prtn_id,
+                           &locked_prtn_id_pos);
+      {
+        class AutoReleaseLock {
+         public:
+          AutoReleaseLock(PartitionLocks* locks, int prtn_id)
+              : locks(locks), prtn_id(prtn_id) {}
+          ~AutoReleaseLock() { locks->ReleasePartitionLock(prtn_id); }
+          PartitionLocks* locks;
+          int prtn_id;
+        } auto_release_lock(this, locked_prtn_id);
+        ARROW_RETURN_NOT_OK(process_prtn_fn(locked_prtn_id));
+      }
+      if (locked_prtn_id_pos < num_unprocessed_partitions - 1) {
+        temp_unprocessed_prtns[locked_prtn_id_pos] =
+            temp_unprocessed_prtns[num_unprocessed_partitions - 1];
+      }
+      --num_unprocessed_partitions;
+    }
+    return Status::OK();
+  }
+
  private:
   std::atomic<bool>* lock_ptr(int prtn_id);
   int random_int(size_t thread_id, int num_values);
