@@ -1333,6 +1333,43 @@ class IndexOptions(_IndexOptions):
         self._set_options(value)
 
 
+cdef class _MapLookupOptions(FunctionOptions):
+    _occurrence_map = {
+        "all": CMapLookupOccurrence_ALL,
+        "first": CMapLookupOccurrence_FIRST,
+        "last": CMapLookupOccurrence_LAST,
+    }
+
+    def _set_options(self, query_key, occurrence):
+        try:
+            self.wrapped.reset(
+                new CMapLookupOptions(
+                    pyarrow_unwrap_scalar(query_key),
+                    self._occurrence_map[occurrence]
+                )
+            )
+        except KeyError:
+            _raise_invalid_function_option(occurrence,
+                                           "Should either be first, last, or all")
+
+
+class MapLookupOptions(_MapLookupOptions):
+    """
+    Options for the `map_lookup` function.
+
+    Parameters
+    ----------
+    query_key : Scalar
+        The key to search for.
+    occurrence : str
+        The occurrence(s) to return from the Map
+        Accepted values are "first", "last", or "all".
+    """
+
+    def __init__(self, query_key, occurrence):
+        self._set_options(query_key, occurrence)
+
+
 cdef class _ModeOptions(FunctionOptions):
     def _set_options(self, n, skip_nulls, min_count):
         self.wrapped.reset(new CModeOptions(n, skip_nulls, min_count))

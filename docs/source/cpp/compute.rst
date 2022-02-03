@@ -1651,7 +1651,9 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(4)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(5)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1665,7 +1667,12 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) Extract a child value based on a sequence of indices passed in
+* \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+  map whose key match the given query key passed via options.
+  The output type is an Array of items for the ``FIRST``/``LAST`` options
+  and an Array of List of items for the ``ALL`` option.
+
+* \(5) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:

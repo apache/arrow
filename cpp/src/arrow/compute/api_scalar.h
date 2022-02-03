@@ -470,6 +470,30 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
   uint64_t seed;
 };
 
+/// Options for map_lookup function
+class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
+ public:
+  enum Occurrence {
+    /// Return the first matching value
+    FIRST,
+    /// Return the last matching value
+    LAST,
+    /// Return all matching values
+    ALL
+  };
+
+  explicit MapLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence);
+  MapLookupOptions();
+
+  constexpr static char const kTypeName[] = "MapLookupOptions";
+
+  /// The key to lookup in the map
+  std::shared_ptr<Scalar> query_key;
+
+  /// Whether to return the first, last, or all matching values
+  Occurrence occurrence;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.
@@ -1350,5 +1374,20 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           AssumeTimezoneOptions options,
                                           ExecContext* ctx = NULLPTR);
 
+/// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
+/// query key in a map.
+///
+/// Returns an array of items for FIRST and LAST, and an array of list of items for ALL.
+///
+/// \param[in] map to look in
+/// \param[in] options to pass a query key and choose which matching keys to return
+/// (FIRST, LAST or ALL)
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
+                                     ExecContext* ctx = NULLPTR);
 }  // namespace compute
 }  // namespace arrow
