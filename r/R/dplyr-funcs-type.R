@@ -307,7 +307,6 @@ register_bindings_type_format <- function() {
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
-  base_format_args <- formals(format.POSIXct)[-5]
 
   if (usetz) {
     format <- paste(format, "%Z")
