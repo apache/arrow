@@ -626,7 +626,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     # If dataframe is empty but with RangeIndex ->
     # remember the length of the indexes
     n_rows = None
-    if len(arrays) == 0 and schema is not None:
+    if len(arrays) == 0:
         try:
             kind = index_descriptors[0]["kind"]
             if kind == "range":
