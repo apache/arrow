@@ -539,9 +539,8 @@ class NestedValuesComparator {
 
   // ResolvedChunk<StructArray> Prepare overload
   Status Prepare(const ResolvedChunk<StructArray>& chunk_left,
-                 const ResolvedChunk<StructArray>& chunk_right) {
-    Prepare(*chunk_left.array);
-    return Status::OK();
+                 const ResolvedChunk<StructArray>&) {
+    return Prepare(*chunk_left.array);
   }
 
   // ResolvedChunk<StructArray> Compare overload
@@ -750,7 +749,11 @@ struct ResolvedChunkComparator<StructArray> {
     const auto chunk_left = chunk_resolver.Resolve<StructArray>(left);
     const auto chunk_right = chunk_resolver.Resolve<StructArray>(right);
     NestedValuesComparator nested_values_comparator;
-    nested_values_comparator.Prepare(chunk_left, chunk_right);
+    auto status = nested_values_comparator.Prepare(chunk_left, chunk_right);
+
+    if(!status.ok()) {
+      return false;
+    }
 
     for (int i = 0; i < chunk_left.array->num_fields(); i++) {
       int val = nested_values_comparator.Compare(chunk_left, chunk_right, i);
