@@ -111,7 +111,7 @@ class ProjectNode : public MapNode {
   }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
     ss << "projection=[";
     for (int i = 0; static_cast<size_t>(i) < exprs_.size(); i++) {

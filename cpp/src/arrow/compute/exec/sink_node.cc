@@ -350,7 +350,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     return std::string("by=") + impl_->ToString();
   }
 

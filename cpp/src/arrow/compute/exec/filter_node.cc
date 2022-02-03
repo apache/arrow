@@ -116,7 +116,7 @@ class FilterNode : public MapNode {
   }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     return "filter=" + filter_.ToString();
   }
 
