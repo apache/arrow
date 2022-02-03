@@ -82,7 +82,7 @@ module VersionDetectable
     @so_version = compute_so_version(@release_version)
     @next_version = @release_version.gsub(/\A\d+/) {|major| major.succ}
     @next_major_version = @next_version.split(".")[0]
-    @next_compatible_version = @next_major_version.split(".")[0, 2].join(".")
+    @next_compatible_version = @next_version.split(".")[0, 2].join(".")
     @next_snapshot_version = "#{@next_version}-SNAPSHOT"
     @next_so_version = compute_so_version(@next_version)
     r_description = top_dir + "r" + "DESCRIPTION"
