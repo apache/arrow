@@ -780,9 +780,9 @@ ensure_source_directory() {
   fi
   popd
 
-  export ARROW_TEST_DATA=$PWD/testing/data
-  export PARQUET_TEST_DATA=$PWD/cpp/submodules/parquet-testing/data
-  export ARROW_GDB_SCRIPT=$PWD/cpp/gdb_arrow.py
+  export ARROW_TEST_DATA=$ARROW_SOURCE_DIR/testing/data
+  export PARQUET_TEST_DATA=$ARROW_SOURCE_DIR/cpp/submodules/parquet-testing/data
+  export ARROW_GDB_SCRIPT=$ARROW_SOURCE_DIR/cpp/gdb_arrow.py
 }
 
 test_source_distribution() {
