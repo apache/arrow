@@ -21,8 +21,10 @@
 
 #include <algorithm>
 
+#include "arrow/compute/exec.h"
 #include "arrow/compute/exec/util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -805,6 +807,10 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
         }
         return left < right;
       });
+  inverse_column_order.resize(num_cols);
+  for (uint32_t i = 0; i < num_cols; ++i) {
+    inverse_column_order[column_order[i]] = i;
+  }
 
   row_alignment = in_row_alignment;
   string_alignment = in_string_alignment;
@@ -856,9 +862,8 @@ void KeyEncoder::KeyRowMetadata::FromColumnMetadataVector(
   }
 }
 
-void KeyEncoder::Init(const std::vector<KeyColumnMetadata>& cols, KeyEncoderContext* ctx,
-                      int row_alignment, int string_alignment) {
-  ctx_ = ctx;
+void KeyEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+                      int string_alignment) {
   row_metadata_.FromColumnMetadataVector(cols, row_alignment, string_alignment);
   uint32_t num_cols = row_metadata_.num_cols();
   uint32_t num_varbinary_cols = row_metadata_.num_varbinary_cols();
@@ -895,18 +900,24 @@ void KeyEncoder::PrepareKeyColumnArrays(int64_t start_row, int64_t num_rows,
 void KeyEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
                                           int64_t start_row_output, int64_t num_rows,
                                           const KeyRowArray& rows,
-                                          std::vector<KeyColumnArray>* cols) {
+                                          std::vector<KeyColumnArray>* cols,
+                                          int64_t hardware_flags,
+                                          util::TempVectorStack* temp_stack) {
   // Prepare column array vectors
   PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
 
+  KeyEncoderContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
+
   // Create two temp vectors with 16-bit elements
   auto temp_buffer_holder_A =
-      util::TempVectorHolder<uint16_t>(ctx_->stack, static_cast<uint32_t>(num_rows));
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
   auto temp_buffer_A = KeyColumnArray(
       KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
       reinterpret_cast<uint8_t*>(temp_buffer_holder_A.mutable_data()), nullptr);
   auto temp_buffer_holder_B =
-      util::TempVectorHolder<uint16_t>(ctx_->stack, static_cast<uint32_t>(num_rows));
+      util::TempVectorHolder<uint16_t>(ctx.stack, static_cast<uint32_t>(num_rows));
   auto temp_buffer_B = KeyColumnArray(
       KeyColumnMetadata(true, sizeof(uint16_t)), num_rows, nullptr,
       reinterpret_cast<uint8_t*>(temp_buffer_holder_B.mutable_data()), nullptr);
@@ -915,7 +926,7 @@ void KeyEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
   if (!is_row_fixed_length) {
     EncoderOffsets::Decode(static_cast<uint32_t>(start_row_input),
                            static_cast<uint32_t>(num_rows), rows, &batch_varbinary_cols_,
-                           batch_varbinary_cols_base_offsets_, ctx_);
+                           batch_varbinary_cols_base_offsets_, &ctx);
   }
 
   // Process fixed length columns
@@ -934,13 +945,13 @@ void KeyEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
       EncoderBinary::Decode(static_cast<uint32_t>(start_row_input),
                             static_cast<uint32_t>(num_rows),
                             row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
-                            ctx_, &temp_buffer_A);
+                            &ctx, &temp_buffer_A);
       i += 1;
     } else {
       EncoderBinaryPair::Decode(
           static_cast<uint32_t>(start_row_input), static_cast<uint32_t>(num_rows),
           row_metadata_.column_offsets[i], rows, &batch_all_cols_[i],
-          &batch_all_cols_[i + 1], ctx_, &temp_buffer_A, &temp_buffer_B);
+          &batch_all_cols_[i + 1], &ctx, &temp_buffer_A, &temp_buffer_B);
       i += 2;
     }
   }
@@ -953,9 +964,15 @@ void KeyEncoder::DecodeFixedLengthBuffers(int64_t start_row_input,
 void KeyEncoder::DecodeVaryingLengthBuffers(int64_t start_row_input,
                                             int64_t start_row_output, int64_t num_rows,
                                             const KeyRowArray& rows,
-                                            std::vector<KeyColumnArray>* cols) {
+                                            std::vector<KeyColumnArray>* cols,
+                                            int64_t hardware_flags,
+                                            util::TempVectorStack* temp_stack) {
   // Prepare column array vectors
   PrepareKeyColumnArrays(start_row_output, num_rows, *cols);
+
+  KeyEncoderContext ctx;
+  ctx.hardware_flags = hardware_flags;
+  ctx.stack = temp_stack;
 
   bool is_row_fixed_length = row_metadata_.is_fixed_length;
   if (!is_row_fixed_length) {
@@ -964,7 +981,7 @@ void KeyEncoder::DecodeVaryingLengthBuffers(int64_t start_row_input,
       // positions in the output row buffer.
       EncoderVarBinary::Decode(static_cast<uint32_t>(start_row_input),
                                static_cast<uint32_t>(num_rows), static_cast<uint32_t>(i),
-                               rows, &batch_varbinary_cols_[i], ctx_);
+                               rows, &batch_varbinary_cols_[i], &ctx);
     }
   }
 }

@@ -30,13 +30,11 @@ namespace arrow {
 namespace compute {
 
 template <bool use_selection>
-void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_compare,
-                                       const uint16_t* sel_left_maybe_null,
-                                       const uint32_t* left_to_right_map,
-                                       KeyEncoder::KeyEncoderContext* ctx,
-                                       const KeyColumnArray& col,
-                                       const KeyEncoder::KeyRowArray& rows,
-                                       uint8_t* match_bytevector) {
+void KeyCompare::NullUpdateColumnToRow(
+    uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
+    const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
+    const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
+    uint8_t* match_bytevector, bool are_cols_in_encoding_order) {
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return;
   }
@@ -49,6 +47,9 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
   }
 #endif
 
+  uint32_t null_bit_id =
+      are_cols_in_encoding_order ? id_col : rows.metadata().pos_after_encoding(id_col);
+
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
     const uint8_t* null_masks = rows.null_masks();
@@ -56,11 +57,12 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      int64_t bitid = irow_right * null_mask_num_bytes * 8 + id_col;
+      int64_t bitid = irow_right * null_mask_num_bytes * 8 + null_bit_id;
       match_bytevector[i] &= (bit_util::GetBit(null_masks, bitid) ? 0 : 0xff);
     }
   } else if (!rows.has_any_nulls(ctx)) {
-    // Remove rows from the result for which the column value on left side is null
+    // Remove rows from the result for which the column value on left side is
+    // null
     const uint8_t* non_nulls = col.data(0);
     ARROW_DCHECK(non_nulls);
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
@@ -76,7 +78,7 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
     for (uint32_t i = num_processed; i < num_rows_to_compare; ++i) {
       uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
       uint32_t irow_right = left_to_right_map[irow_left];
-      int64_t bitid_right = irow_right * null_mask_num_bytes * 8 + id_col;
+      int64_t bitid_right = irow_right * null_mask_num_bytes * 8 + null_bit_id;
       int right_null = bit_util::GetBit(null_masks, bitid_right) ? 0xff : 0;
       int left_null =
           bit_util::GetBit(non_nulls, irow_left + col.bit_offset(0)) ? 0 : 0xff;
@@ -228,25 +230,17 @@ void KeyCompare::CompareBinaryColumnToRow(
 
 // Overwrites the match_bytevector instead of updating it
 template <bool use_selection, bool is_first_varbinary_col>
-void KeyCompare::CompareVarBinaryColumnToRow(
-    uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
-    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
-    KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
-    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
-#if defined(ARROW_HAVE_AVX2)
-  if (ctx->has_avx2()) {
-    CompareVarBinaryColumnToRow_avx2(
-        use_selection, is_first_varbinary_col, id_varbinary_col, num_rows_to_compare,
-        sel_left_maybe_null, left_to_right_map, ctx, col, rows, match_bytevector);
-    return;
-  }
-#endif
-
+void KeyCompare::CompareVarBinaryColumnToRowHelper(
+    uint32_t id_varbinary_col, uint32_t first_row_to_compare,
+    uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
+    const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
+    const KeyColumnArray& col, const KeyEncoder::KeyRowArray& rows,
+    uint8_t* match_bytevector) {
   const uint32_t* offsets_left = col.offsets();
   const uint32_t* offsets_right = rows.offsets();
   const uint8_t* rows_left = col.data(2);
   const uint8_t* rows_right = rows.data(2);
-  for (uint32_t i = 0; i < num_rows_to_compare; ++i) {
+  for (uint32_t i = first_row_to_compare; i < num_rows_to_compare; ++i) {
     uint32_t irow_left = use_selection ? sel_left_maybe_null[i] : i;
     uint32_t irow_right = left_to_right_map[irow_left];
     uint32_t begin_left = offsets_left[irow_left];
@@ -290,6 +284,27 @@ void KeyCompare::CompareVarBinaryColumnToRow(
   }
 }
 
+// Overwrites the match_bytevector instead of updating it
+template <bool use_selection, bool is_first_varbinary_col>
+void KeyCompare::CompareVarBinaryColumnToRow(
+    uint32_t id_varbinary_col, uint32_t num_rows_to_compare,
+    const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+    KeyEncoder::KeyEncoderContext* ctx, const KeyColumnArray& col,
+    const KeyEncoder::KeyRowArray& rows, uint8_t* match_bytevector) {
+  uint32_t num_processed = 0;
+#if defined(ARROW_HAVE_AVX2)
+  if (ctx->has_avx2()) {
+    num_processed = CompareVarBinaryColumnToRow_avx2(
+        use_selection, is_first_varbinary_col, id_varbinary_col, num_rows_to_compare,
+        sel_left_maybe_null, left_to_right_map, ctx, col, rows, match_bytevector);
+  }
+#endif
+
+  CompareVarBinaryColumnToRowHelper<use_selection, is_first_varbinary_col>(
+      id_varbinary_col, num_processed, num_rows_to_compare, sel_left_maybe_null,
+      left_to_right_map, ctx, col, rows, match_bytevector);
+}
+
 void KeyCompare::AndByteVectors(KeyEncoder::KeyEncoderContext* ctx, uint32_t num_elements,
                                 uint8_t* bytevector_A, const uint8_t* bytevector_B) {
   uint32_t num_processed = 0;
@@ -310,7 +325,8 @@ void KeyCompare::CompareColumnsToRows(
     uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, KeyEncoder::KeyEncoderContext* ctx,
     uint32_t* out_num_rows, uint16_t* out_sel_left_maybe_same,
-    const std::vector<KeyColumnArray>& cols, const KeyEncoder::KeyRowArray& rows) {
+    const std::vector<KeyColumnArray>& cols, const KeyEncoder::KeyRowArray& rows,
+    bool are_cols_in_encoding_order, uint8_t* out_match_bitvector_maybe_null) {
   if (num_rows_to_compare == 0) {
     *out_num_rows = 0;
     return;
@@ -331,6 +347,7 @@ void KeyCompare::CompareColumnsToRows(
   bool is_first_column = true;
   for (size_t icol = 0; icol < cols.size(); ++icol) {
     const KeyColumnArray& col = cols[icol];
+
     if (col.metadata().is_null_type) {
       // If this null type col is the first column, the match_bytevector_A needs to be
       // initialized with 0xFF. Otherwise, the calculation can be skipped
@@ -339,8 +356,11 @@ void KeyCompare::CompareColumnsToRows(
       }
       continue;
     }
-    uint32_t offset_within_row =
-        rows.metadata().encoded_field_offset(static_cast<uint32_t>(icol));
+
+    uint32_t offset_within_row = rows.metadata().encoded_field_offset(
+        are_cols_in_encoding_order
+            ? static_cast<uint32_t>(icol)
+            : rows.metadata().pos_after_encoding(static_cast<uint32_t>(icol)));
     if (col.metadata().is_fixed_length) {
       if (sel_left_maybe_null) {
         CompareBinaryColumnToRow<true>(
@@ -350,7 +370,8 @@ void KeyCompare::CompareColumnsToRows(
         NullUpdateColumnToRow<true>(
             static_cast<uint32_t>(icol), num_rows_to_compare, sel_left_maybe_null,
             left_to_right_map, ctx, col, rows,
-            is_first_column ? match_bytevector_A : match_bytevector_B);
+            is_first_column ? match_bytevector_A : match_bytevector_B,
+            are_cols_in_encoding_order);
       } else {
         // Version without using selection vector
         CompareBinaryColumnToRow<false>(
@@ -360,7 +381,8 @@ void KeyCompare::CompareColumnsToRows(
         NullUpdateColumnToRow<false>(
             static_cast<uint32_t>(icol), num_rows_to_compare, sel_left_maybe_null,
             left_to_right_map, ctx, col, rows,
-            is_first_column ? match_bytevector_A : match_bytevector_B);
+            is_first_column ? match_bytevector_A : match_bytevector_B,
+            are_cols_in_encoding_order);
       }
       if (!is_first_column) {
         AndByteVectors(ctx, num_rows_to_compare, match_bytevector_A, match_bytevector_B);
@@ -387,7 +409,8 @@ void KeyCompare::CompareColumnsToRows(
         NullUpdateColumnToRow<true>(
             static_cast<uint32_t>(icol), num_rows_to_compare, sel_left_maybe_null,
             left_to_right_map, ctx, col, rows,
-            is_first_column ? match_bytevector_A : match_bytevector_B);
+            is_first_column ? match_bytevector_A : match_bytevector_B,
+            are_cols_in_encoding_order);
       } else {
         if (ivarbinary == 0) {
           CompareVarBinaryColumnToRow<false, true>(
@@ -401,7 +424,8 @@ void KeyCompare::CompareColumnsToRows(
         NullUpdateColumnToRow<false>(
             static_cast<uint32_t>(icol), num_rows_to_compare, sel_left_maybe_null,
             left_to_right_map, ctx, col, rows,
-            is_first_column ? match_bytevector_A : match_bytevector_B);
+            is_first_column ? match_bytevector_A : match_bytevector_B,
+            are_cols_in_encoding_order);
       }
       if (!is_first_column) {
         AndByteVectors(ctx, num_rows_to_compare, match_bytevector_A, match_bytevector_B);
@@ -413,18 +437,26 @@ void KeyCompare::CompareColumnsToRows(
 
   util::bit_util::bytes_to_bits(ctx->hardware_flags, num_rows_to_compare,
                                 match_bytevector_A, match_bitvector);
-  if (sel_left_maybe_null) {
-    int out_num_rows_int;
-    util::bit_util::bits_filter_indexes(0, ctx->hardware_flags, num_rows_to_compare,
-                                        match_bitvector, sel_left_maybe_null,
-                                        &out_num_rows_int, out_sel_left_maybe_same);
-    *out_num_rows = out_num_rows_int;
+
+  if (out_match_bitvector_maybe_null) {
+    ARROW_DCHECK(out_num_rows == nullptr);
+    ARROW_DCHECK(out_sel_left_maybe_same == nullptr);
+    memcpy(out_match_bitvector_maybe_null, match_bitvector,
+           bit_util::BytesForBits(num_rows_to_compare));
   } else {
-    int out_num_rows_int;
-    util::bit_util::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare,
-                                    match_bitvector, &out_num_rows_int,
-                                    out_sel_left_maybe_same);
-    *out_num_rows = out_num_rows_int;
+    if (sel_left_maybe_null) {
+      int out_num_rows_int;
+      util::bit_util::bits_filter_indexes(0, ctx->hardware_flags, num_rows_to_compare,
+                                          match_bitvector, sel_left_maybe_null,
+                                          &out_num_rows_int, out_sel_left_maybe_same);
+      *out_num_rows = out_num_rows_int;
+    } else {
+      int out_num_rows_int;
+      util::bit_util::bits_to_indexes(0, ctx->hardware_flags, num_rows_to_compare,
+                                      match_bitvector, &out_num_rows_int,
+                                      out_sel_left_maybe_same);
+      *out_num_rows = out_num_rows_int;
+    }
   }
 }
 

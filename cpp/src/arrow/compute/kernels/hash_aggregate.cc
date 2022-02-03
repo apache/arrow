@@ -255,7 +255,7 @@ struct GrouperFastImpl : Grouper {
       impl->key_types_[icol] = key;
     }
 
-    impl->encoder_.Init(impl->col_metadata_, &impl->encode_ctx_,
+    impl->encoder_.Init(impl->col_metadata_,
                         /* row_alignment = */ sizeof(uint64_t),
                         /* string_alignment = */ sizeof(uint64_t));
     RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
@@ -270,7 +270,8 @@ struct GrouperFastImpl : Grouper {
       arrow::compute::KeyCompare::CompareColumnsToRows(
           num_keys_to_compare, selection_may_be_null, group_ids, &impl_ptr->encode_ctx_,
           out_num_keys_mismatch, out_selection_mismatch,
-          impl_ptr->encoder_.GetBatchColumns(), impl_ptr->rows_);
+          impl_ptr->encoder_.GetBatchColumns(), impl_ptr->rows_,
+          /*are_cols_in_encoding_order=*/true);
     };
     auto append_func = [impl_ptr](int num_keys, const uint16_t* selection) {
       RETURN_NOT_OK(impl_ptr->encoder_.EncodeSelected(&impl_ptr->rows_minibatch_,
@@ -458,7 +459,7 @@ struct GrouperFastImpl : Grouper {
       int64_t batch_size_next =
           std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
       encoder_.DecodeFixedLengthBuffers(start_row, start_row, batch_size_next, rows_,
-                                        &cols_);
+                                        &cols_, encode_ctx_.hardware_flags, &temp_stack_);
       start_row += batch_size_next;
     }
 
@@ -478,7 +479,8 @@ struct GrouperFastImpl : Grouper {
         int64_t batch_size_next =
             std::min(num_groups - start_row, static_cast<int64_t>(minibatch_size_max_));
         encoder_.DecodeVaryingLengthBuffers(start_row, start_row, batch_size_next, rows_,
-                                            &cols_);
+                                            &cols_, encode_ctx_.hardware_flags,
+                                            &temp_stack_);
         start_row += batch_size_next;
       }
     }

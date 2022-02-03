@@ -96,6 +96,7 @@ class KeyEncoder {
 
     /// Order in which fields are encoded.
     std::vector<uint32_t> column_order;
+    std::vector<uint32_t> inverse_column_order;
 
     /// Offsets within a row to fields in their encoding order.
     std::vector<uint32_t> column_offsets;
@@ -154,6 +155,10 @@ class KeyEncoder {
     }
 
     uint32_t encoded_field_order(uint32_t icol) const { return column_order[icol]; }
+
+    uint32_t pos_after_encoding(uint32_t icol) const {
+      return inverse_column_order[icol];
+    }
 
     uint32_t encoded_field_offset(uint32_t icol) const { return column_offsets[icol]; }
 
@@ -221,8 +226,8 @@ class KeyEncoder {
     mutable bool has_any_nulls_;
   };
 
-  void Init(const std::vector<KeyColumnMetadata>& cols, KeyEncoderContext* ctx,
-            int row_alignment, int string_alignment);
+  void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
+            int string_alignment);
 
   const KeyRowMetadata& row_metadata() { return row_metadata_; }
 
@@ -241,11 +246,14 @@ class KeyEncoder {
   /// length buffers sizes.
   void DecodeFixedLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                 int64_t num_rows, const KeyRowArray& rows,
-                                std::vector<KeyColumnArray>* cols);
+                                std::vector<KeyColumnArray>* cols, int64_t hardware_flags,
+                                util::TempVectorStack* temp_stack);
 
   void DecodeVaryingLengthBuffers(int64_t start_row_input, int64_t start_row_output,
                                   int64_t num_rows, const KeyRowArray& rows,
-                                  std::vector<KeyColumnArray>* cols);
+                                  std::vector<KeyColumnArray>* cols,
+                                  int64_t hardware_flags,
+                                  util::TempVectorStack* temp_stack);
 
   const std::vector<KeyColumnArray>& GetBatchColumns() const { return batch_all_cols_; }
 
@@ -414,8 +422,6 @@ class KeyEncoder {
     static void Decode(uint32_t start_row, uint32_t num_rows, const KeyRowArray& rows,
                        std::vector<KeyColumnArray>* cols);
   };
-
-  KeyEncoderContext* ctx_;
 
   // Data initialized once, based on data types of key columns
   KeyRowMetadata row_metadata_;
