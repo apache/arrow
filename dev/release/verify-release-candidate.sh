@@ -288,7 +288,6 @@ install_nodejs() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install --lts
-    npm install -g yarn
   fi
 
   NODEJS_ALREADY_INSTALLED=1
@@ -403,9 +402,9 @@ install_conda() {
     curl -sL -o miniconda.sh $url
     bash miniconda.sh -b -p $prefix
     rm -f miniconda.sh
-    echo "Installed miniconda at ${MINICONDA}"
+    echo "Installed miniconda at ${prefix}"
   else
-    echo "Miniconda already installed at ${MINICONDA}"
+    echo "Miniconda already installed at ${prefix}"
   fi
 
   # Creating a separate conda environment
@@ -482,6 +481,18 @@ setup_virtualenv() {
     if [ $# -gt 0 ]; then
       pip install $@
     fi
+  fi
+}
+
+setup_go() {
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_go
+  fi
+}
+
+setup_nodejs() {
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_nodejs
   fi
 }
 
@@ -704,7 +715,10 @@ test_csharp() {
 }
 
 test_js() {
-  install_nodejs
+  setup_nodejs
+  setup_conda nodejs=17
+
+  npm install -g yarn
 
   pushd js
   yarn --frozen-lockfile
@@ -717,7 +731,8 @@ test_js() {
 }
 
 test_go() {
-  install_go
+  setup_go
+  setup_conda compilers go=1.17
 
   pushd go/arrow
   go get -v ./...
