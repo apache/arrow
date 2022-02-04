@@ -39,7 +39,7 @@ if "%VERSION%"=="" (
     set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
     if "%RC_NUMBER%"=="" (
         @rem verify a specific git revision
-        git clone https://github.com/apache/arrow.git %ARROW_SOURCE%
+        git clone --recurse-submodules https://github.com/apache/arrow.git %ARROW_SOURCE%
         git -C %ARROW_SOURCE% checkout %VERSION%
     ) else (
         @rem verify a release candidate tarball
@@ -50,12 +50,8 @@ if "%VERSION%"=="" (
         tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
     )
 
-    @rem Get testing datasets for Parquet unit tests
-    git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
-    set PARQUET_TEST_DATA=%_VERIFICATION_DIR%\parquet-testing\data
-
-    git clone https://github.com/apache/arrow-testing.git %_VERIFICATION_DIR%\arrow-testing
-    set ARROW_TEST_DATA=%_VERIFICATION_DIR%\arrow-testing\data
+    git clone https://github.com/apache/arrow-testing.git %ARROW_SOURCE%\testing
+    git clone https://github.com/apache/parquet-testing.git %ARROW_SOURCE%\cpp\submodules\parquet-testing
 )
 
 set PYTHON=3.8
