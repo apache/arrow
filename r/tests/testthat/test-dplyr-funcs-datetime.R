@@ -616,7 +616,7 @@ test_that("extract wday from date", {
       collect(),
     test_df,
     # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
-    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
+    ignore_attr = on_windows()
   )
 
   compare_dplyr_binding(
@@ -625,7 +625,7 @@ test_that("extract wday from date", {
       collect(),
     test_df,
     # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
-    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
+    ignore_attr = on_windows()
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
@@ -654,7 +654,7 @@ test_that("extract mday from date", {
       collect(),
     test_df,
     # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
-    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
+    ignore_attr = on_windows()
   )
 })
 
