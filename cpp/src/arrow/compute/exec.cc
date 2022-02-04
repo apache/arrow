@@ -833,11 +833,13 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // Check whether the kernel allocated new Buffers
       // (instead of using the preallocated ones)
       if (validity_preallocated_) {
-        if (validity_buffer.address != out.array()->buffers[0]->address() ||
-            validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
-          return Status::Invalid(
-                  "Pre-allocated validity buffer was modified "
-                  "in function kernel");
+        if (out.array()->buffers[0]) { // it is possible the validity buffer was deleted
+          if (validity_buffer.address != out.array()->buffers[0]->address() ||
+              validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
+            return Status::Invalid(
+                    "Pre-allocated validity buffer was modified "
+                    "in function kernel");
+          }
         }
       }
       for (size_t i = 0; i < data_preallocated_.size(); ++i) {
@@ -1028,6 +1030,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     // insert all the preallocated ones into a set
     // To check whether the kernel allocated new Buffers,
     // insert all the preallocated ones into a set
+    auto pre_kind = out.kind();
     BufferProperties validity_buffer;
     if (validity_preallocated_) {
       validity_buffer = {out.array()->buffers[0]->address(),
@@ -1048,16 +1051,23 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     // Check whether the kernel allocated new Buffers
     // (instead of using the preallocated ones)
     if (validity_preallocated_) {
-      if (validity_buffer.address != out.array()->buffers[0]->address() ||
-          validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
-        return Status::Invalid(
-                "Pre-allocated validity buffer was modified "
-                "in function kernel");
+      if (out.is_array() && out.array()->buffers[0]) { // it is possible the validity buffer was deleted
+        if (validity_buffer.address != out.array()->buffers[0]->address() ||
+            validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
+          return Status::Invalid(
+                  "Pre-allocated validity buffer was modified "
+                  "in function kernel");
+        }
       }
     }
     for (size_t i = 0; i < data_preallocated_.size(); ++i) {
       const auto &prealloc = data_preallocated_[i];
       if (prealloc.bit_width >= 0) {
+        if (pre_kind != out.kind()) {
+          return Status::Invalid(
+                  "Pre-allocated out Datum was changed into another type "
+                  "in function kernel");
+        }
         if (AddBuffersToSet(out.array()->buffers[i + 1], &pre_buffers)) {
           return Status::Invalid(
                   "Unauthorized memory allocations "
