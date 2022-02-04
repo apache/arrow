@@ -848,7 +848,7 @@ test_that("format date/time", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   times <- tibble(
-    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
     date = c(as.Date("2021-01-01"), NA)
   )
   formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
@@ -870,7 +870,7 @@ test_that("format date/time", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = format(datetime, format = formats, tz = "Pacific/Marquesas")) %>%
+      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
       collect(),
     times
   )
