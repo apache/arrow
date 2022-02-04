@@ -442,6 +442,102 @@ struct NegateChecked {
   }
 };
 
+// if at least one argument is NaN, returns the first one that is NaN
+struct Minimum {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
+    return std::isnan(left) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left < right ? left : right;
+  }
+};
+
+// if both arguments are NaN, returns the first one
+struct MinimumChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left < right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left < right ? left : right;
+  }
+};
+
+// if at least one argument is NaN, returns the first one that is NaN
+struct Maximum {
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                                    Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                            Arg1 right, Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
+                                                          Arg1 right, Status*) {
+    return std::isnan(left) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left > right ? left : right;
+  }
+};
+
+// if both arguments are NaN, returns the first one
+struct MaximumChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status*) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::isnan(left) && std::isnan(right) ? left : left > right ? left : right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return left > right ? left : right;
+  }
+};
+
 struct Power {
   ARROW_NOINLINE
   static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
@@ -502,6 +598,29 @@ struct PowerChecked {
   static enable_if_floating_value<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
+  }
+};
+
+struct SquareRoot {
+  template <typename T, typename Arg>
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::sqrt(arg);
+  }
+};
+
+struct SquareRootChecked {
+  template <typename T, typename Arg>
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg < 0.0) {
+      *st = Status::Invalid("square root of negative number");
+      return arg;
+    }
+    return std::sqrt(arg);
   }
 };
 
@@ -2207,6 +2326,30 @@ const FunctionDoc negate_checked_doc{
      "doesn't fail on overflow, use function \"negate\"."),
     {"x"}};
 
+const FunctionDoc min_doc{"Take the minimum of the arguments element-wise",
+                          ("Results will take the first NaN if at least one is input.\n"
+                           "Use function \"minimum_checked\" if you want a number\n"
+                           "to be returned if one is input."),
+                          {"x", "y"}};
+
+const FunctionDoc min_checked_doc{
+    "Take the minimum of the argumentss element-wise",
+    ("This function returns a number if one is input.  For a variant that\n"
+     "returns a NaN if one is input, use function \"minimum\"."),
+    {"x"}};
+
+const FunctionDoc max_doc{"Take the maximum of the arguments element-wise",
+                          ("Results will take the first NaN if at least one is input.\n"
+                           "Use function \"maximum_checked\" if you want a number\n"
+                           "to be returned if one is input."),
+                          {"x", "y"}};
+
+const FunctionDoc max_checked_doc{
+    "Take the maximum of the argumentss element-wise",
+    ("This function returns a number  if one is input.  For a variant that\n"
+     "returns a NaN if one is input, use function \"maximum\"."),
+    {"x"}};
+
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",
     ("Integer to negative integer power returns an error. However, integer overflow\n"
@@ -2218,6 +2361,18 @@ const FunctionDoc pow_checked_doc{
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
+
+const FunctionDoc sqrt_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns a NaN.  For a variant that returns an\n"
+     "error, use function \"square_root_checked\"."),
+    {"x"}};
+
+const FunctionDoc sqrt_checked_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns an error.  For a variant that returns a\n"
+     "NaN, use function \"square_root\"."),
+    {"x"}};
 
 const FunctionDoc sign_doc{
     "Get the signedness of the arguments element-wise",
@@ -2569,6 +2724,26 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
+  auto minimum = MakeArithmeticFunction<Minimum>("minimum", &min_doc);
+  AddDecimalBinaryKernels<Minimum>("minimum", minimum.get());
+  DCHECK_OK(registry->AddFunction(std::move(minimum)));
+
+  // ----------------------------------------------------------------------
+  auto minimum_checked = MakeArithmeticFunctionNotNull<MinimumChecked>(
+      "minimum_checked", &min_checked_doc);
+  AddDecimalBinaryKernels<MinimumChecked>("minimum_checked", minimum_checked.get());
+
+  // ----------------------------------------------------------------------
+  auto maximum = MakeArithmeticFunction<Maximum>("maximum", &min_doc);
+  AddDecimalBinaryKernels<Maximum>("maximum", maximum.get());
+  DCHECK_OK(registry->AddFunction(std::move(maximum)));
+
+  // ----------------------------------------------------------------------
+  auto maximum_checked = MakeArithmeticFunctionNotNull<MaximumChecked>(
+      "maximum_checked", &min_checked_doc);
+  AddDecimalBinaryKernels<MaximumChecked>("maximum_checked", maximum_checked.get());
+
+  // ----------------------------------------------------------------------
   auto power = MakeArithmeticFunction<Power, ArithmeticDecimalToFloatingPointFunction>(
       "power", &pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
@@ -2579,6 +2754,16 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                     ArithmeticDecimalToFloatingPointFunction>(
           "power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto square_root = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>(
+      "square_root", &sqrt_doc);
+  DCHECK_OK(registry->AddFunction(std::move(square_root)));
+
+  // ----------------------------------------------------------------------
+  auto square_root_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
+      "square_root_checked", &sqrt_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(square_root_checked)));
 
   // ----------------------------------------------------------------------
   auto sign =
