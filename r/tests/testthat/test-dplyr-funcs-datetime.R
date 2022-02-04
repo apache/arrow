@@ -341,13 +341,6 @@ test_that("extract quarter from timestamp", {
 })
 
 test_that("extract month from timestamp", {
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = month(datetime)) %>%
-      collect(),
-    test_df
-  )
-
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
@@ -366,9 +359,17 @@ test_that("extract month from timestamp", {
     test_df,
     ignore_attr = TRUE
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = month(datetime)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("extract isoweek from timestamp", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = isoweek(datetime)) %>%
@@ -378,6 +379,7 @@ test_that("extract isoweek from timestamp", {
 })
 
 test_that("extract epiweek from timestamp", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = epiweek(datetime)) %>%
@@ -387,6 +389,7 @@ test_that("extract epiweek from timestamp", {
 })
 
 test_that("extract week from timestamp", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = week(datetime)) %>%
