@@ -17,13 +17,14 @@
 
 #pragma once
 
-#include <gtest/gtest.h>
-
 #include <ctime>
 #include <string>
 
+#include <gtest/gtest.h>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
+
 #include "gandiva/date_utils.h"
 #include "gandiva/precompiled/time_constants.h"
 #include "gandiva/precompiled/types.h"
