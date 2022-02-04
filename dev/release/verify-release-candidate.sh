@@ -74,7 +74,13 @@ case $# in
           ;;
      esac
      ;;
-  *) echo "Usage: $0 source|binaries|wheels|jars X.Y.Z RC_NUMBER"
+  *) echo "Usage:"
+     echo "  Verify release candidate:"
+     echo "    $0 source|binaries|wheels|jars X.Y.Z RC_NUMBER"
+     echo "  Verify remote git revision:"
+     echo "    $0 source GIT-REF"
+     echo "  Verify this arrow checkout:"
+     echo "    $0 source"
      exit 1
      ;;
 esac
@@ -416,7 +422,7 @@ setup_conda() {
   if [ "${USE_CONDA}" -gt 0 ]; then
     # Deactivate previous env
     if [ ! -z ${CONDA_PREFIX} ]; then
-      conda deactivate
+      conda deactivate || :
     fi
     # Ensure that conda is installed
     install_conda
@@ -425,12 +431,12 @@ setup_conda() {
       mamba create -y -n $env python=${pyver}
       echo "Created conda environment ${CONDA_PREFIX}"
     fi
-    # Activate the environment
-    conda activate $env
     # Install dependencies
     if [ $# -gt 0 ]; then
-      mamba install -y $@
+      mamba install -y -n $env $@
     fi
+    # Activate the environment
+    conda activate $env
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment before running the verification script."
@@ -502,8 +508,6 @@ test_and_install_cpp() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
-    # TODO(kszucs): remove
-    mamba remove -y gtest
   else
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
