@@ -1093,4 +1093,73 @@ TEST(TestTime, TestCastNullableInterval) {
   context.Reset();
 }
 
+TEST(TestTime, TestTruncDate) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  static const char* PATTERN_MONTH[] = {"MONTH", "MON", "MM"};
+  static const int PARTTERN_MONTH_LEN[] = {5, 3, 2};
+
+  static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
+  static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
+
+  gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
+  gdv_timestamp ts2 = StringToTimestamp("1000-06-30 00:00:00");
+
+  gdv_int32 out_len;
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[0],
+                                             PARTTERN_MONTH_LEN[0], &out_len),
+                   "2019-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[1],
+                                             PARTTERN_MONTH_LEN[1], &out_len),
+                   "2019-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[2],
+                                             PARTTERN_MONTH_LEN[2], &out_len),
+                   "2019-06-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[0],
+                                             PARTTERN_YEAR_LEN[0], &out_len),
+                   "2019-01-01", 10),
+            0);
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[1],
+                                             PARTTERN_YEAR_LEN[1], &out_len),
+                   "2019-01-01", 10),
+            0);
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[2],
+                                             PARTTERN_YEAR_LEN[2], &out_len),
+                   "2019-01-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_MONTH[0],
+                                             PARTTERN_MONTH_LEN[0], &out_len),
+                   "1000-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_YEAR[0],
+                                             PARTTERN_YEAR_LEN[0], &out_len),
+                   "1000-01-01", 10),
+            0);
+
+  date_trunc_timestamp_utf8(context_ptr, ts1, "MES", 3, &out_len);
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+
+  date_trunc_timestamp_utf8(context_ptr, ts1, "ASDPFIÇ!@#$%*()_+b大路学路b", 23,
+                            &out_len);
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+
+  date_trunc_timestamp_utf8(context_ptr, ts1, "M", 1, &out_len);
+  EXPECT_EQ(context.get_error(),
+            "The parameter pattern_length is not contain a valid value");
+  context.Reset();
+
+  date_trunc_timestamp_utf8(context_ptr, ts1, "MONTH", INT32_MAX, &out_len);
+  EXPECT_EQ(context.get_error(),
+            "The parameter pattern_name is not recognized");
+  context.Reset();
+}
+
 }  // namespace gandiva

@@ -988,6 +988,84 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
 
+static const char* PATTERN_MONTH[] = {"MONTH", "MON", "MM"};
+static const int PARTTERN_MONTH_LEN[] = {5, 3, 2};
+
+static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
+static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
+
+FORCE_INLINE
+const char* date_trunc_timestamp_utf8(int64_t context, gdv_int64 date,
+                                      const char* pattern_name, gdv_int32 pattern_length,
+                                      gdv_int32* out_len) {
+  bool foundPattern = false;
+
+  if (pattern_length <= 1) {
+    gdv_fn_context_set_error_msg(
+        context, "The parameter pattern_length is not contain a valid value");
+    *out_len = 0;
+    return "";
+  }
+
+  for (int n = 0; n <= 2; n++) {
+    if (mem_compare(pattern_name, pattern_length, PATTERN_MONTH[n],
+                    PARTTERN_MONTH_LEN[n]) == 0) {
+      date = date_trunc_Month_timestamp(date);
+      foundPattern = true;
+    } else if (mem_compare(pattern_name, pattern_length, PATTERN_YEAR[n],
+                           PARTTERN_YEAR_LEN[n]) == 0) {
+      date = date_trunc_Year_timestamp(date);
+      foundPattern = true;
+    }
+  }
+
+  if (!foundPattern) {
+    gdv_fn_context_set_error_msg(context, "The parameter pattern_name is not recognized");
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int64 year = extractYear_timestamp(date);
+  gdv_int64 month = extractMonth_timestamp(date);
+  gdv_int64 day = extractDay_timestamp(date);
+
+  static const int kTimeStampStringLen = 10;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    *out_len = 0;
+    return "";
+  }
+
+  *out_len = static_cast<gdv_int32>(kTimeStampStringLen);
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
+  }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(char_buffer);
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
 // Convert the seconds since epoch argument to timestamp
 #define TO_TIMESTAMP_INTEGER(TYPE)                              \
   FORCE_INLINE                                                  \
