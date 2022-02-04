@@ -277,14 +277,18 @@ test_that("is.* functions from lubridate", {
     .input %>%
       mutate(x = is.POSIXct(datetime), y = is.POSIXct(integer)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(x = is.Date(date), y = is.Date(integer)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   compare_dplyr_binding(
@@ -295,7 +299,9 @@ test_that("is.* functions from lubridate", {
         z = is.instant(integer)
       ) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   skip_on_os("windows")     # https://issues.apache.org/jira/browse/ARROW-13168
@@ -403,7 +409,9 @@ test_that("extract day from timestamp", {
     .input %>%
       mutate(x = day(datetime)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -412,14 +420,18 @@ test_that("extract wday from timestamp", {
     .input %>%
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(date, week_start = 1)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
