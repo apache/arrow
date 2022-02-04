@@ -945,6 +945,7 @@ tasks:
     template: verify-rc/github.macos.arm64.yml
     params:
       env:
+        ARROW_PLASMA: 0
         ARROW_FLIGHT: 0
         ARROW_GANDIVA: 0
         TEST_INTEGRATION_JAVA: 0

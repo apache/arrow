@@ -461,7 +461,7 @@ setup_virtualenv() {
     # Deactivate previous env
     deactivate || :
     # Check that python interpreter exists
-    if [ ! command -v "${python}" ]; then
+    if ! command -v "${python}"; then
       echo "Couldn't locate python interpreter with version ${pyver}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       if [ $skip_missing_python -gt 0 ]; then
@@ -531,7 +531,7 @@ test_and_install_cpp() {
     -DARROW_HDFS=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
-    -DARROW_PLASMA=ON \
+    -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_PYTHON=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-OFF} \
@@ -744,13 +744,12 @@ test_integration() {
   fi
 
   # Flight integration test executable have runtime dependency on release/libgtest.so
-  #LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
-      archery integration \
-              --with-cpp=${TEST_INTEGRATION_CPP} \
-              --with-java=${TEST_INTEGRATION_JAVA} \
-              --with-js=${TEST_INTEGRATION_JS} \
-              --with-go=${TEST_INTEGRATION_GO} \
-              $INTEGRATION_TEST_ARGS
+  archery integration \
+    --with-cpp=${TEST_INTEGRATION_CPP} \
+    --with-java=${TEST_INTEGRATION_JAVA} \
+    --with-js=${TEST_INTEGRATION_JS} \
+    --with-go=${TEST_INTEGRATION_GO} \
+    $INTEGRATION_TEST_ARGS
 }
 
 ensure_source_directory() {
@@ -871,11 +870,6 @@ test_linux_wheels() {
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for pyver in ${python_versions}; do
-    if [ "${USE_CONDA}" -eq 0 -a ! command -v "python${py_ver}"]; then
-
-      echo "Call the script with USE_CONDA=1 to test all of the python versions."
-      continue
-    fi
     ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
     ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_virtualenv
 
