@@ -298,9 +298,7 @@ test_that("is.* functions from lubridate", {
     test_df
   )
 
-  # fails with "Cannot locate timezone 'UTC': Timezone database not found at "\tzdata"."
-  # This indicates dependency on ARROW-13168
-  skip_on_os("windows")
+  skip_on_os("windows")     # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(
@@ -660,13 +658,6 @@ test_that("leap_year mirror lubridate", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(x = leap_year(date)) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
       mutate(x = leap_year(datetime)) %>%
       collect(),
     test_df
@@ -686,6 +677,13 @@ test_that("leap_year mirror lubridate", {
     )
   )
 
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(date)) %>%
+      collect(),
+    test_df
+  )
 })
 
 test_that("am/pm mirror lubridate", {
