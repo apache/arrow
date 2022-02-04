@@ -506,7 +506,9 @@ test_that("extract year from date", {
     .input %>%
       mutate(x = year(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -515,7 +517,9 @@ test_that("extract isoyear from date", {
     .input %>%
       mutate(x = isoyear(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -524,7 +528,9 @@ test_that("extract quarter from date", {
     .input %>%
       mutate(x = quarter(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -533,7 +539,9 @@ test_that("extract month from date", {
     .input %>%
       mutate(x = month(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -542,7 +550,9 @@ test_that("extract isoweek from date", {
     .input %>%
       mutate(x = isoweek(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -551,7 +561,9 @@ test_that("extract epiweek from date", {
     .input %>%
       mutate(x = epiweek(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -560,7 +572,9 @@ test_that("extract week from date", {
     .input %>%
       mutate(x = week(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -569,7 +583,9 @@ test_that("extract month from date", {
     .input %>%
       mutate(x = month(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
