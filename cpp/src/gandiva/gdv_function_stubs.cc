@@ -612,21 +612,6 @@ int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
-GDV_FORCE_INLINE
-gdv_int32 utf8_char_length(char c) {
-  if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
-    return 1;
-  } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
-    return 2;
-  } else if ((c & 0xF0) == 0xE0) {  // 3-byte char
-    return 3;
-  } else if ((c & 0xF8) == 0xF0) {  // 4-byte char
-    return 4;
-  }
-  // invalid char
-  return 0;
-}
-
 GANDIVA_EXPORT
 const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in_len,
                                      const char* from, int32_t from_len, const char* to,
@@ -781,7 +766,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
     for (int in_for = 0; in_for < in_len; in_for += len_char_in) {
       // Updating len to char in this position
-      len_char_in = utf8_char_length(in[in_for]);
+      len_char_in = gdv_fn_utf8_char_length(in[in_for]);
       // Making copy to std::string with length for this char position
       std::string insert_copy_key(in + in_for, len_char_in);
       if (subs_list.find(insert_copy_key) != subs_list.end()) {
@@ -794,7 +779,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
       } else {
         for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
           // Updating len to char in this position
-          len_char_from = utf8_char_length(from[from_for]);
+          len_char_from = gdv_fn_utf8_char_length(from[from_for]);
           // Making copy to std::string with length for this char position
           std::string copy_from_compare(from + from_for, len_char_from);
           if (from_for == from_len) {
@@ -820,7 +805,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           } else {
             // If exist and the start_compare is in range, add to map with the
             // corresponding TO in position start_compare
-            len_char_to = utf8_char_length(to[start_compare]);
+            len_char_to = gdv_fn_utf8_char_length(to[start_compare]);
             std::string insert_copy_value(to + start_compare, len_char_to);
             // Insert in map to next loops
             subs_list.insert(
