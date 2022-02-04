@@ -845,7 +845,7 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
 })
 
 test_that("format date/time", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
