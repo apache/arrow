@@ -23,12 +23,21 @@ set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
 if(LLVM_BREW_PREFIX)
   list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
 endif()
-foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(LLVM
-               ${ARROW_LLVM_VERSION}
-               CONFIG
-               HINTS
-               ${LLVM_HINTS})
+
+# if llvm source is set to conda then prefer conda llvm over system llvm even
+# if the system one is newer
+foreach(HINT ${LLVM_HINTS})
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 NO_DEFAULT_PATH
+                 HINTS
+                 ${HINT})
+    if(LLVM_FOUND)
+      break()
+    endif()
+  endforeach()
   if(LLVM_FOUND)
     break()
   endif()
