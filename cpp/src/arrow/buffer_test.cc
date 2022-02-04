@@ -34,6 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -115,6 +116,10 @@ class MyMemoryManager : public MemoryManager {
   Result<std::shared_ptr<Buffer>> CopyBufferTo(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& to) override;
+  Result<std::unique_ptr<Buffer>> CopyBufferFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from) override;
+  Result<std::unique_ptr<Buffer>> CopyBufferTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to) override;
   Result<std::shared_ptr<Buffer>> ViewBufferFrom(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& from) override;
@@ -138,6 +143,16 @@ std::shared_ptr<MemoryManager> MyDevice::default_memory_manager() {
 
 Result<std::shared_ptr<Buffer>> MyMemoryManager::CopyBufferFrom(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
+  return CopyBufferFrom(*buf, from);
+}
+
+Result<std::shared_ptr<Buffer>> MyMemoryManager::CopyBufferTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  return CopyBufferTo(*buf, to);
+}
+
+Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyBufferFrom(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
   if (!allow_copy()) {
     return nullptr;
   }
@@ -147,19 +162,19 @@ Result<std::shared_ptr<Buffer>> MyMemoryManager::CopyBufferFrom(
     ARROW_ASSIGN_OR_RAISE(auto dest,
                           MemoryManager::CopyBuffer(buf, default_cpu_memory_manager()));
     // 2. Wrap CPU buffer result
-    return std::make_shared<MyBuffer>(shared_from_this(), dest);
+    return internal::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
   }
   return nullptr;
 }
 
-Result<std::shared_ptr<Buffer>> MyMemoryManager::CopyBufferTo(
-    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyBufferTo(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   if (!allow_copy()) {
     return nullptr;
   }
-  if (to->is_cpu() && buf->parent()) {
+  if (to->is_cpu() && buf.parent()) {
     // MyDevice to CPU
-    return MemoryManager::CopyBuffer(buf->parent(), to);
+    return MemoryManager::CopyBuffer(*buf.parent(), to);
   }
   return nullptr;
 }
@@ -245,6 +260,13 @@ TEST_F(TestDevice, Copy) {
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBuffer(*cpu_src_, cpu_mm_));
+  ASSERT_EQ(buffer->device(), cpu_device_);
+  ASSERT_TRUE(buffer->is_cpu());
+  ASSERT_NE(buffer->address(), cpu_src_->address());
+  ASSERT_NE(buffer->data(), nullptr);
+  AssertBufferEqual(*buffer, "some data");
+
   // CPU-to-device
   ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBuffer(cpu_src_, my_copy_mm_));
   ASSERT_EQ(buffer->device(), my_copy_device_);
@@ -255,8 +277,24 @@ TEST_F(TestDevice, Copy) {
 #endif
   AssertMyBufferEqual(*buffer, "some data");
 
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBuffer(*cpu_src_, my_copy_mm_));
+  ASSERT_EQ(buffer->device(), my_copy_device_);
+  ASSERT_FALSE(buffer->is_cpu());
+  ASSERT_NE(buffer->address(), cpu_src_->address());
+#ifdef NDEBUG
+  ASSERT_EQ(buffer->data(), nullptr);
+#endif
+  AssertMyBufferEqual(*buffer, "some data");
+
   // Device-to-CPU
   ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBuffer(my_copy_src_, cpu_mm_));
+  ASSERT_EQ(buffer->device(), cpu_device_);
+  ASSERT_TRUE(buffer->is_cpu());
+  ASSERT_NE(buffer->address(), my_copy_src_->address());
+  ASSERT_NE(buffer->data(), nullptr);
+  AssertBufferEqual(*buffer, "some data");
+
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBuffer(*my_copy_src_, cpu_mm_));
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());

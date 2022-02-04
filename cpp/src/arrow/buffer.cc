@@ -126,6 +126,11 @@ Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
   return MemoryManager::CopyBuffer(source, to);
 }
 
+Result<std::unique_ptr<Buffer>> Buffer::Copy(const Buffer& source,
+                                             const std::shared_ptr<MemoryManager>& to) {
+  return MemoryManager::CopyBuffer(source, to);
+}
+
 Result<std::shared_ptr<Buffer>> Buffer::View(std::shared_ptr<Buffer> source,
                                              const std::shared_ptr<MemoryManager>& to) {
   return MemoryManager::ViewBuffer(source, to);

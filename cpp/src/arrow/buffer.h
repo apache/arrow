@@ -255,6 +255,10 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> Copy(std::shared_ptr<Buffer> source,
                                               const std::shared_ptr<MemoryManager>& to);
 
+  /// \brief Copy buffer
+  static Result<std::unique_ptr<Buffer>> Copy(const Buffer& source,
+                                              const std::shared_ptr<MemoryManager>& to);
+
   /// \brief View buffer
   ///
   /// Return a Buffer that reflects this buffer, seen potentially from another
