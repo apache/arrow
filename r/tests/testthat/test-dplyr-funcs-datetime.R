@@ -473,6 +473,7 @@ test_that("extract hour from timestamp", {
 })
 
 test_that("extract minute from timestamp", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = minute(datetime)) %>%
