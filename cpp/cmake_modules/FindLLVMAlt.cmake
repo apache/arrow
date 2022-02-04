@@ -26,22 +26,32 @@ endif()
 
 # if llvm source is set to conda then prefer conda llvm over system llvm even
 # if the system one is newer
-foreach(HINT ${LLVM_HINTS})
-  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-    find_package(LLVM
-                 ${ARROW_LLVM_VERSION}
-                 CONFIG
-                 NO_DEFAULT_PATH
-                 HINTS
-                 ${HINT})
-    if(LLVM_FOUND)
-      break()
-    endif()
-  endforeach()
+foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+  find_package(LLVM
+              ${ARROW_LLVM_VERSION}
+              CONFIG
+              NO_DEFAULT_PATH
+              HINTS
+              ${LLVM_ROOT})
   if(LLVM_FOUND)
     break()
   endif()
 endforeach()
+
+if(NOT LLVM_FOUND)
+  foreach(HINT ${LLVM_HINTS})
+    foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+      find_package(LLVM
+                  ${ARROW_LLVM_VERSION}
+                  CONFIG
+                  HINTS
+                  ${HINT})
+      if(LLVM_FOUND)
+        break()
+      endif()
+    endforeach()
+  endforeach()
+endif()
 
 if(LLVM_FOUND)
   # Find the libraries that correspond to the LLVM components
