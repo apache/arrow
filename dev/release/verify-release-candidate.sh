@@ -495,9 +495,8 @@ test_and_install_cpp() {
     DEFAULT_DEPENDENCY_SOURCE="AUTO"
   fi
 
-  rm -rf cpp/build
-  mkdir -p cpp/build
-  pushd cpp/build
+  mkdir -p $ARROW_TMPDIR/build
+  pushd $ARROW_TMPDIR/build
 
   if [ ! -z "$CMAKE_GENERATOR" ]; then
     ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G Ninja"
@@ -526,13 +525,14 @@ test_and_install_cpp() {
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
-    -DCMAKE_BUILD_TYPE=release \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -DGTest_SOURCE=BUNDLED \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
-    ..
+    ${ARROW_SOURCE_DIR}/cpp
   cmake --build . --target install
 
   # TODO: ARROW-5036: plasma-serialization_tests broken
@@ -716,7 +716,7 @@ test_integration() {
   pip install -e dev/archery
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
-  CPP_BUILD_DIR=$ARROW_SOURCE_DIR/cpp/build
+  CPP_BUILD_DIR=$ARROW_TMPDIR/build
 
   # export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   # export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
