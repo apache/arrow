@@ -1201,7 +1201,6 @@ tasks:
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.1-focal"),
-                                 ("rstudio", "r-base", "4.1-centos8"),
                                  ("rstudio", "r-base", "4.1-opensuse15"),
                                  ("rstudio", "r-base", "4.1-opensuse42")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
