@@ -718,16 +718,15 @@ test_integration() {
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/build
 
-  # export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-  # export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
+  export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
+  export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   INTEGRATION_TEST_ARGS=""
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
     INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run-flight"
   fi
 
-  # Flight integration test executable have runtime dependency on
-  # release/libgtest.so
+  # Flight integration test executable have runtime dependency on release/libgtest.so
   #LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
       archery integration \
               --with-cpp=${TEST_INTEGRATION_CPP} \
