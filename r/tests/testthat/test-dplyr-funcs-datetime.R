@@ -713,14 +713,33 @@ test_that("am/pm mirror lubridate", {
 })
 
 test_that("date/time parsing / ymd() and `-` separator", {
-  df <- tibble::tibble(
-    date_hyphen_full_year = "2022-02-05",
-    date_hyphen_short_year = "22-02-05")
+  test_dates <- tibble::tibble(
+    string_ymd = c(
+      "2021-09-10", "2021/09/10", "2021.09.10", "2021,09,10", "2021:09:10",
+      "20210910", "2021 Sep 10", "2021 September 10", "21-09-10", "21/09/10",
+      "21.09.10", "21,09,10", "21:09:10", "210910", "21 Sep 10",
+      "21 September 10", NA
+    ),
+    string_dmy = c(
+      "10-09-2021", "10/09/2021", "10.09.2021", "10,09,2021", "10:09:2021",
+      "10092021", "10 Sep 2021", "10 September 2021", "10-09-21", "10/09/21",
+      "10.09.21", "10,09,21", "10:09:21", "100921", "10 Sep 21",
+      "10 September 21", NA
+    ),
+    string_mdy = c(
+      "09-10-2021", "09/10/2021", "09.10.2021", "09,10,2021", "09:10:2021",
+      "09102021", "Sep 10 2021", "September 10 2021", "09-10-21", "09/10/21",
+      "09.10.21", "09,10,21", "09:10:21", "091021", "Sep 10 21",
+      "September 10 21", NA
+    ),
+    date = c(rep(as.Date("2021-09-10"), 16), NA),
+    date_midnight = c(rep(as.POSIXct("2021-09-10 00:00:00", tz = "UTC"), 16), NA)
+  )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(date = ymd(date_hyphen)) %>%
+      mutate(x = ymd(string_ymd)) %>%
       collect(),
-    df
+    test_dates
   )
 })
