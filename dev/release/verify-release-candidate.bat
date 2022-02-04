@@ -34,7 +34,7 @@ set VERSION=%1
 set RC_NUMBER=%2
 
 if "%VERSION%"=="" (
-    set ARROW_SOURCE="%~dp0..\..\"
+    set ARROW_SOURCE=%~dp0..\..\
 ) else (
     set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
     if "%RC_NUMBER%"=="" (
