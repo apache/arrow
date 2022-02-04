@@ -70,6 +70,20 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
   int64_t batch_size;
 };
 
+/// \brief Make a node which excludes some rows from batches passed through it
+///
+/// filter_expression will be evaluated against each batch which is pushed to
+/// this node. Any rows for which filter_expression does not evaluate to `true` will be
+/// excluded in the batch emitted by this node.
+class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
+ public:
+  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
+      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
+
+  Expression filter_expression;
+  bool async_mode;
+};
+
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
