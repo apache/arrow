@@ -148,4 +148,53 @@ register_bindings_datetime <- function() {
     !call_binding("am", x)
   })
 
+  register_binding("ymd", function(x) {
+    format_map <-
+      list(
+        ymd_hyphen1 = "%Y-%m-%d",
+        ymd_hyphen2 = "%y-%m-%d",
+        ymd_hyphen3 = "%Y-%B-%d",
+        ymd_hyphen4 = "%y-%B-%d",
+        ymd_hyphen5 = "%Y-%b-%d",
+        ymd_hyphen6 = "%y-%b-%d",
+        ymd_fslash1 = "%Y/%m/%d",
+        ymd_fslash2 = "%y/%m/%d",
+        ymd_fslash3 = "%Y/%B/%d",
+        ymd_fslash4 = "%y/%B/%d",
+        ymd_fslash5 = "%Y/%b/%d",
+        ymd_fslash6 = "%y/%b/%d",
+        ymd_dot1 = "%Y.%m.%d",
+        ymd_dot2 = "%y.%m.%d",
+        ymd_dot3 = "%Y.%B.%d",
+        ymd_dot4 = "%y.%B.%d",
+        ymd_dot5 = "%Y.%b.%d",
+        ymd_dot6 = "%y.%b.%d",
+        ymd_comma1 = "%Y,%m,%d",
+        ymd_comma2 = "%y,%m,%d",
+        ymd_comma3 = "%Y,%B,%d",
+        ymd_comma4 = "%y,%B,%d",
+        ymd_comma5 = "%Y,%b,%d",
+        ymd_comma6 = "%y,%b,%d",
+        ymd_colon1 = "%Y:%m:%d",
+        ymd_colon2 = "%y:%m:%d",
+        ymd_colon3 = "%Y:%B:%d",
+        ymd_colon4 = "%y:%B:%d",
+        ymd_colon5 = "%Y:%b:%d",
+        ymd_colon6 = "%y:%b:%d",
+        ymd_cont1 = "%Y%m%d",
+        ymd_cont2 = "%y%m%d",
+        ymd_cont3 = "%Y%B%d",
+        ymd_cont4 = "%y%B%d",
+        ymd_cont5 = "%Y%b%d",
+        ymd_cont6 = "%y%b%d",
+        ymd_space1 = "%Y %m %d",
+        ymd_space2 = "%y %m %d",
+        ymd_space3 = "%Y %B %d",
+        ymd_space4 = "%y %B %d",
+        ymd_space5 = "%Y %b %d",
+        ymd_space6 = "%y %b %d"
+      )
+
+    call_binding("strptime", x, format = format)
+  })
 }
