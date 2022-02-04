@@ -19,7 +19,9 @@ import json
 import sys
 
 dir_path = sys.argv[1]
+# X.Y.Z-SNAPSHOT
 version = sys.argv[2]
+# {X-1}.Y.Z.9000
 r_version = sys.argv[3]
 
 main_versions_path = dir_path + "/docs/source/_static/versions.json"
@@ -31,15 +33,18 @@ with open(main_versions_path) as json_file:
     old_versions = json.load(json_file)
 
 split_version = version.split(".")
-major_minor = split_version[0] + "." + split_version[1]
-dev_version = str(int(split_version[0]) + 1) + ".0"
-previous_major_minor = old_versions[1]["name"].split(" ")[0]
+dev_compatible_version = ".".join(split_version[:2])
+stable_compatible_version = f"{str(int(split_version[0]) - 1)}.0"
+previous_compatible_version = old_versions[1]["name"].split(" ")[0]
 
 # Create new versions
 new_versions = [
-    {'name': dev_version + " (dev)", 'version': 'dev/'},
-    {'name': major_minor + " (stable)", 'version': ''},
-    {'name': previous_major_minor, 'version': f'{previous_major_minor}/'},
+    {"name": f"{dev_compatible_version} (dev)",
+     "version": "dev/"},
+    {"name": f"{stable_compatible_version} (stable)",
+     "version": ""},
+    {"name": previous_compatible_version,
+     "version": f"{previous_compatible_version}/"},
     *old_versions[2:],
 ]
 with open(main_versions_path, 'w') as json_file:
@@ -51,18 +56,17 @@ with open(main_versions_path, 'w') as json_file:
 with open(r_versions_path) as json_file:
     old_r_versions = json.load(json_file)
 
-# update release to oldrel
-old_r_versions[1]["name"] = old_r_versions[1]["name"].split(" ")[0]
-old_rel_split = old_r_versions[1]["name"].split(".")
-old_r_versions[1]["version"] = old_rel_split[0] + "." + old_rel_split[1] + "/"
+dev_r_version = r_version
+release_r_version = ".".join(r_version.split(".")[:3])
+previous_r_name = old_r_versions[1]["name"].split(" ")[0]
+previous_r_version = ".".join(previous_r_name.split(".")[:2])
 
-# update dev to release
-old_r_versions[0]["name"] = r_version + " (release)"
-old_r_versions[0]["version"] = ""
-
-# add new dev version
-new_r_version = [{'name': r_version + ".9000" + " (dev)", 'version': 'dev/'}]
-new_r_version.extend(old_r_versions)
+new_r_versions = [
+    {"name": f"{dev_r_version} (dev)", "version": "dev/"},
+    {"name": f"{release_r_version} (release)", "version": ""},
+    {"name": previous_r_name, "version": f"{previous_r_version}/"},
+    *old_r_versions[2:],
+]
 with open(r_versions_path, 'w') as json_file:
-    json.dump(new_r_version, json_file, indent=4)
+    json.dump(new_r_versions, json_file, indent=4)
     json_file.write("\n")
