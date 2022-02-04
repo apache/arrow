@@ -648,7 +648,8 @@ test_that("extract mday from date", {
     .input %>%
       mutate(x = mday(date)) %>%
       collect(),
-    test_df
+    test_df,
+    ignore_attr = TRUE  # can be removed after https://issues.apache.org/jira/browse/ARROW-13168
   )
 })
 
