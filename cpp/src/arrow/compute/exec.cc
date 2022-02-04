@@ -21,8 +21,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <sstream>
 #include <set>
+#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -113,29 +113,32 @@ int64_t ExecBatch::TotalBufferSize() const {
 }
 
 struct BufferProperties {
-    uint64_t address;
-    int64_t capacity;
-    friend bool operator< (const BufferProperties &lhs, const BufferProperties &rhs) {
-      if (lhs.address == rhs.address) {
-        return (lhs.capacity > rhs.capacity);
-      } else {
-        return (lhs.address > rhs.address);
-      }
+  uint64_t address;
+  int64_t capacity;
+  friend bool operator<(const BufferProperties& lhs, const BufferProperties& rhs) {
+    if (lhs.address == rhs.address) {
+      return (lhs.capacity > rhs.capacity);
+    } else {
+      return (lhs.address > rhs.address);
     }
+  }
 };
 
-bool AddBuffersToSet(std::shared_ptr<Buffer> buffer,
+bool AddBuffersToSet(std::shared_ptr<Buffer> const& buffer,
                      std::set<BufferProperties>* seen_buffers) {
-  return (buffer && seen_buffers->insert(
-          BufferProperties{buffer->address(), buffer->capacity()}).second);
+  return (buffer &&
+          seen_buffers->insert(BufferProperties{buffer->address(), buffer->capacity()})
+              .second);
 }
 
-bool AddBuffersToSet(std::vector<std::shared_ptr<Buffer>> buffers,
+bool AddBuffersToSet(std::vector<std::shared_ptr<Buffer>> const& buffers,
                      std::set<BufferProperties>* seen_buffers) {
   bool insertion_occured = false;
   for (const auto& buffer : buffers) {
-    insertion_occured |= (buffer && seen_buffers->insert(
-            BufferProperties{buffer->address(), buffer->capacity()}).second);
+    insertion_occured |=
+        (buffer &&
+         seen_buffers->insert(BufferProperties{buffer->address(), buffer->capacity()})
+             .second);
   }
   return insertion_occured;
 }
@@ -144,8 +147,10 @@ bool AddBuffersToSet(const ArrayData& array_data,
                      std::set<BufferProperties>* seen_buffers) {
   bool insertion_occured = false;
   for (const auto& buffer : array_data.buffers) {
-    insertion_occured |= (buffer && seen_buffers->insert(
-            BufferProperties{buffer->address(), buffer->capacity()}).second);
+    insertion_occured |=
+        (buffer &&
+         seen_buffers->insert(BufferProperties{buffer->address(), buffer->capacity()})
+             .second);
   }
   for (const auto& child : array_data.child_data) {
     insertion_occured |= AddBuffersToSet(*child, seen_buffers);
@@ -156,8 +161,7 @@ bool AddBuffersToSet(const ArrayData& array_data,
   return insertion_occured;
 }
 
-bool AddBuffersToSet(const Array& array,
-                     std::set<BufferProperties>* seen_buffers) {
+bool AddBuffersToSet(const Array& array, std::set<BufferProperties>* seen_buffers) {
   return AddBuffersToSet(*array.data(), seen_buffers);
 }
 
@@ -179,8 +183,7 @@ bool AddBuffersToSet(const RecordBatch& record_batch,
   return insertion_occured;
 }
 
-bool AddBuffersToSet(const Table& table,
-                     std::set<BufferProperties>* seen_buffers) {
+bool AddBuffersToSet(const Table& table, std::set<BufferProperties>* seen_buffers) {
   bool insertion_occured = false;
   for (const auto& column : table.columns()) {
     insertion_occured |= AddBuffersToSet(*column, seen_buffers);
@@ -190,8 +193,7 @@ bool AddBuffersToSet(const Table& table,
 
 // Add all Buffers to a given set, return true if anything was actually added.
 // If all the buffers in the datum were already in the set, this will return false.
-bool AddBuffersToSet(Datum datum,
-                     std::set<BufferProperties>* seen_buffers) {
+bool AddBuffersToSet(Datum datum, std::set<BufferProperties>* seen_buffers) {
   switch (datum.kind()) {
     case Datum::ARRAY:
       return AddBuffersToSet(*util::get<std::shared_ptr<ArrayData>>(datum.value),
@@ -811,7 +813,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
     std::set<BufferProperties> pre_buffers;
     for (size_t i = 0; i < data_preallocated_.size(); ++i) {
-      const auto &prealloc = data_preallocated_[i];
+      const auto& prealloc = data_preallocated_[i];
       if (prealloc.bit_width >= 0) {
         AddBuffersToSet(out.array()->buffers[i + 1], &pre_buffers);
       }
@@ -833,22 +835,22 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // Check whether the kernel allocated new Buffers
       // (instead of using the preallocated ones)
       if (validity_preallocated_) {
-        if (out.array()->buffers[0]) { // it is possible the validity buffer was deleted
+        if (out.array()->buffers[0]) {  // it is possible the validity buffer was deleted
           if (validity_buffer.address != out.array()->buffers[0]->address() ||
               validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
             return Status::Invalid(
-                    "Pre-allocated validity buffer was modified "
-                    "in function kernel");
+                "Pre-allocated validity buffer was modified "
+                "in function kernel");
           }
         }
       }
       for (size_t i = 0; i < data_preallocated_.size(); ++i) {
-        const auto &prealloc = data_preallocated_[i];
+        const auto& prealloc = data_preallocated_[i];
         if (prealloc.bit_width >= 0) {
           if (AddBuffersToSet(out.array()->buffers[i + 1], &pre_buffers)) {
             return Status::Invalid(
-                    "Unauthorized memory allocations "
-                    "in function kernel");
+                "Unauthorized memory allocations "
+                "in function kernel");
           }
         }
       }
@@ -1038,7 +1040,7 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     }
     std::set<BufferProperties> pre_buffers;
     for (size_t i = 0; i < data_preallocated_.size(); ++i) {
-      const auto &prealloc = data_preallocated_[i];
+      const auto& prealloc = data_preallocated_[i];
       if (prealloc.bit_width >= 0) {
         AddBuffersToSet(out.array()->buffers[i + 1], &pre_buffers);
       }
@@ -1051,27 +1053,28 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     // Check whether the kernel allocated new Buffers
     // (instead of using the preallocated ones)
     if (validity_preallocated_) {
-      if (out.is_array() && out.array()->buffers[0]) { // it is possible the validity buffer was deleted
+      // it is possible the validity buffer was deleted
+      if (out.is_array() && out.array()->buffers[0]) {
         if (validity_buffer.address != out.array()->buffers[0]->address() ||
             validity_buffer.capacity != out.array()->buffers[0]->capacity()) {
           return Status::Invalid(
-                  "Pre-allocated validity buffer was modified "
-                  "in function kernel");
+              "Pre-allocated validity buffer was modified "
+              "in function kernel");
         }
       }
     }
     for (size_t i = 0; i < data_preallocated_.size(); ++i) {
-      const auto &prealloc = data_preallocated_[i];
+      const auto& prealloc = data_preallocated_[i];
       if (prealloc.bit_width >= 0) {
         if (pre_kind != out.kind()) {
           return Status::Invalid(
-                  "Pre-allocated out Datum was changed into another type "
-                  "in function kernel");
+              "Pre-allocated out Datum was changed into another type "
+              "in function kernel");
         }
         if (AddBuffersToSet(out.array()->buffers[i + 1], &pre_buffers)) {
           return Status::Invalid(
-                  "Unauthorized memory allocations "
-                  "in function kernel");
+              "Unauthorized memory allocations "
+              "in function kernel");
         }
       }
     }

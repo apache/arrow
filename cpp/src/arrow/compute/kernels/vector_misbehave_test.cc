@@ -35,16 +35,17 @@ struct VectorReAllocValidBufExec {
 };
 
 struct VectorReAllocDataBufExec {
-    static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // allocate new buffers even though we've promised not to
-      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
-      return Status::OK();
-    }
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // allocate new buffers even though we've promised not to
+    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+    return Status::OK();
+  }
 };
 
 void AddVectorMisbehaveKernel(const std::shared_ptr<VectorFunction>& Vector_function,
-                              Status (*kernel_exec)(KernelContext*, const ExecBatch&, Datum*)) {
-  VectorKernel kernel({int32()}, int32(),kernel_exec);
+                              Status (*kernel_exec)(KernelContext*, const ExecBatch&,
+                                                    Datum*)) {
+  VectorKernel kernel({int32()}, int32(), kernel_exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = true;
@@ -70,11 +71,12 @@ TEST(Misbehave, ReallocValidBufferVectorKernel) {
   Datum datum(ChunkedArray(ArrayVector{}, int32()));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Invalid: "
-                                                     "Pre-allocated validity buffer was modified "
-                                                     "in function kernel"),
-                                  func->Execute(args, options, &ctx));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: "
+                         "Pre-allocated validity buffer was modified "
+                         "in function kernel"),
+      func->Execute(args, options, &ctx));
 }
 
 TEST(Misbehave, ReallocDataBufferVectorKernel) {

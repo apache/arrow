@@ -34,13 +34,12 @@ struct ScalarReAllocValidBufExec {
 };
 
 struct ScalarReAllocDataBufExec {
-    static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      // allocate a validity buffer even though we've promised not to
-      ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
-      return Status::OK();
-    }
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    // allocate a validity buffer even though we've promised not to
+    ARROW_ASSIGN_OR_RAISE(out->mutable_array()->buffers[1], ctx->Allocate(64));
+    return Status::OK();
+  }
 };
-
 
 const FunctionDoc misbehave_doc{
     "Test kernel that does nothing but allocate memory "
@@ -50,22 +49,22 @@ const FunctionDoc misbehave_doc{
     "(because of MemAllocation::PREALLOCATE).",
     {}};
 
-
 TEST(Misbehave, ReallocValidBufferScalarKernel) {
   ExecContext ctx;
   auto func = std::make_shared<ScalarFunction>("scalar_misbehave", Arity::Unary(),
                                                &misbehave_doc);
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)},
-                                       OutputType(ValueDescr(fixed_size_binary(2))),
-                                       ScalarReAllocValidBufExec::Exec));
+                            OutputType(ValueDescr(fixed_size_binary(2))),
+                            ScalarReAllocValidBufExec::Exec));
   Datum datum(ArrayFromJSON(fixed_size_binary(6), R"(["123456"])"));
   const std::vector<Datum>& args = {datum};
   const FunctionOptions* options = nullptr;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("Invalid: "
-                                                     "Pre-allocated validity buffer was modified "
-                                                     "in function kernel"),
-                                  func->Execute(args, options, &ctx));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: "
+                         "Pre-allocated validity buffer was modified "
+                         "in function kernel"),
+      func->Execute(args, options, &ctx));
 }
 
 TEST(Misbehave, ReallocDataBufferScalarKernel) {
@@ -85,7 +84,5 @@ TEST(Misbehave, ReallocDataBufferScalarKernel) {
                                   func->Execute(args, options, &ctx));
 }
 
-//TODO: add tests for only pre-allocating validity bitmap,
-//batched pre-allocation vs allocate_contiguous,
 }  // namespace compute
 }  // namespace arrow
