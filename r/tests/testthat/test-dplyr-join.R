@@ -249,3 +249,17 @@ test_that("arrow dplyr query correctly filters then joins", {
     )
   )
 })
+
+
+test_that("arrow dplyr query can join with tibble", {
+  # ARROW-14908
+  dir_out <- tempdir()
+
+  write_dataset(iris, file.path(dir_out, "iris"))
+  species_codes <- data.frame(Species = c("setosa", "versicolor", "virginica"),
+                              code = c("SET", "VER", "VIR"))
+
+  iris <- open_dataset(file.path(dir_out, "iris"))
+
+  left_join(iris, species_codes) %>% collect()
+})
