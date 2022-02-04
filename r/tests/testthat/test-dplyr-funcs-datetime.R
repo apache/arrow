@@ -621,7 +621,9 @@ test_that("extract wday from date", {
     .input %>%
       mutate(x = wday(date, week_start = 1)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
@@ -649,7 +651,8 @@ test_that("extract mday from date", {
       mutate(x = mday(date)) %>%
       collect(),
     test_df,
-    ignore_attr = TRUE  # can be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
   )
 })
 
