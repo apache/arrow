@@ -751,7 +751,8 @@ test_integration() {
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/build
 
-  export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
+  files=( $JAVA_DIR/tools/target/arrow-tools-*-jar-with-dependencies.jar )
+  export ARROW_JAVA_INTEGRATION_JAR=${files[0]}
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
   INTEGRATION_TEST_ARGS=""
