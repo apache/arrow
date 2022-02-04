@@ -789,7 +789,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           // If exist in map, only add the correspondent value in result
           memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
                  subs_list[insert_copy_key].length());
-          result_len += subs_list[insert_copy_key].length();
+          result_len += static_cast<int>(subs_list[insert_copy_key].length());
         }
       } else {
         for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
@@ -805,7 +805,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                 std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
             memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
                    subs_list[insert_copy_key].length());
-            result_len += subs_list[insert_copy_key].length();
+            result_len += static_cast<int>(subs_list[insert_copy_key].length());
             break;
           }
 
@@ -827,7 +827,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                 std::pair<std::string, std::string>(insert_copy_key, insert_copy_value));
             memcpy(result + result_len, subs_list[insert_copy_key].c_str(),
                    subs_list[insert_copy_key].length());
-            result_len += subs_list[insert_copy_key].length();
+            result_len += static_cast<int>(subs_list[insert_copy_key].length());
             start_compare += len_char_to;
             break;  // for ignore duplicates entries in FROM, ex: ("adad")
           }
