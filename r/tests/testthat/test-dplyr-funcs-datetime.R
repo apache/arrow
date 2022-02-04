@@ -711,3 +711,16 @@ test_that("am/pm mirror lubridate", {
   )
 
 })
+
+test_that("date/time parsing / ymd() and `-` separator", {
+  df <- tibble::tibble(
+    date_hyphen_full_year = "2022-02-05",
+    date_hyphen_short_year = "22-02-05")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date = ymd(date_hyphen)) %>%
+      collect(),
+    df
+  )
+})
