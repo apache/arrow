@@ -647,6 +647,7 @@ test_that("extract mday from date", {
 })
 
 test_that("extract yday from date", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = yday(date)) %>%
@@ -656,13 +657,6 @@ test_that("extract yday from date", {
 })
 
 test_that("leap_year mirror lubridate", {
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = leap_year(datetime)) %>%
-      collect(),
-    test_df
-  )
 
   compare_dplyr_binding(
     .input %>%
@@ -682,6 +676,13 @@ test_that("leap_year mirror lubridate", {
   compare_dplyr_binding(
     .input %>%
       mutate(x = leap_year(date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = leap_year(datetime)) %>%
       collect(),
     test_df
   )
