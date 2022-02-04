@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v8/arrow/flight/internal/flight"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
