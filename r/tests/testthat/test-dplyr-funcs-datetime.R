@@ -614,7 +614,9 @@ test_that("extract wday from date", {
     .input %>%
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = ifelse(tolower(Sys.info()[["sysname"]]) == "windows", TRUE, FALSE)
   )
 
   compare_dplyr_binding(
