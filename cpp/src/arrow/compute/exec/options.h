@@ -84,6 +84,12 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
   bool async_mode;
 };
 
+/// \brief Make a node which executes expressions on input batches, producing new batches.
+///
+/// Each expression will be evaluated against each batch which is pushed to
+/// this node to produce a corresponding output column.
+///
+/// If names are not provided, the string representations of exprs will be used.
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
