@@ -282,5 +282,19 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 
 /// @}
 
+/// \brief Adapt an Table as a sink node
+///
+/// obtains the output of a execution plan to
+/// a table pointer.
+class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
+ public:
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                       std::shared_ptr<Schema> output_schema)
+      : output_table(output_table), output_schema(std::move(output_schema)) {}
+
+  std::shared_ptr<Table>* output_table;
+  std::shared_ptr<Schema> output_schema;
+};
+
 }  // namespace compute
 }  // namespace arrow
