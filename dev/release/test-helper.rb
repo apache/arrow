@@ -67,7 +67,7 @@ module GitRunnable
   end
 
   def git_tags
-    git("tags").lines(chomp: true)
+    git("tag").lines(chomp: true)
   end
 
   def parse_patch(patch)
