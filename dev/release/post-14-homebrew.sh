@@ -84,3 +84,4 @@ popd
 
 echo "Create a pull request:"
 echo "  https://github.com/${github_user}/homebrew-core/pull/new/${branch}"
+echo "with title: 'apache-arrow, apache-arrow-glib: ${version}'"
