@@ -35,6 +35,8 @@ set RC_NUMBER=%2
 
 if "%VERSION%"=="" (
     set ARROW_SOURCE=%~dp0..\..\
+    set ARROW_TEST_DATA=%ARROW_SOURCE%\testing\data
+    set PARQUET_TEST_DATA=%ARROW_SOURCE%\cpp\submodules\parquet-testing\data
 ) else (
     set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
     if "%RC_NUMBER%"=="" (
@@ -52,6 +54,8 @@ if "%VERSION%"=="" (
 
     git clone https://github.com/apache/arrow-testing.git %ARROW_SOURCE%\testing
     git clone https://github.com/apache/parquet-testing.git %ARROW_SOURCE%\cpp\submodules\parquet-testing
+    set ARROW_TEST_DATA=%ARROW_SOURCE%\testing\data
+    set PARQUET_TEST_DATA=%ARROW_SOURCE%\cpp\submodules\parquet-testing\data
 )
 
 set PYTHON=3.8
