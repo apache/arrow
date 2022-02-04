@@ -407,13 +407,6 @@ test_that("extract day from timestamp", {
 test_that("extract wday from timestamp", {
   compare_dplyr_binding(
     .input %>%
-      mutate(x = wday(datetime)) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
     test_df
@@ -427,6 +420,12 @@ test_that("extract wday from timestamp", {
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = wday(datetime)) %>%
+      collect(),
+    test_df
+  )
 
   compare_dplyr_binding(
     .input %>%
@@ -446,6 +445,7 @@ test_that("extract wday from timestamp", {
 })
 
 test_that("extract mday from timestamp", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = mday(datetime)) %>%
@@ -455,6 +455,7 @@ test_that("extract mday from timestamp", {
 })
 
 test_that("extract yday from timestamp", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = yday(datetime)) %>%
@@ -464,6 +465,7 @@ test_that("extract yday from timestamp", {
 })
 
 test_that("extract hour from timestamp", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = hour(datetime)) %>%
@@ -483,6 +485,7 @@ test_that("extract minute from timestamp", {
 })
 
 test_that("extract second from timestamp", {
+  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = second(datetime)) %>%
