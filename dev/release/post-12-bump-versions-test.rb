@@ -29,6 +29,9 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
+        unless git_tags.include?("apache-arrow-#{@release_version}")
+          git("tag", "apache-arrow-#{@release_version}")
+        end
         yield
       end
       FileUtils.rm_rf(@test_git_repository)
