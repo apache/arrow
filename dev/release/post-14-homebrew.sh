@@ -38,13 +38,12 @@ if ! git remote | grep -q --fixed-strings ${github_user}; then
 fi
 
 echo "Updating working copy"
-git checkout master
-git pull --rebase --prune --autostash --tags
+git fetch --all --prune --tags --force -j$(nproc)
 
 branch=apache-arrow-${version}
 echo "Creating branch: ${branch}"
 git branch -D ${branch} || :
-git checkout -b ${branch}
+git checkout -b ${branch} origin/master
 
 echo "Updating apache-arrow formulae"
 brew bump-formula-pr \
@@ -78,6 +77,8 @@ brew test apache-arrow-glib
 brew audit --strict apache-arrow-glib
 
 git push -u $github_user ${branch}
+
+git checkout -
 
 popd
 
