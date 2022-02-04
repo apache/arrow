@@ -598,7 +598,9 @@ test_that("extract day from date", {
     .input %>%
       mutate(x = day(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
@@ -607,7 +609,9 @@ test_that("extract wday from date", {
     .input %>%
       mutate(x = wday(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 
   compare_dplyr_binding(
