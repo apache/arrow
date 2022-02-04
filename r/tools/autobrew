@@ -44,7 +44,6 @@ export HOMEBREW_CACHE="$AUTOBREW"
 LOCAL_FORMULA="tools/${PKG_BREW_NAME}.rb"
 if [ -f "$LOCAL_FORMULA" ]; then
   if [[ ${OSTYPE:6} -ge 20 ]]; then
-  echo "************ In the tap if"
   $BREW tap
 
   # Tap https://github.com/autobrew/homebrew-cran so that we can get dependencies from there
@@ -52,13 +51,9 @@ if [ -f "$LOCAL_FORMULA" ]; then
   fi
 
   # Use the local brew formula and install --HEAD
-  echo "************ 1"
   $BREW deps -n "$LOCAL_FORMULA" 2>/dev/null
-  echo "************ 2"
   BREW_DEPS=$($BREW deps -n "$LOCAL_FORMULA" 2>/dev/null)
-  echo "************ 3"
   $BREW install --force-bottle $BREW_DEPS 2>&1 | perl -pe 's/Warning/Note/gi'
-  echo "************ 4"
   $BREW install -v --build-from-source --HEAD "$LOCAL_FORMULA" 2>&1 | perl -pe 's/Warning/Note/gi'
 else
   $BREW install --force-bottle $BREW_DEPS $PKG_BREW_NAME 2>&1 | perl -pe 's/Warning/Note/gi'
