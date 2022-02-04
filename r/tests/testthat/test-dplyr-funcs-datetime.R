@@ -298,6 +298,9 @@ test_that("is.* functions from lubridate", {
     test_df
   )
 
+  # fails with "Cannot locate timezone 'UTC': Timezone database not found at "\tzdata"."
+  # This indicates dependency on ARROW-13168
+  skip_on_os("windows")
   compare_dplyr_binding(
     .input %>%
       mutate(
