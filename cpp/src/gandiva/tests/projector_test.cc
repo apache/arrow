@@ -2416,17 +2416,18 @@ TEST_F(TestProjector, TestAddTimeIntervalsDateTypes) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  std::shared_ptr<arrow::Array> array_month_interval, array_day_interval, array_timestamp;
   int num_records = 2;
+
   auto array_date64 = MakeArrowArrayDate64({951609600000, -26611200000}, {true, false});
-  arrow::ArrayFromVector<arrow::TimestampType, int64_t>(
-      arrow::timestamp(arrow::TimeUnit::MILLI), {true, false},
-      {951609600000, -26611200000}, &array_timestamp);
+  auto array_month_interval = MakeArrowArrayInt32({4, 4}, {true, false});
   auto array_time = MakeArrowTypeArray<arrow::Time32Type, int32_t>(
       arrow::time32(arrow::TimeUnit::MILLI), {2500, 0}, {true, false});
 
-  arrow::ArrayFromVector<arrow::MonthIntervalType, int64_t>(
-      arrow::month_interval(), {true, true}, {4, 4}, &array_month_interval);
+  std::shared_ptr<arrow::Array> array_day_interval, array_timestamp;
+
+  arrow::ArrayFromVector<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), {true, false},
+      {951609600000, -26611200000}, &array_timestamp);
   arrow::ArrayFromVector<arrow::DayTimeIntervalType,
                          arrow::DayTimeIntervalType::DayMilliseconds>(
       arrow::day_time_interval(), {true, true}, {{4, 1500}, {2, 2}}, &array_day_interval);
