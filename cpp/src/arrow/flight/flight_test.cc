@@ -374,6 +374,27 @@ TEST(TestFlight, ServeShutdown) {
   }
 }
 
+TEST(TestFlight, ServeShutdownWithDeadline) {
+  constexpr int kIterations = 10;
+  for (int i = 0; i < kIterations; i++) {
+    Location location;
+    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    FlightServerOptions options(location);
+    ASSERT_OK(server->Init(options));
+    ASSERT_GT(server->port(), 0);
+    std::thread t([&]() { ASSERT_OK(server->Serve()); });
+
+    gpr_timespec deadline = gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
+                                         gpr_time_from_seconds(5, GPR_TIMESPAN));
+
+    ASSERT_OK(server->Shutdown(deadline));
+    ASSERT_OK(server->Wait());
+    t.join();
+  }
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 

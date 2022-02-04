@@ -1024,13 +1024,13 @@ Status FlightServerBase::Serve() {
 
 int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
 
-Status FlightServerBase::Shutdown() {
+Status FlightServerBase::Shutdown(gpr_timespec deadline) {
   auto server = impl_->server_.get();
   if (!server) {
     return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
   }
   impl_->running_instance_ = nullptr;
-  impl_->server_->Shutdown();
+  impl_->server_->Shutdown(deadline);
   return Status::OK();
 }
 

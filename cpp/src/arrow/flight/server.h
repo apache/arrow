@@ -25,6 +25,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <grpcpp/support/time.h>
 
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
@@ -200,10 +201,11 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   int GotSignal() const;
 
   /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Serve() blocks.
+  /// thread while Serve() blocks. Optionally a deadline can be set. Once the
+  /// the deadline expires all pending calls associated with the server will be
+  /// forcefully canceled.
   ///
-  /// TODO(wesm): Shutdown with deadline
-  Status Shutdown();
+  Status Shutdown(gpr_timespec deadline = {0, 0});
 
   /// \brief Block until server is terminated with Shutdown.
   Status Wait();
