@@ -415,7 +415,9 @@ setup_conda() {
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     # Deactivate previous env
-    conda deactivate || :
+    if [ ! -z ${CONDA_PREFIX} ]; then
+      conda deactivate
+    fi
     # Ensure that conda is installed
     install_conda
     # Create environment
@@ -442,6 +444,7 @@ setup_virtualenv() {
   local pyver=${PYTHON_VERSION:-3}
   local python=${PYTHON:-"python${pyver}"}
   local virtualenv="${ARROW_TMPDIR}/${env}"
+  local skip_missing_python=${SKIP_MISSING_PYTHON:-0}
 
   if [ "${USE_CONDA}" -eq 0 ]; then
     if [ ! -z ${CONDA_PREFIX} ]; then
@@ -451,6 +454,16 @@ setup_virtualenv() {
     fi
     # Deactivate previous env
     deactivate || :
+    # Check that python interpreter exists
+    if [ ! command -v "${python}" ]; then
+      echo "Couldn't locate python interpreter with version ${pyver}"
+      echo "Call the script with USE_CONDA=1 to test all of the python versions."
+      if [ $skip_missing_python -gt 0 ]; then
+        continue
+      else
+        exit 1
+      fi
+    fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
       $python -m pip install virtualenv
@@ -855,7 +868,7 @@ test_linux_wheels() {
 
   for pyver in ${python_versions}; do
     if [ "${USE_CONDA}" -eq 0 -a ! command -v "python${py_ver}"]; then
-      echo "Couldn't locate python interpreter with version ${py_arch}"
+
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       continue
     fi
@@ -891,13 +904,8 @@ test_macos_wheels() {
 
   # verify arch-native wheels inside an arch-native conda environment
   for pyver in ${python_versions}; do
-    if [ "${USE_CONDA}" -eq 0 -a ! command -v "python${py_ver}"]; then
-      echo "Couldn't locate python interpreter with version ${py_arch}"
-      echo "Call the script with USE_CONDA=1 to test all of the python versions."
-      continue
-    fi
     ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
-    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_virtualenv
+    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} SKIP_MISSING_PYTHON=1 setup_virtualenv
 
     # check the mandatory and optional imports
     # TODO(kszucs): may need to define --target $(python -c 'import site; print(site.getsitepackages()[0])') --only-binary=:all:
@@ -912,13 +920,10 @@ test_macos_wheels() {
   if [ "$(uname -m)" = "arm64" ]; then
     for pyver in "3.9 3.10"; do
       local python="/Library/Frameworks/Python.framework/Versions/${pyver}/bin/python${pyver}"
-      if [ ! command -v "python${py_ver}" ]; then
-        echo "Couldn't locate python interpreter with version ${py_arch}"
-        continue
-      fi
+
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-${arch} PYTHON=${python} setup_virtualenv
+        ENV=wheel-${pyver}-${arch} PYTHON=${python} SKIP_MISSING_PYTHON=1 setup_virtualenv
         # install pyarrow's universal2 wheel
         pip install \
             --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
