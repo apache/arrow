@@ -566,7 +566,7 @@ test_and_install_cpp() {
 
   # TODO: ARROW-5036: plasma-serialization_tests broken
   # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
-  ctest \
+  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
     --output-on-failure \
@@ -761,7 +761,7 @@ test_integration() {
   fi
 
   # Flight integration test executable have runtime dependency on release/libgtest.so
-  archery integration \
+  LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH archery integration \
     --with-cpp=${TEST_INTEGRATION_CPP} \
     --with-java=${TEST_INTEGRATION_JAVA} \
     --with-js=${TEST_INTEGRATION_JS} \
