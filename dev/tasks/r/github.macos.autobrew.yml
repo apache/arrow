@@ -63,6 +63,7 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
+          ARROW_R_DEV: true
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
