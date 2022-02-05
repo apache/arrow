@@ -220,22 +220,50 @@ TEST(TestFlight, ConnectUriUnix) {
 TEST(TestFlight, RoundTripTypes) {
   Ticket ticket{"foo"};
   std::string ticket_serialized;
-  Ticket ticket_deserialized;
   ASSERT_OK(ticket.SerializeToString(&ticket_serialized));
-  ASSERT_OK(Ticket::Deserialize(ticket_serialized, &ticket_deserialized));
-  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+
+  {
+    Ticket ticket_deserialized;
+    ASSERT_OK(Ticket::Deserialize(ticket_serialized, &ticket_deserialized));
+    ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+  }
+  {
+    Ticket ticket_deserialized;
+    ASSERT_OK(Ticket::Deserialize(*Buffer::FromString(ticket_serialized),
+                                  &ticket_deserialized));
+    ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
+  }
 
   FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
   std::string desc_serialized;
-  FlightDescriptor desc_deserialized;
   ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+
+  {
+    FlightDescriptor desc_deserialized;
+    ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
+    ASSERT_TRUE(desc.Equals(desc_deserialized));
+  }
+  {
+    FlightDescriptor desc_deserialized;
+    ASSERT_OK(FlightDescriptor::Deserialize(*Buffer::FromString(desc_serialized),
+                                            &desc_deserialized));
+    ASSERT_TRUE(desc.Equals(desc_deserialized));
+  }
 
   desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
   ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
+
+  {
+    FlightDescriptor desc_deserialized;
+    ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
+    ASSERT_TRUE(desc.Equals(desc_deserialized));
+  }
+  {
+    FlightDescriptor desc_deserialized;
+    ASSERT_OK(FlightDescriptor::Deserialize(*Buffer::FromString(desc_serialized),
+                                            &desc_deserialized));
+    ASSERT_TRUE(desc.Equals(desc_deserialized));
+  }
 
   FlightInfo::Data data;
   std::shared_ptr<Schema> schema =
@@ -250,13 +278,19 @@ TEST(TestFlight, RoundTripTypes) {
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
   std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
   std::string info_serialized;
-  std::unique_ptr<FlightInfo> info_deserialized;
   ASSERT_OK(info->SerializeToString(&info_serialized));
-  ASSERT_OK(FlightInfo::Deserialize(info_serialized, &info_deserialized));
-  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
-  ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
-  ASSERT_EQ(info->total_records(), info_deserialized->total_records());
-  ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
+
+  {
+    std::unique_ptr<FlightInfo> info_deserialized;
+    ASSERT_OK(FlightInfo::Deserialize(info_serialized, &info_deserialized));
+    AssertEqual(*info, *info_deserialized);
+  }
+  {
+    std::unique_ptr<FlightInfo> info_deserialized;
+    ASSERT_OK(FlightInfo::Deserialize(*Buffer::FromString(info_serialized),
+                                      &info_deserialized));
+    AssertEqual(*info, *info_deserialized);
+  }
 }
 
 TEST(TestFlight, RoundtripStatus) {

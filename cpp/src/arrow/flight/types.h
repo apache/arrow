@@ -206,6 +206,9 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   /// services) that may want to return Flight types.
   static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
+  /// \brief Parse the wire-format representation of this type.
+  static Status Deserialize(const Buffer& serialized, FlightDescriptor* out);
+
   // Convenience factory functions
 
   static FlightDescriptor Command(const std::string& c) {
@@ -249,6 +252,9 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static Status Deserialize(const std::string& serialized, Ticket* out);
+
+  /// \brief Parse the wire-format representation of this type.
+  static Status Deserialize(const Buffer& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -422,6 +428,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// services) that may want to return Flight types.
   static Status Deserialize(const std::string& serialized,
                             std::unique_ptr<FlightInfo>* out);
+
+  /// \brief Parse the wire-format representation of this type.
+  static Status Deserialize(const Buffer& serialized, std::unique_ptr<FlightInfo>* out);
 
  private:
   Data data_;

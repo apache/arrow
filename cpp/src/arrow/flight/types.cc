@@ -166,6 +166,19 @@ Status FlightDescriptor::Deserialize(const std::string& serialized,
   return internal::FromProto(pb_descriptor, out);
 }
 
+Status FlightDescriptor::Deserialize(const Buffer& serialized, FlightDescriptor* out) {
+  pb::FlightDescriptor pb_descriptor;
+  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized FlightDescriptor size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_descriptor.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid descriptor");
+  }
+  return internal::FromProto(pb_descriptor, out);
+}
+
 bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
 
 Status Ticket::SerializeToString(std::string* out) const {
@@ -181,6 +194,19 @@ Status Ticket::SerializeToString(std::string* out) const {
 Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
   pb::Ticket pb_ticket;
   if (!pb_ticket.ParseFromString(serialized)) {
+    return Status::Invalid("Not a valid ticket");
+  }
+  return internal::FromProto(pb_ticket, out);
+}
+
+Status Ticket::Deserialize(const Buffer& serialized, Ticket* out) {
+  pb::Ticket pb_ticket;
+  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized Ticket size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_ticket.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid ticket");
   }
   return internal::FromProto(pb_ticket, out);
@@ -226,6 +252,23 @@ Status FlightInfo::Deserialize(const std::string& serialized,
                                std::unique_ptr<FlightInfo>* out) {
   pb::FlightInfo pb_info;
   if (!pb_info.ParseFromString(serialized)) {
+    return Status::Invalid("Not a valid FlightInfo");
+  }
+  FlightInfo::Data data;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
+  out->reset(new FlightInfo(data));
+  return Status::OK();
+}
+
+Status FlightInfo::Deserialize(const Buffer& serialized,
+                               std::unique_ptr<FlightInfo>* out) {
+  pb::FlightInfo pb_info;
+  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized FlightInfo size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_info.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid FlightInfo");
   }
   FlightInfo::Data data;
