@@ -2223,20 +2223,12 @@ static void CheckStructToStruct(
     for (const auto& dest_value_type : value_types) {
       std::vector<std::string> field_names = {"a"};
       std::shared_ptr<Array> a1, b1, a2, b2;
-      a1 = ArrayFromJSON(src_value_type, "[1, 2]");
-      a2 = ArrayFromJSON(dest_value_type, "[1, 2]");
+      a1 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, 5]");
+      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 3, 4, 5]");
       ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a1}, field_names));
       ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2}, field_names));
 
       CheckCast(src, dest);
-
-      // Test corner case using children with offsets
-      auto a3 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, 5]")->Slice(1, 4);
-      auto a4 = ArrayFromJSON(dest_value_type, "[2, 3, 4, 5]");
-      ASSERT_OK_AND_ASSIGN(auto slicedSrc, StructArray::Make({a3}, field_names));
-      ASSERT_OK_AND_ASSIGN(auto slicedDest, StructArray::Make({a4}, field_names));
-
-      CheckCast(slicedSrc, slicedDest);
     }
   }
 }
