@@ -2277,7 +2277,8 @@ TEST(Cast, StructToDifferentSizeStruct) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("Type error: struct field sizes do not match: 2 and 3"),
+      ::testing::HasSubstr("Type error: struct field sizes do not match: struct<a: int8, "
+			   "b: int8> struct<a: int8, b: int8, c: int8>"),
       Cast(src, options));
 }
 
