@@ -972,6 +972,7 @@ class ARROW_EXPORT FixedSizeListType : public BaseListType {
 class ARROW_EXPORT StructType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::STRUCT;
+  using offset_type = int32_t;
 
   static constexpr const char* type_name() { return "struct"; }
 

@@ -195,10 +195,7 @@ struct CastStruct {
     }
 
     const ArrayData& in_array = *batch[0].array();
-    // TODO: unlike List implementation, where their associated types
-    // have an offset type size (i.e. FixedSizeListType with int64_t offsets)
-    // StructType may not have the same thing
-    //auto offsets = in_array.GetValues<StructType::offset_type>(1);
+    auto offsets = in_array.GetValues<StructType::offset_type>(1);
     Datum values = in_array.child_data[0];
 
     ArrayData* out_array = out->mutable_array();
@@ -215,15 +212,13 @@ struct CastStruct {
     if (in_array.offset != 0) {
       ARROW_ASSIGN_OR_RAISE(
 			    out_array->buffers[1],
-			    ctx->Allocate(sizeof(StructType) * (in_array.length + 1)));
+			    ctx->Allocate(sizeof(StructType::offset_type) * (in_array.length + 1)));
 
-      /*
-      auto shifted_offsets = out_array->GetMutableValues<StructType>(1);
+      auto shifted_offsets = out_array->GetMutableValues<StructType::offset_type>(1);
       for (int64_t i = 0; i < in_array.length + 1; ++i) {
-	shifted_offsets[i] = static_cast<const StructType&>(offsets[i] - offsets[0]);
+	shifted_offsets[i] = static_cast<StructType::offset_type>(offsets[i] - offsets[0]);
       }
       values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
-      */
     }
     
     for (int64_t i = 0; i < in_field_count; ++i) {
