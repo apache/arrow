@@ -195,17 +195,46 @@ struct CastStruct {
     }
 
     const ArrayData& in_array = *batch[0].array();
+    // TODO: unlike List implementation, where their associated types
+    // have an offset type size (i.e. FixedSizeListType with int64_t offsets)
+    // StructType may not have the same thing
+    //auto offsets = in_array.GetValues<StructType::offset_type>(1);
+    Datum values = in_array.child_data[0];
+
     ArrayData* out_array = out->mutable_array();
+    out_array->buffers = in_array.buffers;
 
-    for (int64_t i = 0; i < in_field_count; ++i) {
-      auto values = in_array.child_data[0];
-      auto target_type = out->type()->field(i)->type();
-      ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                            Cast(values, target_type, options, ctx->exec_context()));
-
-      DCHECK_EQ(Datum::ARRAY, cast_values.kind());
-      out_array->child_data.push_back(cast_values.array());
+    // Shift bitmap in case the source offset is non-zero
+    if (in_array.offset != 0 && in_array.buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                       in_array.offset, in_array.length));
     }
+    
+    // Handle struct offsets
+    if (in_array.offset != 0) {
+      ARROW_ASSIGN_OR_RAISE(
+			    out_array->buffers[1],
+			    ctx->Allocate(sizeof(StructType) * (in_array.length + 1)));
+
+      /*
+      auto shifted_offsets = out_array->GetMutableValues<StructType>(1);
+      for (int64_t i = 0; i < in_array.length + 1; ++i) {
+	shifted_offsets[i] = static_cast<const StructType&>(offsets[i] - offsets[0]);
+      }
+      values = in_array.child_data[0]->Slice(offsets[0], offsets[in_array.length]);
+      */
+    }
+    
+    for (int64_t i = 0; i < in_field_count; ++i) {
+	auto values = in_array.child_data[0];
+	auto target_type = out->type()->field(i)->type();
+	ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+			      Cast(values, target_type, options, ctx->exec_context()));
+
+	DCHECK_EQ(Datum::ARRAY, cast_values.kind());
+	out_array->child_data.push_back(cast_values.array());
+      }
 
     return Status::OK();
   }
