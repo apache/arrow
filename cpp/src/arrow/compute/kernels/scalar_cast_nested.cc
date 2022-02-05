@@ -160,8 +160,8 @@ struct CastStruct {
 
     if (in_field_count != out_field_count) {
       return Status::TypeError(
-	  "struct field sizes do not match: ", batch[0].type()->ToString(), " ",
-	  " and ", out->type()->ToString());
+          "struct field sizes do not match: ", batch[0].type()->ToString(), " ", " and ",
+          out->type()->ToString());
     }
 
     for (int64_t i = 0; i < in_field_count; ++i) {
@@ -197,13 +197,13 @@ struct CastStruct {
 
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
-    
+
     for (int64_t i = 0; i < in_field_count; ++i) {
       auto values = in_array.child_data[i];
       auto target_type = out->type()->field(i)->type();
 
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-			    Cast(values, target_type, options, ctx->exec_context()));
+                            Cast(values, target_type, options, ctx->exec_context()));
 
       DCHECK_EQ(Datum::ARRAY, cast_values.kind());
       out_array->child_data.push_back(cast_values.array());
