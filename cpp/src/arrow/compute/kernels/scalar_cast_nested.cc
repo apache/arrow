@@ -199,8 +199,9 @@ struct CastStruct {
     ArrayData* out_array = out->mutable_array();
     
     for (int64_t i = 0; i < in_field_count; ++i) {
-      auto values = in_array.child_data[0];
+      auto values = in_array.child_data[i];
       auto target_type = out->type()->field(i)->type();
+
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
 			    Cast(values, target_type, options, ctx->exec_context()));
 
