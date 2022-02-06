@@ -66,7 +66,8 @@ outputs:
         - {{ compiler('cxx') }}
         - {{ compiler("cuda") }}  # [cuda_compiler_version != "None"]
       host:
-        - aws-sdk-cpp
+        # https://issues.apache.org/jira/browse/ARROW-15141
+        - aws-sdk-cpp 1.8.186
         - boost-cpp >=1.70
         - brotli
         - bzip2
