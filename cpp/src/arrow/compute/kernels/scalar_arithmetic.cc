@@ -2732,16 +2732,18 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto minimum_checked = MakeArithmeticFunctionNotNull<MinimumChecked>(
       "minimum_checked", &min_checked_doc);
   AddDecimalBinaryKernels<MinimumChecked>("minimum_checked", minimum_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(minimum_checked)));
 
   // ----------------------------------------------------------------------
-  auto maximum = MakeArithmeticFunction<Maximum>("maximum", &min_doc);
+  auto maximum = MakeArithmeticFunction<Maximum>("maximum", &max_doc);
   AddDecimalBinaryKernels<Maximum>("maximum", maximum.get());
   DCHECK_OK(registry->AddFunction(std::move(maximum)));
 
   // ----------------------------------------------------------------------
   auto maximum_checked = MakeArithmeticFunctionNotNull<MaximumChecked>(
-      "maximum_checked", &min_checked_doc);
+      "maximum_checked", &max_checked_doc);
   AddDecimalBinaryKernels<MaximumChecked>("maximum_checked", maximum_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(maximum_checked)));
 
   // ----------------------------------------------------------------------
   auto power = MakeArithmeticFunction<Power, ArithmeticDecimalToFloatingPointFunction>(
