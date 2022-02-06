@@ -416,8 +416,14 @@ class PyValue {
     }
     RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kNanoseconds>::Field(
         obj, &output.nanoseconds, &found_attrs));
-
     if (ARROW_PREDICT_FALSE(!found_attrs) && !is_date_offset) {
+       if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
+         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 0), &output.months, "Months (Index 0) index to large"));
+         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 1), &output.days, "Days (Index 1) index to large"));
+         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 2), &output.nanoseconds, "Nanoseconds (Index 2) index to large"));
+         return output;
+       }
+
       // date_offset can have zero fields.
       return Status::TypeError("No temporal attributes found on object.");
     }
