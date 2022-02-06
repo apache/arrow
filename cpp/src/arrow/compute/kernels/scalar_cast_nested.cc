@@ -160,7 +160,7 @@ struct CastStruct {
 
     if (in_field_count != out_field_count) {
       return Status::TypeError(
-          "struct field sizes do not match: ", batch[0].type()->ToString(), " ", " and ",
+          "struct field sizes do not match: ", batch[0].type()->ToString(), " ",
           out->type()->ToString());
     }
 
