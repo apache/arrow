@@ -159,9 +159,8 @@ struct CastStruct {
         checked_cast<const StructType&>(*out->type()).num_fields();
 
     if (in_field_count != out_field_count) {
-      return Status::TypeError(
-          "struct field sizes do not match: ", batch[0].type()->ToString(), " ",
-          out->type()->ToString());
+      return Status::TypeError("struct field sizes do not match: ",
+                               batch[0].type()->ToString(), " ", out->type()->ToString());
     }
 
     for (int64_t i = 0; i < in_field_count; ++i) {
@@ -201,7 +200,7 @@ struct CastStruct {
     for (int64_t i = 0; i < in_field_count; ++i) {
       auto values = in_array.child_data[i];
       if (in_array.offset != 0) {
-	values = values->Slice(in_array.offset, in_array.length);
+        values = values->Slice(in_array.offset, in_array.length);
       }
       auto target_type = out->type()->field(i)->type();
 
