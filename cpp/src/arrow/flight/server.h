@@ -20,12 +20,12 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-#include <grpcpp/support/time.h>
 
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
@@ -205,7 +205,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// the deadline expires all pending calls associated with the server will be
   /// forcefully canceled.
   ///
-  Status Shutdown(gpr_timespec deadline = {0, 0});
+  Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
   /// \brief Block until server is terminated with Shutdown.
   Status Wait();

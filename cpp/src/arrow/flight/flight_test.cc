@@ -384,14 +384,11 @@ TEST(TestFlight, ServeShutdownWithDeadline) {
     FlightServerOptions options(location);
     ASSERT_OK(server->Init(options));
     ASSERT_GT(server->port(), 0);
-    std::thread t([&]() { ASSERT_OK(server->Serve()); });
 
-    gpr_timespec deadline = gpr_time_add(gpr_now(GPR_CLOCK_MONOTONIC),
-                                         gpr_time_from_seconds(5, GPR_TIMESPAN));
+    auto deadline = std::chrono::system_clock::now() + std::chrono::microseconds(10);
 
-    ASSERT_OK(server->Shutdown(deadline));
+    ASSERT_OK(server->Shutdown(&deadline));
     ASSERT_OK(server->Wait());
-    t.join();
   }
 }
 
