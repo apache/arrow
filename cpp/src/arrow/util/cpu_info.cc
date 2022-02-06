@@ -288,7 +288,7 @@ bool RetrieveCPUInfo(int64_t* hardware_flags, std::string* model_name,
   if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
   if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
   if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
-  if (features_ECX[23]) *hardware_flags |= CpuInfo::AVX;
+  if (features_ECX[28]) *hardware_flags |= CpuInfo::AVX;
 
   // cpuid with EAX=7, ECX=0: Extended Features
   register_EAX_id = 7;
