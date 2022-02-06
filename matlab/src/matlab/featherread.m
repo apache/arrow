@@ -23,7 +23,7 @@ function t = featherread(filename)
 % specific language governing permissions and limitations
 % under the License.
 
-import mlarrow.util.*;
+import arrow.util.*;
 
 % Validate input arguments.
 narginchk(1, 1);
@@ -46,7 +46,7 @@ end
 
 % Read table variables and metadata from the given Feather file using
 % libarrow.
-[variables, metadata] = featherreadmex(filename);
+[variables, metadata] = mexfcn('featherread', filename);
 
 % Make valid MATLAB table variable names out of any of the
 % Feather table column names that are not valid MATLAB table

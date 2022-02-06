@@ -15,22 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
+#pragma once
 
 #include <mex.h>
 
-#include "feather_writer.h"
-#include "util/handle_status.h"
+#include <string>
 
-// MEX gateway function. This is the entry point for featherwritemex.cc.
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
-  const std::string filename{mxArrayToUTF8String(prhs[0])};
+namespace arrow {
+namespace matlab {
+namespace feather {
+namespace util {
 
-  // Open a Feather file at the provided file path for writing.
-  std::shared_ptr<arrow::matlab::FeatherWriter> feather_writer{nullptr};
-  arrow::matlab::util::HandleStatus(
-      arrow::matlab::FeatherWriter::Open(filename, &feather_writer));
+// Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
+// mxCharArray.
+mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
 
-  // Write the Feather file table variables and table metadata from MATLAB.
-  arrow::matlab::util::HandleStatus(feather_writer->WriteVariables(prhs[1], prhs[2]));
-}
+}  // namespace util
+}  // namespace feather
+}  // namespace matlab
+}  // namespace arrow

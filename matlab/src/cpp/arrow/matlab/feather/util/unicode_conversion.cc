@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <locale> /* for std::wstring_convert */
-#include <codecvt> /* for std::codecvt_utf8_utf16 */
-
 #include "unicode_conversion.h"
+
+#include <codecvt> /* for std::codecvt_utf8_utf16 */
+#include <locale>  /* for std::wstring_convert */
 
 namespace arrow {
 namespace matlab {
+namespace feather {
 namespace util {
 
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
@@ -29,7 +30,7 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
   const char* string_start = utf8_string.c_str();
   const char* string_end = string_start + utf8_string.length();
 
-  // Due to this issue on MSVC: https://stackoverflow.com/q/32055357 we cannot 
+  // Due to this issue on MSVC: https://stackoverflow.com/q/32055357 we cannot
   // directly use a destination type of char16_t.
 #if _MSC_VER >= 1900
   using CharType = int16_t;
@@ -43,7 +44,7 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
   try {
     utf16_string = code_converter.from_bytes(string_start, string_end);
   } catch (...) {
-    // In the case that any error occurs, just try returning a string in the 
+    // In the case that any error occurs, just try returning a string in the
     // user's current locale instead.
     return mxCreateString(string_start);
   }
@@ -52,12 +53,13 @@ mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string) {
   const mwSize dimensions[2] = {1, utf16_string.size()};
   mxArray* character_matrix = mxCreateCharArray(2, dimensions);
   mxChar* character_matrix_pointer = mxGetChars(character_matrix);
-  std::copy(utf16_string.data(), utf16_string.data() + utf16_string.size(), 
-      character_matrix_pointer);
+  std::copy(utf16_string.data(), utf16_string.data() + utf16_string.size(),
+            character_matrix_pointer);
 
   return character_matrix;
 }
 
 }  // namespace util
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow

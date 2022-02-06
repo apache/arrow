@@ -18,15 +18,25 @@
 #pragma once
 
 #include <string>
+#include <functional>
+#include <unordered_map>
+
 #include <mex.h>
+
+#include "mex_functions.h"
+
+#include "arrow/matlab/api/visibility.h"
 
 namespace arrow {
 namespace matlab {
-namespace util {
-// Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
-// mxCharArray.
-mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
-}  // namespace util
-}  // namespace matlab
-}  // namespace arrow
+namespace mex {
 
+ARROW_MATLAB_EXPORT void checkNumArgs(int nrhs);
+    
+ARROW_MATLAB_EXPORT std::string get_function_name(const mxArray* input);
+    
+ARROW_MATLAB_EXPORT mex_fcn_t lookup_function(const std::string& function_name);
+    
+} // namespace mex
+} // namespace matlab
+} // namespace arrow

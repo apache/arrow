@@ -17,16 +17,17 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-
 #include <arrow/ipc/feather.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 #include <matrix.h>
 
+#include <memory>
+#include <string>
+
 namespace arrow {
 namespace matlab {
+namespace feather {
 
 class FeatherReader {
  public:
@@ -71,5 +72,6 @@ class FeatherReader {
   std::string description_;
 };
 
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow
