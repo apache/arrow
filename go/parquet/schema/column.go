@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apache/arrow/go/v7/parquet"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet"
+	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 )
 
 // Column encapsulates the information necessary to interpret primitive

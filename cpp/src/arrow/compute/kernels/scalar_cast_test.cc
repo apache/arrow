@@ -1670,10 +1670,11 @@ TEST(Cast, DateZeroCopy) {
            date64(),
            int64(),  // ARROW-1773: cast to int64
        }) {
-    CheckCastZeroCopy(ArrayFromJSON(date64(), "[0, null, 2000, 1000, 0]"),
+    CheckCastZeroCopy(ArrayFromJSON(date64(), "[0, null, 172800000, 86400000, 0]"),
                       zero_copy_to_type);
   }
-  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"), date64());
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 172800000, 86400000, 0]"),
+                    date64());
 }
 
 TEST(Cast, DurationToDuration) {

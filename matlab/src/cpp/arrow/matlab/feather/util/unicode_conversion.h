@@ -17,16 +17,20 @@
 
 #pragma once
 
-#include <string>
 #include <mex.h>
+
+#include <string>
 
 namespace arrow {
 namespace matlab {
+namespace feather {
 namespace util {
+
 // Converts a UTF-8 encoded std::string to a heap-allocated UTF-16 encoded
 // mxCharArray.
 mxArray* ConvertUTF8StringToUTF16CharMatrix(const std::string& utf8_string);
+
 }  // namespace util
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow
-

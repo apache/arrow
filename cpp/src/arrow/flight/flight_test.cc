@@ -2669,11 +2669,11 @@ TEST_F(TestCookieParsing, GetName) {
 }
 
 TEST_F(TestCookieParsing, ToString) {
-  VerifyCookieString("id1=1; foo=bar;", "id1=\"1\"");
-  VerifyCookieString("id1=1; foo=bar", "id1=\"1\"");
-  VerifyCookieString("id2=2;", "id2=\"2\"");
-  VerifyCookieString("id4=\"4\"", "id4=\"4\"");
-  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=\"5\"");
+  VerifyCookieString("id1=1; foo=bar;", "id1=1");
+  VerifyCookieString("id1=1; foo=bar", "id1=1");
+  VerifyCookieString("id2=2;", "id2=2");
+  VerifyCookieString("id4=\"4\"", "id4=4");
+  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=5");
 }
 
 TEST_F(TestCookieParsing, DateConversion) {
@@ -2718,9 +2718,9 @@ TEST_F(TestCookieParsing, ParseCookieAttribute) {
 
 TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;"}, "");
-  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=\"1\"");
-  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=\"0\"; id1=\"1\"");
-  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=\"0\"; id1=\"1\"; id2=\"2\"");
+  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
+  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
+  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
 }
 
 class ForeverFlightListing : public FlightListing {

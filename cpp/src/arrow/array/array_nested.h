@@ -129,6 +129,10 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
 
+  static Result<std::shared_ptr<ListArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
+      MemoryPool* pool = default_memory_pool());
+
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -172,6 +176,10 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// allocated because of null values
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
       const Array& offsets, const Array& values,
+      MemoryPool* pool = default_memory_pool());
+
+  static Result<std::shared_ptr<LargeListArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
@@ -310,6 +318,14 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// \return Will have length equal to values.length() / list_size
   static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
                                                    int32_t list_size);
+
+  /// \brief Construct FixedSizeListArray from child value array and type
+  ///
+  /// \param[in] values Array containing list values
+  /// \param[in] type The fixed sized list type
+  /// \return Will have length equal to values.length() / type.list_size()
+  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
+                                                   std::shared_ptr<DataType> type);
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);

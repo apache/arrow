@@ -235,8 +235,7 @@ bool Cookie::IsExpired() const {
 
 std::string Cookie::AsCookieString() const {
   // Return the string for the cookie as it would appear in a Cookie header.
-  // Keys must be wrapped in quotes depending on if this is a v1 or v2 cookie.
-  return cookie_name_ + "=\"" + cookie_value_ + "\"";
+  return cookie_name_ + "=" + cookie_value_;
 }
 
 std::string Cookie::GetName() const { return cookie_name_; }

@@ -15,10 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cmath>
-#include <functional> /* for std::multiplies */
-#include <numeric>    /* for std::accumulate */
-
 #include "feather_writer.h"
 
 #include <arrow/array.h>
@@ -33,11 +29,16 @@
 #include <arrow/util/key_value_metadata.h>
 #include <mex.h>
 
+#include <cmath>
+#include <functional> /* for std::multiplies */
+#include <numeric>    /* for std::accumulate */
+
 #include "matlab_traits.h"
 #include "util/handle_status.h"
 
 namespace arrow {
 namespace matlab {
+namespace feather {
 namespace internal {
 
 // Returns the arrow::DataType that corresponds to the input type string
@@ -279,7 +280,8 @@ Status FeatherWriter::Open(const std::string& filename,
   *feather_writer = std::shared_ptr<FeatherWriter>(new FeatherWriter());
 
   // Open a FileOutputStream corresponding to the provided filename.
-  ARROW_ASSIGN_OR_RAISE((*feather_writer)->file_output_stream_,
+  ARROW_ASSIGN_OR_RAISE(
+      (*feather_writer)->file_output_stream_,
       io::FileOutputStream::Open(filename, &((*feather_writer)->file_output_stream_)));
   return Status::OK();
 }
@@ -331,15 +333,15 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
     auto datatype = internal::ConvertMatlabTypeStringToArrowDataType(type_str);
     auto field = std::make_shared<arrow::Field>(name_str, datatype);
 
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> validity_bitmap,
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<ResizableBuffer> validity_bitmap,
         arrow::AllocateResizableBuffer(internal::BitPackedLength(num_rows_)));
 
     // Populate bit-packed arrow::Buffer using validity data in the mxArray*.
     internal::BitPackBuffer(valid, validity_bitmap);
 
     // Wrap mxArray data in an arrow::Array of the equivalent type.
-    auto array =
-        internal::WriteVariableData(data, type_str, validity_bitmap);
+    auto array = internal::WriteVariableData(data, type_str, validity_bitmap);
 
     // Verify that the arrow::Array has the right number of elements.
     internal::ValidateNumRows(array->length(), num_rows_);
@@ -362,5 +364,6 @@ Status FeatherWriter::WriteVariables(const mxArray* variables, const mxArray* me
   return ipc::feather::WriteTable(*table, file_output_stream_.get(), write_props);
 }
 
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow

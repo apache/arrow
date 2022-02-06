@@ -19,7 +19,7 @@ package arrow
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 )
 
 // Table represents a logical sequence of chunked arrays of equal length. It is

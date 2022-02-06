@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cmath>
-
 #include "feather_reader.h"
 
 #include <arrow/array/array_base.h>
@@ -33,17 +30,21 @@
 #include <arrow/util/bitmap_visit.h>
 #include <mex.h>
 
+#include <algorithm>
+#include <cmath>
+
 #include "matlab_traits.h"
 #include "util/handle_status.h"
 #include "util/unicode_conversion.h"
 
 namespace arrow {
 namespace matlab {
+namespace feather {
 namespace internal {
 
 // Read the name of variable i from the Feather file as a mxArray*.
 mxArray* ReadVariableName(const std::string& column_name) {
-  return matlab::util::ConvertUTF8StringToUTF16CharMatrix(column_name);
+  return util::ConvertUTF8StringToUTF16CharMatrix(column_name);
 }
 
 template <typename ArrowDataType>
@@ -57,8 +58,7 @@ mxArray* ReadNumericVariableData(const std::shared_ptr<Array>& column) {
   mxArray* variable_data =
       mxCreateNumericMatrix(column->length(), 1, matlab_class_id, mxREAL);
 
-  auto arrow_numeric_array =
-      std::static_pointer_cast<ArrowArrayType>(column);
+  auto arrow_numeric_array = std::static_pointer_cast<ArrowArrayType>(column);
 
   // Get a raw pointer to the Arrow array data.
   const MatlabType* source = arrow_numeric_array->raw_values();
@@ -182,10 +182,10 @@ Status FeatherReader::Open(const std::string& filename,
 
   // Open file with given filename as a ReadableFile.
   ARROW_ASSIGN_OR_RAISE(auto readable_file, io::ReadableFile::Open(filename));
- 
+
   // Open the Feather file for reading with a TableReader.
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::feather::Reader::Open(readable_file));
- 
+
   // Set the internal reader_ object.
   (*feather_reader)->reader_ = reader;
 
@@ -273,5 +273,6 @@ mxArray* FeatherReader::ReadVariables() {
   return variables;
 }
 
+}  // namespace feather
 }  // namespace matlab
 }  // namespace arrow

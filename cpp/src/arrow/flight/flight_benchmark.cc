@@ -30,6 +30,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/config.h"
 #include "arrow/util/stopwatch.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -38,6 +39,11 @@
 #include "arrow/flight/perf.pb.h"
 #include "arrow/flight/test_util.h"
 
+#ifdef ARROW_CUDA
+#include "arrow/gpu/cuda_api.h"
+#endif
+
+DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(server_host, "",
               "An existing performance server to benchmark against (leave blank to spawn "
               "one automatically)");
@@ -426,6 +432,7 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<arrow::flight::TestServer> server;
+  std::vector<std::string> server_args;
   arrow::flight::Location location;
   auto options = arrow::flight::FlightClientOptions::Defaults();
   if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
@@ -434,7 +441,6 @@ int main(int argc, char** argv) {
       std::cout << "Using spawned Unix server" << std::endl;
       server.reset(
           new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_unix));
-      server->Start();
     } else {
       std::cout << "Using standalone Unix server" << std::endl;
     }
@@ -446,22 +452,26 @@ int main(int argc, char** argv) {
       std::cout << "Using spawned TCP server" << std::endl;
       server.reset(
           new arrow::flight::TestServer("arrow-flight-perf-server", FLAGS_server_port));
-      std::vector<std::string> args;
       if (!FLAGS_cert_file.empty() || !FLAGS_key_file.empty()) {
         if (!FLAGS_cert_file.empty() && !FLAGS_key_file.empty()) {
           std::cout << "Enabling TLS for spawned server" << std::endl;
-          args.push_back("-cert_file");
-          args.push_back(FLAGS_cert_file);
-          args.push_back("-key_file");
-          args.push_back(FLAGS_key_file);
+          server_args.push_back("-cert_file");
+          server_args.push_back(FLAGS_cert_file);
+          server_args.push_back("-key_file");
+          server_args.push_back(FLAGS_key_file);
         } else {
           std::cerr << "If providing TLS cert/key, must provide both" << std::endl;
           return 1;
         }
       }
-      server->Start(args);
     } else {
       std::cout << "Using standalone TCP server" << std::endl;
+    }
+    if (server) {
+      if (FLAGS_cuda && FLAGS_test_put) {
+        server_args.push_back("-cuda");
+      }
+      server->Start(server_args);
     }
     std::cout << "Server host: " << FLAGS_server_host << std::endl
               << "Server port: " << FLAGS_server_port << std::endl;
@@ -473,6 +483,24 @@ int main(int argc, char** argv) {
                                                        FLAGS_server_port, &location));
       options.disable_server_verification = true;
     }
+  }
+
+  if (FLAGS_cuda) {
+#ifdef ARROW_CUDA
+    if (FLAGS_test_put && !server) {
+      std::cerr << "Warning: -cuda has no effect with -test_put" << std::endl;
+      std::cerr << "Warning: (enable it on the server instead)" << std::endl;
+    }
+    arrow::cuda::CudaDeviceManager* manager = nullptr;
+    std::shared_ptr<arrow::cuda::CudaDevice> device;
+
+    ABORT_NOT_OK(arrow::cuda::CudaDeviceManager::Instance().Value(&manager));
+    ABORT_NOT_OK(manager->GetDevice(0).Value(&device));
+    call_options.memory_manager = device->default_memory_manager();
+#else
+    std::cerr << "-cuda requires that Arrow is built with ARROW_CUDA" << std::endl;
+    return 1;
+#endif
   }
 
   std::unique_ptr<arrow::flight::FlightClient> client;

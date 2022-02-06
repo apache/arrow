@@ -1668,6 +1668,7 @@ static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};
 static const double data_buffer6[] = {0.0, 1.5, -2.0, 3.0, 4.0, 5.0};
 static const int32_t data_buffer7[] = {1234, 5678, 9012, 3456};
 static const int64_t data_buffer8[] = {123456789, 987654321, -123456789, -987654321};
+static const int64_t date64_data_buffer8[] = {86400000, 172800000, -86400000, -172800000};
 #if ARROW_LITTLE_ENDIAN
 static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1};
@@ -1698,6 +1699,9 @@ static const void* primitive_buffers_no_nulls7[2] = {nullptr, data_buffer7};
 static const void* primitive_buffers_nulls7[2] = {bits_buffer1, data_buffer7};
 static const void* primitive_buffers_no_nulls8[2] = {nullptr, data_buffer8};
 static const void* primitive_buffers_nulls8[2] = {bits_buffer1, data_buffer8};
+
+static const void* date64_buffers_no_nulls8[2] = {nullptr, date64_data_buffer8};
+static const void* date64_buffers_nulls8[2] = {bits_buffer1, date64_data_buffer8};
 
 static const int64_t timestamp_data_buffer1[] = {0, 951782400, -2203977600LL};
 static const int64_t timestamp_data_buffer2[] = {0, 951782400000LL, -2203977600000LL};
@@ -1987,8 +1991,8 @@ TEST_F(TestArrayImport, Primitive) {
 TEST_F(TestArrayImport, Temporal) {
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, 5678, 9012]"));
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, 987654321, -123456789]"));
+  FillPrimitive(3, 0, 0, date64_buffers_no_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, 172800000, -86400000]"));
 
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(time32(TimeUnit::SECOND), "[1234, 5678]"));
@@ -2026,8 +2030,8 @@ TEST_F(TestArrayImport, Temporal) {
   // With nulls
   FillPrimitive(3, -1, 0, primitive_buffers_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, null, 9012]"));
-  FillPrimitive(3, -1, 0, primitive_buffers_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, null, -123456789]"));
+  FillPrimitive(3, -1, 0, date64_buffers_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, null, -86400000]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
   CheckImport(ArrayFromJSON(time64(TimeUnit::NANO), "[123456789, null]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);

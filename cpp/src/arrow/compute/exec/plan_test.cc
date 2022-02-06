@@ -488,6 +488,38 @@ TEST(ExecPlanExecution, SourceConsumingSink) {
   }
 }
 
+TEST(ExecPlanExecution, SourceTableConsumingSink) {
+  for (bool slow : {false, true}) {
+    SCOPED_TRACE(slow ? "slowed" : "unslowed");
+
+    for (bool parallel : {false, true}) {
+      SCOPED_TRACE(parallel ? "parallel" : "single threaded");
+      ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+
+      std::shared_ptr<Table> out;
+
+      auto basic_data = MakeBasicBatches();
+
+      TableSinkNodeOptions options{&out, basic_data.schema};
+
+      ASSERT_OK_AND_ASSIGN(
+          auto source, MakeExecNode("source", plan.get(), {},
+                                    SourceNodeOptions(basic_data.schema,
+                                                      basic_data.gen(parallel, slow))));
+      ASSERT_OK(MakeExecNode("table_sink", plan.get(), {source}, options));
+      ASSERT_OK(plan->StartProducing());
+      // Source should finish fairly quickly
+      ASSERT_FINISHES_OK(source->finished());
+      SleepABit();
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           TableFromExecBatches(basic_data.schema, basic_data.batches));
+      ASSERT_EQ(5, out->num_rows());
+      AssertTablesEqual(*actual, *out);
+      ASSERT_FINISHES_OK(plan->finished());
+    }
+  }
+}
+
 TEST(ExecPlanExecution, ConsumingSinkError) {
   struct ConsumeErrorConsumer : public SinkNodeConsumer {
     Status Consume(ExecBatch batch) override { return Status::Invalid("XYZ"); }

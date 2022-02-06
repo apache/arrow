@@ -43,7 +43,7 @@ function [variables, metadata] = table2mlarrow(t)
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-import mlarrow.util.*;
+import arrow.util.*;
 
 % Struct array representing the underlying data of each variable
 % in the given table.

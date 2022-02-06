@@ -21,9 +21,9 @@ package math_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/math"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/math"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -30,4 +30,23 @@ export ARROW_GDB_SCRIPT=${arrow_dir}/cpp/gdb_arrow.py
 # Enable some checks inside Python itself
 export PYTHONDEVMODE=1
 
-pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow
+# By default, force-test all optional components
+: ${PYARROW_TEST_CUDA:=${ARROW_CUDA:-ON}}
+: ${PYARROW_TEST_DATASET:=${ARROW_DATASET:-ON}}
+: ${PYARROW_TEST_FLIGHT:=${ARROW_FLIGHT:-ON}}
+: ${PYARROW_TEST_GANDIVA:=${ARROW_GANDIVA:-ON}}
+: ${PYARROW_TEST_HDFS:=${ARROW_HDFS:-ON}}
+: ${PYARROW_TEST_ORC:=${ARROW_ORC:-ON}}
+: ${PYARROW_TEST_PARQUET:=${ARROW_PARQUET:-ON}}
+: ${PYARROW_TEST_S3:=${ARROW_S3:-ON}}
+
+export PYARROW_TEST_CUDA
+export PYARROW_TEST_DATASET
+export PYARROW_TEST_FLIGHT
+export PYARROW_TEST_GANDIVA
+export PYARROW_TEST_HDFS
+export PYARROW_TEST_ORC
+export PYARROW_TEST_PARQUET
+export PYARROW_TEST_S3
+
+pytest -r s -v ${PYTEST_ARGS} --pyargs pyarrow.tests.test_orc

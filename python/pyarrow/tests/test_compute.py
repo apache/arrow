@@ -141,6 +141,7 @@ def test_option_class_equality():
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
                                              pa.KeyValueMetadata({"b": "2"})]),
+        pc.MapLookupOptions(pa.scalar(1), "first"),
         pc.MatchSubstringOptions("pattern"),
         pc.ModeOptions(),
         pc.NullOptions(),
@@ -2468,6 +2469,23 @@ def test_make_struct():
 
     with pytest.raises(ValueError, match="0 arguments but 2 field names"):
         pc.make_struct(field_names=['one', 'two'])
+
+
+def test_map_lookup():
+    ty = pa.map_(pa.utf8(), pa.int32())
+    arr = pa.array([[('one', 1), ('two', 2)], [('none', 3)],
+                    [], [('one', 5), ('one', 7)], None], type=ty)
+    result_first = pa.array([1, None, None, 5, None], type=pa.int32())
+    result_last = pa.array([1, None, None, 7, None], type=pa.int32())
+    result_all = pa.array([[1], None, None, [5, 7], None],
+                          type=pa.list_(pa.int32()))
+
+    assert pc.map_lookup(arr, pa.scalar(
+        'one', type=pa.utf8()), 'first') == result_first
+    assert pc.map_lookup(arr, pa.scalar(
+        'one', type=pa.utf8()), 'last') == result_last
+    assert pc.map_lookup(arr, pa.scalar(
+        'one', type=pa.utf8()), 'all') == result_all
 
 
 def test_struct_fields_options():

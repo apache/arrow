@@ -336,18 +336,34 @@ test_that("open_dataset() deals with BOMs (byte-order-marks) correctly", {
 })
 
 test_that("Error if read_options$column_names and schema-names differ (ARROW-14744)", {
-
-  dst_dir  <- make_temp_dir()
+  dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "file.csv")
   df <- df1[, c("int", "dbl")]
   write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
 
-  # Mismatch of column names vs. schema-names should raise an error
-  schema  <- schema(int = int32(), dbl = float64())
+  schema <- schema(int = int32(), dbl = float64())
 
+  # names in column_names but not in schema
   expect_error(
-    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
-    "Values in `column_names` must match schema field names"
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("int", "dbl", "lgl", "chr")),
+    "`lgl` and `chr` not present in `schema`"
   )
 
+  # names in schema but not in column_names
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("int")),
+    "`dbl` not present in `column_names`"
+  )
+
+  # mismatches both ways
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("these", "wont", "match")),
+    "`these`, `wont`, and `match` not present in `schema`.*`int` and `dbl` not present in `column_names`"
+  )
+
+  # correct names wrong order
+  expect_error(
+    open_dataset(csv_dir, format = "csv", schema = schema, column_names = c("dbl", "int")),
+    "`column_names` and `schema` field names match but are not in the same order"
+  )
 })

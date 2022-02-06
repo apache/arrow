@@ -18,7 +18,6 @@
 #pragma once
 
 #include <arrow/type.h>
-
 #include <matrix.h>
 
 namespace arrow {
@@ -100,4 +99,3 @@ struct MatlabTraits<Int64Type> {
 
 }  // namespace matlab
 }  // namespace arrow
-

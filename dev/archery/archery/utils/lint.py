@@ -189,7 +189,8 @@ def python_linter(src, fix=False):
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
                 "python/examples/**/*.py",
-                "dev/archery/**/*.py"]
+                "dev/archery/**/*.py",
+                "dev/release/**/*.py"]
     files = [setup_py]
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))

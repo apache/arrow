@@ -32,6 +32,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
@@ -39,6 +40,11 @@
 #include "arrow/flight/perf.pb.h"
 #include "arrow/flight/test_util.h"
 
+#ifdef ARROW_CUDA
+#include "arrow/gpu/cuda_api.h"
+#endif
+
+DEFINE_bool(cuda, false, "Allocate results in CUDA memory");
 DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
 DEFINE_string(server_unix, "", "Unix socket path where the server is running on");
@@ -268,6 +274,20 @@ int main(int argc, char** argv) {
     std::string key((std::istreambuf_iterator<char>(key_file)),
                     (std::istreambuf_iterator<char>()));
     options.tls_certificates.push_back(arrow::flight::CertKeyPair{cert, key});
+  }
+
+  if (FLAGS_cuda) {
+#ifdef ARROW_CUDA
+    arrow::cuda::CudaDeviceManager* manager = nullptr;
+    std::shared_ptr<arrow::cuda::CudaDevice> device;
+
+    ARROW_CHECK_OK(arrow::cuda::CudaDeviceManager::Instance().Value(&manager));
+    ARROW_CHECK_OK(manager->GetDevice(0).Value(&device));
+    options.memory_manager = device->default_memory_manager();
+#else
+    std::cerr << "-cuda requires that Arrow is built with ARROW_CUDA" << std::endl;
+    return 1;
+#endif
   }
 
   ARROW_CHECK_OK(g_server->Init(options));

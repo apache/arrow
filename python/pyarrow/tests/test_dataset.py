@@ -423,6 +423,7 @@ def test_scanner(dataset, dataset_reader):
     assert table.num_rows == scanner.count_rows()
 
 
+@pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):
     with pytest.warns(FutureWarning):
         dataset.scanner(use_async=False)
@@ -2514,6 +2515,7 @@ def test_filter_equal_null(tempdir, dataset_reader):
     assert table.num_rows == 0
 
 
+@pytest.mark.parquet
 def test_filter_compute_expression(tempdir, dataset_reader):
     table = pa.table({
         "A": ["a", "b", None, "a", "c"],
@@ -3640,6 +3642,7 @@ def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_file = 10
@@ -3676,6 +3679,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
                for file_rowcount in result_row_combination)
 
 
+@pytest.mark.parquet
 def test_write_dataset_min_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     min_rows_per_group = 6
@@ -3711,6 +3715,7 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_group = 18
@@ -3739,6 +3744,7 @@ def test_write_dataset_max_rows_per_group(tempdir):
     assert batched_data == [18, 12]
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_open_files(tempdir):
     directory = tempdir / 'ds'
     file_format = "parquet"

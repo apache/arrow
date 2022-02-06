@@ -79,9 +79,10 @@ set(SRC_FILES
     function_registry_string.cc
     function_registry_timestamp_arithmetic.cc
     function_signature.cc
-    gdv_function_stubs.cc
     gandiva_object_cache.cc
+    gdv_function_stubs.cc
     hash_utils.cc
+    interval_holder.cc
     llvm_generator.cc
     llvm_types.cc
     like_holder.cc
@@ -239,6 +240,7 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
+                 interval_holder_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
                  ${GANDIVA_OPENSSL_LIBS}

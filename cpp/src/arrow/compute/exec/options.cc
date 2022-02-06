@@ -15,22 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <string>
+#include "arrow/compute/exec/options.h"
+#include "arrow/util/logging.h"
 
-#include <mex.h>
+namespace arrow {
+namespace compute {
 
-#include "feather_writer.h"
-#include "util/handle_status.h"
-
-// MEX gateway function. This is the entry point for featherwritemex.cc.
-void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
-  const std::string filename{mxArrayToUTF8String(prhs[0])};
-
-  // Open a Feather file at the provided file path for writing.
-  std::shared_ptr<arrow::matlab::FeatherWriter> feather_writer{nullptr};
-  arrow::matlab::util::HandleStatus(
-      arrow::matlab::FeatherWriter::Open(filename, &feather_writer));
-
-  // Write the Feather file table variables and table metadata from MATLAB.
-  arrow::matlab::util::HandleStatus(feather_writer->WriteVariables(prhs[1], prhs[2]));
+std::string ToString(JoinType t) {
+  switch (t) {
+    case JoinType::LEFT_SEMI:
+      return "LEFT_SEMI";
+    case JoinType::RIGHT_SEMI:
+      return "RIGHT_SEMI";
+    case JoinType::LEFT_ANTI:
+      return "LEFT_ANTI";
+    case JoinType::RIGHT_ANTI:
+      return "RIGHT_ANTI";
+    case JoinType::INNER:
+      return "INNER";
+    case JoinType::LEFT_OUTER:
+      return "LEFT_OUTER";
+    case JoinType::RIGHT_OUTER:
+      return "RIGHT_OUTER";
+    case JoinType::FULL_OUTER:
+      return "FULL_OUTER";
+  }
+  ARROW_LOG(FATAL) << "Invalid variant of arrow::compute::JoinType";
+  std::abort();
 }
+
+}  // namespace compute
+}  // namespace arrow

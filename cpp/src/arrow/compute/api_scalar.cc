@@ -254,6 +254,26 @@ struct EnumTraits<compute::RandomOptions::Initializer>
   }
 };
 
+template <>
+struct EnumTraits<compute::MapLookupOptions::Occurrence>
+    : BasicEnumTraits<compute::MapLookupOptions::Occurrence,
+                      compute::MapLookupOptions::Occurrence::FIRST,
+                      compute::MapLookupOptions::Occurrence::LAST,
+                      compute::MapLookupOptions::Occurrence::ALL> {
+  static std::string name() { return "MapLookupOptions::Occurrence"; }
+  static std::string value_name(compute::MapLookupOptions::Occurrence value) {
+    switch (value) {
+      case compute::MapLookupOptions::Occurrence::FIRST:
+        return "FIRST";
+      case compute::MapLookupOptions::Occurrence::LAST:
+        return "LAST";
+      case compute::MapLookupOptions::Occurrence::ALL:
+        return "ALL";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -287,6 +307,9 @@ static auto kMakeStructOptionsType = GetFunctionOptionsType<MakeStructOptions>(
     DataMember("field_names", &MakeStructOptions::field_names),
     DataMember("field_nullability", &MakeStructOptions::field_nullability),
     DataMember("field_metadata", &MakeStructOptions::field_metadata));
+static auto kMapLookupOptionsType = GetFunctionOptionsType<MapLookupOptions>(
+    DataMember("occurrence", &MapLookupOptions::occurrence),
+    DataMember("query_key", &MapLookupOptions::query_key));
 static auto kMatchSubstringOptionsType = GetFunctionOptionsType<MatchSubstringOptions>(
     DataMember("pattern", &MatchSubstringOptions::pattern),
     DataMember("ignore_case", &MatchSubstringOptions::ignore_case));
@@ -344,6 +367,7 @@ static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
     DataMember("length", &RandomOptions::length),
     DataMember("initializer", &RandomOptions::initializer),
     DataMember("seed", &RandomOptions::seed));
+
 }  // namespace
 }  // namespace internal
 
@@ -398,6 +422,15 @@ MakeStructOptions::MakeStructOptions(std::vector<std::string> n)
 
 MakeStructOptions::MakeStructOptions() : MakeStructOptions(std::vector<std::string>()) {}
 constexpr char MakeStructOptions::kTypeName[];
+
+MapLookupOptions::MapLookupOptions(std::shared_ptr<Scalar> query_key,
+                                   Occurrence occurrence)
+    : FunctionOptions(internal::kMapLookupOptionsType),
+      query_key(std::move(query_key)),
+      occurrence(occurrence) {}
+MapLookupOptions::MapLookupOptions()
+    : MapLookupOptions(std::make_shared<NullScalar>(), Occurrence::FIRST) {}
+constexpr char MapLookupOptions::kTypeName[];
 
 MatchSubstringOptions::MatchSubstringOptions(std::string pattern, bool ignore_case)
     : FunctionOptions(internal::kMatchSubstringOptionsType),
@@ -554,6 +587,7 @@ void RegisterScalarOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kExtractRegexOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kJoinOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMakeStructOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kMapLookupOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kMatchSubstringOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kNullOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPadOptionsType));
@@ -784,6 +818,14 @@ Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* c
 Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }
+
+// ----------------------------------------------------------------------
+// Structural transforms
+Result<Datum> MapLookup(const Datum& arg, MapLookupOptions options, ExecContext* ctx) {
+  return CallFunction("map_lookup", {arg}, &options, ctx);
+}
+
+// ----------------------------------------------------------------------
 
 }  // namespace compute
 }  // namespace arrow
