@@ -245,7 +245,7 @@ struct SubtractTimeDuration {
   static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
                                        Status* st) {
     T result = arrow::internal::SafeSignedSubtract(left, static_cast<T>(right));
-    if (result < 0) {
+    if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
     }
@@ -256,7 +256,7 @@ struct SubtractTimeDuration {
   static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
                                         Status* st) {
     T result = arrow::internal::SafeSignedSubtract(left, right);
-    if (result < 0) {
+    if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
     }
@@ -273,7 +273,7 @@ struct SubtractTimeDurationChecked {
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, static_cast<T>(right), &result))) {
       *st = Status::Invalid("overflow");
     }
-    if (result < 0) {
+    if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
     }
@@ -287,7 +287,7 @@ struct SubtractTimeDurationChecked {
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, static_cast<T>(right), &result))) {
       *st = Status::Invalid("overflow");
     }
-    if (result < 0) {
+    if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
     }

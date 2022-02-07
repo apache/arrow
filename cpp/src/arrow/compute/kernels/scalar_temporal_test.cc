@@ -1203,6 +1203,14 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
             "-1000 is not within the acceptable range of [0, 86400000000000)"),
         CallFunction(op, {ArrayFromJSON(time64(TimeUnit::MICRO), R"([1, null])"),
                           ArrayFromJSON(duration(TimeUnit::NANO), R"([2000, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000001000 is not within the acceptable range of [0, 86400000000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::NANO), R"([-1000, null])")}));
   }
 }
 
