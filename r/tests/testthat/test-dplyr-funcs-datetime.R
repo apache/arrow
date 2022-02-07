@@ -711,3 +711,14 @@ test_that("am/pm mirror lubridate", {
   )
 
 })
+
+test_that("extract tz", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(timezone = tz(x)) %>%
+      collect(),
+    tibble(
+      x = as.POSIXct(c("2022-02-07", "2022-03-04"), tz = "Pacific/Marquesas")
+    )
+  )
+})
