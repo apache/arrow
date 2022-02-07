@@ -1193,6 +1193,16 @@ tasks:
         r_tag: latest
         flags: '-e TEST_OFFLINE_BUILD=true'
 
+  test-r-dev-duckdb:
+      ci: azure
+      template: r/azure.linux.yml
+      params:
+        r_org: rocker
+        r_image: r-base
+        r_tag: latest
+        env:
+          R_DUCKDB_DEV: true
+
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml

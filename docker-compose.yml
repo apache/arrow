@@ -1154,6 +1154,7 @@ services:
         gcc_version: ${GCC_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_duckdb_dev: ${R_DUCKDB_DEV}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1195,6 +1196,7 @@ services:
         devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_duckdb_dev: ${R_DUCKDB_DEV}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
@@ -1227,6 +1229,7 @@ services:
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_duckdb_dev: ${R_DUCKDB_DEV}
     environment:
       <<: *ccache
       ARROW_SOURCE_HOME: "/arrow"
@@ -1249,6 +1252,7 @@ services:
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_duckdb_dev: ${R_DUCKDB_DEV}
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
