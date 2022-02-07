@@ -84,6 +84,24 @@ if(ARROW_FLIGHT)
                     EXTRA_SOURCES
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
+
+  if(ARROW_FLIGHT_SQL)
+    if(ARROW_GRPC_USE_SHARED)
+      set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
+    else()
+      set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_static)
+    endif()
+
+    add_arrow_example(flight_sql_example
+                      DEPENDENCIES
+                      flight_sql_test_server
+                      EXTRA_LINK_LIBS
+                      ${FLIGHT_EXAMPLES_LINK_LIBS}
+                      ${FLIGHT_SQL_EXAMPLES_LINK_LIBS}
+                      gRPC::grpc++
+                      ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      ${GFLAGS_LIBRARIES})
+  endif()
 endif()
 
 if(ARROW_PARQUET AND ARROW_DATASET)
