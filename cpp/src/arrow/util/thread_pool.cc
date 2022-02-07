@@ -235,23 +235,32 @@ ThreadPool::~ThreadPool() {
 void ThreadPool::ProtectAgainstFork() {
 #ifndef _WIN32
   pid_t current_pid = getpid();
-  if (pid_ != current_pid) {
-    // Reinitialize internal state in child process after fork()
-    // Ideally we would use pthread_at_fork(), but that doesn't allow
-    // storing an argument, hence we'd need to maintain a list of all
-    // existing ThreadPools.
-    int capacity = state_->desired_capacity_;
+  pid_t old_pid = pid_.load();
+  int capacity = 0;
+  if (current_pid != old_pid) {
+    // FIXME: It may get deadlock here if users fork processes while the parent runs
+    // in the middle of resetting states.
+    if (old_pid != 0 && pid_.compare_exchange_strong(old_pid, 0)) {
+      // Reinitialize internal state in child process after fork()
+      // Ideally we would use pthread_at_fork(), but that doesn't allow
+      // storing an argument, hence we'd need to maintain a list of all
+      // existing ThreadPools.
+      capacity = state_->desired_capacity_;
 
-    auto new_state = std::make_shared<ThreadPool::State>();
-    new_state->please_shutdown_ = state_->please_shutdown_;
-    new_state->quick_shutdown_ = state_->quick_shutdown_;
+      auto new_state = std::make_shared<ThreadPool::State>();
+      new_state->please_shutdown_ = state_->please_shutdown_;
+      new_state->quick_shutdown_ = state_->quick_shutdown_;
 
-    pid_ = current_pid;
-    sp_state_ = new_state;
-    state_ = sp_state_.get();
+      sp_state_ = new_state;
+      state_ = sp_state_.get();
 
+      pid_.store(current_pid);
+    } else {
+      while (current_pid != pid_) {
+      }  // spin here
+    }
     // Launch worker threads anew
-    if (!state_->please_shutdown_) {
+    if (capacity && !state_->please_shutdown_) {
       ARROW_UNUSED(SetCapacity(capacity));
     }
   }
