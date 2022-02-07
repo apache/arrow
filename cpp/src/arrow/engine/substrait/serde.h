@@ -133,8 +133,8 @@ namespace internal {
 /// \brief Checks whether two protobuf serializations of a particular Substrait message
 /// type are equivalent
 ///
-/// Note that a binary comparison of the two buffers is pessimistic, among other reasons
-/// because the fields of a message can be specified in any order in the serialization.
+/// Note that a binary comparison of the two buffers is insufficient. One reason for this
+/// is that the fields of a message can be specified in any order in the serialization.
 ///
 /// \param[in] message_name the name of the Substrait message type to check
 /// \param[in] l_buf buffer containing the first protobuf serialization to compare
