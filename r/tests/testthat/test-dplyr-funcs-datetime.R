@@ -347,6 +347,13 @@ test_that("extract quarter from timestamp", {
 })
 
 test_that("extract month from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = month(datetime)) %>%
+      collect(),
+    test_df
+  )
+
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
@@ -365,17 +372,10 @@ test_that("extract month from timestamp", {
     test_df,
     ignore_attr = TRUE
   )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(x = month(datetime)) %>%
-      collect(),
-    test_df
-  )
 })
 
 test_that("extract isoweek from timestamp", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = isoweek(datetime)) %>%
@@ -385,7 +385,7 @@ test_that("extract isoweek from timestamp", {
 })
 
 test_that("extract epiweek from timestamp", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = epiweek(datetime)) %>%
@@ -395,7 +395,7 @@ test_that("extract epiweek from timestamp", {
 })
 
 test_that("extract week from timestamp", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = week(datetime)) %>%
@@ -434,7 +434,7 @@ test_that("extract wday from timestamp", {
     ignore_attr = on_windows()
   )
 
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(datetime)) %>%
@@ -460,7 +460,7 @@ test_that("extract wday from timestamp", {
 })
 
 test_that("extract mday from timestamp", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = mday(datetime)) %>%
@@ -470,7 +470,7 @@ test_that("extract mday from timestamp", {
 })
 
 test_that("extract yday from timestamp", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = yday(datetime)) %>%
@@ -480,7 +480,7 @@ test_that("extract yday from timestamp", {
 })
 
 test_that("extract hour from timestamp", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = hour(datetime)) %>%
@@ -490,7 +490,7 @@ test_that("extract hour from timestamp", {
 })
 
 test_that("extract minute from timestamp", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = minute(datetime)) %>%
@@ -500,7 +500,7 @@ test_that("extract minute from timestamp", {
 })
 
 test_that("extract second from timestamp", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = second(datetime)) %>%
@@ -691,7 +691,7 @@ test_that("extract mday from date", {
 })
 
 test_that("extract yday from date", {
-  skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      #https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = yday(date)) %>%
