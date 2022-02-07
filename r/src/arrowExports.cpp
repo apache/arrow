@@ -7576,11 +7576,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
