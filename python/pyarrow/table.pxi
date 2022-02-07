@@ -1185,7 +1185,7 @@ cdef class RecordBatch(_PandasConvertible):
             Array arr
             shared_ptr[CSchema] c_schema
             vector[shared_ptr[CArray]] c_arrays
-
+        # If df is empty but row index is not, create empty RecordBatch with rows >0
         if n_rows:
             names = None
             metadata = None
@@ -1808,7 +1808,7 @@ cdef class Table(_PandasConvertible):
         cdef:
             vector[shared_ptr[CChunkedArray]] arr
             shared_ptr[CSchema] c_schema
-
+        # If df is empty but row index is not, create empty Table with rows >0
         if n_rows:
             names = None
             metadata = None
