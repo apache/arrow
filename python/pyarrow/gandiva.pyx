@@ -294,7 +294,7 @@ cdef class TreeExprBuilder(_Weakrefable):
 
     def make_expression(self, Node root_node not None,
                         Field return_field not None):
-        cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(
+        cdef shared_ptr[CGandivaExpression] r = TreeExprBuilder_MakeExpression(
             root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
         expression.init(r)
