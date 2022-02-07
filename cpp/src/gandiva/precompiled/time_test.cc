@@ -1103,8 +1103,8 @@ TEST(TestTime, TestTruncDate) {
   static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
   static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
 
+  // Testing recent date
   gdv_timestamp ts1 = StringToTimestamp("2019-06-30 00:00:00");
-  gdv_timestamp ts2 = StringToTimestamp("1000-06-30 00:00:00");
 
   gdv_int32 out_len;
   EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[0],
@@ -1133,6 +1133,9 @@ TEST(TestTime, TestTruncDate) {
                    "2019-01-01", 10),
             0);
 
+  // Testing date before 1970/1/1
+  gdv_timestamp ts2 = StringToTimestamp("1000-06-30 00:00:00");
+
   EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_MONTH[0],
                                              PARTTERN_MONTH_LEN[0], &out_len),
                    "1000-06-01", 10),
@@ -1142,6 +1145,33 @@ TEST(TestTime, TestTruncDate) {
                    "1000-01-01", 10),
             0);
 
+  // Testing max date
+  gdv_timestamp ts3 = StringToTimestamp("9999-12-31 23:59:59");
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_MONTH[0],
+                                             PARTTERN_MONTH_LEN[0], &out_len),
+                   "9999-12-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_YEAR[0],
+                                             PARTTERN_YEAR_LEN[0], &out_len),
+                   "9999-01-01", 10),
+            0);
+
+  // Testing leap year
+  gdv_timestamp ts4 = StringToTimestamp("2024-02-29 13:59:59");
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_MONTH[0],
+                                             PARTTERN_MONTH_LEN[0], &out_len),
+                   "2024-02-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_YEAR[0],
+                                             PARTTERN_YEAR_LEN[0], &out_len),
+                   "2024-01-01", 10),
+            0);
+
+  // Testing exceptions
   date_trunc_timestamp_utf8(context_ptr, ts1, "MES", 3, &out_len);
   EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
   context.Reset();
@@ -1157,8 +1187,11 @@ TEST(TestTime, TestTruncDate) {
   context.Reset();
 
   date_trunc_timestamp_utf8(context_ptr, ts1, "MONTH", INT32_MAX, &out_len);
-  EXPECT_EQ(context.get_error(),
-            "The parameter pattern_name is not recognized");
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+
+  date_trunc_timestamp_utf8(context_ptr, INT64_MAX, "MONTH", 5, &out_len);
+  EXPECT_EQ(context.get_error(), "The date is invalid");
   context.Reset();
 }
 
