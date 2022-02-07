@@ -1180,10 +1180,27 @@ cdef class RecordBatch(_PandasConvertible):
         arrays, schema, n_rows = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema=schema, n_rows=n_rows)
+
+        cdef:
+            Array arr
+            shared_ptr[CSchema] c_schema
+            vector[shared_ptr[CArray]] c_arrays
+
+        if n_rows:
+            names = None
+            metadata = None
+            converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
+                                                &c_schema)
+            c_arrays.reserve(0)
+            for arr in converted_arrays:
+                c_arrays.push_back(arr.sp_array)
+            return pyarrow_wrap_batch(CRecordBatch.Make(c_schema, n_rows,
+                                                        c_arrays))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
-    def from_arrays(list arrays, names=None, schema=None, metadata=None, n_rows=None):
+    def from_arrays(list arrays, names=None, schema=None, metadata=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -1197,8 +1214,6 @@ cdef class RecordBatch(_PandasConvertible):
             Schema for the created batch. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
-        n_rows : int, default None
-            Optional length of row index
 
         Returns
         -------
@@ -1212,8 +1227,6 @@ cdef class RecordBatch(_PandasConvertible):
 
         if len(arrays) > 0:
             num_rows = len(arrays[0])
-        elif n_rows:
-            num_rows = n_rows  # In case of a RangeIndex of length > 0
         else:
             num_rows = 0
 
@@ -1791,10 +1804,36 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, schema=schema, n_rows=n_rows)
+
+        cdef:
+            vector[shared_ptr[CChunkedArray]] arr
+            shared_ptr[CSchema] c_schema
+
+        if n_rows:
+            names = None
+            metadata = None
+            converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
+                                                &c_schema)
+            arr.reserve(0)
+            for item in converted_arrays:
+                if isinstance(item, Array):
+                    arr.push_back(
+                        make_shared[CChunkedArray](
+                            (<Array> item).sp_array
+                        )
+                    )
+                elif isinstance(item, ChunkedArray):
+                    arr.push_back((<ChunkedArray> item).sp_chunked_array)
+                else:
+                    raise TypeError(type(item))
+
+            return pyarrow_wrap_table(
+                CTable.MakeWithRows(c_schema, arr, n_rows))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, metadata=None, n_rows=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
         Construct a Table from Arrow arrays.
 
@@ -1808,8 +1847,6 @@ cdef class Table(_PandasConvertible):
             Schema for the created table. If not passed, names must be passed.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
-        n_rows : int, default None
-            Optional length of row index
 
         Returns
         -------
@@ -1836,11 +1873,7 @@ cdef class Table(_PandasConvertible):
             else:
                 raise TypeError(type(item))
 
-        if n_rows:
-            result = pyarrow_wrap_table(
-                CTable.MakeWithRows(c_schema, columns, n_rows))
-        else:
-            result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
+        result = pyarrow_wrap_table(CTable.Make(c_schema, columns))
         result.validate()
         return result
 
