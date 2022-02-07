@@ -704,6 +704,8 @@ tasks:
     # This tests that the autobrew formula + script work in practice
     ci: github
     template: r/github.macos.brew.yml
+    params:
+      formula: apache-arrow.rb
 
   ############################## Arrow JAR's ##################################
 
