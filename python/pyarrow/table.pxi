@@ -1181,21 +1181,12 @@ cdef class RecordBatch(_PandasConvertible):
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
 
-        cdef:
-            Array arr
-            shared_ptr[CSchema] c_schema
-            vector[shared_ptr[CArray]] c_arrays
         # If df is empty but row index is not, create empty RecordBatch with rows >0
+        cdef:
+            vector[shared_ptr[CArray]] c_arrays
         if n_rows:
-            names = None
-            metadata = None
-            converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
-                                                &c_schema)
-            c_arrays.reserve(0)
-            for arr in converted_arrays:
-                c_arrays.push_back(arr.sp_array)
-            return pyarrow_wrap_batch(CRecordBatch.Make(c_schema, n_rows,
-                                                        c_arrays))
+            return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
+                                                        n_rows, c_arrays))
         else:
             return cls.from_arrays(arrays, schema=schema)
 
@@ -1805,30 +1796,12 @@ cdef class Table(_PandasConvertible):
             safe=safe
         )
 
-        cdef:
-            vector[shared_ptr[CChunkedArray]] arr
-            shared_ptr[CSchema] c_schema
         # If df is empty but row index is not, create empty Table with rows >0
+        cdef:
+            vector[shared_ptr[CChunkedArray]] c_arrays
         if n_rows:
-            names = None
-            metadata = None
-            converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
-                                                &c_schema)
-            arr.reserve(0)
-            for item in converted_arrays:
-                if isinstance(item, Array):
-                    arr.push_back(
-                        make_shared[CChunkedArray](
-                            (<Array> item).sp_array
-                        )
-                    )
-                elif isinstance(item, ChunkedArray):
-                    arr.push_back((<ChunkedArray> item).sp_chunked_array)
-                else:
-                    raise TypeError(type(item))
-
             return pyarrow_wrap_table(
-                CTable.MakeWithRows(c_schema, arr, n_rows))
+                CTable.MakeWithRows((<Schema> schema).sp_schema, c_arrays, n_rows))
         else:
             return cls.from_arrays(arrays, schema=schema)
 
