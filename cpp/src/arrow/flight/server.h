@@ -202,8 +202,8 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
 
   /// \brief Shut down the server. Can be called from signal handler or another
   /// thread while Serve() blocks. Optionally a deadline can be set. Once the
-  /// the deadline expires all pending calls associated with the server will be
-  /// forcefully canceled.
+  /// the deadline expires server will wait until remaining running calls
+  /// complete.
   ///
   Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
