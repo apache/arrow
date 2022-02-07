@@ -147,5 +147,7 @@ register_bindings_datetime <- function() {
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
-
+  register_binding("tz", function(x) {
+    x$type()$timezone()
+  })
 }
