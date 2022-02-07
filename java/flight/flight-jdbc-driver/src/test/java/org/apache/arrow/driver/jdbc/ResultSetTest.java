@@ -361,11 +361,12 @@ public class ResultSetTest {
   @Test
   public void testFlightStreamsQueryShouldNotTimeout() throws SQLException {
     final String query = CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD;
-    final int timeoutValue = 2;
-    try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(query)) {
+    final int timeoutValue = 5;
+    try (Statement statement = connection.createStatement()) {
       statement.setQueryTimeout(timeoutValue);
+      ResultSet resultSet = statement.executeQuery(query);
       CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
+      resultSet.close();
     }
   }
 }
