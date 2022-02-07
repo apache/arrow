@@ -26,7 +26,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      {{ macros.configure_homebrew_arrow({{ formula }})|indent }}
+      {{ macros.configure_homebrew_arrow(formula)|indent }}
 
       - name: Install apache-arrow
         run: |

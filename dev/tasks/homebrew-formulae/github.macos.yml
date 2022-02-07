@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   homebrew:
@@ -31,7 +26,7 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
-      {{ macros.configure_homebrew_arrow({{ formula }})|indent }}
+      {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
           brew install -v --HEAD apache-arrow
