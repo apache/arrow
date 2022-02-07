@@ -419,12 +419,12 @@ class PyValue {
     if (ARROW_PREDICT_FALSE(!found_attrs) && !is_date_offset) {
       if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 0), &output.months,
-                                               "Months (Index 0) index to large"));
+                                               "Months (tuple item #0) too large"));
         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 1), &output.days,
-                                               "Days (Index 1) index to large"));
+                                               "Days (tuple item #1) too large"));
         RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 2),
                                                &output.nanoseconds,
-                                               "Nanoseconds (Index 2) index to large"));
+                                               "Nanoseconds (tuple item #2) too large"));
         return output;
       }
 
