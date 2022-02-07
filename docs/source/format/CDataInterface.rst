@@ -652,8 +652,9 @@ while releasing the others.
 Record batches
 --------------
 
-A record batch can be trivially considered as an equivalent struct array with
-additional top-level metadata.
+A record batch can be trivially considered as an equivalent struct array. In
+this case the metadata of the top-level ``ArrowSchema`` can be used for the
+schema-level metadata of the record batch.
 
 Example use case
 ================
