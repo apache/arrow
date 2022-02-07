@@ -43,7 +43,6 @@ class ApacheArrowStatic < Formula
   conflicts_with "apache-arrow", because: "both install Arrow"
 
   def install
-    ENV.runtime_cpu_detection if Hardware::CPU.intel?
     ENV.cxx11
     args = %W[
       -DARROW_COMPUTE=ON
