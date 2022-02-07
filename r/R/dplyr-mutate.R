@@ -108,13 +108,13 @@ mutate.arrow_dplyr_query <- function(.data,
   # Even if "none", we still keep group vars
   ensure_group_vars(.data)
 }
-mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
+mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arrow_dplyr_query
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
   dplyr::mutate(.data, !!!dots, .keep = "none")
 }
-transmute.Dataset <- transmute.ArrowTabular <- transmute.arrow_dplyr_query
+transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 
 # This function is a copy of dplyr:::check_transmute_args at
 # https://github.com/tidyverse/dplyr/blob/master/R/mutate.R
