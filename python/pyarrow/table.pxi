@@ -1182,8 +1182,7 @@ cdef class RecordBatch(_PandasConvertible):
         )
 
         # If df is empty but row index is not, create empty RecordBatch with rows >0
-        cdef:
-            vector[shared_ptr[CArray]] c_arrays
+        cdef vector[shared_ptr[CArray]] c_arrays
         if n_rows:
             return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
                                                         n_rows, c_arrays))
@@ -1797,8 +1796,7 @@ cdef class Table(_PandasConvertible):
         )
 
         # If df is empty but row index is not, create empty Table with rows >0
-        cdef:
-            vector[shared_ptr[CChunkedArray]] c_arrays
+        cdef vector[shared_ptr[CChunkedArray]] c_arrays
         if n_rows:
             return pyarrow_wrap_table(
                 CTable.MakeWithRows((<Schema> schema).sp_schema, c_arrays, n_rows))
