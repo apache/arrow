@@ -36,6 +36,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
@@ -75,7 +76,13 @@ class SinkNode : public ExecNode {
   const char* kind_name() const override { return "SinkNode"; }
 
   Status StartProducing() override {
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
+
     return Status::OK();
   }
 
@@ -88,6 +95,8 @@ class SinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
+    EVENT(span_, "StopProducing");
+
     Finish();
     inputs_[0]->StopProducing(this);
   }
@@ -95,6 +104,11 @@ class SinkNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"node.label", label()}, {"batch.length", batch.length}});
+
     DCHECK_EQ(input, inputs_[0]);
 
     bool did_push = producer_.Push(std::move(batch));
@@ -106,6 +120,7 @@ class SinkNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
 
     producer_.Push(std::move(error));
@@ -117,6 +132,7 @@ class SinkNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     if (input_counter_.SetTotal(total_batches)) {
       Finish();
     }
@@ -130,7 +146,6 @@ class SinkNode : public ExecNode {
   }
 
   AtomicCounter input_counter_;
-  Future<> finished_ = Future<>::MakeFinished();
 
   PushGenerator<util::optional<ExecBatch>>::Producer producer_;
 };
@@ -159,7 +174,12 @@ class ConsumingSinkNode : public ExecNode {
   const char* kind_name() const override { return "ConsumingSinkNode"; }
 
   Status StartProducing() override {
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.label", label()},
+                {"node.detail", ToString()},
+                {"node.kind", kind_name()}});
     finished_ = Future<>::Make();
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
@@ -172,6 +192,7 @@ class ConsumingSinkNode : public ExecNode {
   [[noreturn]] void StopProducing(ExecNode* output) override { NoOutputs(); }
 
   void StopProducing() override {
+    EVENT(span_, "StopProducing");
     Finish(Status::Invalid("ExecPlan was stopped early"));
     inputs_[0]->StopProducing(this);
   }
@@ -179,6 +200,11 @@ class ConsumingSinkNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"node.label", label()}, {"batch.length", batch.length}});
+
     DCHECK_EQ(input, inputs_[0]);
 
     // This can happen if an error was received and the source hasn't yet stopped.  Since
@@ -202,6 +228,7 @@ class ConsumingSinkNode : public ExecNode {
   }
 
   void ErrorReceived(ExecNode* input, Status error) override {
+    EVENT(span_, "ErrorReceived", {{"error", error.message()}});
     DCHECK_EQ(input, inputs_[0]);
 
     if (input_counter_.Cancel()) {
@@ -212,6 +239,7 @@ class ConsumingSinkNode : public ExecNode {
   }
 
   void InputFinished(ExecNode* input, int total_batches) override {
+    EVENT(span_, "InputFinished", {{"batches.length", total_batches}});
     if (input_counter_.SetTotal(total_batches)) {
       Finish(Status::OK());
     }
@@ -228,9 +256,53 @@ class ConsumingSinkNode : public ExecNode {
 
   AtomicCounter input_counter_;
 
-  Future<> finished_ = Future<>::MakeFinished();
   std::shared_ptr<SinkNodeConsumer> consumer_;
 };
+
+/**
+ * @brief This node is an extension on ConsumingSinkNode
+ * to facilitate to get the output from an execution plan
+ * as a table. We define a custom SinkNodeConsumer to
+ * enable this functionality.
+ */
+
+struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
+ public:
+  TableSinkNodeConsumer(std::shared_ptr<Table>* out,
+                        std::shared_ptr<Schema> output_schema, MemoryPool* pool)
+      : out_(out), output_schema_(std::move(output_schema)), pool_(pool) {}
+
+  Status Consume(ExecBatch batch) override {
+    std::lock_guard<std::mutex> guard(consume_mutex_);
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(output_schema_, pool_));
+    batches_.push_back(rb);
+    return Status::OK();
+  }
+
+  Future<> Finish() override {
+    ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Table>* out_;
+  std::shared_ptr<Schema> output_schema_;
+  MemoryPool* pool_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::mutex consume_mutex_;
+};
+
+static Result<ExecNode*> MakeTableConsumingSinkNode(
+    compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+    const compute::ExecNodeOptions& options) {
+  RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableConsumingSinkNode"));
+  const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
+  MemoryPool* pool = plan->exec_context()->memory_pool();
+  auto tb_consumer = std::make_shared<TableSinkNodeConsumer>(
+      sink_options.output_table, sink_options.output_schema, pool);
+  auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
+  return MakeExecNode("consuming_sink", plan, inputs, consuming_sink_node_options);
+}
 
 // A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
@@ -274,6 +346,11 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void InputReceived(ExecNode* input, ExecBatch batch) override {
+    EVENT(span_, "InputReceived", {{"batch.length", batch.length}});
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "InputReceived",
+                           {{"node.label", label()}, {"batch.length", batch.length}});
+
     DCHECK_EQ(input, inputs_[0]);
 
     auto maybe_batch = batch.ToRecordBatch(inputs_[0]->output_schema(),
@@ -308,6 +385,8 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
   void Finish() override {
+    util::tracing::Span span;
+    START_SPAN_WITH_PARENT(span, span_, "Finish", {{"node.label", label()}});
     Status st = DoFinish();
     if (ErrorIfNotOk(st)) {
       producer_.Push(std::move(st));
@@ -316,7 +395,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     return std::string("by=") + impl_->ToString();
   }
 
@@ -333,6 +412,7 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
+  DCHECK_OK(registry->AddFactory("table_sink", MakeTableConsumingSinkNode));
 }
 
 }  // namespace internal

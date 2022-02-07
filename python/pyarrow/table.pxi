@@ -145,11 +145,41 @@ cdef class ChunkedArray(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the chunked array.
+
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their 
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for chunk in self.iterchunks():
-            size += chunk.nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.chunked_array))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the chunked array.
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.chunked_array))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(ChunkedArray, self).__sizeof__() + self.nbytes
@@ -922,11 +952,41 @@ cdef class RecordBatch(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the record batch.
+
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for i in range(self.num_columns):
-            size += self.column(i).nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.batch))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the record batch
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.batch))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
@@ -1117,10 +1177,17 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty RecordBatch with rows >0
+        cdef vector[shared_ptr[CArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
+                                                        n_rows, c_arrays))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(list arrays, names=None, schema=None, metadata=None):
@@ -1719,7 +1786,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1727,7 +1794,14 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty Table with rows >0
+        cdef vector[shared_ptr[CChunkedArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_table(
+                CTable.MakeWithRows((<Schema> schema).sp_schema, c_arrays, n_rows))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
@@ -2140,14 +2214,40 @@ cdef class Table(_PandasConvertible):
         """
         Total number of bytes consumed by the elements of the table.
 
-        Returns
-        -------
-        int
+        In other words, the sum of bytes from all buffer ranges referenced.
+
+        Unlike `get_total_buffer_size` this method will account for array
+        offsets.
+
+        If buffers are shared between arrays then the shared
+        portion will only be counted multiple times.
+
+        The dictionary of dictionary arrays will always be counted in their
+        entirety even if the array only references a portion of the dictionary.
         """
-        size = 0
-        for column in self.itercolumns():
-            size += column.nbytes
+        cdef:
+            CResult[int64_t] c_res_buffer
+
+        c_res_buffer = ReferencedBufferSize(deref(self.table))
+        size = GetResultValue(c_res_buffer)
         return size
+
+    def get_total_buffer_size(self):
+        """
+        The sum of bytes in each buffer referenced by the table.
+
+        An array may only reference a portion of a buffer.
+        This method will overestimate in this case and return the
+        byte size of the entire buffer.
+
+        If a buffer is referenced multiple times then it will
+        only be counted once.
+        """
+        cdef:
+            int64_t total_buffer_size
+
+        total_buffer_size = TotalBufferSize(deref(self.table))
+        return total_buffer_size
 
     def __sizeof__(self):
         return super(Table, self).__sizeof__() + self.nbytes

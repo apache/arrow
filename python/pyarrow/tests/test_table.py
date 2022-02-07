@@ -48,8 +48,11 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
-    assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
-    assert sys.getsizeof(data) >= object.__sizeof__(data) + data.nbytes
+    assert data.get_total_buffer_size() == sum(c.get_total_buffer_size()
+                                               for c in data.iterchunks())
+    assert sys.getsizeof(data) >= object.__sizeof__(
+        data) + data.get_total_buffer_size()
+    assert data.nbytes == 3 * 3 * 8  # 3 items per 3 lists with int64 size(8)
     data.validate()
 
     wr = weakref.ref(data)
@@ -342,14 +345,66 @@ def test_chunked_array_to_pandas_preserve_name():
 @pytest.mark.pandas
 def test_table_roundtrip_to_pandas_empty_dataframe():
     # https://issues.apache.org/jira/browse/ARROW-10643
+    # The conversion should not results in a table with 0 rows if the original
+    # DataFrame has a RangeIndex but is empty.
     import pandas as pd
 
     data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
     table = pa.table(data)
     result = table.to_pandas()
 
+    assert table.num_rows == 10
     assert data.shape == (10, 0)
     assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
+    table = pa.table(data)
+    result = table.to_pandas()
+
+    assert table.num_rows == 4
+    assert data.shape == (4, 0)
+    assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
+
+
+@pytest.mark.pandas
+def test_recordbatch_roundtrip_to_pandas_empty_dataframe():
+    # https://issues.apache.org/jira/browse/ARROW-10643
+    # The conversion should not results in a RecordBatch with 0 rows if
+    #  the original DataFrame has a RangeIndex but is empty.
+    import pandas as pd
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 1))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 10
+    assert data.shape == (10, 0)
+    assert result.shape == (10, 0)
+    assert result.index.equals(data.index)
+
+    data = pd.DataFrame(index=pd.RangeIndex(0, 10, 3))
+    batch = pa.RecordBatch.from_pandas(data)
+    result = batch.to_pandas()
+
+    assert batch.num_rows == 4
+    assert data.shape == (4, 0)
+    assert result.shape == (4, 0)
+    assert result.index.equals(data.index)
+
+
+@pytest.mark.pandas
+def test_to_pandas_empty_table():
+    # https://issues.apache.org/jira/browse/ARROW-15370
+    import pandas as pd
+    import pandas.testing as tm
+
+    df = pd.DataFrame({'a': [1, 2], 'b': [0.1, 0.2]})
+    table = pa.table(df)
+    result = table.schema.empty_table().to_pandas()
+    assert result.shape == (0, 2)
+    tm.assert_frame_equal(result, df.iloc[:0])
 
 
 @pytest.mark.pandas
@@ -439,8 +494,10 @@ def test_recordbatch_basics():
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
     # (only the second array has a null bitmap)
-    assert batch.nbytes == (5 * 2) + (5 * 4 + 1)
-    assert sys.getsizeof(batch) >= object.__sizeof__(batch) + batch.nbytes
+    assert batch.get_total_buffer_size() == (5 * 2) + (5 * 4 + 1)
+    batch.nbytes == (5 * 2) + (5 * 4 + 1)
+    assert sys.getsizeof(batch) >= object.__sizeof__(
+        batch) + batch.get_total_buffer_size()
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
@@ -799,8 +856,10 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.get_total_buffer_size() == 2 * (5 * 8)
     assert table.nbytes == 2 * (5 * 8)
-    assert sys.getsizeof(table) >= object.__sizeof__(table) + table.nbytes
+    assert sys.getsizeof(table) >= object.__sizeof__(
+        table) + table.get_total_buffer_size()
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),

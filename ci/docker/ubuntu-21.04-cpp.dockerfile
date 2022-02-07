@@ -86,6 +86,7 @@ RUN apt-get update -y -q && \
         libre2-dev \
         libsnappy-dev \
         libssl-dev \
+        libsqlite3-dev \
         libthrift-dev \
         libutf8proc-dev \
         libzstd-dev \
@@ -118,7 +119,8 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
-    ARROW_FLIGHT=OFF \
+    ARROW_FLIGHT=ON \
+    ARROW_FLIGHT_SQL=ON \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
@@ -134,6 +136,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
@@ -142,6 +145,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
+    Protobuf_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     PYTHON=python3
 

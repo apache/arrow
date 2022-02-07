@@ -444,6 +444,15 @@ test_that("extract wday from timestamp", {
   )
 })
 
+test_that("extract mday from timestamp", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = mday(datetime)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract yday from timestamp", {
   compare_dplyr_binding(
     .input %>%
@@ -626,6 +635,15 @@ test_that("extract wday from date", {
   )
 })
 
+test_that("extract mday from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = mday(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract yday from date", {
   compare_dplyr_binding(
     .input %>%
@@ -662,6 +680,33 @@ test_that("leap_year mirror lubridate", {
         "1900-01-01", # not leap year (divide by 100 rule)
         "2000-01-01"  # leap year (divide by 400 rule)
       ))
+    )
+  )
+
+})
+
+test_that("am/pm mirror lubridate", {
+
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        am = am(test_time),
+        pm = pm(test_time)
+      ) %>%
+      collect(),
+    data.frame(
+      test_time = strptime(
+        x = c(
+          "2022-01-25 11:50:59",
+          "2022-01-25 12:00:00",
+          "2022-01-25 00:00:00"
+        ),
+        format = "%Y-%m-%d %H:%M:%S"
+      )
+
     )
   )
 

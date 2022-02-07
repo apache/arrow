@@ -46,6 +46,7 @@ devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/includ
 : ${ARROW_BUILD_TESTS:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
+: ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 : ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
@@ -90,6 +91,8 @@ cmake \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${build_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
+  -DORC_SOURCE=BUNDLED \
+  -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \

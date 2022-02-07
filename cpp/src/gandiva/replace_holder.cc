@@ -34,7 +34,7 @@ Status ReplaceHolder::Make(const FunctionNode& node,
 
   auto literal_type = literal->return_type()->id();
   ARROW_RETURN_IF(
-      !IsArrowStringLiteral(literal_type),
+      !(literal_type == arrow::Type::STRING || literal_type == arrow::Type::BINARY),
       Status::Invalid(
           "'replace' function requires a string literal as the second parameter"));
 

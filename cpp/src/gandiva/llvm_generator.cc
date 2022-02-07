@@ -47,6 +47,7 @@ Status LLVMGenerator::Make(std::shared_ptr<Configuration> config,
   return Status::OK();
 }
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
 LLVMGenerator::GetCache() {
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
@@ -59,6 +60,7 @@ LLVMGenerator::GetCache() {
 void LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
   engine_->SetLLVMObjectCache(object_cache);
 }
+#endif
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {
   int idx = static_cast<int>(compiled_exprs_.size());

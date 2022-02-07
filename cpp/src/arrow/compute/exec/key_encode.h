@@ -53,13 +53,19 @@ class KeyEncoder {
   /// for the purpose of row encoding.
   struct KeyColumnMetadata {
     KeyColumnMetadata() = default;
-    KeyColumnMetadata(bool is_fixed_length_in, uint32_t fixed_length_in)
-        : is_fixed_length(is_fixed_length_in), fixed_length(fixed_length_in) {}
+    KeyColumnMetadata(bool is_fixed_length_in, uint32_t fixed_length_in,
+                      bool is_null_type_in = false)
+        : is_fixed_length(is_fixed_length_in),
+          is_null_type(is_null_type_in),
+          fixed_length(fixed_length_in) {}
     /// Is column storing a varying-length binary, using offsets array
     /// to find a beginning of a value, or is it a fixed-length binary.
     bool is_fixed_length;
+    /// Is column null type
+    bool is_null_type;
     /// For a fixed-length binary column: number of bytes per value.
-    /// Zero has a special meaning, indicating a bit vector with one bit per value.
+    /// Zero has a special meaning, indicating a bit vector with one bit per value if it
+    /// isn't a null type column.
     /// For a varying-length binary column: number of bytes per offset.
     uint32_t fixed_length;
   };

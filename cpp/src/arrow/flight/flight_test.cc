@@ -377,27 +377,6 @@ TEST(TestFlight, ServeShutdown) {
 // ----------------------------------------------------------------------
 // Client tests
 
-// Helper to initialize a server and matching client with callbacks to
-// populate options.
-template <typename T, typename... Args>
-Status MakeServer(std::unique_ptr<FlightServerBase>* server,
-                  std::unique_ptr<FlightClient>* client,
-                  std::function<Status(FlightServerOptions*)> make_server_options,
-                  std::function<Status(FlightClientOptions*)> make_client_options,
-                  Args&&... server_args) {
-  Location location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
-  FlightServerOptions server_options(location);
-  RETURN_NOT_OK(make_server_options(&server_options));
-  RETURN_NOT_OK((*server)->Init(server_options));
-  Location real_location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", (*server)->port(), &real_location));
-  FlightClientOptions client_options = FlightClientOptions::Defaults();
-  RETURN_NOT_OK(make_client_options(&client_options));
-  return FlightClient::Connect(real_location, client_options, client);
-}
-
 class TestFlightClient : public ::testing::Test {
  public:
   void SetUp() {
@@ -2690,11 +2669,11 @@ TEST_F(TestCookieParsing, GetName) {
 }
 
 TEST_F(TestCookieParsing, ToString) {
-  VerifyCookieString("id1=1; foo=bar;", "id1=\"1\"");
-  VerifyCookieString("id1=1; foo=bar", "id1=\"1\"");
-  VerifyCookieString("id2=2;", "id2=\"2\"");
-  VerifyCookieString("id4=\"4\"", "id4=\"4\"");
-  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=\"5\"");
+  VerifyCookieString("id1=1; foo=bar;", "id1=1");
+  VerifyCookieString("id1=1; foo=bar", "id1=1");
+  VerifyCookieString("id2=2;", "id2=2");
+  VerifyCookieString("id4=\"4\"", "id4=4");
+  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=5");
 }
 
 TEST_F(TestCookieParsing, DateConversion) {
@@ -2739,9 +2718,9 @@ TEST_F(TestCookieParsing, ParseCookieAttribute) {
 
 TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;"}, "");
-  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=\"1\"");
-  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=\"0\"; id1=\"1\"");
-  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=\"0\"; id1=\"1\"; id2=\"2\"");
+  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
+  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
+  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
 }
 
 class ForeverFlightListing : public FlightListing {

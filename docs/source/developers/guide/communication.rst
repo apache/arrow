@@ -76,7 +76,9 @@ to ask before you spend too much of your time on something that we
 might think is not a good idea.
 
 .. seealso::
-   How to create a JIRA issue. See `Tips for using JIRA <https://arrow.apache.org/docs/developers/contributing.html#tips-for-using-jira/>`_.
+
+   - :ref:`create_jira`
+   - :ref:`jira-tips`
 
 - If you want to **solve an issue that is already in JIRA**, you should
   connect with other contributors in the issue comments.
@@ -103,7 +105,7 @@ When to use GitHub?
 
   .. note::
      Make sure to add which operating system and Arrow version you are using in the
-     ticket description plus the debug information/error.
+     issue description plus the debug information/error.
 
 - If you have **a new contribution already written**, you can create a Pull Request after
   creating a JIRA ticket and mentioning the way you plan to implement it.
@@ -116,7 +118,7 @@ Mailing Lists
 
 You can subscribe to the **user** or **development** mailing list and browse for
 previous topics or ask questions. Whereas discussion on GitHub and JIRA
-only notifies people who have subscribed to that particular Pull Request or ticket,
+only notifies people who have subscribed to that particular Pull Request or issue,
 the mailing list allows you to broadcast to all users or developers. Use these when
 you want to get feedback or answers from a wider audience.
 

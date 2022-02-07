@@ -1229,70 +1229,166 @@ TYPED_TEST(TestVarArgsCompareNumeric, MinElementWise) {
   this->AssertNullScalar(MinElementWise, {});
   this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
 
-  this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
-  this->Assert(MinElementWise, this->scalar("0"),
-               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
-  this->Assert(
-      MinElementWise, this->scalar("0"),
-      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
-  this->Assert(MinElementWise, this->scalar("1"),
-               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
-                this->scalar("null")});
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+    this->Assert(
+        MinElementWise, this->scalar("0"),
+        {this->scalar("172800000"), this->scalar("0"), this->scalar("86400000")});
+    this->Assert(MinElementWise, this->scalar("0"),
+                 {this->scalar("172800000"), this->scalar("0"), this->scalar("86400000"),
+                  this->scalar("null")});
+    this->Assert(MinElementWise, this->scalar("86400000"),
+                 {this->scalar("null"), this->scalar("null"), this->scalar("86400000"),
+                  this->scalar("null")});
 
-  this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
-  this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
-               {this->array("[1, 2, 3, null]")});
+    this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+    this->Assert(MinElementWise, this->array("[86400000, 172800000, 259200000, null]"),
+                 {this->array("[86400000, 172800000, 259200000, null]")});
 
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2")});
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->scalar("172800000")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000"), this->scalar("345600000")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("null"), this->scalar("172800000")});
 
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
-  this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
-               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, 172800000, 172800000, 172800000]")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, null, 172800000, 172800000]")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 172800000, 172800000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->array("[172800000, 172800000, 172800000, 172800000]")});
 
-  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
-               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
-  this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
-               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
-  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
-  this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
-               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+    this->Assert(MinElementWise, this->array("[86400000, 172800000, null, 518400000]"),
+                 {this->array("[86400000, 172800000, null, null]"),
+                  this->array("[345600000, null, null, 518400000]")});
+    this->Assert(MinElementWise, this->array("[86400000, 172800000, null, 518400000]"),
+                 {this->array("[345600000, null, null, 518400000]"),
+                  this->array("[86400000, 172800000, null, null]")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[null, null, null, null]")});
+    this->Assert(MinElementWise,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 {this->array("[null, null, null, null]"),
+                  this->array("[86400000, 172800000, 259200000, 345600000]")});
 
-  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
-               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
-  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
-               {this->scalar("1"), this->array("[null, null, null, null]")});
-  this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
-               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
-  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("null"), this->array("[null, null, null, null]")});
+    this->Assert(MinElementWise, this->array("[86400000, 86400000, 86400000, 86400000]"),
+                 {this->scalar("86400000"),
+                  this->array("[86400000, 172800000, 259200000, 345600000]")});
+    this->Assert(MinElementWise, this->array("[86400000, 86400000, 86400000, 86400000]"),
+                 {this->scalar("86400000"), this->array("[null, null, null, null]")});
+    this->Assert(
+        MinElementWise, this->array("[86400000, 86400000, 86400000, 86400000]"),
+        {this->scalar("null"), this->array("[86400000, 86400000, 86400000, 86400000]")});
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[null, null, null, null]")});
 
-  // Test null handling
-  this->element_wise_aggregate_options_.skip_nulls = false;
-  this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
-  this->AssertNullScalar(MinElementWise, {this->scalar("0"), this->scalar("null")});
+    // Test null handling
+    this->element_wise_aggregate_options_.skip_nulls = false;
+    this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+    this->AssertNullScalar(MinElementWise, {this->scalar("0"), this->scalar("null")});
 
-  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
-  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
-  this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+    this->Assert(MinElementWise, this->array("[86400000, null, 172800000, 172800000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000"), this->scalar("345600000")});
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("null"), this->scalar("172800000")});
+    this->Assert(MinElementWise, this->array("[86400000, null, 172800000, 172800000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, null, 172800000, 172800000]")});
 
-  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("1"), this->array("[null, null, null, null]")});
-  this->Assert(MinElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("86400000"), this->array("[null, null, null, null]")});
+    this->Assert(
+        MinElementWise, this->array("[null, null, null, null]"),
+        {this->scalar("null"), this->array("[86400000, 86400000, 86400000, 86400000]")});
+  } else {
+    this->Assert(MinElementWise, this->scalar("0"), {this->scalar("0")});
+    this->Assert(MinElementWise, this->scalar("0"),
+                 {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+    this->Assert(
+        MinElementWise, this->scalar("0"),
+        {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+    this->Assert(MinElementWise, this->scalar("1"),
+                 {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                  this->scalar("null")});
+
+    this->Assert(MinElementWise, (this->array("[]")), {this->array("[]")});
+    this->Assert(MinElementWise, this->array("[1, 2, 3, null]"),
+                 {this->array("[1, 2, 3, null]")});
+
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2")});
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+    this->Assert(
+        MinElementWise, this->array("[1, 2, 2, 2]"),
+        {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+    this->Assert(MinElementWise, this->array("[1, 2, 2, 2]"),
+                 {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+    this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+                 {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+    this->Assert(MinElementWise, this->array("[1, 2, null, 6]"),
+                 {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+    this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+    this->Assert(MinElementWise, this->array("[1, 2, 3, 4]"),
+                 {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+    this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+                 {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+    this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+                 {this->scalar("1"), this->array("[null, null, null, null]")});
+    this->Assert(MinElementWise, this->array("[1, 1, 1, 1]"),
+                 {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[null, null, null, null]")});
+
+    // Test null handling
+    this->element_wise_aggregate_options_.skip_nulls = false;
+    this->AssertNullScalar(MinElementWise, {this->scalar("null"), this->scalar("null")});
+    this->AssertNullScalar(MinElementWise, {this->scalar("0"), this->scalar("null")});
+
+    this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+    this->Assert(
+        MinElementWise, this->array("[null, null, null, null]"),
+        {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+    this->Assert(MinElementWise, this->array("[1, null, 2, 2]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("1"), this->array("[null, null, null, null]")});
+    this->Assert(MinElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  }
 }
 
 TYPED_TEST(TestVarArgsCompareDecimal, MinElementWise) {
@@ -1539,71 +1635,167 @@ TYPED_TEST(TestVarArgsCompareFixedSizeBinary, MinElementWise) {
 TYPED_TEST(TestVarArgsCompareNumeric, MaxElementWise) {
   this->AssertNullScalar(MaxElementWise, {});
   this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
-
   this->Assert(MaxElementWise, this->scalar("0"), {this->scalar("0")});
-  this->Assert(MaxElementWise, this->scalar("2"),
-               {this->scalar("2"), this->scalar("0"), this->scalar("1")});
-  this->Assert(
-      MaxElementWise, this->scalar("2"),
-      {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
-  this->Assert(MaxElementWise, this->scalar("1"),
-               {this->scalar("null"), this->scalar("null"), this->scalar("1"),
-                this->scalar("null")});
 
-  this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
-  this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
-               {this->array("[1, 2, 3, null]")});
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->Assert(
+        MaxElementWise, this->scalar("172800000"),
+        {this->scalar("172800000"), this->scalar("0"), this->scalar("86400000")});
+    this->Assert(MaxElementWise, this->scalar("172800000"),
+                 {this->scalar("172800000"), this->scalar("0"), this->scalar("86400000"),
+                  this->scalar("null")});
+    this->Assert(MaxElementWise, this->scalar("86400000"),
+                 {this->scalar("null"), this->scalar("null"), this->scalar("86400000"),
+                  this->scalar("null")});
 
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->scalar("2")});
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2")});
-  this->Assert(MaxElementWise, this->array("[4, 4, 4, 4]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+    this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+    this->Assert(MaxElementWise, this->array("[86400000, 172800000, 259200000, null]"),
+                 {this->array("[86400000, 172800000, 259200000, null]")});
 
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
-  this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
-               {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->scalar("172800000")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000")});
+    this->Assert(MaxElementWise,
+                 this->array("[345600000, 345600000, 345600000, 345600000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000"), this->scalar("345600000")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("null"), this->scalar("172800000")});
 
-  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
-               {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
-  this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
-               {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
-  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
-  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
-               {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, 172800000, 172800000, 172800000]")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, null, 172800000, 172800000]")});
+    this->Assert(MaxElementWise,
+                 this->array("[172800000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->array("[172800000, 172800000, 172800000, 172800000]")});
 
-  this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
-               {this->scalar("1"), this->array("[1, 2, 3, 4]")});
-  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
-               {this->scalar("1"), this->array("[null, null, null, null]")});
-  this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
-               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
-  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("null"), this->array("[null, null, null, null]")});
+    this->Assert(MaxElementWise, this->array("[345600000, 172800000, null, 518400000]"),
+                 {this->array("[86400000, 172800000, null, null]"),
+                  this->array("[345600000, null, null, 518400000]")});
+    this->Assert(MaxElementWise, this->array("[345600000, 172800000, null, 518400000]"),
+                 {this->array("[345600000, null, null, 518400000]"),
+                  this->array("[86400000, 172800000, null, null]")});
+    this->Assert(MaxElementWise,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[null, null, null, null]")});
+    this->Assert(MaxElementWise,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 {this->array("[null, null, null, null]"),
+                  this->array("[86400000, 172800000, 259200000, 345600000]")});
 
-  // Test null handling
-  this->element_wise_aggregate_options_.skip_nulls = false;
-  this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
-  this->AssertNullScalar(MaxElementWise, {this->scalar("0"), this->scalar("null")});
+    this->Assert(MaxElementWise,
+                 this->array("[86400000, 172800000, 259200000, 345600000]"),
+                 {this->scalar("86400000"),
+                  this->array("[86400000, 172800000, 259200000, 345600000]")});
+    this->Assert(MaxElementWise, this->array("[86400000, 86400000, 86400000, 86400000]"),
+                 {this->scalar("86400000"), this->array("[null, null, null, null]")});
+    this->Assert(
+        MaxElementWise, this->array("[86400000, 86400000, 86400000, 86400000]"),
+        {this->scalar("null"), this->array("[86400000, 86400000, 86400000, 86400000]")});
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[null, null, null, null]")});
 
-  this->Assert(MaxElementWise, this->array("[4, null, 4, 4]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
-  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
-               {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
-  this->Assert(MaxElementWise, this->array("[2, null, 3, 4]"),
-               {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+    // Test null handling
+    this->element_wise_aggregate_options_.skip_nulls = false;
+    this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+    this->AssertNullScalar(MaxElementWise, {this->scalar("0"), this->scalar("null")});
 
-  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("1"), this->array("[null, null, null, null]")});
-  this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
-               {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+    this->Assert(MaxElementWise, this->array("[345600000, null, 345600000, 345600000]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("172800000"), this->scalar("345600000")});
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->array("[86400000, null, 259200000, 345600000]"),
+                  this->scalar("null"), this->scalar("172800000")});
+    this->Assert(MaxElementWise, this->array("[172800000, null, 259200000, 345600000]"),
+                 {this->array("[86400000, 172800000, 259200000, 345600000]"),
+                  this->array("[172800000, null, 172800000, 172800000]")});
+
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("86400000"), this->array("[null, null, null, null]")});
+    this->Assert(
+        MaxElementWise, this->array("[null, null, null, null]"),
+        {this->scalar("null"), this->array("[86400000, 86400000, 86400000, 86400000]")});
+  } else {
+    this->Assert(MaxElementWise, this->scalar("2"),
+                 {this->scalar("2"), this->scalar("0"), this->scalar("1")});
+    this->Assert(
+        MaxElementWise, this->scalar("2"),
+        {this->scalar("2"), this->scalar("0"), this->scalar("1"), this->scalar("null")});
+    this->Assert(MaxElementWise, this->scalar("1"),
+                 {this->scalar("null"), this->scalar("null"), this->scalar("1"),
+                  this->scalar("null")});
+
+    this->Assert(MaxElementWise, (this->array("[]")), {this->array("[]")});
+    this->Assert(MaxElementWise, this->array("[1, 2, 3, null]"),
+                 {this->array("[1, 2, 3, null]")});
+
+    this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->scalar("2")});
+    this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2")});
+    this->Assert(MaxElementWise, this->array("[4, 4, 4, 4]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+    this->Assert(
+        MaxElementWise, this->array("[2, 2, 3, 4]"),
+        {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+
+    this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, 2, 2, 2]")});
+    this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+    this->Assert(MaxElementWise, this->array("[2, 2, 3, 4]"),
+                 {this->array("[1, null, 3, 4]"), this->array("[2, 2, 2, 2]")});
+
+    this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+                 {this->array("[1, 2, null, null]"), this->array("[4, null, null, 6]")});
+    this->Assert(MaxElementWise, this->array("[4, 2, null, 6]"),
+                 {this->array("[4, null, null, 6]"), this->array("[1, 2, null, null]")});
+    this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[null, null, null, null]")});
+    this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+                 {this->array("[null, null, null, null]"), this->array("[1, 2, 3, 4]")});
+
+    this->Assert(MaxElementWise, this->array("[1, 2, 3, 4]"),
+                 {this->scalar("1"), this->array("[1, 2, 3, 4]")});
+    this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+                 {this->scalar("1"), this->array("[null, null, null, null]")});
+    this->Assert(MaxElementWise, this->array("[1, 1, 1, 1]"),
+                 {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[null, null, null, null]")});
+
+    // Test null handling
+    this->element_wise_aggregate_options_.skip_nulls = false;
+    this->AssertNullScalar(MaxElementWise, {this->scalar("null"), this->scalar("null")});
+    this->AssertNullScalar(MaxElementWise, {this->scalar("0"), this->scalar("null")});
+
+    this->Assert(MaxElementWise, this->array("[4, null, 4, 4]"),
+                 {this->array("[1, null, 3, 4]"), this->scalar("2"), this->scalar("4")});
+    this->Assert(
+        MaxElementWise, this->array("[null, null, null, null]"),
+        {this->array("[1, null, 3, 4]"), this->scalar("null"), this->scalar("2")});
+    this->Assert(MaxElementWise, this->array("[2, null, 3, 4]"),
+                 {this->array("[1, 2, 3, 4]"), this->array("[2, null, 2, 2]")});
+
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("1"), this->array("[null, null, null, null]")});
+    this->Assert(MaxElementWise, this->array("[null, null, null, null]"),
+                 {this->scalar("null"), this->array("[1, 1, 1, 1]")});
+  }
 }
 
 TYPED_TEST(TestVarArgsCompareDecimal, MaxElementWise) {

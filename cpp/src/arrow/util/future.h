@@ -626,14 +626,14 @@ class ARROW_MUST_USE_TYPE Future {
   /// returning the future.
   ///
   /// Two callbacks are supported:
-  /// - OnSuccess, called with the result (const ValueType&) on successul completion.
+  /// - OnSuccess, called with the result (const ValueType&) on successful completion.
   ///              for an empty future this will be called with nothing ()
   /// - OnFailure, called with the error (const Status&) on failed completion.
   ///              This callback is optional and defaults to a passthru of any errors.
   ///
   /// Then() returns a Future whose ValueType is derived from the return type of the
   /// callbacks. If a callback returns:
-  /// - void, a Future<> will be returned which will completes successully as soon
+  /// - void, a Future<> will be returned which will completes successfully as soon
   ///   as the callback runs.
   /// - Status, a Future<> will be returned which will complete with the returned Status
   ///   as soon as the callback runs.
@@ -645,7 +645,7 @@ class ARROW_MUST_USE_TYPE Future {
   ///
   /// The continued Future type must be the same for both callbacks.
   ///
-  /// Note that OnFailure can swallow errors, allowing continued Futures to successully
+  /// Note that OnFailure can swallow errors, allowing continued Futures to successfully
   /// complete even if this Future fails.
   ///
   /// If this future is already completed then the callback will be run immediately
@@ -750,6 +750,9 @@ inline typename Future<internal::Empty>::SyncType FutureToSync<internal::Empty>(
   return fut.status();
 }
 
+template <>
+inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s))) {}
+
 template <typename T>
 class WeakFuture {
  public:
@@ -760,6 +763,9 @@ class WeakFuture {
  private:
   std::weak_ptr<FutureImpl> impl_;
 };
+
+/// \defgroup future-utilities Functions for working with Futures
+/// @{
 
 /// If a Result<Future> holds an error instead of a Future, construct a finished Future
 /// holding that error.
@@ -829,9 +835,6 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   return out;
 }
 
-template <>
-inline Future<>::Future(Status s) : Future(internal::Empty::ToResult(std::move(s))) {}
-
 /// \brief Create a Future which completes when all of `futures` complete.
 ///
 /// The future will be marked complete if all `futures` complete
@@ -874,6 +877,8 @@ inline std::vector<int> WaitForAny(const std::vector<Future<T>*>& futures,
   waiter->Wait(seconds);
   return waiter->MoveFinishedFutures();
 }
+
+/// @}
 
 struct Continue {
   template <typename T>

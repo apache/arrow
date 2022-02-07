@@ -1,3 +1,9 @@
+apache-arrow (7.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Sat, 29 Jan 2022 00:08:24 -0000
+
 apache-arrow (3.0.0-1) unstable; urgency=low
 
   * New upstream release.

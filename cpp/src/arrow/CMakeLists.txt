@@ -220,6 +220,7 @@ set(ARROW_SRCS
     util/tdigest.cc
     util/thread_pool.cc
     util/time.cc
+    util/tracing.cc
     util/trie.cc
     util/unreachable.cc
     util/uri.cc
@@ -389,6 +390,7 @@ if(ARROW_COMPUTE)
        compute/exec/key_encode.cc
        compute/exec/key_hash.cc
        compute/exec/key_map.cc
+       compute/exec/options.cc
        compute/exec/order_by_impl.cc
        compute/exec/project_node.cc
        compute/exec/sink_node.cc
@@ -509,7 +511,11 @@ if(ARROW_JSON)
 endif()
 
 if(ARROW_ORC)
-  list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
+  list(APPEND
+       ARROW_SRCS
+       adapters/orc/adapter.cc
+       adapters/orc/options.cc
+       adapters/orc/util.cc)
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)

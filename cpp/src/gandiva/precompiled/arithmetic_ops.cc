@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <cstdint>
+
 extern "C" {
 
-#include <math.h>
 #include "./types.h"
 
 // Expand inner macro for all numeric types.
@@ -246,6 +248,10 @@ IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, istrue, +)
 NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
 
+#define NUMERIC_FUNCTION_FOR_REAL(INNER) \
+  INNER(float32)                         \
+  INNER(float64)
+
 #define NUMERIC_FUNCTION(INNER) \
   INNER(int8)                   \
   INNER(int16)                  \
@@ -255,8 +261,7 @@ NUMERIC_TYPES(IS_TRUE_OR_FALSE_NUMERIC, isfalse, !)
   INNER(uint16)                 \
   INNER(uint32)                 \
   INNER(uint64)                 \
-  INNER(float32)                \
-  INNER(float64)
+  NUMERIC_FUNCTION_FOR_REAL(INNER)
 
 #define DATE_FUNCTION(INNER) \
   INNER(date32)              \
@@ -331,6 +336,36 @@ NUMERIC_BOOL_DATE_FUNCTION(IS_NOT_DISTINCT_FROM)
 NUMERIC_FUNCTION(DIVIDE)
 
 #undef DIVIDE
+
+#define POSITIVE(TYPE) \
+  FORCE_INLINE         \
+  gdv_##TYPE positive_##TYPE(gdv_##TYPE in) { return in; }
+
+NUMERIC_FUNCTION(POSITIVE)
+
+#undef POSITIVE
+
+#define NEGATIVE(TYPE) \
+  FORCE_INLINE         \
+  gdv_##TYPE negative_##TYPE(gdv_##TYPE in) { return static_cast<gdv_##TYPE>(-1 * in); }
+
+NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
+
+#define NEGATIVE_INTEGER(TYPE, SIZE)                                           \
+  FORCE_INLINE                                                                 \
+  gdv_##TYPE negative_##TYPE(gdv_int64 context, gdv_##TYPE in) {               \
+    if (in <= INT##SIZE##_MIN) {                                               \
+      gdv_fn_context_set_error_msg(context, "Overflow in negative execution"); \
+      return 0;                                                                \
+    }                                                                          \
+    return -1 * in;                                                            \
+  }
+
+NEGATIVE_INTEGER(int32, 32)
+NEGATIVE_INTEGER(int64, 64)
+
+#undef NEGATIVE
+#undef NEGATIVE_INTEGER
 
 #define DIV(TYPE)                                                                     \
   FORCE_INLINE                                                                        \

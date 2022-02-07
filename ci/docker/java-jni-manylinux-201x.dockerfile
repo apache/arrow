@@ -19,19 +19,16 @@ ARG base
 FROM ${base}
 
 # Install the libaries required by the Gandiva to run
-RUN vcpkg install --clean-after-build \
-        boost-algorithm \
-        boost-crc \
-        boost-date-time \
-        boost-format \
-        boost-locale \
-        boost-multiprecision \
-        boost-predef \
-        boost-regex \
-        boost-system \
-        boost-variant \
-        # Use enable rtti to avoid link problems in Gandiva
-        llvm[clang,default-options,default-targets,lld,tools,enable-rtti]
+# Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
+RUN vcpkg install \
+        --clean-after-build \
+        --x-install-root=${VCPKG_ROOT}/installed \
+        --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=flight \
+        --x-feature=gcs \
+        --x-feature=json \
+        --x-feature=parquet \
+        --x-feature=gandiva
 
 # Install Java
 ARG java=1.8.0

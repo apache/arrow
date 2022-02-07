@@ -20,11 +20,11 @@ import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 )
 
 // Writer is the primary interface for writing a parquet file

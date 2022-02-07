@@ -33,6 +33,9 @@
 namespace arrow {
 namespace compute {
 
+/// \addtogroup execnode-options
+/// @{
+
 class ARROW_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
@@ -153,6 +156,8 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
   SortOptions sort_options;
 };
 
+/// @}
+
 enum class JoinType {
   LEFT_SEMI,
   RIGHT_SEMI,
@@ -164,7 +169,12 @@ enum class JoinType {
   FULL_OUTER
 };
 
+std::string ToString(JoinType t);
+
 enum class JoinKeyCmp { EQ, IS };
+
+/// \addtogroup execnode-options
+/// @{
 
 /// \brief Make a node which implements join operation using hash join strategy.
 class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
@@ -239,12 +249,12 @@ class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
   std::vector<FieldRef> left_output;
   // output fields passed from right input
   std::vector<FieldRef> right_output;
-  // key comparison function (determines whether a null key is equal another null key or
-  // not)
+  // key comparison function (determines whether a null key is equal another null
+  // key or not)
   std::vector<JoinKeyCmp> key_cmp;
-  // prefix added to names of output fields coming from left input (used to distinguish,
-  // if necessary, between fields of the same name in left and right input and can be left
-  // empty if there are no name collisions)
+  // prefix added to names of output fields coming from left input (used to
+  // distinguish, if necessary, between fields of the same name in left and right
+  // input and can be left empty if there are no name collisions)
   std::string output_prefix_for_left;
   // prefix added to names of output fields coming from right input
   std::string output_prefix_for_right;
@@ -268,6 +278,22 @@ class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
 
   /// SelectK options
   SelectKOptions select_k_options;
+};
+
+/// @}
+
+/// \brief Adapt an Table as a sink node
+///
+/// obtains the output of a execution plan to
+/// a table pointer.
+class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
+ public:
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                       std::shared_ptr<Schema> output_schema)
+      : output_table(output_table), output_schema(std::move(output_schema)) {}
+
+  std::shared_ptr<Table>* output_table;
+  std::shared_ptr<Schema> output_schema;
 };
 
 }  // namespace compute

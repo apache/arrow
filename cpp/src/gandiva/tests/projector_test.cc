@@ -943,6 +943,66 @@ TEST_F(TestProjector, TestGreatestLeast) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_least, outputs_lst.at(0));
 }
 
+TEST_F(TestProjector, TestPositiveNegative) {
+  // schema for input fields
+  auto field0 = field("f0", int32());
+  auto field1 = field("f1", int64());
+  auto schema = arrow::schema({field0, field1});
+
+  // output fields
+  auto field_pos = field("positive", int32());
+  auto field_pos2 = field("positive2", int64());
+
+  // Build expression for POSITIVE function
+  auto pos_expr = TreeExprBuilder::MakeExpression("positive", {field0}, field_pos);
+  auto pos_expr2 = TreeExprBuilder::MakeExpression("positive", {field1}, field_pos2);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {pos_expr, pos_expr2}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto array0 = MakeArrowArrayInt32({2, 3, 4, 5}, {true, true, true, true});
+  auto array1 = MakeArrowArrayInt64({100, 200, 300, 400}, {true, true, true, true});
+  // expected output
+  auto exp_pos = MakeArrowArrayInt32({2, 3, 4, 5}, {true, true, true, true});
+  auto exp_pos2 = MakeArrowArrayInt64({100, 200, 300, 400}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_pos, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_pos2, outputs.at(1));
+
+  // Build expression for NEG function
+  auto neg_expr = TreeExprBuilder::MakeExpression("negative", {field0}, field_pos);
+  auto neg_expr2 = TreeExprBuilder::MakeExpression("negative", {field1}, field_pos2);
+
+  status =
+      Projector::Make(schema, {neg_expr, neg_expr2}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // expected output
+  auto exp_neg = MakeArrowArrayInt32({-2, -3, -4, -5}, {true, true, true, true});
+  auto exp_neg2 = MakeArrowArrayInt64({-100, -200, -300, -400}, {true, true, true, true});
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_neg, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_neg2, outputs.at(1));
+}
+
 TEST_F(TestProjector, TestConcat) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

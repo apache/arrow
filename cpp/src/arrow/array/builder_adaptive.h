@@ -31,6 +31,10 @@
 
 namespace arrow {
 
+/// \addtogroup numeric-builders
+///
+/// @{
+
 namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
@@ -199,5 +203,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   template <typename new_type>
   Status ExpandIntSizeN();
 };
+
+/// @}
 
 }  // namespace arrow

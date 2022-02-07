@@ -423,6 +423,7 @@ def test_scanner(dataset, dataset_reader):
     assert table.num_rows == scanner.count_rows()
 
 
+@pytest.mark.parquet
 def test_scanner_async_deprecated(dataset):
     with pytest.warns(FutureWarning):
         dataset.scanner(use_async=False)
@@ -2514,6 +2515,7 @@ def test_filter_equal_null(tempdir, dataset_reader):
     assert table.num_rows == 0
 
 
+@pytest.mark.parquet
 def test_filter_compute_expression(tempdir, dataset_reader):
     table = pa.table({
         "A": ["a", "b", None, "a", "c"],
@@ -3130,7 +3132,7 @@ def test_parquet_dataset_lazy_filtering(tempdir, open_logging_fs):
     with assert_opens([]):
         fragments[0].split_by_row_group(ds.field("f1") > 15)
 
-    # ensuring metadata of splitted fragment should also not open any file
+    # ensuring metadata of split fragment should also not open any file
     with assert_opens([]):
         rg_fragments = fragments[0].split_by_row_group()
         rg_fragments[0].ensure_complete_metadata()
@@ -3640,6 +3642,7 @@ def _get_num_of_files_generated(base_directory, file_format):
     return len(list(pathlib.Path(base_directory).glob(f'**/*.{file_format}')))
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_rows_per_file(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_file = 10
@@ -3676,6 +3679,7 @@ def test_write_dataset_max_rows_per_file(tempdir):
                for file_rowcount in result_row_combination)
 
 
+@pytest.mark.parquet
 def test_write_dataset_min_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     min_rows_per_group = 6
@@ -3711,6 +3715,7 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_group = 18
@@ -3739,22 +3744,23 @@ def test_write_dataset_max_rows_per_group(tempdir):
     assert batched_data == [18, 12]
 
 
+@pytest.mark.parquet
 def test_write_dataset_max_open_files(tempdir):
     directory = tempdir / 'ds'
     file_format = "parquet"
     partition_column_id = 1
     column_names = ['c1', 'c2']
     record_batch_1 = pa.record_batch(data=[[1, 2, 3, 4, 0, 10],
-                                     ['a', 'b', 'c', 'd', 'e', 'a']],
+                                           ['a', 'b', 'c', 'd', 'e', 'a']],
                                      names=column_names)
     record_batch_2 = pa.record_batch(data=[[5, 6, 7, 8, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'c']],
+                                           ['a', 'b', 'c', 'd', 'e', 'c']],
                                      names=column_names)
     record_batch_3 = pa.record_batch(data=[[9, 10, 11, 12, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'd']],
+                                           ['a', 'b', 'c', 'd', 'e', 'd']],
                                      names=column_names)
     record_batch_4 = pa.record_batch(data=[[13, 14, 15, 16, 0, 1],
-                                     ['a', 'b', 'c', 'd', 'e', 'b']],
+                                           ['a', 'b', 'c', 'd', 'e', 'b']],
                                      names=column_names)
 
     table = pa.Table.from_batches([record_batch_1, record_batch_2,
@@ -3799,7 +3805,7 @@ def test_write_dataset_max_open_files(tempdir):
 
     ds.write_dataset(data=table, base_dir=data_source_2,
                      partitioning=partitioning, format=file_format,
-                     max_open_files=max_open_files)
+                     max_open_files=max_open_files, use_threads=False)
 
     num_of_files_generated, number_of_partitions \
         = _get_compare_pair(data_source_2, record_batch_1, file_format,
@@ -4196,7 +4202,7 @@ def test_write_dataset_s3(s3_example_simple):
         table, "mybucket/dataset", filesystem=fs, format="feather",
         partitioning=part
     )
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
@@ -4205,7 +4211,7 @@ def test_write_dataset_s3(s3_example_simple):
     # writing with URI
     uri = uri_template.format("mybucket/dataset2")
     ds.write_dataset(table, uri, format="feather", partitioning=part)
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset2", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
@@ -4216,7 +4222,7 @@ def test_write_dataset_s3(s3_example_simple):
     ds.write_dataset(
         table, "dataset3", filesystem=uri, format="feather", partitioning=part
     )
-    # check rountrip
+    # check roundtrip
     result = ds.dataset(
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()

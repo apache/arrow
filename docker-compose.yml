@@ -360,6 +360,7 @@ services:
       args:
         arch: ${ARCH}
         base: "${ARCH}/ubuntu:${UBUNTU}"
+        llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
@@ -887,6 +888,7 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_build.bat
 
+  # doesn't exit properly on fail
   python-wheel-windows-test:
     image: python:${PYTHON}-windowsservercore-1809
     volumes:

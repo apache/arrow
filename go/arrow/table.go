@@ -19,7 +19,7 @@ package arrow
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 )
 
 // Table represents a logical sequence of chunked arrays of equal length. It is
@@ -59,6 +59,30 @@ type Table interface {
 type Column struct {
 	field Field
 	data  *Chunked
+}
+
+// NewColumnFromArr is a convenience function to create a column from
+// a field and a non-chunked array.
+//
+// This provides a simple mechanism for bypassing the middle step of
+// constructing a Chunked array of one and then releasing it because
+// of the ref counting.
+func NewColumnFromArr(field Field, arr Array) Column {
+	if !TypeEqual(field.Type, arr.DataType()) {
+		panic("arrow/array: inconsistent data type")
+	}
+
+	arr.Retain()
+	return Column{
+		field: field,
+		data: &Chunked{
+			refCount: 1,
+			chunks:   []Array{arr},
+			length:   arr.Len(),
+			nulls:    arr.NullN(),
+			dtype:    field.Type,
+		},
+	}
 }
 
 // NewColumn returns a column from a field and a chunked data array.

@@ -46,6 +46,7 @@ override_dh_auto_configure:
 	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DCMAKE_UNITY_BUILD=ON				\
+	  -DCUDAToolkit_ROOT=/usr				\
 	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3

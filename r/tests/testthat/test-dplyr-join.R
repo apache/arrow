@@ -90,8 +90,56 @@ test_that("Error handling", {
     left_tab %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
-    "all(names(by) %in% names(x)) is not TRUE",
-    fixed = TRUE
+    "Join columns must be present in data"
+  )
+
+  # we print both message_x and message_y with an unnamed `by` vector
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = "made_up_colname"
+    ),
+    error = TRUE
+  )
+
+  # we only print message_y as `int` is a column of x
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("int" = "made_up_colname")
+    ),
+    error = TRUE
+  )
+
+  # we only print message_x as `int` is a column of y
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname" = "int")
+    ),
+    error = TRUE
+  )
+
+  # we print both message_x and message_y
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1", "made_up_colname2")
+    ),
+    error = TRUE
+  )
+
+  expect_snapshot(
+    left_join(
+      arrow_table(example_data),
+      arrow_table(example_data),
+      by = c("made_up_colname1" = "made_up_colname2")
+    ),
+    error = TRUE
   )
 })
 
@@ -146,7 +194,7 @@ test_that("anti_join", {
   )
 })
 
-test_that("mutate then join", {
+test_that("arrow dplyr query correctly mutates then joins", {
   left <- Table$create(
     one = c("a", "b"),
     two = 1:2
@@ -168,6 +216,34 @@ test_that("mutate then join", {
       collect(),
     tibble(
       one = c("A", "B"),
+      dos = 1:2,
+      three = c(NA, FALSE)
+    )
+  )
+})
+
+test_that("arrow dplyr query correctly filters then joins", {
+  left <- Table$create(
+    one = c("a", "b", "c"),
+    two = 1:3
+  )
+  right <- Table$create(
+    three = c(FALSE, TRUE, NA),
+    dos = c(2L, 3L, 4L)
+  )
+
+  expect_equal(
+    left %>%
+      rename(dos = two) %>%
+      filter(one %in% letters[1:2]) %>%
+      left_join(
+        right %>%
+          filter(!is.na(three))
+      ) %>%
+      arrange(dos) %>%
+      collect(),
+    tibble(
+      one = c("a", "b"),
       dos = 1:2,
       three = c(NA, FALSE)
     )

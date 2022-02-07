@@ -124,6 +124,15 @@ cdef class IpcWriteOptions(_Weakrefable):
     emit_dictionary_deltas : bool
         Whether to emit dictionary deltas.  Default is false for maximum
         stream compatibility.
+    unify_dictionaries : bool
+        If true then calls to write_table will attempt to unify dictionaries
+        across all batches in the table.  This can help avoid the need for
+        replacement dictionaries (which the file format does not support)
+        but requires computing the unified dictionary and then remapping
+        the indices arrays.
+
+        This parameter is ignored when writing to the IPC stream format as
+        the IPC stream format can support replacement dictionaries.
     """
     __slots__ = ()
 
@@ -132,7 +141,8 @@ cdef class IpcWriteOptions(_Weakrefable):
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  bint allow_64bit=False, use_legacy_format=False,
                  compression=None, bint use_threads=True,
-                 bint emit_dictionary_deltas=False):
+                 bint emit_dictionary_deltas=False,
+                 bint unify_dictionaries=False):
         self.c_options = CIpcWriteOptions.Defaults()
         self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
@@ -141,6 +151,7 @@ cdef class IpcWriteOptions(_Weakrefable):
             self.compression = compression
         self.use_threads = use_threads
         self.emit_dictionary_deltas = emit_dictionary_deltas
+        self.unify_dictionaries = unify_dictionaries
 
     @property
     def allow_64bit(self):
@@ -201,6 +212,14 @@ cdef class IpcWriteOptions(_Weakrefable):
     @emit_dictionary_deltas.setter
     def emit_dictionary_deltas(self, bint value):
         self.c_options.emit_dictionary_deltas = value
+
+    @property
+    def unify_dictionaries(self):
+        return self.c_options.unify_dictionaries
+
+    @unify_dictionaries.setter
+    def unify_dictionaries(self, bint value):
+        self.c_options.unify_dictionaries = value
 
 
 cdef class Message(_Weakrefable):

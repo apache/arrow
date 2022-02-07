@@ -15,6 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+function check_page_exists_and_redirect(event) {
+
+    const path_to_try = event.target.value;
+
+    const base_path = path_to_try.match("(.*\/r\/)?")[0];
+    let tryUrl = path_to_try;
+    $.ajax({
+        type: 'HEAD',
+        url: tryUrl,
+        success: function() {
+            location.href = tryUrl;
+        }
+    }).fail(function() {
+        location.href = base_path;
+    });
+    return false;
+}
+
 (function () {
   // Load the rmarkdown tabset script
   var script = document.createElement("script");
@@ -59,6 +77,44 @@
       var empty_ul = $("#toc").find("ul").filter(":empty");
       empty_ul.remove();
     });
+
+    $(document).ready(function () {
+
+      /**
+       * This replaces the package version number in the docs with a
+       * dropdown where you can select the version of the docs to view.
+       */
+
+        $pathStart = function(){
+    	  return window.location.origin + "/docs/";
+        }
+
+        $pathEnd  = function(){
+      	  var current_path = window.location.pathname;
+      	  return current_path.match("(?<=\/r).*");
+        }
+
+        $.getJSON("https://arrow.apache.org/docs/r/versions.json", function( data ) {
+          // get the current page's version number:
+		  var displayed_version = $('.version').text();
+          const sel = document.createElement("select");
+          sel.name = "version-selector";
+          sel.id = "version-selector";
+          sel.classList.add("navbar-default");
+          sel.onchange = check_page_exists_and_redirect;
+
+		  $.each( data, function( key, val ) {
+            const opt = document.createElement("option");
+            opt.value = $pathStart() + val.version + "r" + $pathEnd();
+            opt.selected = val.name.match("[0-9.]*")[0] === displayed_version;
+            opt.text = val.name;
+            sel.append(opt);
+		  });
+
+          $("span.version").replaceWith(sel);
+        });
+    });
+
   };
 
   document.head.appendChild(script);

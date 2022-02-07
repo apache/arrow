@@ -27,7 +27,13 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   }
 
   # See query-engine.R for ExecPlan/Nodes
-  tab <- do_exec_plan(x)
+  tryCatch(
+    tab <- do_exec_plan(x),
+    error = function(e) {
+      handle_csv_read_error(e, x$.data$schema)
+    }
+  )
+
   if (as_data_frame) {
     df <- as.data.frame(tab)
     tab$invalidate()
@@ -43,11 +49,11 @@ collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
     x
   }
 }
-collect.Dataset <- function(x, ...) dplyr::collect(as_adq(x), ...)
+collect.Dataset <- collect.RecordBatchReader <- function(x, ...) dplyr::collect(as_adq(x), ...)
 
 compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
 compute.ArrowTabular <- function(x, ...) x
-compute.Dataset <- compute.arrow_dplyr_query
+compute.Dataset <- compute.RecordBatchReader <- compute.arrow_dplyr_query
 
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- as_adq(.data)
@@ -55,7 +61,7 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data$selected_columns <- set_names(.data$selected_columns[var], var)
   dplyr::collect(.data)[[1]]
 }
-pull.Dataset <- pull.ArrowTabular <- pull.arrow_dplyr_query
+pull.Dataset <- pull.ArrowTabular <- pull.RecordBatchReader <- pull.arrow_dplyr_query
 
 restore_dplyr_features <- function(df, query) {
   # An arrow_dplyr_query holds some attributes that Arrow doesn't know about
@@ -85,7 +91,7 @@ collapse.arrow_dplyr_query <- function(x, ...) {
   # Nest inside a new arrow_dplyr_query (and keep groups)
   restore_dplyr_features(arrow_dplyr_query(x), x)
 }
-collapse.Dataset <- collapse.ArrowTabular <- function(x, ...) {
+collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- function(x, ...) {
   arrow_dplyr_query(x)
 }
 

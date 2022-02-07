@@ -20,10 +20,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
 )

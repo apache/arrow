@@ -21,11 +21,11 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/float16"
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/float16"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 

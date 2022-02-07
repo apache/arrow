@@ -21,12 +21,12 @@ import (
 	"log"
 	"os"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/arrio"
-	"github.com/apache/arrow/go/v7/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v7/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v7/arrow/ipc"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/arrio"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v8/arrow/ipc"
 	"golang.org/x/xerrors"
 )
 

@@ -876,6 +876,12 @@ def test_list_from_arrays(list_array_type, list_type_factory):
 
     assert result.equals(expected)
 
+    # With specified type
+    typ = list_type_factory(pa.field("name", pa.binary()))
+    result = list_array_type.from_arrays(offsets, values, typ)
+    assert result.type == typ
+    assert result.type.value_field.name == "name"
+
     # With nulls
     offsets = [0, None, 2, 6]
     values = [b'a', b'b', b'c', b'd', b'e', b'f']
@@ -905,6 +911,11 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     result = list_array_type.from_arrays(offsets, values)
     with pytest.raises(ValueError):
         result.validate(full=True)
+
+    # mismatching type
+    typ = list_type_factory(pa.binary())
+    with pytest.raises(TypeError):
+        list_array_type.from_arrays(offsets, values, type=typ)
 
 
 def test_map_labelled():
@@ -973,6 +984,12 @@ def test_fixed_size_list_from_arrays():
     assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
     assert result.type.equals(pa.list_(pa.int64(), 4))
 
+    typ = pa.list_(pa.field("name", pa.int64()), 4)
+    result = pa.FixedSizeListArray.from_arrays(values, type=typ)
+    assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+    assert result.type.equals(typ)
+    assert result.type.value_field.name == "name"
+
     # raise on invalid values / list_size
     with pytest.raises(ValueError):
         pa.FixedSizeListArray.from_arrays(values, -4)
@@ -984,6 +1001,23 @@ def test_fixed_size_list_from_arrays():
     with pytest.raises(ValueError):
         # length of values not multiple of 5
         pa.FixedSizeListArray.from_arrays(values, 5)
+
+    typ = pa.list_(pa.int64(), 5)
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values, type=typ)
+
+    # raise on mismatching values type
+    typ = pa.list_(pa.float64(), 4)
+    with pytest.raises(TypeError):
+        pa.FixedSizeListArray.from_arrays(values, type=typ)
+
+    # raise on specifying none or both of list_size / type
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values)
+
+    typ = pa.list_(pa.int64(), 4)
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values, list_size=4, type=typ)
 
 
 def test_variable_list_from_arrays():
@@ -2252,6 +2286,21 @@ def test_interval_array_from_relativedelta():
         pa.array([DateOffset(microseconds=((1 << 64) // 100))])
 
 
+def test_interval_array_from_tuple():
+    data = [None, (1, 2, -3)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([1, 2, -3])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
 @pytest.mark.pandas
 def test_interval_array_from_dateoffset():
     from pandas.tseries.offsets import DateOffset
@@ -2469,16 +2518,33 @@ def test_buffers_nested():
     assert struct.unpack('4xh', values) == (43,)
 
 
-def test_nbytes_sizeof():
+def test_total_buffer_size():
     a = pa.array(np.array([4, 5, 6], dtype='int64'))
     assert a.nbytes == 8 * 3
+    assert a.get_total_buffer_size() == 8 * 3
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([1, None, 3], type='int64')
     assert a.nbytes == 8*3 + 1
+    assert a.get_total_buffer_size() == 8*3 + 1
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
-    assert a.nbytes == 1 + 4 * 4 + 1 + 6 * 8
+    assert a.nbytes == 62
+    assert a.get_total_buffer_size() == 1 + 4 * 4 + 1 + 6 * 8
     assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
+    a = pa.array([[[5, 6, 7]], [[9, 10]]], type=pa.list_(pa.list_(pa.int8())))
+    assert a.get_total_buffer_size() == (4 * 3) + (4 * 3) + (1 * 5)
+    assert a.nbytes == 21
+    a = pa.array([[[1, 2], [3, 4]], [[5, 6, 7], None, [8]], [[9, 10]]],
+                 type=pa.list_(pa.list_(pa.int8())))
+    a1 = a.slice(1, 2)
+    assert a1.nbytes == (4 * 2) + 1 + (4 * 4) + (1 * 6)
+    assert a1.get_total_buffer_size() == (4 * 4) + 1 + (4 * 7) + (1 * 10)
+
+
+def test_nbytes_size():
+    a = pa.chunked_array([pa.array([1, None, 3], type=pa.int16()),
+                          pa.array([4, 5, 6], type=pa.int16())])
+    assert a.nbytes == 13
 
 
 def test_invalid_tensor_constructor_repr():

@@ -21,6 +21,7 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/interval.hpp>
 #include <arrow-glib/type.hpp>
 
 template <typename BUILDER, typename VALUE>
@@ -436,6 +437,15 @@ G_BEGIN_DECLS
  *
  * #GArrowTime64ArrayBuilder is the class to create a new
  * #GArrowTime64Array.
+ *
+ * #GArrowMonthIntervalArrayBuilder is the class to create a new
+ * #GArrowMonthIntervalArray.
+ *
+ * #GArrowDayTimeIntervalArrayBuilder is the class to create a new
+ * #GArrowDayTimeIntervalArray.
+ *
+ * #GArrowMonthDayNanoArrayBuilder is the class to create a new
+ * #GArrowMonthDayNanoArray.
  *
  * #GArrowStringDictionaryArrayBuilder is the class to create a new
  * #GArrowDictionaryArray with a dictionary array of #GArrowStringArray.
@@ -4484,6 +4494,343 @@ garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *builder,
 }
 
 
+G_DEFINE_TYPE(GArrowMonthIntervalArrayBuilder,
+              garrow_month_interval_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_month_interval_array_builder_init(
+  GArrowMonthIntervalArrayBuilder *builder)
+{
+}
+
+static void
+garrow_month_interval_array_builder_class_init(
+  GArrowMonthIntervalArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_month_interval_array_builder_new:
+ *
+ * Returns: A newly created #GArrowMonthIntervalArrayBuilder.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthIntervalArrayBuilder *
+garrow_month_interval_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::month_interval(),
+                                          NULL,
+                                          "[month-interval-array-builder][new]");
+  return GARROW_MONTH_INTERVAL_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_month_interval_array_builder_append_value:
+ * @builder: A #GArrowMonthIntervalArrayBuilder.
+ * @value: The month.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_month_interval_array_builder_append_value(
+  GArrowMonthIntervalArrayBuilder *builder,
+  gint32 value,
+  GError **error)
+{
+  return garrow_array_builder_append_value<arrow::MonthIntervalBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     value,
+     error,
+     "[month-interval-array-builder][append-value]");
+}
+
+/**
+ * garrow_month_interval_array_builder_append_values:
+ * @builder: A #GArrowMonthIntervalArrayBuilder.
+ * @values: (array length=values_length): The array of the month.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_month_interval_array_builder_append_values(
+  GArrowMonthIntervalArrayBuilder *builder,
+  const gint32 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
+{
+  return garrow_array_builder_append_values<arrow::MonthIntervalBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     values,
+     values_length,
+     is_valids,
+     is_valids_length,
+     error,
+     "[month-interval-array-builder][append-values]");
+}
+
+
+G_DEFINE_TYPE(GArrowDayTimeIntervalArrayBuilder,
+              garrow_day_time_interval_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_day_time_interval_array_builder_init(
+  GArrowDayTimeIntervalArrayBuilder *builder)
+{
+}
+
+static void
+garrow_day_time_interval_array_builder_class_init(
+  GArrowDayTimeIntervalArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_day_time_interval_array_builder_new:
+ *
+ * Returns: A newly created #GArrowDayTimeIntervalArrayBuilder.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayTimeIntervalArrayBuilder *
+garrow_day_time_interval_array_builder_new(void)
+{
+  auto builder = garrow_array_builder_new(arrow::day_time_interval(),
+                                          NULL,
+                                          "[day-time-interval-array-builder][new]");
+  return GARROW_DAY_TIME_INTERVAL_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_day_time_interval_array_builder_append_value:
+ * @builder: A #GArrowDayTimeIntervalArrayBuilder.
+ * @value: A #GArrowDayMillisecond.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_day_time_interval_array_builder_append_value(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  GArrowDayMillisecond *value,
+  GError **error)
+{
+  if (value) {
+    auto arrow_day_millisecond = garrow_day_millisecond_get_raw(value);
+    return garrow_array_builder_append_value<arrow::DayTimeIntervalBuilder *>
+      (GARROW_ARRAY_BUILDER(builder),
+       *arrow_day_millisecond,
+       error,
+       "[day-time-interval-array-builder][append-value]");
+  } else {
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
+                                            error);
+  }
+}
+
+/**
+ * garrow_day_time_interval_array_builder_append_values:
+ * @builder: A #GArrowDayTimeIntervalArrayBuilder.
+ * @values: (array length=values_length): The array of a #GArrowDayMillisecond.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_day_time_interval_array_builder_append_values(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  const GArrowDayMillisecond **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::DayTimeIntervalBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  return garrow_array_builder_append_values(
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[day-time-interval-array-builder][append-values]",
+    [&arrow_builder](const GArrowDayMillisecond **values,
+                     gint64 values_length,
+                     const uint8_t *valid_bytes) -> arrow::Status {
+      for (int i = 0; i < values_length; i++) {
+        arrow::Status status;
+        if (!valid_bytes || valid_bytes[i]) {
+          auto arrow_value = garrow_day_millisecond_get_raw(values[i]);
+          status = arrow_builder->Append(*arrow_value);
+        } else {
+          status = arrow_builder->AppendNull();
+        }
+        if (!status.ok()) {
+          return status;
+        }
+      };
+
+      return arrow::Status::OK();
+    });
+}
+
+
+G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArrayBuilder,
+              garrow_month_day_nano_interval_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_month_day_nano_interval_array_builder_init(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder)
+{
+}
+
+static void
+garrow_month_day_nano_interval_array_builder_class_init(
+  GArrowMonthDayNanoIntervalArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_month_day_nano_interval_array_builder_new:
+ *
+ * Returns: A newly created #GArrowMonthDayNanoIntervalArrayBuilder.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNanoIntervalArrayBuilder *
+garrow_month_day_nano_interval_array_builder_new(void)
+{
+  auto builder =
+    garrow_array_builder_new(arrow::month_day_nano_interval(),
+                             NULL,
+                             "[month-day-nano-interval-array-builder][new]");
+  return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_month_day_nano_interval_array_builder_append_value:
+ * @builder: A #GArrowMonthDayNanoIntervalArrayBuilder.
+ * @value: A #GArrowMonthDayNano.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_month_day_nano_interval_array_builder_append_value(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  GArrowMonthDayNano *value,
+  GError **error)
+{
+  if (value) {
+    auto arrow_month_day_nano = garrow_month_day_nano_get_raw(value);
+    return garrow_array_builder_append_value<arrow::MonthDayNanoIntervalBuilder *>(
+      GARROW_ARRAY_BUILDER(builder),
+      *arrow_month_day_nano,
+      error,
+      "[month-day-nano-interval-array-builder][append-value]");
+  } else {
+    return garrow_array_builder_append_null(GARROW_ARRAY_BUILDER(builder),
+                                            error);
+  }
+}
+
+/**
+ * garrow_month_day_nano_interval_array_builder_append_values:
+ * @builder: A #GArrowMonthDayNanoIntervalArrayBuilder.
+ * @values: (array length=values_length): The array of a #GArrowMonthDayNano.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+garrow_month_day_nano_interval_array_builder_append_values(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  const GArrowMonthDayNano **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::MonthDayNanoIntervalBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  return garrow_array_builder_append_values(
+    values,
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[month-day-nano-interval-array-builder][append-values]",
+    [&arrow_builder](const GArrowMonthDayNano **values,
+                     gint64 values_length,
+                     const uint8_t *valid_bytes) -> arrow::Status {
+      for (int i = 0; i < values_length; i++) {
+        arrow::Status status;
+        if (!valid_bytes || valid_bytes[i]) {
+          auto arrow_value = garrow_month_day_nano_get_raw(values[i]);
+          status = arrow_builder->Append(*arrow_value);
+        } else {
+          status = arrow_builder->AppendNull();
+        }
+        if (!status.ok()) {
+          return status;
+        }
+      };
+
+      return arrow::Status::OK();
+    });
+}
+
+
 G_DEFINE_TYPE(GArrowBinaryDictionaryArrayBuilder,
               garrow_binary_dictionary_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -6135,6 +6482,15 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::TIME64:
       type = GARROW_TYPE_TIME64_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::INTERVAL_MONTHS:
+      type = GARROW_TYPE_MONTH_INTERVAL_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::INTERVAL_DAY_TIME:
+      type = GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+      type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER;
       break;
     case arrow::Type::type::LIST:
       type = GARROW_TYPE_LIST_ARRAY_BUILDER;

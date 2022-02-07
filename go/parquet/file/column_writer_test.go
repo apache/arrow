@@ -22,18 +22,18 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/compress"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v7/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/compress"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -222,6 +222,7 @@ type PrimitiveWriterTestSuite struct {
 	metadata   *metadata.ColumnChunkMetaDataBuilder
 	sink       *encoding.BufferWriter
 	readbuffer *memory.Buffer
+	reader     file.ColumnChunkReader
 }
 
 func (p *PrimitiveWriterTestSuite) SetupTest() {

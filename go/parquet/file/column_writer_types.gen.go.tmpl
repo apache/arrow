@@ -17,10 +17,10 @@
 package file
 
 import (
-    "github.com/apache/arrow/go/v7/parquet"
-    "github.com/apache/arrow/go/v7/parquet/metadata"
-    "github.com/apache/arrow/go/v7/parquet/internal/encoding"
-    format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
+    "github.com/apache/arrow/go/v8/parquet"
+    "github.com/apache/arrow/go/v8/parquet/metadata"
+    "github.com/apache/arrow/go/v8/parquet/internal/encoding"
+    format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 )
 
 {{range .In}}
@@ -77,7 +77,6 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, r
       }
     }
   }()
-
   // We check for DataPage limits only after we have inserted the values. If a user
   // writes a large number of values, the DataPage size can be much above the limit.
   // The purpose of this chunking is to bound this. Even if a user writes large number

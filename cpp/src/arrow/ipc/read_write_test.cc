@@ -2051,6 +2051,7 @@ class TestDictionaryReplacement : public ::testing::Test {
         MakeBatch(ArrayFromJSON(type, R"(["foo", "bar", "quux", "zzz", "foo"])"));
     auto batch4 = MakeBatch(ArrayFromJSON(type, R"(["bar", null, "quux", "foo"])"));
     RecordBatchVector batches{batch1, batch2, batch3, batch4};
+    RecordBatchVector only_deltas{batch1, batch2, batch3};
 
     // Emit replacements
     if (WriterHelper::kIsFileFormat) {
@@ -2067,7 +2068,9 @@ class TestDictionaryReplacement : public ::testing::Test {
     // Emit deltas
     write_options_.emit_dictionary_deltas = true;
     if (WriterHelper::kIsFileFormat) {
-      CheckWritingFails(batches, 1);
+      // batch4 is incompatible with the previous batches and would emit
+      // a replacement
+      CheckWritingFails(batches, 3);
     } else {
       CheckRoundtrip(batches);
       EXPECT_EQ(read_stats_.num_messages, 9);  // including schema message
@@ -2076,6 +2079,14 @@ class TestDictionaryReplacement : public ::testing::Test {
       EXPECT_EQ(read_stats_.num_replaced_dictionaries, 1);
       EXPECT_EQ(read_stats_.num_dictionary_deltas, 2);
     }
+
+    CheckRoundtrip(only_deltas,
+                   /*expect_expanded_dictionary=*/WriterHelper::kIsFileFormat);
+    EXPECT_EQ(read_stats_.num_messages, 7);  // including schema message
+    EXPECT_EQ(read_stats_.num_record_batches, 3);
+    EXPECT_EQ(read_stats_.num_dictionary_batches, 3);
+    EXPECT_EQ(read_stats_.num_replaced_dictionaries, 0);
+    EXPECT_EQ(read_stats_.num_dictionary_deltas, 2);
 
     // IPC file format: WriteTable should unify dicts
     RecordBatchVector actual;
@@ -2346,11 +2357,43 @@ class TestDictionaryReplacement : public ::testing::Test {
     AssertTablesEqual(*expected_table, *actual_table);
   }
 
-  void CheckRoundtrip(const RecordBatchVector& in_batches) {
+  RecordBatchVector ExpandDictionaries(const RecordBatchVector& in_batches) {
+    RecordBatchVector out;
+    ArrayVector full_dictionaries;
+    std::shared_ptr<RecordBatch> last_batch = in_batches[in_batches.size() - 1];
+    for (const auto& column : last_batch->columns()) {
+      std::shared_ptr<DictionaryArray> dict_array =
+          checked_pointer_cast<DictionaryArray>(column);
+      full_dictionaries.push_back(dict_array->dictionary());
+    }
+
+    for (const auto& batch : in_batches) {
+      ArrayVector expanded_columns;
+      for (int col_index = 0; col_index < batch->num_columns(); col_index++) {
+        std::shared_ptr<Array> column = batch->column(col_index);
+        std::shared_ptr<DictionaryArray> dict_array =
+            checked_pointer_cast<DictionaryArray>(column);
+        std::shared_ptr<Array> full_dict = full_dictionaries[col_index];
+        std::shared_ptr<Array> expanded = std::make_shared<DictionaryArray>(
+            dict_array->type(), dict_array->indices(), full_dict);
+        expanded_columns.push_back(expanded);
+      }
+      out.push_back(
+          RecordBatch::Make(batch->schema(), batch->num_rows(), expanded_columns));
+    }
+    return out;
+  }
+
+  void CheckRoundtrip(const RecordBatchVector& in_batches,
+                      bool expect_expanded_dictionary = false) {
     RecordBatchVector out_batches;
     ASSERT_OK(RoundTrip(in_batches, &out_batches));
     CheckStatsConsistent();
-    CheckBatches(in_batches, out_batches);
+    if (expect_expanded_dictionary) {
+      CheckBatches(ExpandDictionaries(in_batches), out_batches);
+    } else {
+      CheckBatches(in_batches, out_batches);
+    }
   }
 
   void CheckRoundtripTable(const RecordBatchVector& in_batches) {

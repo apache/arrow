@@ -149,6 +149,9 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware;
 
+  /// \brief An optional memory manager to control where to allocate incoming data.
+  std::shared_ptr<MemoryManager> memory_manager;
+
   /// \brief A Flight implementation-specific callback to customize
   /// transport-specific options.
   ///

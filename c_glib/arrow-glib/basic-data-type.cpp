@@ -2177,6 +2177,15 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::DECIMAL256:
     type = GARROW_TYPE_DECIMAL256_DATA_TYPE;
     break;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    type = GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE;
+    break;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    type = GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE;
+    break;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE;
+    break;
   case arrow::Type::type::EXTENSION:
     {
       auto g_extension_data_type =

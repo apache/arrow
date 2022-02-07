@@ -22,9 +22,9 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/goccy/go-json"
 )
 

@@ -26,6 +26,7 @@ import numpy as np
 import os
 import random
 import signal
+import socket
 import string
 import subprocess
 import sys
@@ -329,3 +330,22 @@ def get_raise_signal():
         def raise_signal(signum):
             os.kill(os.getpid(), signum)
         return raise_signal
+
+
+@contextlib.contextmanager
+def signal_wakeup_fd(*, warn_on_full_buffer=False):
+    # Use a socket pair, rather a self-pipe, so that select() can be used
+    # on Windows.
+    r, w = socket.socketpair()
+    old_fd = None
+    try:
+        r.setblocking(False)
+        w.setblocking(False)
+        old_fd = signal.set_wakeup_fd(
+            w.fileno(), warn_on_full_buffer=warn_on_full_buffer)
+        yield r
+    finally:
+        if old_fd is not None:
+            signal.set_wakeup_fd(old_fd)
+        r.close()
+        w.close()

@@ -162,8 +162,6 @@ jobs:
           "
 
   allow_failures:
-    - name: "Go on ARM"
-    - name: "Go on s390x"
     - name: "Java on s390x"
     - name: "Python on s390x"
 

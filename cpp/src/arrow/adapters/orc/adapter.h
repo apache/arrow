@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/adapters/orc/options.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -57,11 +58,6 @@ class ARROW_EXPORT ORCFileReader {
   /// \return the returned reader object
   static Result<std::unique_ptr<ORCFileReader>> Open(
       const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool);
-
-  /// \brief Return the metadata read from the ORC file
-  ///
-  /// \return A KeyValueMetadata object containing the ORC metadata
-  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Return the schema read from the ORC file
   ///
@@ -250,6 +246,90 @@ class ARROW_EXPORT ORCFileReader {
   /// \brief The number of rows in the file
   int64_t NumberOfRows();
 
+  /// \brief Get the format version of the file.
+  ///         Currently known values are 0.11 and 0.12.
+  ///
+  /// \return The FileVersion of the ORC file.
+  FileVersion GetFileVersion();
+
+  /// \brief Get the software instance and version that wrote this file.
+  ///
+  /// \return a user-facing string that specifies the software version
+  std::string GetSoftwareVersion();
+
+  /// \brief Get the compression kind of the file.
+  ///
+  /// \return The kind of compression in the ORC file.
+  Result<Compression::type> GetCompression();
+
+  /// \brief Get the buffer size for the compression.
+  ///
+  /// \return Number of bytes to buffer for the compression codec.
+  int64_t GetCompressionSize();
+
+  /// \brief Get the number of rows per an entry in the row index.
+  /// \return the number of rows per an entry in the row index or 0 if there
+  ///          is no row index.
+  int64_t GetRowIndexStride();
+
+  /// \brief Get ID of writer that generated the file.
+  ///
+  /// \return UNKNOWN_WRITER if the writer ID is undefined
+  WriterId GetWriterId();
+
+  /// \brief Get the writer id value when getWriterId() returns an unknown writer.
+  ///
+  /// \return the integer value of the writer ID.
+  int32_t GetWriterIdValue();
+
+  /// \brief Get the version of the writer.
+  ///
+  /// \return the version of the writer.
+
+  WriterVersion GetWriterVersion();
+
+  /// \brief Get the number of stripe statistics in the file.
+  ///
+  /// \return the number of stripe statistics
+  int64_t GetNumberOfStripeStatistics();
+
+  /// \brief Get the length of the data stripes in the file.
+  ///
+  /// \return return the number of bytes in stripes
+  int64_t GetContentLength();
+
+  /// \brief Get the length of the file stripe statistics.
+  ///
+  /// \return the number of compressed bytes in the file stripe statistics
+  int64_t GetStripeStatisticsLength();
+
+  /// \brief Get the length of the file footer.
+  ///
+  /// \return the number of compressed bytes in the file footer
+  int64_t GetFileFooterLength();
+
+  /// \brief Get the length of the file postscript.
+  ///
+  /// \return the number of bytes in the file postscript
+  int64_t GetFilePostscriptLength();
+
+  /// \brief Get the total length of the file.
+  ///
+  /// \return the number of bytes in the file
+  int64_t GetFileLength();
+
+  /// \brief Get the serialized file tail.
+  ///         Usefull if another reader of the same file wants to avoid re-reading
+  ///         the file tail. See ReadOptions.SetSerializedFileTail().
+  ///
+  /// \return a string of bytes with the file tail
+  std::string GetSerializedFileTail();
+
+  /// \brief Return the metadata read from the ORC file
+  ///
+  /// \return A KeyValueMetadata object containing the ORC metadata
+  Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
@@ -264,8 +344,11 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Creates a new ORC writer.
   ///
   /// \param[in] output_stream a pointer to the io::OutputStream to write into
+  /// \param[in] write_options the ORC writer options for Arrow
   /// \return the returned writer object
-  static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream* output_stream);
+  static Result<std::unique_ptr<ORCFileWriter>> Open(
+      io::OutputStream* output_stream,
+      const WriteOptions& write_options = WriteOptions());
 
   /// \brief Write a table
   ///
