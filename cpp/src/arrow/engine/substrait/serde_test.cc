@@ -659,14 +659,6 @@ TEST(Substrait, ReadRel) {
 
   // filter on the boolean field (#1)
   EXPECT_EQ(scan_node_options.scan_options->filter, compute::field_ref(1));
-  // project all fields
-  EXPECT_EQ(scan_node_options.scan_options->projection,
-            compute::call("make_struct",
-                          {
-                              compute::field_ref(0),
-                              compute::field_ref(1),
-                          },
-                          compute::MakeStructOptions{{"i", "b"}}));
 
   // dataset is a FileSystemDataset in parquet format with the specified schema
   ASSERT_EQ(scan_node_options.dataset->type_name(), "filesystem");

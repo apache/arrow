@@ -70,18 +70,9 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       }
 
       if (read.has_projection()) {
+        // NOTE: scan_options->projection is not used by the scanner and thus can't be
+        // used for this
         return Status::NotImplemented("substrait::ReadRel::projection");
-      }
-
-      {
-        // just project all fields
-        std::vector<compute::Expression> expressions{base_schema->fields().size()};
-        for (int i = 0; i < base_schema->num_fields(); ++i) {
-          expressions[i] = compute::field_ref(i);
-        }
-        scan_options->projection =
-            compute::call("make_struct", std::move(expressions),
-                          compute::MakeStructOptions{base_schema->field_names()});
       }
 
       if (!read.has_local_files()) {
