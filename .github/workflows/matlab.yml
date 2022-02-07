@@ -71,6 +71,7 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 MATLAB
     runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository        
         uses: actions/checkout@v2
