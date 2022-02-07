@@ -194,7 +194,10 @@ register_bindings_datetime <- function() {
         ymd_space5 = "%Y %b %d",
         ymd_space6 = "%y %b %d"
       )
-
-    call_binding("strptime", x, format = format_map[[1]], unit = "s")
+    call_binding(
+      "coalesce",
+      call_binding("strptime", x, format = format_map[[1]], unit = "s"),
+      call_binding("strptime", x, format = format_map[[2]], unit = "s")
+    )
   })
 }
