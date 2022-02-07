@@ -47,6 +47,13 @@ class GANDIVA_EXPORT Annotator {
   /// Returns the index of the bitmap in the list of local bitmaps.
   int AddLocalBitMap() { return local_bitmap_count_++; }
 
+  /// Add a pointer to function holder or in holder
+  /// Returns the index of the holder in the holder_pointers vector
+  int AddHolderPointer(void* holder);
+
+  /// Return a pointer to the underlying array containing the holder pointers
+  void** GetHolderPointersArray() { return holder_pointers_.data(); }
+
   /// Prepare an eval batch for the incoming record batch.
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch& record_batch,
                                 const ArrayDataVector& out_vector);
@@ -76,6 +83,9 @@ class GANDIVA_EXPORT Annotator {
 
   /// vector of annotated output field descriptors.
   std::vector<FieldDescriptorPtr> out_descs_;
+
+  /// vector of pointers to function holders and in holders
+  std::vector<void*> holder_pointers_;
 };
 
 }  // namespace gandiva

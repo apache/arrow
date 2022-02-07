@@ -79,8 +79,10 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
 
   // Make a function holder, if required.
   std::shared_ptr<FunctionHolder> holder;
+  int holder_idx = -1;
   if (native_function->NeedsFunctionHolder()) {
     auto status = FunctionHolderRegistry::Make(desc->name(), node, &holder);
+    holder_idx = annotator_.AddHolderPointer(holder.get());
     ARROW_RETURN_NOT_OK(status);
   }
 
@@ -95,13 +97,13 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
                              decomposed->validity_exprs().end());
     }
 
-    auto value_dex =
-        std::make_shared<NonNullableFuncDex>(desc, native_function, holder, args);
+    auto value_dex = std::make_shared<NonNullableFuncDex>(desc, native_function, holder,
+                                                          holder_idx, args);
     result_ = std::make_shared<ValueValidityPair>(merged_validity, value_dex);
   } else if (native_function->result_nullable_type() == kResultNullNever) {
     // These functions always output valid results. So, no validity dex.
-    auto value_dex =
-        std::make_shared<NullableNeverFuncDex>(desc, native_function, holder, args);
+    auto value_dex = std::make_shared<NullableNeverFuncDex>(desc, native_function, holder,
+                                                            holder_idx, args);
     result_ = std::make_shared<ValueValidityPair>(value_dex);
   } else {
     DCHECK(native_function->result_nullable_type() == kResultNullInternal);
@@ -111,7 +113,7 @@ Status ExprDecomposer::Visit(const FunctionNode& in_node) {
     auto validity_dex = std::make_shared<LocalBitMapValidityDex>(local_bitmap_idx);
 
     auto value_dex = std::make_shared<NullableInternalFuncDex>(
-        desc, native_function, holder, args, local_bitmap_idx);
+        desc, native_function, holder, holder_idx, args, local_bitmap_idx);
     result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
   }
   return Status::OK();
@@ -190,21 +192,25 @@ Status ExprDecomposer::Visit(const InExpressionNode<gandiva::DecimalScalar128>& 
   /* In always outputs valid results, so no validity dex */
   auto value_dex = std::make_shared<InExprDex<gandiva::DecimalScalar128>>(
       args, node.values(), node.get_precision(), node.get_scale());
+  int holder_idx = annotator_.AddHolderPointer(value_dex->in_holder().get());
+  value_dex->set_holder_idx(holder_idx);
   result_ = std::make_shared<ValueValidityPair>(value_dex);
   return Status::OK();
 }
 
-#define MAKE_VISIT_IN(ctype)                                                  \
-  Status ExprDecomposer::Visit(const InExpressionNode<ctype>& node) {         \
-    /* decompose the children. */                                             \
-    std::vector<ValueValidityPairPtr> args;                                   \
-    auto status = node.eval_expr()->Accept(*this);                            \
-    ARROW_RETURN_NOT_OK(status);                                              \
-    args.push_back(result());                                                 \
-    /* In always outputs valid results, so no validity dex */                 \
-    auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values()); \
-    result_ = std::make_shared<ValueValidityPair>(value_dex);                 \
-    return Status::OK();                                                      \
+#define MAKE_VISIT_IN(ctype)                                                    \
+  Status ExprDecomposer::Visit(const InExpressionNode<ctype>& node) {           \
+    /* decompose the children. */                                               \
+    std::vector<ValueValidityPairPtr> args;                                     \
+    auto status = node.eval_expr()->Accept(*this);                              \
+    ARROW_RETURN_NOT_OK(status);                                                \
+    args.push_back(result());                                                   \
+    /* In always outputs valid results, so no validity dex */                   \
+    auto value_dex = std::make_shared<InExprDex<ctype>>(args, node.values());   \
+    int holder_idx = annotator_.AddHolderPointer(value_dex->in_holder().get()); \
+    value_dex->set_holder_idx(holder_idx);                                      \
+    result_ = std::make_shared<ValueValidityPair>(value_dex);                   \
+    return Status::OK();                                                        \
   }
 
 MAKE_VISIT_IN(int32_t);
