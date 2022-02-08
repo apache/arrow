@@ -86,12 +86,6 @@ std::shared_ptr<DataType> StripFieldNames(std::shared_ptr<DataType> type) {
   return type;
 }
 
-// map to an index-only field reference
-inline FieldRef BoringRef(FieldRef ref) {
-  auto path = *ref.FindOne(*kBoringSchema);
-  return {std::move(path)};
-}
-
 inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   if (expr.literal()) return expr;
 
