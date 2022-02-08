@@ -2253,7 +2253,6 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   d = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({c, d}, field_names2));
   auto options = CastOptions::Safe(dest->type());
-  options.to_type = dest->type();
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
@@ -2275,8 +2274,7 @@ TEST(Cast, StructToDifferentSizeStruct) {
   b2 = ArrayFromJSON(int8(), "[3, 4]");
   c = ArrayFromJSON(int8(), "[5, 6]");
   ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2, c}, field_names2));
-  auto options = CastOptions{};
-  options.to_type = dest->type();
+  auto options = CastOptions::Safe(dest->type());
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
@@ -2284,6 +2282,41 @@ TEST(Cast, StructToDifferentSizeStruct) {
                            "b: int8> struct<a: int8, b: int8, c: int8>"),
       Cast(src, options));
 }
+
+TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
+  // OK to go from non-nullable to nullable...
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a1, b1;
+  a1 = ArrayFromJSON(int8(), "[1, 2]");
+  b1 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src1, StructArray::Make({a1, b1}, field_names));
+
+  std::shared_ptr<Array> c1, d1;
+  c1 = ArrayFromJSON(int8(), "[1, null]");
+  d1 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({c1, d1}, field_names));
+
+  CheckCast(src1, dest1);
+
+  // But not the other way around
+  std::shared_ptr<Array> a2, b2;
+  a2 = ArrayFromJSON(int8(), "[1, null]");
+  b2 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src2, StructArray::Make({a2, b2}, field_names));
+
+  std::shared_ptr<Array> c2, d2;
+  c2 = ArrayFromJSON(int8(), "[1, 2]");
+  d2 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({c2, d2}, field_names));
+  auto options = CastOptions::Safe(dest2->type());
+  
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct nullability does not match: struct<a: int8, "
+                           "b: int8> struct<c: int8, d: int8>"),
+      Cast(src2, options));  
+}  
+
 
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
