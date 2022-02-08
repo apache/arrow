@@ -247,8 +247,27 @@ TEST(TestDispatchBest, ReplaceTemporalTypes) {
 
   args = {timestamp(TimeUnit::SECOND, "UTC"), timestamp(TimeUnit::SECOND, tz)};
   ty = CommonTemporalResolution(args.data(), args.size());
+  ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, timestamp(TimeUnit::SECOND, "UTC"));
   AssertTypeEqual(args[1].type, timestamp(TimeUnit::SECOND, tz));
+
+  args = {time32(TimeUnit::SECOND), duration(TimeUnit::SECOND)};
+  ty = CommonTemporalResolution(args.data(), args.size());
+  ReplaceTemporalTypes(ty, &args);
+  AssertTypeEqual(args[0].type, time32(TimeUnit::SECOND));
+  AssertTypeEqual(args[1].type, duration(TimeUnit::SECOND));
+
+  args = {time64(TimeUnit::MICRO), duration(TimeUnit::SECOND)};
+  ty = CommonTemporalResolution(args.data(), args.size());
+  ReplaceTemporalTypes(ty, &args);
+  AssertTypeEqual(args[0].type, time64(TimeUnit::MICRO));
+  AssertTypeEqual(args[1].type, duration(TimeUnit::MICRO));
+
+  args = {time32(TimeUnit::SECOND), duration(TimeUnit::NANO)};
+  ty = CommonTemporalResolution(args.data(), args.size());
+  ReplaceTemporalTypes(ty, &args);
+  AssertTypeEqual(args[0].type, time64(TimeUnit::NANO));
+  AssertTypeEqual(args[1].type, duration(TimeUnit::NANO));
 }
 
 }  // namespace internal
