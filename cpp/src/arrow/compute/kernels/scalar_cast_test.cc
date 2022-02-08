@@ -2286,18 +2286,16 @@ TEST(Cast, StructToDifferentSizeStruct) {
 TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
   // OK to go from non-nullable to nullable...
   std::vector<std::shared_ptr<Field>> fields1 = {
-    std::make_shared<Field>("a", int8(), false),
-    std::make_shared<Field>("b", int8(), false)
-  };
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
   std::shared_ptr<Array> a1, b1;
   a1 = ArrayFromJSON(int8(), "[1, 2]");
   b1 = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src1, StructArray::Make({a1, b1}, fields1));
 
   std::vector<std::shared_ptr<Field>> fields2 = {
-    std::make_shared<Field>("a", int8(), true),
-    std::make_shared<Field>("b", int8(), true)
-  };  
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
   std::shared_ptr<Array> a2, b2;
   a2 = ArrayFromJSON(int8(), "[1, null]");
   b2 = ArrayFromJSON(int8(), "[3, 4]");
@@ -2307,31 +2305,29 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
 
   // But not the other way around
   std::vector<std::shared_ptr<Field>> fields3 = {
-    std::make_shared<Field>("a", int8(), true),
-    std::make_shared<Field>("b", int8(), true)
-  };
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
   std::shared_ptr<Array> a3, b3;
   a3 = ArrayFromJSON(int8(), "[1, null]");
   b3 = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src2, StructArray::Make({a3, b3}, fields3));
 
   std::vector<std::shared_ptr<Field>> fields4 = {
-    std::make_shared<Field>("a", int8(), false),
-    std::make_shared<Field>("b", int8(), false)
-  };  
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
   std::shared_ptr<Array> a4, b4;
   a4 = ArrayFromJSON(int8(), "[1, 2]");
   a4 = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({a4, b4}, fields4));
   auto options = CastOptions::Safe(dest2->type());
-  
+
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
-      ::testing::HasSubstr("Type error: cannot cast non-nullable struct to nullable struct: <a: int8 not null, "
+      ::testing::HasSubstr("Type error: cannot cast non-nullable struct to nullable "
+                           "struct: <a: int8 not null, "
                            "b: int8 not null> struct<a: int8, b: int8>"),
-      Cast(src2, options));  
-}  
-
+      Cast(src2, options));
+}
 
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
