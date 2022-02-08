@@ -173,7 +173,30 @@ struct CastStruct {
             "struct field names do not match: ", batch[0].type()->ToString(), " ",
             out->type()->ToString());
       }
+
+      const auto in_field_nullable =
+	checked_cast<const StructType&>(*batch[0].type()).field(i)->nullable();
+      const auto out_field_nullable =
+          checked_cast<const StructType&>(*out->type()).field(i)->nullable();
+
+      if (in_field_nullable && !out_field_nullable) {
+        return Status::TypeError(
+            "cannot cast non-nullable struct to nullable struct: ", batch[0].type()->ToString(), " ",
+            out->type()->ToString());
+      }
     }
+
+    for (int i = 0; i < in_field_count; ++i) {
+      const auto in_field_name =
+          checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
+      const auto out_field_name =
+          checked_cast<const StructType&>(*out->type()).field(i)->name();
+      if (in_field_name != out_field_name) {
+        return Status::TypeError(
+            "struct field names do not match: ", batch[0].type()->ToString(), " ",
+            out->type()->ToString());
+      }
+    }    
 
     if (out->kind() == Datum::SCALAR) {
       const auto& in_scalar = checked_cast<const StructScalar&>(*batch[0].scalar());
