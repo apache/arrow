@@ -629,12 +629,10 @@ test_that("Dataset min_rows_per_group", {
                       c2 = c("a", "b", "e", "a"))
   rb2 <- record_batch(c1 = c(5, 6, 7, 8, 9),
                       c2 = c("a", "b", "c", "d", "h"))
-  rb3 <- record_batch(c1 = c(9, 10, 11, 12, 0, 1, 100, 200, 300),
-                      c2 = c("a", "b", "c", "d", "e", "d", "g", "h", "i"))
-  rb4 <- record_batch(c1 = c(13, 14, 15, 16, 0, 1),
-                      c2 = c("a", "b", "c", "d", "e", "b"))
+  rb3 <- record_batch(c1 = c(10, 11),
+                      c2 = c("a", "b"))
 
-  dataset <- Table$create(d1 = rb1, d2 = rb2, d3 = rb3, d4 = rb4)
+  dataset <- Table$create(d1 = rb1, d2 = rb2, d3 = rb3)
 
   dst_dir <- make_temp_dir()
   min_rows_per_group <- 4
@@ -655,15 +653,15 @@ test_that("Dataset min_rows_per_group", {
     unlist()
   index <- 1
 
-  # We expect there to be 6 row groups
-  expect_length(row_group_sizes, 6L)
+  # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
+  expect_length(row_group_sizes, 3L)
 
   # We have all the rows
   expect_equal(sum(row_group_sizes), nrow(ds))
 
-  # We expect that 5 of those will be between the two bounds
+  # We expect that 2 of those will be between the two bounds
   in_bounds <- row_group_sizes >= min_rows_per_group & row_group_sizes <= max_rows_per_group
-  expect_equal(sum(in_bounds), 5)
+  expect_equal(sum(in_bounds), 2)
   # and the last one that is not is less than the max:
   expect_lte(row_group_sizes[!in_bounds], max_rows_per_group)
 })
