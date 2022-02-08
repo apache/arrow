@@ -2481,6 +2481,20 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                   std::move(exec)));
   }
 
+  // Add subtract(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time32Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time64Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
   // Add subtract(date32, date32) -> duration(TimeUnit::SECOND)
   InputType in_type_date_32(date32());
   auto exec_date_32 = ScalarBinaryEqualTypes<Int64Type, Date32Type, SubtractDate32>::Exec;
@@ -2532,6 +2546,22 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(subtract_checked->AddKernel({in_type_date_64, in_type_date_64},
                                         duration(TimeUnit::MILLI),
                                         std::move(exec_date_64_checked)));
+
+  // Add subtract_checked(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time32Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract_checked(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time64Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
 
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 

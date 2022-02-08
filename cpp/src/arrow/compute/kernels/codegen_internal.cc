@@ -120,7 +120,14 @@ void ReplaceTemporalTypes(const TimeUnit::type unit, std::vector<ValueDescr>* de
         continue;
       }
       case Type::TIME32:
-      case Type::TIME64:
+      case Type::TIME64: {
+        if (unit > TimeUnit::MILLI) {
+          it->type = time64(unit);
+        } else {
+          it->type = time32(unit);
+        }
+        continue;
+      }
       case Type::DURATION: {
         it->type = duration(unit);
         continue;
