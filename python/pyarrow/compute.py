@@ -16,11 +16,13 @@
 # under the License.
 
 from pyarrow._compute import (  # noqa
+    Arity, 
     Function,
     FunctionOptions,
     FunctionRegistry,
     HashAggregateFunction,
     HashAggregateKernel,
+    InputType, 
     Kernel,
     ScalarAggregateFunction,
     ScalarAggregateKernel,

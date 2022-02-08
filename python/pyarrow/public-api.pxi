@@ -25,10 +25,8 @@ from pyarrow.includes.libarrow cimport (CArray, CDataType, CField,
 # You cannot assign something to a dereferenced pointer in Cython thus these
 # methods don't use Status to indicate a successful operation.
 
-
 cdef api bint pyarrow_is_buffer(object buffer):
     return isinstance(buffer, Buffer)
-
 
 cdef api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
     cdef Buffer buf
@@ -37,7 +35,6 @@ cdef api shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer):
         return buf.buffer
 
     return shared_ptr[CBuffer]()
-
 
 cdef api object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf):
     cdef Buffer result = Buffer.__new__(Buffer)

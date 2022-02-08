@@ -1832,6 +1832,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CArity" arrow::compute::Arity":
         int num_args
         c_bool is_varargs
+        
+        @staticmethod
+        CArity Unary()
+
+    cdef cppclass CInputType" arrow::compute::InputType":
+        @staticmethod
+        CInputType Array(shared_ptr[CDataType] type)
+
+        @staticmethod
+        CInputType Scalar(shared_ptr[CDataType] type)
 
     cdef enum FunctionKind" arrow::compute::Function::Kind":
         FunctionKind_SCALAR" arrow::compute::Function::SCALAR"

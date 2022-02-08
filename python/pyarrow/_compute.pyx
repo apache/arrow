@@ -198,6 +198,55 @@ FunctionDoc = namedtuple(
     ("summary", "description", "arg_names", "options_class",
      "options_required"))
 
+cdef wrap_arity(const CArity c_arity):
+    cdef Arity arity = Arity.__new__(Arity)
+    arity.init(c_arity)
+    return arity
+
+cdef wrap_input_type(const CInputType c_input_type):
+    cdef InputType input_type = InputType.__new__(InputType)
+    input_type.init(c_input_type)
+    return input_type
+
+cdef class InputType(_Weakrefable):
+
+    def __init__(self):
+        raise TypeError("Cannot use constructor to initialize InputType")
+
+    cdef void init(self, const CInputType &input_type):
+        self.input_type = input_type
+
+    @staticmethod
+    def scalar(data_type):
+        cdef:
+            shared_ptr[CDataType] c_data_type
+            CInputType c_input_type
+        c_data_type = pyarrow_unwrap_data_type(data_type)
+        c_input_type = CInputType.Scalar(c_data_type)
+        return wrap_input_type(c_input_type)
+
+    @staticmethod
+    def array(data_type):
+        cdef:
+            shared_ptr[CDataType] c_data_type
+            CInputType c_input_type
+        c_data_type = pyarrow_unwrap_data_type(data_type)
+        c_input_type = CInputType.Array(c_data_type)
+        return wrap_input_type(c_input_type)
+
+
+cdef class Arity(_Weakrefable):
+
+    def __init__(self):
+        raise TypeError("Cannot use constructor to initialize Arity")
+
+    cdef void init(self, const CArity &arity):
+        self.arity = arity
+
+    @staticmethod
+    def unary():
+        cdef CArity c_arity = CArity.Unary()
+        return wrap_arity(c_arity)
 
 cdef class Function(_Weakrefable):
     """
@@ -489,6 +538,9 @@ cdef class FunctionRegistry(_Weakrefable):
         with nogil:
             func = GetResultValue(self.registry.GetFunction(c_name))
         return wrap_function(func)
+
+    def register_function(self, name, arity, input_types, output_type, function_kind):
+        pass
 
 
 cdef FunctionRegistry _global_func_registry = FunctionRegistry()
