@@ -172,6 +172,12 @@ TEST(Substrait, SupportedTypes) {
                field("", int64()),
                field("", list(utf8())),
            }));
+
+  ExpectEq(R"({"map": {
+    "key": {"string":{"nullability": "NULLABILITY_REQUIRED"}},
+    "value": {"string":{}}
+  }})",
+           map(utf8(), field("", utf8()), false));
 }
 
 TEST(Substrait, SupportedExtensionTypes) {

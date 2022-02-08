@@ -339,8 +339,8 @@ struct DataTypeToProtoImpl {
     ARROW_ASSIGN_OR_RAISE(auto key, ToProto(*t.key_type(), /*nullable=*/false, ext_set_));
     map->set_allocated_key(key.release());
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto value, ToProto(*t.value_type(), t.value_field()->nullable(), ext_set_));
+    ARROW_ASSIGN_OR_RAISE(auto value,
+                          ToProto(*t.item_type(), t.item_field()->nullable(), ext_set_));
     map->set_allocated_value(value.release());
 
     return Status::OK();
