@@ -25,7 +25,6 @@ extern "C" {
 #include <string.h>
 #include <time.h>
 
-#include "../../arrow/vendored/datetime/date.h"
 #include "./time_constants.h"
 #include "./time_fields.h"
 #include "./types.h"
@@ -994,11 +993,12 @@ static const int PARTTERN_MONTH_LEN[] = {5, 3, 2};
 
 static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
 static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
+static const char* MAXDATE = "9999-12-31 23:59:59";
 
 FORCE_INLINE
-const char* date_trunc_timestamp_utf8(int64_t context, gdv_int64 date,
-                                      const char* pattern_name, gdv_int32 pattern_length,
-                                      gdv_int32* out_len) {
+const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
+                                      const char* pattern_name, int32_t pattern_length,
+                                      int32_t* out_len) {
   if (pattern_length <= 1) {
     gdv_fn_context_set_error_msg(
         context, "The parameter pattern_length is not contain a valid value");
@@ -1006,7 +1006,7 @@ const char* date_trunc_timestamp_utf8(int64_t context, gdv_int64 date,
     return "";
   }
 
-  gdv_timestamp dateMax = castTIMESTAMP_utf8(context, "9999-12-31 23:59:59", 19);
+  gdv_timestamp dateMax = castTIMESTAMP_utf8(context, MAXDATE, 19);
   if (date > dateMax) {
     gdv_fn_context_set_error_msg(context, "The date is invalid");
     *out_len = 0;
