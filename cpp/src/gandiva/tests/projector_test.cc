@@ -2807,16 +2807,16 @@ TEST_F(TestProjector, TestTrunc) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
+  int num_records = 2;
   auto array0 =
-      MakeArrowArrayDate64({1561856401000, 1561856401000, 1561856401000, 1561856401000},
-                           {true, true, false, false});
+      MakeArrowArrayDate64({1561856401000, 1561856401000},
+                           {true, true});
   auto array1 =
-      MakeArrowArrayUtf8({"MONTH", "YEAR", "ASLDKFJ!@#$%*()_+?}{b大路学路b", ""},
-                         {true, true, false, false});
+      MakeArrowArrayUtf8({"MONTH", "YEAR"},
+                         {true, true});
   // expected output
-  auto exp_output = MakeArrowArrayUtf8({"2019-06-01", "2019-01-01", "", ""},
-                                       {true, true, false, false});
+  auto exp_output = MakeArrowArrayUtf8({"2019-06-01", "2019-01-01"},
+                                       {true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
