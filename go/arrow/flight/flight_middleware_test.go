@@ -87,15 +87,13 @@ func (s ServerExpectHeaderMiddleware) StartCall(ctx context.Context) context.Con
 func (s ServerExpectHeaderMiddleware) CallCompleted(context.Context, error) {}
 
 func TestServerStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -135,15 +133,13 @@ func TestServerStreamMiddleware(t *testing.T) {
 }
 
 func TestServerUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -208,15 +204,13 @@ func (c *ClientTestSendHeaderMiddleware) HeadersReceived(ctx context.Context, md
 }
 
 func TestClientStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerExpectHeaderMiddleware{}),
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -257,15 +251,13 @@ func TestClientStreamMiddleware(t *testing.T) {
 }
 
 func TestClientUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerExpectHeaderMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
