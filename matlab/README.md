@@ -17,29 +17,58 @@
   under the License.
 -->
 
-## MATLAB Library for Apache Arrow
+# MATLAB Interface to Apache Arrow
 
 ## Status
 
 This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
-The current code only supports reading/writing numeric types from/to Feather files.
+The current code only supports reading/writing numeric types from/to Feather v1 files.
 
-## Building from source
+## Build
 
-### Get Arrow and build Arrow CPP
+## Install
 
-See: [Arrow CPP README](../cpp/README.md)
+After building the MATLAB Interface to Arrow, install the library by running the following command:
 
-### Build MATLAB interface to Apache Arrow using MATLAB R2018a:
+``` CMake
+cmake --build build --config Release --target install
+```
 
-    cd arrow/matlab
-    mkdir build
-    cd build
-    cmake ..
-    make
+The installation process includes 
 
-#### Non-standard MATLAB and Arrow installations
+Once installed, the interface's source files and libraries are relocatable, on all platforms. If the interface is relocated, then the user must manually add the new location to the [MATLAB Search Path](https://uk.mathworks.com/help/matlab/matlab_env/what-is-the-matlab-search-path.html).
+
+## Test
+
+### C++
+
+### MATLAB
+
+``` matlab
+>> runtests test;
+```
+
+## Usage
+
+### Write a MATLAB table to a Feather v1 file
+
+``` matlab
+>> t = array2table(rand(10, 10));
+>> filename = 'table.feather';
+>> featherwrite(filename,t);
+```
+
+### Read a Feather v1 file into a MATLAB table
+
+``` matlab
+>> filename = 'table.feather';
+>> t = featherread(filename);
+```
+
+## Troubleshooting
+
+### Non-standard MATLAB and Arrow installations
 
 To specify a non-standard MATLAB install location, use the Matlab_ROOT_DIR CMake flag:
 
@@ -49,72 +78,4 @@ To specify a non-standard Arrow install location, use the ARROW_HOME CMake flag:
 
     cmake .. -DARROW_HOME=/<PATH_TO_ARROW_INSTALL>
 
-### Build MATLAB interface to Arrow using MATLAB R2018b or later:
 
-This may be preferred if you are using MATLAB R2018b or later and have encountered [linker errors](https://gitlab.kitware.com/cmake/cmake/issues/18391) when using CMake.
-
-Prerequisite: Ensure that the Arrow C++ library is already installed and the `ARROW_HOME` environment variable is set to the installation root.
-
-To verify this, you can run:
-
-``` matlab
->> getenv ARROW_HOME
-```
-
-This should print a path that contains `include` and `lib` directories with Arrow C++ headers and libraries.
-
-Navigate to the `build_support` subfolder and run the `compile` function to build the necessary MEX files:
-
-``` matlab
->> cd build_support
->> compile
-```
-
-Run the `test` function to execute the unit tests:
-
-``` matlab
->> test
-```
-
-### Install MATLAB Interface to Arrow using CMake
-After building the MATLAB Interface to Arrow, install the library by running the following command:
-``` CMake
-cmake --build build --config Release --target install
-```
-The installation process includes 
-
-Once installed, the interface's source files and libraries are relocatable, on all platforms. If the interface is relocated, then the user must manually add the new location to the [MATLAB Search Path](https://uk.mathworks.com/help/matlab/matlab_env/what-is-the-matlab-search-path.html).
-
-## Try it out
-### Add the src and build directories to your MATLAB path
-
-``` matlab
->> cd(fullfile('arrow', 'matlab'));
->> addpath src;
->> addpath build;
-```
-
-### Write a MATLAB table to a Feather file
-
-``` matlab
->> t = array2table(rand(10, 10));
->> filename = 'table.feather';
->> featherwrite(filename,t);
-```
-
-### Read a Feather file into a MATLAB table
-
-``` matlab
->> filename = 'table.feather';
->> t = featherread(filename);
-```
-
-## Running the tests
-
-``` matlab
->> cd(fullfile('arrow', 'matlab'));
->> addpath src;
->> addpath build;
->> cd test;
->> runtests .;
-```
