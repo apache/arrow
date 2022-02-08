@@ -42,8 +42,8 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29':
-    raise Exception('Please upgrade to Cython 0.29 or newer')
+if Cython.__version__ < '0.29.22':
+    raise Exception('Please upgrade to Cython 0.29.22 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
