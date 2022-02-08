@@ -2651,7 +2651,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   AddArithmeticFunctionTimeDurations<SubtractTimeDurationChecked>(subtract_checked);
 
-
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
