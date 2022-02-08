@@ -1017,19 +1017,18 @@ const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
   // When the first match is found, the repetition is break
   bool foundPattern = false;
   for (int n = 0; n <= 2; n++) {
-    if (mem_compare(pattern_name, pattern_length, PATTERN_MONTH[n],
-                    PARTTERN_MONTH_LEN[n]) == 0) {
-      // Replace date received from parameter to date truncated
-      date = date_trunc_Month_timestamp(date);
-      foundPattern = true;
-      break;
-    } else if (mem_compare(pattern_name, pattern_length, PATTERN_YEAR[n],
-                           PARTTERN_YEAR_LEN[n]) == 0) {
-      // Replace date received from parameter to date truncated
-      date = date_trunc_Year_timestamp(date);
-      foundPattern = true;
-      break;
-    }
+      if (pattern_length == PARTTERN_MONTH_LEN[n] && memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {
+        // Replace date received from parameter to date truncated
+        date = date_trunc_Month_timestamp(date);
+        foundPattern = true;
+        break;
+      }
+      else if (pattern_length == PARTTERN_YEAR_LEN[n] && memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {
+        // Replace date received from parameter to date truncated
+        date = date_trunc_Year_timestamp(date);
+        foundPattern = true;
+        break;
+      }
   }
 
   if (!foundPattern) {
