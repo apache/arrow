@@ -1013,15 +1013,19 @@ const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
     return "";
   }
 
+  // This repetition identify if pattern is Month or Year
+  // When the first match is found, the repetition is break
   bool foundPattern = false;
   for (int n = 0; n <= 2; n++) {
     if (mem_compare(pattern_name, pattern_length, PATTERN_MONTH[n],
                     PARTTERN_MONTH_LEN[n]) == 0) {
+      // Replace date received from parameter to date truncated
       date = date_trunc_Month_timestamp(date);
       foundPattern = true;
       break;
     } else if (mem_compare(pattern_name, pattern_length, PATTERN_YEAR[n],
                            PARTTERN_YEAR_LEN[n]) == 0) {
+      // Replace date received from parameter to date truncated
       date = date_trunc_Year_timestamp(date);
       foundPattern = true;
       break;
@@ -1039,12 +1043,23 @@ const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
   gdv_int64 day = extractDay_timestamp(date);
 
   static const int kTimeStampStringLen = 10;
-  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
-  char char_buffer[char_buffer_length];
+  // snprintf adds \0
+  const int char_buffer_length = kTimeStampStringLen + 1;
+
+  // Variable "char_buffer" allocated in memory dynamically
+  char* char_buffer =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, char_buffer_length));
+
+  if (char_buffer == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
 
   // yyyy-MM-dd
   int res = snprintf(char_buffer, char_buffer_length,
                      "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+
   if (res < 0) {
     gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
     *out_len = 0;
@@ -1064,15 +1079,7 @@ const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
     return "";
   }
 
-  char* ret = reinterpret_cast<char*>(char_buffer);
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  memcpy(ret, char_buffer, *out_len);
-  return ret;
+  return char_buffer;
 }
 
 // Convert the seconds since epoch argument to timestamp
