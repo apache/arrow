@@ -2427,7 +2427,7 @@ class DeltaByteArrayDecoder : public DecoderImpl,
     int suffix_read = suffix_decoder_.Decode(buffer, max_values);
     if (ARROW_PREDICT_FALSE(suffix_read != max_values)) {
       ParquetException::EofException("Read " + std::to_string(suffix_read) +
-                                     "Expecting " + std::to_string(max_values) +
+                                     ", expecting " + std::to_string(max_values) +
                                      " from suffix decoder");
     }
 
