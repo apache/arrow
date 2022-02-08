@@ -374,6 +374,21 @@ TEST(TestFlight, ServeShutdown) {
   }
 }
 
+TEST(TestFlight, ServeShutdownWithDeadline) {
+  Location location;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+  ASSERT_GT(server->port(), 0);
+
+  auto deadline = std::chrono::system_clock::now() + std::chrono::microseconds(10);
+
+  ASSERT_OK(server->Shutdown(&deadline));
+  ASSERT_OK(server->Wait());
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 

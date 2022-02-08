@@ -28,6 +28,7 @@
 #endif
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <sstream>
@@ -1024,13 +1025,17 @@ Status FlightServerBase::Serve() {
 
 int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
 
-Status FlightServerBase::Shutdown() {
+Status FlightServerBase::Shutdown(const std::chrono::system_clock::time_point* deadline) {
   auto server = impl_->server_.get();
   if (!server) {
     return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
   }
   impl_->running_instance_ = nullptr;
-  impl_->server_->Shutdown();
+  if (deadline == nullptr) {
+    impl_->server_->Shutdown();
+  } else {
+    impl_->server_->Shutdown(*deadline);
+  }
   return Status::OK();
 }
 
