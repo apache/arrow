@@ -201,7 +201,9 @@ using MemoryDebugHandler = std::function<void(uint8_t* ptr, int64_t size, const 
 struct DebugState {
   void Invoke(uint8_t* ptr, int64_t size, const Status& st) {
     std::lock_guard<std::mutex> lock(mutex_);
-    handler_(ptr, size, st);
+    if (handler_) {
+      handler_(ptr, size, st);
+    }
   }
 
   void SetHandler(MemoryDebugHandler handler) {
@@ -209,10 +211,21 @@ struct DebugState {
     handler_ = std::move(handler);
   }
 
+  static DebugState* Instance() {
+    // Instance is constructed on-demand. If it was a global static variable,
+    // it could be constructed after being used.
+    static DebugState instance;
+    return &instance;
+  }
+
  private:
+  DebugState() = default;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(DebugState);
+
   std::mutex mutex_;
   MemoryDebugHandler handler_;
-} debug_state;
+};
 
 void DebugAbort(uint8_t* ptr, int64_t size, const Status& st) { st.Abort(); }
 
@@ -235,16 +248,17 @@ bool IsDebugEnabled() {
     if (env_value.empty()) {
       return false;
     }
+    auto debug_state = DebugState::Instance();
     if (env_value == "abort") {
-      debug_state.SetHandler(DebugAbort);
+      debug_state->SetHandler(DebugAbort);
       return true;
     }
     if (env_value == "trap") {
-      debug_state.SetHandler(DebugTrap);
+      debug_state->SetHandler(DebugTrap);
       return true;
     }
     if (env_value == "warn") {
-      debug_state.SetHandler(DebugWarn);
+      debug_state->SetHandler(DebugWarn);
       return true;
     }
     ARROW_LOG(WARNING) << "Invalid value for " << kDebugMemoryEnvVar << ": '" << env_value
@@ -318,7 +332,7 @@ class DebugAllocator {
     if (ARROW_PREDICT_FALSE(stored_size != size)) {
       auto st = Status::Invalid("Wrong size on ", context, ": given size = ", size,
                                 ", actual size = ", stored_size);
-      debug_state.Invoke(ptr, size, st);
+      DebugState::Instance()->Invoke(ptr, size, st);
     }
   }
 
