@@ -2460,6 +2460,70 @@ TEST(GroupBy, Distinct) {
   }
 }
 
+TEST(GroupBy, One) {
+  CountOptions all(CountOptions::ALL);
+
+  auto table =
+      TableFromJSON(schema({field("argument", utf8()), field("key", int64())}), {R"([
+    ["foo",  1],
+    ["foo",  1]
+])",
+                                                                                 R"([
+    ["bar",  2],
+    [null,   3],
+    [null,   3]
+])",
+                                                                                 R"([
+    [null,   4],
+    [null,   4]
+])",
+                                                                                 R"([
+    ["baz",  null],
+    ["foo",  3]
+])",
+                                                                                 R"([
+    ["bar",  2],
+    ["spam", 2]
+])",
+                                                                                 R"([
+    ["eggs", null],
+    ["ham",  3]
+  ])",
+                                                                                 R"([
+    ["a",    null],
+    ["b",    null]
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                       internal::GroupBy(
+                           {
+                               table->GetColumnByName("argument"),
+                           },
+                           {
+                               table->GetColumnByName("key"),
+                           },
+                           {
+                               {"hash_one", nullptr},
+                           },
+                           false));
+  ValidateOutput(aggregated_and_grouped);
+  SortBy({"key_0"}, &aggregated_and_grouped);
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("hash_one", utf8()),
+                                      field("key_0", int64()),
+                                  }),
+                                  R"([
+      ["foo", 1],
+      ["bar", 2],
+      [null,  3],
+      [null,  4],
+      ["baz", null]
+    ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([

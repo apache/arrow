@@ -2451,6 +2451,92 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
   return std::move(impl);
 }
 
+// ----------------------------------------------------------------------
+// One implementation
+
+struct GroupedOneImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    pool_ = ctx->memory_pool();
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    ARROW_ASSIGN_OR_RAISE(std::ignore, grouper_->Consume(batch));
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedOneImpl*>(&raw_other);
+
+    // Get (value, group_id) pairs, then translate the group IDs and consume them
+    // ourselves
+    ARROW_ASSIGN_OR_RAISE(auto uniques, other->grouper_->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(auto remapped_g,
+                          AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
+
+    const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
+    const auto* other_g = uniques[1].array()->GetValues<uint32_t>(1);
+    auto* g = reinterpret_cast<uint32_t*>(remapped_g->mutable_data());
+
+    for (int64_t i = 0; i < uniques.length; i++) {
+      g[i] = g_mapping[other_g[i]];
+    }
+    uniques.values[1] =
+        ArrayData::Make(uint32(), uniques.length, {nullptr, std::move(remapped_g)});
+
+    return Consume(std::move(uniques));
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
+    ARROW_ASSIGN_OR_RAISE(auto groupings, grouper_->MakeGroupings(
+                                              *uniques[1].array_as<UInt32Array>(),
+                                              static_cast<uint32_t>(num_groups_), ctx_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
+    std::shared_ptr<Array> values = list->values();
+    auto offsets = std::dynamic_pointer_cast<Int32Array>(list->offsets());
+
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx_->memory_pool(), out_type(), &builder));
+    RETURN_NOT_OK(builder->Reserve(num_groups_));
+    for (int i = 0; i < list->length(); ++i) {
+      auto slot_length = offsets->Value(i + 1) - offsets->Value(i);
+      if (slot_length > 0) {
+        RETURN_NOT_OK(builder->AppendArraySlice(*values->data(), offsets->Value(i), 1));
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+    return result->data();
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  ExecContext* ctx_;
+  MemoryPool* pool_;
+  int64_t num_groups_;
+  std::unique_ptr<Grouper> grouper_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl>(ctx, args));
+  auto instance = static_cast<GroupedOneImpl*>(impl.get());
+  instance->out_type_ = args.inputs[0].type;
+  ARROW_ASSIGN_OR_RAISE(instance->grouper_,
+                        Grouper::Make(args.inputs, ctx->exec_context()));
+  return std::move(impl);
+}
+
 }  // namespace
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -2811,6 +2897,10 @@ const FunctionDoc hash_distinct_doc{
     {"array", "group_id_array"},
     "CountOptions"};
 
+const FunctionDoc hash_one_doc{"Get one value from each group",
+                               ("Null values are also returned."),
+                               {"array", "group_id_array"}};
+
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -2991,6 +3081,12 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_distinct", Arity::Binary(), &hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
+                                                        &hash_one_doc);
+    DCHECK_OK(func->AddKernel(MakeKernel(ValueDescr::ARRAY, GroupedOneInit)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
