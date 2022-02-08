@@ -1,27 +1,17 @@
-BUILD:
-- aarch64-conda_cos7-linux-gnu
 bzip2:
 - '1'
 c_compiler:
-- gcc
-c_compiler_version:
-- '9'
-cdt_arch:
-- aarch64
-cdt_name:
-- cos7
+- vs2017
 channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
+cuda_compiler:
+- nvcc
 cuda_compiler_version:
-- None
+- '10.2'
 cxx_compiler:
-- gxx
-cxx_compiler_version:
-- '9'
-docker_image:
-- quay.io/condaforge/linux-anvil-cos7-x86_64
+- vs2017
 gflags:
 - '2.2'
 glog:
@@ -36,8 +26,6 @@ numpy:
 - '1.19'
 openssl:
 - 1.1.1
-orc:
-- 1.7.2
 pin_run_as_build:
   bzip2:
     max_pin: x
@@ -55,15 +43,10 @@ re2:
 snappy:
 - '1'
 target_platform:
-- linux-aarch64
+- win-64
 thrift_cpp:
 - 0.15.0
 zip_keys:
-- - c_compiler_version
-  - cxx_compiler_version
-  - cuda_compiler_version
-  - cdt_name
-  - docker_image
 - - python
   - numpy
 zlib:

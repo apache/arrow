@@ -194,7 +194,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -204,7 +204,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.7.____cpython
       r_config: linux_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -214,7 +214,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.17python3.8.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -223,13 +223,22 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNonenumpy1.19python3.9.____cpython
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.19python3.9.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
-{% for python_version, numpy_version in [("3.7", "1.17"),
-                                         ("3.8", "1.17"),
+  conda-linux-gcc-py310-cpu:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_64_c_compiler_version9cuda_compiler_versionNonecxx_compiler_version9numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
+{% for python_version, numpy_version in [("3.7", "1.18"),
+                                         ("3.8", "1.18"),
                                          ("3.9", "1.19"),
                                          ("3.10", "1.21")] %}
   {% set pyver = python_version | replace(".", "") %}
@@ -238,7 +247,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_version10.2numpy{{ numpy_version }}python{{ python_version }}.____cpython
+      config: linux_64_c_compiler_version7cuda_compiler_version10.2cxx_compiler_version7numpy{{ numpy_version }}python{{ python_version }}.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cuda.tar.bz2
@@ -252,6 +261,15 @@ tasks:
       - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-linux-gcc-py{{ pyver }}-ppc64le:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_numpy{{ numpy_version }}python{{ python_version }}.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py{{ pyver }}(h[a-z0-9]+)_0_cpu.tar.bz2
+
 {% endfor %}
 
   ############################## Conda OSX ####################################
@@ -260,7 +278,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.7.____cpython
+      config:  osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -270,7 +288,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.7.____cpython
+      config: osx_64_numpy1.18python3.7.____cpython
       r_config: osx_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -280,7 +298,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_64_numpy1.17python3.8.____cpython
+      config: osx_64_numpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -294,11 +312,20 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-osx-clang-py310:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_64_numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
   conda-osx-arm64-clang-py38:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_arm64_python3.8.____cpython
+      config: osx_arm64_numpy1.19python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -307,10 +334,19 @@ tasks:
     ci: azure
     template: conda-recipes/azure.osx.yml
     params:
-      config: osx_arm64_python3.9.____cpython
+      config: osx_arm64_numpy1.19python3.9.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+
+  conda-osx-arm64-clang-py310:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_arm64_numpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
 
   ############################## Conda Windows ################################
 
@@ -318,7 +354,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.0
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -328,7 +364,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.7.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.7.____cpython
       r_config: win_64_r_base4.1
     artifacts:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -338,7 +374,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNonenumpy1.17python3.8.____cpython
+      config: win_64_cuda_compiler_versionNonenumpy1.18python3.8.____cpython
     artifacts:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
@@ -349,9 +385,19 @@ tasks:
     params:
       config: win_64_cuda_compiler_versionNonenumpy1.19python3.9.____cpython
     artifacts:
-      - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
-      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
+      - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cpu.tar.bz2
 
+  conda-win-vs2017-py310:
+    ci: azure
+    template: conda-recipes/azure.win.yml
+    params:
+      config: win_64_cuda_compiler_versionNonenumpy1.21python3.10.____cpython
+    artifacts:
+      - arrow-cpp-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.tar.bz2
+
+# TODO: Windows CUDA
 
 {% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
                                                ("3.8", "cp38", "cp38"),

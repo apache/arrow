@@ -1,41 +1,31 @@
-aws_sdk_cpp:
-- 1.8.186
 bzip2:
 - '1'
 c_compiler:
-- gcc
-c_compiler_version:
-- '9'
-cdt_name:
-- cos6
+- vs2017
 channel_sources:
-- conda-forge,defaults
+- conda-forge
 channel_targets:
 - conda-forge main
 cuda_compiler:
 - nvcc
 cuda_compiler_version:
-- None
+- '10.2'
 cxx_compiler:
-- gxx
-cxx_compiler_version:
-- '9'
-docker_image:
-- quay.io/condaforge/linux-anvil-comp7
+- vs2017
 gflags:
 - '2.2'
 glog:
 - '0.5'
 grpc_cpp:
-- '1.38'
+- '1.42'
 libprotobuf:
-- '3.16'
+- '3.19'
 lz4_c:
 - 1.9.3
 numpy:
-- '1.17'
-orc:
-- 1.6.8
+- '1.21'
+openssl:
+- 1.1.1
 pin_run_as_build:
   bzip2:
     max_pin: x
@@ -47,21 +37,16 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.6.* *_cpython
+- 3.10.* *_cpython
 re2:
-- 2021.06.01
+- 2021.11.01
 snappy:
 - '1'
 target_platform:
-- linux-64
+- win-64
 thrift_cpp:
-- 0.14.2
+- 0.15.0
 zip_keys:
-- - c_compiler_version
-  - cxx_compiler_version
-- - cuda_compiler_version
-  - cdt_name
-  - docker_image
 - - python
   - numpy
 zlib:
