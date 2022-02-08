@@ -552,7 +552,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::Invalid("negative malloc size");
     }
     if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
-      return Status::CapacityError("malloc size overflows size_t");
+      return Status::OutOfMemory("malloc size overflows size_t");
     }
     RETURN_NOT_OK(Allocator::AllocateAligned(size, out));
 #ifndef NDEBUG
@@ -573,7 +573,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::Invalid("negative realloc size");
     }
     if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
-      return Status::CapacityError("realloc overflows size_t");
+      return Status::OutOfMemory("realloc overflows size_t");
     }
     RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, ptr));
 #ifndef NDEBUG
