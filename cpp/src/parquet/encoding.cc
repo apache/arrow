@@ -2181,9 +2181,7 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   int GetInternal(T* buffer, int max_values) {
-    int total_value_count = static_cast<int>(std::min(
-        total_value_count_, static_cast<uint32_t>(std::numeric_limits<int>::max())));
-    max_values = std::min(max_values, total_value_count);
+    max_values = static_cast<int>(std::min<int64_t>(max_values, total_value_count_));
     DCHECK_GE(max_values, 0);
     if (max_values == 0) {
       return 0;
