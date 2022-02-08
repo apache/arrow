@@ -19,6 +19,9 @@
 
 # arrow 7.0.0.9000
 
+* `lubridate`: 
+  * `tz()` to extract/get timezone
+
 # arrow 7.0.0
 
 ## Enhancements to dplyr and datasets
