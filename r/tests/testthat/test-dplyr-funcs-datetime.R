@@ -696,7 +696,9 @@ test_that("extract yday from date", {
     .input %>%
       mutate(x = yday(date)) %>%
       collect(),
-    test_df
+    test_df,
+    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    ignore_attr = on_windows()
   )
 })
 
