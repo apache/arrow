@@ -450,6 +450,16 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
 }
 
 GANDIVA_EXPORT
+const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len, int32_t* out_len) {
+
+  if (data_len <= 0) {
+    *out_len = 0;
+    return nullptr;
+  }
+
+}
+
+GANDIVA_EXPORT
 const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
                                        int32_t data_len, int32_t n_to_mask,
                                        int32_t* out_len) {
