@@ -151,6 +151,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void InitLocalStateIfNeeded(size_t thread_index) {
+    DCHECK_LT(thread_index, local_states_.size());
     ThreadLocalState& local_state = local_states_[thread_index];
     if (!local_state.is_initialized) {
       InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys);
