@@ -31,6 +31,16 @@
 namespace arrow {
 namespace engine {
 
+/// \brief A helper class for creating simple extension types
+///
+/// Extension types can be parameterized by flat structs
+///
+/// Each item in the struct will be serialized and deserialized using
+/// the STL insertion and extraction operators (i.e. << and >>).
+///
+/// Note: The serialization is a very barebones JSON-like format and
+/// probably shouldn't be hand-edited
+
 template <const util::string_view& kExtensionName, typename Params,
           typename ParamsProperties, const ParamsProperties* kProperties,
           std::shared_ptr<DataType> GetStorage(const Params&)>
@@ -45,6 +55,9 @@ class SimpleExtensionType : public ExtensionType {
                                                  std::move(params));
   }
 
+  /// \brief Returns the parameters object for the type
+  ///
+  /// If the type is not an instance of this extension type then nullptr will be returned
   static const Params* GetIf(const DataType& type) {
     if (type.id() != Type::EXTENSION) return nullptr;
 
@@ -58,6 +71,7 @@ class SimpleExtensionType : public ExtensionType {
 
   std::string ToString() const override { return "extension<" + this->Serialize() + ">"; }
 
+  /// \brief A comparator which returns true iff all parameter properties are equal
   struct ExtensionEqualsImpl {
     ExtensionEqualsImpl(const Params& l, const Params& r) : left_(l), right_(r) {
       kProperties->ForEach(*this);
@@ -72,6 +86,7 @@ class SimpleExtensionType : public ExtensionType {
     const Params& right_;
     bool equal_ = true;
   };
+
   bool ExtensionEquals(const ExtensionType& other) const override {
     if (kExtensionName != other.extension_name()) return false;
     const auto& other_params = static_cast<const SimpleExtensionType&>(other).params_;
