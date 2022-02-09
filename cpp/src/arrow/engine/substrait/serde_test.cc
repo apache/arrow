@@ -100,25 +100,12 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-std::shared_ptr<Buffer> SubstraitFromJSON(util::string_view type_name,
-                                          util::string_view json) {
-  auto maybe_buf = internal::SubstraitFromJSON(type_name, json);
-  DCHECK_OK(maybe_buf.status());
-  return maybe_buf.ValueOrDie();
-}
-
-std::string SubstraitToJSON(util::string_view type_name, const Buffer& buf) {
-  auto maybe_buf = internal::SubstraitToJSON(type_name, buf);
-  DCHECK_OK(maybe_buf.status());
-  return maybe_buf.ValueOrDie();
-}
-
 TEST(Substrait, SupportedTypes) {
   auto ExpectEq = [](util::string_view json, std::shared_ptr<DataType> expected_type) {
     ARROW_SCOPED_TRACE(json);
 
     ExtensionSet empty;
-    auto buf = SubstraitFromJSON("Type", json);
+    ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Type", json));
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, empty));
 
     EXPECT_EQ(*type, *expected_type);
@@ -193,8 +180,10 @@ TEST(Substrait, SupportedExtensionTypes) {
     auto anchor = ext_set.types().size();
 
     EXPECT_THAT(ext_set.EncodeType(*expected_type), ResultWith(Eq(anchor)));
-    auto buf = SubstraitFromJSON(
-        "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}");
+    ASSERT_OK_AND_ASSIGN(
+        auto buf,
+        internal::SubstraitFromJSON(
+            "Type", "{\"user_defined_type_reference\": " + std::to_string(anchor) + "}"));
 
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
@@ -211,7 +200,7 @@ TEST(Substrait, SupportedExtensionTypes) {
 TEST(Substrait, NamedStruct) {
   ExtensionSet ext_set;
 
-  auto buf = SubstraitFromJSON("NamedStruct", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {
       "types": [
         {"i64": {}},
@@ -226,7 +215,7 @@ TEST(Substrait, NamedStruct) {
       ]
     },
     "names": ["a", "b", "c", "d", "e", "f"]
-  })");
+  })"));
   ASSERT_OK_AND_ASSIGN(auto schema, DeserializeSchema(*buf, ext_set));
   Schema expected_schema({
       field("a", int64()),
@@ -244,17 +233,17 @@ TEST(Substrait, NamedStruct) {
   EXPECT_EQ(*roundtripped, expected_schema);
 
   // too few names
-  buf = SubstraitFromJSON("NamedStruct", R"({
+  ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]},
     "names": []
-  })");
+  })"));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // too many names
-  buf = SubstraitFromJSON("NamedStruct", R"({
+  ASSERT_OK_AND_ASSIGN(buf, internal::SubstraitFromJSON("NamedStruct", R"({
     "struct": {"types": []},
     "names": ["a", "b", "c"]
-  })");
+  })"));
   EXPECT_THAT(DeserializeSchema(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // no schema metadata allowed
@@ -269,7 +258,8 @@ TEST(Substrait, NamedStruct) {
 }
 
 TEST(Substrait, NoEquivalentArrowType) {
-  auto buf = SubstraitFromJSON("Type", R"({"user_defined_type_reference": 99})");
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON(
+                                     "Type", R"({"user_defined_type_reference": 99})"));
   ExtensionSet empty;
   ASSERT_THAT(
       DeserializeType(*buf, empty),
@@ -310,7 +300,9 @@ TEST(Substrait, SupportedLiterals) {
   auto ExpectEq = [](util::string_view json, Datum expected_value) {
     ARROW_SCOPED_TRACE(json);
 
-    auto buf = SubstraitFromJSON("Expression", "{\"literal\":" + json.to_string() + "}");
+    ASSERT_OK_AND_ASSIGN(
+        auto buf, internal::SubstraitFromJSON("Expression",
+                                              "{\"literal\":" + json.to_string() + "}"));
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto expr, DeserializeExpression(*buf, ext_set));
 
@@ -408,7 +400,8 @@ TEST(Substrait, SupportedLiterals) {
        }) {
     ExtensionSet set;
     ASSERT_OK_AND_ASSIGN(auto buf, SerializeType(*type, &set));
-    ExpectEq("{\"null\": " + SubstraitToJSON("Type", *buf) + "}", MakeNullScalar(type));
+    ASSERT_OK_AND_ASSIGN(auto json, internal::SubstraitToJSON("Type", *buf));
+    ExpectEq("{\"null\": " + json + "}", MakeNullScalar(type));
   }
 }
 
@@ -416,20 +409,18 @@ TEST(Substrait, CannotDeserializeLiteral) {
   ExtensionSet ext_set;
 
   // Invalid: missing List.element_type
-  EXPECT_THAT(
-      DeserializeExpression(
-          *SubstraitFromJSON("Expression", R"({"literal": {"list": {"values": []}}})"),
-          ext_set),
-      Raises(StatusCode::Invalid));
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("Expression",
+                                            R"({"literal": {"list": {"values": []}}})"));
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // Invalid: required null literal
-  EXPECT_THAT(
-      DeserializeExpression(
-          *SubstraitFromJSON(
-              "Expression",
-              R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"),
-          ext_set),
-      Raises(StatusCode::Invalid));
+  ASSERT_OK_AND_ASSIGN(
+      buf,
+      internal::SubstraitFromJSON(
+          "Expression",
+          R"({"literal": {"null": {"bool": {"nullability": "NULLABILITY_REQUIRED"}}}})"));
+  EXPECT_THAT(DeserializeExpression(*buf, ext_set), Raises(StatusCode::Invalid));
 
   // no equivalent arrow scalar
   // FIXME no way to specify scalars of user_defined_type_reference
@@ -476,7 +467,7 @@ TEST(Substrait, RecursiveFieldRef) {
   ASSERT_OK_AND_ASSIGN(auto expr, compute::field_ref(ref).Bind(*kBoringSchema));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  auto expected = SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -490,7 +481,7 @@ TEST(Substrait, RecursiveFieldRef) {
       },
       "rootReference": {}
     }
-  })");
+  })"));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -508,7 +499,7 @@ TEST(Substrait, FieldRefsInExpressions) {
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-  auto expected = SubstraitFromJSON("Expression", R"({
+  ASSERT_OK_AND_ASSIGN(auto expected, internal::SubstraitFromJSON("Expression", R"({
     "selection": {
       "directReference": {
         "structField": {
@@ -527,7 +518,7 @@ TEST(Substrait, FieldRefsInExpressions) {
         }
       }
     }
-  })");
+  })"));
   ASSERT_OK(internal::CheckMessagesEquivalent("Expression", *serialized, *expected));
 }
 
@@ -618,7 +609,7 @@ TEST(Substrait, CallExtensionFunction) {
 }
 
 TEST(Substrait, ReadRel) {
-  auto buf = SubstraitFromJSON("Rel", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Rel", R"({
     "read": {
       "base_schema": {
         "struct": {
@@ -648,7 +639,7 @@ TEST(Substrait, ReadRel) {
         ]
       }
     }
-  })");
+  })"));
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(auto rel, DeserializeRelation(*buf, ext_set));
 
@@ -670,7 +661,7 @@ TEST(Substrait, ReadRel) {
 }
 
 TEST(Substrait, ExtensionSetFromPlan) {
-  auto buf = SubstraitFromJSON("Plan", R"({
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
     "relations": [
       {"rel": {
         "read": {
@@ -707,7 +698,7 @@ TEST(Substrait, ExtensionSetFromPlan) {
         "name": "add"
       }}
     ]
-  })");
+  })"));
 
   ExtensionSet ext_set;
   ASSERT_OK_AND_ASSIGN(
