@@ -208,12 +208,8 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
 
     case substrait::Type::kUserDefinedTypeReference: {
       uint32_t anchor = type.user_defined_type_reference();
-      if (anchor >= ext_set.types().size() || ext_set.types()[anchor] == nullptr) {
-        return Status::Invalid(
-            "User defined type reference ", anchor,
-            " did not have a corresponding anchor in the extension set");
-      }
-      return std::make_pair(ext_set.types()[anchor], true);
+      ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
+      return std::make_pair(std::move(type_record.type), true);
     }
 
     default:

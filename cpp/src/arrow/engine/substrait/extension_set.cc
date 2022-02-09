@@ -55,6 +55,9 @@ struct IdHashEq {
 
 }  // namespace
 
+// A builder used when creating a Substrait plan from an Arrow execution plan.  In
+// that situation we do not have a set of anchor values already defined so we keep
+// a map of what Ids we have seen.
 struct ExtensionSet::Impl {
   void AddUri(util::string_view uri, ExtensionSet* self) {
     if (uris_.find(uri) != uris_.end()) return;
@@ -72,18 +75,16 @@ struct ExtensionSet::Impl {
         " was referenced by an extension but was not declared in the ExtensionSet.");
   }
 
-  uint32_t EncodeType(Id id, const std::shared_ptr<DataType>& type, bool is_variation,
-                      ExtensionSet* self) {
+  uint32_t EncodeType(ExtensionIdRegistry::TypeRecord type_record, ExtensionSet* self) {
     // note: at this point we're guaranteed to have an Id which points to memory owned by
     // the set's registry.
-    AddUri(id.uri, self);
-    auto it_success = types_.emplace(id, static_cast<uint32_t>(types_.size()));
+    AddUri(type_record.id.uri, self);
+    auto it_success =
+        types_.emplace(type_record.id, static_cast<uint32_t>(types_.size()));
 
     if (it_success.second) {
-      DCHECK_EQ(self->type_ids_.size(), self->types_.size());
-      self->type_ids_.push_back(id);
-      self->types_.push_back(type);
-      self->type_is_variation_.push_back(is_variation);
+      self->types_.push_back(
+          {type_record.id, type_record.type, type_record.is_variation});
     }
 
     return it_success.first->second;
@@ -96,9 +97,7 @@ struct ExtensionSet::Impl {
     auto it_success = functions_.emplace(id, static_cast<uint32_t>(functions_.size()));
 
     if (it_success.second) {
-      DCHECK_EQ(self->function_ids_.size(), self->function_names_.size());
-      self->function_ids_.push_back(id);
-      self->function_names_.push_back(function_name);
+      self->functions_.push_back({id, function_name});
     }
 
     return it_success.first->second;
@@ -148,42 +147,53 @@ Result<ExtensionSet> ExtensionSet::Make(std::vector<util::string_view> uris,
     RETURN_NOT_OK(set.impl_->CheckHasUri(type_ids[i].uri));
 
     if (auto rec = registry->GetType(type_ids[i], type_is_variation[i])) {
-      set.types_[i] = rec->type;
-      type_ids[i] = rec->id;  // use Id which references memory owned by the registry
+      set.types_[i] = {rec->id, rec->type, rec->is_variation};
       continue;
     }
     return Status::Invalid("Type", (type_is_variation[i] ? " variation" : ""), " ",
                            type_ids[i].uri, "#", type_ids[i].name, " not found");
   }
 
-  set.function_names_.resize(function_ids.size());
+  set.functions_.resize(function_ids.size());
 
   for (size_t i = 0; i < function_ids.size(); ++i) {
     if (function_ids[i].empty()) continue;
     RETURN_NOT_OK(set.impl_->CheckHasUri(function_ids[i].uri));
 
     if (auto rec = registry->GetFunction(function_ids[i])) {
-      set.function_names_[i] = rec->function_name;
-      function_ids[i] = rec->id;  // use Id which references memory owned by the registry
+      set.functions_[i] = {rec->id, rec->function_name};
       continue;
     }
     return Status::Invalid("Function ", function_ids[i].uri, "#", type_ids[i].name,
                            " not found");
   }
 
-  set.function_ids_ = std::move(function_ids);
-  set.type_ids_ = std::move(type_ids);
-  set.type_is_variation_ = std::move(type_is_variation);
   set.uris_ = std::move(uris);
 
   return std::move(set);
 }
 
+Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const {
+  if (anchor >= types_.size() || types_[anchor].id.empty()) {
+    return Status::Invalid("User defined type reference ", anchor,
+                           " did not have a corresponding anchor in the extension set");
+  }
+  return types_[anchor];
+}
+
 Result<uint32_t> ExtensionSet::EncodeType(const DataType& type) {
   if (auto rec = registry_->GetType(type)) {
-    return impl_->EncodeType(rec->id, rec->type, rec->is_variation, this);
+    return impl_->EncodeType(*rec, this);
   }
   return Status::KeyError("type ", type.ToString(), " not found in the registry");
+}
+
+Result<ExtensionSet::FunctionRecord> ExtensionSet::DecodeFunction(uint32_t anchor) const {
+  if (anchor >= functions_.size() || functions_[anchor].id.empty()) {
+    return Status::Invalid("User defined function reference ", anchor,
+                           " did not have a corresponding anchor in the extension set");
+  }
+  return functions_[anchor];
 }
 
 Result<uint32_t> ExtensionSet::EncodeFunction(util::string_view function_name) {

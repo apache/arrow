@@ -53,42 +53,41 @@ Status AddExtensionSetToPlan(const ExtensionSet& ext_set, substrait::Plan* plan)
   }
 
   auto extensions = plan->mutable_extensions();
-  extensions->Reserve(
-      static_cast<int>(ext_set.type_ids().size() + ext_set.function_ids().size()));
+  extensions->Reserve(static_cast<int>(ext_set.num_types() + ext_set.num_functions()));
 
   using ExtDecl = substrait::extensions::SimpleExtensionDeclaration;
 
-  for (uint32_t anchor = 0; anchor < ext_set.type_ids().size(); ++anchor) {
-    auto id = ext_set.type_ids()[anchor];
-    if (id.empty()) continue;
+  for (uint32_t anchor = 0; anchor < ext_set.num_types(); ++anchor) {
+    ARROW_ASSIGN_OR_RAISE(auto type_record, ext_set.DecodeType(anchor));
+    if (type_record.id.empty()) continue;
 
     auto ext_decl = internal::make_unique<ExtDecl>();
 
-    if (ext_set.type_is_variation(anchor)) {
+    if (type_record.is_variation) {
       auto type_var = internal::make_unique<ExtDecl::ExtensionTypeVariation>();
-      type_var->set_extension_uri_reference(map[id.uri]);
+      type_var->set_extension_uri_reference(map[type_record.id.uri]);
       type_var->set_type_variation_anchor(anchor);
-      type_var->set_name(id.name.to_string());
+      type_var->set_name(type_record.id.name.to_string());
       ext_decl->set_allocated_extension_type_variation(type_var.release());
     } else {
       auto type = internal::make_unique<ExtDecl::ExtensionType>();
-      type->set_extension_uri_reference(map[id.uri]);
+      type->set_extension_uri_reference(map[type_record.id.uri]);
       type->set_type_anchor(anchor);
-      type->set_name(id.name.to_string());
+      type->set_name(type_record.id.name.to_string());
       ext_decl->set_allocated_extension_type(type.release());
     }
 
     extensions->AddAllocated(ext_decl.release());
   }
 
-  for (uint32_t anchor = 0; anchor < ext_set.function_ids().size(); ++anchor) {
-    auto id = ext_set.function_ids()[anchor];
-    if (id.empty()) continue;
+  for (uint32_t anchor = 0; anchor < ext_set.num_functions(); ++anchor) {
+    ARROW_ASSIGN_OR_RAISE(auto function_record, ext_set.DecodeFunction(anchor));
+    if (function_record.id.empty()) continue;
 
     auto fn = internal::make_unique<ExtDecl::ExtensionFunction>();
-    fn->set_extension_uri_reference(map[id.uri]);
+    fn->set_extension_uri_reference(map[function_record.id.uri]);
     fn->set_function_anchor(anchor);
-    fn->set_name(id.name.to_string());
+    fn->set_name(function_record.id.name.to_string());
 
     auto ext_decl = internal::make_unique<ExtDecl>();
     ext_decl->set_allocated_extension_function(fn.release());

@@ -124,7 +124,7 @@ TEST(Substrait, SupportedTypes) {
     EXPECT_EQ(*type, *expected_type);
 
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &empty));
-    EXPECT_EQ(empty.types().size(), 0);
+    EXPECT_EQ(empty.num_types(), 0);
 
     // FIXME chokes on NULLABILITY_UNSPECIFIED
     // EXPECT_THAT(internal::CheckMessagesEquivalent("Type", *buf, *serialized), Ok());
@@ -190,7 +190,7 @@ TEST(Substrait, SupportedExtensionTypes) {
            uint32(),
            uint64(),
        }) {
-    auto anchor = ext_set.types().size();
+    auto anchor = ext_set.num_types();
 
     EXPECT_THAT(ext_set.EncodeType(*expected_type), ResultWith(Eq(anchor)));
     auto buf = SubstraitFromJSON(
@@ -199,9 +199,9 @@ TEST(Substrait, SupportedExtensionTypes) {
     ASSERT_OK_AND_ASSIGN(auto type, DeserializeType(*buf, ext_set));
     EXPECT_EQ(*type, *expected_type);
 
-    auto size = ext_set.types().size();
+    auto size = ext_set.num_types();
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeType(*type, &ext_set));
-    EXPECT_EQ(ext_set.types().size(), size) << "was already added to the set above";
+    EXPECT_EQ(ext_set.num_types(), size) << "was already added to the set above";
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
     EXPECT_EQ(*roundtripped, *expected_type);
@@ -318,8 +318,7 @@ TEST(Substrait, SupportedLiterals) {
     ASSERT_THAT(*expr.literal(), DataEq(expected_value));
 
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-    EXPECT_EQ(ext_set.function_ids().size(),
-              0);  // shouldn't need extensions for core literals
+    EXPECT_EQ(ext_set.num_functions(), 0);  // shouldn't need extensions for core literals
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
 
@@ -458,7 +457,7 @@ TEST(Substrait, FieldRefRoundTrip) {
 
     ExtensionSet ext_set;
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
-    EXPECT_EQ(ext_set.function_ids().size(),
+    EXPECT_EQ(ext_set.num_functions(),
               0);  // shouldn't need extensions for core field references
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
     ASSERT_TRUE(roundtripped.field_ref());
@@ -590,7 +589,7 @@ TEST(Substrait, CallSpecialCaseRoundTrip) {
 
     // These are special cased as core expressions in substrait; shouldn't require any
     // extensions.
-    EXPECT_EQ(ext_set.function_ids().size(), 0);
+    EXPECT_EQ(ext_set.num_functions(), 0);
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
@@ -609,7 +608,7 @@ TEST(Substrait, CallExtensionFunction) {
     ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(expr, &ext_set));
 
     // These require an extension, so we should have a single-element ext_set.
-    EXPECT_EQ(ext_set.function_ids().size(), 1);
+    EXPECT_EQ(ext_set.num_functions(), 1);
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*kBoringSchema));
@@ -716,23 +715,22 @@ TEST(Substrait, ExtensionSetFromPlan) {
           *buf, [] { return std::shared_ptr<compute::SinkNodeConsumer>{nullptr}; },
           &ext_set));
 
-  EXPECT_EQ(ext_set.uris()[7], kArrowExtTypesUri);
+  EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
+  EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_null_type.id.name, "null");
+  EXPECT_EQ(*decoded_null_type.type, NullType());
+  EXPECT_FALSE(decoded_null_type.is_variation);
 
-  ASSERT_NE(ext_set.types()[42], nullptr);
-  EXPECT_EQ(ext_set.type_ids()[42].uri, kArrowExtTypesUri);
-  EXPECT_EQ(ext_set.type_ids()[42].name, "null");
-  EXPECT_EQ(*ext_set.types()[42], NullType());
-  EXPECT_FALSE(ext_set.type_is_variation(42));
+  EXPECT_OK_AND_ASSIGN(auto decoded_uint8_type, ext_set.DecodeType(23));
+  EXPECT_EQ(decoded_uint8_type.id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_uint8_type.id.name, "u8");
+  EXPECT_EQ(*decoded_uint8_type.type, UInt8Type());
+  EXPECT_TRUE(decoded_uint8_type.is_variation);
 
-  ASSERT_NE(ext_set.types()[23], nullptr);
-  EXPECT_EQ(ext_set.type_ids()[23].uri, kArrowExtTypesUri);
-  EXPECT_EQ(ext_set.type_ids()[23].name, "u8");
-  EXPECT_EQ(*ext_set.types()[23], UInt8Type());
-  EXPECT_TRUE(ext_set.type_is_variation(23));
-
-  EXPECT_EQ(ext_set.function_ids()[42].uri, kArrowExtTypesUri);
-  EXPECT_EQ(ext_set.function_ids()[42].name, "add");
-  EXPECT_EQ(ext_set.function_names()[42], "add");
+  EXPECT_OK_AND_ASSIGN(auto decoded_add_func, ext_set.DecodeFunction(42));
+  EXPECT_EQ(decoded_add_func.id.uri, kArrowExtTypesUri);
+  EXPECT_EQ(decoded_add_func.id.name, "add");
+  EXPECT_EQ(decoded_add_func.name, "add");
 }
 
 }  // namespace engine

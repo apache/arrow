@@ -29,10 +29,21 @@
 namespace arrow {
 namespace engine {
 
-/// A mapping from arrow types and functions to the (uri, name) which identifies
-/// the corresponding substrait extension. Substrait extension types and
-/// variations must be registered with their corresponding arrow::DataType before
-/// they can be used!
+/// Substrait identifies functions and custom data types using a (uri, name) pair.
+///
+/// This reigstry is a bidirectional mapping between Substrait IDs and their corresponding
+/// Arrow counterparts (arrow::DataType and function names in a function registry)
+///
+/// Substrait extension types and variations must be registered with their corresponding
+/// arrow::DataType before they can be used!
+///
+/// Conceptually this can be thought of as two pairs of `unordered_map`s.  One pair to
+/// go back and forth between Substrait ID and arrow::DataType and another pair to go
+/// back and forth between Substrait ID and Arrow function names.
+///
+/// Unlike an ExtensionSet this registry is not created automatically when consuming
+/// Substrait plans and must be configured ahead of time (although there is a default
+/// instance).
 class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
  public:
   /// All uris registered in this ExtensionIdRegistry
@@ -44,6 +55,7 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
     bool empty() const { return uri.empty() && name.empty(); }
   };
 
+  /// \brief A mapping between a Substrait ID and an arrow::DataType
   struct TypeRecord {
     Id id;
     const std::shared_ptr<DataType>& type;
@@ -53,13 +65,18 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
   virtual util::optional<TypeRecord> GetType(Id, bool is_variation) const = 0;
   virtual Status RegisterType(Id, std::shared_ptr<DataType>, bool is_variation) = 0;
 
-  // FIXME some functions will not be simple enough to convert without access to their
-  // arguments/options. For example is_in embeds the set in options rather than using an
-  // argument:
-  //     is_in(x, SetLookupOptions(set)) <-> (k...Uri, "is_in")(x, set)
-  //
-  // ... for another example, depending on the value of the first argument to
-  // substrait::add it either corresponds to arrow::add or arrow::add_checked
+  /// \brief A mapping between a Substrait ID and an Arrow function
+  ///
+  /// Note: At the moment we identify functions solely by the name
+  /// of the function in the function registry.
+  ///
+  /// TODO(ARROW-15582) some functions will not be simple enough to convert without access
+  /// to their arguments/options. For example is_in embeds the set in options rather than
+  /// using an argument:
+  ///     is_in(x, SetLookupOptions(set)) <-> (k...Uri, "is_in")(x, set)
+  ///
+  /// ... for another example, depending on the value of the first argument to
+  /// substrait::add it either corresponds to arrow::add or arrow::add_checked
   struct FunctionRecord {
     Id id;
     const std::string& function_name;
@@ -74,15 +91,53 @@ constexpr util::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/master/format/substrait/"
     "extension_types.yaml";
 
+/// A default registry with all supported functions and data types registered
+///
+/// Note: Function support is currently very minimal, see ARROW-15538
 ARROW_ENGINE_EXPORT ExtensionIdRegistry* default_extension_id_registry();
 
-/// A subset of an ExtensionIdRegistry with extensions identifiable by an integer.
+/// \brief A set of extensions used within a plan
+///
+/// Each time an extension is used within a Substrait plan the extension
+/// must be included in an extension set that is defined at the root of the
+/// plan.
+///
+/// The plan refers to a specific extension using an "anchor" which is an
+/// arbitrary integer invented by the producer that has no meaning beyond a
+/// plan but which should be consistent within a plan.
+///
+/// To support serialization and deserialization this type serves as a
+/// bidirectional map between Substrait ID and "anchor"s.
+///
+/// When deserializing a Substrait plan the extension set should be extracted
+/// after the plan has been converted from Protobuf and before the plan
+/// is converted to an execution plan.
+///
+/// The extension set can be kept and reused during serialization if a perfect
+/// round trip is required.  If serialization is not needed or round tripping
+/// is not required then the extension set can be safely discarded after the
+/// plan has been converted into an execution plan.
+///
+/// When converting an execution plan into a Substrait plan an extension set
+/// can be automatically generated or a previously generated extension set can
+/// be used.
 ///
 /// ExtensionSet does not own strings; it only refers to strings in an
 /// ExtensionIdRegistry.
 class ARROW_ENGINE_EXPORT ExtensionSet {
  public:
   using Id = ExtensionIdRegistry::Id;
+
+  struct FunctionRecord {
+    Id id;
+    util::string_view name;
+  };
+
+  struct TypeRecord {
+    Id id;
+    std::shared_ptr<DataType> type;
+    bool is_variation;
+  };
 
   /// Construct an empty ExtensionSet to be populated during serialization.
   explicit ExtensionSet(ExtensionIdRegistry* = default_extension_id_registry());
@@ -96,38 +151,77 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   ///
   /// Views will be replaced with equivalent views pointing to memory owned by the
   /// registry.
+  ///
+  /// Note: This is an advanced operation.  The order of the ids, types, and functions
+  /// must match the anchor numbers chosen for a plan.
+  ///
+  /// An extension set should instead be created using
+  /// arrow::engine::GetExtensionSetFromPlan
   static Result<ExtensionSet> Make(
       std::vector<util::string_view> uris, std::vector<Id> type_ids,
       std::vector<bool> type_is_variation, std::vector<Id> function_ids,
       ExtensionIdRegistry* = default_extension_id_registry());
 
   // index in these vectors == value of _anchor/_reference fields
-  /// FIXME this assumes that _anchor/_references won't be huge, which is not guaranteed.
-  /// Could it be?
+  /// TODO(ARROW-15583) this assumes that _anchor/_references won't be huge, which is not
+  /// guaranteed. Could it be?
   const std::vector<util::string_view>& uris() const { return uris_; }
 
-  const DataTypeVector& types() const { return types_; }
-  const std::vector<Id>& type_ids() const { return type_ids_; }
-  bool type_is_variation(uint32_t i) const { return type_is_variation_[i]; }
+  /// \brief Returns a data type given an anchor
+  ///
+  /// This is used when converting a Substrait plan to an Arrow execution plan.
+  ///
+  /// If the anchor does not exist in this extension set an error will be returned.
+  Result<TypeRecord> DecodeType(uint32_t anchor) const;
 
-  /// Encode a type, looking it up first in this set's ExtensionIdRegistry.
-  /// If no type is found, an error will be raised.
+  /// \brief Returns the number of custom types in this extension set
+  std::size_t num_types() const { return types_.size(); }
+
+  /// \brief Lookup the anchor for a given type
+  ///
+  /// This operation is used when converting an Arrow execution plan to a Substrait plan.
+  /// If the type has been previously encoded then the same anchor value will returned.
+  ///
+  /// If the type has not been previously encoded then a new anchor value will be created.
+  ///
+  /// If the type does not exist in the extension id registry then an error will be
+  /// returned.
+  ///
+  /// \return An anchor that can be used to refer to the type within a plan
   Result<uint32_t> EncodeType(const DataType& type);
 
-  const std::vector<Id>& function_ids() const { return function_ids_; }
-  const std::vector<util::string_view>& function_names() const { return function_names_; }
+  /// \brief Returns a function given an anchor
+  ///
+  /// This is used when converting a Substrait plan to an Arrow execution plan.
+  ///
+  /// If the anchor does not exist in this extension set an error will be returned.
+  Result<FunctionRecord> DecodeFunction(uint32_t anchor) const;
 
+  /// \brief Lookup the anchor for a given function
+  ///
+  /// This operation is used when converting an Arrow execution plan to a Substrait  plan.
+  /// If the function has been previously encoded then the same anchor value will be
+  /// returned.
+  ///
+  /// If the function has not been previously encoded then a new anchor value will be
+  /// created.
+  ///
+  /// If the function name is not in the extension id registry then an error will be
+  /// returned.
+  ///
+  /// \return An anchor that can be used to refer to the function within a plan
   Result<uint32_t> EncodeFunction(util::string_view function_name);
+
+  /// \brief Returns the number of custom functions in this extension set
+  std::size_t num_functions() const { return functions_.size(); }
 
  private:
   ExtensionIdRegistry* registry_;
+  /// The subset of extension registry URIs referenced by this extension set
   std::vector<util::string_view> uris_;
-  DataTypeVector types_;
-  std::vector<Id> type_ids_;
-  std::vector<bool> type_is_variation_;
+  std::vector<TypeRecord> types_;
 
-  std::vector<Id> function_ids_;
-  std::vector<util::string_view> function_names_;
+  std::vector<FunctionRecord> functions_;
 
   // pimpl pattern to hide lookup details
   struct Impl;
