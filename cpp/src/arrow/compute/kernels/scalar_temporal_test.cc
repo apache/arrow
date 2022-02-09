@@ -1004,6 +1004,22 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDateAndDuration) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalAddDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    for (auto u : TimeUnit::values()) {
+      auto unit = duration(u);
+      CheckScalarBinary(op, ArrayFromJSON(unit, times_s),
+                        ArrayFromJSON(unit, seconds_between_time),
+                        ArrayFromJSON(unit, times_s2));
+    }
+
+    auto seconds_1 = ArrayFromJSON(duration(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
   for (auto op : {"subtract", "subtract_checked"}) {
     std::string milliseconds_between_time_and_date =
