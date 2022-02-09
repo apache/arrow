@@ -669,7 +669,7 @@ class NullArrayFactory {
 
   Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
                                                  int64_t length) {
-    ImmutableNullArrayFactory child_factory(pool_, type.field(i)->type(), length);
+    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     return child_factory.Create();
   }
 
