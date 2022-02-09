@@ -2536,12 +2536,31 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add", &add_doc);
   AddDecimalBinaryKernels<Add>("add", add.get());
+
+  // Add add(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<TimestampType, DurationType, TimestampType, Add>::Exec;
+    DCHECK_OK(add->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                             std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
       MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
   AddDecimalBinaryKernels<AddChecked>("add_checked", add_checked.get());
+
+  // Add add_checked(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec =
+        ScalarBinary<TimestampType, DurationType, TimestampType, AddChecked>::Exec;
+    DCHECK_OK(add_checked->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                     std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------

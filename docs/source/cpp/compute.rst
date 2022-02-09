@@ -430,9 +430,9 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+----------------------------+----------------------------+-------+
 | abs_checked      | Unary  | Numeric                    | Numeric                    |       |
 +------------------+--------+----------------------------+----------------------------+-------+
-| add              | Binary | Numeric                    | Numeric                    | \(1)  |
+| add              | Binary | Numeric/Temporal           | Numeric/Temporal           | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
-| add_checked      | Binary | Numeric                    | Numeric                    | \(1)  |
+| add_checked      | Binary | Numeric/Temporal           | Numeric/Temporal           | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
 | divide           | Binary | Numeric                    | Numeric                    | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
