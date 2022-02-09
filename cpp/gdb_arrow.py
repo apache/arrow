@@ -17,9 +17,13 @@
 
 from collections import namedtuple
 from collections.abc import Sequence
+import datetime
 import decimal
 import enum
 from functools import lru_cache, partial
+import itertools
+import math
+import operator
 import struct
 import sys
 import warnings
@@ -27,10 +31,11 @@ import warnings
 import gdb
 from gdb.types import get_basic_type
 
-# gdb API docs at https://sourceware.org/gdb/onlinedocs/gdb/Python-API.html#Python-API
 
-# TODO check guidelines here: https://sourceware.org/gdb/onlinedocs/gdb/Writing-a-Pretty_002dPrinter.html
-# TODO investigate auto-loading: https://sourceware.org/gdb/onlinedocs/gdb/Auto_002dloading-extensions.html#Auto_002dloading-extensions
+assert sys.version_info[0] >= 3, "Arrow GDB extension needs Python 3+"
+
+
+# gdb API docs at https://sourceware.org/gdb/onlinedocs/gdb/Python-API.html#Python-API
 
 
 _type_ids = [
@@ -44,6 +49,51 @@ _type_ids = [
 
 # Mirror the C++ Type::type enum
 Type = enum.IntEnum('Type', _type_ids, start=0)
+
+# Mirror the C++ TimeUnit::type enum
+TimeUnit = enum.IntEnum('TimeUnit', ['SECOND', 'MILLI', 'MICRO', 'NANO'],
+                        start=0)
+
+type_id_to_struct_code = {
+    Type.INT8: 'b',
+    Type.INT16: 'h',
+    Type.INT32: 'i',
+    Type.INT64: 'q',
+    Type.UINT8: 'B',
+    Type.UINT16: 'H',
+    Type.UINT32: 'I',
+    Type.UINT64: 'Q',
+    Type.HALF_FLOAT: 'e',
+    Type.FLOAT: 'f',
+    Type.DOUBLE: 'd',
+    Type.DATE32: 'i',
+    Type.DATE64: 'q',
+    Type.TIME32: 'i',
+    Type.TIME64: 'q',
+    Type.INTERVAL_DAY_TIME: 'ii',
+    Type.INTERVAL_MONTHS: 'i',
+    Type.INTERVAL_MONTH_DAY_NANO: 'iiq',
+    Type.DURATION: 'q',
+    Type.TIMESTAMP: 'q',
+}
+
+TimeUnitTraits = namedtuple('TimeUnitTraits', ('multiplier',
+                                               'fractional_digits'))
+
+time_unit_traits = {
+    TimeUnit.SECOND: TimeUnitTraits(1, 0),
+    TimeUnit.MILLI: TimeUnitTraits(1_000, 3),
+    TimeUnit.MICRO: TimeUnitTraits(1_000_000, 6),
+    TimeUnit.NANO: TimeUnitTraits(1_000_000_000, 9),
+}
+
+
+def identity(v):
+    return v
+
+
+def has_null_bitmap(type_id):
+    return type_id not in (Type.NA, Type.SPARSE_UNION, Type.DENSE_UNION)
 
 
 @lru_cache()
@@ -193,6 +243,66 @@ def format_month_interval(val):
     Format a MonthInterval value.
     """
     return f"{int(val)}M"
+
+
+def format_days_milliseconds(days, milliseconds):
+    return f"{days}d{milliseconds}ms"
+
+
+def format_months_days_nanos(months, days, nanos):
+    return f"{months}M{days}d{nanos}ns"
+
+
+_date_base = datetime.date(1970, 1, 1).toordinal()
+
+
+def format_date32(val):
+    """
+    Format a date32 value.
+    """
+    val = int(val)
+    try:
+        decoded = datetime.date.fromordinal(val + _date_base)
+    except ValueError:  # "ordinal must be >= 1"
+        return f"{val}d [year <= 0]"
+    else:
+        return f"{val}d [{decoded}]"
+
+
+def format_date64(val):
+    """
+    Format a date64 value.
+    """
+    val = int(val)
+    days, remainder = divmod(val, 86400 * 1000)
+    if remainder:
+        return f"{val}ms [non-multiple of 86400000]"
+    try:
+        decoded = datetime.date.fromordinal(days + _date_base)
+    except ValueError:  # "ordinal must be >= 1"
+        return f"{val}ms [year <= 0]"
+    else:
+        return f"{val}ms [{decoded}]"
+
+
+def format_timestamp(val, unit):
+    """
+    Format a timestamp value.
+    """
+    val = int(val)
+    unit = int(unit)
+    short_unit = short_time_unit(unit)
+    traits = time_unit_traits[unit]
+    seconds, subseconds = divmod(val, traits.multiplier)
+    try:
+        dt = datetime.datetime.utcfromtimestamp(seconds)
+    except (ValueError, OSError):  # value out of range for datetime.datetime
+        pretty = "too large to represent"
+    else:
+        pretty = dt.isoformat().replace('T', ' ')
+        if traits.fractional_digits > 0:
+            pretty += f".{subseconds:0{traits.fractional_digits}d}"
+    return f"{val}{short_unit} [{pretty}]"
 
 
 def cast_to_concrete(val, ty):
@@ -408,7 +518,7 @@ class StdVector(Sequence):
         Run `eval_format` with the value at `index`.
 
         For example, if `eval_format` is "{}.get()", this will evaluate
-        "{self[0]}.get()".
+        "{self[index]}.get()".
         """
         self._check_index(index)
         return gdb.parse_and_eval(
@@ -496,6 +606,23 @@ class Buffer:
         else:
             return '""'
 
+    def bytes_view(self, offset=0, length=None):
+        """
+        Return a view over the bytes of this buffer.
+        """
+        if self.size > 0:
+            if length is None:
+                length = self.size
+            mem = gdb.selected_inferior().read_memory(
+                self.val['data_'] + offset, self.size)
+        else:
+            mem = memoryview(b"")
+        # Read individual bytes as unsigned integers rather than
+        # Python bytes objects
+        return mem.cast('B')
+
+    view = bytes_view
+
 
 class BufferPtr:
     """
@@ -523,6 +650,157 @@ class BufferPtr:
         if self.buf is None:
             return None
         return self.buf.bytes_literal()
+
+
+class TypedBuffer(Buffer):
+    """
+    A buffer containing values of a given a struct format code.
+    """
+    _boolean_format = object()
+
+    def __init__(self, val, mem_format):
+        super().__init__(val)
+        self.mem_format = mem_format
+        if not self.is_boolean:
+            self.byte_width = struct.calcsize('=' + self.mem_format)
+
+    @classmethod
+    def from_type_id(cls, val, type_id):
+        assert isinstance(type_id, int)
+        if type_id == Type.BOOL:
+            mem_format = cls._boolean_format
+        else:
+            mem_format = type_id_to_struct_code[type_id]
+        return cls(val, mem_format)
+
+    def view(self, offset=0, length=None):
+        """
+        Return a view over the primitive values in this buffer.
+
+        The optional `offset` and `length` are expressed in primitive values,
+        not bytes.
+        """
+        if self.is_boolean:
+            return Bitmap.from_buffer(self, offset, length)
+
+        byte_offset = offset * self.byte_width
+        if length is not None:
+            mem = self.bytes_view(byte_offset, length * self.byte_width)
+        else:
+            mem = self.bytes_view(byte_offset)
+        return TypedView(mem, self.mem_format)
+
+    @property
+    def is_boolean(self):
+        return self.mem_format is self._boolean_format
+
+
+class TypedView(Sequence):
+    """
+    View a bytes-compatible object as a sequence of objects described
+    by a struct format code.
+    """
+
+    def __init__(self, mem, mem_format):
+        assert isinstance(mem, memoryview)
+        self.mem = mem
+        self.mem_format = mem_format
+        self.byte_width = struct.calcsize('=' + mem_format)
+        self.length = mem.nbytes // self.byte_width
+
+    def _check_index(self, index):
+        if not 0 <= index < self.length:
+            raise IndexError("Wrong index for bitmap")
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        self._check_index(index)
+        w = self.byte_width
+        # Cannot use memoryview.cast() because the 'e' format for half-floats
+        # is poorly supported.
+        mem = self.mem[index * w:(index + 1) * w]
+        return struct.unpack('=' + self.mem_format, mem)
+
+
+class Bitmap(Sequence):
+    """
+    View a bytes-compatible object as a sequence of bools.
+    """
+    _masks = [0x1, 0x2, 0x4, 0x8, 0x10, 0x20, 0x40, 0x80]
+
+    def __init__(self, view, offset, length):
+        self.view = view
+        self.offset = offset
+        self.length = length
+
+    def _check_index(self, index):
+        if not 0 <= index < self.length:
+            raise IndexError("Wrong index for bitmap")
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        self._check_index(index)
+        index += self.offset
+        byte_index, bit_index = divmod(index, 8)
+        byte = self.view[byte_index]
+        return byte & self._masks[bit_index] != 0
+
+    @classmethod
+    def from_buffer(cls, buf, offset, length):
+        assert isinstance(buf, Buffer)
+        byte_offset, bit_offset = divmod(offset, 8)
+        byte_length = math.ceil(length + offset / 8) - byte_offset
+        return cls(buf.bytes_view(byte_offset, byte_length),
+                   bit_offset, length)
+
+
+class MappedView(Sequence):
+
+    def __init__(self, func, view):
+        self.view = view
+        self.func = func
+
+    def __len__(self):
+        return len(self.view)
+
+    def __getitem__(self, index):
+        return self.func(self.view[index])
+
+
+class StarMappedView(Sequence):
+
+    def __init__(self, func, view):
+        self.view = view
+        self.func = func
+
+    def __len__(self):
+        return len(self.view)
+
+    def __getitem__(self, index):
+        return self.func(*self.view[index])
+
+
+class NullBitmap(Bitmap):
+
+    def __getitem__(self, index):
+        self._check_index(index)
+        if self.view is None:
+            return True
+        return super().__getitem__(index)
+
+    @classmethod
+    def from_buffer(cls, buf, offset, length):
+        """
+        Create a null bitmap from a Buffer (or None if missing,
+        in which case all values are True).
+        """
+        if buf is None:
+            return cls(buf, offset, length)
+        return super().from_buffer(buf, offset, length)
 
 
 KeyValue = namedtuple('KeyValue', ('key', 'value'))
@@ -564,33 +842,44 @@ class MetadataPtr(Sequence):
         return self.md[i]
 
 
-DecimalTraits = namedtuple('DecimalTraits', ('nbits', 'struct_format_le'))
+DecimalTraits = namedtuple('DecimalTraits', ('bit_width', 'struct_format_le'))
 
 decimal_traits = {
     128: DecimalTraits(128, 'Qq'),
     256: DecimalTraits(256, 'QQQq'),
 }
 
-class Decimal:
+class BaseDecimal:
     """
-    A arrow::BasicDecimal{128,256...} value.
+    Base class for arrow::BasicDecimal{128,256...} values.
     """
 
-    def __init__(self, traits, val):
-        self.val = val
-        self.traits = traits
+    def __init__(self, address):
+        self.address = address
 
     @classmethod
-    def from_bits(cls, nbits, *args, **kwargs):
-        return cls(decimal_traits[nbits], *args, **kwargs)
+    def from_value(cls, val):
+        """
+        Create a decimal from a gdb.Value representing the corresponding
+        arrow::BasicDecimal{128,256...}.
+        """
+        return cls(val['array_'].address)
+
+    @classmethod
+    def from_address(cls, address):
+        """
+        Create a decimal from a gdb.Value representing the address of the
+        raw decimal storage.
+        """
+        return cls(address)
 
     @property
     def words(self):
         """
         The decimal words, from least to most significant.
         """
-        mem = gdb.selected_inferior().read_memory(
-            self.val['array_'].address, self.traits.nbits // 8)
+        mem = gdb.selected_inferior().read_memory(self.address,
+                                                  self.traits.bit_width // 8)
         fmt = self.traits.struct_format_le
         if byte_order() == 'big':
             fmt = fmt[::-1]
@@ -605,7 +894,7 @@ class Decimal:
         """
         v = 0
         words = self.words
-        bits_per_word = self.traits.nbits // len(words)
+        bits_per_word = self.traits.bit_width // len(words)
         for w in reversed(words):
             v = (v << bits_per_word) + w
         return v
@@ -621,12 +910,22 @@ class Decimal:
             return str(decimal.Decimal(v).scaleb(-scale))
 
 
-Decimal128 = partial(Decimal.from_bits, 128)
-Decimal256 = partial(Decimal.from_bits, 256)
+class Decimal128(BaseDecimal):
+    traits = decimal_traits[128]
+
+
+class Decimal256(BaseDecimal):
+    traits = decimal_traits[256]
+
+
+decimal_bits_to_class = {
+    128: Decimal128,
+    256: Decimal256,
+}
 
 decimal_type_to_class = {
-    'Decimal128Type': Decimal128,
-    'Decimal256Type': Decimal256,
+    f"Decimal{bits}Type": cls
+    for (bits, cls) in decimal_bits_to_class.items()
 }
 
 
@@ -1007,7 +1306,7 @@ class Date32ScalarPrinter(TimeScalarPrinter):
         if not self.is_valid:
             return self._format_null()
         value = self.val['value']
-        return f"{self._format_type()} of value {value}d"
+        return f"{self._format_type()} of value {format_date32(value)}"
 
 
 class Date64ScalarPrinter(TimeScalarPrinter):
@@ -1019,7 +1318,7 @@ class Date64ScalarPrinter(TimeScalarPrinter):
         if not self.is_valid:
             return self._format_null()
         value = self.val['value']
-        return f"{self._format_type()} of value {value}ms"
+        return f"{self._format_type()} of value {format_date64(value)}"
 
 
 class TimestampScalarPrinter(ScalarPrinter):
@@ -1065,7 +1364,8 @@ class DecimalScalarPrinter(ScalarPrinter):
         suffix = f"[precision={precision}, scale={scale}]"
         if not self.is_valid:
             return f"{self._format_type()} of null value {suffix}"
-        value = self.decimal_class(self.val['value']).format(precision, scale)
+        value = self.decimal_class.from_value(self.val['value']
+                                              ).format(precision, scale)
         return f"{self._format_type()} of value {value} {suffix}"
 
 
@@ -1215,10 +1515,12 @@ class ArrayDataPrinter:
             assert issubclass(cls, ArrayDataPrinter)
         self = object.__new__(cls)
         self.name = name
+        self.val = val
         self.type_class = type_class
         self.type_name = type_class.name
         self.type_id = type_id
-        self.val = val
+        self.offset = int(self.val['offset'])
+        self.length = int(self.val['length'])
         return self
 
     @property
@@ -1230,13 +1532,252 @@ class ArrayDataPrinter:
         return cast_to_concrete(deref(self.val['type']), concrete_type)
 
     def _format_contents(self):
-        return (f"length {self.val['length']}, "
+        return (f"length {self.length}, "
+                f"offset {self.offset}, "
                 f"{format_null_count(self.val['null_count'])}")
+
+    def _buffer(self, index, type_id=None):
+        buffers = StdVector(self.val['buffers'])
+        bufptr = SharedPtr(buffers[index]).get()
+        if int(bufptr) == 0:
+            return None
+        if type_id is not None:
+            return TypedBuffer.from_type_id(bufptr.dereference(), type_id)
+        else:
+            return Buffer(bufptr.dereference())
+
+    def _buffer_values(self, index, type_id, length=None):
+        """
+        Return a typed view of values in the buffer with the given index.
+
+        Values are returned as tuples since some types may decode to
+        multiple values (for example day_time_interval).
+        """
+        buf = self._buffer(index, type_id)
+        if buf is None:
+            return None
+        if length is None:
+            length = self.length
+        return buf.view(self.offset, length)
+
+    def _unpacked_buffer_values(self, index, type_id, length=None):
+        """
+        Like _buffer_values(), but assumes values are 1-tuples
+        and returns them unpacked.
+        """
+        return StarMappedView(identity,
+                              self._buffer_values(index, type_id, length))
+
+    def _null_bitmap(self):
+        buf = self._buffer(0) if has_null_bitmap(self.type_id) else None
+        return NullBitmap.from_buffer(buf, self.offset, self.length)
+
+    def _null_child(self, i):
+        return str(i), "null"
+
+    def _valid_child(self, i, value):
+        return str(i), value
+
+    def display_hint(self):
+        return None
+
+    def children(self):
+        return ()
 
     def to_string(self):
         ty = self.type
         return (f"{self.name} of type {ty}, "
                 f"{self._format_contents()}")
+
+
+class NumericArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for numeric data types.
+    """
+    _format_value = staticmethod(identity)
+
+    def _values_view(self):
+        return StarMappedView(self._format_value,
+                              self._buffer_values(1, self.type_id))
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        values = self._values_view()
+        null_bits = self._null_bitmap()
+        for i, (valid, value) in enumerate(zip(null_bits, values)):
+            if valid:
+                yield self._valid_child(i, str(value))
+            else:
+                yield self._null_child(i)
+
+
+class BooleanArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for boolean.
+    """
+
+    def _format_value(self, v):
+        return str(v).lower()
+
+    def _values_view(self):
+        return MappedView(self._format_value,
+                          self._buffer_values(1, self.type_id))
+
+
+class Date32ArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for date32.
+    """
+    _format_value = staticmethod(format_date32)
+
+
+class Date64ArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for date64.
+    """
+    _format_value = staticmethod(format_date64)
+
+
+class TimeArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for time32 and time64.
+    """
+
+    def __init__(self, name, val):
+        self.unit = self.type['unit_']
+        self.unit_string = short_time_unit(self.unit)
+
+    def _format_value(self, val):
+        return f"{val}{self.unit_string}"
+
+
+class TimestampArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for timestamp.
+    """
+
+    def __init__(self, name, val):
+        self.unit = self.type['unit_']
+
+    def _format_value(self, val):
+        return format_timestamp(val, self.unit)
+
+
+class MonthIntervalArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for month_interval.
+    """
+    _format_value = staticmethod(format_month_interval)
+
+
+class DayTimeIntervalArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for day_time_interval.
+    """
+    _format_value = staticmethod(format_days_milliseconds)
+
+
+class MonthDayNanoIntervalArrayDataPrinter(NumericArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for day_time_interval.
+    """
+    _format_value = staticmethod(format_months_days_nanos)
+
+
+class DecimalArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for decimals.
+    """
+
+    def __init__(self, name, val):
+        ty = self.type
+        self.precision = int(ty['precision_'])
+        self.scale = int(ty['scale_'])
+        self.decimal_class = decimal_type_to_class[self.type_name]
+        self.byte_width = self.decimal_class.traits.bit_width // 8
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        null_bits = self._null_bitmap()
+        address = self._buffer(1).data + self.offset * self.byte_width
+        for i, valid in enumerate(null_bits):
+            if valid:
+                dec = self.decimal_class.from_address(address)
+                yield self._valid_child(
+                    i, dec.format(self.precision, self.scale))
+            else:
+                yield self._null_child(i)
+            address += self.byte_width
+
+
+class FixedSizeBinaryArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for fixed_size_binary.
+    """
+
+    def __init__(self, name, val):
+        self.byte_width = self.type['byte_width_']
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        null_bits = self._null_bitmap()
+        address = self._buffer(1).data + self.offset * self.byte_width
+        for i, valid in enumerate(null_bits):
+            if valid:
+                if self.byte_width:
+                    yield self._valid_child(
+                        i, bytes_literal(address, self.byte_width))
+                else:
+                    yield self._valid_child(i, '""')
+            else:
+                yield self._null_child(i)
+            address += self.byte_width
+
+
+class BinaryArrayDataPrinter(ArrayDataPrinter):
+    """
+    ArrayDataPrinter specialization for variable-sized binary.
+    """
+
+    def __init__(self, name, val):
+        self.is_large = self.type_id in (Type.LARGE_BINARY, Type.LARGE_STRING)
+        self.is_utf8 = self.type_id in (Type.STRING, Type.LARGE_STRING)
+        self.format_string = utf8_literal if self.is_utf8 else bytes_literal
+
+    def display_hint(self):
+        return "array"
+
+    def children(self):
+        if self.length == 0:
+            return
+        null_bits = self._null_bitmap()
+        offsets = self._unpacked_buffer_values(
+            1, Type.INT64 if self.is_large else Type.INT32,
+            length=self.length + 1)
+        values = self._buffer(2).data
+        for i, valid in enumerate(null_bits):
+            if valid:
+                start = offsets[i]
+                size = offsets[i + 1] - start
+                if size:
+                    yield self._valid_child(
+                        i, self.format_string(values + start, size))
+                else:
+                    yield self._valid_child(i, '""')
+            else:
+                yield self._null_child(i)
 
 
 class ArrayPrinter:
@@ -1258,6 +1799,12 @@ class ArrayPrinter:
             return f"arrow::{self.name} of type {ty}, {self._format_contents()}"
         else:
             return f"arrow::{self.name} of {self._format_contents()}"
+
+    def display_hint(self):
+        return self.data_printer.display_hint()
+
+    def children(self):
+        return self.data_printer.children()
 
 
 class ChunkedArrayPrinter:
@@ -1286,7 +1833,6 @@ class ChunkedArrayPrinter:
 
 
 class DataTypeClass:
-
     array_data_printer = ArrayDataPrinter
 
     def __init__(self, name):
@@ -1303,72 +1849,91 @@ class NumericTypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = NumericScalarPrinter
+    array_data_printer = NumericArrayDataPrinter
+
+
+class BooleanTypeClass(DataTypeClass):
+    is_parametric = False
+    type_printer = PrimitiveTypePrinter
+    scalar_printer = NumericScalarPrinter
+    array_data_printer = BooleanArrayDataPrinter
 
 
 class Date32TypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = Date32ScalarPrinter
+    array_data_printer = Date32ArrayDataPrinter
 
 
 class Date64TypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = Date64ScalarPrinter
+    array_data_printer = Date64ArrayDataPrinter
 
 
 class TimeTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = TimeTypePrinter
     scalar_printer = TimeScalarPrinter
+    array_data_printer = TimeArrayDataPrinter
 
 
 class TimestampTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = TimestampTypePrinter
     scalar_printer = TimestampScalarPrinter
+    array_data_printer = TimestampArrayDataPrinter
 
 
 class DurationTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = TimeTypePrinter
     scalar_printer = TimeScalarPrinter
+    array_data_printer = TimeArrayDataPrinter
 
 
 class MonthIntervalTypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = MonthIntervalScalarPrinter
+    array_data_printer = MonthIntervalArrayDataPrinter
 
 
 class DayTimeIntervalTypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = NumericScalarPrinter
+    array_data_printer = DayTimeIntervalArrayDataPrinter
 
 
 class MonthDayNanoIntervalTypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = NumericScalarPrinter
+    array_data_printer = MonthDayNanoIntervalArrayDataPrinter
 
 
 class DecimalTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = DecimalTypePrinter
     scalar_printer = DecimalScalarPrinter
+    array_data_printer = DecimalArrayDataPrinter
 
 
 class BaseBinaryTypeClass(DataTypeClass):
     is_parametric = False
     type_printer = PrimitiveTypePrinter
     scalar_printer = BaseBinaryScalarPrinter
+    array_data_printer = BinaryArrayDataPrinter
 
 
 class FixedSizeBinaryTypeClass(DataTypeClass):
     is_parametric = True
     type_printer = FixedSizeBinaryTypePrinter
     scalar_printer = FixedSizeBinaryScalarPrinter
+    array_data_printer = FixedSizeBinaryArrayDataPrinter
 
 
 class BaseListTypeClass(DataTypeClass):
@@ -1419,7 +1984,8 @@ DataTypeTraits = namedtuple('DataTypeTraits', ('factory', 'name'))
 type_traits_by_id = {
     Type.NA: DataTypeTraits(NullTypeClass, 'NullType'),
 
-    Type.BOOL: DataTypeTraits(NumericTypeClass, 'BooleanType'),
+    Type.BOOL: DataTypeTraits(BooleanTypeClass, 'BooleanType'),
+
     Type.UINT8: DataTypeTraits(NumericTypeClass, 'UInt8Type'),
     Type.INT8: DataTypeTraits(NumericTypeClass, 'Int8Type'),
     Type.UINT16: DataTypeTraits(NumericTypeClass, 'UInt16Type'),
@@ -1786,7 +2352,8 @@ class DayMillisecondsPrinter:
         self.val = val
 
     def to_string(self):
-        return f"{self.val['days']}d{self.val['milliseconds']}ms"
+        return format_days_milliseconds(self.val['days'],
+                                        self.val['milliseconds'])
 
 
 class MonthDayNanosPrinter:
@@ -1798,8 +2365,9 @@ class MonthDayNanosPrinter:
         self.val = val
 
     def to_string(self):
-        return (f"{self.val['months']}M{self.val['days']}d"
-                f"{self.val['nanoseconds']}ns")
+        return format_months_days_nanos(self.val['months'],
+                                        self.val['days'],
+                                        self.val['nanoseconds'])
 
 
 class DecimalPrinter:
@@ -1807,13 +2375,13 @@ class DecimalPrinter:
     Pretty-printer for Arrow decimal values.
     """
 
-    def __init__(self, nbits, name, val):
+    def __init__(self, bit_width, name, val):
         self.name = name
         self.val = val
-        self.nbits = nbits
+        self.bit_width = bit_width
 
     def to_string(self):
-        dec = Decimal.from_bits(self.nbits, self.val)
+        dec = decimal_bits_to_class[self.bit_width].from_value(self.val)
         return f"{self.name}({int(dec)})"
 
 

@@ -76,6 +76,20 @@ class UuidType : public ExtensionType {
   std::string Serialize() const override { return "uuid-serialized"; }
 };
 
+// TODO migrate arrow::ipc::internal::json::ArrayFromJSON to Result<>?
+
+std::shared_ptr<Array> SliceArrayFromJSON(const std::shared_ptr<DataType>& ty,
+                                          util::string_view json, int64_t offset = 0,
+                                          int64_t length = -1) {
+  std::shared_ptr<Array> array;
+  ARROW_CHECK_OK(ArrayFromJSON(ty, json, &array));
+  if (length != -1) {
+    return array->Slice(offset, length);
+  } else {
+    return array->Slice(offset);
+  }
+}
+
 }  // namespace
 
 void TestSession() {
@@ -290,7 +304,7 @@ void TestSession() {
 
   Date32Scalar date32_scalar{23};
   Date32Scalar date32_scalar_null{};
-  Date64Scalar date64_scalar{45 * 86000000LL};
+  Date64Scalar date64_scalar{45 * 86400000LL};
   Date64Scalar date64_scalar_null{};
 
   Decimal128Scalar decimal128_scalar_pos_scale_pos{Decimal128("1234567"),
@@ -381,14 +395,99 @@ void TestSession() {
   auto heap_map_scalar_null = MakeNullScalar(heap_map_scalar->type);
 
   // Array and ArrayData
-  std::shared_ptr<Array> heap_int32_array;
-  ARROW_CHECK_OK(ArrayFromJSON(int32(), "[-5, 6, null, 42]", &heap_int32_array));
+  auto heap_null_array = SliceArrayFromJSON(null(), "[null, null]");
+
+  auto heap_int32_array = SliceArrayFromJSON(int32(), "[-5, 6, null, 42]");
   ArrayData int32_array_data{*heap_int32_array->data()};
   Int32Array int32_array{heap_int32_array->data()->Copy()};
 
-  std::shared_ptr<Array> heap_list_array;
-  ARROW_CHECK_OK(ArrayFromJSON(list(int64()), "[[1, 2], null, []]", &heap_list_array));
+  auto heap_int32_array_no_nulls = SliceArrayFromJSON(int32(), "[-5, 6, 3, 42]");
+
+  const char* json_int32_array = "[-1, 2, -3, 4, null, -5, 6, -7, 8, null, -9, -10]";
+  auto heap_int32_array_sliced_1_9 = SliceArrayFromJSON(int32(), json_int32_array, 1, 9);
+  auto heap_int32_array_sliced_2_6 = SliceArrayFromJSON(int32(), json_int32_array, 2, 6);
+  auto heap_int32_array_sliced_8_4 = SliceArrayFromJSON(int32(), json_int32_array, 8, 4);
+  auto heap_int32_array_sliced_empty =
+      SliceArrayFromJSON(int32(), json_int32_array, 6, 0);
+
+  const char* json_bool_array =
+      "[false, false, true, true, null, null, false, false, true, true, "
+      "null, null, false, false, true, true, null, null]";
+  auto heap_bool_array = SliceArrayFromJSON(boolean(), json_bool_array);
+  auto heap_bool_array_sliced_1_9 = SliceArrayFromJSON(boolean(), json_bool_array, 1, 9);
+  auto heap_bool_array_sliced_2_6 = SliceArrayFromJSON(boolean(), json_bool_array, 2, 6);
+  auto heap_bool_array_sliced_empty =
+      SliceArrayFromJSON(boolean(), json_bool_array, 6, 0);
+
+  auto heap_list_array = SliceArrayFromJSON(list(int64()), "[[1, 2], null, []]");
   ListArray list_array{heap_list_array->data()};
+
+  const char* json_double_array = "[-1.5, null]";
+  auto heap_double_array = SliceArrayFromJSON(float64(), json_double_array);
+
+  const char* json_float16_array = "[0, 48640]";
+  auto heap_float16_array =
+      *SliceArrayFromJSON(uint16(), json_float16_array)->View(float16());
+
+  auto heap_date32_array =
+      SliceArrayFromJSON(date32(), "[0, null, 18336, -9004, -719162, -719163]");
+  auto heap_date64_array = SliceArrayFromJSON(
+      date64(), "[1584230400000, -777945600000, -62135596800000, -62135683200000, 123]");
+
+  const char* json_time_array = "[null, -123, 456]";
+  auto heap_time32_array_s =
+      SliceArrayFromJSON(time32(TimeUnit::SECOND), json_time_array);
+  auto heap_time32_array_ms =
+      SliceArrayFromJSON(time32(TimeUnit::MILLI), json_time_array);
+  auto heap_time64_array_us =
+      SliceArrayFromJSON(time64(TimeUnit::MICRO), json_time_array);
+  auto heap_time64_array_ns = SliceArrayFromJSON(time64(TimeUnit::NANO), json_time_array);
+
+  auto heap_month_interval_array =
+      SliceArrayFromJSON(month_interval(), "[123, -456, null]");
+  auto heap_day_time_interval_array =
+      SliceArrayFromJSON(day_time_interval(), "[[1, -600], null]");
+  auto heap_month_day_nano_interval_array =
+      SliceArrayFromJSON(month_day_nano_interval(), "[[1, -600, 5000], null]");
+
+  const char* json_duration_array = "[null, -1234567890123456789]";
+  auto heap_duration_array_s =
+      SliceArrayFromJSON(duration(TimeUnit::SECOND), json_duration_array);
+  auto heap_duration_array_ns =
+      SliceArrayFromJSON(duration(TimeUnit::NANO), json_duration_array);
+
+  auto heap_timestamp_array_s = SliceArrayFromJSON(
+      timestamp(TimeUnit::SECOND),
+      R"([null, "1970-01-01 00:00:00", "1900-02-28 12:34:56", "3989-07-14 00:00:00"])");
+  auto heap_timestamp_array_ms = SliceArrayFromJSON(
+      timestamp(TimeUnit::MILLI),
+      R"([null, "1900-02-28 12:34:56.123", "3989-07-14 00:00:00.789"])");
+  auto heap_timestamp_array_us = SliceArrayFromJSON(
+      timestamp(TimeUnit::MICRO),
+      R"([null, "1900-02-28 12:34:56.654321", "3989-07-14 00:00:00.456789"])");
+  auto heap_timestamp_array_ns = SliceArrayFromJSON(
+      timestamp(TimeUnit::NANO), R"([null, "1900-02-28 12:34:56.987654321"])");
+
+  auto heap_decimal128_array = SliceArrayFromJSON(
+      decimal128(30, 6),
+      R"([null, "-1234567890123456789.012345", "1234567890123456789.012345"])");
+  auto heap_decimal256_array = SliceArrayFromJSON(
+      decimal256(50, 6), R"([null, "-123456789012345678901234567890123456789.012345"])");
+  auto heap_decimal128_array_sliced = heap_decimal128_array->Slice(1, 1);
+
+  auto heap_fixed_size_binary_array =
+      SliceArrayFromJSON(fixed_size_binary(3), "[null, \"abc\", \"\\u0000\\u001f\xff\"]");
+  auto heap_fixed_size_binary_array_zero_width =
+      SliceArrayFromJSON(fixed_size_binary(0), R"([null, ""])");
+  auto heap_fixed_size_binary_array_sliced = heap_fixed_size_binary_array->Slice(1, 1);
+
+  const char* json_binary_array = "[null, \"abcd\", \"\\u0000\\u001f\xff\"]";
+  auto heap_binary_array = SliceArrayFromJSON(binary(), json_binary_array);
+  auto heap_large_binary_array = SliceArrayFromJSON(large_binary(), json_binary_array);
+  const char* json_string_array = "[null, \"héhé\", \"invalid \xff char\"]";
+  auto heap_string_array = SliceArrayFromJSON(utf8(), json_string_array);
+  auto heap_large_string_array = SliceArrayFromJSON(large_utf8(), json_string_array);
+  auto heap_binary_array_sliced = heap_binary_array->Slice(1, 1);
 
   // ChunkedArray
   ArrayVector array_chunks(2);
