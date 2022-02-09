@@ -755,12 +755,12 @@ gboolean garrow_string_array_builder_append_string(GArrowStringArrayBuilder *bui
                                                    const gchar *value,
                                                    GError **error);
 
-GARROW_AVAILABLE_IN_7_0
+GARROW_AVAILABLE_IN_8_0
 gboolean
-garrow_string_array_builder_append_string_n(GArrowStringArrayBuilder *builder,
-                                            const gchar *value,
-                                            gint32 length,
-                                            GError **error);
+garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
+                                              const gchar *value,
+                                              gint32 length,
+                                              GError **error);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_16_FOR(garrow_string_array_builder_append_strings)
