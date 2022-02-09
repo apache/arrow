@@ -180,7 +180,7 @@ struct CastStruct {
           checked_cast<const StructType&>(*out->type()).field(i)->nullable();
 
       if (in_field_nullable && !out_field_nullable) {
-        return Status::TypeError("cannot cast non-nullable struct to nullable struct: ",
+        return Status::TypeError("cannot cast nullable struct to non-nullable struct: ",
                                  batch[0].type()->ToString(), " ",
                                  out->type()->ToString());
       }
@@ -219,6 +219,7 @@ struct CastStruct {
 
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
+    out_array->buffers = in_array.buffers;
 
     for (int i = 0; i < in_field_count; ++i) {
       auto values = in_array.child_data[i];
