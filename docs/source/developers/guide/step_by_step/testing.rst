@@ -34,12 +34,14 @@ In this section we outline steps needed for unit testing in Arrow.
 
 .. tabs::
 
-   .. tab:: Pytest
+   .. tab:: PyArrow
 
       We use `pytest <https://docs.pytest.org/en/latest/>`_ for
       unit tests in Python. For more info about the required
-      packages follow
+      packages see
       :ref:`Python unit testing section <python-unit-testing>`.
+
+      **Running tests**
 
       To run a specific unit test, use this command in
       the terminal from the ``arrow/python`` folder:
@@ -60,32 +62,14 @@ In this section we outline steps needed for unit testing in Arrow.
 
          $ python -m pytest pyarrow
 
-      If the tests start failing, try to recompile
-      PyArrow or C++.
+      **Recompiling PyArrow or Arrow C++**
 
-      .. note::
+      If the tests start failing, try to recompile PyArrow or
+      Arrow C++. See note in the :ref:`build_libraries_guide`
+      section under the PyArrow tab.
 
-         **Recompiling Cython**
 
-         If you only make changes to `.py` files, you do not need to
-         recompile PyArrow. However, you should recompile it if you make
-         changes in `.pyx` or `.pxd` files.
-
-         To do that run this command again:
-
-         .. code:: console
-
-            $ python setup.py build_ext --inplace
-
-      .. note::
-
-         **Recompiling C++**
-
-         Similarly, you will need to recompile the C++ code if you have
-         made changes to any C++ files. In this case,
-         re-run the cmake commands again.
-
-   .. tab:: R tests
+   .. tab:: R package
 
       We use `testthat <https://testthat.r-lib.org/index.html>`_ for unit testing in R. More specifically, we use the `3rd edition of testthat <https://testthat.r-lib.org/articles/third-edition.html>`_. On rare occasions we might want the behaviour of the 2nd edition of testthat, which is indicated by ``testthat::local_edition(2)``.
 
