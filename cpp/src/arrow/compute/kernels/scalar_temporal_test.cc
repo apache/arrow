@@ -1050,6 +1050,44 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalAddTimestampAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
+      auto timestamp_unit_s = timestamp(TimeUnit::SECOND, tz);
+      auto duration_unit_s = duration(TimeUnit::SECOND);
+      auto timestamp_unit_ms = timestamp(TimeUnit::MILLI, tz);
+      auto duration_unit_ms = duration(TimeUnit::MILLI);
+      auto timestamp_unit_us = timestamp(TimeUnit::MICRO, tz);
+      auto duration_unit_us = duration(TimeUnit::MICRO);
+      auto timestamp_unit_ns = timestamp(TimeUnit::NANO, tz);
+      auto duration_unit_ns = duration(TimeUnit::NANO);
+
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_s, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_s, seconds_between),
+                        ArrayFromJSON(timestamp_unit_s, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ms, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ms, milliseconds_between),
+                        ArrayFromJSON(timestamp_unit_ms, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_us, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_us, microseconds_between),
+                        ArrayFromJSON(timestamp_unit_us, times_seconds_precision2));
+      CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
+                        ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
+    }
+
+    auto seconds_1 = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+
+    auto seconds_1_tz = ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), R"([1, null])");
+    auto milliseconds_3k_tz =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI, "UTC"), R"([3000, null])");
+    CheckScalarBinary(op, seconds_1_tz, milliseconds_2k, milliseconds_3k_tz);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalSubtractTimestampAndDuration) {
   for (auto op : {"subtract", "subtract_checked"}) {
     for (auto tz : {"", "UTC", "Pacific/Marquesas"}) {
