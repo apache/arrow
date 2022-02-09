@@ -240,6 +240,62 @@ struct SubtractCheckedDate32 {
 };
 
 template <bool is_32bit, int64_t multiple>
+struct AddTimeDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = arrow::internal::SafeSignedAdd(left, static_cast<T>(right));
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = arrow::internal::SafeSignedAdd(left, right);
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
+struct AddTimeDurationChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
 struct SubtractTimeDuration {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
@@ -2553,6 +2609,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(add->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
+  AddArithmeticFunctionTimeDurations<AddTimeDuration>(add);
+
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
@@ -2576,6 +2634,8 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
+
+  AddArithmeticFunctionTimeDurations<AddTimeDurationChecked>(add_checked);
 
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
