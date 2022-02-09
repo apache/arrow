@@ -510,6 +510,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_mask_last_n_utf8_int32",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("find_in_set", {}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "find_in_set_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("instr", {}, DataTypeVector{utf8(), utf8()}, int32(),
                      kResultNullIfNull, "instr_utf8"),
 

@@ -3034,4 +3034,51 @@ int32_t instr_utf8(const char* string, int32_t string_len, const char* substring
   }
   return 0;
 }
+
+FORCE_INLINE
+int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_find_len,
+                              const char* string_list, int32_t string_list_len) {
+  // Return 0 if entry len <= 0
+  if (to_find_len <= 0 || string_list_len <= 0) {
+    gdv_fn_context_set_error_msg(context, "Invalid input values.");
+    return 0;
+  }
+
+  // Return 0 if to search entry have commas
+  if (is_substr_utf8_utf8(to_find, to_find_len, reinterpret_cast<const char*>(","), 1)) {
+    return 0;
+  }
+
+  int32_t cur_pos_in_array = 0;
+  int32_t cur_length = 0;
+  bool matching = true;
+
+  for (int i = 0; i < string_list_len; i++) {
+    if (string_list[i] == ',') {
+      cur_pos_in_array++;
+      if (matching && cur_length == to_find_len) {
+        return cur_pos_in_array;
+      } else {
+        matching = true;
+        cur_length = 0;
+      }
+    } else {
+      if (cur_length + 1 <= string_list_len) {
+        if (!matching || to_find[cur_length] != string_list[i]) {
+          matching = false;
+        }
+      } else {
+        matching = false;
+      }
+      cur_length++;
+    }
+  }
+
+  if (matching && cur_length == to_find_len) {
+    cur_pos_in_array++;
+    return cur_pos_in_array;
+  } else {
+    return 0;
+  }
+}
 }  // extern "C"

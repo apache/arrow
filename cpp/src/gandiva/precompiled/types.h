@@ -829,4 +829,7 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 int32_t instr_utf8(const char* string, int32_t string_len, const char* substring,
                    int32_t substring_len);
 
+int32_t find_in_set_utf8_utf8(int64_t context, const char* to_find, int32_t to_find_len,
+                              const char* string_list, int32_t string_list_len);
+
 }  // extern "C"
