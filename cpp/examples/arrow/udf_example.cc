@@ -249,28 +249,28 @@ arrow::Status Execute() {
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
   auto project_node_options = cp::ProjectNodeOptions{{
-                              cp::field_ref("a"),
-                              custom_exp,
-                              cp::field_ref("b"),
-                          }};
+      cp::field_ref("a"),
+      custom_exp,
+      cp::field_ref("b"),
+  }};
   auto output_schema = arrow::schema({arrow::field("a", arrow::int32()),
-  arrow::field("a + a", arrow::int32()), arrow::field("b", arrow::boolean())});
+                                      arrow::field("a + a", arrow::int32()),
+                                      arrow::field("b", arrow::boolean())});
   std::shared_ptr<arrow::Table> out;
-  ABORT_ON_FAILURE(
-      cp::Declaration::Sequence(
-          {
-              {"source", source_node_options},
-              {"project", project_node_options},
-              {"table_sink", cp::TableSinkNodeOptions{&out, output_schema}},
-          })
-          .AddToPlan(plan.get())
-          .status());
+  ABORT_ON_FAILURE(cp::Declaration::Sequence(
+                       {
+                           {"source", source_node_options},
+                           {"project", project_node_options},
+                           {"table_sink", cp::TableSinkNodeOptions{&out, output_schema}},
+                       })
+                       .AddToPlan(plan.get())
+                       .status());
 
   ARROW_RETURN_NOT_OK(plan->StartProducing());
 
   std::cout << "Output Table Data : " << std::endl;
   std::cout << out->ToString() << std::endl;
-  
+
   auto future = plan->finished();
 
   return future.status();
