@@ -255,7 +255,7 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> Copy(std::shared_ptr<Buffer> source,
                                               const std::shared_ptr<MemoryManager>& to);
 
-  /// \brief Copy buffer
+  /// \brief Copy a non-owned buffer
   static Result<std::unique_ptr<Buffer>> Copy(const Buffer& source,
                                               const std::shared_ptr<MemoryManager>& to);
 
