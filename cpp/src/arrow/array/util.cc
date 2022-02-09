@@ -319,7 +319,7 @@ namespace {
 
 // get the maximum buffer length required, then allocate a single zeroed buffer
 // to use anywhere a buffer is required
-class ImmutableNullArrayFactory {
+class NullArrayFactory {
  public:
   struct GetBufferLength {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
@@ -415,8 +415,8 @@ class ImmutableNullArrayFactory {
     int64_t length_, buffer_length_;
   };
 
-  ImmutableNullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                            int64_t length)
+  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                   int64_t length)
       : pool_(pool), type_(type), length_(length) {}
 
   Status CreateBuffer() {
@@ -521,7 +521,7 @@ class ImmutableNullArrayFactory {
 
   Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
                                                  int64_t length) {
-    ImmutableNullArrayFactory child_factory(pool_, type.field(i)->type(), length);
+    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     child_factory.buffer_ = buffer_;
     return child_factory.Create();
   }
@@ -533,8 +533,8 @@ class ImmutableNullArrayFactory {
   std::shared_ptr<Buffer> buffer_;
 };
 
-// mutable version of ImmutableNullArrayFactory
-class NullArrayFactory {
+// mutable version of NullArrayFactory, i.e. one that doesn't reuse a single buffer
+class MutableNullArrayFactory {
  private:
   Result<std::shared_ptr<Buffer>> CreateZeroByteBuffer(size_t scalar_size_bytes) const {
     ARROW_ASSIGN_OR_RAISE(auto buffer,
@@ -561,8 +561,8 @@ class NullArrayFactory {
   static Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0); }
 
  public:
-  NullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                   int64_t length)
+  MutableNullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                          int64_t length)
       : pool_(pool), type_(type), length_(length) {}
 
   Result<std::shared_ptr<ArrayData>> Create() {
@@ -669,7 +669,7 @@ class NullArrayFactory {
 
   Result<std::shared_ptr<ArrayData>> CreateChild(const DataType& type, int i,
                                                  int64_t length) {
-    NullArrayFactory child_factory(pool_, type.field(i)->type(), length);
+    MutableNullArrayFactory child_factory(pool_, type.field(i)->type(), length);
     return child_factory.Create();
   }
 
@@ -924,14 +924,13 @@ class RepeatedArrayFactory {
 
 Result<std::shared_ptr<Array>> MakeMutableArrayOfNull(
     const std::shared_ptr<DataType>& type, int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto data, NullArrayFactory(pool, type, length).Create());
+  ARROW_ASSIGN_OR_RAISE(auto data, MutableNullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
 }
 
 Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& type,
                                                int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto data,
-                        ImmutableNullArrayFactory(pool, type, length).Create());
+  ARROW_ASSIGN_OR_RAISE(auto data, NullArrayFactory(pool, type, length).Create());
   return MakeArray(data);
 }
 
