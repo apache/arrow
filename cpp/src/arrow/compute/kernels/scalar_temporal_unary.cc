@@ -430,6 +430,32 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
+// Extract epidemiological year values from temporal types
+//
+// First week of an epidemiological year has the majority (4 or more) of it's
+// days in January. Last week of an epidemiological year has the year's last
+// Wednesday in it. Epidemiological week starts on Sunday.
+
+template <typename Duration, typename Localizer>
+struct Epiyear {
+  explicit Epiyear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
+    auto y = year_month_day{t + days{3}}.year();
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wed[last]) + (mon - thu);
+    if (t < start) {
+      --y;
+    }
+    return static_cast<T>(static_cast<int32_t>(y));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
 // Extract week from temporal types
 //
 // First week of an ISO year has the majority (4 or more) of its days in January.
@@ -1351,6 +1377,16 @@ const FunctionDoc iso_year_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc epiyear_doc{
+    "Extract epidemiological year number",
+    ("First week of an epidemiological year has the majority (4 or more) of it's\n"
+     "days in January. Last week of an epidemiological year has the year's last\n"
+     "Wednesday in it. Epidemiological week starts on Sunday."
+     "Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
     ("First ISO week has the majority (4 or more) of its days in January.\n"
@@ -1556,6 +1592,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                                        int64(),
                                                                        &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
+
+  auto epiyear =
+      UnaryTemporalFactory<Epiyear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("epiyear", int64(),
+                                                                       &epiyear_doc);
+  DCHECK_OK(registry->AddFunction(std::move(epiyear)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =

@@ -391,6 +391,7 @@ Temporal Component Extraction
    day
    day_of_week
    day_of_year
+   epiyear
    hour
    iso_week
    iso_year
