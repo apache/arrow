@@ -713,7 +713,7 @@ write_csv_arrow <- function(x,
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x) || inherits(x, "Dataset"))
+  assert_that(is_writable_table(x) || inherits(x, c("Dataset", "arrow_dplyr_query")))
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -724,7 +724,7 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
-  } else if (inherits(x, "Dataset")) {
+  } else if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
     rb_reader <- Scanner$create(x)$ToRecordBatchReader()
     csv___WriteCSV__RecordBatchReader(rb_reader, write_options, sink)
   }
