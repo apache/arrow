@@ -172,7 +172,7 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   arrow::Result<std::string> SerializeToString() const;
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const arrow::util::string_view& serialized, BasicAuth* out);
+  static Status Deserialize(const std::string& serialized, BasicAuth* out);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Serialize(const BasicAuth& basic_auth, std::string* out);
@@ -219,8 +219,7 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
       const arrow::util::string_view& serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const arrow::util::string_view& serialized,
-                            FlightDescriptor* out);
+  static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -270,7 +269,7 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   static arrow::Result<Ticket> Deserialize(const arrow::util::string_view& serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const arrow::util::string_view& serialized, Ticket* out);
+  static Status Deserialize(const std::string& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -449,7 +448,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
       const arrow::util::string_view& serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const arrow::util::string_view& serialized,
+  static Status Deserialize(const std::string& serialized,
                             std::unique_ptr<FlightInfo>* out);
 
  private:

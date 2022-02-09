@@ -179,7 +179,7 @@ arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
   return out;
 }
 
-Status FlightDescriptor::Deserialize(const arrow::util::string_view& serialized,
+Status FlightDescriptor::Deserialize(const std::string& serialized,
                                      FlightDescriptor* out) {
   return Deserialize(serialized).Value(out);
 }
@@ -216,7 +216,7 @@ arrow::Result<Ticket> Ticket::Deserialize(const arrow::util::string_view& serial
   return out;
 }
 
-Status Ticket::Deserialize(const arrow::util::string_view& serialized, Ticket* out) {
+Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
   return Deserialize(serialized).Value(out);
 }
 
@@ -277,7 +277,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(data)));
 }
 
-Status FlightInfo::Deserialize(const arrow::util::string_view& serialized,
+Status FlightInfo::Deserialize(const std::string& serialized,
                                std::unique_ptr<FlightInfo>* out) {
   return Deserialize(serialized).Value(out);
 }
@@ -426,8 +426,7 @@ arrow::Result<BasicAuth> BasicAuth::Deserialize(
   return out;
 }
 
-Status BasicAuth::Deserialize(const arrow::util::string_view& serialized,
-                              BasicAuth* out) {
+Status BasicAuth::Deserialize(const std::string& serialized, BasicAuth* out) {
   return Deserialize(serialized).Value(out);
 }
 
