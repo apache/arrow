@@ -976,6 +976,34 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalAddDateAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    std::string milliseconds_between_date_and_time =
+        "[59000, 84203000, 3560000, 12800000, 3905000, 7810000, 11715000, 15620000, "
+        "19525000, 23430000, 27335000, 31240000, 35145000, 0, 0, 3723000, null]";
+    std::string microseconds_between_date_and_time =
+        "[59000000, 84203000000, 3560000000, 12800000000, 3905000000, 7810000000, "
+        "11715000000, 15620000000, 19525000000, 23430000000, 27335000000, 31240000000, "
+        "35145000000, 0, 0, 3723000000, null]";
+    auto dates32 = ArrayFromJSON(date32(), date32s);
+    auto dates64 = ArrayFromJSON(date64(), date64s);
+
+    auto durations_ms =
+        ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_date_and_time);
+    auto timestamps_ms =
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_ms, timestamps_ms);
+    CheckScalarBinary(op, dates64, durations_ms, timestamps_ms);
+
+    auto durations_us =
+        ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_date_and_time);
+    auto timestamps_us =
+        ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
+    CheckScalarBinary(op, dates32, durations_us, timestamps_us);
+    CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
   for (auto op : {"subtract", "subtract_checked"}) {
     std::string milliseconds_between_time_and_date =
