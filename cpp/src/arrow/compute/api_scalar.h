@@ -1374,6 +1374,18 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           AssumeTimezoneOptions options,
                                           ExecContext* ctx = NULLPTR);
 
+/// \brief IsDaylightSavings extracts if currently observing daylight savings for each
+/// element of `values`
+///
+/// \param[in] values input to extract daylight savings indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
+                                             ExecContext* ctx = NULLPTR);
+
 /// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
 /// query key in a map.
 ///

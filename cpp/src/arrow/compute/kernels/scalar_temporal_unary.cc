@@ -48,7 +48,6 @@ using arrow_vendored::date::Monday;
 using arrow_vendored::date::months;
 using arrow_vendored::date::round;
 using arrow_vendored::date::Sunday;
-using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
@@ -127,6 +126,26 @@ struct AssumeTimezoneExtractor
     ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(options.timezone));
     using ExecTemplate = Op<Duration>;
     auto op = ExecTemplate(&options, tz);
+    applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
+        op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
+struct DaylightSavingsExtractor
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& timezone = GetInputTimezone(batch.values[0]);
+    if (timezone.empty()) {
+      return Status::Invalid("Timestamps have no timezone. Cannot determine DST.");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    using ExecTemplate = Op<Duration>;
+    auto op = ExecTemplate(nullptr, tz);
     applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
         op};
     return kernel.Exec(ctx, batch, out);
@@ -601,6 +620,22 @@ struct Nanosecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
   }
+};
+
+// ----------------------------------------------------------------------
+// Extract if currently observing daylight savings
+
+template <typename Duration>
+struct IsDaylightSavings {
+  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+      : tz_(tz) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+  }
+
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1444,6 +1479,14 @@ const FunctionDoc assume_timezone_doc{
     "AssumeTimezoneOptions",
     /*options_required=*/true};
 
+const FunctionDoc is_dst_doc{
+    "Extracts if currently observing daylight savings",
+    ("IsDaylightSavings returns true if a timestamp has a daylight saving\n"
+     "offset in the given timezone.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values do not have a defined timezone."),
+    {"values"}};
+
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",
     ("Null values emit null.\n"
@@ -1606,6 +1649,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                           OutputType::Resolver(ResolveAssumeTimezoneOutput),
                           &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
+
+  auto is_dst =
+      UnaryTemporalFactory<IsDaylightSavings, DaylightSavingsExtractor,
+                           BooleanType>::Make<WithTimestamps>("is_dst", boolean(),
+                                                              &is_dst_doc);
+  DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
   // Temporal rounding functions
   static const auto default_round_temporal_options = RoundTemporalOptions::Defaults();

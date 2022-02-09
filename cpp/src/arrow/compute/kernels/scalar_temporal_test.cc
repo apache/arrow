@@ -475,6 +475,8 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
                      year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
+    ASSERT_RAISES(Invalid,
+                  IsDaylightSavings(ArrayFromJSON(unit, times_seconds_precision)));
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -570,6 +572,9 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   auto day_of_week = "[2, 1, 5, 1, 1, 0, 6, 2, 3, 5, 6, 5, 5, 5, 6, 5, null]";
   auto day_of_year =
       "[365, 60, 365, 137, 365, 364, 363, 364, 365, 2, 3, 365, 365, 362, 363, 365, null]";
+  std::string is_dst =
+      "[false, false, false, false, false, false, false, false, false, false, false, "
+      "false, false, false, false, false, null]";
   auto iso_year =
       "[1970, 2000, 1898, 2033, 2020, 2020, 2019, 2009, 2009, 2009, 2009, 2005, 2005, "
       "2008, 2008, 2011, null]";
@@ -604,6 +609,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times), year_month_day);
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
+  CheckScalarUnary("is_dst", unit, times, boolean(), is_dst);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
   CheckScalarUnary("us_week", unit, times, int64(), us_week);
@@ -644,6 +650,9 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     auto day_of_week = "[3, 2, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
     auto day_of_year =
         "[1, 61, 1, 138, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1, null]";
+    std::string is_dst =
+        "[false, true, false, false, true, true, true, true, true, true, true, true, "
+        "true, true, true, true, null]";
     auto iso_year =
         "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
         "2008, 2009, 2011, null]";
@@ -679,6 +688,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
                      year_month_day);
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
+    CheckScalarUnary("is_dst", unit, times_seconds_precision, boolean(), is_dst);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -710,6 +720,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, YearMonthDay(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
+    ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));
     ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));
