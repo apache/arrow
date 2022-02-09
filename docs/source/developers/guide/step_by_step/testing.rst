@@ -41,6 +41,33 @@ In this section we outline steps needed for unit testing in Arrow.
       packages see
       :ref:`Python unit testing section <python-unit-testing>`.
 
+      **Structure**
+
+      Test layout in PyArrow follows ``pytest`` structure for
+      `Tests as part of application code <https://docs.pytest.org/en/6.2.x/goodpractices.html#tests-as-part-of-application-code>`_:
+
+      .. code:: console
+
+         pyarrow/
+             __init__.py
+             csv.py
+             dataset.py
+             ...
+             tests/
+                 __init__.py
+                 test_csv.py
+                 test_dataset.py
+                 ...
+
+      Tests for Parquet are located in a separate folder ``pyarrow/tests/parquet/``.
+
+      .. Note::
+
+         Good to read:
+         `Invoking pytest versus python -m pytest <https://docs.pytest.org/en/6.2.x/pythonpath.html#pytest-vs-python-m-pytest>`_
+         (bottom of the page).
+
+
       **Running tests**
 
       To run a specific unit test, use this command in
@@ -67,6 +94,30 @@ In this section we outline steps needed for unit testing in Arrow.
       If the tests start failing, try to recompile PyArrow or
       Arrow C++. See note in the :ref:`build_libraries_guide`
       section under the PyArrow tab.
+
+      **Fixtures**
+
+      Inside pPyArrow tests files there can be helper functions
+      and fixtures defined. Also other pytest decorators such as
+      ``@parametrize`` or ``@skipif`` are used.
+
+      For example:
+
+      * ``_alltypes_example`` in ``test_pandas`` supplies a
+        dataframe with 100 rows for all data types.
+      * ``_check_pandas_roundtrip`` in ``test_pandas`` asserts if the
+        roundtrip from ``Pandas`` through ``pa.Table`` or
+        ``pa.RecordBatch`` back to ``Pandas`` yields the same result.
+      * ``large_buffer`` fixture supplying a PyArrow buffer of fixed
+        size to the function ``test_primitive_serialization(large_buffer)``
+        in ``test_serialization.py``.
+
+      For this reason it is good to look through the file you
+      are planning to add the tests to and see if any of
+      the defined functions or fixtures will be helpful.
+
+      For more information about ``pytest`` in general visit
+      `Full pytest documentation <https://docs.pytest.org/en/6.2.x/contents.html>`_
 
 
    .. tab:: R package
