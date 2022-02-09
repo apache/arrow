@@ -334,6 +334,13 @@ virtualenv) enables cmake to choose the python executable which you are using.
    On MacOS it is suggested to use ``-DARROW_INSTALL_NAME_RPATH=OFF`` to
    avoid issues at link time.
 
+   Likely error message that is a result of not setting this option
+   is:
+
+   .. code:: console
+
+      E     Reason: tried: '/opt/homebrew/lib/libarrow.800.dylib' (no such file), '/opt/homebrew/lib/libarrow.800.dylib' (no such file), '/usr/local/lib/libarrow.800.dylib' (no such file), '/usr/lib/libarrow.800.dylib' (no such file)
+
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is

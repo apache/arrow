@@ -283,6 +283,13 @@ environment variable (which requires the `locales` package or equivalent):
    On MacOS it is suggested to use ``-DARROW_INSTALL_NAME_RPATH=OFF`` to
    avoid issues at link time.
 
+   Likely error message that is a result of not setting this option
+   is:
+
+   .. code:: console
+
+      E     Reason: tried: '/opt/homebrew/lib/libarrow.800.dylib' (no such file), '/opt/homebrew/lib/libarrow.800.dylib' (no such file), '/usr/local/lib/libarrow.800.dylib' (no such file), '/usr/lib/libarrow.800.dylib' (no such file)
+
 Faster builds with Ninja
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
