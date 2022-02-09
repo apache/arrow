@@ -198,6 +198,25 @@ struct Year {
 };
 
 // ----------------------------------------------------------------------
+// Extract is leap year from temporal types
+
+template <typename Duration, typename Localizer>
+struct IsLeapYear {
+  IsLeapYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    int32_t y = static_cast<const int32_t>(
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .year());
+    return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
 // Extract month from temporal types
 
 template <typename Duration, typename Localizer>
@@ -1300,6 +1319,13 @@ const FunctionDoc year_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc is_leap_year_doc{
+    "Extract if year is a leap year",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
 const FunctionDoc month_doc{
     "Extract month number",
     ("Month is encoded as January=1, December=12.\n"
@@ -1518,6 +1544,11 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                            Int64Type>::Make<WithDates, WithTimestamps>("year", int64(),
                                                                        &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
+
+  auto is_leap_year =
+      UnaryTemporalFactory<IsLeapYear, TemporalComponentExtract, BooleanType>::Make<
+          WithDates, WithTimestamps>("is_leap_year", boolean(), &is_leap_year_doc);
+  DCHECK_OK(registry->AddFunction(std::move(is_leap_year)));
 
   auto month =
       UnaryTemporalFactory<Month, TemporalComponentExtract,

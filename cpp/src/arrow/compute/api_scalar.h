@@ -1123,6 +1123,17 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
 ARROW_EXPORT
 Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief IsLeapYear returns if a year is a leap year for each element of `values`
+///
+/// \param[in] values input to extract leap year indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsLeapYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief Month returns month for each element of `values`.
 /// Month is encoded as January=1, December=12
 ///
