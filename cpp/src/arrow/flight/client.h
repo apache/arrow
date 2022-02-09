@@ -335,7 +335,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 
  private:
   FlightClient();
-  Status CheckOpen();
+  Status CheckOpen() const;
   class FlightClientImpl;
   std::unique_ptr<FlightClientImpl> impl_;
 };

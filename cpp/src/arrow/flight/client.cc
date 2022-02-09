@@ -1390,7 +1390,7 @@ Status FlightClient::Close() {
   return Status::OK();
 }
 
-Status FlightClient::CheckOpen() {
+Status FlightClient::CheckOpen() const {
   if (!impl_) {
     return Status::Invalid("FlightClient is closed");
   }
