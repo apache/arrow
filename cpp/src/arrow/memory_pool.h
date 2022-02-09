@@ -117,8 +117,8 @@ class ARROW_EXPORT MemoryPool {
 
   /// Free an allocated region.
   ///
-  /// @param buffer Pointer to the start of the allocated memory region
-  /// @param size Allocated size located at buffer. An allocator implementation
+  /// \param buffer Pointer to the start of the allocated memory region
+  /// \param size Allocated size located at buffer. An allocator implementation
   ///   may use this for tracking the amount of allocated bytes as well as for
   ///   faster deallocation if supported by its backend.
   virtual void Free(uint8_t* buffer, int64_t size) = 0;
@@ -160,8 +160,8 @@ class ARROW_EXPORT MemoryPool {
 
   /// Free a memory region allocated by GetImmutableZeros().
   ///
-  /// @param buffer Pointer to the start of the allocated memory region
-  /// @param size Allocated size located at buffer. An allocator implementation
+  /// \param buffer Pointer to the start of the allocated memory region
+  /// \param size Allocated size located at buffer. An allocator implementation
   ///   may use this for tracking the amount of allocated bytes as well as for
   ///   faster deallocation if supported by its backend.
   virtual void FreeImmutableZeros(uint8_t* buffer, int64_t size);
