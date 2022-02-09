@@ -49,7 +49,7 @@ Result<std::shared_ptr<Array>> MakeMutableArrayOfNull(
 /// \brief Create a strongly-typed immutable Array instance with all elements null
 ///
 /// This function may reuse a single zero buffer, but may also defer to
-/// MakeArrayOfNull().
+/// MakeMutableArrayOfNull().
 ///
 /// \param[in] type the array type
 /// \param[in] length the array length
@@ -71,7 +71,7 @@ Result<std::shared_ptr<Array>> MakeMutableArrayFromScalar(
 /// \brief Create an immutable Array instance whose slots are set to the given scalar
 ///
 /// This function may reuse buffers if they contain the same (repeated) value to save
-/// memory, but may also defer to MakeArrayFromScalar().
+/// memory, but may also defer to MakeMutableArrayFromScalar().
 ///
 /// \param[in] scalar the value with which to fill the array
 /// \param[in] length the array length
