@@ -76,7 +76,7 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
 }
 
 // Counts the number of quotes in s.
-int64_t CountQuotes(util::string_view s) {
+int64_t CountQuotes(arrow::util::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
@@ -114,7 +114,7 @@ class ColumnPopulator {
   }
 
   // Places string data onto each row in output and updates the corresponding row
-  // row pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // pointers in preparation for calls to other (preceding) ColumnPopulators.
   // Implementations may apply certain checks e.g. for illegal values, which in case of
   // failure causes this function to return an error Status.
   // Args:
@@ -214,7 +214,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 
  private:
   // Returns an error status if s has any structural characters.
-  static Status CheckStringHasNoStructuralChars(const util::string_view& s) {
+  static Status CheckStringHasNoStructuralChars(arrow::util::string_view s) {
     if (std::any_of(s.begin(), s.end(), [](const char& c) {
           return c == '\n' || c == '\r' || c == ',' || c == '"';
         })) {
@@ -233,7 +233,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // Strings need special handling to ensure they are escaped properly.
 // This class handles escaping assuming that all strings will be quoted
 // and that the only character within the string that needs to escaped is
-// a quote character (") and escaping is done my adding another quote.
+// a quote character (") and escaping is done by adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
