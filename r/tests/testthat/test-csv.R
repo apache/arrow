@@ -461,7 +461,7 @@ test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
       append = FALSE,
       quote = "all",
       escape = "double",
-      eol = "\n",
+      eol = "\n"
     ),
     paste(
       "The following arguments are not yet supported in Arrow: \"append\",",
