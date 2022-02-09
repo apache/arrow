@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cerrno>
-#include <csignal>
 #include <cstdlib>
 #include <memory>
 #include <utility>
@@ -31,6 +29,7 @@
 #include "arrow/scalar.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/debug.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -47,18 +46,6 @@ using ipc::internal::json::ScalarFromJSON;
 
 namespace gdb {
 namespace {
-
-void Trap() {
-  // XXX Perhaps vendor
-  // https://github.com/nemequ/portable-snippets/blob/master/debug-trap/debug-trap.h ?
-#if defined(_MSC_VER)
-  __debugbreak();
-#elif defined(SIGTRAP)
-  raise(SIGTRAP);
-#else
-  std::abort();
-#endif
-}
 
 class CustomStatusDetail : public StatusDetail {
  public:
@@ -442,7 +429,7 @@ void TestSession() {
 #endif
 
   // Hook into debugger
-  Trap();
+  arrow::internal::DebugTrap();
 }
 
 }  // namespace gdb

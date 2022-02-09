@@ -57,11 +57,12 @@ class TestMemoryPoolBase : public ::testing::Test {
     auto pool = memory_pool();
 
     uint8_t* data;
-    int64_t to_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
-                                          std::numeric_limits<size_t>::max());
+    int64_t max_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
+                                           std::numeric_limits<size_t>::max());
     // subtract 63 to prevent overflow after the size is aligned
-    to_alloc -= 63;
-    ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+    for (int64_t to_alloc : {max_alloc, max_alloc - 63, max_alloc - 127}) {
+      ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+    }
   }
 
   void TestReallocate() {

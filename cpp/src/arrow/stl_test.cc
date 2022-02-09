@@ -522,9 +522,10 @@ TEST(allocator, MemoryTracking) {
 #if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(ARROW_JEMALLOC))
 
 TEST(allocator, TestOOM) {
-  allocator<uint64_t> alloc;
-  uint64_t to_alloc = std::numeric_limits<uint64_t>::max() / 2;
-  ASSERT_THROW(alloc.allocate(to_alloc), std::bad_alloc);
+  allocator<uint8_t> alloc;
+  size_t max_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
+                                        std::numeric_limits<size_t>::max());
+  ASSERT_THROW(alloc.allocate(max_alloc), std::bad_alloc);
 }
 
 TEST(stl_allocator, MaxMemory) {
@@ -544,5 +545,4 @@ TEST(stl_allocator, MaxMemory) {
         // || defined(ARROW_JEMALLOC))
 
 }  // namespace stl
-
 }  // namespace arrow
