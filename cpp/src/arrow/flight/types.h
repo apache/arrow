@@ -30,6 +30,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -165,8 +166,15 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string username;
   std::string password;
 
-  static Status Deserialize(const std::string& serialized, BasicAuth* out);
+  /// \brief Deserialize this message from its wire-format representation.
+  static arrow::Result<BasicAuth> Deserialize(const arrow::util::string_view& serialized);
+  /// \brief Serialize this message to its wire-format representation.
+  arrow::Result<std::string> SerializeToString() const;
 
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  static Status Deserialize(const arrow::util::string_view& serialized, BasicAuth* out);
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Serialize(const BasicAuth& basic_auth, std::string* out);
 };
 
@@ -198,16 +206,21 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
+  static arrow::Result<FlightDescriptor> Deserialize(
+      const arrow::util::string_view& serialized);
 
-  /// \brief Parse the wire-format representation of this type.
-  static Status Deserialize(const Buffer& serialized, FlightDescriptor* out);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  static Status Deserialize(const arrow::util::string_view& serialized,
+                            FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -245,16 +258,19 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static Status Deserialize(const std::string& serialized, Ticket* out);
+  static arrow::Result<Ticket> Deserialize(const arrow::util::string_view& serialized);
 
-  /// \brief Parse the wire-format representation of this type.
-  static Status Deserialize(const Buffer& serialized, Ticket* out);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  static Status Deserialize(const arrow::util::string_view& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -420,17 +436,21 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   Status SerializeToString(std::string* out) const;
 
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static Status Deserialize(const std::string& serialized,
-                            std::unique_ptr<FlightInfo>* out);
+  static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
+      const arrow::util::string_view& serialized);
 
-  /// \brief Parse the wire-format representation of this type.
-  static Status Deserialize(const Buffer& serialized, std::unique_ptr<FlightInfo>* out);
+  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
+  static Status Deserialize(const arrow::util::string_view& serialized,
+                            std::unique_ptr<FlightInfo>* out);
 
  private:
   Data data_;

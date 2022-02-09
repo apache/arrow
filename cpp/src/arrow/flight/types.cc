@@ -28,6 +28,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -147,28 +148,25 @@ Status SchemaResult::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   return ipc::ReadSchema(&schema_reader, dictionary_memo).Value(out);
 }
 
-Status FlightDescriptor::SerializeToString(std::string* out) const {
+arrow::Result<std::string> FlightDescriptor::SerializeToString() const {
   pb::FlightDescriptor pb_descriptor;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_descriptor));
 
-  if (!pb_descriptor.SerializeToString(out)) {
+  std::string out;
+  if (!pb_descriptor.SerializeToString(&out)) {
     return Status::IOError("Serialized descriptor exceeded 2 GiB limit");
   }
-  return Status::OK();
+  return out;
 }
 
-Status FlightDescriptor::Deserialize(const std::string& serialized,
-                                     FlightDescriptor* out) {
-  pb::FlightDescriptor pb_descriptor;
-  if (!pb_descriptor.ParseFromString(serialized)) {
-    return Status::Invalid("Not a valid descriptor");
-  }
-  return internal::FromProto(pb_descriptor, out);
+Status FlightDescriptor::SerializeToString(std::string* out) const {
+  return SerializeToString().Value(out);
 }
 
-Status FlightDescriptor::Deserialize(const Buffer& serialized, FlightDescriptor* out) {
+arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
+    const arrow::util::string_view& serialized) {
   pb::FlightDescriptor pb_descriptor;
-  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightDescriptor size should not exceed 2 GiB");
   }
   google::protobuf::io::ArrayInputStream input(serialized.data(),
@@ -176,32 +174,36 @@ Status FlightDescriptor::Deserialize(const Buffer& serialized, FlightDescriptor*
   if (!pb_descriptor.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid descriptor");
   }
-  return internal::FromProto(pb_descriptor, out);
+  FlightDescriptor out;
+  RETURN_NOT_OK(internal::FromProto(pb_descriptor, &out));
+  return out;
+}
+
+Status FlightDescriptor::Deserialize(const arrow::util::string_view& serialized,
+                                     FlightDescriptor* out) {
+  return Deserialize(serialized).Value(out);
 }
 
 bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; }
 
-Status Ticket::SerializeToString(std::string* out) const {
+arrow::Result<std::string> Ticket::SerializeToString() const {
   pb::Ticket pb_ticket;
   internal::ToProto(*this, &pb_ticket);
 
-  if (!pb_ticket.SerializeToString(out)) {
+  std::string out;
+  if (!pb_ticket.SerializeToString(&out)) {
     return Status::IOError("Serialized ticket exceeded 2 GiB limit");
   }
-  return Status::OK();
+  return out;
 }
 
-Status Ticket::Deserialize(const std::string& serialized, Ticket* out) {
-  pb::Ticket pb_ticket;
-  if (!pb_ticket.ParseFromString(serialized)) {
-    return Status::Invalid("Not a valid ticket");
-  }
-  return internal::FromProto(pb_ticket, out);
+Status Ticket::SerializeToString(std::string* out) const {
+  return SerializeToString().Value(out);
 }
 
-Status Ticket::Deserialize(const Buffer& serialized, Ticket* out) {
+arrow::Result<Ticket> Ticket::Deserialize(const arrow::util::string_view& serialized) {
   pb::Ticket pb_ticket;
-  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Ticket size should not exceed 2 GiB");
   }
   google::protobuf::io::ArrayInputStream input(serialized.data(),
@@ -209,7 +211,13 @@ Status Ticket::Deserialize(const Buffer& serialized, Ticket* out) {
   if (!pb_ticket.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid ticket");
   }
-  return internal::FromProto(pb_ticket, out);
+  Ticket out;
+  RETURN_NOT_OK(internal::FromProto(pb_ticket, &out));
+  return out;
+}
+
+Status Ticket::Deserialize(const arrow::util::string_view& serialized, Ticket* out) {
+  return Deserialize(serialized).Value(out);
 }
 
 arrow::Result<FlightInfo> FlightInfo::Make(const Schema& schema,
@@ -238,32 +246,25 @@ Status FlightInfo::GetSchema(ipc::DictionaryMemo* dictionary_memo,
   return Status::OK();
 }
 
-Status FlightInfo::SerializeToString(std::string* out) const {
+arrow::Result<std::string> FlightInfo::SerializeToString() const {
   pb::FlightInfo pb_info;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
 
-  if (!pb_info.SerializeToString(out)) {
+  std::string out;
+  if (!pb_info.SerializeToString(&out)) {
     return Status::IOError("Serialized FlightInfo exceeded 2 GiB limit");
   }
-  return Status::OK();
+  return out;
 }
 
-Status FlightInfo::Deserialize(const std::string& serialized,
-                               std::unique_ptr<FlightInfo>* out) {
-  pb::FlightInfo pb_info;
-  if (!pb_info.ParseFromString(serialized)) {
-    return Status::Invalid("Not a valid FlightInfo");
-  }
-  FlightInfo::Data data;
-  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  out->reset(new FlightInfo(data));
-  return Status::OK();
+Status FlightInfo::SerializeToString(std::string* out) const {
+  return SerializeToString().Value(out);
 }
 
-Status FlightInfo::Deserialize(const Buffer& serialized,
-                               std::unique_ptr<FlightInfo>* out) {
+arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
+    const arrow::util::string_view& serialized) {
   pb::FlightInfo pb_info;
-  if (serialized.size() > static_cast<int64_t>(std::numeric_limits<int>::max())) {
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightInfo size should not exceed 2 GiB");
   }
   google::protobuf::io::ArrayInputStream input(serialized.data(),
@@ -273,8 +274,12 @@ Status FlightInfo::Deserialize(const Buffer& serialized,
   }
   FlightInfo::Data data;
   RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  out->reset(new FlightInfo(data));
-  return Status::OK();
+  return std::unique_ptr<FlightInfo>(new FlightInfo(std::move(data)));
+}
+
+Status FlightInfo::Deserialize(const arrow::util::string_view& serialized,
+                               std::unique_ptr<FlightInfo>* out) {
+  return Deserialize(serialized).Value(out);
 }
 
 Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
@@ -405,17 +410,39 @@ Status SimpleResultStream::Next(std::unique_ptr<Result>* result) {
   return Status::OK();
 }
 
-Status BasicAuth::Deserialize(const std::string& serialized, BasicAuth* out) {
+arrow::Result<BasicAuth> BasicAuth::Deserialize(
+    const arrow::util::string_view& serialized) {
   pb::BasicAuth pb_result;
-  pb_result.ParseFromString(serialized);
-  return internal::FromProto(pb_result, out);
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized BasicAuth size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid BasicAuth");
+  }
+  BasicAuth out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+Status BasicAuth::Deserialize(const arrow::util::string_view& serialized,
+                              BasicAuth* out) {
+  return Deserialize(serialized).Value(out);
+}
+
+arrow::Result<std::string> BasicAuth::SerializeToString() const {
+  pb::BasicAuth pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized BasicAuth exceeded 2 GiB limit");
+  }
+  return out;
 }
 
 Status BasicAuth::Serialize(const BasicAuth& basic_auth, std::string* out) {
-  pb::BasicAuth pb_result;
-  RETURN_NOT_OK(internal::ToProto(basic_auth, &pb_result));
-  *out = pb_result.SerializeAsString();
-  return Status::OK();
+  return basic_auth.SerializeToString().Value(out);
 }
 }  // namespace flight
 }  // namespace arrow

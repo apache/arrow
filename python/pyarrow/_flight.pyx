@@ -311,16 +311,14 @@ cdef class BasicAuth(_Weakrefable):
         return self.basic_auth.get().password
 
     @staticmethod
-    def deserialize(string):
+    def deserialize(serialized):
         auth = BasicAuth()
-        check_flight_status(DeserializeBasicAuth(string, &auth.basic_auth))
+        check_flight_status(
+            CBasicAuth.Deserialize(serialized).Value(auth.basic_auth.get()))
         return auth
 
     def serialize(self):
-        cdef:
-            c_string auth
-        check_flight_status(SerializeBasicAuth(deref(self.basic_auth), &auth))
-        return frombytes(auth)
+        return GetResultValue(self.basic_auth.get().SerializeToString())
 
 
 class DescriptorType(enum.Enum):
@@ -459,9 +457,7 @@ cdef class FlightDescriptor(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef c_string out
-        check_flight_status(self.descriptor.SerializeToString(&out))
-        return out
+        return GetResultValue(self.descriptor.SerializeToString())
 
     @classmethod
     def deserialize(cls, serialized):
@@ -473,8 +469,8 @@ cdef class FlightDescriptor(_Weakrefable):
         """
         cdef FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
-        check_flight_status(CFlightDescriptor.Deserialize(
-            tobytes(serialized), &descriptor.descriptor))
+        descriptor.descriptor = GetResultValue(
+            CFlightDescriptor.Deserialize(tobytes(serialized)))
         return descriptor
 
     def __eq__(self, FlightDescriptor other):
@@ -501,9 +497,7 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef c_string out
-        check_flight_status(self.ticket.SerializeToString(&out))
-        return out
+        return GetResultValue(self.ticket.SerializeToString())
 
     @classmethod
     def deserialize(cls, serialized):
@@ -513,13 +507,9 @@ cdef class Ticket(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef:
-            CTicket c_ticket
-            Ticket ticket
-        check_flight_status(
-            CTicket.Deserialize(tobytes(serialized), &c_ticket))
-        ticket = Ticket.__new__(Ticket)
-        ticket.ticket = c_ticket
+        cdef Ticket ticket = Ticket.__new__(Ticket)
+        ticket.ticket = GetResultValue(
+            CTicket.Deserialize(tobytes(serialized)))
         return ticket
 
     def __eq__(self, Ticket other):
@@ -774,9 +764,7 @@ cdef class FlightInfo(_Weakrefable):
         services) that may want to return Flight types.
 
         """
-        cdef c_string out
-        check_flight_status(self.info.get().SerializeToString(&out))
-        return out
+        return GetResultValue(self.info.get().SerializeToString())
 
     @classmethod
     def deserialize(cls, serialized):
@@ -787,8 +775,8 @@ cdef class FlightInfo(_Weakrefable):
 
         """
         cdef FlightInfo info = FlightInfo.__new__(FlightInfo)
-        check_flight_status(CFlightInfo.Deserialize(
-            tobytes(serialized), &info.info))
+        info.info = move(GetResultValue(
+            CFlightInfo.Deserialize(tobytes(serialized))))
         return info
 
 
@@ -835,7 +823,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """Get the schema for this reader."""
         cdef shared_ptr[CSchema] c_schema
         with nogil:
-            c_schema = GetResultValue(self.reader.get().GetSchema())
+            check_flight_status(self.reader.get().GetSchema().Value(&c_schema))
         return pyarrow_wrap_schema(c_schema)
 
     def read_all(self):
