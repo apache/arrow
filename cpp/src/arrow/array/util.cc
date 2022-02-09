@@ -551,8 +551,9 @@ class NullArrayFactory {
   }
 
   Result<std::shared_ptr<Buffer>> CreateZeroBitBuffer(size_t scalar_size_bits) const {
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          AllocateBuffer((length_ * scalar_size_bits + 7) / 8, pool_));
+    ARROW_ASSIGN_OR_RAISE(
+        auto buffer,
+        AllocateBuffer(bit_util::BytesForBits(length_ * scalar_size_bits), pool_));
     std::memset(buffer->mutable_data(), 0, buffer->size());
     return std::shared_ptr<Buffer>(std::move(buffer));
   }
