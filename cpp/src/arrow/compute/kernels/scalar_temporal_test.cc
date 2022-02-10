@@ -553,6 +553,27 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
 
 #ifndef _WIN32
 // TODO: We should test on windows once ARROW-13168 is resolved.
+TEST_F(ScalarTemporalTest, TestIsLeapYear) {
+  auto is_leap_year_marquesas =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  auto is_leap_year_broken_hill =
+      "[false, true, false, false, true, false, false, false, false, false, false, "
+      "false, false, true, true, true, null]";
+
+  auto is_leap_year_pago_pago =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Marquesas"), times,
+                   boolean(), is_leap_year_marquesas);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Australia/Broken_Hill"),
+                   times, boolean(), is_leap_year_broken_hill);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Pago_Pago"), times,
+                   boolean(), is_leap_year_pago_pago);
+}
+
 TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
   auto year =
