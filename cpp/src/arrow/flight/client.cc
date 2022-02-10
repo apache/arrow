@@ -1290,7 +1290,13 @@ class FlightClient::FlightClientImpl {
 
 FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
 
-FlightClient::~FlightClient() {}
+FlightClient::~FlightClient() {
+  auto st = Close();
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "FlightClient::~FlightClient(): Close() failed: "
+                       << st.ToString();
+  }
+}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
@@ -1305,49 +1311,58 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
                                   std::unique_ptr<ClientAuthHandler> auth_handler) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->Authenticate(options, std::move(auth_handler));
 }
 
 arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
     const FlightCallOptions& options, const std::string& username,
     const std::string& password) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->AuthenticateBasicToken(options, username, password);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoAction(options, action, results);
 }
 
 Status FlightClient::ListActions(const FlightCallOptions& options,
                                  std::vector<ActionType>* actions) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->ListActions(options, actions);
 }
 
 Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->GetFlightInfo(options, descriptor, info);
 }
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
+  RETURN_NOT_OK(CheckOpen());
   return ListFlights({}, {}, listing);
 }
 
 Status FlightClient::ListFlights(const FlightCallOptions& options,
                                  const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->ListFlights(options, criteria, listing);
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoGet(options, ticket, stream);
 }
 
@@ -1356,6 +1371,7 @@ Status FlightClient::DoPut(const FlightCallOptions& options,
                            const std::shared_ptr<Schema>& schema,
                            std::unique_ptr<FlightStreamWriter>* stream,
                            std::unique_ptr<FlightMetadataReader>* reader) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoPut(options, descriptor, schema, stream, reader);
 }
 
@@ -1363,7 +1379,22 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
                                 const FlightDescriptor& descriptor,
                                 std::unique_ptr<FlightStreamWriter>* writer,
                                 std::unique_ptr<FlightStreamReader>* reader) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoExchange(options, descriptor, writer, reader);
+}
+
+Status FlightClient::Close() {
+  // gRPC doesn't offer an explicit shutdown
+  impl_.reset(nullptr);
+  // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
+  return Status::OK();
+}
+
+Status FlightClient::CheckOpen() const {
+  if (!impl_) {
+    return Status::Invalid("FlightClient is closed");
+  }
+  return Status::OK();
 }
 
 }  // namespace flight

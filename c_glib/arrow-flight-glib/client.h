@@ -86,6 +86,11 @@ gaflight_client_new(GAFlightLocation *location,
                     GAFlightClientOptions *options,
                     GError **error);
 
+GARROW_AVAILABLE_IN_8_0
+gboolean
+gaflight_client_close(GAFlightClient *client,
+                      GError **error);
+
 GARROW_AVAILABLE_IN_5_0
 GList *
 gaflight_client_list_flights(GAFlightClient *client,
