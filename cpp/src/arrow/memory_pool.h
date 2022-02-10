@@ -63,42 +63,6 @@ class MemoryPoolStats {
 /// take care of the required 64-byte alignment.
 class ARROW_EXPORT MemoryPool {
  public:
-  class ARROW_EXPORT ImmutableZeros {
-   public:
-    explicit ImmutableZeros(uint8_t* data, int64_t size, MemoryPool* pool)
-        : pool_(pool), data_(data), size_(size) {}
-
-    ImmutableZeros() = default;
-
-    ~ImmutableZeros();
-
-    // Prevent copies and handle moves explicitly to avoid double free
-    ImmutableZeros(const ImmutableZeros&) = delete;
-    ImmutableZeros& operator=(const ImmutableZeros&) = delete;
-
-    ImmutableZeros(ImmutableZeros&& other) noexcept
-        : pool_(other.pool_), data_(other.data_), size_(other.size_) {
-      other.pool_ = NULLPTR;
-      other.data_ = NULLPTR;
-      other.size_ = 0;
-    }
-
-    ImmutableZeros& operator=(ImmutableZeros&& other) noexcept {
-      std::swap(data_, other.data_);
-      std::swap(pool_, other.pool_);
-      std::swap(size_, other.size_);
-      return *this;
-    }
-
-    const uint8_t* data() const { return data_; }
-    int64_t size() const { return size_; }
-
-   private:
-    MemoryPool* pool_ = NULLPTR;
-    uint8_t* data_ = NULLPTR;
-    int64_t size_ = 0;
-  };
-
   virtual ~MemoryPool() = default;
 
   /// \brief EXPERIMENTAL. Create a new instance of the default MemoryPool
@@ -123,17 +87,25 @@ class ARROW_EXPORT MemoryPool {
   ///   faster deallocation if supported by its backend.
   virtual void Free(uint8_t* buffer, int64_t size) = 0;
 
-  /// Return a block of immutable zero bytes of at least the given size.
+  /// Return a shared block of immutable zero bytes of at least the given size.
   ///
-  /// These blocks are useful when a buffer, array, or some other readable block
-  /// of data is needed to comply with an interface, but the contents of the
-  /// block don't matter and/or can just be zero. Unlike other allocations, the
-  /// same underlying block of memory can be shared between all users (for a
-  /// particular size limit), thus reducing memory footprint.
+  /// These blocks are useful when some other readable block of data is needed
+  /// to comply with an interface, but the contents of the block don't matter
+  /// and/or should just be zero. Unlike other allocations, the same underlying
+  /// block of memory can be shared between all users (for a particular size
+  /// limit), thus reducing memory footprint. In fact, some implementations do
+  /// not require allocation of physical memory at all, and instead rely on
+  /// MMU tricks to create arbitrarily large blocks of zeroed virtual memory.
   ///
-  /// The allocated region shall be 64-byte aligned. A region will be
-  /// deallocated when all shared_ptrs to the region are destroyed.
-  virtual Result<std::shared_ptr<ImmutableZeros>> GetImmutableZeros(int64_t size);
+  /// The allocated region shall be 64-byte aligned. The region will be
+  /// deallocated automatically when all shared_ptrs to the region are
+  /// destroyed.
+  ///
+  /// While this returns a shared_ptr to a Buffer, you may want to use the
+  /// MakeBufferOfZeros() function, analogous to AllocateBuffer(). This
+  /// function returns a Buffer that advertises exactly the requested size,
+  /// and that also embeds/hides the shared ownership of the underlying buffer.
+  virtual Result<std::shared_ptr<Buffer>> GetImmutableZeros(int64_t size);
 
   /// Return unused memory to the OS
   ///
@@ -165,6 +137,8 @@ class ARROW_EXPORT MemoryPool {
   ///   may use this for tracking the amount of allocated bytes as well as for
   ///   faster deallocation if supported by its backend.
   virtual void FreeImmutableZeros(uint8_t* buffer, int64_t size);
+
+  friend class ImmutableZeros;
 };
 
 class ARROW_EXPORT LoggingMemoryPool : public MemoryPool {

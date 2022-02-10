@@ -96,6 +96,14 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// is CPU-accessible.
   bool is_cpu() const { return device_->is_cpu(); }
 
+  /// \brief Whether buffers managed by this MemoryManager are mutable.
+  ///
+  /// When this returns false, the contents of the buffers managed by this memory
+  /// manager by definition have some special significance, since only the manager
+  /// has control over what's in them. For example, this may be that the contents
+  /// are always zero, satisfy some pattern, etc.
+  virtual bool is_mutable() const;
+
   /// \brief Create a RandomAccessFile to read a particular buffer.
   ///
   /// The given buffer must be tied to this MemoryManager.
@@ -173,6 +181,11 @@ class ARROW_EXPORT CPUDevice : public Device {
   /// The returned MemoryManager will use the given MemoryPool for allocations.
   static std::shared_ptr<MemoryManager> memory_manager(MemoryPool* pool);
 
+  /// \brief Create a MemoryManager for immutable zero buffers
+  ///
+  /// The returned MemoryManager will use the given MemoryPool for allocations.
+  static std::shared_ptr<MemoryManager> immutable_zeros_memory_manager(MemoryPool* pool);
+
  protected:
   CPUDevice() : Device(true) {}
 };
@@ -222,5 +235,54 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
 /// `CPUDevice::Instance()->default_memory_manager()`.
 ARROW_EXPORT
 std::shared_ptr<MemoryManager> default_cpu_memory_manager();
+
+/// A memory manager that uses the immutable zeros interface of the given memory pool,
+/// rather than the normal mutable buffer interface.
+class ARROW_EXPORT CPUImmutableZerosMemoryManager : public MemoryManager {
+ public:
+  Result<std::shared_ptr<io::RandomAccessFile>> GetBufferReader(
+      std::shared_ptr<Buffer> buf) override;
+  Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
+      std::shared_ptr<Buffer> buf) override;
+
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override;
+
+  /// \brief Return the MemoryPool associated with this MemoryManager.
+  MemoryPool* pool() const { return pool_; }
+
+ protected:
+  CPUImmutableZerosMemoryManager(const std::shared_ptr<Device>& device, MemoryPool* pool)
+      : MemoryManager(device), pool_(pool) {}
+
+  static std::shared_ptr<MemoryManager> Make(const std::shared_ptr<Device>& device,
+                                             MemoryPool* pool = default_memory_pool());
+
+  Result<std::shared_ptr<Buffer>> CopyBufferFrom(
+      const std::shared_ptr<Buffer>& buf,
+      const std::shared_ptr<MemoryManager>& from) override;
+  Result<std::shared_ptr<Buffer>> CopyBufferTo(
+      const std::shared_ptr<Buffer>& buf,
+      const std::shared_ptr<MemoryManager>& to) override;
+  Result<std::shared_ptr<Buffer>> ViewBufferFrom(
+      const std::shared_ptr<Buffer>& buf,
+      const std::shared_ptr<MemoryManager>& from) override;
+  Result<std::shared_ptr<Buffer>> ViewBufferTo(
+      const std::shared_ptr<Buffer>& buf,
+      const std::shared_ptr<MemoryManager>& to) override;
+
+  MemoryPool* pool_;
+
+  friend std::shared_ptr<MemoryManager> CPUDevice::immutable_zeros_memory_manager(
+      MemoryPool* pool);
+  friend ARROW_EXPORT std::shared_ptr<MemoryManager>
+  default_cpu_immutable_zeros_memory_manager();
+};
+
+/// \brief Return the default CPU MemoryManager instance for allocating immutable blocks
+/// of zeros
+///
+/// The returned singleton instance uses the default MemoryPool.
+ARROW_EXPORT
+std::shared_ptr<MemoryManager> default_cpu_immutable_zeros_memory_manager();
 
 }  // namespace arrow

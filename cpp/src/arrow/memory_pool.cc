@@ -543,6 +543,39 @@ int64_t MemoryPool::max_memory() const { return -1; }
 // MemoryPool implementation that delegates its core duty
 // to an Allocator class.
 
+class ImmutableZeros : public Buffer {
+ public:
+  explicit ImmutableZeros(uint8_t* data, int64_t size, MemoryPool* pool)
+      : Buffer(data, size, CPUDevice::immutable_zeros_memory_manager(pool)),
+        pool_(pool) {}
+
+  ImmutableZeros() : Buffer(nullptr, 0), pool_(nullptr){};
+
+  ~ImmutableZeros() override;
+
+  // Prevent copies and handle moves explicitly to avoid double free
+  ImmutableZeros(const ImmutableZeros&) = delete;
+  ImmutableZeros& operator=(const ImmutableZeros&) = delete;
+
+  ImmutableZeros(ImmutableZeros&& other) noexcept
+      : Buffer(other.data_, other.size_, other.memory_manager()), pool_(other.pool_) {
+    other.pool_ = nullptr;
+    other.data_ = nullptr;
+    other.size_ = 0;
+  }
+
+  ImmutableZeros& operator=(ImmutableZeros&& other) noexcept {
+    SetMemoryManager(other.memory_manager());
+    std::swap(pool_, other.pool_);
+    std::swap(data_, other.data_);
+    std::swap(size_, other.size_);
+    return *this;
+  }
+
+ private:
+  MemoryPool* pool_ = nullptr;
+};
+
 #ifndef NDEBUG
 static constexpr uint8_t kAllocPoison = 0xBC;
 static constexpr uint8_t kReallocPoison = 0xBD;
@@ -640,7 +673,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
   }
 
  public:
-  Result<std::shared_ptr<ImmutableZeros>> GetImmutableZeros(int64_t size) override {
+  Result<std::shared_ptr<Buffer>> GetImmutableZeros(int64_t size) override {
     // Thread-safely get the current largest buffer of zeros.
     std::shared_ptr<ImmutableZeros> current_buffer;
     {
@@ -821,7 +854,7 @@ static struct GlobalState {
 #endif
 } global_state;
 
-MemoryPool::ImmutableZeros::~ImmutableZeros() {
+ImmutableZeros::~ImmutableZeros() {
   // Avoid calling pool_->FreeImmutableZeros if the global pools are destroyed
   // (XXX this will not work with user-defined pools)
 
@@ -829,12 +862,11 @@ MemoryPool::ImmutableZeros::~ImmutableZeros() {
   // after memory pools are destructed on the main thread (as there is
   // no guarantee of destructor order between thread/memory pools)
   if (data_ && !global_state.is_finalizing()) {
-    pool_->FreeImmutableZeros(data_, size_);
+    pool_->FreeImmutableZeros(const_cast<uint8_t*>(data_), size_);
   }
 }
 
-Result<std::shared_ptr<MemoryPool::ImmutableZeros>> MemoryPool::GetImmutableZeros(
-    int64_t size) {
+Result<std::shared_ptr<Buffer>> MemoryPool::GetImmutableZeros(int64_t size) {
   uint8_t* data;
   RETURN_NOT_OK(Allocate(size, &data));
   std::memset(data, 0, size);
@@ -1092,8 +1124,8 @@ class PoolBuffer final : public ResizableBuffer {
 /// MemoryPool
 class ImmutableZerosPoolBuffer final : public Buffer {
  public:
-  explicit ImmutableZerosPoolBuffer(std::shared_ptr<MemoryPool::ImmutableZeros>&& zeros,
-                                    int64_t size, std::shared_ptr<MemoryManager>&& mm)
+  explicit ImmutableZerosPoolBuffer(std::shared_ptr<Buffer>&& zeros, int64_t size,
+                                    std::shared_ptr<MemoryManager>&& mm)
       : Buffer(zeros->data(), size, std::move(mm)), zeros_(std::move(zeros)) {}
 
   static Result<std::unique_ptr<ImmutableZerosPoolBuffer>> Make(int64_t size,
@@ -1101,9 +1133,9 @@ class ImmutableZerosPoolBuffer final : public Buffer {
     std::shared_ptr<MemoryManager> mm;
     if (pool == nullptr) {
       pool = default_memory_pool();
-      mm = default_cpu_memory_manager();
+      mm = default_cpu_immutable_zeros_memory_manager();
     } else {
-      mm = CPUDevice::memory_manager(pool);
+      mm = CPUDevice::immutable_zeros_memory_manager(pool);
     }
     ARROW_ASSIGN_OR_RAISE(auto zeros, pool->GetImmutableZeros(size));
     return std::unique_ptr<ImmutableZerosPoolBuffer>(
@@ -1111,7 +1143,9 @@ class ImmutableZerosPoolBuffer final : public Buffer {
   }
 
  private:
-  std::shared_ptr<MemoryPool::ImmutableZeros> zeros_;
+  // Note: we don't use this value directly; however, it needs to be here to keep a
+  // reference to the shared_ptr to keep the underlying zero buffer alive.
+  std::shared_ptr<Buffer> zeros_;
 };
 
 namespace {
