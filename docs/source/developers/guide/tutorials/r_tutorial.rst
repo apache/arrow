@@ -267,9 +267,26 @@ It could be we only need to rebuild the library.
 Check styling
 -------------
 
-As we did not change any part of the C++ code we will not
-run any linters. In case we would need to check the styling
-for the C++ part we would run ``arrow/r/lint.sh`` to lint the code.
+We should also run linters to check that the styling of the code
+follows the `tidyverse style <https://style.tidyverse.org/>`_. To
+do that we run the following command in the shell:
+
+.. code:: console
+
+   $ make style
+   R -s -e 'setwd(".."); if (requireNamespace("styler")) styler::style_file(setdiff(system("git diff --name-only | grep r/.*R$", intern = TRUE), file.path("r", source("r/.styler_excludes.R")$value)))'
+   Loading required namespace: styler
+   Styling  2  files:
+    r/R/expression.R                             ✔
+    r/tests/testthat/test-dplyr-funcs-datetime.R ℹ
+   ────────────────────────────────────────────
+   Status   Count Legend
+   ✔  1  File unchanged.
+   ℹ  1  File changed.
+   ✖  0  Styling threw an error.
+   ────────────────────────────────────────────
+   Please review the changes carefully!
+
 
 Creating a Pull Request
 -----------------------
