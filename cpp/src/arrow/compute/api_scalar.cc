@@ -787,6 +787,7 @@ SCALAR_EAGER_UNARY(Quarter, "quarter")
 SCALAR_EAGER_UNARY(Second, "second")
 SCALAR_EAGER_UNARY(Subsecond, "subsecond")
 SCALAR_EAGER_UNARY(USWeek, "us_week")
+SCALAR_EAGER_UNARY(USYear, "us_year")
 SCALAR_EAGER_UNARY(Year, "year")
 
 Result<Datum> AssumeTimezone(const Datum& arg, AssumeTimezoneOptions options,

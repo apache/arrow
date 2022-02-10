@@ -169,6 +169,9 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string day_of_week = "[3, 1, 6, 2, 2, 1, 0, 3, 4, 6, 0, 6, 5, 6, 0, 6, null]";
   std::string day_of_year =
       "[1, 60, 1, 138, 1, 365, 364, 365, 1, 3, 4, 1, 365, 363, 364, 1, null]";
+  std::string us_year =
+      "[1969, 2000, 1899, 2033, 2020, 2020, 2020, 2009, 2009, 2010, 2010, 2006, 2005, "
+      "2008, 2008, 2012, null]";
   std::string iso_year =
       "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, "
       "2005, 2008, 2009, 2011, null]";
@@ -415,6 +418,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, sample), year_month_day);
     CheckScalarUnary("day_of_week", unit, sample, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, sample, int64(), day_of_year);
+    CheckScalarUnary("us_year", unit, sample, int64(), us_year);
     CheckScalarUnary("iso_year", unit, sample, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, sample, int64(), iso_week);
     CheckScalarUnary("us_week", unit, sample, int64(), us_week);
@@ -483,6 +487,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     ASSERT_RAISES(Invalid,
                   IsDaylightSavings(ArrayFromJSON(unit, times_seconds_precision)));
+    CheckScalarUnary("us_year", unit, times_seconds_precision, int64(), us_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -512,6 +517,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
                           {"year": 2262, "month": 4, "day": 13}])");
   auto day_of_week = "[0, 6]";
   auto day_of_year = "[263, 103]";
+  auto us_year = "[1677, 2262]";
   auto iso_year = "[1677, 2262]";
   auto iso_week = "[38, 15]";
   auto us_week = "[38, 16]";
@@ -536,6 +542,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times), year_month_day);
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
+  CheckScalarUnary("us_year", unit, times, int64(), us_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
   CheckScalarUnary("us_week", unit, times, int64(), us_week);
@@ -607,6 +614,9 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   std::string is_dst =
       "[false, false, false, false, false, false, false, false, false, false, false, "
       "false, false, false, false, false, null]";
+  auto us_year =
+      "[1969, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
+      "2008, 2008, 2011, null]";
   auto iso_year =
       "[1970, 2000, 1898, 2033, 2020, 2020, 2019, 2009, 2009, 2009, 2009, 2005, 2005, "
       "2008, 2008, 2011, null]";
@@ -642,6 +652,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("day_of_week", unit, times, int64(), day_of_week);
   CheckScalarUnary("day_of_year", unit, times, int64(), day_of_year);
   CheckScalarUnary("is_dst", unit, times, boolean(), is_dst);
+  CheckScalarUnary("us_year", unit, times, int64(), us_year);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
   CheckScalarUnary("is_leap_year", unit, times, boolean(), is_leap_year);
@@ -686,6 +697,9 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     std::string is_dst =
         "[false, true, false, false, true, true, true, true, true, true, true, true, "
         "true, true, true, true, null]";
+    auto us_year =
+        "[1969, 2000, 1899, 2033, 2020, 2020, 2020, 2009, 2009, 2010, 2010, 2006, 2005, "
+        "2008, 2008, 2012, null]";
     auto iso_year =
         "[1970, 2000, 1898, 2033, 2020, 2020, 2020, 2009, 2009, 2009, 2010, 2005, 2005, "
         "2008, 2009, 2011, null]";
@@ -724,6 +738,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     CheckScalarUnary("day_of_week", unit, times_seconds_precision, int64(), day_of_week);
     CheckScalarUnary("day_of_year", unit, times_seconds_precision, int64(), day_of_year);
     CheckScalarUnary("is_dst", unit, times_seconds_precision, boolean(), is_dst);
+    CheckScalarUnary("us_year", unit, times_seconds_precision, int64(), us_year);
     CheckScalarUnary("iso_year", unit, times_seconds_precision, int64(), iso_year);
     CheckScalarUnary("iso_week", unit, times_seconds_precision, int64(), iso_week);
     CheckScalarUnary("us_week", unit, times_seconds_precision, int64(), us_week);
@@ -757,6 +772,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, DayOfWeek(timestamp_array));
     ASSERT_RAISES(Invalid, DayOfYear(timestamp_array));
     ASSERT_RAISES(Invalid, IsDaylightSavings(timestamp_array));
+    ASSERT_RAISES(Invalid, USYear(timestamp_array));
     ASSERT_RAISES(Invalid, ISOYear(timestamp_array));
     ASSERT_RAISES(Invalid, Week(timestamp_array));
     ASSERT_RAISES(Invalid, ISOCalendar(timestamp_array));

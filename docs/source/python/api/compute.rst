@@ -405,6 +405,7 @@ Temporal Component Extraction
    second
    subsecond
    us_week
+   us_year
    week
    year
    year_month_day

@@ -449,6 +449,32 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
+// Extract US epidemiological year values from temporal types
+//
+// First week of US epidemiological year has the majority (4 or more) of it's
+// days in January. Last week of US epidemiological year has the year's last
+// Wednesday in it. US epidemiological week starts on Sunday.
+
+template <typename Duration, typename Localizer>
+struct USYear {
+  explicit USYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
+    auto y = year_month_day{t + days{3}}.year();
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wed[last]) + (mon - thu);
+    if (t < start) {
+      --y;
+    }
+    return static_cast<T>(static_cast<int32_t>(y));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
 // Extract week from temporal types
 //
 // First week of an ISO year has the majority (4 or more) of its days in January.
@@ -1377,6 +1403,16 @@ const FunctionDoc iso_year_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc us_year_doc{
+    "Extract US epidemiological year number",
+    ("First week of US epidemiological year has the majority (4 or more) of\n"
+     "it's days in January. Last week of US epidemiological year has the\n"
+     "year's last Wednesday in it. US epidemiological week starts on Sunday.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
 const FunctionDoc iso_week_doc{
     "Extract ISO week of year number",
     ("First ISO week has the majority (4 or more) of its days in January.\n"
@@ -1587,6 +1623,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                                        int64(),
                                                                        &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
+
+  auto us_year =
+      UnaryTemporalFactory<USYear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("us_year", int64(),
+                                                                       &us_year_doc);
+  DCHECK_OK(registry->AddFunction(std::move(us_year)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =
