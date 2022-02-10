@@ -30,6 +30,7 @@ printenv
 # package. In some CI checks, we will use this version of the source:
 # this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"
 # (which is where the arrow git checkout is found in docker and other CI jobs)
+# In the other CI checks the files are synced but ignored.
 make sync-cpp
 
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
