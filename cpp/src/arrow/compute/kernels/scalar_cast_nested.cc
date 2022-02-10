@@ -197,11 +197,15 @@ struct CastStruct {
 
     const ArrayData& in_array = *batch[0].array();
     ArrayData* out_array = out->mutable_array();
-    out_array->buffers = in_array.buffers;
-    out_array->offset = in_array.offset;
+
+    if (in_array.buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0]->data(),
+                                       in_array.offset, in_array.length));
+    }
 
     for (int i = 0; i < in_field_count; ++i) {
-      auto values = in_array.child_data[i];
+      auto values = in_array.child_data[i]->Slice(in_array.offset, in_array.length);
       auto target_type = out->type()->field(i)->type();
 
       ARROW_ASSIGN_OR_RAISE(Datum cast_values,
