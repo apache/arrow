@@ -92,7 +92,7 @@ Manual loading
 --------------
 
 To enable the GDB extension for Arrow, you can simply
-`download it <GDB extension>`_
+`download it <https://github.com/apache/arrow/blob/master/cpp/gdb_arrow.py>`_
 somewhere on your computer and ``source`` it from the GDB prompt::
 
    (gdb) source path/to/gdb_arrow.py
