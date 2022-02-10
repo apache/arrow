@@ -59,7 +59,7 @@ $ cmake --build build --config Release
 
 ## Install
 
-To install the MATLAB interface to the default software installation location for the target machine (e.g. `/usr/local` on Linux or `C:\Program Files` on Windows), pass the `--taget install` flag to CMake.
+To install the MATLAB interface to the default software installation location for the target machine (e.g. `/usr/local` on Linux or `C:\Program Files` on Windows), pass the `--target install` flag to CMake.
 
 ```console
 $ cmake --build build --config Release --target install
