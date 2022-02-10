@@ -141,6 +141,9 @@ class ScalarTemporalTest : public ::testing::Test {
   std::string year =
       "[1970, 2000, 1899, 2033, 2020, 2019, 2019, 2009, 2010, 2010, 2010, 2006, "
       "2005, 2008, 2008, 2012, null]";
+  std::string is_leap_year =
+      "[false, true, false, false, true, false, false, false, false, false, false, "
+      "false, false, true, true, true, null]";
   std::string month = "[1, 2, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
   std::string day = "[1, 29, 1, 18, 1, 31, 30, 31, 1, 3, 4, 1, 31, 28, 29, 1, null]";
   std::shared_ptr<arrow::DataType> year_month_day_type =
@@ -406,6 +409,7 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionAllTemporalTypes) {
     auto unit = units[i];
     auto sample = samples[i];
     CheckScalarUnary("year", unit, sample, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, sample, boolean(), is_leap_year);
     CheckScalarUnary("month", unit, sample, int64(), month);
     CheckScalarUnary("day", unit, sample, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, sample), year_month_day);
@@ -469,6 +473,8 @@ TEST_F(ScalarTemporalTest, TestTemporalComponentExtractionWithDifferentUnits) {
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u);
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, times_seconds_precision, boolean(),
+                     is_leap_year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
@@ -498,6 +504,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   const char* times = R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
   auto unit = timestamp(TimeUnit::MICRO);
   auto year = "[1677, 2262]";
+  auto is_leap_year = "[false, false]";
   auto month = "[9, 4]";
   auto day = "[20, 13]";
   auto year_month_day = ArrayFromJSON(year_month_day_type,
@@ -523,6 +530,7 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   auto subsecond = "[0.123456, 0.999999]";
 
   CheckScalarUnary("year", unit, times, int64(), year);
+  CheckScalarUnary("is_leap_year", unit, times, boolean(), is_leap_year);
   CheckScalarUnary("month", unit, times, int64(), month);
   CheckScalarUnary("day", unit, times, int64(), day);
   CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times), year_month_day);
@@ -545,11 +553,35 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
 
 #ifndef _WIN32
 // TODO: We should test on windows once ARROW-13168 is resolved.
+TEST_F(ScalarTemporalTest, TestIsLeapYear) {
+  auto is_leap_year_marquesas =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  auto is_leap_year_broken_hill =
+      "[false, true, false, false, true, false, false, false, false, false, false, "
+      "false, false, true, true, true, null]";
+
+  auto is_leap_year_pago_pago =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
+
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Marquesas"), times,
+                   boolean(), is_leap_year_marquesas);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Australia/Broken_Hill"),
+                   times, boolean(), is_leap_year_broken_hill);
+  CheckScalarUnary("is_leap_year", timestamp(TimeUnit::NANO, "Pacific/Pago_Pago"), times,
+                   boolean(), is_leap_year_pago_pago);
+}
+
 TEST_F(ScalarTemporalTest, TestZoned1) {
   auto unit = timestamp(TimeUnit::NANO, "Pacific/Marquesas");
   auto year =
       "[1969, 2000, 1898, 2033, 2019, 2019, 2019, 2009, 2009, 2010, 2010, 2005, 2005, "
       "2008, 2008, 2011, null]";
+  auto is_leap_year =
+      "[false, true, false, false, false, false, false, false, false, false, false, "
+      "false, false, true, true, false, null]";
   auto month = "[12, 2, 12, 5, 12, 12, 12, 12, 12, 1, 1, 12, 12, 12, 12, 12, null]";
   auto day = "[31, 29, 31, 17, 31, 30, 29, 30, 31, 2, 3, 31, 31, 27, 28, 31, null]";
   auto year_month_day = ArrayFromJSON(year_month_day_type,
@@ -612,6 +644,7 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
   CheckScalarUnary("is_dst", unit, times, boolean(), is_dst);
   CheckScalarUnary("iso_year", unit, times, int64(), iso_year);
   CheckScalarUnary("iso_week", unit, times, int64(), iso_week);
+  CheckScalarUnary("is_leap_year", unit, times, boolean(), is_leap_year);
   CheckScalarUnary("us_week", unit, times, int64(), us_week);
   CheckScalarUnary("week", unit, times, int64(), week);
   CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times), iso_calendar);
@@ -682,6 +715,8 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     auto minute = "[30, 53, 59, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
 
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
+    CheckScalarUnary("is_leap_year", unit, times_seconds_precision, boolean(),
+                     is_leap_year);
     CheckScalarUnary("month", unit, times_seconds_precision, int64(), month);
     CheckScalarUnary("day", unit, times_seconds_precision, int64(), day);
     CheckScalarUnary("year_month_day", ArrayFromJSON(unit, times_seconds_precision),
@@ -715,6 +750,7 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     auto timestamp_array = std::make_shared<NumericArray<TimestampType>>(
         ts_type, 2, data_buffer, null_buffer, 0);
     ASSERT_RAISES(Invalid, Year(timestamp_array));
+    ASSERT_RAISES(Invalid, IsLeapYear(timestamp_array));
     ASSERT_RAISES(Invalid, Month(timestamp_array));
     ASSERT_RAISES(Invalid, Day(timestamp_array));
     ASSERT_RAISES(Invalid, YearMonthDay(timestamp_array));
