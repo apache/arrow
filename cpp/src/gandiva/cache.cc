@@ -20,7 +20,7 @@
 
 namespace gandiva {
 
-static const size_t DEFAULT_CACHE_SIZE = 500000;
+static const size_t DEFAULT_CACHE_SIZE = 500;
 
 int GetCapacity() {
   size_t capacity;
