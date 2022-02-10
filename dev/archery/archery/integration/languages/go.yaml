@@ -15,7 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Python virtual environments for dev tools
-.venv*/
-venv/
-
+name: Go
+unsupported:
+  - primitive_large_offsets
+  - nested_large_offsets
+  - union
+  - decimal256 # TODO(ARROW-7948)
+  - dictionary_signed # TODO(ARROW-3039, ARROW-5267)
+  - dictionary_unsigned # TODO(ARROW-9378)
+  - dictionary_nested
+  - duplicate_fieldnames
+  - extension # TODO(ARROW-3039): requires dictionaries
+unsupported golden:
+  - "0.14.1/generated_dictionary"

@@ -25,8 +25,9 @@ import os
 import sys
 import tempfile
 import traceback
-from typing import Callable, List
+from typing import Callable, List, Optional
 
+from .capabilities import LANGUAGES, language_capabilities
 from .scenario import Scenario
 from .tester import Tester
 from .tester_cpp import CPPTester
@@ -48,7 +49,7 @@ log = printer.print
 
 class Outcome:
     def __init__(self):
-        self.failure = None
+        self.failure: Optional[Failure] = None
         self.skipped = False
 
 
@@ -67,7 +68,7 @@ class IntegrationRunner(object):
         self.stop_on_error = stop_on_error
         self.serial = serial
         self.gold_dirs = gold_dirs
-        self.failures: List[Outcome] = []
+        self.failures: List[Failure] = []
         self.match = match
 
         if self.match is not None:
@@ -87,6 +88,7 @@ class IntegrationRunner(object):
             self._compare_implementations(
                 producer, consumer, self._produce_consume,
                 self.json_files)
+
         if self.gold_dirs:
             for gold_dir, consumer in itertools.product(
                     self.gold_dirs,
@@ -132,6 +134,11 @@ class IntegrationRunner(object):
                 skip = set()
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
+            if name == 'dictionary' and prefix == '0.14.1':
+                skip.add("Go")
+                skip.add("C#")
+            if name == 'decimal' and prefix == '0.14.1':
+                skip.add("Rust")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
                 skip.add("Go")
@@ -422,7 +429,15 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)
-    json_files = static_json_files + generated_json_files
+
+    # add languages to `skip` to files that the language does not support
+    for file in generated_json_files:
+        for language in LANGUAGES:
+            capabilities = language_capabilities(language)
+            if file.name in capabilities.unsupported:
+                file.skip_category(capabilities.name)
+
+    json_files: List[datagen.File] = static_json_files + generated_json_files
 
     # Additional integration test cases for Arrow Flight.
     flight_scenarios = [

@@ -15,7 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Python virtual environments for dev tools
-.venv*/
-venv/
-
+name: JS
+unsupported:
+  - "null" # TODO(ARROW-7900)
+  - null_zerolength # TODO(ARROW-7900)
+  - primitive_large_offsets
+  - decimal128
+  - decimal256
+  - duration # TODO(ARROW-5239): Intervals + JS
+  - interval # TODO(ARROW-5239): Intervals + JS
+  - interval_mdn
+  - map_non_canonical # TODO(ARROW-8716)
+  - nested_large_offsets
+  - union
+  - dictionary_nested
+  - extension
+  - custom_metadata
+  - duplicate_fieldnames

@@ -15,7 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Python virtual environments for dev tools
-.venv*/
-venv/
-
+name: Rust
+unsupported:
+  - decimal128
+  - decimal256
+  - interval
+  - map
+  - map_non_canonical
+  - nested_large_offsets
+  - union
+  - dictionary_nested
+  - extension

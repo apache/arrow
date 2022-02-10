@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Python virtual environments for dev tools
-.venv*/
-venv/
-
+name: Java
+unsupported:
+  - map_non_canonical # TODO(ARROW-8715)
+  - dictionary_unsigned # TODO(ARROW-9377)
+  - dictionary_nested # TODO(ARROW-7779)

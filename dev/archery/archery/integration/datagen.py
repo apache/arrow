@@ -21,6 +21,7 @@ import json
 import os
 import random
 import tempfile
+from typing import List
 
 import numpy as np
 
@@ -1325,7 +1326,7 @@ def generate_null_trivial_case(batch_sizes):
     fields = [
         NullField(name='f0'),
     ]
-    return _generate_file('null_trivial', fields, batch_sizes)
+    return _generate_file('null_zerolength', fields, batch_sizes)
 
 
 def generate_decimal128_case():
@@ -1337,10 +1338,10 @@ def generate_decimal128_case():
 
     possible_batch_sizes = 7, 10
     batch_sizes = [possible_batch_sizes[i % 2] for i in range(len(fields))]
-    # 'decimal' is the original name for the test, and it must match
+    # 'decimal128' is the original name for the test, and it must match
     # provide "gold" files that test backwards compatibility, so they
     # can be appropriately skipped.
-    return _generate_file('decimal', fields, batch_sizes)
+    return _generate_file('decimal128', fields, batch_sizes)
 
 
 def generate_decimal256_case():
@@ -1458,7 +1459,7 @@ def generate_recursive_nested_case():
     ]
 
     batch_sizes = [7, 10]
-    return _generate_file("recursive_nested", fields, batch_sizes)
+    return _generate_file("nested_recursive", fields, batch_sizes)
 
 
 def generate_nested_large_offsets_case():
@@ -1574,120 +1575,48 @@ def generate_extension_case():
                           dictionaries=[dict0])
 
 
-def get_generated_json_files(tempdir=None):
+CASES = {
+    "no_batches": lambda: generate_primitive_case([]),
+    "null": lambda: generate_null_case([10, 0]),
+    "null_zerolength": lambda: generate_null_trivial_case([0, 0]),
+    "primitive": lambda: generate_primitive_case([17, 20]),
+    "primitive_zerolength": lambda: generate_primitive_case([0, 0, 0]),
+    "primitive_large_offsets":
+        lambda: generate_primitive_large_offsets_case([17, 20]),
+    "decimal128": generate_decimal128_case,
+    "decimal256": generate_decimal256_case,
+    "datetime": generate_datetime_case,
+    "duration": generate_duration_case,
+    "interval": generate_interval_case,
+    "interval_mdn": generate_month_day_nano_interval_case,
+    "map": generate_map_case,
+    "map_non_canonical": generate_non_canonical_map_case,
+    "nested": generate_nested_case,
+    "nested_recursive": generate_recursive_nested_case,
+    "nested_large_offsets": generate_nested_large_offsets_case,
+    "union": generate_unions_case,
+    "custom_metadata": generate_custom_metadata_case,
+    "duplicate_fieldnames": generate_duplicate_fieldnames_case,
+    "dictionary_signed": generate_dictionary_case,
+    "dictionary_unsigned": generate_dictionary_unsigned_case,
+    "dictionary_nested": generate_nested_dictionary_case,
+    "extension": generate_extension_case,
+}
+
+
+def get_generated_json_files(tempdir=None) -> List[File]:
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
-    def _temp_path():
-        return
+    # we generate all the cases and ignore errors coming from the ones that
+    # specific libraries do not support
+    files = []
+    for (name, file_gen) in CASES.items():
+        file_obj = file_gen()
 
-    file_objs = [
-        generate_primitive_case([], name='primitive_no_batches'),
-        generate_primitive_case([17, 20], name='primitive'),
-        generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
-
-        generate_primitive_large_offsets_case([17, 20])
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS'),
-
-        generate_null_case([10, 0])
-        .skip_category('C#')
-        .skip_category('JS'),   # TODO(ARROW-7900)
-
-        generate_null_trivial_case([0, 0])
-        .skip_category('C#')
-        .skip_category('JS'),   # TODO(ARROW-7900)
-
-        generate_decimal128_case()
-        .skip_category('Rust'),
-
-        generate_decimal256_case()
-        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
-        .skip_category('JS')
-        .skip_category('Rust'),
-
-        generate_datetime_case()
-        .skip_category('C#'),
-
-        generate_duration_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
-
-        generate_interval_case()
-        .skip_category('C#')
-        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
-        .skip_category('Rust'),
-
-        generate_month_day_nano_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),
-
-        generate_map_case()
-        .skip_category('C#')
-        .skip_category('Rust'),
-
-        generate_non_canonical_map_case()
-        .skip_category('C#')
-        .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS')     # TODO(ARROW-8716)
-        .skip_category('Rust'),
-
-        generate_nested_case()
-        .skip_category('C#'),
-
-        generate_recursive_nested_case()
-        .skip_category('C#'),
-
-        generate_nested_large_offsets_case()
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
-
-        generate_unions_case()
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
-
-        generate_custom_metadata_case()
-        .skip_category('C#')
-        .skip_category('JS'),
-
-        generate_duplicate_fieldnames_case()
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS'),
-
-        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
-        generate_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Go'),
-
-        generate_dictionary_unsigned_case()
-        .skip_category('C#')
-        .skip_category('Go')     # TODO(ARROW-9378)
-        .skip_category('Java'),  # TODO(ARROW-9377)
-
-        generate_nested_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS')
-        .skip_category('Rust'),
-
-        generate_extension_case()
-        .skip_category('C#')
-        .skip_category('Go')  # TODO(ARROW-3039): requires dictionaries
-        .skip_category('JS')
-        .skip_category('Rust'),
-    ]
-
-    generated_paths = []
-    for file_obj in file_objs:
+        file_obj.name = name
         out_path = os.path.join(tempdir, 'generated_' +
                                 file_obj.name + '.json')
         file_obj.write(out_path)
-        generated_paths.append(file_obj)
+        files.append(file_obj)
 
-    return generated_paths
+    return files

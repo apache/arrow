@@ -17,6 +17,7 @@
 
 # cli
 click
+pydantic
 
 # bot, crossbow
 github3.py

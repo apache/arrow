@@ -15,7 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Python virtual environments for dev tools
-.venv*/
-venv/
-
+name: C#
+unsupported:
+  - "null"
+  - null_zerolength
+  - primitive_large_offsets
+  - decimal128
+  - datetime
+  - duration
+  - interval
+  - interval_mdn
+  - map
+  - map_non_canonical
+  - nested
+  - nested_recursive
+  - nested_large_offsets
+  - union
+  - dictionary_signed
+  - dictionary_unsigned
+  - dictionary_nested
+  - extension
+  - custom_metadata
+  - duplicate_fieldnames
