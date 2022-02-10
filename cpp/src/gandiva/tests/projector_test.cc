@@ -28,6 +28,7 @@
 #include "arrow/memory_pool.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 

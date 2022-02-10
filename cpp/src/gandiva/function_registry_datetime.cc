@@ -164,6 +164,10 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      kResultNullIfNull, "datediff_timestamp_timestamp"),
 
       NativeFunction("trunc", {}, DataTypeVector{date64(), utf8()}, utf8(),
+                     kResultNullIfNull, "date_trunc_date64_utf8",
+                     NativeFunction::kCanReturnErrors | NativeFunction::kNeedsContext),
+
+      NativeFunction("trunc", {}, DataTypeVector{timestamp(), utf8()}, utf8(),
                      kResultNullIfNull, "date_trunc_timestamp_utf8",
                      NativeFunction::kCanReturnErrors | NativeFunction::kNeedsContext),
 
