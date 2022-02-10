@@ -143,12 +143,11 @@ elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-    -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
-    -DGRPC_USE_SERVER_VERIFICATION_OPTION)
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
 elseif(GRPC_VERSION EQUAL "1.43")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
-    -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
-    -DGRPC_USE_CERTIFICATE_VERIFIER)
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
+                  -DGRPC_USE_CERTIFICATE_VERIFIER)
 else()
   message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
   )

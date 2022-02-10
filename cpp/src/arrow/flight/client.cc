@@ -990,15 +990,15 @@ class FlightClient::FlightClientImpl {
 #endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           tls_options.watch_root_certs();
           tls_options.set_root_cert_name("dummy");
-#if defined(GRPC_USE_SERVER_VERIFICATION_OPTION)
-          tls_options.set_server_verification_option(
-              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
-          tls_options.set_server_authorization_check_config(noop_auth_check_);
-#else   // defined(GRPC_USE_SERVER_VERIFICATION_OPTION)
+#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_certificate_verifier(std::move(cert_verifier));
           tls_options.set_check_call_host(false);
           tls_options.set_verify_server_certs(false);
-#endif  // defined(GRPC_USE_SERVER_VERIFICATION_OPTION)
+#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+          tls_options.set_server_verification_option(
+              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
+          tls_options.set_server_authorization_check_config(noop_auth_check_);
+#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 #elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           // continues defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
