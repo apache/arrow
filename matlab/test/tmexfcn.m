@@ -36,7 +36,7 @@ classdef tArrowCppCall < matlab.unittest.TestCase
             testCase.verifyError(fcn, errID);
         end
 
-        function TooFewInputArguementsError(testCase)
+        function TooFewInputArgumentsError(testCase)
         % Verifies arrow.cpp.call throws an error if zero input arguments are
         % passed it.
             errID = "MATLAB:arrow:minrhs";
