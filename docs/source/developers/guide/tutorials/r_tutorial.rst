@@ -74,8 +74,8 @@ Let's set up the Arrow repository. We presume here that Git is
 already installed. Otherwise please see the :ref:`set-up` section.
 
 Once the `Apache Arrow repository <https://github.com/apache/arrow>`_
-is forked we will clone it and add the link of the main repository
-to our upstream.
+is forked (see :ref:`fork-repo-guide`) we will clone it and add the
+link of the main repository to our upstream.
 
 .. code:: console
 
