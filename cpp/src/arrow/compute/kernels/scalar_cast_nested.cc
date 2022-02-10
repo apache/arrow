@@ -155,27 +155,24 @@ struct CastStruct {
     const CastOptions& options = CastState::Get(ctx);
     const StructType& in_type = checked_cast<const StructType&>(*batch[0].type());
     const StructType& out_type = checked_cast<const StructType&>(*out->type());
-    const auto in_field_count =
-        in_type.num_fields();
+    const auto in_field_count = in_type.num_fields();
 
     if (in_field_count != out_type.num_fields()) {
-      return Status::TypeError("struct field sizes do not match: ",
-                               in_type.ToString(), " ", out_type.ToString());
+      return Status::TypeError("struct field sizes do not match: ", in_type.ToString(),
+                               " ", out_type.ToString());
     }
 
     for (int i = 0; i < in_field_count; ++i) {
       const auto in_field = in_type.field(i);
       const auto out_field = out_type.field(i);
       if (in_field->name() != out_field->name()) {
-        return Status::TypeError(
-            "struct field names do not match: ", in_type.ToString(), " ",
-            out_type.ToString());
+        return Status::TypeError("struct field names do not match: ", in_type.ToString(),
+                                 " ", out_type.ToString());
       }
 
       if (in_field->nullable() && !out_field->nullable()) {
         return Status::TypeError("cannot cast nullable struct to non-nullable struct: ",
-                                 in_type.ToString(), " ",
-                                 out_type.ToString());
+                                 in_type.ToString(), " ", out_type.ToString());
       }
     }
 

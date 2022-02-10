@@ -2247,10 +2247,8 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  const auto dest = arrow::struct_({
-      std::make_shared<Field>("c", int8()),
-      std::make_shared<Field>("d", int8())
-    });
+  const auto dest = arrow::struct_(
+      {std::make_shared<Field>("c", int8()), std::make_shared<Field>("d", int8())});
   const auto options = CastOptions::Safe(dest);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -2267,11 +2265,9 @@ TEST(Cast, StructToDifferentSizeStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  const auto dest = arrow::struct_({
-      std::make_shared<Field>("a", int8()),
-      std::make_shared<Field>("b", int8()),
-      std::make_shared<Field>("c", int8())
-    });
+  const auto dest = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                    std::make_shared<Field>("b", int8()),
+                                    std::make_shared<Field>("c", int8())});
   const auto options = CastOptions::Safe(dest);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
