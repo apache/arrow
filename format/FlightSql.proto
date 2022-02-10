@@ -990,7 +990,7 @@ enum Searchable {
  *   type_name: utf8 not null (The name of the data type, for example: VARCHAR, INTEGER, etc),
  *   data_type: int not null (The SQL data type),
  *   column_size: int (The maximum size supported by that column.
- *                     In case of numeric types, this represents the maximum precision.
+ *                     In case of exact numeric types, this represents the maximum precision.
  *                     In case of string types, this represents the character length.
  *                     In case of datetime data types, this represents the length in characters of the string representation.
  *                     NULL is returned for data types where column size is not applicable.),
