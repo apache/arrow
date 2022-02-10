@@ -867,55 +867,72 @@ enum SqlSupportsConvert {
   SQL_CONVERT_VARCHAR = 19;
 }
 
-enum SqlDataType {
-  SQL_TYPE_UNKNOWN_TYPE = 0;
-  SQL_TYPE_CHAR = 1;
-  SQL_TYPE_NUMERIC = 2;
-  SQL_TYPE_DECIMAL = 3;
-  SQL_TYPE_INTEGER = 4;
-  SQL_TYPE_SMALLINT = 5;
-  SQL_TYPE_FLOAT = 6;
-  SQL_TYPE_REAL = 7;
-  SQL_TYPE_DOUBLE = 8;
-  SQL_TYPE_DATETIME = 9;
-  SQL_TYPE_INTERVAL = 10;
-  SQL_TYPE_VARCHAR = 12;
+/**
+ * It is an attribute that identifies the type of any object. It's
+ * used by JDBC and ODBC to expose the values defined by the DBMC.
+ */
+enum XDBCDataType {
+  XDBC_TYPE_UNKNOWN_TYPE = 0;
+  XDBC_TYPE_CHAR = 1;
+  XDBC_TYPE_NUMERIC = 2;
+  XDBC_TYPE_DECIMAL = 3;
+  XDBC_TYPE_INTEGER = 4;
+  XDBC_TYPE_SMALLINT = 5;
+  XDBC_TYPE_FLOAT = 6;
+  XDBC_TYPE_REAL = 7;
+  XDBC_TYPE_DOUBLE = 8;
+  XDBC_TYPE_DATETIME = 9;
+  XDBC_TYPE_INTERVAL = 10;
+  XDBC_TYPE_VARCHAR = 12;
+  XDBC_LONGVARCHAR = -1;
+  XDBC_BINARY = -2;
+  XDBC_VARBINARY = -3;
+  XDBC_LONGVARBINARY = -4;
+  XDBC_BIGINT = -5;
+  XDBC_TINYINT = -6;
+  XDBC_BIT = -7;
+  XDBC_WCHAR = -8;
+  XDBC_WVARCHAR = -9;
 }
 
-enum SqlDatetimeSubcode {
+/**
+ * When the values returned by the XDBCDataType is XDBC_TYPE_DATETIME or XDBC_TYPE_INTERVAL,
+ * more information about this column can be obtain through the values in this enum.
+ */
+enum XDBCDatetimeSubcode {
   option allow_alias = true;
-  SQL_SUBCODE_UNKNOWN = 0;
-  SQL_SUBCODE_YEAR = 1;
-  SQL_SUBCODE_DATE = 1;
-  SQL_SUBCODE_TIME = 2;
-  SQL_SUBCODE_MONTH = 2;
-  SQL_SUBCODE_TIMESTAMP = 3;
-  SQL_SUBCODE_DAY = 3;
-  SQL_SUBCODE_TIME_WITH_TIMEZONE = 4;
-  SQL_SUBCODE_HOUR = 4;
-  SQL_SUBCODE_TIMESTAMP_WITH_TIMEZONE = 5;
-  SQL_SUBCODE_MINUTE = 5;
-  SQL_SUBCODE_SECOND = 6;
-  SQL_SUBCODE_YEAR_TO_MONTH = 7;
-  SQL_SUBCODE_DAY_TO_HOUR = 8;
-  SQL_SUBCODE_DAY_TO_MINUTE = 9;
-  SQL_SUBCODE_DAY_TO_SECOND = 10;
-  SQL_SUBCODE_HOUR_TO_MINUTE = 11;
-  SQL_SUBCODE_HOUR_TO_SECOND = 12;
-  SQL_SUBCODE_MINUTE_TO_SECOND = 13;
-  SQL_SUBCODE_INTERVAL_YEAR = 101;
-  SQL_SUBCODE_INTERVAL_MONTH = 102;
-  SQL_SUBCODE_INTERVAL_DAY = 103;
-  SQL_SUBCODE_INTERVAL_HOUR = 104;
-  SQL_SUBCODE_INTERVAL_MINUTE = 105;
-  SQL_SUBCODE_INTERVAL_SECOND = 106;
-  SQL_SUBCODE_INTERVAL_YEAR_TO_MONTH = 107;
-  SQL_SUBCODE_INTERVAL_DAY_TO_HOUR = 108;
-  SQL_SUBCODE_INTERVAL_DAY_TO_MINUTE = 109;
-  SQL_SUBCODE_INTERVAL_DAY_TO_SECOND = 110;
-  SQL_SUBCODE_INTERVAL_HOUR_TO_MINUTE = 111;
-  SQL_SUBCODE_INTERVAL_HOUR_TO_SECOND = 112;
-  SQL_SUBCODE_INTERVAL_MINUTE_TO_SECOND = 113;
+  XDBC_SUBCODE_UNKNOWN = 0;
+  XDBC_SUBCODE_YEAR = 1;
+  XDBC_SUBCODE_DATE = 1;
+  XDBC_SUBCODE_TIME = 2;
+  XDBC_SUBCODE_MONTH = 2;
+  XDBC_SUBCODE_TIMESTAMP = 3;
+  XDBC_SUBCODE_DAY = 3;
+  XDBC_SUBCODE_TIME_WITH_TIMEZONE = 4;
+  XDBC_SUBCODE_HOUR = 4;
+  XDBC_SUBCODE_TIMESTAMP_WITH_TIMEZONE = 5;
+  XDBC_SUBCODE_MINUTE = 5;
+  XDBC_SUBCODE_SECOND = 6;
+  XDBC_SUBCODE_YEAR_TO_MONTH = 7;
+  XDBC_SUBCODE_DAY_TO_HOUR = 8;
+  XDBC_SUBCODE_DAY_TO_MINUTE = 9;
+  XDBC_SUBCODE_DAY_TO_SECOND = 10;
+  XDBC_SUBCODE_HOUR_TO_MINUTE = 11;
+  XDBC_SUBCODE_HOUR_TO_SECOND = 12;
+  XDBC_SUBCODE_MINUTE_TO_SECOND = 13;
+  XDBC_SUBCODE_INTERVAL_YEAR = 101;
+  XDBC_SUBCODE_INTERVAL_MONTH = 102;
+  XDBC_SUBCODE_INTERVAL_DAY = 103;
+  XDBC_SUBCODE_INTERVAL_HOUR = 104;
+  XDBC_SUBCODE_INTERVAL_MINUTE = 105;
+  XDBC_SUBCODE_INTERVAL_SECOND = 106;
+  XDBC_SUBCODE_INTERVAL_YEAR_TO_MONTH = 107;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_HOUR = 108;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_MINUTE = 109;
+  XDBC_SUBCODE_INTERVAL_DAY_TO_SECOND = 110;
+  XDBC_SUBCODE_INTERVAL_HOUR_TO_MINUTE = 111;
+  XDBC_SUBCODE_INTERVAL_HOUR_TO_SECOND = 112;
+  XDBC_SUBCODE_INTERVAL_MINUTE_TO_SECOND = 113;
 }
 
 enum Nullable {
@@ -1006,16 +1023,17 @@ enum Searchable {
  *                                as date_type value. Except for interval and datetime, which
  *                                uses generic values. More info about those types can be
  *                                obtained through datetime_subcode. The possible values can be seen
- *                                in the SqlDataType enum.),
+ *                                in the XDBCDataType enum.),
  *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
  *                          its sub types. For type different from interval and datetime, this value
- *                          is NULL. The possible values can be seen in the DateSubcode enum.),
+ *                          is NULL. The possible values can be seen in the XDBCDatetimeSubcode enum.),
  *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
  *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
  *                        exact numeric types, this column contains the value 10 to indicate that
- *                        COLUMN_SIZE specifies a number of decimal digits. Otherwise, this column is NULL.),
+ *                        column size specifies a number of decimal digits. Otherwise, this column is NULL.),
  *   interval_precision: int (If the data type is an interval data type, then this column contains the value
- *                            of the interval leading precision. Otherwise, this column is NULL)
+ *                            of the interval leading precision. Otherwise, this column is NULL. This fields
+ *                            is only relevant to be used by ODBC).
  * >
  * The returned data should be ordered by data_type and then by type_name.
  */
