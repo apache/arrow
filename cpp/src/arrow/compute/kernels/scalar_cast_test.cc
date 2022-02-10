@@ -2232,6 +2232,15 @@ static void CheckStructToStruct(
       ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2}, field_names));
 
       CheckCast(src, dest);
+
+      std::shared_ptr<Buffer> null_bitmap;
+      BitmapFromVector<int>({0, 1, 0, 1, 0}, &null_bitmap);
+
+      ASSERT_OK_AND_ASSIGN(auto src_nulls,
+                           StructArray::Make({a1, b1}, field_names, null_bitmap));
+      ASSERT_OK_AND_ASSIGN(auto dest_nulls,
+                           StructArray::Make({a2, b2}, field_names, null_bitmap));
+      CheckCast(src_nulls, dest_nulls);
     }
   }
 }
