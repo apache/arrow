@@ -54,17 +54,17 @@ if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
   fi
 fi
 
-# Install openssl for S3 support
+# Install openssl for S3 support and rsync for bundling cpp source
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   if [ "`which dnf`" ]; then
-    dnf install -y libcurl-devel openssl-devel
+    dnf install -y libcurl-devel openssl-devel rsync
   elif [ "`which yum`" ]; then
-    yum install -y libcurl-devel openssl-devel
+    yum install -y libcurl-devel openssl-devel rsync
   elif [ "`which zypper`" ]; then
-    zypper install -y libcurl-devel libopenssl-devel
+    zypper install -y libcurl-devel libopenssl-devel rsync
   else
     apt-get update
-    apt-get install -y libcurl4-openssl-dev libssl-dev
+    apt-get install -y libcurl4-openssl-dev libssl-dev rsync
   fi
 
   # The Dockerfile should have put this file here
