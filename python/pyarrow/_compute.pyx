@@ -208,6 +208,18 @@ cdef wrap_input_type(const CInputType c_input_type):
     input_type.init(c_input_type)
     return input_type
 
+# cdef class FunctionDoc(_Weakrefable):
+
+#     def __init__(self):
+#         raise TypeError("Cannot use constructor to initialize FunctionDoc")
+
+#     cdef void init(self, const CFunctionDoc &function_doc):
+#         self.function_doc = function_doc
+
+#     @staticmethod
+#     def create(self):
+#         pass
+
 cdef class InputType(_Weakrefable):
 
     def __init__(self):
@@ -2327,3 +2339,37 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
 
     return GetResultValue(filter.unwrap().Bind(
         deref(pyarrow_unwrap_schema(schema).get())))
+
+cdef CFunctionDoc _make_function_doc(func_doc):
+    cdef:
+        CFunctionDoc f_doc
+        vector[c_string] c_arg_names
+    if isinstance(func_doc, dict):
+        f_doc.summary = func_doc["summary"].encode()
+        f_doc.description = func_doc["description"].encode()
+        for arg_name in func_doc["arg_names"]:
+            c_arg_names.push_back(arg_name.encode())
+        f_doc.arg_names = c_arg_names
+        f_doc.options_class = func_doc["arg_names"].encode()
+        f_doc.options_required = func_doc["options_required"]
+        return f_doc
+    else:
+        raise TypeError(f"func_doc must be a dictionary")
+
+cdef class UDFInterpreter:
+
+    def __init__(self):
+        raise TypeError("Cannot initialize UDFInterpreter from the constructor")
+
+    @staticmethod
+    def create_scalar_kernel(function_name, arity, function_doc):
+        cdef:
+            c_string c_func_name
+            Arity c_arity
+            CFunctionDoc c_func_doc
+
+        c_func_name = function_name.encode()
+        c_arity = <Arity>(arity)
+        c_func_doc = _make_function_doc(function_doc)
+
+        

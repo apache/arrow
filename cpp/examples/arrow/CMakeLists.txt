@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+find_package(Python3Alt REQUIRED)
+
 add_arrow_example(row_wise_conversion_example)
 
 if(ARROW_COMPUTE)
@@ -112,6 +114,8 @@ if(ARROW_FLIGHT)
   endif()
 endif()
 
+include_directories(${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
+
 if(ARROW_PARQUET AND ARROW_DATASET)
   if(ARROW_BUILD_SHARED)
     set(DATASET_EXAMPLES_LINK_LIBS arrow_dataset_shared)
@@ -136,6 +140,14 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_dependencies(dataset_documentation_example parquet)
 
   add_arrow_example(udf_example EXTRA_LINK_LIBS
-                    ${DATASET_EXAMPLES_LINK_LIBS})
+                    ${DATASET_EXAMPLES_LINK_LIBS} ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
   add_dependencies(udf_example parquet)
 endif()
+
+message("PYTHON_INCLUDE_DIRS : ${PYTHON_INCLUDE_DIRS}")
+
+message("PYTHON_OTHER_LIBS : ${PYTHON_OTHER_LIBS}")
+
+message("PYTHON_LIBRARIES : ${PYTHON_LIBRARIES}")
+
+

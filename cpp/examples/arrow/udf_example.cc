@@ -31,6 +31,9 @@
 #include <iostream>
 #include <memory>
 
+#include<arrow/python/udf.h>
+
+
 // Demonstrate registering an Arrow compute function outside of the Arrow source tree
 
 namespace cp = ::arrow::compute;
@@ -73,10 +76,29 @@ std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
   return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
 }
 
+PyObject* SimpleFunction() {
+  PyObject* obj = Py_BuildValue("s", "hello");
+  return obj;
+}
+
+// PyObject* objectsRepresentation = PyObject_Repr(yourObject);
+// const char* s = PyString_AsString(objectsRepresentation);
+
 arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
                                   arrow::Datum* out) {
   auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
   *out->mutable_array() = *result.ValueOrDie().array();
+  return arrow::Status::OK();
+}
+
+arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                  arrow::Datum* out, PyObject* func) {
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  PyObject* res = SimpleFunction();
+  PyObject* objectsRepresentation = PyObject_Repr(res);
+  const char* s = PyUnicode_AsUTF8(objectsRepresentation);
+  std::cout << "Message :: " << s << std::endl;
   return arrow::Status::OK();
 }
 
@@ -209,8 +231,10 @@ arrow::Status Execute() {
   const std::string name = "x+x";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc);
   cp::ScalarKernel kernel({cp::InputType::Array(arrow::int32())}, arrow::int32(),
-                          ExampleFunctionImpl);
+                          ExampleFunctionImpl);                        
+  
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+  
   ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
 
   auto registry = cp::GetFunctionRegistry();
@@ -228,9 +252,9 @@ arrow::Status Execute() {
 
   // Expression serialization will raise NotImplemented if an expression includes
   // FunctionOptions for which serialization is not supported.
-  //   auto expr = cp::call(name, {}, options);
-  //   auto maybe_serialized = cp::Serialize(expr);
-  //   std::cerr << maybe_serialized.status().ToString() << std::endl;
+  // auto expr = cp::call(name, {}, options);
+  // auto maybe_serialized = cp::Serialize(expr);
+  // std::cerr << maybe_serialized.status().ToString() << std::endl;
 
   auto exec_registry = cp::default_exec_factory_registry();
   ABORT_ON_FAILURE(
@@ -276,8 +300,36 @@ arrow::Status Execute() {
   return future.status();
 }
 
+arrow::Status ExecutePy() {
+  const std::string name = "x+x";
+  auto func2 = std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc);
+  arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int32())}, arrow::int32(),
+                          ExamplePyFunctionImpl);
+                          
+  kernel2.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+  ABORT_ON_FAILURE(func2->AddKernel(std::move(kernel2)));
+  
+
+  
+
+  // auto registry = cp::GetFunctionRegistry();
+  // ABORT_ON_FAILURE(registry->AddFunction(std::move(func2)));
+
+  // arrow::Int32Builder builder(arrow::default_memory_pool());
+  // std::shared_ptr<arrow::Array> arr;
+  // ABORT_ON_FAILURE(builder.Append(42));
+  // ABORT_ON_FAILURE(builder.Finish(&arr));
+  // auto options = std::make_shared<ExampleFunctionOptions>();
+  // auto maybe_result = cp::CallFunction(name, {arr}, options.get());
+  // ABORT_ON_FAILURE(maybe_result.status());
+
+  // std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
+
+  return arrow::Status::OK();
+}
+
 int main(int argc, char** argv) {
-  auto status = Execute();
+  auto status = ExecutePy();
   if (!status.ok()) {
     std::cerr << "Error occurred : " << status.message() << std::endl;
     return EXIT_FAILURE;

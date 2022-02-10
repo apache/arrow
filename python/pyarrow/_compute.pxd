@@ -34,6 +34,12 @@ cdef class InputType(_Weakrefable):
     
     cdef void init(self, const CInputType &input_type)
 
+# cdef class FunctionDoc(_Weakrefable):
+#     cdef:
+#         CFunctionDoc function_doc
+    
+#     cdef void init(self, const CFunctionDoc &function_doc)
+
 cdef class FunctionOptions(_Weakrefable):
     cdef:
         shared_ptr[CFunctionOptions] wrapped
