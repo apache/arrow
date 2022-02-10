@@ -60,7 +60,13 @@ std::vector<NativeFunction> GetHashFunctionRegistry() {
 
       HASH_SHA256_NULL_NEVER_FN(hashSHA256, {}),
 
-      HASH_MD5_NULL_NEVER_FN(hashMD5, {})};
+      HASH_MD5_NULL_NEVER_FN(hashMD5, {}),
+
+      NativeFunction(
+          "mask_hash", {}, DataTypeVector{utf8()}, utf8(),
+          kResultNullInternal, "gdv_mask_hash_utf8_utf8",
+          NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
+              NativeFunction::kCanReturnErrors)};
 
   return hash_fn_registry_;
 }
