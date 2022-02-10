@@ -23,13 +23,11 @@ import os
 import requests
 
 import pyarrow as pa
-try:
-    import pyarrow.parquet as pq
-except ImportError:
-    pq = None
+import pyarrow.parquet as pq
+import pyarrow.parquet_encryption as pe
 
 
-class VaultClient(pq.KmsClient):
+class VaultClient(pe.KmsClient):
     """An example of a KmsClient implementation with master keys
     managed by Hashicorp Vault KMS.
     See Vault documentation: https://www.vaultproject.io/api/secret/transit
@@ -50,7 +48,7 @@ class VaultClient(pq.KmsClient):
            configuration parameters to connect to vault,
            e.g. URL and access token
         """
-        pq.KmsClient.__init__(self)
+        pe.KmsClient.__init__(self)
         self.kms_url = kms_connection_config.kms_instance_url + \
             VaultClient.DEFAULT_TRANSIT_ENGINE
         self.kms_connection_config = kms_connection_config
@@ -108,14 +106,14 @@ def parquet_write_read_with_vault(parquet_filename):
     col_a_key_name = "col_a_key"
     col_b_key_name = "col_b_key"
 
-    encryption_config = pq.EncryptionConfiguration(
+    encryption_config = pe.EncryptionConfiguration(
         footer_key=footer_key_name,
         column_keys={
             col_a_key_name: ["a"],
             col_b_key_name: ["b"],
         })
 
-    kms_connection_config = pq.KmsConnectionConfig(
+    kms_connection_config = pe.KmsConnectionConfig(
         kms_instance_url=os.environ.get('VAULT_URL', ''),
         key_access_token=os.environ.get('VAULT_TOKEN', ''),
     )
@@ -124,7 +122,7 @@ def parquet_write_read_with_vault(parquet_filename):
         return VaultClient(kms_connection_configuration)
 
     # Write with encryption properties
-    crypto_factory = pq.CryptoFactory(kms_factory)
+    crypto_factory = pe.CryptoFactory(kms_factory)
     file_encryption_properties = crypto_factory.file_encryption_properties(
         kms_connection_config, encryption_config)
     with pq.ParquetWriter(path,

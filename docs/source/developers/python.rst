@@ -480,7 +480,6 @@ Let's configure, build and install the Arrow C++ libraries:
        -DARROW_WITH_ZLIB=on ^
        -DARROW_WITH_ZSTD=on ^
        -DARROW_PARQUET=on ^
-       -DPARQUET_REQUIRE_ENCRYPTION=on ^
        -DARROW_PYTHON=on ^
        ..
    cmake --build . --target INSTALL --config Release
@@ -492,7 +491,6 @@ Now, we can build pyarrow:
 
    pushd arrow\python
    set PYARROW_WITH_PARQUET=1
-   set PYARROW_WITH_PARQUET_ENCRYPTION=1
    python setup.py build_ext --inplace
    popd
 

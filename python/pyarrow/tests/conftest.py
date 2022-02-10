@@ -62,6 +62,7 @@ groups = [
     'orc',
     'pandas',
     'parquet',
+    'parquet_encryption',
     'plasma',
     's3',
     'snappy',
@@ -91,6 +92,7 @@ defaults = {
     'orc': False,
     'pandas': False,
     'parquet': False,
+    'parquet_encryption': False,
     'plasma': False,
     'requires_testing_data': True,
     's3': False,
@@ -141,6 +143,13 @@ try:
     defaults['parquet'] = True
 except ImportError:
     pass
+
+try:
+    import pyarrow.parquet_encryption  # noqa
+    defaults['parquet_encryption'] = True
+except ImportError:
+    pass
+
 
 try:
     import pyarrow.plasma  # noqa

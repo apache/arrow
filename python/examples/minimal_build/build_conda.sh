@@ -87,7 +87,6 @@ cmake -GNinja \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
       -DARROW_PARQUET=ON \
-      -DPARQUET_REQUIRE_ENCRYPTION=ON \
       -DARROW_PLASMA=ON \
       -DARROW_PYTHON=ON \
       $ARROW_ROOT/cpp
@@ -106,7 +105,6 @@ export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_PARQUET=1
-export PYARROW_WITH_PARQUET_ENCRYPTION=1
 
 # You can run either "develop" or "build_ext --inplace". Your pick
 

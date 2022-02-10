@@ -88,6 +88,15 @@ Parquet Files
    write_metadata
    write_table
    write_to_dataset
+
+Encrypted Parquet Files
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: pyarrow.parquet_encryption
+
+.. autosummary::
+   :toctree: ../generated/
+
    CryptoFactory
    KmsClient
    KmsConnectionConfig

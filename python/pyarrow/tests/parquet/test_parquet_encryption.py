@@ -26,8 +26,6 @@ try:
 except ImportError:
     pq = None
     pe = None
-    cpe = None
-
 
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
 FOOTER_KEY = b"0123456789112345"
@@ -35,6 +33,10 @@ FOOTER_KEY_NAME = "footer_key"
 COL_KEY = b"1234567890123450"
 COL_KEY_NAME = "col_key"
 
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet_encryption'
+pytestmark = pytest.mark.parquet_encryption
 
 @pytest.fixture(scope='module')
 def data_table():
@@ -56,7 +58,6 @@ def basic_encryption_config():
     return basic_encryption_config
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_read(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted, and then read it."""
     path = tempdir / PARQUET_NAME
@@ -125,7 +126,6 @@ def read_encrypted_parquet(path, decryption_config,
     return result.read(use_threads=False)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_read_wrong_key(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted,
     and then read it using wrong keys."""
@@ -175,7 +175,6 @@ def test_encrypted_parquet_write_read_wrong_key(tempdir, data_table):
             crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_read_no_decryption_config(tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted,
     but then try to read it without decryption properties."""
@@ -185,7 +184,6 @@ def test_encrypted_parquet_read_no_decryption_config(tempdir, data_table):
         pq.ParquetFile(tempdir / PARQUET_NAME).read()
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_read_metadata_no_decryption_config(
         tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted,
@@ -196,7 +194,6 @@ def test_encrypted_parquet_read_metadata_no_decryption_config(
         pq.read_metadata(tempdir / PARQUET_NAME)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_read_schema_no_decryption_config(
         tempdir, data_table):
     """Write an encrypted parquet, verify it's encrypted,
@@ -206,7 +203,6 @@ def test_encrypted_parquet_read_schema_no_decryption_config(
         pq.read_schema(tempdir / PARQUET_NAME)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
     """Write an encrypted parquet, but give only footer key,
     without column key."""
@@ -235,7 +231,6 @@ def test_encrypted_parquet_write_no_col_key(tempdir, data_table):
                                 kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_kms_error(tempdir, data_table,
                                            basic_encryption_config):
     """Write an encrypted parquet, but raise KeyError in KmsClient."""
@@ -257,7 +252,6 @@ def test_encrypted_parquet_write_kms_error(tempdir, data_table,
                                 kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_kms_specific_error(tempdir, data_table,
                                                     basic_encryption_config):
     """Write an encrypted parquet, but raise KeyError in KmsClient."""
@@ -294,7 +288,6 @@ def test_encrypted_parquet_write_kms_specific_error(tempdir, data_table,
                                 kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_kms_factory_error(tempdir, data_table,
                                                    basic_encryption_config):
     """Write an encrypted parquet, but raise ValueError in kms_factory."""
@@ -315,7 +308,6 @@ def test_encrypted_parquet_write_kms_factory_error(tempdir, data_table,
                                 kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_write_kms_factory_type_error(
         tempdir, data_table, basic_encryption_config):
     """Write an encrypted parquet, but use wrong KMS client type
@@ -349,7 +341,6 @@ def test_encrypted_parquet_write_kms_factory_type_error(
                                 kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_encryption_configuration():
     def validate_encryption_configuration(encryption_config):
         assert(FOOTER_KEY_NAME == encryption_config.footer_key)
@@ -385,7 +376,6 @@ def test_encrypted_parquet_encryption_configuration():
     validate_encryption_configuration(encryption_config_1)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_decryption_configuration():
     decryption_config = pe.DecryptionConfiguration(
         cache_lifetime=timedelta(minutes=10.0))
@@ -396,7 +386,6 @@ def test_encrypted_parquet_decryption_configuration():
     assert(timedelta(minutes=10.0) == decryption_config_1.cache_lifetime)
 
 
-@pytest.mark.parquet
 def test_encrypted_parquet_kms_configuration():
     def validate_kms_connection_config(kms_connection_config):
         assert("Instance1" == kms_connection_config.kms_instance_id)
@@ -426,7 +415,6 @@ def test_encrypted_parquet_kms_configuration():
     validate_kms_connection_config(kms_connection_config_1)
 
 
-@pytest.mark.parquet
 @pytest.mark.xfail(reason="Plaintext footer - reading plaintext column subset"
                    " reads encrypted columns too")
 def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
@@ -468,7 +456,6 @@ def test_encrypted_parquet_write_read_plain_footer_single_wrapping(
     # assert table.num_rows == result_table.num_rows
 
 
-@pytest.mark.parquet
 @pytest.mark.xfail(reason="External key material not supported yet")
 def test_encrypted_parquet_write_external(tempdir, data_table):
     """Write an encrypted parquet, with external key
@@ -496,7 +483,6 @@ def test_encrypted_parquet_write_external(tempdir, data_table):
                             kms_connection_config, crypto_factory)
 
 
-@pytest.mark.parquet
 @pytest.mark.skip(reason="ARROW-14114: Multithreaded read sometimes fails"
                   "decryption finalization or with Segmentation fault")
 def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
