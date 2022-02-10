@@ -1249,6 +1249,65 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTime) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
+  for (auto op : {"add", "add_checked"}) {
+    auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
+    auto arr_s2 = ArrayFromJSON(time32(TimeUnit::SECOND), times_s2);
+    auto arr_ms = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms);
+    auto arr_ms2 = ArrayFromJSON(time32(TimeUnit::MILLI), times_ms2);
+    auto arr_us = ArrayFromJSON(time64(TimeUnit::MICRO), times_us);
+    auto arr_us2 = ArrayFromJSON(time64(TimeUnit::MICRO), times_us2);
+    auto arr_ns = ArrayFromJSON(time64(TimeUnit::NANO), times_ns);
+    auto arr_ns2 = ArrayFromJSON(time64(TimeUnit::NANO), times_ns2);
+
+    CheckScalarBinary(op, arr_s,
+                      ArrayFromJSON(duration(TimeUnit::SECOND), seconds_between_time),
+                      arr_s2);
+    CheckScalarBinary(op, arr_ms,
+                      ArrayFromJSON(duration(TimeUnit::MILLI), milliseconds_between_time),
+                      arr_ms2);
+    CheckScalarBinary(op, arr_us,
+                      ArrayFromJSON(duration(TimeUnit::MICRO), microseconds_between_time),
+                      arr_us2);
+    CheckScalarBinary(op, arr_ns,
+                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+                      arr_ns2);
+
+    auto seconds_1 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([1, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_3k = ArrayFromJSON(time32(TimeUnit::MILLI), R"([3000, null])");
+    auto nanoseconds_1G = ArrayFromJSON(time64(TimeUnit::NANO), R"([1000000000, null])");
+    auto microseconds_2M = ArrayFromJSON(duration(TimeUnit::MICRO), R"([2000000, null])");
+    auto nanoseconds_3M = ArrayFromJSON(time64(TimeUnit::NANO), R"([3000000000, null])");
+    auto microseconds_3M = ArrayFromJSON(time64(TimeUnit::MICRO), R"([3000000, null])");
+    CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
+    CheckScalarBinary(op, nanoseconds_1G, microseconds_2M, nanoseconds_3M);
+    CheckScalarBinary(op, seconds_1, microseconds_2M, microseconds_3M);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("-1 is not within the acceptable range of [0, 86400)"),
+        CallFunction(op, {ArrayFromJSON(time32(TimeUnit::SECOND), R"([0, null])"),
+                          ArrayFromJSON(duration(TimeUnit::SECOND), R"([-1, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000000001 is not within the acceptable range of [0, 86400000000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::NANO), R"([1, null])")}));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr(
+            "86400000001 is not within the acceptable range of [0, 86400000000)"),
+        CallFunction(op,
+                     {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
+                      ArrayFromJSON(duration(TimeUnit::MICRO), R"([1, null])")}));
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
   for (auto op : {"subtract", "subtract_checked"}) {
     auto arr_s = ArrayFromJSON(time32(TimeUnit::SECOND), times_s);
