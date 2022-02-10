@@ -4109,7 +4109,7 @@ def test_array_to_pandas_types_mapper():
     # Test mapper function returning None
     types_mapper = {pa.int64(): None}.get
     result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == data.type.to_pandas_dtype()
+    assert result.dtype == np.dtype("int64")
 
     # Test mapper function not containing the dtype
     types_mapper = {pa.float64(): pd.Float64Dtype()}.get
@@ -4129,17 +4129,17 @@ def test_chunked_array_to_pandas_types_mapper():
     # Test with mapper function
     types_mapper = {pa.int64(): pd.Int64Dtype()}.get
     result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == types_mapper(data.type)
+    assert result.dtype == pd.Int64Dtype()
 
     # Test mapper function returning None
     types_mapper = {pa.int64(): None}.get
     result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == data.type.to_pandas_dtype()
+    assert result.dtype == np.dtype("int64")
 
     # Test mapper function not containing the dtype
     types_mapper = {pa.float64(): pd.Float64Dtype()}.get
     result = data.to_pandas(types_mapper=types_mapper)
-    assert result.dtype == data.type.to_pandas_dtype()
+    assert result.dtype == np.dtype("int64")
 
 
 # ----------------------------------------------------------------------
