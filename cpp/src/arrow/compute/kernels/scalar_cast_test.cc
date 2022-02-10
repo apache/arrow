@@ -2247,12 +2247,11 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  std::vector<std::string> field_names2 = {"c", "d"};
-  std::shared_ptr<Array> c, d;
-  c = ArrayFromJSON(int8(), "[1, 2]");
-  d = ArrayFromJSON(int8(), "[3, 4]");
-  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({c, d}, field_names2));
-  auto options = CastOptions::Safe(dest->type());
+  const auto dest = arrow::struct_({
+      std::make_shared<Field>("c", int8()),
+      std::make_shared<Field>("d", int8())
+    });
+  const auto options = CastOptions::Safe(dest);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
@@ -2268,13 +2267,12 @@ TEST(Cast, StructToDifferentSizeStruct) {
   b = ArrayFromJSON(int8(), "[3, 4]");
   ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
 
-  std::vector<std::string> field_names2 = {"a", "b", "c"};
-  std::shared_ptr<Array> a2, b2, c;
-  a2 = ArrayFromJSON(int8(), "[1, 2]");
-  b2 = ArrayFromJSON(int8(), "[3, 4]");
-  c = ArrayFromJSON(int8(), "[5, 6]");
-  ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2, c}, field_names2));
-  auto options = CastOptions::Safe(dest->type());
+  const auto dest = arrow::struct_({
+      std::make_shared<Field>("a", int8()),
+      std::make_shared<Field>("b", int8()),
+      std::make_shared<Field>("c", int8())
+    });
+  const auto options = CastOptions::Safe(dest);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
@@ -2315,11 +2313,8 @@ TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
   std::vector<std::shared_ptr<Field>> fields4 = {
       std::make_shared<Field>("a", int8(), false),
       std::make_shared<Field>("b", int8(), false)};
-  std::shared_ptr<Array> a4, b4;
-  a4 = ArrayFromJSON(int8(), "[1, 2]");
-  b4 = ArrayFromJSON(int8(), "[3, 4]");
-  ASSERT_OK_AND_ASSIGN(auto dest2, StructArray::Make({a4, b4}, fields4));
-  auto options = CastOptions::Safe(dest2->type());
+  const auto dest2 = arrow::struct_(fields4);
+  const auto options = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
