@@ -39,6 +39,7 @@ elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
 else
   PACKAGE_MANAGER=apt-get
+  apt-get update
 fi
 
 # Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
@@ -63,7 +64,6 @@ fi
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
   # Install curl and openssl for S3 support
   if [ "$PACKAGE_MANAGER" = "apt-get" ]; then
-    apt-get update
     apt-get install -y libcurl4-openssl-dev libssl-dev
   else
     $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
