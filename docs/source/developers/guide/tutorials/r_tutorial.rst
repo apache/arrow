@@ -188,7 +188,7 @@ Looking at the code in ``expressions.R`` we can see the day function
 is already specified/mapped on the R package side:
 `<https://github.com/apache/arrow/blob/658bec37aa5cbdd53b5e4cdc81b8ba3962e67f11/r/R/expression.R#L63-L64>`_
 
-We only need to add ``mday`` to the list of expressions connecting
+We only need to add ``mday()`` to the list of expressions connecting
 it to the C++ ``day`` function.
 
 .. code-block:: R
@@ -434,7 +434,7 @@ by clicking on **Compare & pull request**.
    Notice bar on the Apache Arrow repository.
 
 First we need to change the Title to **ARROW-14816: [R] Implement
-bindings for lubridate::mday** in order to match it with the
+bindings for lubridate::mday()** in order to match it with the
 JIRA issue. Note a punctuation mark was added!
 
 We will also add a description to make it clear to others what we are trying to do.
