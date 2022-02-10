@@ -38,13 +38,13 @@ To build the MATLAB Interface to Apache Arrow from source, the following softwar
 
 To set up a local working copy of the source code, start by cloning the [`apache/arrow`](https://github.com/apache/arrow) GitHub repository using [Git](https://git-scm.com/):
 
-```bash
+```console
 $ git clone https://github.com/apache/arrow.git
 ```
 
 After cloning, change the working directory to the `matlab` subdirectory:
 
-```bash
+```console
 $ cd arrow/matlab
 ```
 
@@ -52,7 +52,7 @@ $ cd arrow/matlab
 
 To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
 
-```bash
+```console
 $ cmake -S . -B build 
 $ cmake --build build --config Release
 ```
@@ -61,7 +61,7 @@ $ cmake --build build --config Release
 
 To install the MATLAB interface to the default software installation location for the target machine (e.g. `/usr/local` on Linux or `C:\Program Files` on Windows), pass the `--taget install` flag to CMake.
 
-```bash
+```console
 $ cmake --build build --config Release --target install
 ```
 
@@ -85,14 +85,14 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 
 To enable the C++ tests, set the `MATLAB_BUILD_TESTS` to `ON` at build time: 
 
-```bash
+```console
 $ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
 $ cmake --build build --config Release
 ```
 
 After building with the `MATLAB_BUILD_TESTS` flag enabled, the C++ tests can be run using [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html):
 
-```bash
+```console
 $ ctest --test-dir build
 ```
 
