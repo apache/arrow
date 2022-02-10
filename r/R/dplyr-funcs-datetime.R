@@ -156,48 +156,20 @@ register_bindings_datetime <- function() {
         ymd_hyphen3 = "%Y-%B-%d",
         ymd_hyphen4 = "%y-%B-%d",
         ymd_hyphen5 = "%Y-%b-%d",
-        ymd_hyphen6 = "%y-%b-%d",
-        ymd_fslash1 = "%Y/%m/%d",
-        ymd_fslash2 = "%y/%m/%d",
-        ymd_fslash3 = "%Y/%B/%d",
-        ymd_fslash4 = "%y/%B/%d",
-        ymd_fslash5 = "%Y/%b/%d",
-        ymd_fslash6 = "%y/%b/%d",
-        ymd_dot1 = "%Y.%m.%d",
-        ymd_dot2 = "%y.%m.%d",
-        ymd_dot3 = "%Y.%B.%d",
-        ymd_dot4 = "%y.%B.%d",
-        ymd_dot5 = "%Y.%b.%d",
-        ymd_dot6 = "%y.%b.%d",
-        ymd_comma1 = "%Y,%m,%d",
-        ymd_comma2 = "%y,%m,%d",
-        ymd_comma3 = "%Y,%B,%d",
-        ymd_comma4 = "%y,%B,%d",
-        ymd_comma5 = "%Y,%b,%d",
-        ymd_comma6 = "%y,%b,%d",
-        ymd_colon1 = "%Y:%m:%d",
-        ymd_colon2 = "%y:%m:%d",
-        ymd_colon3 = "%Y:%B:%d",
-        ymd_colon4 = "%y:%B:%d",
-        ymd_colon5 = "%Y:%b:%d",
-        ymd_colon6 = "%y:%b:%d",
-        ymd_cont1 = "%Y%m%d",
-        ymd_cont2 = "%y%m%d",
-        ymd_cont3 = "%Y%B%d",
-        ymd_cont4 = "%y%B%d",
-        ymd_cont5 = "%Y%b%d",
-        ymd_cont6 = "%y%b%d",
-        ymd_space1 = "%Y %m %d",
-        ymd_space2 = "%y %m %d",
-        ymd_space3 = "%Y %B %d",
-        ymd_space4 = "%y %B %d",
-        ymd_space5 = "%Y %b %d",
-        ymd_space6 = "%y %b %d"
+        ymd_hyphen6 = "%y-%b-%d"
       )
-    call_binding(
-      "coalesce",
-      call_binding("strptime", x, format = format_map[[1]], unit = "s"),
-      call_binding("strptime", x, format = format_map[[2]], unit = "s")
-    )
+
+    x <- call_binding("gsub", "[^A-Za-z0-9]", "-", x)
+
+    # call_binding(
+    #   "coalesce",
+      call_binding("strptime", x, format = format_map[[1]], unit = "s")#,
+    #   call_binding("strptime", x, format = format_map[[2]], unit = "s"),
+    #   call_binding("strptime", x, format = format_map[[3]], unit = "s"),
+    #   call_binding("strptime", x, format = format_map[[4]], unit = "s"),
+    #   call_binding("strptime", x, format = format_map[[5]], unit = "s"),
+    #   call_binding("strptime", x, format = format_map[[6]], unit = "s")
+    # )
+
   })
 }
