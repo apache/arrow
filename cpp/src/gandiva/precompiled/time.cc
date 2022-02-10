@@ -995,91 +995,92 @@ static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
 static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
 static const char* MAXDATE = "9999-12-31 23:59:59";
 
-FORCE_INLINE
-const char* date_trunc_timestamp_utf8(int64_t context, int64_t date,
-                                      const char* pattern_name, int32_t pattern_length,
-                                      int32_t* out_len) {
-  if (pattern_length <= 1) {
-    gdv_fn_context_set_error_msg(
-        context, "The parameter pattern_length is not contain a valid value");
-    *out_len = 0;
-    return "";
+#define DATE_TRUNC(TYPE)                                                               \
+  FORCE_INLINE                                                                         \
+  const char* date_trunc##_##TYPE##_##utf8(int64_t context, gdv_##TYPE date,           \
+                                           const char* pattern_name,                   \
+                                           int32_t pattern_length, int32_t* out_len) { \
+    if (pattern_length <= 1) {                                                         \
+      gdv_fn_context_set_error_msg(                                                    \
+          context, "The parameter pattern_length is not contain a valid value");       \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    gdv_timestamp dateMax = castTIMESTAMP_utf8(context, MAXDATE, 19);                  \
+    if (date > dateMax) {                                                              \
+      gdv_fn_context_set_error_msg(context, "The date is invalid");                    \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+    bool foundPattern = false;                                                         \
+    for (int n = 0; n <= 2; n++) {                                                     \
+      if (pattern_length == PARTTERN_MONTH_LEN[n] &&                                   \
+          memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {        \
+        date = date_trunc_Month_timestamp(date);                                       \
+        foundPattern = true;                                                           \
+        break;                                                                         \
+      } else if (pattern_length == PARTTERN_YEAR_LEN[n] &&                             \
+                 memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {   \
+        date = date_trunc_Year_timestamp(date);                                        \
+        foundPattern = true;                                                           \
+        break;                                                                         \
+      }                                                                                \
+    }                                                                                  \
+                                                                                       \
+    if (!foundPattern) {                                                               \
+      gdv_fn_context_set_error_msg(context,                                            \
+                                   "The parameter pattern_name is not recognized");    \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    gdv_int64 year = extractYear_timestamp(date);                                      \
+    gdv_int64 month = extractMonth_timestamp(date);                                    \
+    gdv_int64 day = extractDay_timestamp(date);                                        \
+                                                                                       \
+    static const int kTimeStampStringLen = 10;                                         \
+                                                                                       \
+    const int char_buffer_length = kTimeStampStringLen + 1;                            \
+                                                                                       \
+    char* char_buffer = reinterpret_cast<char*>(                                       \
+        gdv_fn_context_arena_malloc(context, char_buffer_length));                     \
+                                                                                       \
+    if (char_buffer == nullptr) {                                                      \
+      gdv_fn_context_set_error_msg(context,                                            \
+                                   "Could not allocate memory for output string");     \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    int res = snprintf(char_buffer, char_buffer_length,                                \
+                       "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);    \
+                                                                                       \
+    if (res < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(context, "Could not format the timestamp");         \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    *out_len = static_cast<gdv_int32>(kTimeStampStringLen);                            \
+    if (*out_len > kTimeStampStringLen) {                                              \
+      *out_len = kTimeStampStringLen;                                                  \
+    }                                                                                  \
+                                                                                       \
+    if (*out_len <= 0) {                                                               \
+      if (*out_len < 0) {                                                              \
+        gdv_fn_context_set_error_msg(context,                                          \
+                                     "Length of output string cannot be negative");    \
+      }                                                                                \
+      *out_len = 0;                                                                    \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    return char_buffer;                                                                \
   }
 
-  gdv_timestamp dateMax = castTIMESTAMP_utf8(context, MAXDATE, 19);
-  if (date > dateMax) {
-    gdv_fn_context_set_error_msg(context, "The date is invalid");
-    *out_len = 0;
-    return "";
-  }
-
-  // This repetition identify if pattern is Month or Year
-  // When the first match is found, the repetition is break
-  bool foundPattern = false;
-  for (int n = 0; n <= 2; n++) {
-      if (pattern_length == PARTTERN_MONTH_LEN[n] && memcmp(pattern_name, PATTERN_MONTH[n], PARTTERN_MONTH_LEN[n]) == 0) {
-        // Replace date received from parameter to date truncated
-        date = date_trunc_Month_timestamp(date);
-        foundPattern = true;
-        break;
-      }
-      else if (pattern_length == PARTTERN_YEAR_LEN[n] && memcmp(pattern_name, PATTERN_YEAR[n], PARTTERN_YEAR_LEN[n]) == 0) {
-        // Replace date received from parameter to date truncated
-        date = date_trunc_Year_timestamp(date);
-        foundPattern = true;
-        break;
-      }
-  }
-
-  if (!foundPattern) {
-    gdv_fn_context_set_error_msg(context, "The parameter pattern_name is not recognized");
-    *out_len = 0;
-    return "";
-  }
-
-  gdv_int64 year = extractYear_timestamp(date);
-  gdv_int64 month = extractMonth_timestamp(date);
-  gdv_int64 day = extractDay_timestamp(date);
-
-  static const int kTimeStampStringLen = 10;
-  // snprintf adds \0
-  const int char_buffer_length = kTimeStampStringLen + 1;
-
-  // Variable "char_buffer" allocated in memory dynamically
-  char* char_buffer =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, char_buffer_length));
-
-  if (char_buffer == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  // yyyy-MM-dd
-  int res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
-
-  if (res < 0) {
-    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
-    *out_len = 0;
-    return "";
-  }
-
-  *out_len = static_cast<gdv_int32>(kTimeStampStringLen);
-  if (*out_len > kTimeStampStringLen) {
-    *out_len = kTimeStampStringLen;
-  }
-
-  if (*out_len <= 0) {
-    if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
-    }
-    *out_len = 0;
-    return "";
-  }
-
-  return char_buffer;
-}
+DATE_TRUNC(date64);
+DATE_TRUNC(timestamp);
 
 // Convert the seconds since epoch argument to timestamp
 #define TO_TIMESTAMP_INTEGER(TYPE)                              \

@@ -828,4 +828,61 @@ TEST_F(TestProjector, TestFromUtcTimestamp) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
+
+TEST_F(TestProjector, TestTrunc) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::date64());
+  auto field1 = field("f1", arrow::utf8());
+
+  auto field2 = field("f2", timestamp(arrow::TimeUnit::MILLI));
+  auto field3 = field("f3", arrow::utf8());
+
+  auto schema = arrow::schema({field0, field1, field2, field3});
+
+  // output fields
+  auto output_trunc = field("result", arrow::utf8());
+  auto output_trunc2 = field("result2", arrow::utf8());
+
+  // Build expression
+  auto trunc_expr =
+      TreeExprBuilder::MakeExpression("trunc", {field0, field1}, output_trunc);
+
+  auto trunc_expr2 =
+      TreeExprBuilder::MakeExpression("trunc", {field2, field3}, output_trunc2);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {trunc_expr, trunc_expr2}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 2;
+  time_t epoch = Epoch();
+
+  auto array0 = MakeArrowArrayDate64({1561856401000, 1561856401000}, {true, true});
+
+  auto date_in_timestamp = {MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0),
+                            MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0)};
+
+  auto array1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), date_in_timestamp, {true, true});
+
+  auto array2 = MakeArrowArrayUtf8({"MONTH", "YEAR"}, {true, true});
+  // expected output
+  auto exp_output = MakeArrowArrayUtf8({"2019-06-01", "2019-01-01"}, {true, true});
+
+  // prepare input record batch
+  auto in_batch =
+      arrow::RecordBatch::Make(schema, num_records, {array0, array2, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(1));
+}
+
 }  // namespace gandiva
