@@ -744,20 +744,4 @@ test_that("extract tz", {
     ),
     error = TRUE
   )
-
-  df2 <- tibble(
-    x = as.POSIXct(c("2022-02-07", NA), tz = "Pacific/Marquesas")
-  )
-
-  # NAs propagate
-  expect_equal(
-    df2 %>%
-      record_batch() %>%
-      mutate(timezone_x = tz(x)) %>%
-      collect(),
-    tibble(
-      x = df2$x,
-      timezone_x = c("Pacific/Marquesas", NA)
-    )
-  )
 })
