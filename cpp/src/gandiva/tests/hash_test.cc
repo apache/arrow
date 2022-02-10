@@ -17,7 +17,6 @@
 
 #include <gtest/gtest.h>
 
-#include <openssl/crypto.h>
 #include <sstream>
 
 #include "arrow/memory_pool.h"

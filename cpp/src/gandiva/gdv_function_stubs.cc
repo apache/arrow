@@ -483,31 +483,6 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
   return ret;
 }
 
-const char* Lower(int64_t context, const char* str, int32_t text_len, int32_t* out_len) {
-
-  if (text_len == 0) {
-    *out_len = 0;
-    return "";
-  }
-
-  auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len + 1));
-
-  if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  for (gdv_int32 i = 0; i < text_len; i++) {
-    ret[i] = tolower(str[i]);
-  }
-
-  *out_len = text_len;
-
-  return ret;
-}
-
 GANDIVA_EXPORT
 const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len, int32_t* out_len) {
   if (data_len <= 0) {
@@ -515,7 +490,7 @@ const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t d
     return nullptr;
   }
 
-  // Hive hash the value by sha256 and encoding it into a lower case hex string in
+  // Gandiva hash the value by sha256 and encoding it into a lower case hex string in
   // non FIPS mode. In FIPS enabled mode, it's required to use sha512 for mask hash.
   if (FIPS_mode()) {
     const char* sha_hash = gandiva::gdv_sha512_hash(context, data, data_len, out_len);
@@ -526,9 +501,7 @@ const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t d
       return "";
     }
 
-    const char* res = to_hex_binary(context, sha_hash, static_cast<int>(strlen(sha_hash)), out_len);
-    //return Lower(context, res, static_cast<int>(sizeof(res)), out_len);
-    return gdv_fn_lower_utf8(context,res, *out_len, out_len);
+    return gdv_fn_lower_utf8(context,sha_hash, *out_len, out_len);
   }
   else {
     const char* sha_hash = gandiva::gdv_sha256_hash(context, data, data_len, out_len);
@@ -539,12 +512,7 @@ const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t d
       return "";
     }
 
-    int sha_hash_len = static_cast<int>(strlen(sha_hash));
-    const char* res = to_hex_binary(context, sha_hash, sha_hash_len, out_len);
-
-    //int sha_hash_hex_len = static_cast<int>(sizeof(res));
-    //return Lower(context, res, *out_len, out_len);
-    return gdv_fn_lower_utf8(context,res, *out_len, out_len);
+    return gdv_fn_lower_utf8(context,sha_hash, *out_len, out_len);
   }
 }
 

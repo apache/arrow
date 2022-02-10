@@ -20,6 +20,7 @@
 #include <gandiva/precompiled/testing.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <openssl/crypto.h>
 
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
@@ -955,65 +956,148 @@ TEST(TestGdvFnStubs, TestMaskHash) {
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
   int32_t out_len = 0;
 
-  std::string data = "a〜Çç&";
-  int32_t data_len = static_cast<int32_t>(data.length());
-  std::string expected = "a〜Xx&";
-  const char* result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+  if (FIPS_mode())
+  {
+    std::string data = "a〜Çç&";
+    int32_t data_len = static_cast<int32_t>(data.length());
+    std::string expected = "32d13016ddb8522a07eb24062775a3a6b8aea80bd3c54c1747f646a010a2d1f0bad021a24d881b55a7d795185b7e630f4d38c38fbeaf1897e725f884ca206c38";
+    const char* result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  data_len = static_cast<int32_t>(data.length());
-  expected = "XXXXXXXXXXXXXXXXXXXXXXXXXX";
-  result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "f9292a765b5826c3e5786d9cf361e677f58ec5e3b5cecfd7a8bf122f5407b157196753f062d109ac7c16b29b0f471f81da9787c8d314e873413edca956027799";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  /*data = "abÇçé";
-  data_len = static_cast<int32_t>(data.length());
-  expected = "axXxx";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 4, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "f9292a765b5826c3e5786d9cf361e677f58ec5e3b5cecfd7a8bf122f5407b157196753f062d109ac7c16b29b0f471f81da9787c8d314e873413edca956027799";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  data = "0123456789";
-  data_len = static_cast<int32_t>(data.length());
-  expected = "nnnnnnnnnn";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 10, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));*/
+    data = "TestString-123";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "f3a58111be6ecec11449ac44654e72376b7759883ea11723b6e51354d50436de645bd061cb5c2b07b68e15b7a7c342cac41f69b9c4efe19e810bbd7abf639a1c";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
+    data = "abÇçé";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "0a84490bf1466dcae1c7ef234c903ca848ae9cf0fdd6498895c945bbea4af4ddd596c1e007bd7fdc7a0aa142da5e4276ec3070b946247e9c8c4f376e04f2847f";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len,  &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-/*
-  data = "abcdefghijklmnopqrstuvwxyz";
-  expected = "xxxxxxxxxxxxxxxxxxxxxxxxxx";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 26, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "0123456789";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "bb96c2fc40d2d54617d6f276febe571f623a8dadf0b734855299b0e107fda32cf6b69f2da32b36445d73690b93cbd0f7bfc20e0f7f28553d2a4428f23b716e90";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len,  &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  data = "aB-6";
-  data_len = static_cast<int32_t>(data.length());
-  expected = "aX-n";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 3, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "abcdefghijklmnopqrstuvwxyz";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "4dbff86cc2ca1bae1e16468a05cb9881c97f1753bce3619034898faa1aabe429955a1bf8ec483d7421fe3c1646613a59ed5441fb0f321389f77f48a879c7b1f1";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  expected = "xX-n";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 5, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "aB-6";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "7f678df40c7c2cb16afddddf71eee6a7b85d1e24375f8f67730ea941aabf0b0d3b60d0c92efdac15b1f23dc2715ed7639e2080e9eb699ec6be32c8f8fa71b5af";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  expected = "aB-6";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, -3, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "b大路学路b";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "388afb7f8b9d4ef3782e2ebc4e6b09b9b60b6c177484a1c6ccc0a5125e4a88fbe5b58fcb88bcacbc9017be8651b373c57d24554052c53de76d6bf7e05253d296";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 0, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "                          ";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "5b5e139bae6046cac40738f75ecdcb2358e33e0cb488caf9b381a4b4656c23ad32c2b222d6ed0f146213aa33bed4cda080feee9c23402cbdff963121f5e244e1";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  data = "ABcd-123456";
-  data_len = static_cast<int32_t>(data.length());
-  expected = "ABcd-nnnnnn";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));
+    data = "";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
 
-  data = "";
-  data_len = 0;
-  expected = "";
-  result = gdv_mask_last_n_utf8_int32(ctx_ptr, data.c_str(), data_len, 6, &out_len);
-  EXPECT_EQ(expected, std::string(result, out_len));*/
+    data = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+  }
+  else {
+    std::string data = "a〜Çç&";
+    int32_t data_len = static_cast<int32_t>(data.length());
+    std::string expected = "76d98bfb4c6b9b178324b7159bab0effbcc0665a503a193328255b741c26bca0";
+    const char* result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "d6ec6898de87ddac6e5b3611708a7aa1c2d298293349cc1a6c299a1db7149d38";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "TestString-123";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "8b44d559dc5d60e4453c9b4edf2a455fbce054bb8504cd3eb9b5f391bd239c90";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "abÇçé";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "03af6bec2d006863245b5dcd9a9a03d0297cd0c80db0e9ea310305fc53e87e46";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len,  &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "0123456789";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "84d89877f0d4041efb6bf91a16f0248f2fd573e6af05c19f96bedb9f882f7882";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len,  &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "abcdefghijklmnopqrstuvwxyz";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "71c480df93d6ae2f1efad1447c66c9525e316218cf51fc8d9ed832f2daf18b73";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "aB-6";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "9d7cd121662f9647db394950cee3bb7be7e703550a7433037bf302adcd0ad8bd";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "b大路学路b";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "0874ca19c86a7de7b411457927e3a36ef478da8dd9d321197a42b3f701c08152";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "                          ";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "99871ea61492b0fb650c49fe1dd2be7d81c8074542514671d2c585f4a3f247f1";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+
+    data = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    data_len = static_cast<int32_t>(data.length());
+    expected = "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1";
+    result = gdv_mask_hash_utf8_utf8(ctx_ptr, data.c_str(), data_len, &out_len);
+    EXPECT_EQ(expected, std::string(result, out_len));
+  }
+
 }
 
 }  // namespace gandiva
