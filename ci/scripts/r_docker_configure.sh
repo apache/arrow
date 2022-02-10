@@ -60,18 +60,14 @@ if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
   $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
 fi
 
-# Install curl and openssl for S3 support
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
+  # Install curl and openssl for S3 support
   if [ "$PACKAGE_MANAGER" = "apt-get" ]; then
     apt-get update
     apt-get install -y libcurl4-openssl-dev libssl-dev
   else
     $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
   fi
-fi
-
-# Install rsync for bundling cpp source
-$PACKAGE_MANAGER install -y rsync
 
   # The Dockerfile should have put this file here
   if [ -f "/arrow/ci/scripts/install_minio.sh" ] && [ "`which wget`" ]; then
@@ -82,6 +78,9 @@ $PACKAGE_MANAGER install -y rsync
     /arrow/ci/scripts/install_gcs_testbench.sh default
   fi
 fi
+
+# Install rsync for bundling cpp source
+$PACKAGE_MANAGER install -y rsync
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
