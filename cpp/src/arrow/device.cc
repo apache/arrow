@@ -74,13 +74,13 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
                                 " to ", to->device()->ToString(), " not supported");
 }
 
-Result<std::unique_ptr<Buffer>> MemoryManager::CopyBufferRef(
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwned(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   const auto& from = buf.memory_manager();
-  auto maybe_buffer = to->CopyBufferFrom(buf, from);
+  auto maybe_buffer = to->CopyNonOwnedFrom(buf, from);
   COPY_BUFFER_RETURN(maybe_buffer, to);
   // `to` doesn't support copying from `from`, try the other way
-  maybe_buffer = from->CopyBufferTo(buf, to);
+  maybe_buffer = from->CopyNonOwnedTo(buf, to);
   COPY_BUFFER_RETURN(maybe_buffer, to);
 
   return Status::NotImplemented("Copying buffer from ", from->device()->ToString(),
@@ -116,12 +116,12 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferTo(
   return nullptr;
 }
 
-Result<std::unique_ptr<Buffer>> MemoryManager::CopyBufferFrom(
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedFrom(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
   return nullptr;
 }
 
-Result<std::unique_ptr<Buffer>> MemoryManager::CopyBufferTo(
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedTo(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   return nullptr;
 }
@@ -164,10 +164,10 @@ Result<std::unique_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
-  return CopyBufferFrom(*buf, from);
+  return CopyNonOwnedFrom(*buf, from);
 }
 
-Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedFrom(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
   if (!from->is_cpu()) {
     return nullptr;
@@ -189,10 +189,10 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  return CopyBufferTo(*buf, to);
+  return CopyNonOwnedTo(*buf, to);
 }
 
-Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedTo(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   if (!to->is_cpu()) {
     return nullptr;

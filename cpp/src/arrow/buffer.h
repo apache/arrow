@@ -256,8 +256,11 @@ class ARROW_EXPORT Buffer {
                                               const std::shared_ptr<MemoryManager>& to);
 
   /// \brief Copy a non-owned buffer
-  static Result<std::unique_ptr<Buffer>> Copy(const Buffer& source,
-                                              const std::shared_ptr<MemoryManager>& to);
+  ///
+  /// This is useful for cases where the source memory area is externally managed
+  /// (its lifetime not tied to the source Buffer), otherwise please use Copy().
+  static Result<std::unique_ptr<Buffer>> CopyNonOwned(
+      const Buffer& source, const std::shared_ptr<MemoryManager>& to);
 
   /// \brief View buffer
   ///

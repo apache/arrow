@@ -162,8 +162,8 @@ TEST_F(TestCudaDevice, Copy) {
   ASSERT_EQ(other_buffer->device(), device_);
   AssertCudaBufferEquals(*other_buffer, "some data");
 
-  // Copy const Buffer&
-  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(*cpu_buffer, mm_));
+  // Copy non-owned
+  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::CopyNonOwned(*cpu_buffer, mm_));
   ASSERT_EQ(other_buffer->device(), device_);
   AssertCudaBufferEquals(*other_buffer, "some data");
 
@@ -172,8 +172,8 @@ TEST_F(TestCudaDevice, Copy) {
   ASSERT_TRUE(cpu_buffer->device()->is_cpu());
   AssertBufferEqual(*cpu_buffer, "some data");
 
-  // Copy const Buffer&
-  ASSERT_OK_AND_ASSIGN(cpu_buffer, Buffer::Copy(*other_buffer, cpu_mm_));
+  // Copy non-owned
+  ASSERT_OK_AND_ASSIGN(cpu_buffer, Buffer::CopyNonOwned(*other_buffer, cpu_mm_));
   ASSERT_TRUE(cpu_buffer->device()->is_cpu());
   AssertBufferEqual(*cpu_buffer, "some data");
 
@@ -184,9 +184,9 @@ TEST_F(TestCudaDevice, Copy) {
   ASSERT_NE(other_buffer->address(), old_address);
   AssertCudaBufferEquals(*other_buffer, "some data");
 
-  // Copy const Buffer&
+  // Copy non-owned
   old_address = other_buffer->address();
-  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::Copy(*other_buffer, mm_));
+  ASSERT_OK_AND_ASSIGN(other_buffer, Buffer::CopyNonOwned(*other_buffer, mm_));
   ASSERT_EQ(other_buffer->device(), device_);
   ASSERT_NE(other_buffer->address(), old_address);
   AssertCudaBufferEquals(*other_buffer, "some data");

@@ -327,10 +327,10 @@ Result<std::unique_ptr<Buffer>> CudaMemoryManager::AllocateBuffer(int64_t size) 
 
 Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  return CopyBufferTo(*buf, to);
+  return CopyNonOwnedTo(*buf, to);
 }
 
-Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyBufferTo(
+Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyNonOwnedTo(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   if (to->is_cpu()) {
     // Device-to-CPU copy
@@ -347,10 +347,10 @@ Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyBufferTo(
 Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferFrom(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
   // TODO: remove these or just make them base class
-  return CopyBufferFrom(*buf, from);
+  return CopyNonOwnedFrom(*buf, from);
 }
 
-Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyBufferFrom(
+Result<std::unique_ptr<Buffer>> CudaMemoryManager::CopyNonOwnedFrom(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& from) {
   if (from->is_cpu()) {
     // CPU-to-device copy
