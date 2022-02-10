@@ -1,0 +1,58 @@
+.. Licensed to the Apache Software Foundation (ASF) under one
+.. or more contributor license agreements.  See the NOTICE file
+.. distributed with this work for additional information
+.. regarding copyright ownership.  The ASF licenses this file
+.. to you under the Apache License, Version 2.0 (the
+.. "License"); you may not use this file except in compliance
+.. with the License.  You may obtain a copy of the License at
+
+..   http://www.apache.org/licenses/LICENSE-2.0
+
+.. Unless required by applicable law or agreed to in writing,
+.. software distributed under the License is distributed on an
+.. "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+.. KIND, either express or implied.  See the License for the
+.. specific language governing permissions and limitations
+.. under the License.
+
+
+.. SCOPE OF THIS SECTION
+.. This section should include extra description to the
+.. language-specific documentation. Possible topics to
+.. add: How to run one test, test file or all the tests
+.. together and why is it good to do that.
+.. What if the unconnected tests start failing? etc.
+
+
+.. _styling:
+
+**********
+Styling 😎
+**********
+
+Each language in the Apache Arrow project follows its own style guides.
+
+In this section we will connect to the existing documentation
+to make it easier for you to find the relevant information about
+styling.
+
+.. tabs::
+
+   .. tab:: PyArrow
+
+      To checking styling issues in python files we use the
+      :ref:`Archery utility<archery>` tool developed within Apache
+      Arrow to ease some of the development tasks.
+
+      The instructions on how to set up and use the utility
+      can be found in the Coding Style section of the
+      :ref:`python-development`.
+
+   .. tab:: R package
+
+      For the R package you can use ``{lintr}`` or ``{styler}``
+      to check if the code follows the tidyverse style.
+
+      The instructions on how to use either of these two packages
+      can be found in the Styling an linting section of the
+      `Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
