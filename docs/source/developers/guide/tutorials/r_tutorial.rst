@@ -46,7 +46,7 @@ To view the tutorial follow the
 R tutorial on adding a lubridate binding
 ========================================
 
-In this tutorial we will document a simple binding contribution
+In this tutorial, we will document the contribution of a binding
 to Arrow R package following the steps specified by the
 :ref:`quick-ref-guide` section of the guide and a more detailed
 :ref:`step_by_step` section. Navigate there whenever there is
@@ -86,8 +86,8 @@ link of the main repository to our upstream.
 Building R package
 ------------------
 
-Script for building R package differs depending on the Operating
-System you are using. For this reason we will only refer to
+The steps to follow for for building the R package differs depending on the operating
+system you are using. For this reason we will only refer to
 the instructions for the building process in this tutorial.
 
 .. seealso::
@@ -95,7 +95,7 @@ the instructions for the building process in this tutorial.
    For the **introduction** to the building process refer to the
    :ref:`build-arrow-guide` section.
 
-   For the **instructions** on how to build R package refer to the
+   For the **instructions** on how to build the R package refer to the
    `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
 JIRA issue
@@ -110,7 +110,7 @@ existing R function from ``lubridate``. The issue can be found on
    :scale: 40 %
    :alt: JIRA page of the issue for the R binding.
 
-   JIRA page of the issue for the lubridate::mday binding.
+   JIRA page of the issue for the lubridate::mday() binding.
 
 .. note::
 
@@ -173,7 +173,7 @@ to see how it works:
    31
 
 We can see that lubridate and Arrow functions operate on and return
-equivalent data types. Lubridate ``mday()`` function has no additional
+equivalent data types. lubridate's ``mday()`` function has no additional
 arguments and there are also no option classes associated with Arrow C++
 function ``day()``.
 
@@ -259,7 +259,7 @@ more research and code corrections.
 
    [ FAIL 1 | WARN 0 | SKIP 0 | PASS 230 ]
 
-There is a fail we get for the ``strftime`` function but looking
+There is a failure we get for the ``strftime`` function but looking
 at the code we see is not connected to our work. We can move on and
 maybe ask others if they are getting similar fail when running the tests.
 It could be we only need to rebuild the library.
@@ -456,7 +456,7 @@ a Pull Request in the Apache Arrow repository.
 
    Here it is, our Pull Request!
 
-The Pull Request gets connected to the JIRA issue and the CI is running.
+The pull request gets connected to the JIRA issue and the CI is running.
 After some time passes and we get a review we can correct the code,
 comment, resolve conversations and so on.
 

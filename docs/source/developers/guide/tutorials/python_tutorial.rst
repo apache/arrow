@@ -133,7 +133,7 @@ Start the work on a new branch
 ------------------------------
 
 Before we start working on adding the feature we should
-create a new branch from the updated master.
+create a new branch from the updated master branch.
 
 .. code:: console
 
