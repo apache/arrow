@@ -148,11 +148,6 @@ register_bindings_datetime <- function() {
     !call_binding("am", x)
   })
   register_binding("tz", function(x) {
-    call_binding(
-      "if_else",
-      call_binding("is.na", x),
-      NA_character_,
       x$type()$timezone()
-    )
   })
 }
