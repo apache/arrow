@@ -44,7 +44,7 @@ jobs:
 
       - name: Docker Run
         shell: bash
-        run: archery docker run r
+        run: archery docker run -e ARROW_SOURCE_HOME='' r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
