@@ -74,7 +74,7 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
                                 " to ", to->device()->ToString(), " not supported");
 }
 
-Result<std::unique_ptr<Buffer>> MemoryManager::CopyMemory(
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyBufferRef(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   const auto& from = buf.memory_manager();
   auto maybe_buffer = to->CopyBufferFrom(buf, from);

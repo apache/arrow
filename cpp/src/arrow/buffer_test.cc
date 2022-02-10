@@ -159,8 +159,8 @@ Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyBufferFrom(
   if (from->is_cpu()) {
     // CPU to MyDevice:
     // 1. CPU to CPU
-    ARROW_ASSIGN_OR_RAISE(auto dest,
-                          MemoryManager::CopyMemory(buf, default_cpu_memory_manager()));
+    ARROW_ASSIGN_OR_RAISE(
+        auto dest, MemoryManager::CopyBufferRef(buf, default_cpu_memory_manager()));
     // 2. Wrap CPU buffer result
     return internal::make_unique<MyBuffer>(shared_from_this(), std::move(dest));
   }
@@ -174,7 +174,7 @@ Result<std::unique_ptr<Buffer>> MyMemoryManager::CopyBufferTo(
   }
   if (to->is_cpu() && buf.parent()) {
     // MyDevice to CPU
-    return MemoryManager::CopyMemory(*buf.parent(), to);
+    return MemoryManager::CopyBufferRef(*buf.parent(), to);
   }
   return nullptr;
 }
@@ -260,7 +260,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
-  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyMemory(*cpu_src_, cpu_mm_));
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBufferRef(*cpu_src_, cpu_mm_));
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
@@ -277,7 +277,7 @@ TEST_F(TestDevice, Copy) {
 #endif
   AssertMyBufferEqual(*buffer, "some data");
 
-  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyMemory(*cpu_src_, my_copy_mm_));
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBufferRef(*cpu_src_, my_copy_mm_));
   ASSERT_EQ(buffer->device(), my_copy_device_);
   ASSERT_FALSE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
@@ -294,7 +294,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
-  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyMemory(*my_copy_src_, cpu_mm_));
+  ASSERT_OK_AND_ASSIGN(buffer, MemoryManager::CopyBufferRef(*my_copy_src_, cpu_mm_));
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
