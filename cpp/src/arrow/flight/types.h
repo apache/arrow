@@ -167,7 +167,7 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   std::string password;
 
   /// \brief Deserialize this message from its wire-format representation.
-  static arrow::Result<BasicAuth> Deserialize(const arrow::util::string_view& serialized);
+  static arrow::Result<BasicAuth> Deserialize(arrow::util::string_view serialized);
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
 
@@ -215,8 +215,7 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<FlightDescriptor> Deserialize(
-      const arrow::util::string_view& serialized);
+  static arrow::Result<FlightDescriptor> Deserialize(arrow::util::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
@@ -266,7 +265,7 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<Ticket> Deserialize(const arrow::util::string_view& serialized);
+  static arrow::Result<Ticket> Deserialize(arrow::util::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized, Ticket* out);
@@ -445,7 +444,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
-      const arrow::util::string_view& serialized);
+      arrow::util::string_view serialized);
 
   ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
   static Status Deserialize(const std::string& serialized,

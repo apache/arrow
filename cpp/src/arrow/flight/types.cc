@@ -164,7 +164,7 @@ Status FlightDescriptor::SerializeToString(std::string* out) const {
 }
 
 arrow::Result<FlightDescriptor> FlightDescriptor::Deserialize(
-    const arrow::util::string_view& serialized) {
+    arrow::util::string_view serialized) {
   pb::FlightDescriptor pb_descriptor;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightDescriptor size should not exceed 2 GiB");
@@ -201,7 +201,7 @@ Status Ticket::SerializeToString(std::string* out) const {
   return SerializeToString().Value(out);
 }
 
-arrow::Result<Ticket> Ticket::Deserialize(const arrow::util::string_view& serialized) {
+arrow::Result<Ticket> Ticket::Deserialize(arrow::util::string_view serialized) {
   pb::Ticket pb_ticket;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized Ticket size should not exceed 2 GiB");
@@ -262,7 +262,7 @@ Status FlightInfo::SerializeToString(std::string* out) const {
 }
 
 arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
-    const arrow::util::string_view& serialized) {
+    arrow::util::string_view serialized) {
   pb::FlightInfo pb_info;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized FlightInfo size should not exceed 2 GiB");
@@ -410,8 +410,7 @@ Status SimpleResultStream::Next(std::unique_ptr<Result>* result) {
   return Status::OK();
 }
 
-arrow::Result<BasicAuth> BasicAuth::Deserialize(
-    const arrow::util::string_view& serialized) {
+arrow::Result<BasicAuth> BasicAuth::Deserialize(arrow::util::string_view serialized) {
   pb::BasicAuth pb_result;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
     return Status::Invalid("Serialized BasicAuth size should not exceed 2 GiB");
