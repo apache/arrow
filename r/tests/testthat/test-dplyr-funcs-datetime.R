@@ -714,20 +714,34 @@ test_that("am/pm mirror lubridate", {
 
 test_that("extract tz", {
   df <- tibble(
-    x = as.POSIXct(c("2022-02-07", "2022-03-04"), tz = "Pacific/Marquesas"),
-    # tz() returns "UTC" for NAs, strings and dates
+    x = as.POSIXct(c("2022-02-07", NA), tz = "Pacific/Marquesas"),
+    # lubridate::tz() returns -for the time being - "UTC" for NAs, strings,
+    # dates and numerics
     y = c("2022-02-07", NA),
-    z = as.Date(c("2022-02-07", NA))
+    z = as.Date(c("2022-02-07", NA)),
+    w = c(1L, 5L),
+    v = c(1.1, 2.47)
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(
-        timezone_x = tz(x),
-        timezone_y = tz(y),
-        timezone_z = tz(z)
-      ) %>%
+      mutate(timezone_x = tz(x)) %>%
       collect(),
     df
+  )
+
+  expect_snapshot(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          timezone_y = tz(x),
+          timezone_z = tz(z),
+          timezone_w = tz(w),
+          timezone_v = tz(v)
+        ) %>%
+        collect(),
+      df
+    ),
+    error = TRUE
   )
 })
