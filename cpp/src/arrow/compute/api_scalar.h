@@ -1199,8 +1199,7 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
-/// \brief USEpiyear returns US epidemiological year number for each element of
-/// `values`.
+/// \brief USYear returns US epidemiological year number for each element of `values`.
 /// First week of US epidemiological year has the majority (4 or more) of it's
 /// days in January. Last week of US epidemiological year has the year's last
 /// Wednesday in it. US epidemiological week starts on Sunday.
@@ -1212,7 +1211,7 @@ Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
 /// \since 8.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> USEpiyear(const Datum& values, ExecContext* ctx = NULLPTR);
+Result<Datum> USYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.

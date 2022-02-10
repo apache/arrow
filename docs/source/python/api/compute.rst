@@ -403,8 +403,8 @@ Temporal Component Extraction
    quarter
    second
    subsecond
-   us_epiyear
    us_week
+   us_year
    week
    year
    year_month_day
