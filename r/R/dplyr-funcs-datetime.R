@@ -148,11 +148,6 @@ register_bindings_datetime <- function() {
     !call_binding("am", x)
   })
   register_binding("tz", function(x) {
-    if (call_binding("is.character", x) ||
-        call_binding("is.Date", x)) {
-      return("UTC")
-    } else {
-      return(x$type()$timezone())
-    }
+    x$type()$timezone()
   })
 }
