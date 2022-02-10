@@ -83,7 +83,7 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 
 ### C++
 
-To enable the C++ tests, set the `MATLAB_BUILD_TESTS` to `ON` at build time: 
+To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
 
 ```console
 $ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
