@@ -153,48 +153,29 @@ void AddListCast(CastFunction* func) {
 struct CastStruct {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const CastOptions& options = CastState::Get(ctx);
+    const StructType& in_type = checked_cast<const StructType&>(*batch[0].type());
+    const StructType& out_type = checked_cast<const StructType&>(*out->type());
     const auto in_field_count =
-        checked_cast<const StructType&>(*batch[0].type()).num_fields();
-    const auto out_field_count =
-        checked_cast<const StructType&>(*out->type()).num_fields();
+        in_type.num_fields();
 
-    if (in_field_count != out_field_count) {
+    if (in_field_count != out_type.num_fields()) {
       return Status::TypeError("struct field sizes do not match: ",
-                               batch[0].type()->ToString(), " ", out->type()->ToString());
+                               in_type.ToString(), " ", out_type.ToString());
     }
 
     for (int i = 0; i < in_field_count; ++i) {
-      const auto in_field_name =
-          checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
-      const auto out_field_name =
-          checked_cast<const StructType&>(*out->type()).field(i)->name();
-      if (in_field_name != out_field_name) {
+      const auto in_field = in_type.field(i);
+      const auto out_field = out_type.field(i);
+      if (in_field->name() != out_field->name()) {
         return Status::TypeError(
-            "struct field names do not match: ", batch[0].type()->ToString(), " ",
-            out->type()->ToString());
+            "struct field names do not match: ", in_type.ToString(), " ",
+            out_type.ToString());
       }
 
-      const auto in_field_nullable =
-          checked_cast<const StructType&>(*batch[0].type()).field(i)->nullable();
-      const auto out_field_nullable =
-          checked_cast<const StructType&>(*out->type()).field(i)->nullable();
-
-      if (in_field_nullable && !out_field_nullable) {
+      if (in_field->nullable() && !out_field->nullable()) {
         return Status::TypeError("cannot cast nullable struct to non-nullable struct: ",
-                                 batch[0].type()->ToString(), " ",
-                                 out->type()->ToString());
-      }
-    }
-
-    for (int i = 0; i < in_field_count; ++i) {
-      const auto in_field_name =
-          checked_cast<const StructType&>(*batch[0].type()).field(i)->name();
-      const auto out_field_name =
-          checked_cast<const StructType&>(*out->type()).field(i)->name();
-      if (in_field_name != out_field_name) {
-        return Status::TypeError(
-            "struct field names do not match: ", batch[0].type()->ToString(), " ",
-            out->type()->ToString());
+                                 in_type.ToString(), " ",
+                                 out_type.ToString());
       }
     }
 
