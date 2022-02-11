@@ -253,20 +253,19 @@ test_that("arrow dplyr query correctly filters then joins", {
 
 test_that("arrow dplyr query can join with tibble", {
   # ARROW-14908
-  existing_use_threads <- getOption("arrow.use_threads")
-  options(arrow.use_threads = FALSE)
   dir_out <- tempdir()
-
-  # Note: Species is a DictionaryArray, but this still fails even if we convert to StringArray.
   write_dataset(iris, file.path(dir_out, "iris"))
-  species_codes <- data.frame(Species = c("setosa", "versicolor", "virginica"),
-                              code = c("SET", "VER", "VIR"))
+  species_codes <- data.frame(
+    Species = c("setosa", "versicolor", "virginica"),
+    code = c("SET", "VER", "VIR")
+  )
 
-  iris <- open_dataset(file.path(dir_out, "iris"))
-
-  res <- left_join(iris, species_codes) %>% collect() # We should not segfault here.
-  expect_equal(nrow(res), 150)
-
-  # Reset
-  options(arrow.use_threads = existing_use_threads)
+  withr::with_options(
+    list(arrow.use_threads = FALSE),
+    {
+      iris <- open_dataset(file.path(dir_out, "iris"))
+      res <- left_join(iris, species_codes) %>% collect() # We should not segfault here.
+      expect_equal(nrow(res), 150)
+    }
+  )
 })
