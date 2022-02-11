@@ -65,9 +65,12 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
   size_t tag_;
 };
 
-arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
+const std::string kFilenamePlaceholder = "FILENAME_PLACEHOLDER";
+
+arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
+    const std::string& filename) {
   // Emulate server interaction by parsing hard coded JSON
-  return eng::internal::SubstraitFromJSON("Plan", R"({
+  std::string substrait_json = R"({
     "relations": [
       {"rel": {
         "read": {
@@ -77,23 +80,10 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
             },
             "names": ["i", "b"]
           },
-          "filter": {
-            "selection": {
-              "directReference": {
-                "structField": {
-                  "field": 1
-                }
-              }
-            }
-          },
           "local_files": {
             "items": [
               {
-                "uri_file": "file:///tmp/dat1.parquet",
-                "format": "FILE_FORMAT_PARQUET"
-              },
-              {
-                "uri_file": "file:///tmp/dat2.parquet",
+                "uri_file": "file://FILENAME_PLACEHOLDER",
                 "format": "FILE_FORMAT_PARQUET"
               }
             ]
@@ -124,13 +114,22 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer() {
         "name": "add"
       }}
     ]
-  })");
+  })";
+  substrait_json.replace(substrait_json.find(kFilenamePlaceholder),
+                         kFilenamePlaceholder.size(), filename);
+  return eng::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
 int main(int argc, char** argv) {
+  if (argc < 2) {
+    std::cout << "Please specify a parquet file to scan" << std::endl;
+    // Fake pass for CI
+    return EXIT_SUCCESS;
+  }
+
   // Plans arrive at the consumer serialized in a Buffer, using the binary protobuf
   // serialization of a substrait Plan
-  auto maybe_serialized_plan = GetSubstraitFromServer().result();
+  auto maybe_serialized_plan = GetSubstraitFromServer(argv[1]).result();
   ABORT_ON_FAILURE(maybe_serialized_plan.status());
   std::shared_ptr<arrow::Buffer> serialized_plan =
       std::move(maybe_serialized_plan).ValueOrDie();
