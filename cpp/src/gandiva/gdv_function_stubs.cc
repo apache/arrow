@@ -19,12 +19,11 @@
 
 #include <utf8proc.h>
 
+#include <openssl/crypto.h>
 #include <boost/crc.hpp>
 #include <iomanip>
 #include <string>
 #include <vector>
-#include <openssl/crypto.h>
-#include <iomanip>
 
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
@@ -484,7 +483,8 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
 }
 
 GANDIVA_EXPORT
-const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len, int32_t* out_len) {
+const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len,
+                                    int32_t* out_len) {
   if (data_len <= 0) {
     *out_len = 0;
     return nullptr;
@@ -496,27 +496,26 @@ const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t d
     const char* sha_hash = gandiva::gdv_sha512_hash(context, data, data_len, out_len);
 
     if (sha_hash == nullptr) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
       *out_len = 0;
       return "";
     }
 
-    return gdv_fn_lower_utf8(context,sha_hash, *out_len, out_len);
-  }
-  else {
+    return gdv_fn_lower_utf8(context, sha_hash, *out_len, out_len);
+  } else {
     const char* sha_hash = gandiva::gdv_sha256_hash(context, data, data_len, out_len);
 
     if (sha_hash == nullptr) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
       *out_len = 0;
       return "";
     }
 
-    return gdv_fn_lower_utf8(context,sha_hash, *out_len, out_len);
+    return gdv_fn_lower_utf8(context, sha_hash, *out_len, out_len);
   }
 }
-
-
 
 GANDIVA_EXPORT
 const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
@@ -1033,5 +1032,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
+
+  // gdv_mask_hash_utf8_utf8
+  args = {
+      types->i64_type(),     // context
+      types->i8_ptr_type(),  // data
+      types->i32_type(),     // data_len
+      types->i32_ptr_type()  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_mask_hash_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_mask_hash_utf8_utf8));
 }
 }  // namespace gandiva
