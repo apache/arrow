@@ -157,14 +157,15 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
     case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
-      auto id = ext_set.function_ids()[scalar_fn.function_reference()];
+      ARROW_ASSIGN_OR_RAISE(auto decoded_function,
+                            ext_set.DecodeFunction(scalar_fn.function_reference()));
 
       std::vector<compute::Expression> arguments(scalar_fn.args_size());
       for (int i = 0; i < scalar_fn.args_size(); ++i) {
         ARROW_ASSIGN_OR_RAISE(arguments[i], FromProto(scalar_fn.args(i), ext_set));
       }
 
-      return compute::call(id.name.to_string(), std::move(arguments));
+      return compute::call(decoded_function.name.to_string(), std::move(arguments));
     }
 
     default:
