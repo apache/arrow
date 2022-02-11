@@ -27,6 +27,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-20.04, windows-latest]
+        shared_only: [OFF, ON]
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -62,6 +63,7 @@ jobs:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
           DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
+          ARROW_BUILD_STATIC: {{ "${{matrix.shared_only}}" }}
         run: |
           if [ $DEVDOCS_WINDOWS == "true" ]; then
             # Part of Path, including the path to R's bin, needs to be reformatted

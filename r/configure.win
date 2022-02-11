@@ -86,9 +86,12 @@ function configure_dev() {
   RWINLIB=$(cygpath $ARROW_HOME)
 
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_R_WITH_ARROW"
-  PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow -larrow_bundled_dependencies -lz -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
-  # These are already in arrow_bundled_dependencies:
-  # -lutf8proc -lthrift -lsnappy -lzstd -llz4
+    PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow"
+  if [ $(cmake_option ARROW_BUILD_STATIC) -eq 1 ]; then
+    PKG_LIBS="${PKG_LIBS} -larrow_bundled_dependencies -lole32 ${OPENSSL_LIBS}"
+  else
+    PKG_LIBS="${PKG_LIBS} -lutf8proc -lthrift -lsnappy -lzstd -llz4 -lz ${BROTLI_LIBS} -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
+  fi
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"

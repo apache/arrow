@@ -131,6 +131,7 @@ You can install additional dependencies like so. Note that you are limited to th
 ```{bash}
 pacman --sync --refresh --noconfirm \
   ${MINGW_PACKAGE_PREFIX}-boost \
+  ${MINGW_PACKAGE_PREFIX}-brotli \
   ${MINGW_PACKAGE_PREFIX}-lz4 \
   ${MINGW_PACKAGE_PREFIX}-protobuf \
   ${MINGW_PACKAGE_PREFIX}-snappy \
