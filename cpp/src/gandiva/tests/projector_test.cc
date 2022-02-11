@@ -2843,14 +2843,16 @@ TEST_F(TestProjector, TestFindInSet) {
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array0 =
-      MakeArrowArrayUtf8({"ABC", "...", "!C", "MORE"}, {true, true, true, true});
-  auto array1 = MakeArrowArrayUtf8(
-      {"ZXL,KMY,DDD,ABC", "!!!,@@@,###,...,,,", ",A,,,,,,,,!C,,,,,", "MORE"},
-      {true, true, true, true});
+  int num_records = 7;
+  auto array0 = MakeArrowArrayUtf8({"ABC", "...", "!C", "MORE", "学路", "b大", "路"},
+                                   {true, true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayUtf8({"ZXL,KMY,DDD,ABC", "!!!,@@@,###,...,,,", ",A,,,,,,,,!C,,,,,",
+                          "MORE", "学路,学路,学路,123", "大b,,,b大", "大b,,学路,学,b大"},
+                         {true, true, true, true, true, true, true});
   // expected output
-  auto exp_sum = MakeArrowArrayInt32({4, 4, 10, 1}, {true, true, true, true});
+  auto exp_sum = MakeArrowArrayInt32({4, 4, 10, 1, 1, 4, 0},
+                                     {true, true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
