@@ -52,6 +52,8 @@ class GANDIVA_EXPORT Annotator {
   int AddHolderPointer(void* holder);
 
   /// Return a pointer to the underlying array containing the holder pointers
+  /// This should only be called after expr decomposition when all the holder
+  /// pointers are added
   void** GetHolderPointersArray() { return holder_pointers_.data(); }
 
   /// Prepare an eval batch for the incoming record batch.
