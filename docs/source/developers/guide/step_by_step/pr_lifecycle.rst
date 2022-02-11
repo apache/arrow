@@ -80,7 +80,7 @@ Creating a pull request
 ==========================
 
 Once you are satisfied with the changes, run the :ref:`tests <testing>`
-and linters and then go ahead and commit the changes.
+and :ref:`linters<styling>` and then go ahead and commit the changes.
 
 3. Add and commit the changes
 

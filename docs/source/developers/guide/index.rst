@@ -134,7 +134,8 @@ of adding a basic feature.
 
 #. **Once you implemented the planned fix or feature, write and run tests for it**
 
-   See detailed instructions on how to :ref:`test <testing>`.
+   See detailed instructions on how to :ref:`test <testing>`. Also check the
+   :ref:`syle of the code<styling>` before proceeding to the next step!
 
 #. **Push the branch on your fork and create a Pull Request**
 
