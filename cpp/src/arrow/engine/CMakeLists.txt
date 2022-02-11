@@ -122,8 +122,7 @@ add_arrow_lib(arrow_engine
               ${SUBSTRAIT_GEN_DIR})
 
 foreach(LIB_TARGET ${ARROW_ENGINE_LIBRARIES})
-  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING
-                                                   LIBPROTOBUF_EXPORTS)
+  target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ENGINE_EXPORTING)
 endforeach()
 
 set(ARROW_ENGINE_TEST_LINK_LIBS ${ARROW_ENGINE_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
