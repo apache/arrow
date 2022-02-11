@@ -56,3 +56,14 @@ styling.
       The instructions on how to use either of these two packages
       can be found in the Styling an linting section of the
       `Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
+
+Pre-commit
+----------
+
+It is useful to setup `pre-commit <https://pre-commit.com/>`_,
+multi-language package manager for pre-commit hooks. It will
+check your code and will stop the commit process, described in
+the following section, if there are any errors.
+
+- `Pre-commit installation instructions <https://pre-commit.com/#installation>`_
+- `Pre-commit hooks <https://pre-commit.com/hooks.html>`_
