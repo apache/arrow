@@ -46,12 +46,12 @@ public class ResultSetMetadataTest {
   public ErrorCollector collector = new ErrorCollector();
 
   @ClassRule
-  public static final FlightServerTestRule rule =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule
+      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   @BeforeClass
   public static void setup() throws SQLException {
-    connection = rule.getConnection();
+    connection = SERVER_TEST_RULE.getConnection();
 
     try (Statement statement = connection.createStatement();
          ResultSet resultSet = statement.executeQuery(

@@ -94,8 +94,8 @@ public class ArrowDatabaseMetadataTest {
   public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(FLIGHT_SQL_PRODUCER);
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
+      .createStandardTestRule(FLIGHT_SQL_PRODUCER);
   private static final int ROW_COUNT = 10;
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)

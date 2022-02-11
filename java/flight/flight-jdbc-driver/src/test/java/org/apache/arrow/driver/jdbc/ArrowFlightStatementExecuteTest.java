@@ -69,8 +69,8 @@ public class ArrowFlightStatementExecuteTest {
   private static final long SAMPLE_LARGE_UPDATE_COUNT = Long.MAX_VALUE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(PRODUCER);
+  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
+
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   private Connection connection;

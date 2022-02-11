@@ -35,8 +35,8 @@ import org.junit.rules.ErrorCollector;
 public class ArrowFlightPreparedStatementTest {
 
   @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
+      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
 
   private static Connection connection;
 

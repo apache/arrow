@@ -64,8 +64,8 @@ public class ArrowFlightStatementExecuteUpdateTest {
           Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createNewTestRule(PRODUCER);
+  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
+
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   public Connection connection;
