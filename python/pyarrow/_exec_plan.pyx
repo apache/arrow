@@ -29,7 +29,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes
 
-cdef pair[shared_ptr[CRecordBatchReader], shared_ptr[CExecPlan]] execplan(t):
+cdef (shared_ptr[CAsyncExecBatchGenerator], shared_ptr[CExecPlan], shared_ptr[CRecordBatchReader]) execplan(t):
     cdef:
         CExecContext c_exec_context = CExecContext(c_default_memory_pool())
         shared_ptr[CExecPlan] c_exec_plan = GetResultValue(CExecPlan.Make(&c_exec_context))
@@ -40,6 +40,7 @@ cdef pair[shared_ptr[CRecordBatchReader], shared_ptr[CExecPlan]] execplan(t):
         CTable* c_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
         shared_ptr[CSinkNodeOptions] c_sinkopts
+        shared_ptr[CAsyncExecBatchGenerator] c_asyncexecbatchgen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
 
     if isinstance(t, Table):
@@ -59,23 +60,29 @@ cdef pair[shared_ptr[CRecordBatchReader], shared_ptr[CExecPlan]] execplan(t):
         c_final_node_vec = deref(c_exec_plan).sources()
     c_final_node = c_final_node_vec[0]
 
-    res = CSinkNodeOptions.MakeForRecordBatchReader(c_final_node.output_schema())
+    res = CSinkNodeOptions.MakeWithAsyncGenerator()
     c_sinkopts = res.first
-    c_recordbatchreader = res.second
+    c_asyncexecbatchgen = res.second
     c_sink_node = GetResultValue(
         MakeExecNode(tobytes("sink"), &deref(c_exec_plan), c_final_node_vec, deref(c_sinkopts))
     )
 
+    c_recordbatchreader = MakeGeneratorReader(c_final_node.output_schema(), 
+                                              deref(c_asyncexecbatchgen),
+                                              c_exec_context.memory_pool())
+
     deref(c_exec_plan).Validate()
     deref(c_exec_plan).StartProducing()
 
-    return pair[shared_ptr[CRecordBatchReader], shared_ptr[CExecPlan]](c_recordbatchreader, c_exec_plan)
+    return (c_asyncexecbatchgen, c_exec_plan, c_recordbatchreader)
 
 def test():
     cdef:
         shared_ptr[CTable] c_table
         shared_ptr[CExecPlan] c_exec_plan
+        shared_ptr[CAsyncExecBatchGenerator] c_asyncexecbatchgen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
+        shared_ptr[CSchema] c_schema
 
     t = Table.from_pydict({
         "col1": [1, 2, 3, 4, 5],
@@ -83,8 +90,9 @@ def test():
     })
     
     res = execplan(t)
-    c_recordbatchreader = res.first
-    c_exec_plan = res.second
+    c_asyncexecbatchgen = res[0]
+    c_exec_plan = res[1]
+    c_recordbatchreader = res[2]
 
     c_table = GetResultValue(CTable.FromRecordBatchReader(c_recordbatchreader.get()))
     table = pyarrow_wrap_table(c_table)

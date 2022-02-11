@@ -1796,6 +1796,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CExecContext" arrow::compute::ExecContext":
         CExecContext()
         CExecContext(CMemoryPool* pool)
+        
+        CMemoryPool* memory_pool() const
 
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
         c_string ToString() const
@@ -2428,6 +2430,9 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
 
 
 cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef cppclass CAsyncExecBatchGenerator "arrow::compute::AsyncExecBatchGenerator":
+        pass
+
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
     
@@ -2437,7 +2442,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
         @staticmethod
-        pair[shared_ptr[CSinkNodeOptions], shared_ptr[CRecordBatchReader]] MakeForRecordBatchReader(shared_ptr[CSchema] schema)
+        pair[shared_ptr[CSinkNodeOptions], shared_ptr[CAsyncExecBatchGenerator]] MakeWithAsyncGenerator()
 
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
@@ -2465,9 +2470,18 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
         const vector[CExecNode*]& inputs() const
         const shared_ptr[CSchema]& output_schema() const
 
+    cdef cppclass CExecBatch "arrow::compute::ExecBatch":
+        pass
+    
+    shared_ptr[CRecordBatchReader] MakeGeneratorReader(
+        shared_ptr[CSchema] schema,
+        CAsyncExecBatchGenerator gen,
+        CMemoryPool* memory_pool
+    )
     CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan, 
                                      vector[CExecNode*] inputs,
                                      const CExecNodeOptions& options)
+
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)

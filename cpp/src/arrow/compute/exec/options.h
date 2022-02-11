@@ -29,14 +29,16 @@
 #include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/result.h"
 
 namespace arrow {
 namespace compute {
 
+using AsyncExecBatchGenerator = AsyncGenerator<util::optional<ExecBatch>>;
+
 /// \addtogroup execnode-options
 /// @{
-
 class ARROW_EXPORT ExecNodeOptions {
  public:
   virtual ~ExecNodeOptions() = default;
@@ -135,7 +137,7 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
                            util::BackpressureOptions backpressure = {})
       : generator(generator), backpressure(std::move(backpressure)) {}
 
-  static std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<RecordBatchReader>> MakeForRecordBatchReader(std::shared_ptr<Schema> schema);
+  static std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<AsyncGenerator<util::optional<compute::ExecBatch>>>> MakeWithAsyncGenerator();
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;
   util::BackpressureOptions backpressure;

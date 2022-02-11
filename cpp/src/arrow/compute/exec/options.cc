@@ -61,16 +61,11 @@ Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromTable(const Ta
 }
 
 
-std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<RecordBatchReader>> SinkNodeOptions::MakeForRecordBatchReader(std::shared_ptr<Schema> schema) {
-  // finally, pipe the project node into a sink node
-  AsyncGenerator<util::optional<compute::ExecBatch>> sink_gen;
-  auto node_options = std::shared_ptr<SinkNodeOptions>(new compute::SinkNodeOptions(&sink_gen));
+std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<AsyncGenerator<util::optional<compute::ExecBatch>>>> SinkNodeOptions::MakeWithAsyncGenerator() {
+  auto sink_gen = std::make_shared<AsyncGenerator<util::optional<compute::ExecBatch>>>();
+  auto node_options = std::shared_ptr<SinkNodeOptions>(new compute::SinkNodeOptions(sink_gen.get()));
 
-  // translate sink_gen (async) to sink_reader (sync)
-  std::shared_ptr<RecordBatchReader> sink_reader = compute::MakeGeneratorReader(
-      schema, std::move(sink_gen), default_memory_pool());
-
-  return std::make_pair(node_options, sink_reader);
+  return std::make_pair(node_options, sink_gen);
 }
 
 }  // namespace compute
