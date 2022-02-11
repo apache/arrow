@@ -26,7 +26,6 @@ R_PRUNE_DEPS=`echo $R_PRUNE_DEPS | tr '[:upper:]' '[:lower:]'`
 : ${R_DUCKDB_DEV:=FALSE}
 R_DUCKDB_DEV=`echo $R_DUCKDB_DEV | tr '[:upper:]' '[:lower:]'`
 
-
 source_dir=${1}/r
 
 pushd ${source_dir}

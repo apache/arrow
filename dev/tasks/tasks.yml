@@ -1185,23 +1185,22 @@ tasks:
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        flags: '-e TEST_OFFLINE_BUILD=true'
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      flags: '-e TEST_OFFLINE_BUILD=true'
 
   test-r-dev-duckdb:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        env:
-          R_DUCKDB_DEV: true
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        r_duckdb_dev: TRUE
+      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
+      image: ubuntu-r-only-r
 
   test-r-offline-maximal:
     ci: github
