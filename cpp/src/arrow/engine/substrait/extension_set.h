@@ -31,7 +31,7 @@ namespace engine {
 
 /// Substrait identifies functions and custom data types using a (uri, name) pair.
 ///
-/// This reigstry is a bidirectional mapping between Substrait IDs and their corresponding
+/// This registry is a bidirectional mapping between Substrait IDs and their corresponding
 /// Arrow counterparts (arrow::DataType and function names in a function registry)
 ///
 /// Substrait extension types and variations must be registered with their corresponding
