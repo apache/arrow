@@ -418,7 +418,7 @@ get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
 if(WIN32)
-  # On Windows, arrow.dll must be installed to to CMAKE_INSTALL_DIR regardless of whether
+  # On Windows, arrow.dll must be installed to to CMAKE_PACKAGED_INSTALL_DIR regardless of whether
   # Arrow_FOUND is true or false.
   install(FILES ${ARROW_SHARED_LIB} DESTINATION "${CMAKE_PACKAGED_INSTALL_DIR}")
 endif()
@@ -437,7 +437,7 @@ if(APPLE)
 
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
     # install libarrow.dylib (symlink) and the real files it points to.
     #
     # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -445,7 +445,7 @@ if(APPLE)
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_INSTALL_DIR}
+            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
             REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
             PATTERN "cmake" EXCLUDE
@@ -473,7 +473,7 @@ if(UNIX
 
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
     # install libarrow.so (symlink) and the real files it points to.
     #
     # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -481,7 +481,7 @@ if(UNIX
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_INSTALL_DIR}
+            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
             REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
             PATTERN "cmake" EXCLUDE
