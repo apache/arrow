@@ -813,6 +813,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CArray]]& arrays)
 
         @staticmethod
+        CResult[shared_ptr[CTable]] FromRecordBatchReader(
+            CRecordBatchReader *reader)
+
+        @staticmethod
         CResult[shared_ptr[CTable]] FromRecordBatches(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches)
@@ -2422,6 +2426,48 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
     CResult[PyObject*] MonthDayNanoIntervalScalarToPyObject(
         const CMonthDayNanoIntervalScalar& scalar)
 
+
+cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
+        pass
+    
+    cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
+        @staticmethod
+        CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table)
+
+    cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
+        @staticmethod
+        pair[shared_ptr[CSinkNodeOptions], shared_ptr[CRecordBatchReader]] MakeForRecordBatchReader(shared_ptr[CSchema] schema)
+
+
+cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
+    cdef cppclass CDeclaration "arrow::compute::Declaration":
+        c_string label
+        CDeclaration(c_string factory_name, CExecNodeOptions options)
+
+        @staticmethod
+        CDeclaration Sequence(vector[CDeclaration] decls)
+
+        CResult[CExecNode*] AddToPlan(CExecPlan* plan) const
+
+    cdef cppclass CExecPlan "arrow::compute::ExecPlan":
+        @staticmethod
+        CResult[shared_ptr[CExecPlan]] Make(CExecContext* exec_context)
+
+        CStatus StartProducing()
+        CStatus Validate()
+        CStatus StopProducing()
+
+        vector[CExecNode*] sinks() const
+        vector[CExecNode*] sources() const
+
+    cdef cppclass CExecNode "arrow::compute::ExecNode":
+        const vector[CExecNode*]& inputs() const
+        const shared_ptr[CSchema]& output_schema() const
+
+    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan, 
+                                     vector[CExecNode*] inputs,
+                                     const CExecNodeOptions& options)
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)

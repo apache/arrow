@@ -29,6 +29,7 @@
 #include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace compute {
@@ -50,6 +51,8 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   SourceNodeOptions(std::shared_ptr<Schema> output_schema,
                     std::function<Future<util::optional<ExecBatch>>()> generator)
       : output_schema(std::move(output_schema)), generator(std::move(generator)) {}
+
+  static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table);
 
   std::shared_ptr<Schema> output_schema;
   std::function<Future<util::optional<ExecBatch>>()> generator;
@@ -131,6 +134,8 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
   explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
                            util::BackpressureOptions backpressure = {})
       : generator(generator), backpressure(std::move(backpressure)) {}
+
+  static std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<RecordBatchReader>> MakeForRecordBatchReader(std::shared_ptr<Schema> schema);
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;
   util::BackpressureOptions backpressure;
