@@ -17,8 +17,8 @@
 
 #include <gtest/gtest.h>
 
-#include <sstream>
 #include <openssl/crypto.h>
+#include <sstream>
 
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -756,52 +756,67 @@ TEST_F(TestHash, TestMD5Varlen) {
 
 TEST_F(TestHash, TestMaskHash) {
   // schema for input fields
-  auto field_a = field("a", arrow::utf8());
+  auto field0 = field("f0", arrow::utf8());
 
-  auto schema = arrow::schema({field_a});
+  auto schema = arrow::schema({field0});
 
   // output fields
-  auto res_0 = field("res0", arrow::utf8());
+  auto output_mask_hash = field("result", arrow::utf8());
 
   // build expressions
   // mask_hash(a)
-  auto expr_0 = TreeExprBuilder::MakeExpression("mask_hash", {field_a}, res_0);
+  // auto expr_0 = TreeExprBuilder::MakeExpression("mask_hash", {field0},
+  // output_mask_hash);
+
+  auto node_a = TreeExprBuilder::MakeField(field0);
+  auto mask_hash_func = TreeExprBuilder::MakeFunction("mask_hash", {node_a}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(mask_hash_func, output_mask_hash);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok());
+  EXPECT_TRUE(status.ok()) << status.message();
+  ;
 
   // Create a row-batch with some sample data
   int num_records = 5;
 
   auto array_a =
-      MakeArrowArrayUtf8({"", "a〜Çç&", "TestString-123", "b大路学路b", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"}, {false, true, true, true, true});
+      MakeArrowArrayUtf8({"", "a〜Çç&", "TestString-123", "b大路学路b",
+                          "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"},
+                         {false, true, true, true, true});
 
   std::string first_string = "";
   std::string second_string = "";
   std::string third_string = "";
   std::string fourth_string = "";
 
-  if (FIPS_mode())
-  {
-    first_string = "32d13016ddb8522a07eb24062775a3a6b8aea80bd3c54c1747f646a010a2d1f0bad021a24d881b55a7d795185b7e630f4d38c38fbeaf1897e725f884ca206c38";
-    second_string = "f3a58111be6ecec11449ac44654e72376b7759883ea11723b6e51354d50436de645bd061cb5c2b07b68e15b7a7c342cac41f69b9c4efe19e810bbd7abf639a1c";
-    third_string = "388afb7f8b9d4ef3782e2ebc4e6b09b9b60b6c177484a1c6ccc0a5125e4a88fbe5b58fcb88bcacbc9017be8651b373c57d24554052c53de76d6bf7e05253d296";
-    fourth_string = "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445";
-  }
-  else {
+  if (FIPS_mode()) {
+    first_string =
+        "32d13016ddb8522a07eb24062775a3a6b8aea80bd3c54c1747f646a010a2d1f0bad021a24d881b55"
+        "a7d795185b7e630f4d38c38fbeaf1897e725f884ca206c38";
+    second_string =
+        "f3a58111be6ecec11449ac44654e72376b7759883ea11723b6e51354d50436de645bd061cb5c2b07"
+        "b68e15b7a7c342cac41f69b9c4efe19e810bbd7abf639a1c";
+    third_string =
+        "388afb7f8b9d4ef3782e2ebc4e6b09b9b60b6c177484a1c6ccc0a5125e4a88fbe5b58fcb88bcacbc"
+        "9017be8651b373c57d24554052c53de76d6bf7e05253d296";
+    fourth_string =
+        "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9"
+        "aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445";
+  } else {
     first_string = "76d98bfb4c6b9b178324b7159bab0effbcc0665a503a193328255b741c26bca0";
     second_string = "8b44d559dc5d60e4453c9b4edf2a455fbce054bb8504cd3eb9b5f391bd239c90";
     third_string = "0874ca19c86a7de7b411457927e3a36ef478da8dd9d321197a42b3f701c08152";
     fourth_string = "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1";
   }
 
-  auto exp_output = MakeArrowArrayUtf8({"", first_string, second_string, third_string, fourth_string}, {false, true, true, true, true});
+  auto exp_output =
+      MakeArrowArrayUtf8({"", first_string, second_string, third_string, fourth_string},
+                         {false, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch =
-      arrow::RecordBatch::Make(schema, num_records, {array_a});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -810,7 +825,6 @@ TEST_F(TestHash, TestMaskHash) {
 
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
-
 }
 
 }  // namespace gandiva

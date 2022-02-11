@@ -62,11 +62,9 @@ std::vector<NativeFunction> GetHashFunctionRegistry() {
 
       HASH_MD5_NULL_NEVER_FN(hashMD5, {}),
 
-      NativeFunction(
-          "mask_hash", {}, DataTypeVector{utf8()}, utf8(),
-          kResultNullInternal, "gdv_mask_hash_utf8_utf8",
-          NativeFunction::kNeedsContext | NativeFunction::kNeedsFunctionHolder |
-              NativeFunction::kCanReturnErrors)};
+      NativeFunction("mask_hash", {"maskhash"}, DataTypeVector{utf8()}, utf8(),
+                     kResultNullIfNull, "gdv_mask_hash_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
 
   return hash_fn_registry_;
 }
