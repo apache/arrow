@@ -118,6 +118,17 @@ test_that("errors in strptime", {
   )
 })
 
+test_that("strptime returns NA when format doesn't match the data", {
+  df <- tibble(a = "2022-02-07")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(b = strptime(a, format = "%Y %m-%d")) %>%
+      collect(),
+    df
+  )
+})
+
 test_that("strftime", {
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
