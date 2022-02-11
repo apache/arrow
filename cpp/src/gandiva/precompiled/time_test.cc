@@ -1303,4 +1303,115 @@ TEST(TestTime, TestTruncDate) {
   context.Reset();
 }
 
+TEST(TestTime, TestTruncVarchar) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  static const char* PATTERN_MONTH[] = {"MONTH", "MON", "MM"};
+  static const int PARTTERN_MONTH_LEN[] = {5, 3, 2};
+
+  static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
+  static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
+
+  // Testing recent date 2019-06-30
+  const char* ts1 = "2019-06-30";
+  int32_t data_len = static_cast<int32_t>(strlen(ts1));
+
+  gdv_int32 out_len;
+
+  // timestamp
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[0],
+                                   PARTTERN_MONTH_LEN[0], &out_len),
+                   "2019-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[1],
+                                   PARTTERN_MONTH_LEN[1], &out_len),
+                   "2019-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[2],
+                                   PARTTERN_MONTH_LEN[2], &out_len),
+                   "2019-06-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[0],
+                                   PARTTERN_YEAR_LEN[0], &out_len),
+                   "2019-01-01", 10),
+            0);
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[1],
+                                   PARTTERN_YEAR_LEN[1], &out_len),
+                   "2019-01-01", 10),
+            0);
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[2],
+                                   PARTTERN_YEAR_LEN[2], &out_len),
+                   "2019-01-01", 10),
+            0);
+
+  // Testing date before 1970/1/1
+  // 1000-06-30 = -30594621094000
+  const char* ts2 = "1000-06-30 00:00:00";
+  int32_t data2_len = static_cast<int32_t>(strlen(ts2));
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_MONTH[0],
+                                   PARTTERN_MONTH_LEN[0], &out_len),
+                   "1000-06-01", 10),
+            0);
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_YEAR[0],
+                                   PARTTERN_YEAR_LEN[0], &out_len),
+                   "1000-01-01", 10),
+            0);
+
+  // Testing max date
+  // 9999-12-31 23:59:59 = 253402300799000
+  const char* ts3 = "9999-12-31 23:59:59";
+  int32_t data3_len = static_cast<int32_t>(strlen(ts3));
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_MONTH[0],
+                                   PARTTERN_MONTH_LEN[0], &out_len),
+                   "9999-12-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_YEAR[0],
+                                   PARTTERN_YEAR_LEN[0], &out_len),
+                   "9999-01-01", 10),
+            0);
+
+  // Testing leap year
+  // 2024-02-29 13:59:59 = 1709215199000
+  const char* ts4 = "2024-02-29 13:59:59";
+  int32_t data4_len = static_cast<int32_t>(strlen(ts4));
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_MONTH[0],
+                                   PARTTERN_MONTH_LEN[0], &out_len),
+                   "2024-02-01", 10),
+            0);
+
+  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_YEAR[0],
+                                   PARTTERN_YEAR_LEN[0], &out_len),
+                   "2024-01-01", 10),
+            0);
+
+  // Testing exceptions
+  trunc_utf8_utf8(context_ptr, "asdf", 4, "MONTH", 5, &out_len);
+  EXPECT_EQ(context.get_error(), "Not a valid date value asdf");
+  context.Reset();
+
+  trunc_utf8_utf8(context_ptr, ts1, data_len, "MES", 3, &out_len);
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+
+  trunc_utf8_utf8(context_ptr, ts1, data_len, "ASDPFIÇ!@#$%*()_+b大路学路b", 23,
+                  &out_len);
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+
+  trunc_utf8_utf8(context_ptr, ts1, data_len, "M", 1, &out_len);
+  EXPECT_EQ(context.get_error(),
+            "The parameter pattern_length is not contain a valid value");
+  context.Reset();
+
+  trunc_utf8_utf8(context_ptr, ts1, data_len, "MONTH", INT32_MAX, &out_len);
+  EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
+  context.Reset();
+}
+
 }  // namespace gandiva

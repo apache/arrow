@@ -188,6 +188,10 @@ gdv_int64 date_trunc_Millennium_date64(gdv_date64);
 gdv_int32 datediff_timestamp_timestamp(gdv_timestamp start_millis,
                                        gdv_timestamp end_millis);
 
+const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_length,
+                            const char* pattern_name, int32_t pattern_length,
+                            int32_t* out_len);
+
 const char* date_trunc_date64_utf8(int64_t context, gdv_date64 date,
                                    const char* pattern_name, int32_t pattern_length,
                                    int32_t* out_len);
