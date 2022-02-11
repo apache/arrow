@@ -995,6 +995,16 @@ static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
 static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
 static const char* MAXDATE = "9999-12-31 23:59:59";
 
+FORCE_INLINE
+const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_length,
+                            const char* pattern_name, int32_t pattern_length,
+                            int32_t* out_len) {
+  int64_t result = castDATE_utf8(context, date, date_length);
+  return date_trunc_timestamp_utf8(context, result,
+                                   reinterpret_cast<const char*>(pattern_name),
+                                   pattern_length, out_len);
+}
+
 #define DATE_TRUNC(TYPE)                                                               \
   FORCE_INLINE                                                                         \
   const char* date_trunc##_##TYPE##_##utf8(int64_t context, gdv_##TYPE date,           \
