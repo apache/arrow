@@ -65,8 +65,6 @@ class IgnoringConsumer : public cp::SinkNodeConsumer {
   size_t tag_;
 };
 
-const std::string kFilenamePlaceholder = "FILENAME_PLACEHOLDER";
-
 arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
     const std::string& filename) {
   // Emulate server interaction by parsing hard coded JSON
@@ -115,8 +113,9 @@ arrow::Future<std::shared_ptr<arrow::Buffer>> GetSubstraitFromServer(
       }}
     ]
   })";
-  substrait_json.replace(substrait_json.find(kFilenamePlaceholder),
-                         kFilenamePlaceholder.size(), filename);
+  std::string filename_placeholder = "FILENAME_PLACEHOLDER";
+  substrait_json.replace(substrait_json.find(filename_placeholder),
+                         filename_placeholder.size(), filename);
   return eng::internal::SubstraitFromJSON("Plan", substrait_json);
 }
 
