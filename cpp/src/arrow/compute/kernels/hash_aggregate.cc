@@ -3329,11 +3329,11 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
                                                         &hash_one_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
-    DCHECK_OK(AddHashAggKernels(
-        {null(), boolean(), decimal128(1, 1), decimal256(1, 1), fixed_size_binary(1)},
-        GroupedOneFactory::Make, func.get()));
-    //    DCHECK_OK(func->AddKernel(MakeKernel(ValueDescr::ARRAY, GroupedOneInit)));
+    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedOneFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }

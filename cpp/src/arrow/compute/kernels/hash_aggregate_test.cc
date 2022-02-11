@@ -2585,6 +2585,351 @@ TEST(GroupBy, One) {
   }
 }
 
+TEST(GroupBy, OneOnly) {
+  auto in_schema = schema({
+      field("argument0", float64()),
+      field("argument1", null()),
+      field("argument2", boolean()),
+      field("key", int64()),
+  });
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+      auto table = TableFromJSON(in_schema, {R"([
+    [1.0,   null, true, 1],
+    [null,  null, true, 1]
+])",
+                                             R"([
+    [0.0,   null, false, 2],
+    [null,  null, false, 3],
+    [4.0,   null, null,  null],
+    [3.25,  null, true,  1],
+    [0.125, null, false, 2]
+])",
+                                             R"([
+    [-0.25, null, false, 2],
+    [0.75,  null, true,  null],
+    [null,  null, true,  3]
+])"});
+
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument0"),
+                                   table->GetColumnByName("argument1"),
+                                   table->GetColumnByName("argument2"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_one", float64()),
+                                          field("hash_one", null()),
+                                          field("hash_one", boolean()),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    [1.0,  null, true,  1],
+    [0.0,  null, false, 2],
+    [null, null, false, 3],
+    [4.0,  null, null,  null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, OneTypes) {
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+  types.push_back(month_interval());
+
+  const std::vector<std::string> default_table = {R"([
+    [1,    1],
+    [null, 1]
+])",
+                                                  R"([
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [5,    4],
+    [4,    null],
+    [3,    1],
+    [0,    2]
+])",
+                                                  R"([
+    [0,    2],
+    [1,    null],
+    [null, 3]
+])"};
+
+  const std::vector<std::string> date64_table = {R"([
+    [86400000,  1],
+    [null,      1]
+])",
+                                                 R"([
+    [0,         2],
+    [null,      3],
+    [259200000, 4],
+    [432000000, 4],
+    [345600000, null],
+    [259200000, 1],
+    [0,         2]
+])",
+                                                 R"([
+    [0,         2],
+    [86400000,  null],
+    [null,      3]
+])"};
+
+  const std::string default_expected =
+      R"([
+    [1,    1],
+    [0,    2],
+    [null, 3],
+    [3,    4],
+    [4,    null]
+    ])";
+
+  const std::string date64_expected =
+      R"([
+    [86400000,  1],
+    [0,         2],
+    [null,      3],
+    [259200000, 4],
+    [345600000, null]
+    ])";
+
+  for (const auto& ty : types) {
+    SCOPED_TRACE(ty->ToString());
+    auto in_schema = schema({field("argument0", ty), field("key", int64())});
+    auto table =
+        TableFromJSON(in_schema, (ty->name() == "date64") ? date64_table : default_table);
+
+    ASSERT_OK_AND_ASSIGN(
+        Datum aggregated_and_grouped,
+        GroupByTest({table->GetColumnByName("argument0")},
+                    {table->GetColumnByName("key")}, {{"hash_one", nullptr}},
+                    /*use_threads=*/false, /*use_exec_plan=*/true));
+    ValidateOutput(aggregated_and_grouped);
+    SortBy({"key_0"}, &aggregated_and_grouped);
+
+    AssertDatumsEqual(
+        ArrayFromJSON(struct_({
+                          field("hash_one", ty),
+                          field("key_0", int64()),
+                      }),
+                      (ty->name() == "date64") ? date64_expected : default_expected),
+        aggregated_and_grouped,
+        /*verbose=*/true);
+  }
+}
+
+TEST(GroupBy, OneDecimal) {
+  auto in_schema = schema({
+      field("argument0", decimal128(3, 2)),
+      field("argument1", decimal256(3, 2)),
+      field("key", int64()),
+  });
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {/*true, */ false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+      auto table = TableFromJSON(in_schema, {R"([
+    ["1.01", "1.01",   1],
+    [null,   null,     1]
+                        ])",
+                                             R"([
+    ["0.00", "0.00",   2],
+    [null,   null,     3],
+    ["-3.25", "-3.25", 4],
+    ["-5.25", "-5.25", 4],
+    ["4.01", "4.01",   null],
+    ["3.25", "3.25",   1],
+    ["0.12", "0.12",   2]
+                        ])",
+                                             R"([
+    ["-0.25", "-0.25", 2],
+    ["0.75",  "0.75",  null],
+    [null,    null,    3]
+                        ])"});
+
+      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                           GroupByTest(
+                               {
+                                   table->GetColumnByName("argument0"),
+                                   table->GetColumnByName("argument1"),
+                               },
+                               {table->GetColumnByName("key")},
+                               {
+                                   {"hash_one", nullptr},
+                                   {"hash_one", nullptr},
+                               },
+                               use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_one", decimal128(3, 2)),
+                                          field("hash_one", decimal256(3, 2)),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    ["1.01",  "1.01",  1],
+    ["0.00",  "0.00",  2],
+    [null,    null,    3],
+    ["-3.25", "-3.25", 4],
+    ["4.01",  "4.01",  null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, OneBinary) {
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {/*true, */ false}) {
+      for (const auto& ty : BaseBinaryTypes()) {
+        SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+        auto table = TableFromJSON(schema({
+                                       field("argument0", ty),
+                                       field("key", int64()),
+                                   }),
+                                   {R"([
+    ["aaaa", 1],
+    [null,   1]
+])",
+                                    R"([
+    ["bcd",  2],
+    [null,   3],
+    ["2",    null],
+    ["d",    1],
+    ["bc",   2]
+])",
+                                    R"([
+    ["babcd", 2],
+    ["123",   null],
+    [null,    3]
+])"});
+
+        ASSERT_OK_AND_ASSIGN(
+            Datum aggregated_and_grouped,
+            GroupByTest({table->GetColumnByName("argument0")},
+                        {table->GetColumnByName("key")}, {{"hash_one", nullptr}},
+                        use_threads, use_exec_plan));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
+
+        AssertDatumsEqual(ArrayFromJSON(struct_({
+                                            field("hash_one", ty),
+                                            field("key_0", int64()),
+                                        }),
+                                        R"([
+    ["aaaa", 1],
+    ["bcd",  2],
+    [null,   3],
+    ["2",    null]
+  ])"),
+                          aggregated_and_grouped,
+                          /*verbose=*/true);
+      }
+    }
+  }
+}
+
+TEST(GroupBy, OneFixedSizeBinary) {
+  const auto ty = fixed_size_binary(3);
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {/*true, */ false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+      auto table = TableFromJSON(schema({
+                                     field("argument0", ty),
+                                     field("key", int64()),
+                                 }),
+                                 {R"([
+    ["aaa", 1],
+    [null,  1]
+])",
+                                  R"([
+    ["bac", 2],
+    [null,  3],
+    ["234", null],
+    ["ddd", 1],
+    ["bcd", 2]
+])",
+                                  R"([
+    ["bab", 2],
+    ["123", null],
+    [null,  3]
+])"});
+
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest({table->GetColumnByName("argument0")},
+                      {table->GetColumnByName("key")}, {{"hash_one", nullptr}},
+                      use_threads, use_exec_plan));
+      ValidateOutput(aggregated_and_grouped);
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("hash_one", ty),
+                                          field("key_0", int64()),
+                                      }),
+                                      R"([
+    ["aaa",  1],
+    ["bac",  2],
+    [null,   3],
+    ["234", null]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
+
+TEST(GroupBy, OneScalar) {
+  BatchesWithSchema input;
+  input.batches = {
+      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+                        "[[-1, 1], [-1, 1], [7, 1], [23, 1]]"),
+      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+                        "[[null, 1], [null, 1], [null, 2], [null, 2]]"),
+      ExecBatchFromJSON({int32(), int64()}, "[[22, 1], [3, 2], [4, 3]]"),
+  };
+  input.schema = schema({field("argument", int32()), field("key", int64())});
+
+  for (bool use_threads : {/*true, */ false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual, GroupByUsingExecPlan(
+                          input, {"key"}, {"argument", "argument", "argument"},
+                          {{"hash_one", nullptr}}, use_threads, default_exec_context()));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("hash_one", int32()),
+                                       field("key", int64()),
+                                   }),
+                                   R"([
+      [-1,   1],
+      [null, 2],
+      [4,    3]
+    ])");
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
 TEST(GroupBy, CountAndSum) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument", float64()), field("key", int64())}), R"([
