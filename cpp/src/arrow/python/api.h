@@ -29,4 +29,3 @@
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/serialize.h"
 #include "arrow/python/udf.h"
-

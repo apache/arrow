@@ -39,10 +39,18 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
+#include <arrow/api.h>
+#include <arrow/compute/api.h>
+#include <arrow/compute/exec/exec_plan.h>
+#include <arrow/compute/exec/expression.h>
+#include <arrow/compute/exec/options.h>
+
+#include "arrow/python/udf.h"
+
 namespace arrow {
 
 using internal::checked_cast;
-
+namespace cp = arrow::compute;
 namespace py {
 
 TEST(OwnedRef, TestMoves) {
@@ -593,6 +601,88 @@ TEST_F(DecimalTest, UpdateWithNaN) {
   ASSERT_OK(metadata.Update(nan_value.obj()));
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.precision());
   ASSERT_EQ(std::numeric_limits<int32_t>::min(), metadata.scale());
+}
+
+PyObject* SimpleFunction() {
+  PyObject* obj = Py_BuildValue("s", "hello");
+  return obj;
+}
+
+class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
+  const char* type_name() const override { return "ExampleFunctionOptionsType"; }
+  std::string Stringify(const cp::FunctionOptions&) const override {
+    return "ExampleFunctionOptionsType";
+  }
+  bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
+    return true;
+  }
+  std::unique_ptr<cp::FunctionOptions> Copy(const cp::FunctionOptions&) const override;
+  // optional: support for serialization
+  // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
+  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer&) const override;
+};
+
+cp::FunctionOptionsType* GetExampleFunctionOptionsType() {
+  static ExampleFunctionOptionsType options_type;
+  return &options_type;
+}
+
+class ExampleFunctionOptions : public cp::FunctionOptions {
+ public:
+  ExampleFunctionOptions() : cp::FunctionOptions(GetExampleFunctionOptionsType()) {}
+};
+
+std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
+    const cp::FunctionOptions&) const {
+  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
+}
+
+arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                    arrow::Datum* out, PyObject* func) {
+  std::cout << "H" << std::endl;
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  // PyObject* res = SimpleFunction();
+  // PyObject* objectsRepresentation = PyObject_Repr(res);
+  // const char* s = PyUnicode_AsUTF8(objectsRepresentation);
+  std::cout << "Message :: "
+            << "s" << std::endl;
+  return arrow::Status::OK();
+}
+
+TEST(UDF, Initialization) {
+  const cp::FunctionDoc func_doc{
+      "Example function to demonstrate registering an out-of-tree function",
+      "",
+      {"x"},
+      "ExampleFunctionOptions"};
+  arrow::Status st;
+  const std::string name = "x+x";
+  auto func2 =
+      std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc);
+  arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int32())},
+                                     arrow::int32(), ExamplePyFunctionImpl);
+
+  kernel2.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+
+  st = func2->AddKernel(std::move(kernel2));
+
+  auto registry = cp::GetFunctionRegistry();
+  st = registry->AddFunction(std::move(func2));
+
+  arrow::Int32Builder builder(arrow::default_memory_pool());
+  std::shared_ptr<arrow::Array> arr;
+
+  st = builder.Append(42);
+  st = builder.Finish(&arr);
+  auto options = std::make_shared<ExampleFunctionOptions>();
+
+  // auto func = registry->GetFunction("x+x").ValueOrDie();
+
+  auto maybe_result = cp::CallFunction(name, {arr}, options.get());
+  st = maybe_result.status();
+
+  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
 }
 
 }  // namespace py

@@ -141,7 +141,7 @@ if(ARROW_PARQUET AND ARROW_DATASET)
 
   add_arrow_example(udf_example EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS} ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
-  add_dependencies(udf_example parquet)
+  add_dependencies(udf_example parquet arrow_python)
 endif()
 
 message("PYTHON_INCLUDE_DIRS : ${PYTHON_INCLUDE_DIRS}")

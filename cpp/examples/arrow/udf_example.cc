@@ -31,8 +31,7 @@
 #include <iostream>
 #include <memory>
 
-#include<arrow/python/udf.h>
-
+#include <arrow/python/udf.h>
 
 // Demonstrate registering an Arrow compute function outside of the Arrow source tree
 
@@ -77,8 +76,9 @@ std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
 }
 
 PyObject* SimpleFunction() {
-  PyObject* obj = Py_BuildValue("s", "hello");
-  return obj;
+  PyObject* out = Py_BuildValue("s", "hello");
+  std::cout << "HELLO" << std::endl;
+  return std::move(out);
 }
 
 // PyObject* objectsRepresentation = PyObject_Repr(yourObject);
@@ -86,19 +86,29 @@ PyObject* SimpleFunction() {
 
 arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
                                   arrow::Datum* out) {
-  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
-  *out->mutable_array() = *result.ValueOrDie().array();
-  return arrow::Status::OK();
-}
-
-arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                  arrow::Datum* out, PyObject* func) {
-  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
-  *out->mutable_array() = *result.ValueOrDie().array();
+  std::cout << "calling udf :" << batch.length << std::endl;
+  Py_Initialize();
   PyObject* res = SimpleFunction();
   PyObject* objectsRepresentation = PyObject_Repr(res);
   const char* s = PyUnicode_AsUTF8(objectsRepresentation);
   std::cout << "Message :: " << s << std::endl;
+  Py_Finalize();
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  return arrow::Status::OK();
+}
+// cp::KernelContext*, const cp::ExecBatch&, Datum*, PyObject* func
+arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                    arrow::Datum* out, PyObject* func) {
+  std::cout << "H" << std::endl;
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  // PyObject* res = SimpleFunction();
+  // PyObject* objectsRepresentation = PyObject_Repr(res);
+  // const char* s = PyUnicode_AsUTF8(objectsRepresentation);
+  std::cout << "Message :: "
+            << "s" << std::endl;
+            
   return arrow::Status::OK();
 }
 
@@ -151,11 +161,11 @@ arrow::Result<cp::ExecBatch> GetExecBatchFromVectors(
 
 arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   BatchesWithSchema out;
-  auto field_vector = {arrow::field("a", arrow::int32()),
+  auto field_vector = {arrow::field("a", arrow::int64()),
                        arrow::field("b", arrow::boolean())};
-  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetArrayDataSample<arrow::Int32Type>({0, 4}));
-  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetArrayDataSample<arrow::Int32Type>({5, 6, 7}));
-  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetArrayDataSample<arrow::Int32Type>({8, 9, 10}));
+  ARROW_ASSIGN_OR_RAISE(auto b1_int, GetArrayDataSample<arrow::Int64Type>({0, 4}));
+  ARROW_ASSIGN_OR_RAISE(auto b2_int, GetArrayDataSample<arrow::Int64Type>({5, 6, 7}));
+  ARROW_ASSIGN_OR_RAISE(auto b3_int, GetArrayDataSample<arrow::Int64Type>({8, 9, 10}));
 
   ARROW_ASSIGN_OR_RAISE(auto b1_bool,
                         GetArrayDataSample<arrow::BooleanType>({false, true}));
@@ -224,28 +234,79 @@ arrow::Result<cp::ExecNode*> ExampleExecNodeFactory(cp::ExecPlan* plan,
 const cp::FunctionDoc func_doc{
     "Example function to demonstrate registering an out-of-tree function",
     "",
-    {"x"},
+    {"x", "y"},
     "ExampleFunctionOptions"};
+
+const cp::FunctionDoc func_doc2{
+    "Example function to demonstrate registering an out-of-tree function",
+    "",
+    {"x"},
+    "ExampleFunctionOptions2"};
+
+PyObject* MultiplyFunction(PyObject* scalar) {
+  PyObject* constant = PyLong_FromLong(2);
+  PyObject* res = PyNumber_Multiply(constant, scalar);
+  return std::move(res);
+}
+
+class ScalarUDF {
+
+  public:
+    ScalarUDF();
+    explicit ScalarUDF(cp::Arity arity, std::vector<cp::InputType> input_types,
+    cp::OutputType output_type, PyObject* (*function)(PyObject*)) : arity_(std::move(arity)), input_types_(std::move(input_types)),
+     output_type_(output_type), function_(function) {} 
+
+    arrow::Status Make(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                  arrow::Datum* out) {
+      Py_Initialize();                                    
+      PyObject* args = PyTuple_Pack(1,PyLong_FromLong(2));                              
+      PyObject* myResult = function_(args);
+      int64_t result = PyLong_AsLong(myResult);
+      Py_Finalize();
+      std::cout << "Value : " << result << std::endl;
+      arrow::Result<arrow::Datum> maybe_result;
+      arrow::Int64Builder builder(arrow::default_memory_pool());
+      std::shared_ptr<arrow::Array> arr;
+      ABORT_ON_FAILURE(builder.Append(result));
+      ABORT_ON_FAILURE(builder.Finish(&arr));
+      maybe_result = cp::CallFunction("add", {batch[0].array(), arr});
+      *out->mutable_array() = *maybe_result.ValueOrDie().array();
+      return arrow::Status::OK();
+    }
+
+  private:
+    cp::Arity arity_;
+    std::vector<cp::InputType> input_types_;
+    cp::OutputType output_type_;
+    PyObject* (*function_)(PyObject*);
+
+};
 
 arrow::Status Execute() {
   const std::string name = "x+x";
-  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc);
-  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int32())}, arrow::int32(),
-                          ExampleFunctionImpl);                        
+  
+  ScalarUDF func_gen(cp::Arity::Unary(), {cp::InputType::Array(arrow::int64())}, arrow::int64(), &MultiplyFunction);
+  
+
+  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
+  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(), ExampleFunctionImpl);
   
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
-  
+
   ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
 
   auto registry = cp::GetFunctionRegistry();
   ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
 
-  arrow::Int32Builder builder(arrow::default_memory_pool());
-  std::shared_ptr<arrow::Array> arr;
+  arrow::Int64Builder builder(arrow::default_memory_pool());
+  std::shared_ptr<arrow::Array> arr1, arr2;
   ABORT_ON_FAILURE(builder.Append(42));
-  ABORT_ON_FAILURE(builder.Finish(&arr));
+  ABORT_ON_FAILURE(builder.Finish(&arr1));
+  ABORT_ON_FAILURE(builder.Append(58));
+  ABORT_ON_FAILURE(builder.Finish(&arr2));
   auto options = std::make_shared<ExampleFunctionOptions>();
-  auto maybe_result = cp::CallFunction(name, {arr}, options.get());
+  auto maybe_result = cp::CallFunction(name, {arr1}, options.get());
   ABORT_ON_FAILURE(maybe_result.status());
 
   std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
@@ -277,8 +338,8 @@ arrow::Status Execute() {
       custom_exp,
       cp::field_ref("b"),
   }};
-  auto output_schema = arrow::schema({arrow::field("a", arrow::int32()),
-                                      arrow::field("a + a", arrow::int32()),
+  auto output_schema = arrow::schema({arrow::field("a", arrow::int64()),
+                                      arrow::field("a + a", arrow::int64()),
                                       arrow::field("b", arrow::boolean())});
   std::shared_ptr<arrow::Table> out;
   ABORT_ON_FAILURE(cp::Declaration::Sequence(
@@ -301,39 +362,50 @@ arrow::Status Execute() {
 }
 
 arrow::Status ExecutePy() {
-  const std::string name = "x+x";
-  auto func2 = std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc);
-  arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int32())}, arrow::int32(),
-                          ExamplePyFunctionImpl);
-                          
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
+  const std::string name = "simple_func";
+  auto func2 =
+      std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
+  arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int64())},
+                                     arrow::int64(), ExamplePyFunctionImpl);
+
   kernel2.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
   ABORT_ON_FAILURE(func2->AddKernel(std::move(kernel2)));
-  
 
-  
+  auto registry = cp::GetFunctionRegistry();
 
-  // auto registry = cp::GetFunctionRegistry();
-  // ABORT_ON_FAILURE(registry->AddFunction(std::move(func2)));
+  auto size_before_registration = registry->GetFunctionNames().size();
 
-  // arrow::Int32Builder builder(arrow::default_memory_pool());
-  // std::shared_ptr<arrow::Array> arr;
-  // ABORT_ON_FAILURE(builder.Append(42));
-  // ABORT_ON_FAILURE(builder.Finish(&arr));
-  // auto options = std::make_shared<ExampleFunctionOptions>();
-  // auto maybe_result = cp::CallFunction(name, {arr}, options.get());
-  // ABORT_ON_FAILURE(maybe_result.status());
+  std::cout << "[Before] Func Reg Size: " << size_before_registration << ", " << registry->num_functions() << std::endl;
 
-  // std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
+  ABORT_ON_FAILURE(registry->AddFunction(std::move(func2)));
+
+  auto size_after_registration = registry->GetFunctionNames().size();
+
+  std::cout << "[After] Func Reg Size: " << size_after_registration << ", " << registry->num_functions() << std::endl;
+
+  arrow::Int64Builder builder(arrow::default_memory_pool());
+  std::shared_ptr<arrow::Array> arr;
+  ABORT_ON_FAILURE(builder.Append(42));
+  ABORT_ON_FAILURE(builder.Finish(&arr));
+  auto options = std::make_shared<ExampleFunctionOptions>();
+
+  std::cout << "Calling function :" << arr->ToString() << std::endl;
+
+  auto maybe_result = cp::CallFunction(name, {arr}, options.get());
+  ABORT_ON_FAILURE(maybe_result.status());
+
+  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
 
   return arrow::Status::OK();
 }
 
 int main(int argc, char** argv) {
-  auto status = ExecutePy();
+  auto status = Execute();
   if (!status.ok()) {
     std::cerr << "Error occurred : " << status.message() << std::endl;
     return EXIT_FAILURE;
   }
-
   return EXIT_SUCCESS;
 }
