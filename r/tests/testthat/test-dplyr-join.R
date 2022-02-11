@@ -264,7 +264,8 @@ test_that("arrow dplyr query can join with tibble", {
 
   iris <- open_dataset(file.path(dir_out, "iris"))
 
-  left_join(iris, species_codes) %>% collect()
+  res <- left_join(iris, species_codes) %>% collect() # We should not segfault here.
+  expect_equal(nrow(res), 150) 
 
   # Reset
   options(arrow.use_threads = existing_use_threads)
