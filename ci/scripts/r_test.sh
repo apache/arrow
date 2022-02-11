@@ -26,6 +26,13 @@ pushd ${source_dir}
 
 printenv
 
+# Before release, we always copy the relevant parts of the cpp source into the
+# package. In some CI checks, we will use this version of the source:
+# this is done by setting ARROW_SOURCE_HOME to something other than "/arrow"
+# (which is where the arrow git checkout is found in docker and other CI jobs)
+# In the other CI checks the files are synced but ignored.
+make sync-cpp
+
 if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
