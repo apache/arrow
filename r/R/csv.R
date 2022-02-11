@@ -704,11 +704,6 @@ write_csv_arrow <- function(x,
   }
 
   x_out <- x
-
-  if (inherits(x, "arrow_dplyr_query")) {
-    x <- as.data.frame(x)
-  }
-
   if (is.data.frame(x)) {
     x <- Table$create(x)
   }
