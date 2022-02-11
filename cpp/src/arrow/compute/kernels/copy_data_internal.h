@@ -55,12 +55,15 @@ struct CopyDataUtils<FixedSizeBinaryType> {
     uint8_t* begin = out + (width * out_offset);
     const auto& scalar = checked_cast<const arrow::internal::PrimitiveScalarBase&>(in);
     // Null scalar may have null value buffer
-    if (!scalar.is_valid) return;
-    const util::string_view buffer = scalar.view();
-    DCHECK_GE(buffer.size(), static_cast<size_t>(width));
-    for (int i = 0; i < length; i++) {
-      std::memcpy(begin, buffer.data(), width);
-      begin += width;
+    if (!scalar.is_valid) {
+      std::memset(begin, 0x00, width * length);
+    } else {
+      const util::string_view buffer = scalar.view();
+      DCHECK_GE(buffer.size(), static_cast<size_t>(width));
+      for (int i = 0; i < length; i++) {
+        std::memcpy(begin, buffer.data(), width);
+        begin += width;
+      }
     }
   }
 
