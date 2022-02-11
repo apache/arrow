@@ -61,3 +61,17 @@
 !rust/datafusion/Cargo.toml
 !rust/datafusion/benches
 !rust/integration-testing/Cargo.toml
+
+# include explicitly
+!go/*
+!js/*
+!csharp/*
+!format/*
+!java/*
+!cpp/*
+# files needed by cpp
+!.env
+!LICENSE.txt
+!NOTICE.txt
+# archery is needed to run integration tests
+!dev/archery

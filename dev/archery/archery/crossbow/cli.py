@@ -24,9 +24,20 @@ from .reports import EmailReport, ConsoleReport
 from ..utils.source import ArrowSources
 
 
-_default_arrow_path = ArrowSources.find().path
-_default_queue_path = _default_arrow_path.parent / "crossbow"
-_default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
+def _default_arrow_path():
+    return ArrowSources.find().path
+
+
+def _default_queue_path():
+    return _default_arrow_path().parent / "crossbow"
+
+
+def _default_config_path():
+    return _default_arrow_path().parent / "dev" / "tasks" / "tasks.yml"
+
+
+def _default_packages_path():
+    return _default_arrow_path() / 'packages'
 
 
 @click.group()
@@ -304,7 +315,7 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 @crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('-t', '--target-dir',
-              default=_default_arrow_path / 'packages',
+              default=_default_packages_path,
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.option('--dry-run/--execute', default=False,

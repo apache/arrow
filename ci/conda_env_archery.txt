@@ -27,6 +27,7 @@ pygithub
 ruamel.yaml
 setuptools_scm
 toolz
+pydantic
 
 # benchmark
 pandas
