@@ -1198,7 +1198,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        r_duckdb_dev: TRUE
+        R_DUCKDB_DEV: TRUE
       flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
 
