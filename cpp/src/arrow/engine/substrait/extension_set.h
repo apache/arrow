@@ -174,7 +174,11 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// If the anchor does not exist in this extension set an error will be returned.
   Result<TypeRecord> DecodeType(uint32_t anchor) const;
 
-  /// \brief Returns the number of custom types in this extension set
+  /// \brief Returns the number of custom type records in this extension set
+  ///
+  /// Note: the types are currently stored as a sparse vector, so this may return a value
+  /// larger than the actual number of types. This behavior may change in the future; see
+  /// ARROW-15583.
   std::size_t num_types() const { return types_.size(); }
 
   /// \brief Lookup the anchor for a given type
@@ -213,6 +217,10 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   Result<uint32_t> EncodeFunction(util::string_view function_name);
 
   /// \brief Returns the number of custom functions in this extension set
+  ///
+  /// Note: the functions are currently stored as a sparse vector, so this may return a
+  /// value larger than the actual number of functions. This behavior may change in the
+  /// future; see ARROW-15583.
   std::size_t num_functions() const { return functions_.size(); }
 
  private:
