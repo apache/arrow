@@ -21,7 +21,7 @@
 #include "arrow/array/builder_union.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/copy_data.h"
+#include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap.h"
@@ -1289,7 +1289,8 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
     if (out_valid) {
       bit_util::SetBitsTo(out_valid, out_offset, length, scalar.is_valid);
     }
-    CopyDataUtils<Type>::CopyScalar(scalar, length, out_values, out_offset);
+    CopyDataUtils<Type>::CopyData(*scalar.type, scalar, /*in_offset=*/0, out_values,
+                                  out_offset, length);
   } else {
     const ArrayData& array = *in_values.array();
     if (out_valid) {
@@ -1307,9 +1308,9 @@ void CopyValues(const Datum& in_values, const int64_t in_offset, const int64_t l
         bit_util::SetBitsTo(out_valid, out_offset, length, true);
       }
     }
-    CopyDataUtils<Type>::CopyArray(*array.type, array.buffers[1]->data(),
-                                   array.offset + in_offset, length, out_values,
-                                   out_offset);
+    CopyDataUtils<Type>::CopyData(*array.type, array.buffers[1]->data(),
+                                  array.offset + in_offset, out_values, out_offset,
+                                  length);
   }
 }
 
@@ -1325,8 +1326,8 @@ void CopyOneArrayValue(const DataType& type, const uint8_t* in_valid,
     bit_util::SetBitTo(out_valid, out_offset,
                        !in_valid || bit_util::GetBit(in_valid, in_offset));
   }
-  CopyDataUtils<Type>::CopyArray(type, in_values, in_offset, /*length=*/1, out_values,
-                                 out_offset);
+  CopyDataUtils<Type>::CopyData(type, in_values, in_offset, out_values, out_offset,
+                                /*length=*/1);
 }
 
 template <typename Type>
@@ -1335,7 +1336,8 @@ void CopyOneScalarValue(const Scalar& scalar, uint8_t* out_valid, uint8_t* out_v
   if (out_valid) {
     bit_util::SetBitTo(out_valid, out_offset, scalar.is_valid);
   }
-  CopyDataUtils<Type>::CopyScalar(scalar, /*length=*/1, out_values, out_offset);
+  CopyDataUtils<Type>::CopyData(*scalar.type, scalar, /*in_offset=*/0, out_values,
+                                out_offset, /*length=*/1);
 }
 
 template <typename Type>
@@ -2016,8 +2018,8 @@ Status ExecArrayCoalesce(KernelContext* ctx, const ExecBatch& batch, Datum* out)
           }
           if (!run.set) {
             // Copy from input
-            CopyDataUtils<Type>::CopyArray(type, in_values, in_offset + offset,
-                                           run.length, out_values, out_offset + offset);
+            CopyDataUtils<Type>::CopyData(type, in_values, in_offset + offset, out_values,
+                                          out_offset + offset, run.length);
           }
           offset += run.length;
         }
@@ -2072,8 +2074,8 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
   if (left.null_count() < length * 0.2) {
     // There are less than 20% nulls in the left array, so first copy
     // the left values, then fill any nulls with the right value
-    CopyDataUtils<Type>::CopyArray(*left_arr.type, left_values, left_arr.offset, length,
-                                   out_values, out_offset);
+    CopyDataUtils<Type>::CopyData(*left_arr.type, left_values, left_arr.offset,
+                                  out_values, out_offset, length);
 
     BitRunReader reader(left_valid, left_arr.offset, left_arr.length);
     int64_t offset = 0;
@@ -2082,8 +2084,9 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
       if (run.length == 0) break;
       if (!run.set) {
         // All from right
-        CopyDataUtils<Type>::CopyScalar(right_scalar, run.length, out_values,
-                                        out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*right_scalar.type, right_scalar,
+                                      /*in_offset=*/0, out_values, out_offset + offset,
+                                      run.length);
       }
       offset += run.length;
     }
@@ -2096,13 +2099,14 @@ Status ExecArrayScalarCoalesce(KernelContext* ctx, Datum left, Datum right,
       if (run.length == 0) break;
       if (run.set) {
         // All from left
-        CopyDataUtils<Type>::CopyArray(*left_arr.type, left_values,
-                                       left_arr.offset + offset, run.length, out_values,
-                                       out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*left_arr.type, left_values,
+                                      left_arr.offset + offset, out_values,
+                                      out_offset + offset, run.length);
       } else {
         // All from right
-        CopyDataUtils<Type>::CopyScalar(right_scalar, run.length, out_values,
-                                        out_offset + offset);
+        CopyDataUtils<Type>::CopyData(*right_scalar.type, right_scalar,
+                                      /*in_offset=*/0, out_values, out_offset + offset,
+                                      run.length);
       }
       offset += run.length;
     }
@@ -2169,14 +2173,13 @@ Status ExecBinaryCoalesce(KernelContext* ctx, Datum left, Datum right, int64_t l
     }
     if (run.set) {
       // All from left
-      CopyDataUtils<Type>::CopyArray(*left_arr.type, left_values,
-                                     left_arr.offset + offset, run.length, out_values,
-                                     out_offset + offset);
+      CopyDataUtils<Type>::CopyData(*left_arr.type, left_values, left_arr.offset + offset,
+                                    out_values, out_offset + offset, run.length);
     } else {
       // All from right
-      CopyDataUtils<Type>::CopyArray(*right_arr.type, right_values,
-                                     right_arr.offset + offset, run.length, out_values,
-                                     out_offset + offset);
+      CopyDataUtils<Type>::CopyData(*right_arr.type, right_values,
+                                    right_arr.offset + offset, out_values,
+                                    out_offset + offset, run.length);
     }
     offset += run.length;
   }
