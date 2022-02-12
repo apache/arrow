@@ -189,7 +189,7 @@ struct StorageSingleton {
 static StorageSingleton storage_singleton;
 
 OtHandle::OtHandle(nostd::shared_ptr<otel::context::RuntimeContextStorage> handle)
-    : handle_(std::move(handle)){};
+    : handle_(std::move(handle)) {}
 
 OtHandle Attach() { return OtHandle(storage_singleton.storage_); }
 
