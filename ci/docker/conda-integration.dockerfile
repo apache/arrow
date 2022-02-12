@@ -86,6 +86,20 @@ COPY ./ci/scripts/csharp_build.sh /arrow/ci/scripts/csharp_build.sh
 
 RUN /arrow/ci/scripts/csharp_build.sh /arrow /build
 
+##################### JS #####################
+FROM ${repo}:${arch}-conda-cpp AS builder-js
+
+RUN mamba install -q \
+        yarn && \
+    mamba clean --all --force-pkgs-dirs
+
+COPY ./js /arrow/js
+COPY ./LICENSE.txt /arrow/js/
+COPY ./NOTICE.txt /arrow/js/
+COPY ./ci/scripts/js_build.sh /arrow/ci/scripts/js_build.sh
+
+RUN /arrow/ci/scripts/js_build.sh /arrow /build
+
 ##################### Java #####################
 FROM ${repo}:${arch}-conda-cpp AS builder-java
 
@@ -102,8 +116,20 @@ COPY ./ci/scripts/java_build.sh /arrow/ci/scripts/java_build.sh
 
 RUN /arrow/ci/scripts/java_build.sh /arrow /build
 
+##################### RUST ######################
+FROM ${repo}:${arch}-conda-cpp AS builder-rust
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
+    $HOME/.cargo/bin/rustup toolchain install stable && \
+    $HOME/.cargo/bin/rustup component add rustfmt
+
+COPY ./rust /arrow/rust
+COPY ./ci/scripts/rust_build.sh /arrow/ci/scripts/rust_build.sh
+
+RUN /arrow/ci/scripts/rust_build.sh /arrow /build
+
 ##################### TESTS #####################
-FROM ${repo}:${arch}-conda-cpp
+FROM ${repo}:${arch}-conda
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -119,12 +145,19 @@ RUN mamba install -q \
 COPY --from=builder-cpp /build/cpp /build/cpp
 
 # install js
-COPY ./js /arrow/js
+COPY --from=builder-js /arrow/js /arrow/js
 
 # install java
 COPY --from=builder-java /arrow/java/tools/target /arrow/java/tools/target
 COPY --from=builder-java /arrow/java/flight/flight-integration-tests/target /arrow/java/flight/flight-integration-tests/target
 COPY --from=builder-java /arrow/java/pom.xml /arrow/java/pom.xml
+
+# install rust
+COPY --from=builder-rust /arrow/rust/target/debug/arrow-file-to-stream /arrow/rust/target/debug/arrow-file-to-stream
+COPY --from=builder-rust /arrow/rust/target/debug/arrow-stream-to-file /arrow/rust/target/debug/arrow-stream-to-file
+COPY --from=builder-rust /arrow/rust/target/debug/arrow-json-integration-test /arrow/rust/target/debug/arrow-json-integration-test
+COPY --from=builder-rust /arrow/rust/target/debug/flight-test-integration-client /arrow/rust/target/debug/flight-test-integration-client
+COPY --from=builder-rust /arrow/rust/target/debug/flight-test-integration-server /arrow/rust/target/debug/flight-test-integration-server
 
 # install csharp
 COPY --from=builder-csharp /arrow/csharp/artifacts/Apache.Arrow.IntegrationTest/ /arrow/csharp/artifacts/Apache.Arrow.IntegrationTest/
