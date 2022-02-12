@@ -776,8 +776,6 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
-      # Bundled build of OpenTelemetry needs a git client
-      ARROW_WITH_OPENTELEMETRY: "OFF"
       PYARROW_VERSION: ${PYARROW_VERSION:-}
     volumes: *ubuntu-volumes
     command: >
