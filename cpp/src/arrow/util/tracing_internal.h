@@ -106,6 +106,17 @@ AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(AsyncGenerator<T> wrapped) 
   return PropagateSpanThroughAsyncGenerator(std::move(wrapped), std::move(span));
 }
 
+class OtHandle {
+ public:
+  OtHandle(opentelemetry::nostd::shared_ptr<opentelemetry::context::RuntimeContextStorage>
+               handle);
+
+ private:
+  opentelemetry::nostd::shared_ptr<opentelemetry::context::RuntimeContextStorage> handle_;
+};
+
+OtHandle Attach();
+
 class SpanImpl {
  public:
   opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span;

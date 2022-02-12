@@ -29,6 +29,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
+#include "arrow/util/tracing_internal.h"
 
 #include "arrow/util/tracing_internal.h"
 
@@ -206,6 +207,13 @@ struct ThreadPool::State {
 // after the ThreadPool is destroyed.
 static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
                        std::list<std::thread>::iterator it) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  // The main thread may exit and start shutting down static state before
+  // this thread ends.  This means that any calls to OpenTelemetry's static
+  // state will potentially access freed memory.  By grabbing a handle we
+  // keep OpenTelemetry's static state alive until this thread ends.
+  internal::tracing::OtHandle handle = internal::tracing::Attach();
+#endif
   std::unique_lock<std::mutex> lock(state->mutex_);
 
   // Since we hold the lock, `it` now points to the correct thread object

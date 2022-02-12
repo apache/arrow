@@ -176,7 +176,22 @@ otel::trace::TracerProvider* GetTracerProvider() {
   static nostd::shared_ptr<otel::trace::TracerProvider> provider = InitializeTracing();
   return provider.get();
 }
+
+struct StorageSingleton {
+  StorageSingleton() : storage_(otel::context::GetDefaultStorage()) {
+    otel::context::RuntimeContext::SetRuntimeContextStorage(storage_);
+  }
+  nostd::shared_ptr<otel::context::RuntimeContextStorage> storage_;
+};
+
 }  // namespace
+
+static StorageSingleton storage_singleton;
+
+OtHandle::OtHandle(nostd::shared_ptr<otel::context::RuntimeContextStorage> handle)
+    : handle_(std::move(handle)){};
+
+OtHandle Attach() { return OtHandle(storage_singleton.storage_); }
 
 opentelemetry::trace::Tracer* GetTracer() {
   static nostd::shared_ptr<opentelemetry::trace::Tracer> tracer =
