@@ -18,7 +18,6 @@
 from collections import namedtuple
 from io import StringIO
 import click
-import errno
 import json
 import logging
 import os
@@ -750,11 +749,7 @@ def integration(with_all=False, random_seed=12345, **args):
             enabled_languages += 1
 
     if gen_path:
-        try:
-            os.makedirs(gen_path)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
         if enabled_languages == 0:
