@@ -28,7 +28,6 @@ to_join <- tibble::tibble(
   another_column = TRUE
 )
 
-
 test_that("left_join", {
   expect_message(
     compare_dplyr_binding(
@@ -245,6 +244,7 @@ test_that("arrow dplyr query correctly filters then joins", {
       dos = 1:2,
       three = c(NA, FALSE)
     )
+  )
 })
 
 
@@ -256,12 +256,8 @@ test_that("self join", {
   expect_equal(
     out,
     left %>%
-      left_join(left[4:8], by = "some_grouping") %>%
-      rename_with(.fn = function(x) {
-        x <- gsub("(.*)\\.x", "x.\\1", x)
-        x <- gsub("(.*)\\.y", "y.\\1", x)
-      })
-  )
+      left_join(left[4:8], by = "some_grouping")
+    )
 })
 
 
