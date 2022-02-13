@@ -58,7 +58,8 @@ outputs:
         - gnuconfig                              # [osx and arm64]
         - libprotobuf
         - grpc-cpp
-        - cmake
+        # aws-sdk-cpp 1.8.* doesn't work with newer CMake
+        - cmake <3.22
         - autoconf  # [unix]
         - ninja
         - make  # [unix]
