@@ -1454,6 +1454,20 @@ cdef class FlightClient(_Weakrefable):
         py_reader.reader.reset(c_reader.release())
         return py_writer, py_reader
 
+    def close(self):
+        check_flight_status(self.client.get().Close())
+
+    def __del__(self):
+        # Not ideal, but close() wasn't originally present so
+        # applications may not be calling it
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
 
 cdef class FlightDataStream(_Weakrefable):
     """Abstract base class for Flight data streams."""

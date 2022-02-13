@@ -26,6 +26,8 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
+set ARROW_DEBUG_MEMORY_POOL=trap
+
 @rem
 @rem In the configurations below we disable building the Arrow static library
 @rem to save some time.  Unfortunately this will still build the Parquet static

@@ -138,7 +138,7 @@ class GcsInputStream : public arrow::io::InputStream {
     stream_.read(reinterpret_cast<char*>(buffer->mutable_data()), nbytes);
     ARROW_GCS_RETURN_NOT_OK(stream_.status());
     RETURN_NOT_OK(buffer->Resize(stream_.gcount(), true));
-    return buffer;
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
   //@}
 

@@ -623,7 +623,21 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
 
-    return arrays, schema
+    # If dataframe is empty but with RangeIndex ->
+    # remember the length of the indexes
+    n_rows = None
+    if len(arrays) == 0:
+        try:
+            kind = index_descriptors[0]["kind"]
+            if kind == "range":
+                start = index_descriptors[0]["start"]
+                stop = index_descriptors[0]["stop"]
+                step = index_descriptors[0]["step"]
+                n_rows = len(range(start, stop, step))
+        except IndexError:
+            pass
+
+    return arrays, schema, n_rows
 
 
 def get_datetimetz_type(values, dtype, type_):

@@ -22,7 +22,7 @@ that automatically detects the bucket's AWS region and holding onto the its
 relative path.
 }
 \examples{
-\dontshow{if (arrow_with_s3()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (FALSE) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 bucket <- s3_bucket("ursa-labs-taxi-data")
 \dontshow{\}) # examplesIf}
 }

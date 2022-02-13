@@ -2218,6 +2218,117 @@ TEST(Cast, ListToListOptionsPassthru) {
   }
 }
 
+static void CheckStructToStruct(
+    const std::vector<std::shared_ptr<DataType>>& value_types) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      std::vector<std::string> field_names = {"a", "b"};
+      std::shared_ptr<Array> a1, b1, a2, b2;
+      a1 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, null]");
+      b1 = ArrayFromJSON(src_value_type, "[null, 7, 8, 9, 0]");
+      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 3, 4, null]");
+      b2 = ArrayFromJSON(dest_value_type, "[null, 7, 8, 9, 0]");
+      ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a1, b1}, field_names));
+      ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2}, field_names));
+
+      CheckCast(src, dest);
+
+      std::shared_ptr<Buffer> null_bitmap;
+      BitmapFromVector<int>({0, 1, 0, 1, 0}, &null_bitmap);
+
+      ASSERT_OK_AND_ASSIGN(auto src_nulls,
+                           StructArray::Make({a1, b1}, field_names, null_bitmap));
+      ASSERT_OK_AND_ASSIGN(auto dest_nulls,
+                           StructArray::Make({a2, b2}, field_names, null_bitmap));
+      CheckCast(src_nulls, dest_nulls);
+    }
+  }
+}
+
+TEST(Cast, StructToSameSizedAndNamedStruct) {
+  CheckStructToStruct({int32(), float32(), int64()});
+}
+
+TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a, b;
+  a = ArrayFromJSON(int8(), "[1, 2]");
+  b = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+
+  const auto dest = arrow::struct_(
+      {std::make_shared<Field>("c", int8()), std::make_shared<Field>("d", int8())});
+  const auto options = CastOptions::Safe(dest);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field names do not match: struct<a: int8, "
+                           "b: int8> struct<c: int8, d: int8>"),
+      Cast(src, options));
+}
+
+TEST(Cast, StructToDifferentSizeStruct) {
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a, b;
+  a = ArrayFromJSON(int8(), "[1, 2]");
+  b = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+
+  const auto dest = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                    std::make_shared<Field>("b", int8()),
+                                    std::make_shared<Field>("c", int8())});
+  const auto options = CastOptions::Safe(dest);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field sizes do not match: struct<a: int8, "
+                           "b: int8> struct<a: int8, b: int8, c: int8>"),
+      Cast(src, options));
+}
+
+TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
+  // OK to go from not-nullable to nullable...
+  std::vector<std::shared_ptr<Field>> fields1 = {
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
+  std::shared_ptr<Array> a1, b1;
+  a1 = ArrayFromJSON(int8(), "[1, 2]");
+  b1 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src1, StructArray::Make({a1, b1}, fields1));
+
+  std::vector<std::shared_ptr<Field>> fields2 = {
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
+  std::shared_ptr<Array> a2, b2;
+  a2 = ArrayFromJSON(int8(), "[1, 2]");
+  b2 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a2, b2}, fields2));
+
+  CheckCast(src1, dest1);
+
+  // But not the other way around
+  std::vector<std::shared_ptr<Field>> fields3 = {
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
+  std::shared_ptr<Array> a3, b3;
+  a3 = ArrayFromJSON(int8(), "[1, null]");
+  b3 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src2, StructArray::Make({a3, b3}, fields3));
+
+  std::vector<std::shared_ptr<Field>> fields4 = {
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
+  const auto dest2 = arrow::struct_(fields4);
+  const auto options = CastOptions::Safe(dest2);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "Type error: cannot cast nullable struct to non-nullable "
+          "struct: struct<a: int8, b: int8> struct<a: int8 not null, b: int8 not null>"),
+      Cast(src2, options));
+}
+
 TEST(Cast, IdentityCasts) {
   // ARROW-4102
   auto CheckIdentityCast = [](std::shared_ptr<DataType> type, const std::string& json) {

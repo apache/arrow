@@ -1636,6 +1636,10 @@ if(ARROW_JEMALLOC)
        # See https://github.com/jemalloc/jemalloc/issues/1237
        "--disable-initial-exec-tls"
        ${EP_LOG_OPTIONS})
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    # Enable jemalloc debug checks when Arrow itself has debugging enabled
+    list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
+  endif()
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
