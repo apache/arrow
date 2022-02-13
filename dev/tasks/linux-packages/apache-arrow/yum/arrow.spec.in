@@ -333,7 +333,7 @@ Libraries and header files for Apache Arrow dataset.
 %package -n %{name}%{major_version}-flight-libs
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
-Requires:	%{name}-libs = %{version}-%{release}
+Requires:	%{name}%{major_version}-libs = %{version}-%{release}
 %if %{use_flight}
 Requires:	c-ares
 %endif
