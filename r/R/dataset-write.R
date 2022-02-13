@@ -50,6 +50,21 @@
 #'   partitions which data is not written to.
 #' @param max_partitions maximum number of partitions any batch may be
 #' written into. Default is 1024L.
+#' @param max_open_files maximum number of files that can be left opened
+#' during a write operation. If greater than 0 then this will limit the
+#' maximum number of files that can be left open. If an attempt is made to open
+#' too many files then the least recently used file will be closed.
+#' If this setting is set too low you may end up fragmenting your data
+#' into many small files. The default is 900 which also allows some # of files to be
+#' open by the scanner before hitting the default Linux limit of 1024.
+#' @param max_rows_per_file maximum number of rows to be placed in
+#' any single file. Default is 0L.
+#' @param min_rows_per_group write the row groups to the disk when this number of
+#' rows have accumulated. Default is 0L.
+#' @param max_rows_per_group maximum rows allowed in a single
+#' group and when this number of rows is exceeded, it is split and the next set
+#' of rows is written to the next group. This value must be set such that it is
+#' greater than `min_rows_per_group`. Default is 1024 * 1024.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -111,6 +126,10 @@ write_dataset <- function(dataset,
                           hive_style = TRUE,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
+                          max_open_files = 900L,
+                          max_rows_per_file = NA,
+                          min_rows_per_group = 0L,
+                          max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
   format <- match.arg(format)
   if (inherits(dataset, "arrow_dplyr_query")) {
@@ -139,13 +158,22 @@ write_dataset <- function(dataset,
   existing_data_behavior_opts <- c("delete_matching", "overwrite", "error")
   existing_data_behavior <- match(match.arg(existing_data_behavior), existing_data_behavior_opts) - 1L
 
-  if (!is_integerish(max_partitions, n = 1) || is.na(max_partitions) || max_partitions < 0) {
-    abort("max_partitions must be a positive, non-missing integer")
-  }
+  validate_positive_int_value(max_partitions, "max_partitions must be a positive, non-missing integer")
+  validate_positive_int_value(max_open_files, "max_open_files must be a positive, non-missing integer")
+  validate_positive_int_value(min_rows_per_group, "min_rows_per_group must be a positive, non-missing integer")
+  validate_positive_int_value(max_rows_per_group, "max_rows_per_group must be a positive, non-missing integer")
 
   dataset___Dataset__Write(
     options, path_and_fs$fs, path_and_fs$path,
     partitioning, basename_template, scanner,
-    existing_data_behavior, max_partitions
+    existing_data_behavior, max_partitions,
+    max_open_files, max_rows_per_file,
+    min_rows_per_group, max_rows_per_group
   )
+}
+
+validate_positive_int_value <- function(value, msg) {
+  if (!is_integerish(value, n = 1) || is.na(value) || value < 0) {
+    abort(msg)
+  }
 }

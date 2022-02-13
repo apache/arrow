@@ -17,6 +17,6 @@ function [variablesOut, metadataOut] = featherMEXRoundTrip(filename, variablesIn
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-featherwritemex(filename, variablesIn, metadataIn);
-[variablesOut, metadataOut] = featherreadmex(filename);
+mexfcn('featherwrite', filename, variablesIn, metadataIn);
+[variablesOut, metadataOut] = mexfcn('featherread', filename);
 end

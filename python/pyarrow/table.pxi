@@ -1177,10 +1177,17 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df, schema, preserve_index, nthreads=nthreads, columns=columns
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty RecordBatch with rows >0
+        cdef vector[shared_ptr[CArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
+                                                        n_rows, c_arrays))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(list arrays, names=None, schema=None, metadata=None):
@@ -1779,7 +1786,7 @@ cdef class Table(_PandasConvertible):
         <pyarrow.lib.Table object at 0x7f05d1fb1b40>
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
-        arrays, schema = dataframe_to_arrays(
+        arrays, schema, n_rows = dataframe_to_arrays(
             df,
             schema=schema,
             preserve_index=preserve_index,
@@ -1787,7 +1794,14 @@ cdef class Table(_PandasConvertible):
             columns=columns,
             safe=safe
         )
-        return cls.from_arrays(arrays, schema=schema)
+
+        # If df is empty but row index is not, create empty Table with rows >0
+        cdef vector[shared_ptr[CChunkedArray]] c_arrays
+        if n_rows:
+            return pyarrow_wrap_table(
+                CTable.MakeWithRows((<Schema> schema).sp_schema, c_arrays, n_rows))
+        else:
+            return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):

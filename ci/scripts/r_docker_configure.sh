@@ -30,6 +30,18 @@ fi
 # Ensure parallel compilation of C/C++ code
 echo "MAKEFLAGS=-j$(${R_BIN} -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/etc/Renviron.site
 
+# Figure out what package manager we have
+if [ "`which dnf`" ]; then
+  PACKAGE_MANAGER=dnf
+elif [ "`which yum`" ]; then
+  PACKAGE_MANAGER=yum
+elif [ "`which zypper`" ]; then
+  PACKAGE_MANAGER=zypper
+else
+  PACKAGE_MANAGER=apt-get
+  apt-get update
+fi
+
 # Special hacking to try to reproduce quirks on fedora-clang-devel on CRAN
 # which uses a bespoke clang compiled to use libc++
 # https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
@@ -45,26 +57,16 @@ fi
 # Special hacking to try to reproduce quirks on centos using non-default build
 # tooling.
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
-  if [ "`which dnf`" ]; then
-    dnf install -y centos-release-scl
-    dnf install -y "devtoolset-$DEVTOOLSET_VERSION"
-  else
-    yum install -y centos-release-scl
-    yum install -y "devtoolset-$DEVTOOLSET_VERSION"
-  fi
+  $PACKAGE_MANAGER install -y centos-release-scl
+  $PACKAGE_MANAGER install -y "devtoolset-$DEVTOOLSET_VERSION"
 fi
 
-# Install openssl for S3 support
 if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
-  if [ "`which dnf`" ]; then
-    dnf install -y libcurl-devel openssl-devel
-  elif [ "`which yum`" ]; then
-    yum install -y libcurl-devel openssl-devel
-  elif [ "`which zypper`" ]; then
-    zypper install -y libcurl-devel libopenssl-devel
-  else
-    apt-get update
+  # Install curl and openssl for S3 support
+  if [ "$PACKAGE_MANAGER" = "apt-get" ]; then
     apt-get install -y libcurl4-openssl-dev libssl-dev
+  else
+    $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
   fi
 
   # The Dockerfile should have put this file here
@@ -76,6 +78,9 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_R_DEV" == "TRUE" ]; then
     /arrow/ci/scripts/install_gcs_testbench.sh default
   fi
 fi
+
+# Install rsync for bundling cpp source
+$PACKAGE_MANAGER install -y rsync
 
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'

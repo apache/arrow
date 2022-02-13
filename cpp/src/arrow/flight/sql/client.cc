@@ -411,6 +411,8 @@ Status PreparedStatement::Close() {
   return Status::OK();
 }
 
+Status FlightSqlClient::Close() { return impl_->Close(); }
+
 arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlClient::GetSqlInfo(
     const FlightCallOptions& options, const std::vector<int>& sql_info) {
   flight_sql_pb::CommandGetSqlInfo command;

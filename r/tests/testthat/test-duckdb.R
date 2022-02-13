@@ -66,7 +66,6 @@ test_that("to_duckdb", {
 })
 
 test_that("to_duckdb then to_arrow", {
-  skip("Flaky, unskip when ARROW-14745 is merged")
   ds <- InMemoryDataset$create(example_data)
 
   ds_rt <- ds %>%
@@ -111,6 +110,64 @@ test_that("to_duckdb then to_arrow", {
     to_arrow(ds_rt),
     "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
   )
+})
+
+test_that("to_arrow roundtrip, with dataset", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  ds <- open_dataset(tf)
+
+  expect_identical(
+    ds %>%
+      to_duckdb() %>%
+      select(-fct) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      to_arrow() %>%
+      filter(int > 5 & part > 1) %>%
+      collect() %>%
+      arrange(part, int) %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5 & part > 1) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      collect() %>%
+      arrange(part, int)
+  )
+})
+
+test_that("to_arrow roundtrip, with dataset (without wrapping", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  out <- ds %>%
+    to_duckdb() %>%
+    select(-fct) %>%
+    mutate(dbl_plus = dbl + 1) %>%
+    to_arrow(as_arrow_query = FALSE)
+
+  expect_r6_class(out, "RecordBatchReader")
 })
 
 # The next set of tests use an already-extant connection to test features of
