@@ -490,7 +490,9 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     std::string result;
     RETURN_NOT_OK(internal::PyUnicode_AsStdString(_filename.obj(), &result));
     std::size_t pos = result.find("zoneinfo/");
-    if (pos > 0) {return result.substr (pos+9);}
+    if (pos > 0) {
+      return result.substr(pos + 9);
+    }
     return result;
   }
 
