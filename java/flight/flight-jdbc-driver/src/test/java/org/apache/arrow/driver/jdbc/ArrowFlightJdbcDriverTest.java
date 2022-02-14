@@ -71,7 +71,7 @@ public class ArrowFlightJdbcDriverTest {
   public void tearDown() throws Exception {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
     AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
-    AutoCloseables.close(dataSource, allocator);
+    AutoCloseables.close(server, allocator);
   }
 
   /**
@@ -131,6 +131,25 @@ public class ArrowFlightJdbcDriverTest {
     final String malformedUri = "yes:??/chainsaw.i=T333";
 
     driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
+  }
+
+  /**
+   * Tests whether server-side parameters are sent in CallHeaders.
+   */
+  @Test
+  public void testShouldAcceptServerSideParameters() throws SQLException {
+    // Get the Arrow Flight JDBC driver by providing a URL with a valid prefix.
+    final Driver driver = new ArrowFlightJdbcDriver();
+
+    final URI uri = server.getLocation().getUri();
+
+    try (Connection connection = driver.connect(
+        "jdbc:arrow-flight://" + uri.getHost() + ":" + uri.getPort() + ";schema=test;testParameter=yes",
+        PropertiesSample.CONFORMING.getProperties())) {
+      assertEquals(connection.getClientInfo().get("schema"), "test");
+      assertEquals(connection.getClientInfo().get("testParameter"), "yes");
+      assert connection.isValid(300);
+    }
   }
 
   /**
