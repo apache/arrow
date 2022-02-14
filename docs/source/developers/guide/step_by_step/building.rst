@@ -160,9 +160,9 @@ Building other Arrow libraries
      When you will make changes to the Arrow C++ part of the code, also
      called libarrow, you will need to:
 
-     #. reinstall libarrow
-     #. run ``make clean`` or ``git clean -fdx .``
-     #. reinstall the R package
+     #. reinstall libarrow,
+     #. run ``make clean``,
+     #. reinstall the R package.
 
      ``make clean`` is a part of the ``r/Makefile`` added to help with some
      common tasks from the command line (e.g. ``make test``, ``make doc``,
