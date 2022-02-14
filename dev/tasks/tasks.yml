@@ -78,6 +78,7 @@ groups:
   r:
     - test*-r-*
     - homebrew-r-autobrew
+    - homebrew-r-brew
     # r-conda tasks
     - conda-linux-gcc-py*-cpu-r*
     - conda-osx-clang-py*-r*
@@ -141,6 +142,7 @@ groups:
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
     - homebrew-cpp
     - homebrew-r-autobrew
+    - homebrew-r-brew
     - nuget
     - test-*
     - example-*
@@ -743,6 +745,13 @@ tasks:
     # This tests that the autobrew formula + script work in practice
     ci: github
     template: r/github.macos.autobrew.yml
+
+  homebrew-r-brew:
+    # This tests that the autobrew formula + script work in practice
+    ci: github
+    template: r/github.macos.brew.yml
+    params:
+      formula: apache-arrow.rb
 
   ############################## Arrow JAR's ##################################
 
