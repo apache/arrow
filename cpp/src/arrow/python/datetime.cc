@@ -428,21 +428,20 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
   OwnedRef module_zoneinfo;    // import zoneinfo
+  OwnedRef module_dateutil;    // import dateutil
   OwnedRef class_timezone;     // from datetime import timezone
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
-  OwnedRef class_zoneinfo;     // from zoneinfo import ZoneInfo
 
   // import necessary modules
   RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
   RETURN_NOT_OK(internal::ImportModule("datetime", &module_datetime));
   RETURN_NOT_OK(internal::ImportModule("zoneinfo", &module_zoneinfo));
+  RETURN_NOT_OK(internal::ImportModule("dateutil", &module_dateutil));
   // import necessary classes
   RETURN_NOT_OK(
       internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
   RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
-  RETURN_NOT_OK(
-      internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
 
   // check that it's a valid tzinfo object
   if (!PyTZInfo_Check(tzinfo)) {
@@ -481,6 +480,17 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     RETURN_IF_PYERROR();
     std::string result;
     RETURN_NOT_OK(internal::PyUnicode_AsStdString(key.obj(), &result));
+    return result;
+  }
+
+  // try to look up _filename attribute
+  if (PyObject_HasAttrString(tzinfo, "_filename")) {
+    OwnedRef _filename(PyObject_GetAttrString(tzinfo, "_filename"));
+    RETURN_IF_PYERROR();
+    std::string result;
+    RETURN_NOT_OK(internal::PyUnicode_AsStdString(_filename.obj(), &result));
+    std::size_t pos = result.find("zoneinfo/");
+    if (pos > 0) {return result.substr (pos+9);}
     return result;
   }
 
