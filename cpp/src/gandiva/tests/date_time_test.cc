@@ -870,8 +870,8 @@ TEST_F(TestProjector, TestTrunc) {
 
   auto array_date64 = MakeArrowArrayDate64({1561856401000, 1561856401000}, {true, true});
 
-  auto date_in_timestamp = {MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0),
-                            MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0)};
+  std::vector<int64_t> date_in_timestamp = {MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0),
+                                            MillisSince(epoch, 2019, 06, 30, 1, 0, 0, 0)};
 
   auto array_timestamp = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), date_in_timestamp, {true, true});
@@ -894,7 +894,7 @@ TEST_F(TestProjector, TestTrunc) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(2));
+
 }
 
 }  // namespace gandiva
