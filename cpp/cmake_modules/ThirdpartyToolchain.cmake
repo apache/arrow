@@ -1716,6 +1716,12 @@ if(ARROW_MIMALLOC)
                                    IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${MIMALLOC_INCLUDE_DIR}")
+  if(WIN32)
+    set_property(TARGET mimalloc::mimalloc
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES
+                 "bcrypt.lib" "psapi")
+  endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
 
