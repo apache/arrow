@@ -130,14 +130,15 @@ If all is set, you can make the pull request!
 Continuous Integration (CI)
 ---------------------------
 
-Continuous integration (CI) is an automated way to assert the code
-change made by a specific pull request before it gets merged or
-integrated into the main repository of the project.
+Continuous integration (CI) is an automated way to run tests and
+builds on different environments with the changed code made by a
+specific pull request. It serves as a stability check before it
+gets merged or integrated into the main repository of the project.
 
 Once the pull request is created, the CI will trigger checks on the
 code. Depending on what part of the code was changed (documentation,
-C++ or other languages for example) the CI will choose the corresponding
-checks to be made.
+C++ or other languages for example) the CI is configured to run
+the relevant checks.
 
 You will see checks running at the bottom of the pull request page
 on GitHub. In case of an error, click on the details and research the cause
