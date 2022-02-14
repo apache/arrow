@@ -397,7 +397,7 @@ TEST_F(TestFilter, TestLike) {
   int num_records = 5;
   auto array0 = MakeArrowArrayUtf8({"abc-xyz", "hello", "bye", "abc-x", "abc-xyzw"},
                                    {true, true, true, true, true});
-  ;
+
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 4});
 
