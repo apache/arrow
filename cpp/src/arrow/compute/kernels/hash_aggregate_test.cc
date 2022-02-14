@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
@@ -2460,6 +2461,41 @@ TEST(GroupBy, Distinct) {
   }
 }
 
+MATCHER_P(AnyOfScalar, arrow_array, "") {
+  for (int64_t i = 0; i < arrow_array->length(); ++i) {
+    auto scalar = arrow_array->GetScalar(i).ValueOrDie();
+    if (scalar->Equals(arg)) return true;
+  }
+  *result_listener << "Argument scalar: '" << arg->ToString()
+                   << "' matches no input scalar.";
+  return false;
+}
+
+MATCHER_P(AnyOfScalarFromUniques, unique_list, "") {
+  const auto& flatten = unique_list->Flatten().ValueOrDie();
+  const auto& offsets = std::dynamic_pointer_cast<Int32Array>(unique_list->offsets());
+
+  for (int64_t i = 0; i < arg->length(); ++i) {
+    bool match_found = false;
+    const auto group_hash_one = arg->GetScalar(i).ValueOrDie();
+    int64_t start = offsets->Value(i);
+    int64_t end = offsets->Value(i + 1);
+    for (int64_t j = start; j < end; ++j) {
+      auto s = flatten->GetScalar(j).ValueOrDie();
+      if (s->Equals(group_hash_one)) {
+        match_found = true;
+        break;
+      }
+    }
+    if (!match_found) {
+      *result_listener << "Argument scalar: '" << group_hash_one->ToString()
+                       << "' matches no input scalar.";
+      return false;
+    }
+  }
+  return true;
+}
+
 TEST(GroupBy, One) {
   {
     auto table =
@@ -2593,7 +2629,7 @@ TEST(GroupBy, OneOnly) {
       field("key", int64()),
   });
   for (bool use_exec_plan : {false, true}) {
-    for (bool use_threads : {false}) {
+    for (bool use_threads : {false, true}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
 
       auto table = TableFromJSON(in_schema, {R"([
@@ -2630,20 +2666,67 @@ TEST(GroupBy, OneOnly) {
       ValidateOutput(aggregated_and_grouped);
       SortBy({"key_0"}, &aggregated_and_grouped);
 
-      AssertDatumsEqual(ArrayFromJSON(struct_({
-                                          field("hash_one", float64()),
-                                          field("hash_one", null()),
-                                          field("hash_one", boolean()),
-                                          field("key_0", int64()),
-                                      }),
-                                      R"([
-    [1.0,  null, true,  1],
-    [0.0,  null, false, 2],
-    [null, null, false, 3],
-    [4.0,  null, null,  null]
-  ])"),
-                        aggregated_and_grouped,
-                        /*verbose=*/true);
+      //      AssertDatumsEqual(ArrayFromJSON(struct_({
+      //                                          field("hash_one", float64()),
+      //                                          field("hash_one", null()),
+      //                                          field("hash_one", boolean()),
+      //                                          field("key_0", int64()),
+      //                                      }),
+      //                                      R"([
+      //          [1.0,  null, true,  1],
+      //          [0.0,  null, false, 2],
+      //          [null, null, false, 3],
+      //          [4.0,  null, null,  null]
+      //        ])"),
+      //                        aggregated_and_grouped,
+      //                        /*verbose=*/true);
+
+      const auto& struct_arr = aggregated_and_grouped.array_as<StructArray>();
+      //  Check the key column
+      AssertDatumsEqual(ArrayFromJSON(int64(), "[1, 2, 3, null]"), struct_arr->field(3));
+
+      auto type_col_0 = float64();
+      auto group_one_col_0 =
+          AnyOfScalar(ArrayFromJSON(type_col_0, R"([1.0, null, 3.25])"));
+      auto group_two_col_0 =
+          AnyOfScalar(ArrayFromJSON(type_col_0, R"([0.0, 0.125, -0.25])"));
+      auto group_three_col_0 = AnyOfScalar(ArrayFromJSON(type_col_0, R"([null])"));
+      auto group_null_col_0 = AnyOfScalar(ArrayFromJSON(type_col_0, R"([4.0, 0.75])"));
+
+      //  Check values individually
+      const auto& col0 = struct_arr->field(0);
+      ASSERT_OK_AND_ASSIGN(const auto g_one, col0->GetScalar(0));
+      EXPECT_THAT(g_one, group_one_col_0);
+      ASSERT_OK_AND_ASSIGN(const auto g_two, col0->GetScalar(1));
+      EXPECT_THAT(g_two, group_two_col_0);
+      ASSERT_OK_AND_ASSIGN(const auto g_three, col0->GetScalar(2));
+      EXPECT_THAT(g_three, group_three_col_0);
+      ASSERT_OK_AND_ASSIGN(const auto g_null, col0->GetScalar(3));
+      EXPECT_THAT(g_null, group_null_col_0);
+
+      CountOptions all(CountOptions::ALL);
+      ASSERT_OK_AND_ASSIGN(
+          auto distinct_out,
+          internal::GroupBy(
+              {
+                  table->GetColumnByName("argument0"),
+                  table->GetColumnByName("argument1"),
+                  table->GetColumnByName("argument2"),
+              },
+              {
+                  table->GetColumnByName("key"),
+              },
+              {{"hash_distinct", &all}, {"hash_distinct", &all}, {"hash_distinct", &all}},
+              use_threads));
+      ValidateOutput(distinct_out);
+      SortBy({"key_0"}, &distinct_out);
+
+      const auto& struct_arr_distinct = distinct_out.array_as<StructArray>();
+      for (int64_t col = 0; col < struct_arr_distinct->length() - 1; ++col) {
+        const auto matcher = AnyOfScalarFromUniques(
+            checked_pointer_cast<ListArray>(struct_arr_distinct->field(col)));
+        EXPECT_THAT(struct_arr->field(col), matcher);
+      }
     }
   }
 }
