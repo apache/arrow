@@ -73,6 +73,9 @@ Status ReadOptions::Validate() const {
 WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
 
 Status WriteOptions::Validate() const {
+    if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r')) {
+    return Status::Invalid("WriteOptions: delimiter cannot be \\r or \\n");
+  }
   if (ARROW_PREDICT_FALSE(batch_size < 1)) {
     return Status::Invalid("WriteOptions: batch_size must be at least 1: ", batch_size);
   }
