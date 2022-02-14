@@ -549,7 +549,7 @@ class ImmutableZeros : public Buffer {
       : Buffer(data, size, CPUDevice::immutable_zeros_memory_manager(pool)),
         pool_(pool) {}
 
-  ImmutableZeros() : Buffer(nullptr, 0), pool_(nullptr){};
+  ImmutableZeros() : Buffer(nullptr, 0), pool_(nullptr) {}
 
   ~ImmutableZeros() override;
 
