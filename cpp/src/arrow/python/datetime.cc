@@ -427,17 +427,22 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
+  OwnedRef module_zoneinfo;    // import zoneinfo
   OwnedRef class_timezone;     // from datetime import timezone
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
+  OwnedRef class_zoneinfo;     // from zoneinfo import ZoneInfo
 
   // import necessary modules
   RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
   RETURN_NOT_OK(internal::ImportModule("datetime", &module_datetime));
+  RETURN_NOT_OK(internal::ImportModule("zoneinfo", &module_zoneinfo));
   // import necessary classes
   RETURN_NOT_OK(
       internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
   RETURN_NOT_OK(
       internal::ImportFromModule(module_datetime.obj(), "timezone", &class_timezone));
+  RETURN_NOT_OK(
+      internal::ImportFromModule(module_zoneinfo.obj(), "ZoneInfo", &class_zoneinfo));
 
   // check that it's a valid tzinfo object
   if (!PyTZInfo_Check(tzinfo)) {
@@ -467,6 +472,15 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     RETURN_IF_PYERROR();
     std::string result;
     RETURN_NOT_OK(internal::PyUnicode_AsStdString(zone.obj(), &result));
+    return result;
+  }
+
+  // try to look up key attribute
+  if (PyObject_HasAttrString(tzinfo, "key")) {
+    OwnedRef key(PyObject_GetAttrString(tzinfo, "key"));
+    RETURN_IF_PYERROR();
+    std::string result;
+    RETURN_NOT_OK(internal::PyUnicode_AsStdString(key.obj(), &result));
     return result;
   }
 
