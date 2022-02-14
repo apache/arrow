@@ -219,7 +219,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      */
 
     final Properties resultMap = new Properties();
-    url = replaceSemiColons(url);
+    url = ArrowFlightConnection.parsePropertiesAndUrl(url, resultMap);
 
     if (!url.startsWith("jdbc:")) {
       throw new SQLException("Connection string must start with 'jdbc:'. Expected format: " +

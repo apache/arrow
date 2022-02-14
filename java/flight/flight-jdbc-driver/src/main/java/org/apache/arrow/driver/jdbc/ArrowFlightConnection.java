@@ -94,7 +94,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   /*
   Parses properties in the URL and removes them from it.
    */
-  private static String parsePropertiesAndUrl(String url, final Properties incomingProperties) {
+  static String parsePropertiesAndUrl(String url, final Properties incomingProperties) {
     if (url != null) {
       final Pattern generalPattern = Pattern.compile("(;\\w*=\\S*)");
       // Looks for ";[alphanumeric]=[non-whitespace]" in a single group
