@@ -157,7 +157,7 @@ Building other Arrow libraries
 
      **Reinstalling R package and running 'make clean'**
 
-     When you will make changes to the Arrow C++ part of the code, also
+     If you make changes to the Arrow C++ part of the code, also
      called libarrow, you will need to:
 
      #. reinstall libarrow,
