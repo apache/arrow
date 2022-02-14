@@ -280,4 +280,13 @@ if have_gi
                                       extra_args: [
                                         '--warn-all',
                                       ])
+
+  package_api_name = '@0@-@1@'.format('arrow_glib', library_version)
+  arrow_glib_vapi = gnome.generate_vapi(package_api_name,
+                                        sources: arrow_glib_gir[0],
+                                        packages: [ 'gio-2.0' ],
+                                        install: true,
+                                        install_dir: vapidir,
+                                        metadata_dirs: [ meson.current_source_dir() ],
+  )
 endif
