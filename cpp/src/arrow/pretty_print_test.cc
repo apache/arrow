@@ -179,7 +179,7 @@ TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
   options.skip_new_lines = true;
   options.window = 4;
 
-  const char* expected = "[0,1,null,3,null]";
+  const char* expected = "[0, 1, null, 3, null]";
   CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
 
   // With ellipsis
@@ -188,7 +188,7 @@ TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
   values.insert(values.end(), 20, 99);
   values.insert(values.end(), {44, 43, 42});
 
-  expected = "[0,1,null,3,...,99,44,null,42]";
+  expected = "[0, 1, null, 3, ..., 99, 44, null, 42]";
   CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
 }
 
@@ -661,12 +661,12 @@ TEST_F(TestPrettyPrint, BinaryNoNewlines) {
   PrettyPrintOptions options{};
   options.skip_new_lines = true;
 
-  const char* expected = "[666F6F,626172,null,62617A,,FF]";
+  const char* expected = "[666F6F, 626172, null, 62617A, , FF]";
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 
   // With ellipsis
   options.window = 2;
-  expected = "[666F6F,626172,...,,FF]";
+  expected = "[666F6F, 626172, ..., , FF]";
   CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
 }
 
@@ -737,11 +737,11 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   options.skip_new_lines = true;
   options.null_rep = "NA";
   CheckArray(*empty_array, options, "[]", false);
-  CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
+  CheckArray(*array, options, "[[NA], [], NA, [4, 5, 6, 7, 8], [2, 3]]", false);
 
   options.window = 2;
   CheckArray(*empty_array, options, "[]", false);
-  CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
+  CheckArray(*array, options, "[[NA], [], ..., [4, 5, ..., 7, 8], [2, 3]]", false);
 }
 
 TEST_F(TestPrettyPrint, MapType) {

@@ -143,7 +143,7 @@ class ArrayPrinter : public PrettyPrinter {
         IndentAfterNewline();
         (*sink_) << "...";
         if (!is_last && options_.skip_new_lines) {
-          (*sink_) << ",";
+          (*sink_) << ", ";
         }
         i = array.length() - options_.window - 1;
       } else if (array.IsNull(i)) {
@@ -151,6 +151,9 @@ class ArrayPrinter : public PrettyPrinter {
         (*sink_) << options_.null_rep;
         if (!is_last) {
           (*sink_) << ",";
+          if (options_.skip_new_lines) {
+            (*sink_) << " ";
+          }
         }
       } else {
         if (indent_non_null_values) {
@@ -159,6 +162,9 @@ class ArrayPrinter : public PrettyPrinter {
         RETURN_NOT_OK(func(i));
         if (!is_last) {
           (*sink_) << ",";
+          if (options_.skip_new_lines) {
+            (*sink_) << " ";
+          }
         }
       }
       Newline();
