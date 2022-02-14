@@ -240,6 +240,8 @@ std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 /// rather than the normal mutable buffer interface.
 class ARROW_EXPORT CPUImmutableZerosMemoryManager : public MemoryManager {
  public:
+  bool is_mutable() const override { return false; };
+
   Result<std::shared_ptr<io::RandomAccessFile>> GetBufferReader(
       std::shared_ptr<Buffer> buf) override;
   Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
