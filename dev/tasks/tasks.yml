@@ -1284,6 +1284,7 @@ tasks:
     params:
       env:
         CMAKE_BUILD_TYPE: MinSizeRel
+        ARROW_R_DEV: TRUE
 
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("rocker", "r-base", "latest"),
