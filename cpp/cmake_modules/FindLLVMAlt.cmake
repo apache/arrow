@@ -28,11 +28,11 @@ endif()
 # if the system one is newer
 foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
   find_package(LLVM
-              ${ARROW_LLVM_VERSION}
-              CONFIG
-              NO_DEFAULT_PATH
-              HINTS
-              ${LLVM_ROOT})
+               ${ARROW_LLVM_VERSION}
+               CONFIG
+               NO_DEFAULT_PATH
+               HINTS
+               ${LLVM_ROOT})
   if(LLVM_FOUND)
     break()
   endif()
@@ -42,10 +42,10 @@ if(NOT LLVM_FOUND)
   foreach(HINT ${LLVM_HINTS})
     foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
       find_package(LLVM
-                  ${ARROW_LLVM_VERSION}
-                  CONFIG
-                  HINTS
-                  ${HINT})
+                   ${ARROW_LLVM_VERSION}
+                   CONFIG
+                   HINTS
+                   ${HINT})
       if(LLVM_FOUND)
         break()
       endif()
