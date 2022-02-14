@@ -779,12 +779,12 @@ TEST_F(TestHash, TestMaskHash) {
   ;
 
   // Create a row-batch with some sample data
-  int num_records = 5;
+  int num_records = 4;
 
   auto array_a =
-      MakeArrowArrayUtf8({"", "a〜Çç&", "TestString-123", "b大路学路b",
+      MakeArrowArrayUtf8({"a〜Çç&", "TestString-123", "b大路学路b",
                           "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"},
-                         {false, true, true, true, true});
+                         {true, true, true, true});
 
   std::string first_string = "";
   std::string second_string = "";
@@ -812,8 +812,8 @@ TEST_F(TestHash, TestMaskHash) {
   }
 
   auto exp_output =
-      MakeArrowArrayUtf8({"", first_string, second_string, third_string, fourth_string},
-                         {false, true, true, true, true});
+      MakeArrowArrayUtf8({first_string, second_string, third_string, fourth_string},
+                         {true, true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
