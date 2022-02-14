@@ -558,7 +558,7 @@ class MutableNullArrayFactory {
     return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
-  static Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0); }
+  Result<std::shared_ptr<Buffer>> CreateEmptyBuffer() { return AllocateBuffer(0, pool_); }
 
  public:
   MutableNullArrayFactory(MemoryPool* pool, const std::shared_ptr<DataType>& type,
