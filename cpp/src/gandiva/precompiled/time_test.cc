@@ -1109,71 +1109,66 @@ TEST(TestTime, TestTruncTimestamp) {
   gdv_int32 out_len;
 
   // timestamp
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[0],
-                                             PARTTERN_MONTH_LEN[0], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[1],
-                                             PARTTERN_MONTH_LEN[1], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[2],
-                                             PARTTERN_MONTH_LEN[2], &out_len),
-                   "2019-06-01", 10),
-            0);
+  const char* out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[0],
+                                              PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[0],
-                                             PARTTERN_YEAR_LEN[0], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[1],
-                                             PARTTERN_YEAR_LEN[1], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[2],
-                                             PARTTERN_YEAR_LEN[2], &out_len),
-                   "2019-01-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[1],
+                                  PARTTERN_MONTH_LEN[1], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_MONTH[2],
+                                  PARTTERN_MONTH_LEN[2], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[1], PARTTERN_YEAR_LEN[1],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = date_trunc_timestamp_utf8(context_ptr, ts1, PATTERN_YEAR[2], PARTTERN_YEAR_LEN[2],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
 
   // Testing date before 1970/1/1
   gdv_timestamp ts2 = StringToTimestamp("1000-06-30 00:00:00");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_MONTH[0],
-                                             PARTTERN_MONTH_LEN[0], &out_len),
-                   "1000-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_YEAR[0],
-                                             PARTTERN_YEAR_LEN[0], &out_len),
-                   "1000-01-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_MONTH[0],
+                                  PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-06-01");
+
+  out = date_trunc_timestamp_utf8(context_ptr, ts2, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-01-01");
 
   // Testing max date
   gdv_timestamp ts3 = StringToTimestamp("9999-12-31 23:59:59");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_MONTH[0],
-                                             PARTTERN_MONTH_LEN[0], &out_len),
-                   "9999-12-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_MONTH[0],
+                                  PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-12-01");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_YEAR[0],
-                                             PARTTERN_YEAR_LEN[0], &out_len),
-                   "9999-01-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts3, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-01-01");
 
   // Testing leap year
   gdv_timestamp ts4 = StringToTimestamp("2024-02-29 13:59:59");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_MONTH[0],
-                                             PARTTERN_MONTH_LEN[0], &out_len),
-                   "2024-02-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_MONTH[0],
+                                  PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-02-01");
 
-  EXPECT_EQ(memcmp(date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_YEAR[0],
-                                             PARTTERN_YEAR_LEN[0], &out_len),
-                   "2024-01-01", 10),
-            0);
+  out = date_trunc_timestamp_utf8(context_ptr, ts4, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                                  &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-01-01");
 
   // Testing exceptions
+  context.Reset();
+
   date_trunc_timestamp_utf8(context_ptr, ts1, "MES", 3, &out_len);
   EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
   context.Reset();
@@ -1213,74 +1208,69 @@ TEST(TestTime, TestTruncDate) {
   gdv_int32 out_len;
 
   // timestamp
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[0],
-                                          PARTTERN_MONTH_LEN[0], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[1],
-                                          PARTTERN_MONTH_LEN[1], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[2],
-                                          PARTTERN_MONTH_LEN[2], &out_len),
-                   "2019-06-01", 10),
-            0);
+  const char* out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[0],
+                                           PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[0],
-                                          PARTTERN_YEAR_LEN[0], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[1],
-                                          PARTTERN_YEAR_LEN[1], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[2],
-                                          PARTTERN_YEAR_LEN[2], &out_len),
-                   "2019-01-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[1], PARTTERN_MONTH_LEN[1],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_MONTH[2], PARTTERN_MONTH_LEN[2],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[1], PARTTERN_YEAR_LEN[1],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = date_trunc_date64_utf8(context_ptr, ts1, PATTERN_YEAR[2], PARTTERN_YEAR_LEN[2],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
 
   // Testing date before 1970/1/1
   // 1000-06-30 = -30594621094000
   gdv_date64 ts2 = -30594621094000;
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts2, PATTERN_MONTH[0],
-                                          PARTTERN_MONTH_LEN[0], &out_len),
-                   "1000-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts2, PATTERN_YEAR[0],
-                                          PARTTERN_YEAR_LEN[0], &out_len),
-                   "1000-01-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts2, PATTERN_MONTH[0], PARTTERN_MONTH_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-06-01");
+
+  out = date_trunc_date64_utf8(context_ptr, ts2, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-01-01");
 
   // Testing max date
   // 9999-12-31 23:59:59 = 253402300799000
   gdv_date64 ts3 = 253402300799000;
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts3, PATTERN_MONTH[0],
-                                          PARTTERN_MONTH_LEN[0], &out_len),
-                   "9999-12-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts3, PATTERN_MONTH[0], PARTTERN_MONTH_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-12-01");
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts3, PATTERN_YEAR[0],
-                                          PARTTERN_YEAR_LEN[0], &out_len),
-                   "9999-01-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts3, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-01-01");
 
   // Testing leap year
   // 2024-02-29 13:59:59 = 1709215199000
   gdv_date64 ts4 = 1709215199000;
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts4, PATTERN_MONTH[0],
-                                          PARTTERN_MONTH_LEN[0], &out_len),
-                   "2024-02-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts4, PATTERN_MONTH[0], PARTTERN_MONTH_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-02-01");
 
-  EXPECT_EQ(memcmp(date_trunc_date64_utf8(context_ptr, ts4, PATTERN_YEAR[0],
-                                          PARTTERN_YEAR_LEN[0], &out_len),
-                   "2024-01-01", 10),
-            0);
+  out = date_trunc_date64_utf8(context_ptr, ts4, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                               &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-01-01");
 
   // Testing exceptions
+  context.Reset();
+
   date_trunc_date64_utf8(context_ptr, ts1, "MES", 3, &out_len);
   EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
   context.Reset();
@@ -1320,75 +1310,68 @@ TEST(TestTime, TestTruncVarchar) {
   gdv_int32 out_len;
 
   // timestamp
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[0],
-                                   PARTTERN_MONTH_LEN[0], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[1],
-                                   PARTTERN_MONTH_LEN[1], &out_len),
-                   "2019-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[2],
-                                   PARTTERN_MONTH_LEN[2], &out_len),
-                   "2019-06-01", 10),
-            0);
+  const char* out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[0],
+                                    PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[0],
-                                   PARTTERN_YEAR_LEN[0], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[1],
-                                   PARTTERN_YEAR_LEN[1], &out_len),
-                   "2019-01-01", 10),
-            0);
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[2],
-                                   PARTTERN_YEAR_LEN[2], &out_len),
-                   "2019-01-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[1],
+                        PARTTERN_MONTH_LEN[1], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_MONTH[2],
+                        PARTTERN_MONTH_LEN[2], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-06-01");
+
+  out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[0], PARTTERN_YEAR_LEN[0],
+                        &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[1], PARTTERN_YEAR_LEN[1],
+                        &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
+
+  out = trunc_utf8_utf8(context_ptr, ts1, data_len, PATTERN_YEAR[2], PARTTERN_YEAR_LEN[2],
+                        &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2019-01-01");
 
   // Testing date before 1970/1/1
   // 1000-06-30 = -30594621094000
   const char* ts2 = "1000-06-30 00:00:00";
   int32_t data2_len = static_cast<int32_t>(strlen(ts2));
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_MONTH[0],
-                                   PARTTERN_MONTH_LEN[0], &out_len),
-                   "1000-06-01", 10),
-            0);
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_YEAR[0],
-                                   PARTTERN_YEAR_LEN[0], &out_len),
-                   "1000-01-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_MONTH[0],
+                        PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-06-01");
+
+  out = trunc_utf8_utf8(context_ptr, ts2, data2_len, PATTERN_YEAR[0],
+                        PARTTERN_YEAR_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1000-01-01");
 
   // Testing max date
   // 9999-12-31 23:59:59 = 253402300799000
   const char* ts3 = "9999-12-31 23:59:59";
   int32_t data3_len = static_cast<int32_t>(strlen(ts3));
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_MONTH[0],
-                                   PARTTERN_MONTH_LEN[0], &out_len),
-                   "9999-12-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_MONTH[0],
+                        PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-12-01");
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_YEAR[0],
-                                   PARTTERN_YEAR_LEN[0], &out_len),
-                   "9999-01-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts3, data3_len, PATTERN_YEAR[0],
+                        PARTTERN_YEAR_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "9999-01-01");
 
   // Testing leap year
   // 2024-02-29 13:59:59 = 1709215199000
   const char* ts4 = "2024-02-29 13:59:59";
   int32_t data4_len = static_cast<int32_t>(strlen(ts4));
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_MONTH[0],
-                                   PARTTERN_MONTH_LEN[0], &out_len),
-                   "2024-02-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_MONTH[0],
+                        PARTTERN_MONTH_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-02-01");
 
-  EXPECT_EQ(memcmp(trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_YEAR[0],
-                                   PARTTERN_YEAR_LEN[0], &out_len),
-                   "2024-01-01", 10),
-            0);
+  out = trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_YEAR[0],
+                        PARTTERN_YEAR_LEN[0], &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2024-01-01");
 
   // Testing exceptions
   trunc_utf8_utf8(context_ptr, "asdf", 4, "MONTH", 5, &out_len);
