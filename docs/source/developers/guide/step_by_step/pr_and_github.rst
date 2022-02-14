@@ -172,8 +172,8 @@ builds and releases of the Apache Arrow library.
 Also, on-demand triggering jobs can be used in your pull
 request for example ``@github-actions crossbow submit python``
 to run PyArrow tests via GitHub actions. These are mostly used to run
-tests on other environments and do not normally need
-to be used in first time contributions.
+tests on environments that are less common and are normally
+not needed in first time contributions.
 
 To read more about this topic visit :ref:`continuous-integration`.
 
