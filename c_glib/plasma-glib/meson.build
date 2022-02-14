@@ -93,7 +93,7 @@ pkgconfig.generate(libplasma_glib,
                    requires: pkg_config_requires)
 
 if have_gi
-  gnome.generate_gir(libplasma_glib,
+  plasma_glib_gir = gnome.generate_gir(libplasma_glib,
                      dependencies: gir_dependencies,
                      sources: sources + c_headers,
                      namespace: 'Plasma',
@@ -104,4 +104,13 @@ if have_gi
                      includes: gir_includes,
                      install: true,
                      extra_args: gir_extra_args)
+
+  package_api_name = '@0@-@1@'.format('arrow_plasma_glib', library_version)
+  plasma_glib_vapi = gnome.generate_vapi(package_api_name,
+                                          sources: plasma_glib_gir[0],
+                                          packages: [ 'gio-2.0' ],
+                                          install: true,
+                                          install_dir: vapidir,
+                                          metadata_dirs: [ meson.current_source_dir() ],
+  )
 endif

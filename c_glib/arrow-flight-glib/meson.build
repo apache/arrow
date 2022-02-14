@@ -63,7 +63,7 @@ pkgconfig.generate(libarrow_flight_glib,
                    requires: ['arrow-glib', 'arrow-flight'])
 
 if have_gi
-  gnome.generate_gir(libarrow_flight_glib,
+  flight_glib_gir = gnome.generate_gir(libarrow_flight_glib,
                      dependencies: declare_dependency(sources: arrow_glib_gir),
                      sources: sources + c_headers,
                      namespace: 'ArrowFlight',
@@ -79,4 +79,13 @@ if have_gi
                        '--warn-all',
                        '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                      ])
+
+  package_api_name = '@0@-@1@'.format('arrow_flight_glib', library_version)
+  flight_glib_vapi = gnome.generate_vapi(package_api_name,
+                                        sources: flight_glib_gir[0],
+                                        packages: [ 'gio-2.0' ],
+                                        install: true,
+                                        install_dir: vapidir,
+                                        metadata_dirs: [ meson.current_source_dir() ],
+  )
 endif
