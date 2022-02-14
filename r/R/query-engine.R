@@ -16,22 +16,9 @@
 # under the License.
 
 do_exec_plan <- function(.data) {
-  # print(">>>> Do Exec Plan Start")
-  # print(">>>> Create Exec Plan Start")
   plan <- ExecPlan$create()
-  # print(">>>> Create Exec Plan End")
-  # print(">>>> Plan Build Start")
-  # print("Data")
-  # print(.data)
-  # print("names")
-  # print(names(.data))
-  # print("data.selected_columns")
-  # print(.data$selected_columns)
   final_node <- plan$Build(.data)
-  # print(">>>> Plan Build End")
-  # print(">>>> Plan Run Start")
   tab <- plan$Run(final_node)
-  # print(">>>> Plan Run End")
   # TODO (ARROW-14289): make the head/tail methods return RBR not Table
   if (inherits(tab, "RecordBatchReader")) {
     tab <- tab$read_table()
@@ -73,10 +60,8 @@ ExecPlan <- R6Class("ExecPlan",
   inherit = ArrowObject,
   public = list(
     Scan = function(dataset) {
-      # print("Scan")
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
-        # print("Scan.arrow_dplyr_query")
         if (inherits(dataset$.data, "RecordBatchReader")) {
           return(ExecNode_SourceNode(self, dataset$.data))
         } else if (inherits(dataset$.data, "ArrowTabular")) {
@@ -98,7 +83,6 @@ ExecPlan <- R6Class("ExecPlan",
         dataset <- dataset$.data
         assert_is(dataset, "Dataset")
       } else {
-        # print("Scan.ArrowTabular")
         if (inherits(dataset, "ArrowTabular")) {
           dataset <- InMemoryDataset$create(dataset)
         }
@@ -112,39 +96,29 @@ ExecPlan <- R6Class("ExecPlan",
       ExecNode_Scan(self, dataset, filter, colnames %||% character(0))
     },
     Build = function(.data) {
-      # print("BUILD Start")
       # This method takes an arrow_dplyr_query and chains together the
       # ExecNodes that they produce. It does not evaluate them--that is Run().
       group_vars <- dplyr::group_vars(.data)
       grouped <- length(group_vars) > 0
 
       # Collect the target names first because we have to add back the group vars
-      # print(".data$temp_columns")
-      # print(.data$temp_columns)
-      # print(".data$selected_columns")
-      # print(.data$selected_columns)
       target_names <- names(.data)
       .data <- ensure_group_vars(.data)
       .data <- ensure_arrange_vars(.data) # this sets .data$temp_columns
 
       if (inherits(.data$.data, "arrow_dplyr_query")) {
         # We have a nested query. Recurse.
-        # print("Nested Build Start")
         node <- self$Build(.data$.data)
-        # print("Nested Build End")
       } else {
-        # print("Build.scan")
         node <- self$Scan(.data)
       }
 
       # ARROW-13498: Even though Scan takes the filter, apparently we have to do it again
       if (inherits(.data$filtered_rows, "Expression")) {
-        # print("Build.filter")
         node <- node$Filter(.data$filtered_rows)
       }
 
       if (!is.null(.data$aggregations)) {
-        # print("Build.aggregate")
         # Project to include just the data required for each aggregation,
         # plus group_by_vars (last)
         # TODO: validate that none of names(aggregations) are the same as names(group_by_vars)
@@ -167,7 +141,6 @@ ExecPlan <- R6Class("ExecPlan",
         )
 
         if (grouped) {
-          # print("Build.grouped")
           # The result will have result columns first then the grouping cols.
           # dplyr orders group cols first, so adapt the result to meet that expectation.
           node <- node$Project(
@@ -190,42 +163,21 @@ ExecPlan <- R6Class("ExecPlan",
         # __fragment_index, __batch_index, __last_in_fragment
         # Presumably extraneous repeated projection of the same thing
         # (as when we've done collapse() and not projected after) is cheap/no-op
-        # print("Projection Prior to Join")
-        # print("P1: > ")
-        # print(.data$selected_columns)
         projection <- c(.data$selected_columns, .data$temp_columns)
         node <- node$Project(projection)
-        # print("P2: > ")
-        # print(.data$temp_columns)
-        # print("Projection Done!")      
         if (!is.null(.data$join)) {
-          # print("Build.join")
-          # print("Build Right Node")
-          right_node =  self$Build(.data$join$right_data) 
-          # print("Set Left output")
-          left_output = names(.data)
-          # print(left_output)
-          # print("Set Right output")
-          right_output = setdiff(names(.data$join$right_data), .data$join$by)
-          # print(right_output)
-          # print("Do Join")
+          right_node <- self$Build(.data$join$right_data)
+          left_output <- names(.data)
+          right_output <- setdiff(names(.data$join$right_data), .data$join$by)
           node <- node$Join(
             type = .data$join$type,
             right_node = right_node,
             by = .data$join$by,
             left_output = left_output,
-            right_output = right_output ,
+            right_output = right_output,
             left_prefix = .data$join$suffix[[1]],
             right_prefix = .data$join$suffix[[2]]
           )
-          # print("Done Join")
-          # print("Names")
-          # print(names(node))
-          # print("Attributes")
-          # print(attributes(node))
-          # print("node.schema")
-          # print(node$schema)
-          # print("data")
         }
       }
 
@@ -235,7 +187,6 @@ ExecPlan <- R6Class("ExecPlan",
       # (1) arrange > summarize > arrange
       # (2) ARROW-13779: arrange then operation where order matters (e.g. cumsum)
       if (length(.data$arrange_vars)) {
-        # print("Apply Sorting")
         node$sort <- list(
           names = names(.data$arrange_vars),
           orders = .data$arrange_desc,
@@ -251,11 +202,9 @@ ExecPlan <- R6Class("ExecPlan",
       if (!is.null(.data$tail)) {
         node$tail <- .data$tail
       }
-      # print("Build End")
       node
     },
     Run = function(node) {
-      # print(">>> RUN Start >>>")
       assert_is(node, "ExecNode")
 
       # Sorting and head/tail (if sorted) are handled in the SinkNode,
@@ -293,7 +242,6 @@ ExecPlan <- R6Class("ExecPlan",
         out <- out$read_table()
         out <- out[rev(seq_len(nrow(out))), , drop = FALSE]
       }
-      # print(">>> RUN End >>>")
       out
     },
     Stop = function() ExecPlan_StopProducing(self)
@@ -314,19 +262,13 @@ ExecNode <- R6Class("ExecNode",
     head = NULL,
     tail = NULL,
     preserve_sort = function(new_node) {
-      # print("**preserve_sort**")
       new_node$sort <- self$sort
       new_node$head <- self$head
       new_node$tail <- self$tail
       new_node
     },
     Project = function(cols) {
-      # print("**Project**")
       if (length(cols)) {
-        # print("Length Cols")
-        # print(cols)
-        # print("----")
-        # print(names(cols))
         assert_is_list_of(cols, "Expression")
         self$preserve_sort(ExecNode_Project(self, cols, names(cols)))
       } else {
@@ -334,18 +276,15 @@ ExecNode <- R6Class("ExecNode",
       }
     },
     Filter = function(expr) {
-      # print("**Filter**")
       assert_is(expr, "Expression")
       self$preserve_sort(ExecNode_Filter(self, expr))
     },
     Aggregate = function(options, target_names, out_field_names, key_names) {
-      # print("**Aggregate**")
       self$preserve_sort(
         ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
       )
     },
     Join = function(type, right_node, by, left_output, right_output, left_prefix, right_prefix) {
-      # print("**Join**")
       self$preserve_sort(
         ExecNode_Join(
           self,

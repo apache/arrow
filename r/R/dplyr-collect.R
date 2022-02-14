@@ -94,14 +94,20 @@ collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- funct
   arrow_dplyr_query(x)
 }
 
-add_suffix <- function(fields, by, suffix) {
-  # TODO: this method is adding suffixes
-  # but the current C++ code in this branch does prefixes
-  # so the code mimics a prefix but need to replace it with suffix
-  # when merging with ARROW-15212 update. 
-  col_names = names(fields)
-  new_colnames = col_names %>% map(function(x) {paste(suffix,x, sep="")})
-  rlang::set_names(fields, new_colnames)
+add_suffix <- function(fields, common_cols, suffix) {
+  # helper function which adds the suffixes to the
+  # selected column names
+  # for join relation the selected columns are the
+  # columns with same name in left and right relation
+  col_names <- names(fields)
+  new_col_names <- col_names %>% map(function(x) {
+    if (is.element(x, common_cols)) {
+      paste(x, suffix, sep = "")
+    } else {
+      x
+    }
+  })
+  rlang::set_names(fields, new_col_names)
 }
 
 implicit_schema <- function(.data) {
@@ -110,16 +116,22 @@ implicit_schema <- function(.data) {
 
   if (is.null(.data$aggregations)) {
     new_fields <- map(.data$selected_columns, ~ .$type(old_schm))
-    
     if (!is.null(.data$join) && !(.data$join$type %in% JoinType[1:4])) {
       # Add cols from right side, except for semi/anti joins
       right_cols <- .data$join$right_data$selected_columns
+      left_cols <- .data$selected_columns
       right_fields <- map(
         right_cols[setdiff(names(right_cols), .data$join$by)],
         ~ .$type(.data$join$right_data$.data$schema)
       )
-      left_fields = add_suffix(new_fields, .data$join$by, .data$join$suffix[[1]])
-      right_fields = add_suffix(right_fields, .data$join$by, .data$join$suffix[[2]])
+      # get right table and left table column names excluding the join key
+      right_cols_ex_by <- right_cols[setdiff(names(right_cols), .data$join$by)]
+      left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
+      # find the common column names in left and right tables
+      common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+      # adding suffixes to the common columns in left and right tables
+      left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
+      right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])
       new_fields <- c(left_fields, right_fields)
     }
   } else {
