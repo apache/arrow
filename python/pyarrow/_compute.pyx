@@ -2345,13 +2345,36 @@ cdef CFunctionDoc _make_function_doc(func_doc):
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
     if isinstance(func_doc, dict):
-        f_doc.summary = func_doc["summary"].encode()
-        f_doc.description = func_doc["description"].encode()
-        for arg_name in func_doc["arg_names"]:
-            c_arg_names.push_back(arg_name.encode())
-        f_doc.arg_names = c_arg_names
-        f_doc.options_class = func_doc["arg_names"].encode()
-        f_doc.options_required = func_doc["options_required"]
+        if func_doc["summary"] and isinstance(func_doc["summary"], str): 
+            f_doc.summary = func_doc["summary"].encode() 
+        else: 
+            raise ValueError("key `summary` cannot be None")
+        
+        if func_doc["description"] and isinstance(func_doc["description"], str): 
+            f_doc.description = func_doc["description"].encode() 
+        else: 
+            raise ValueError("key `description` cannot be None")
+        
+        if func_doc["arg_names"] and isinstance(func_doc["arg_names"], list): 
+            for arg_name in func_doc["arg_names"]:
+                if isinstance(arg_name, str):
+                    c_arg_names.push_back(arg_name.encode())
+                else:
+                    raise ValueError("key `arg_names` must be a list of strings")
+            f_doc.arg_names = c_arg_names
+        else: 
+            raise ValueError("key `arg_names` cannot be None")
+        
+        if func_doc["options_class"] and isinstance(func_doc["options_class"], str): 
+            f_doc.options_class = func_doc["options_class"].encode()
+        else: 
+            raise ValueError("key `options_class` cannot be None")
+        
+        if isinstance(func_doc["options_required"], bool): 
+            f_doc.options_required = func_doc["options_required"]
+        else: 
+            raise ValueError("key `options_required` cannot must be bool")
+
         return f_doc
     else:
         raise TypeError(f"func_doc must be a dictionary")
@@ -2362,7 +2385,7 @@ cdef class UDFInterpreter:
         raise TypeError("Cannot initialize UDFInterpreter from the constructor")
 
     @staticmethod
-    def create_scalar_kernel(function_name, arity, function_doc):
+    def create_scalar_function(function_name, arity, function_doc):
         cdef:
             c_string c_func_name
             Arity c_arity
@@ -2371,5 +2394,9 @@ cdef class UDFInterpreter:
         c_func_name = function_name.encode()
         c_arity = <Arity>(arity)
         c_func_doc = _make_function_doc(function_doc)
+
+    cdef _create_kernel(self):
+        
+
 
         

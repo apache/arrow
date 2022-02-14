@@ -8,15 +8,11 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/function.h"
-#include "arrow/compute/function_internal.h"
-#include "arrow/compute/kernels/common.h"
 #include "arrow/compute/registry.h"
 #include "arrow/datum.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/tracing_internal.h"
 
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
@@ -102,12 +98,40 @@ class ARROW_PYTHON_EXPORT UDFScalarFunction
   Status Hello2();
 };
 
-struct ARROW_PYTHON_EXPORT UDFSynthesizer {
-  UDFSynthesizer();
+using KernelExec = std::function<Status(cp::KernelContext*, const cp::ExecBatch&, Datum*)>;
 
-  static void MakeFunction(PyObject* func) {
+class ARROW_PYTHON_EXPORT UDFSynthesizer {
+  public:
+
+    UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
+     std::vector<cp::InputType> in_types, cp::OutputType out_type, KernelExec kernel_exec) 
+     : func_name_(func_name), arity_(arity), func_doc_(func_doc),
+     in_types_(in_types), out_type_(out_type), kernel_exec_(kernel_exec) {}
+
+    Status MakeFunction() {
+      Status st;
+      auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
+      cp::ScalarKernel kernel(in_types_, out_type_, kernel_exec_);
+      kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+      st = func->AddKernel(std::move(kernel));
+      if (!st.ok()) {
+        return Status::ExecutionError("Kernel couldn't be added to the udf");
+      }
+      auto registry = cp::GetFunctionRegistry();
+      st = registry->AddFunction(std::move(func));
+      if (!st.ok()) {
+        return Status::ExecutionError("udf registration failed");
+      }
+      return Status::OK();
+    }
+    private:
+      std::string func_name_;
+      cp::Arity arity_;
+      cp::FunctionDoc func_doc_;
+      std::vector<cp::InputType> in_types_;
+      cp::OutputType out_type_;
+      KernelExec kernel_exec_;
       
-  }
 };
 
 }  // namespace py

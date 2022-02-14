@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
+#include <arrow/record_batch.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
 #include <arrow/table.h>
@@ -31,6 +32,7 @@
 #include <iostream>
 #include <memory>
 
+#include <arrow/python/api.h>
 #include <arrow/python/udf.h>
 
 // Demonstrate registering an Arrow compute function outside of the Arrow source tree
@@ -45,72 +47,6 @@ namespace cp = ::arrow::compute;
       abort();                                     \
     }                                              \
   } while (0);
-
-class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
-  const char* type_name() const override { return "ExampleFunctionOptionsType"; }
-  std::string Stringify(const cp::FunctionOptions&) const override {
-    return "ExampleFunctionOptionsType";
-  }
-  bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
-    return true;
-  }
-  std::unique_ptr<cp::FunctionOptions> Copy(const cp::FunctionOptions&) const override;
-  // optional: support for serialization
-  // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
-  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer&) const override;
-};
-
-cp::FunctionOptionsType* GetExampleFunctionOptionsType() {
-  static ExampleFunctionOptionsType options_type;
-  return &options_type;
-}
-
-class ExampleFunctionOptions : public cp::FunctionOptions {
- public:
-  ExampleFunctionOptions() : cp::FunctionOptions(GetExampleFunctionOptionsType()) {}
-};
-
-std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
-    const cp::FunctionOptions&) const {
-  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
-}
-
-PyObject* SimpleFunction() {
-  PyObject* out = Py_BuildValue("s", "hello");
-  std::cout << "HELLO" << std::endl;
-  return std::move(out);
-}
-
-// PyObject* objectsRepresentation = PyObject_Repr(yourObject);
-// const char* s = PyString_AsString(objectsRepresentation);
-
-arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                  arrow::Datum* out) {
-  std::cout << "calling udf :" << batch.length << std::endl;
-  Py_Initialize();
-  PyObject* res = SimpleFunction();
-  PyObject* objectsRepresentation = PyObject_Repr(res);
-  const char* s = PyUnicode_AsUTF8(objectsRepresentation);
-  std::cout << "Message :: " << s << std::endl;
-  Py_Finalize();
-  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
-  *out->mutable_array() = *result.ValueOrDie().array();
-  return arrow::Status::OK();
-}
-// cp::KernelContext*, const cp::ExecBatch&, Datum*, PyObject* func
-arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                    arrow::Datum* out, PyObject* func) {
-  std::cout << "H" << std::endl;
-  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
-  *out->mutable_array() = *result.ValueOrDie().array();
-  // PyObject* res = SimpleFunction();
-  // PyObject* objectsRepresentation = PyObject_Repr(res);
-  // const char* s = PyUnicode_AsUTF8(objectsRepresentation);
-  std::cout << "Message :: "
-            << "s" << std::endl;
-            
-  return arrow::Status::OK();
-}
 
 struct BatchesWithSchema {
   std::vector<cp::ExecBatch> batches;
@@ -186,10 +122,80 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   return out;
 }
 
-arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
-  std::shared_ptr<arrow::Table> out;
+class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
+  const char* type_name() const override { return "ExampleFunctionOptionsType"; }
+  std::string Stringify(const cp::FunctionOptions&) const override {
+    return "ExampleFunctionOptionsType";
+  }
+  bool Compare(const cp::FunctionOptions&, const cp::FunctionOptions&) const override {
+    return true;
+  }
+  std::unique_ptr<cp::FunctionOptions> Copy(const cp::FunctionOptions&) const override;
+  // optional: support for serialization
+  // Result<std::shared_ptr<Buffer>> Serialize(const FunctionOptions&) const override;
+  // Result<std::unique_ptr<FunctionOptions>> Deserialize(const Buffer&) const override;
+};
 
-  return out;
+cp::FunctionOptionsType* GetExampleFunctionOptionsType() {
+  static ExampleFunctionOptionsType options_type;
+  return &options_type;
+}
+
+class ExampleFunctionOptions : public cp::FunctionOptions {
+ public:
+  ExampleFunctionOptions() : cp::FunctionOptions(GetExampleFunctionOptionsType()) {}
+};
+
+std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
+    const cp::FunctionOptions&) const {
+  return std::unique_ptr<cp::FunctionOptions>(new ExampleFunctionOptions());
+}
+
+PyObject* SimpleFunction() {
+  PyObject* out = Py_BuildValue("s", "hello");
+  std::cout << "HELLO" << std::endl;
+  return std::move(out);
+}
+
+arrow::Status rb_test() {
+  auto datasource = MakeBasicBatches();
+  auto batches = datasource->batches;
+
+  ARROW_ASSIGN_OR_RAISE(auto rb, batches[0].ToRecordBatch(datasource->schema,
+                                                          arrow::default_memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto result, cp::CallFunction("add", {rb, rb}));
+  return arrow::Status::OK();
+}
+
+// PyObject* objectsRepresentation = PyObject_Repr(yourObject);
+// const char* s = PyString_AsString(objectsRepresentation);
+
+arrow::Status ExampleFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                  arrow::Datum* out) {
+  std::cout << "calling udf :" << batch.length << std::endl;
+  Py_Initialize();
+  PyObject* res = SimpleFunction();
+  PyObject* objectsRepresentation = PyObject_Repr(res);
+  const char* s = PyUnicode_AsUTF8(objectsRepresentation);
+  std::cout << "Message :: " << s << std::endl;
+  Py_Finalize();
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  return arrow::Status::OK();
+}
+// cp::KernelContext*, const cp::ExecBatch&, Datum*, PyObject* func
+arrow::Status ExamplePyFunctionImpl(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                                    arrow::Datum* out, PyObject* func) {
+  std::cout << "H" << std::endl;
+  auto result = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+  *out->mutable_array() = *result.ValueOrDie().array();
+  // PyObject* res = SimpleFunction();
+  // PyObject* objectsRepresentation = PyObject_Repr(res);
+  // const char* s = PyUnicode_AsUTF8(objectsRepresentation);
+  std::cout << "Message :: "
+            << "s" << std::endl;
+
+  return arrow::Status::OK();
 }
 
 class ExampleNodeOptions : public cp::ExecNodeOptions {};
@@ -250,48 +256,46 @@ PyObject* MultiplyFunction(PyObject* scalar) {
 }
 
 class ScalarUDF {
+ public:
+  ScalarUDF();
+  explicit ScalarUDF(cp::Arity arity, std::vector<cp::InputType> input_types,
+                     cp::OutputType output_type, PyObject* (*function)(PyObject*))
+      : arity_(std::move(arity)),
+        input_types_(std::move(input_types)),
+        output_type_(output_type),
+        function_(function) {}
 
-  public:
-    ScalarUDF();
-    explicit ScalarUDF(cp::Arity arity, std::vector<cp::InputType> input_types,
-    cp::OutputType output_type, PyObject* (*function)(PyObject*)) : arity_(std::move(arity)), input_types_(std::move(input_types)),
-     output_type_(output_type), function_(function) {} 
+  arrow::Status Make(cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                     arrow::Datum* out) {
+    Py_Initialize();
+    PyObject* args = PyTuple_Pack(1, PyLong_FromLong(2));
+    PyObject* myResult = function_(args);
+    int64_t result = PyLong_AsLong(myResult);
+    Py_Finalize();
+    std::cout << "Value : " << result << std::endl;
+    arrow::Result<arrow::Datum> maybe_result;
+    arrow::Int64Builder builder(arrow::default_memory_pool());
+    std::shared_ptr<arrow::Array> arr;
+    ABORT_ON_FAILURE(builder.Append(result));
+    ABORT_ON_FAILURE(builder.Finish(&arr));
+    maybe_result = cp::CallFunction("add", {batch[0].array(), arr});
+    *out->mutable_array() = *maybe_result.ValueOrDie().array();
+    return arrow::Status::OK();
+  }
 
-    arrow::Status Make(cp::KernelContext* ctx, const cp::ExecBatch& batch,
-                                  arrow::Datum* out) {
-      Py_Initialize();                                    
-      PyObject* args = PyTuple_Pack(1,PyLong_FromLong(2));                              
-      PyObject* myResult = function_(args);
-      int64_t result = PyLong_AsLong(myResult);
-      Py_Finalize();
-      std::cout << "Value : " << result << std::endl;
-      arrow::Result<arrow::Datum> maybe_result;
-      arrow::Int64Builder builder(arrow::default_memory_pool());
-      std::shared_ptr<arrow::Array> arr;
-      ABORT_ON_FAILURE(builder.Append(result));
-      ABORT_ON_FAILURE(builder.Finish(&arr));
-      maybe_result = cp::CallFunction("add", {batch[0].array(), arr});
-      *out->mutable_array() = *maybe_result.ValueOrDie().array();
-      return arrow::Status::OK();
-    }
-
-  private:
-    cp::Arity arity_;
-    std::vector<cp::InputType> input_types_;
-    cp::OutputType output_type_;
-    PyObject* (*function_)(PyObject*);
-
+ private:
+  cp::Arity arity_;
+  std::vector<cp::InputType> input_types_;
+  cp::OutputType output_type_;
+  PyObject* (*function_)(PyObject*);
 };
 
 arrow::Status Execute() {
   const std::string name = "x+x";
-  
-  ScalarUDF func_gen(cp::Arity::Unary(), {cp::InputType::Array(arrow::int64())}, arrow::int64(), &MultiplyFunction);
-  
-
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
-  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(), ExampleFunctionImpl);
-  
+  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
+                          ExampleFunctionImpl);
+
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
 
   ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
@@ -361,12 +365,41 @@ arrow::Status Execute() {
   return future.status();
 }
 
+arrow::Status ExecuteSynth() {
+
+  std::string func_name = "simple_func";
+  cp::Arity arity = cp::Arity::Unary();
+  const cp::FunctionDoc func_doc3{
+    "Example function to demonstrate registering an out-of-tree function",
+    "",
+    {"x"},
+    "ExampleFunctionOptions3"};  
+  std::vector<cp::InputType> in_types = {cp::InputType::Array(arrow::int64())};
+  cp::OutputType out_type = arrow::int64();
+
+  arrow::py::UDFSynthesizer udf_sync(func_name, arity, func_doc3, in_types, out_type, ExampleFunctionImpl);
+  ABORT_ON_FAILURE(udf_sync.MakeFunction());
+
+  arrow::Int64Builder builder(arrow::default_memory_pool());
+  std::shared_ptr<arrow::Array> arr1, arr2;
+  ABORT_ON_FAILURE(builder.Append(42));
+  ABORT_ON_FAILURE(builder.Finish(&arr1));
+  auto options = std::make_shared<ExampleFunctionOptions>();
+  auto maybe_result = cp::CallFunction(func_name, {arr1}, options.get());
+  ABORT_ON_FAILURE(maybe_result.status());
+
+  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
+
+
+  return arrow::Status::OK();
+}
+
 arrow::Status ExecutePy() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),
                                ::arrow::internal::GetCpuThreadPool());
   const std::string name = "simple_func";
-  auto func2 =
-      std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
+  auto func2 = std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(),
+                                                              &func_doc2);
   arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int64())},
                                      arrow::int64(), ExamplePyFunctionImpl);
 
@@ -377,13 +410,15 @@ arrow::Status ExecutePy() {
 
   auto size_before_registration = registry->GetFunctionNames().size();
 
-  std::cout << "[Before] Func Reg Size: " << size_before_registration << ", " << registry->num_functions() << std::endl;
+  std::cout << "[Before] Func Reg Size: " << size_before_registration << ", "
+            << registry->num_functions() << std::endl;
 
   ABORT_ON_FAILURE(registry->AddFunction(std::move(func2)));
 
   auto size_after_registration = registry->GetFunctionNames().size();
 
-  std::cout << "[After] Func Reg Size: " << size_after_registration << ", " << registry->num_functions() << std::endl;
+  std::cout << "[After] Func Reg Size: " << size_after_registration << ", "
+            << registry->num_functions() << std::endl;
 
   arrow::Int64Builder builder(arrow::default_memory_pool());
   std::shared_ptr<arrow::Array> arr;
@@ -402,7 +437,7 @@ arrow::Status ExecutePy() {
 }
 
 int main(int argc, char** argv) {
-  auto status = Execute();
+  auto status = ExecuteSynth();
   if (!status.ok()) {
     std::cerr << "Error occurred : " << status.message() << std::endl;
     return EXIT_FAILURE;
