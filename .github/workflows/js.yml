@@ -94,7 +94,7 @@ jobs:
 
   windows:
     name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: github.event_name == 'push'
     strategy:
       fail-fast: false
