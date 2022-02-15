@@ -96,8 +96,7 @@ groups:
     - test-*kartothek*
     - test-*pandas*
     - test-*spark*
-    # TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
-    # - test-*turbodbc*
+    - test-*turbodbc*
 
   example:
     - example-*
@@ -1412,19 +1411,18 @@ tasks:
       image: conda-python-dask
 {% endfor %}
 
-# TEMP disable because those are failing due to needing upstream fix (ARROW-13594)
-# {% for turbodbc_version in ["latest", "master"] %}
-#   test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
-#     ci: github
-#     template: docker-tests/github.linux.yml
-#     params:
-#       env:
-#         PYTHON: 3.7
-#         TURBODBC: {{ turbodbc_version }}
-#       # use the latest turbodbc release, so prevent reusing any cached layers
-#       flags: --no-leaf-cache
-#       image: conda-python-turbodbc
-# {% endfor %}
+{% for turbodbc_version in ["latest", "master"] %}
+  test-conda-python-3.7-turbodbc-{{ turbodbc_version }}:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: 3.7
+        TURBODBC: {{ turbodbc_version }}
+      # use the latest turbodbc release, so prevent reusing any cached layers
+      flags: --no-leaf-cache
+      image: conda-python-turbodbc
+{% endfor %}
 
 {% for kartothek_version in ["latest", "master"] %}
   test-conda-python-3.7-kartothek-{{ kartothek_version }}:
