@@ -435,8 +435,6 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   // import necessary modules
   RETURN_NOT_OK(internal::ImportModule("pytz", &module_pytz));
   RETURN_NOT_OK(internal::ImportModule("datetime", &module_datetime));
-  RETURN_NOT_OK(internal::ImportModule("zoneinfo", &module_zoneinfo));
-  RETURN_NOT_OK(internal::ImportModule("dateutil", &module_dateutil));
   // import necessary classes
   RETURN_NOT_OK(
       internal::ImportFromModule(module_pytz.obj(), "_FixedOffset", &class_fixedoffset));
