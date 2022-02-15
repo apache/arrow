@@ -784,5 +784,20 @@ test_that("semester works with temporal types and integers", {
       collect(),
     regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[string])",
     fixed = TRUE
+    )
+  })
+
+test_that("dst extracts daylight savings time correctly", {
+  test_df <- tibble(
+    dates = as.POSIXct(c("2021-02-20", "2021-07-31", "2021-10-31", "2021-01-31"), tz = "Europe/London")
+  )
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(dst = dst(dates)) %>%
+      collect(),
+    test_df
   )
 })
