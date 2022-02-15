@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "adbc/c/types.h"
@@ -60,12 +61,20 @@ TEST(Adbc, Errors) {
   ASSERT_NE(connection.private_data, nullptr);
 
   ASSERT_NE(connection.get_error, nullptr);
+  int count = 0;
   while (true) {
     char* message = connection.get_error(&connection);
     if (!message) break;
+    count++;
     ARROW_LOG(WARNING) << "Got error message: " << message;
-    delete message;
+    EXPECT_THAT(message,
+                ::testing::HasSubstr(
+                    "[ADBC] AdbcConnectionInit: could not load libadbc_driver_fake.so"));
+    // TODO: prefer to make user delete message, or handle it in
+    // release (which means we have unbounded memory?)
+    delete[] message;
   }
+  ASSERT_EQ(1, count);
 
   ASSERT_NE(connection.release, nullptr);
   connection.release(&connection);
@@ -99,5 +108,6 @@ TEST(AdbcSql, SqlExecute) {
   ADBC_ASSERT_OK(statement.close(&statement));
   statement.release(&statement);
 
+  ADBC_ASSERT_OK(connection.close(&connection));
   connection.release(&connection);
 }

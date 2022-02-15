@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <arrow/c/abi.h>
@@ -74,16 +75,15 @@ struct AdbcConnectionOptions {
   const char* target;
 };
 
-// TODO: Do we prefer an API like this, which mimics Arrow C ABI more,
-// or something more like ODBC which basically assumes the presence of
-// a driver manager and use of dlopen/LoadLibrary?
+// TODO: Do we prefer an API like this, which mimics Arrow C ABI/OOP
+// more, or something more like ODBC which is more procedural?
 
 /// \brief An active database connection.
 ///
 /// Provides methods for query execution, managing prepared
 /// statements, using transactions, and so on.
 ///
-/// TODO: thread safety? Send+Sync?
+/// TODO: thread safety guarantees? Send+Sync?
 struct AdbcConnection {
   /// \name Common Functions
   /// Standard functions for memory management and error handling of
@@ -113,6 +113,13 @@ struct AdbcConnection {
   enum AdbcStatusCode (*sql_execute)(struct AdbcConnection* connection, const char* query,
                                      struct AdbcStatement* statement);
 
+  /// \brief Prepare a query to be executed multiple times.
+  ///
+  /// TODO: this should return AdbcPreparedStatement to disaggregate
+  /// preparation and execution
+  enum AdbcStatusCode (*sql_prepare)(struct AdbcConnection* connection, const char* query,
+                                     struct AdbcStatement* statement);
+
   ///@}
 
   /// \name Substrait Semantics
@@ -121,15 +128,18 @@ struct AdbcConnection {
 
   ///@}
 
-  /// \name Prepared Statements
-  /// TODO DESCRIPTION GOES HERE
+  /// \name Partitioned Results
+  /// Some backends may internally partition the results. These
+  /// partitions are exposed to clients who may wish to integrate them
+  /// with a threaded or distributed execution model, where partitions
+  /// can be divided among threads or machines.
   ///@{
 
-  ///@}
-
-  /// \name Transactions
-  /// TODO DESCRIPTION GOES HERE
-  ///@{
+  /// \brief Construct a statement for a partition of a query. The
+  ///   statement can then be read independently.
+  enum AdbcStatusCode (*deserialize_partition)(struct AdbcConnection* connection,
+                                               const char* partition,
+                                               struct AdbcStatement* statement);
 
   ///@}
 
@@ -154,13 +164,7 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
 // originally had separate functions for each handle type); is there
 // any benefit to doing this for us? what was the motivation?
 
-// TODO: take a look at what JDBC does for this
-// TODO: take a closer look at what ODBC does for this
-// TODO: PEP 249 seems to call this a "Cursor" though the concept is different
-// TODO: ODBC has its own "cursor"
-// TODO: relation between this and a prepared statement
-
-/// \brief The results of executing a statement.
+/// \brief A statement that can be consumed to produce a result.
 struct AdbcStatement {
   /// \name Common Functions
   /// Standard functions for memory management and error handling of
@@ -188,6 +192,35 @@ struct AdbcStatement {
   enum AdbcStatusCode (*get_results)(struct AdbcStatement* statement,
                                      struct ArrowArrayStream* out);
 
+  /// \name Partitioned Results
+  /// Some backends may internally partition the results. These
+  /// partitions are exposed to clients who may wish to integrate them
+  /// with a threaded or distributed execution model, where partitions
+  /// can be divided among threads or machines.
+  ///@{
+
+  /// \brief Get the number of partitions in this statement.
+  ///
+  /// May be 0, if this statement cannot be distributed. (For example,
+  /// in the case of an in-memory database.)
+  size_t (*num_partitions)(struct AdbcStatement* statement);
+
+  /// \brief Get the partitions of this evaluated statement.
+  ///
+  /// The partitions can be reconstructed via
+  /// AdbcConnection::deserialize_partition. Effectively, this means
+  /// AdbcStatement is similar to arrow::flight::FlightInfo in
+  /// Flight/Flight SQL and get_partitions is similar to getting the
+  /// arrow::flight::Ticket.
+  ///
+  /// \return partitions An array of strings of length
+  ///   num_partitions. The caller is responsible for: freeing the
+  ///   individual strings in the result, and freeing the result array
+  ///   itself.
+  char** (*get_partitions)(struct AdbcStatement* statement);
+
+  ///@}
+
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
@@ -197,6 +230,17 @@ struct AdbcStatement {
 
 /// \page typical-usage Typical Usage Patterns
 /// (describe request sequences)
+
+/// \page decoder-ring Decoder Ring
+///
+/// ADBC - Flight SQL - JDBC - ODBC
+///
+/// AdbcConnection - FlightClient - Connection - Connection handle
+///
+/// AdbcStatement - FlightInfo - Statement - Statement handle
+///
+/// ArrowArrayStream - FlightStream (Java)/RecordBatchReader (C++) -
+/// ResultSet - Statement handle
 
 #ifdef __cplusplus
 }
