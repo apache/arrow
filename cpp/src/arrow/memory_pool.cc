@@ -30,13 +30,6 @@
 #include <stdlib.h>
 #endif
 
-#ifndef ARROW_DISABLE_MMAP_FOR_IMMUTABLE_ZEROS
-#ifdef __linux__
-#define USE_MMAP_FOR_IMMUTABLE_ZEROS
-#include <sys/mman.h>
-#endif
-#endif
-
 #include "arrow/buffer.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
@@ -645,33 +638,23 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
  protected:
   virtual Status AllocateImmutableZeros(int64_t size, uint8_t** out) {
-#ifdef USE_MMAP_FOR_IMMUTABLE_ZEROS
-    if (size > 0) {
-      *out = static_cast<uint8_t*>(mmap(
-          nullptr, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
-      if (*out == MAP_FAILED) {
-        auto err = errno;
-        return Status::OutOfMemory("Failed to allocate zero buffer of size ", size, ": ",
-                                   strerror(err));
-      }
-      return Status::OK();
-    }
-#endif
+#ifdef ARROW_DISABLE_MMAP_FOR_IMMUTABLE_ZEROS
     // TODO: jemalloc and mimalloc support zero-initialized allocations as
     //  well, which might be faster than allocate + memset.
     RETURN_NOT_OK(Allocate(size, out));
     std::memset(*out, 0, size);
     return Status::OK();
+#else
+    return internal::MemoryMapZeros(size, out);
+#endif
   }
 
   void FreeImmutableZeros(uint8_t* buffer, int64_t size) override {
-#ifdef USE_MMAP_FOR_IMMUTABLE_ZEROS
-    if (size > 0) {
-      munmap(buffer, size);
-      return;
-    }
-#endif
+#ifdef ARROW_DISABLE_MMAP_FOR_IMMUTABLE_ZEROS
     Free(buffer, size);
+#else
+    internal::MemoryUnmapZeros(buffer, size);
+#endif
   }
 
  public:

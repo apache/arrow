@@ -180,6 +180,11 @@ ARROW_EXPORT
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions);
 
 ARROW_EXPORT
+Status MemoryMapZeros(size_t size, uint8_t** out);
+ARROW_EXPORT
+void MemoryUnmapZeros(uint8_t* buffer, size_t size);
+
+ARROW_EXPORT
 Result<std::string> GetEnvVar(const char* name);
 ARROW_EXPORT
 Result<std::string> GetEnvVar(const std::string& name);

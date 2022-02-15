@@ -1139,6 +1139,41 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
 }
 
 //
+// Compatible way for getting (large amounts of) immutable, zeroed memory
+//
+
+Status MemoryMapZeros(size_t size, uint8_t** out) {
+#ifdef __linux__
+  *out = static_cast<uint8_t*>(
+      mmap(nullptr, size, PROT_READ, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0));
+  if (*out == MAP_FAILED) {
+    auto err = errno;
+    return Status::OutOfMemory("Failed to allocate zero buffer of size ", size, ": ",
+                               strerror(err));
+  }
+  return Status::OK();
+#else
+  // Fallback.
+  // TODO: can use VirtualAlloc for Windows
+  *out = static_cast<uint8_t*>(std::calloc(1, size));
+  if (*out == nullptr) {
+    auto err = errno;
+    return Status::OutOfMemory("Failed to allocate zero buffer of size ", size, ": ",
+                               strerror(err));
+  }
+  return Status::OK();
+#endif
+}
+
+void MemoryUnmapZeros(uint8_t* buffer, size_t size) {
+#ifdef __linux__
+  munmap(buffer, size);
+#else
+  std::free(buffer);
+#endif
+}
+
+//
 // Closing files
 //
 
