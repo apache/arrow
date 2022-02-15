@@ -70,6 +70,12 @@ jobs:
           ARROW_R_DEV: TRUE
         run: |
           cd arrow/r
+          export CC="$(brew --prefix llvm)/bin/clang"
+          export CXX="$(brew --prefix llvm)/bin/clang++"
+          echo "CC: ${CC}"
+          echo "CC: ${CXX}"
+          ${CC} --version
+          ${CXX} --version
           R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
