@@ -80,7 +80,8 @@ from pyarrow._compute import (  # noqa
     _group_by,
     # Expressions
     Expression,
-    UDFInterpreter
+    UDFInterpreter,
+    UDFSynthesizer
 )
 
 from collections import namedtuple

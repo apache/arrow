@@ -2390,21 +2390,62 @@ cdef class UDFInterpreter:
             c_string c_func_name
             Arity c_arity
             CFunctionDoc c_func_doc
+            ExecFunc c_callback
 
         c_func_name = function_name.encode()
         c_arity = <Arity>(arity)
         c_func_doc = _make_function_doc(function_doc)
 
-    
 
     @staticmethod
-    cdef CStatus ExecFunc(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
+    cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
         cdef:
-            CDatum res
-        val = lib.asarray([10])
-        res = CDatum((<Array> val).sp_array)
-        out = &res
+            CDatum* res
+        #val = lib.asarray([10])
+        #res = CDatum((<Array> val).sp_array)
         return CStatus_OK()
 
+cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
+    return CStatus_OK()
 
+cdef class UDFSynthesizer:
+
+    def __init__(self):
+        # TODO: find a better Exception type to return the response
+        raise ValueError("Cannot be initialized using the constructor.")
+
+    @staticmethod
+    def register_function(func_name, arity, function_doc, in_types, out_type, callback):
+        cdef:
+            c_string c_func_name
+            CArity c_arity
+            CFunctionDoc c_func_doc
+            CInputType in_tmp
+            vector[CInputType] c_in_types
+            ExecFunc c_callback
+            shared_ptr[CDataType] c_type
         
+        if func_name and isinstance(func_name, str):
+            c_func_name = func_name.encode()
+        else:
+            raise ValueError("func_name should be str")
+        
+        if arity and isinstance(arity, Arity):
+            c_arity = (<Arity> arity).arity
+        else:
+            raise ValueError("arity must be an instance of Arity")
+        
+        c_func_doc = _make_function_doc(function_doc)
+
+        if in_types and isinstance(in_types, list):
+            for in_type in in_types:
+                in_tmp = (<InputType> in_type).input_type
+                c_in_types.push_back(in_tmp)
+
+        c_type = pyarrow_unwrap_data_type(out_type)
+
+        c_callback = <ExecFunc>udf
+        cdef COutputType* c_out_type = new COutputType(c_type)
+        cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
+            c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
+        c_udf_syn.MakeFunction()
