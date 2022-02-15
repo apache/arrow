@@ -675,50 +675,53 @@ class BaseMemoryPoolImpl : public MemoryPool {
  public:
   Result<std::shared_ptr<Buffer>> GetImmutableZeros(int64_t size) override {
     // Thread-safely get the current largest buffer of zeros.
-    std::shared_ptr<ImmutableZeros> current_buffer;
-    {
-      std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
-      current_buffer = immutable_zeros_cache_;
+    auto current_buffer = atomic_load(&immutable_zeros_cache_);
+
+    // If this buffer satisfies the requirements, return it.
+    if (current_buffer && current_buffer->size() >= size) {
+      return std::move(current_buffer);
     }
 
-    // If no buffer exists yet or the current buffer isn't large enough,
-    // acquire the mutex for growing the buffer, then try again (another thread
-    // may have beat us to it and have grown the buffer already while we're
-    // waiting for the lock).
-    if (!current_buffer || current_buffer->size() < size) {
-      std::lock_guard<std::mutex> gg(immutable_zeros_grow_mutex_);
-      {
-        std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
-        current_buffer = immutable_zeros_cache_;
-      }
+    // Acquire the lock for allocating a new buffer.
+    std::lock_guard<std::mutex> gg(immutable_zeros_mutex_);
 
-      // If the buffer is still not large enough, heuristically allocate a
-      // larger buffer. Try to allocate at least twice the size of the current
-      // buffer first, to prevent allocating lots of buffers for subsequent
-      // calls with slightly larger sizes. Fall back to the requested size if
-      // this fails.
-      if (!current_buffer || current_buffer->size() < size) {
-        uint8_t* data = nullptr;
-        int64_t alloc_size;
-        if (current_buffer && size < current_buffer->size() * 2) {
-          alloc_size = current_buffer->size() * 2;
-          if (!AllocateImmutableZeros(alloc_size, &data).ok()) {
-            data = nullptr;
-          }
-        }
-        if (data == nullptr) {
-          alloc_size = size;
-          RETURN_NOT_OK(AllocateImmutableZeros(alloc_size, &data));
-        }
-        current_buffer = std::make_shared<ImmutableZeros>(data, alloc_size, this);
-
-        // Save the new buffer for other threads to use.
-        {
-          std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
-          immutable_zeros_cache_ = current_buffer;
-        }
-      }
+    // Between our previous atomic load and acquisition of the lock, another
+    // thread may have allocated a buffer. So we need to check again.
+    current_buffer = atomic_load(&immutable_zeros_cache_);
+    if (current_buffer && current_buffer->size() >= size) {
+      return std::move(current_buffer);
     }
+
+    // Let's now figure out a good size to allocate. This is done
+    // heuristically, with the following rules:
+    //  - allocate at least the requested size (obviously);
+    //  - allocate at least 2x the previous size;
+    //  - allocate at least MIN_ALLOC_SIZE bytes (to avoid lots of small
+    //    allocations).
+    static const int64_t MIN_ALLOC_SIZE = 4096;
+    int64_t alloc_size =
+        std::max(size, current_buffer ? (current_buffer->size() * 2) : MIN_ALLOC_SIZE);
+
+    // Attempt to allocate the block.
+    uint8_t* data = nullptr;
+    auto result = AllocateImmutableZeros(alloc_size, &data);
+
+    // If we fail to do so, fall back to trying to allocate the requested size
+    // exactly as a last-ditch effort.
+    if (!result.ok() || data == nullptr) {
+      alloc_size = size;
+      RETURN_NOT_OK(AllocateImmutableZeros(alloc_size, &data));
+    }
+    DCHECK_NE(data, nullptr);
+
+    // Move ownership of the data block into an ImmutableZeros object. It will
+    // free the block when destroyed, i.e. when all shared_ptr references to it
+    // are reset or go out of scope.
+    current_buffer = std::make_shared<ImmutableZeros>(data, alloc_size, this);
+
+    // Store a reference to the new block in the cache, so subsequent calls to
+    // this function (from this thread or from other threads) can use it, too.
+    atomic_store(&immutable_zeros_cache_, current_buffer);
 
     return std::move(current_buffer);
   }
@@ -728,9 +731,12 @@ class BaseMemoryPoolImpl : public MemoryPool {
     // there are other pieces of code using it, getting rid of the cache won't
     // deallocate it anyway, so it's better to hold onto it.
     {
-      std::lock_guard<std::mutex> ga(immutable_zeros_access_mutex_);
-      if (immutable_zeros_cache_.use_count() <= 1) {
-        immutable_zeros_cache_.reset();
+      auto cache = atomic_load(&immutable_zeros_cache_);
+
+      // Because we now have a copy in our thread, the use count will be 2 if
+      // nothing else is using it.
+      if (cache.use_count() <= 2) {
+        atomic_store(&immutable_zeros_cache_, std::shared_ptr<ImmutableZeros>());
       }
     }
 
@@ -744,8 +750,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
  protected:
   internal::MemoryPoolStats stats_;
   std::shared_ptr<ImmutableZeros> immutable_zeros_cache_;
-  std::mutex immutable_zeros_access_mutex_;
-  std::mutex immutable_zeros_grow_mutex_;
+  std::mutex immutable_zeros_mutex_;
 };
 
 class SystemMemoryPool : public BaseMemoryPoolImpl<SystemAllocator> {
