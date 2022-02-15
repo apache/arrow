@@ -46,7 +46,7 @@ In this section we outline steps needed for unit testing in Arrow.
       Test layout in PyArrow follows ``pytest`` structure for
       `Tests as part of application code <https://docs.pytest.org/en/6.2.x/goodpractices.html#tests-as-part-of-application-code>`_:
 
-      .. code:: console
+      .. code::
 
          pyarrow/
              __init__.py
@@ -97,7 +97,7 @@ In this section we outline steps needed for unit testing in Arrow.
 
       **Fixtures**
 
-      Inside pPyArrow tests files there can be helper functions
+      Inside PyArrow test files there can be helper functions
       and fixtures defined. Also other pytest decorators such as
       ``@parametrize`` or ``@skipif`` are used.
 
@@ -117,7 +117,7 @@ In this section we outline steps needed for unit testing in Arrow.
       the defined functions or fixtures will be helpful.
 
       For more information about ``pytest`` in general visit
-      `Full pytest documentation <https://docs.pytest.org/en/6.2.x/contents.html>`_
+      `Full pytest documentation <https://docs.pytest.org/en/stable/contents.html>`_
 
 
    .. tab:: R package
