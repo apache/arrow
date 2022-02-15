@@ -894,6 +894,7 @@ TEST_F(TestProjector, TestTrunc) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(2));
 
 }
 
