@@ -22,6 +22,7 @@
 * `lubridate`: 
   * `tz()` to extract/get timezone
   * `semester()` to extract/get semester
+* Additional `lubridate` features: `dst()`.
 
 # arrow 7.0.0
 
