@@ -16,10 +16,16 @@ concat_arrays(..., type = NULL)
 type for the final Array.}
 }
 \value{
-An \link{Array}
+A single \link{Array}
 }
 \description{
-Concatenate zero or more Arrays
+Concatenates zero or more \link{Array} objects into a single
+array. This operation will copy its input; if you need
+the behavior of a single Array but don't need a
+single object, use \link{ChunkedArray}. Note that a \code{\link[=c]{c()}}
+method is provided for convenience but that it may
+produce surprising results when used with other
+classes of objects.
 }
 \examples{
 \dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
