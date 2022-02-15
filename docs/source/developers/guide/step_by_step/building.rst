@@ -151,9 +151,9 @@ Building other Arrow libraries
 
       **Recompiling Cython**
 
-      If you only make changes to `.py` files, you do not need to
+      If you only make changes to ``.py`` files, you do not need to
       recompile PyArrow. However, you should recompile it if you make
-      changes in `.pyx` or `.pxd` files.
+      changes in ``.pyx`` or ``.pxd`` files.
 
       To do that run this command again:
 
