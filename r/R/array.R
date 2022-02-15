@@ -220,7 +220,7 @@ Array$import_from_c <- ImportArray
 #' Concatenate zero or more Arrays
 #'
 #' Concatenates zero or more [Array] objects into a single
-#' array. This operation will copy its input; if you need
+#' array. This operation will make a copy of its input; if you need
 #' the behavior of a single Array but don't need a
 #' single object, use [ChunkedArray]. Note that a [c()]
 #' method is provided for convenience but that it may
