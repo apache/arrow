@@ -657,6 +657,8 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::OK();
     }
 #endif
+    // TODO: jemalloc and mimalloc support zero-initialized allocations as
+    //  well, which might be faster than allocate + memset.
     RETURN_NOT_OK(Allocate(size, out));
     std::memset(*out, 0, size);
     return Status::OK();
