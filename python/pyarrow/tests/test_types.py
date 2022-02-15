@@ -24,7 +24,6 @@ import sys
 import pickle
 import pytest
 import pytz
-import zoneinfo
 import dateutil.tz
 import hypothesis as h
 import hypothesis.strategies as st
@@ -300,13 +299,20 @@ def test_is_primitive():
     (pytz.FixedOffset(180), '+03:00'),
     (datetime.timezone.utc, 'UTC'),
     (datetime.timezone(datetime.timedelta(hours=1, minutes=30)), '+01:30'),
-    (zoneinfo.ZoneInfo('Europe/Paris'), 'Europe/Paris'),
-    (zoneinfo.ZoneInfo('UTC'), 'UTC'),
     (dateutil.tz.gettz('Europe/Brussels'), 'Europe/Brussels'),
     (dateutil.tz.UTC, 'UTC')
 ])
 def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
+
+
+def test_zoneinfo_tzinfo_to_string():
+    zoneinfo = pytest.importorskip('zoneinfo')
+
+    tz = zoneinfo.ZoneInfo('UTC')
+    assert pa.lib.tzinfo_to_string(tz) == 'UTC'
+    tz = zoneinfo.ZoneInfo('Europe/Paris')
+    assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
 def test_tzinfo_to_string_errors():
