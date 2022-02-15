@@ -1796,7 +1796,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CExecContext" arrow::compute::ExecContext":
         CExecContext()
         CExecContext(CMemoryPool* pool)
-        
+
         CMemoryPool* memory_pool() const
 
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
@@ -2435,7 +2435,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
     cdef cppclass CExecNodeOptions "arrow::compute::ExecNodeOptions":
         pass
-    
+
     cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
         @staticmethod
         CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table)
@@ -2450,7 +2450,13 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":
+        cppclass Input:
+            Input(CExecNode*)
+            Input(CDeclaration)
+
         c_string label
+        vector[Input] inputs
+
         CDeclaration(c_string factory_name, CExecNodeOptions options)
 
         @staticmethod
@@ -2475,13 +2481,13 @@ cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nog
 
     cdef cppclass CExecBatch "arrow::compute::ExecBatch":
         pass
-    
+
     shared_ptr[CRecordBatchReader] MakeGeneratorReader(
         shared_ptr[CSchema] schema,
         CAsyncExecBatchGenerator gen,
         CMemoryPool* memory_pool
     )
-    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan, 
+    CResult[CExecNode*] MakeExecNode(c_string factory_name, CExecPlan* plan,
                                      vector[CExecNode*] inputs,
                                      const CExecNodeOptions& options)
 
