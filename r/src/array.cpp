@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/byte_size.h>
 
@@ -320,6 +321,18 @@ bool Array__Same(const std::shared_ptr<arrow::Array>& x,
 // [[arrow::export]]
 int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
   return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots) {
+  arrow::ArrayVector vector;
+  vector.reserve(dots.size());
+
+  for (const cpp11::sexp& item : dots) {
+    vector.push_back(cpp11::as_cpp<std::shared_ptr<arrow::Array>>(item));
+  }
+
+  return ValueOrStop(arrow::Concatenate(vector));
 }
 
 #endif
