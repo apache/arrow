@@ -137,8 +137,6 @@ class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
                            util::BackpressureOptions backpressure = {})
       : generator(generator), backpressure(std::move(backpressure)) {}
 
-  static std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<AsyncGenerator<util::optional<compute::ExecBatch>>>> MakeWithAsyncGenerator();
-
   std::function<Future<util::optional<ExecBatch>>()>* generator;
   util::BackpressureOptions backpressure;
 };

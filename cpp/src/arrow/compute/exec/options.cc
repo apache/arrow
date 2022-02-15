@@ -60,13 +60,5 @@ Result<std::shared_ptr<SourceNodeOptions>> SourceNodeOptions::FromTable(const Ta
   return std::shared_ptr<SourceNodeOptions>(new SourceNodeOptions(table.schema(), batch_gen));
 }
 
-
-std::pair<std::shared_ptr<SinkNodeOptions>, std::shared_ptr<AsyncGenerator<util::optional<compute::ExecBatch>>>> SinkNodeOptions::MakeWithAsyncGenerator() {
-  auto sink_gen = std::make_shared<AsyncGenerator<util::optional<compute::ExecBatch>>>();
-  auto node_options = std::shared_ptr<SinkNodeOptions>(new compute::SinkNodeOptions(sink_gen.get()));
-
-  return std::make_pair(node_options, sink_gen);
-}
-
 }  // namespace compute
 }  // namespace arrow

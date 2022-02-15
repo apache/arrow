@@ -22,14 +22,14 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference as deref, preincrement as inc
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes
 
-cdef (shared_ptr[CAsyncExecBatchGenerator], shared_ptr[CExecPlan], shared_ptr[CRecordBatchReader]) execplan(t):
+cdef execplan(input_t, output_type, vector[CDeclaration] plan):
     cdef:
         CExecContext c_exec_context = CExecContext(c_default_memory_pool())
         shared_ptr[CExecPlan] c_exec_plan = GetResultValue(CExecPlan.Make(&c_exec_context))
@@ -38,31 +38,36 @@ cdef (shared_ptr[CAsyncExecBatchGenerator], shared_ptr[CExecPlan], shared_ptr[CR
         CExecNode *c_final_node
         CExecNode *c_sink_node
         CTable* c_table
+        shared_ptr[CTable] c_out_table
         shared_ptr[CSourceNodeOptions] c_sourceopts
         shared_ptr[CSinkNodeOptions] c_sinkopts
         shared_ptr[CAsyncExecBatchGenerator] c_asyncexecbatchgen
         shared_ptr[CRecordBatchReader] c_recordbatchreader
+        vector[CDeclaration].iterator plan_iter
 
-    if isinstance(t, Table):
-        c_table = pyarrow_unwrap_table(t).get()
+    if isinstance(input_t, Table):
+        c_in_table = pyarrow_unwrap_table(input_t).get()
+        c_sourceopts = GetResultValue(CSourceNodeOptions.FromTable(deref(c_in_table)))
     else:
         raise ValueError("Unsupproted type")
     
-    c_sourceopts = GetResultValue(CSourceNodeOptions.FromTable(deref(c_table)))
     c_decls.push_back(CDeclaration(tobytes("source"), deref(c_sourceopts)))
     c_decls[0].label = tobytes("source")
     
     # Add Here additional nodes
-    CDeclaration.Sequence(c_decls).AddToPlan(&deref(c_exec_plan))
+    plan_iter = plan.begin()
+    while plan_iter != plan.end():
+        c_decls.push_back(deref(plan_iter))
+        inc(plan_iter)
 
-    c_final_node_vec = deref(c_exec_plan).sinks()
-    if c_final_node_vec.size() == 0:
-        c_final_node_vec = deref(c_exec_plan).sources()
-    c_final_node = c_final_node_vec[0]
+    # Add all CDeclarations to the plan
+    c_final_node = GetResultValue(
+        CDeclaration.Sequence(c_decls).AddToPlan(&deref(c_exec_plan))
+    )
+    c_final_node_vec.push_back(c_final_node)
 
-    res = CSinkNodeOptions.MakeWithAsyncGenerator()
-    c_sinkopts = res.first
-    c_asyncexecbatchgen = res.second
+    c_asyncexecbatchgen = make_shared[CAsyncExecBatchGenerator]()
+    c_sinkopts = make_shared[CSinkNodeOptions](c_asyncexecbatchgen.get())
     c_sink_node = GetResultValue(
         MakeExecNode(tobytes("sink"), &deref(c_exec_plan), c_final_node_vec, deref(c_sinkopts))
     )
@@ -74,29 +79,33 @@ cdef (shared_ptr[CAsyncExecBatchGenerator], shared_ptr[CExecPlan], shared_ptr[CR
     deref(c_exec_plan).Validate()
     deref(c_exec_plan).StartProducing()
 
-    return (c_asyncexecbatchgen, c_exec_plan, c_recordbatchreader)
+    if output_type == Table:
+        c_out_table = GetResultValue(CTable.FromRecordBatchReader(c_recordbatchreader.get()))
+        output = pyarrow_wrap_table(c_out_table)
+    else:
+        raise TypeError("Unsupported output type")
+
+    deref(c_exec_plan).StopProducing()
+
+    return output
 
 def test():
+    # Currently run with
+    #     python -c "__import__('pyarrow._exec_plan')._exec_plan.test()"
     cdef:
-        shared_ptr[CTable] c_table
-        shared_ptr[CExecPlan] c_exec_plan
-        shared_ptr[CAsyncExecBatchGenerator] c_asyncexecbatchgen
-        shared_ptr[CRecordBatchReader] c_recordbatchreader
-        shared_ptr[CSchema] c_schema
+        vector[CExpression] c_project_expr
+        vector[c_string] c_project_names
+        vector[CDeclaration] c_decl_plan
 
     t = Table.from_pydict({
         "col1": [1, 2, 3, 4, 5],
         "col2": ["a", "b", "c", "d", "e"]
     })
     
-    res = execplan(t)
-    c_asyncexecbatchgen = res[0]
-    c_exec_plan = res[1]
-    c_recordbatchreader = res[2]
-
-    c_table = GetResultValue(CTable.FromRecordBatchReader(c_recordbatchreader.get()))
-    table = pyarrow_wrap_table(c_table)
-    
-    deref(c_exec_plan).StopProducing()
+    c_project_expr.push_back(CMakeFieldExpression(tobytes("col1")))
+    c_decl_plan.push_back(
+        CDeclaration(tobytes("project"), CProjectNodeOptions(c_project_expr))
+    )
+    table = execplan(t, output_type=Table, plan=c_decl_plan)
 
     print(table)

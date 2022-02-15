@@ -2441,9 +2441,12 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table)
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
-        @staticmethod
-        pair[shared_ptr[CSinkNodeOptions], shared_ptr[CAsyncExecBatchGenerator]] MakeWithAsyncGenerator()
+        pass
 
+    cdef cppclass CProjectNodeOptions "arrow::compute::ProjectNodeOptions"(CExecNodeOptions):
+        CProjectNodeOptions(vector[CExpression] expressions)
+        CProjectNodeOptions(vector[CExpression] expressions,
+                            vector[c_string] names)
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":
