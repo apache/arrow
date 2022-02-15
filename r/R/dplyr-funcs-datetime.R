@@ -164,4 +164,7 @@ register_bindings_datetime <- function() {
       return(semester)
     }
   })
+  register_binding("date", function(x) {
+    x$cast(date32())
+  })
 }
