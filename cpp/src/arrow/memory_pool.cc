@@ -698,11 +698,11 @@ class BaseMemoryPoolImpl : public MemoryPool {
     // heuristically, with the following rules:
     //  - allocate at least the requested size (obviously);
     //  - allocate at least 2x the previous size;
-    //  - allocate at least MIN_ALLOC_SIZE bytes (to avoid lots of small
+    //  - allocate at least kMinAllocSize bytes (to avoid lots of small
     //    allocations).
-    static const int64_t MIN_ALLOC_SIZE = 4096;
+    static const int64_t kMinAllocSize = 4096;
     int64_t alloc_size =
-        std::max(size, current_buffer ? (current_buffer->size() * 2) : MIN_ALLOC_SIZE);
+        std::max(size, current_buffer ? (current_buffer->size() * 2) : kMinAllocSize);
 
     // Attempt to allocate the block.
     uint8_t* data = nullptr;
