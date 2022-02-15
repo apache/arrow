@@ -76,6 +76,7 @@ jobs:
           echo "CC: ${CXX}"
           ${CC} --version
           ${CXX} --version
+          mkdir -p ~/.R/
           echo "CC=$(brew --prefix llvm)/bin/clang" >> ~/.R/Makevars
           echo "CXX=$(brew --prefix llvm)/bin/clang++" >> ~/.R/Makevars
           echo "CXX11=$(brew --prefix llvm)/bin/clang++" >> ~/.R/Makevars
