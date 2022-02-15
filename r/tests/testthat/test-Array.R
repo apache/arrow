@@ -1028,6 +1028,11 @@ test_that("concat_arrays() coerces its input to Array", {
     concat_arrays(1L, "not a number", type = int32()),
     "cannot convert"
   )
+
+  expect_error(
+    concat_arrays(1L, "not a number"),
+    "must be identically typed"
+  )
 })
 
 test_that("c() works for Array", {
