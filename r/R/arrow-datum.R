@@ -70,13 +70,22 @@ as.vector.ArrowDatum <- function(x, mode) {
 
 #' @export
 Ops.ArrowDatum <- function(e1, e2) {
-  if (.Generic == "!") {
-    eval_array_expression(.Generic, e1)
-  } else if (.Generic %in% names(.array_function_map)) {
-    eval_array_expression(.Generic, e1, e2)
-  } else {
-    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  if (missing(e2)) {
+    switch(
+      .Generic,
+      "!" = return(eval_array_expression(.Generic, e1)),
+      "+" =, "-" = return(eval_array_expression(.Generic, 0L, e1)),
+    )
   }
+
+  switch(
+    .Generic,
+    "+" =, "-" =, "*" =, "/" =, "^" =, "%%" =, "%/%" =,
+    "==" =, "!=" =, "<" =, "<=" =, ">=" =, ">" =, "&" =, "|" = {
+      eval_array_expression(.Generic, e1, e2)
+    },
+    stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
+  )
 }
 
 # Wrapper around call_function that:
