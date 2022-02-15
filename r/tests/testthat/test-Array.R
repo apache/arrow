@@ -1023,6 +1023,11 @@ test_that("concat_arrays() coerces its input to Array", {
   concat_ints <- concat_arrays(1L, 2L)
   expect_true(concat_ints$type == int32())
   expect_true(all(concat_ints == Array$create(c(1L, 2L))))
+
+  expect_error(
+    concat_arrays(1L, "not a number", type = int32()),
+    "cannot convert"
+  )
 })
 
 test_that("c() works for Array", {
