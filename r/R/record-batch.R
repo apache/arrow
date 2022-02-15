@@ -123,7 +123,7 @@ RecordBatch <- R6Class("RecordBatch",
     },
     invalidate = function() {
       .Call(`_arrow_RecordBatch__Reset`, self)
-      super$invalidate()
+      assign(".:xp:.", NULL, envir = self)
     },
     export_to_c = function(array_ptr, schema_ptr) {
       ExportRecordBatch(self, array_ptr, schema_ptr)
