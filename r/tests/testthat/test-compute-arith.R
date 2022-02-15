@@ -150,9 +150,12 @@ test_that("Math group generics work on Array objects", {
   expect_equal(acos(Array$create(c(0.6, 0.9))), Array$create(acos(c(0.6, 0.9))))
   expect_equal(asin(Array$create(c(0.6, 0.9))), Array$create(asin(c(0.6, 0.9))))
   expect_equal(atan(Array$create(c(0.6, 0.9))), Array$create(atan(c(0.6, 0.9))))
-
-  # expect_equal(log(Array$create(c(0.6, 2.1))), Array$create(log(c(0.6, 2.1))))
-  # expect_equal(exp(Array$create(c(0.6, 2.1))), Array$create(exp(c(0.6, 2.1))))
+  expect_equal(log(Array$create(c(0.6, 2.1))), Array$create(log(c(0.6, 2.1))))
+  expect_equal(
+    log(Array$create(c(0.6, 2.1)), base = 2),
+    Array$create(log(c(0.6, 2.1), base = 2))
+  )
+  expect_equal(log10(Array$create(c(0.6, 2.1))), Array$create(log10(c(0.6, 2.1))))
 
   expect_error(
     sqrt(Array$create(c(4L, 1L))),

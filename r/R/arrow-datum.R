@@ -89,17 +89,19 @@ Ops.ArrowDatum <- function(e1, e2) {
 }
 
 #' @export
-Math.ArrowDatum <- function(x, ...) {
+Math.ArrowDatum <- function(x, ..., base = exp(1)) {
   switch(
     .Generic,
     abs =, sign =,
     floor =, ceiling =, trunc =,
-    round =, exp =, log =,
+    round =,
     acos =, asin =, atan =,
     cos =, sin =, tan = {
       eval_array_expression(.Generic, x)
     },
-    sqrt =,
+    log = eval_array_expression("logb_checked", x, base),
+    log10 = eval_array_expression("log10_checked", x),
+    sqrt =, exp =,
     signif =, expm1 =, log1p =,
     cospi =, sinpi =, tanpi =,
     cosh =, sinh =, tanh =,
