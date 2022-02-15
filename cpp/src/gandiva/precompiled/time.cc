@@ -993,7 +993,7 @@ static const int PARTTERN_MONTH_LEN[] = {5, 3, 2};
 
 static const char* PATTERN_YEAR[] = {"YEAR", "YYYY", "YY"};
 static const int PARTTERN_YEAR_LEN[] = {4, 4, 2};
-static const char* MAXDATE = "9999-12-31 23:59:59";
+//static const char* MAXDATE = "9999-12-31 23:59:59";
 
 FORCE_INLINE
 const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_length,
@@ -1017,12 +1017,6 @@ const char* trunc_utf8_utf8(int64_t context, const char* date, int32_t date_leng
       return "";                                                                       \
     }                                                                                  \
                                                                                        \
-    gdv_timestamp dateMax = castTIMESTAMP_utf8(context, MAXDATE, 19);                  \
-    if (date > dateMax) {                                                              \
-      gdv_fn_context_set_error_msg(context, "The date is invalid");                    \
-      *out_len = 0;                                                                    \
-      return "";                                                                       \
-    }                                                                                  \
     bool foundPattern = false;                                                         \
     for (int n = 0; n <= 2; n++) {                                                     \
       if (pattern_length == PARTTERN_MONTH_LEN[n] &&                                   \
