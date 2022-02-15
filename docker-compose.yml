@@ -1172,6 +1172,9 @@ services:
   ubuntu-r-only-r:
     environment:
       ARROW_DEPENDENCY_SOURCE: ''
+      ARROW_SOURCE_HOME: '/arrow'
+      FORCE_BUNDLED_BUILD: TRUE
+      LIBARROW_BUILD: TRUE
     extends: ubuntu-r
     command: >
       /bin/bash -c "
