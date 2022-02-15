@@ -88,6 +88,27 @@ Ops.ArrowDatum <- function(e1, e2) {
   )
 }
 
+#' @export
+Math.ArrowDatum <- function(x, ...) {
+  switch(
+    .Generic,
+    abs =, sign =, sqrt =,
+    floor =, ceiling =, trunc =,
+    round =, exp =, log =,
+    cos =, sin =, tan = {
+      eval_array_expression(.Generic, x)
+    },
+    signif =, expm1 =, log1p =,
+    cospi =, sinpi =, tanpi =,
+    acos =, asin =, atan =,
+    cosh =, sinh =, tanh =,
+    acosh =, asinh =, atanh =,
+    lgamma =, gamma =, digamma =, trigamma =,
+    cumsum =, cumprod =, cummax =, cumin =,
+    stop(paste0("Unsupported operation on `", class(x)[1L], "` : "), .Generic, call. = FALSE)
+  )
+}
+
 # Wrapper around call_function that:
 # (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
 # (2) wraps R input args as Array or Scalar
