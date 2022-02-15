@@ -280,7 +280,7 @@ test_that("arrow dplyr query can join on partition column", {
       group_by(stations) %>%
       write_dataset(file.path(dir_out, "ds1"))
 
-    quakes |>
+    quakes %>%
       select(stations, mag, depth) %>%
       group_by(stations) %>%
       write_dataset(file.path(dir_out, "ds2"))
