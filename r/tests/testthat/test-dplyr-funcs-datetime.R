@@ -714,18 +714,18 @@ test_that("am/pm mirror lubridate", {
 
 test_that("extract tz", {
   df <- tibble(
-    x = as.POSIXct(c("2022-02-07", "2022-02-10"), tz = "Pacific/Marquesas"),
-    #lubridate::tz() returns -for the time being - "UTC" for NAs, strings,
-    #dates and numerics
-    y = c("2022-02-07", NA),
-    z = as.Date(c("2022-02-07", NA)),
-    w = c(1L, 5L),
-    v = c(1.1, 2.47)
+    posixct_date = as.POSIXct(c("2022-02-07", "2022-02-10"), tz = "Pacific/Marquesas"),
+    # lubridate::tz() returns -for the time being - "UTC" for NAs, strings,
+    # dates and numerics
+    char_date = c("2022-02-07", NA),
+    date_date = as.Date(c("2022-02-07", NA)),
+    integer_date = c(1L, 5L),
+    double_date = c(1.1, 2.47)
   )
 
   compare_dplyr_binding(
     .input %>%
-      mutate(timezone_x = tz(x)) %>%
+      mutate(timezone_posixct_date = tz(posixct_date)) %>%
       collect(),
     df
   )
@@ -734,8 +734,21 @@ test_that("extract tz", {
     compare_dplyr_binding(
       .input %>%
         mutate(
-          timezone_y = tz(x),
-          timezone_z = tz(y)
+          timezone_posixct_date = tz(posixct_date),
+          timezone_char_date = tz(char_date)
+        ) %>%
+        collect(),
+      df
+    ),
+    error = TRUE
+  )
+
+  expect_snapshot(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(
+          timezone_posixct_date = tz(posixct_date),
+          timezone_date_date = tz(date_date)
         ) %>%
         collect(),
       df
@@ -746,8 +759,8 @@ test_that("extract tz", {
     compare_dplyr_binding(
       .input %>%
         mutate(
-          timezone_y = tz(x),
-          timezone_z = tz(z)
+          timezone_posixct_date = tz(posixct_date),
+          timezone_integer_date = tz(integer_date)
         ) %>%
         collect(),
       df
@@ -758,20 +771,8 @@ test_that("extract tz", {
     compare_dplyr_binding(
       .input %>%
         mutate(
-          timezone_y = tz(x),
-          timezone_w = tz(w)
-        ) %>%
-        collect(),
-      df
-    ),
-    error = TRUE
-  )
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(
-          timezone_y = tz(x),
-          timezone_v = tz(v)
+          timezone_posixct_date = tz(posixct_date),
+          timezone_double_date = tz(double_date)
         ) %>%
         collect(),
       df
