@@ -179,32 +179,32 @@ struct SourceNode : ExecNode {
 
 struct TableSourceNode : public SourceNode {
   TableSourceNode(ExecPlan* plan, std::shared_ptr<Table> table, int64_t batch_size)
-      : SourceNode(plan, table->schema(), TableGenerator(*table.get(), batch_size)) {}
+      : SourceNode(plan, table->schema(), TableGenerator(*table, batch_size)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
     RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 0, "TableSourceNode"));
     const auto& table_options = checked_cast<const TableSourceNodeOptions&>(options);
-    const auto table = table_options.table;
+    const auto& table = table_options.table;
     const int64_t batch_size = table_options.batch_size;
 
-    RETURN_NOT_OK(ValidateTableSourceNodeInpute(table, batch_size, "TableSourceNode"));
+    RETURN_NOT_OK(ValidateTableSourceNodeInput(table, batch_size));
 
     return plan->EmplaceNode<TableSourceNode>(plan, table, batch_size);
   }
 
   const char* kind_name() const override { return "TableSourceNode"; }
 
-  static arrow::Status ValidateTableSourceNodeInpute(const std::shared_ptr<Table> table,
-                                                     const int64_t batch_size,
-                                                     const char* kind_name) {
+  static arrow::Status ValidateTableSourceNodeInput(const std::shared_ptr<Table> table,
+                                                    const int64_t batch_size) {
     if (table == nullptr) {
-      return Status::Invalid(kind_name, " node requires table which is not null");
+      return Status::Invalid("TableSourceNode node requires table which is not null");
     }
 
     if (batch_size <= 0) {
       return Status::Invalid(
-          kind_name, " node requires, batch_size > 0 , but got batch size ", batch_size);
+          "TableSourceNode node requires, batch_size > 0 , but got batch size ",
+          batch_size);
     }
 
     return Status::OK();
@@ -213,8 +213,9 @@ struct TableSourceNode : public SourceNode {
   static arrow::AsyncGenerator<util::optional<ExecBatch>> TableGenerator(
       const Table& table, const int64_t batch_size) {
     auto batches = ConvertTableToExecBatches(table, batch_size);
-    auto opt_batches = MapVector(
-        [](ExecBatch batch) { return util::make_optional(std::move(batch)); }, batches);
+    auto opt_batches =
+        MapVector([](ExecBatch batch) { return util::make_optional(std::move(batch)); },
+                  std::move(batches));
     AsyncGenerator<util::optional<ExecBatch>> gen;
     gen = MakeVectorGenerator(std::move(opt_batches));
     return gen;
@@ -225,22 +226,19 @@ struct TableSourceNode : public SourceNode {
     std::shared_ptr<TableBatchReader> reader = std::make_shared<TableBatchReader>(table);
 
     // setting chunksize for the batch reader
-    if (batch_size > 0) {
-      reader->set_chunksize(batch_size);
-    }
+    reader->set_chunksize(batch_size);
 
     std::shared_ptr<RecordBatch> batch;
     std::vector<ExecBatch> exec_batches;
     while (true) {
       auto batch_res = reader->Next();
       if (batch_res.ok()) {
-        batch = batch_res.ValueOrDie();
+        batch = std::move(batch_res).MoveValueUnsafe();
       }
       if (batch == NULLPTR) {
         break;
       }
-      ExecBatch exec_batch{*batch};
-      exec_batches.push_back(exec_batch);
+      exec_batches.emplace_back(*batch);
     }
     return exec_batches;
   }

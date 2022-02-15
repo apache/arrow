@@ -55,7 +55,6 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()> generator;
 };
 
-/// \brief Adapt an Table as a source node
 /// if plan->exec_context()->executor() is not null.
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
@@ -64,9 +63,9 @@ class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
 
   // arrow table which acts as the data source
   std::shared_ptr<Table> table;
-  // batch size which used to set the chunk_size to
-  // the table batch reader used in building the data source
-  // from the table
+  // Size of batches to emit from this node
+  // If the table is larger the node will emit multiple batches from the
+  // the table to be processed in parallel.
   int64_t batch_size;
 };
 
