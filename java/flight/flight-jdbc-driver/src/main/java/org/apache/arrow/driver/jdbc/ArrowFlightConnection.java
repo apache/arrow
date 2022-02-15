@@ -17,12 +17,12 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.parsePropertiesAndUrl;
+
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
@@ -87,31 +87,6 @@ public final class ArrowFlightConnection extends AvaticaConnection {
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);
     return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
-  }
-
-  /*
-  Parses properties in the URL and removes them from it.
-   */
-  static String parsePropertiesAndUrl(String url, final Properties incomingProperties) {
-    if (url != null) {
-      final Pattern generalPattern = Pattern.compile("(;\\w*=\\S*)");
-      // Looks for ";[alphanumeric]=[non-whitespace]" in a single group
-      final Matcher generalPatternMatcher = generalPattern.matcher(url);
-      if (generalPatternMatcher.find()) {
-        final String urlExtraProperties = generalPatternMatcher.group(1);
-        final Pattern keyValuePattern = Pattern.compile("(\\w*)=(\\S*)"); // Extracts key=value into two groups
-        for (final String keyValue : urlExtraProperties.split(";")) {
-          final Matcher keyValuePatternMatcher = keyValuePattern.matcher(keyValue);
-          if (keyValuePatternMatcher.find()) {
-            final String key = keyValuePatternMatcher.group(1);
-            final String value = keyValuePatternMatcher.group(2);
-            incomingProperties.put(key, value);
-          }
-        }
-        return url.replace(urlExtraProperties, "");
-      }
-    }
-    return url;
   }
 
   private static ArrowFlightSqlClientHandler createNewClientHandler(

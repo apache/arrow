@@ -21,6 +21,8 @@ import static java.lang.String.format;
 
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.flight.CallHeaders;
@@ -244,6 +246,34 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     @Override
     public Class<?> valueClass() {
       return type.defaultValueClass();
+    }
+
+    /**
+     * Looks for extra server specific parameters in the URL, and appends whatever is found in the {@link Properties}.
+     * @param url the current connection string
+     * @param incomingProperties the Properties map to add the server parameters
+     * @return the url without the extra properties
+     */
+    public static String parsePropertiesAndUrl(String url, final Properties incomingProperties) {
+      if (url != null) {
+        final Pattern generalPattern = Pattern.compile("(;\\w*=\\S*)");
+        // Looks for ";[alphanumeric]=[non-whitespace]" in a single group
+        final Matcher generalPatternMatcher = generalPattern.matcher(url);
+        if (generalPatternMatcher.find()) {
+          final String urlExtraProperties = generalPatternMatcher.group(1);
+          final Pattern keyValuePattern = Pattern.compile("(\\w*)=(\\S*)"); // Extracts key=value into two groups
+          for (final String keyValue : urlExtraProperties.split(";")) {
+            final Matcher keyValuePatternMatcher = keyValuePattern.matcher(keyValue);
+            if (keyValuePatternMatcher.find()) {
+              final String key = keyValuePatternMatcher.group(1);
+              final String value = keyValuePatternMatcher.group(2);
+              incomingProperties.put(key, value);
+            }
+          }
+          return url.replace(urlExtraProperties, "");
+        }
+      }
+      return url;
     }
   }
 }

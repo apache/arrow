@@ -17,6 +17,8 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.parsePropertiesAndUrl;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -217,7 +219,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      */
 
     final Properties resultMap = new Properties();
-    url = ArrowFlightConnection.parsePropertiesAndUrl(url, resultMap);
+    url = parsePropertiesAndUrl(url, resultMap);
 
     if (!url.startsWith("jdbc:")) {
       throw new SQLException("Connection string must start with 'jdbc:'. Expected format: " +
