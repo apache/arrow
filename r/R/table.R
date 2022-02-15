@@ -121,7 +121,6 @@ Table <- R6Class("Table",
     ValidateFull = function() Table__ValidateFull(self),
     invalidate = function() {
       .Call(`_arrow_Table__Reset`, self)
-      assign(".:xp:.", NULL, envir = self)
     }
   ),
   active = list(
