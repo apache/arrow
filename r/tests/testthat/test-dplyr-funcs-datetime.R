@@ -808,7 +808,7 @@ test_that("date works in arrow", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(a_date = lubridate::date(a)) %>%
+      mutate(a_date = date(a)) %>%
       collect(),
     test_df
   )
