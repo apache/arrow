@@ -164,9 +164,11 @@ Building other Arrow libraries
      #. run ``make clean``,
      #. reinstall the R package.
 
-     The ``make clean`` function is defined in ``r/Makefile``. The file
-     includes functions like ``make test``, ``make doc``, etc. and was
-     added to help with common tasks from the command line.
+     The ``make clean`` function is defined in ``r/Makefile`` and will
+     remove any cached object code in the ``r/src/`` directory, insuring
+     you have a clean reinstall. The ``Makefile`` also includes functions
+     like ``make test``, ``make doc``, etc. and was added to help with
+     common tasks from the command line.
 
      See more in the `Troubleshooting <https://arrow.apache.org/docs/dev/r/articles/developers/setup.html#troubleshooting>`_
      section of the R Developer environment setup article.
