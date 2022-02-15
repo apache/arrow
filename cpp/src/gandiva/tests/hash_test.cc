@@ -776,7 +776,6 @@ TEST_F(TestHash, TestMaskHash) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
-  ;
 
   // Create a row-batch with some sample data
   int num_records = 4;
