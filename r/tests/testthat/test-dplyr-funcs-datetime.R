@@ -806,7 +806,7 @@ test_that("date works in arrow", {
   test_df <- tibble(
     a = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"))
 
-  date <- base:date
+  date <- lubridate::date
   compare_dplyr_binding(
     .input %>%
       mutate(a_date = date(a)) %>%
