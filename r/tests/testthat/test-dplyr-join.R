@@ -139,8 +139,8 @@ test_that("Error handling", {
   )
 })
 
-# # TODO: test duplicate col names
-# # TODO: casting: int and float columns?
+# TODO: test duplicate col names
+# TODO: casting: int and float columns?
 
 test_that("right_join", {
   compare_dplyr_binding(

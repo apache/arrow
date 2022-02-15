@@ -94,21 +94,6 @@ collapse.Dataset <- collapse.ArrowTabular <- collapse.RecordBatchReader <- funct
   arrow_dplyr_query(x)
 }
 
-add_suffix <- function(fields, common_cols, suffix) {
-  # helper function which adds the suffixes to the
-  # selected column names
-  # for join relation the selected columns are the
-  # columns with same name in left and right relation
-  col_names <- names(fields)
-  new_col_names <- col_names %>% map(function(x) {
-    if (is.element(x, common_cols)) {
-      paste(x, suffix, sep = "")
-    } else {
-      x
-    }
-  })
-  rlang::set_names(fields, new_col_names)
-}
 
 implicit_schema <- function(.data) {
   .data <- ensure_group_vars(.data)
@@ -129,6 +114,23 @@ implicit_schema <- function(.data) {
       left_cols_ex_by <- left_cols[setdiff(names(left_cols), .data$join$by)]
       # find the common column names in left and right tables
       common_cols <- intersect(names(right_cols_ex_by), names(left_cols_ex_by))
+
+      # helper method to add suffix
+      add_suffix <- function(fields, common_cols, suffix) {
+        # helper function which adds the suffixes to the
+        # selected column names
+        # for join relation the selected columns are the
+        # columns with same name in left and right relation
+        col_names <- names(fields)
+        new_col_names <- col_names %>% map(function(x) {
+          if (is.element(x, common_cols)) {
+            paste(x, suffix, sep = "")
+          } else {
+            x
+          }
+        })
+        rlang::set_names(fields, new_col_names)
+      }
       # adding suffixes to the common columns in left and right tables
       left_fields <- add_suffix(new_fields, common_cols, .data$join$suffix[[1]])
       right_fields <- add_suffix(right_fields, common_cols, .data$join$suffix[[2]])

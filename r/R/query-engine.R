@@ -175,8 +175,8 @@ ExecPlan <- R6Class("ExecPlan",
             by = .data$join$by,
             left_output = left_output,
             right_output = right_output,
-            left_prefix = .data$join$suffix[[1]],
-            right_prefix = .data$join$suffix[[2]]
+            left_suffix = .data$join$suffix[[1]],
+            right_suffix = .data$join$suffix[[2]]
           )
         }
       }
@@ -284,7 +284,7 @@ ExecNode <- R6Class("ExecNode",
         ExecNode_Aggregate(self, options, target_names, out_field_names, key_names)
       )
     },
-    Join = function(type, right_node, by, left_output, right_output, left_prefix, right_prefix) {
+    Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix) {
       self$preserve_sort(
         ExecNode_Join(
           self,
@@ -294,8 +294,8 @@ ExecNode <- R6Class("ExecNode",
           right_keys = by,
           left_output = left_output,
           right_output = right_output,
-          output_prefix_for_left = left_prefix,
-          output_prefix_for_right = right_prefix
+          output_suffix_for_left = left_suffix,
+          output_suffix_for_right = right_suffix
         )
       )
     }

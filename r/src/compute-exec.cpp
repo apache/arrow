@@ -218,7 +218,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
     const std::shared_ptr<compute::ExecNode>& right_data,
     std::vector<std::string> left_keys, std::vector<std::string> right_keys,
     std::vector<std::string> left_output, std::vector<std::string> right_output,
-    std::string output_prefix_for_left, std::string output_prefix_for_right) {
+    std::string output_suffix_for_left, std::string output_suffix_for_right) {
   std::vector<arrow::FieldRef> left_refs, right_refs, left_out_refs, right_out_refs;
   for (auto&& name : left_keys) {
     left_refs.emplace_back(std::move(name));
@@ -265,7 +265,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
       compute::HashJoinNodeOptions{
           join_type, std::move(left_refs), std::move(right_refs),
           std::move(left_out_refs), std::move(right_out_refs), compute::literal(true),
-          std::move(output_prefix_for_left), std::move(output_prefix_for_right)});
+          std::move(output_suffix_for_left), std::move(output_suffix_for_right)});
 }
 
 // [[arrow::export]]
