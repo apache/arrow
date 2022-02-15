@@ -710,7 +710,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
     // If we fail to do so, fall back to trying to allocate the requested size
     // exactly as a last-ditch effort.
-    if (!result.ok() || data == nullptr) {
+    if (!result.ok()) {
       alloc_size = size;
       RETURN_NOT_OK(AllocateImmutableZeros(alloc_size, &data));
     }
