@@ -75,19 +75,19 @@ In this section we outline steps needed for unit testing in Arrow.
 
       .. code:: console
 
-         $ python -m pytest pyarrow/tests/test_file.py -k test_your_unit_test
+         $ pytest pyarrow/tests/test_file.py -k test_your_unit_test
 
       Run all the tests from one file:
 
       .. code:: console
 
-         $ python -m pytest pyarrow/tests/test_file.py
+         $ pytest pyarrow/tests/test_file.py
 
       Run all the tests:
 
       .. code:: console
 
-         $ python -m pytest pyarrow
+         $ pytest pyarrow
 
       **Recompiling PyArrow or Arrow C++**
 
