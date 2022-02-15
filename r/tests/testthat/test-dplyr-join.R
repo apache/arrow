@@ -269,3 +269,29 @@ test_that("arrow dplyr query can join with tibble", {
     }
   )
 })
+
+
+test_that("arrow dplyr query can join on partition column", {
+  # ARROW-14908
+  dir_out <- tempdir()
+
+    quakes %>%
+      select(stations, lat, long) %>%
+      group_by(stations) %>%
+      write_dataset(file.path(dir_out, "ds1"))
+
+    quakes |>
+      select(stations, mag, depth) %>%
+      group_by(stations) %>%
+      write_dataset(file.path(dir_out, "ds2"))
+
+  withr::with_options(
+    list(arrow.use_threads = FALSE),
+    {
+      open_dataset(file.path(dir_out, "ds1")) |>
+        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") |>
+        collect() # We should not segfault here.
+      expect_equal(nrow(res), 150)
+    }
+  )
+})
