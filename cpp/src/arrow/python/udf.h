@@ -104,14 +104,15 @@ class ARROW_PYTHON_EXPORT UDFSynthesizer {
   public:
 
     UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
-     std::vector<cp::InputType> in_types, cp::OutputType out_type, KernelExec kernel_exec) 
+     std::vector<cp::InputType> in_types, cp::OutputType out_type, 
+     Status(*callback)(cp::KernelContext*, const cp::ExecBatch&, Datum*)) 
      : func_name_(func_name), arity_(arity), func_doc_(func_doc),
-     in_types_(in_types), out_type_(out_type), kernel_exec_(kernel_exec) {}
+     in_types_(in_types), out_type_(out_type), callback_(callback) {}
 
     Status MakeFunction() {
       Status st;
       auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
-      cp::ScalarKernel kernel(in_types_, out_type_, kernel_exec_);
+      cp::ScalarKernel kernel(in_types_, out_type_, callback_);
       kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
       st = func->AddKernel(std::move(kernel));
       if (!st.ok()) {
@@ -124,13 +125,16 @@ class ARROW_PYTHON_EXPORT UDFSynthesizer {
       }
       return Status::OK();
     }
+
     private:
+    
       std::string func_name_;
       cp::Arity arity_;
       cp::FunctionDoc func_doc_;
       std::vector<cp::InputType> in_types_;
       cp::OutputType out_type_;
-      KernelExec kernel_exec_;
+      //KernelExec kernel_exec_;
+      Status(*callback_)(cp::KernelContext*, const cp::ExecBatch&, Datum*);
       
 };
 

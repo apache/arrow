@@ -2395,8 +2395,16 @@ cdef class UDFInterpreter:
         c_arity = <Arity>(arity)
         c_func_doc = _make_function_doc(function_doc)
 
-    cdef _create_kernel(self):
-        
+    
+
+    @staticmethod
+    cdef CStatus ExecFunc(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
+        cdef:
+            CDatum res
+        val = lib.asarray([10])
+        res = CDatum((<Array> val).sp_array)
+        out = &res
+        return CStatus_OK()
 
 
         
