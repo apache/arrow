@@ -288,10 +288,10 @@ test_that("arrow dplyr query can join on partition column", {
   withr::with_options(
     list(arrow.use_threads = FALSE),
     {
-      open_dataset(file.path(dir_out, "ds1")) |>
-        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") |>
+      res <- open_dataset(file.path(dir_out, "ds1")) %>%
+        left_join(open_dataset(file.path(dir_out, "ds2")), by = "stations") %>%
         collect() # We should not segfault here.
-      expect_equal(nrow(res), 150)
+      expect_equal(nrow(res), 21872)
     }
   )
 })
