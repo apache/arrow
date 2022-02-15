@@ -473,6 +473,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   }
 
   // try to look up key attribute
+  // in case of zoneinfo object
   if (PyObject_HasAttrString(tzinfo, "key")) {
     OwnedRef key(PyObject_GetAttrString(tzinfo, "key"));
     RETURN_IF_PYERROR();
@@ -482,11 +483,14 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
   }
 
   // try to look up _filename attribute
+  // in case of dateutil.tz object
   if (PyObject_HasAttrString(tzinfo, "_filename")) {
     OwnedRef _filename(PyObject_GetAttrString(tzinfo, "_filename"));
     RETURN_IF_PYERROR();
     std::string result;
     RETURN_NOT_OK(internal::PyUnicode_AsStdString(_filename.obj(), &result));
+    // _filename returns a full path in general ('/usr/share/zoneinfo/Europe/Paris')
+    // or POSIX name on Windows ('Europe/Paris') - we need a substring in first case
     std::size_t pos = result.find("zoneinfo/");
     if (pos > 0) {
       return result.substr(pos + 9);
