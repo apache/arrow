@@ -28,9 +28,7 @@ turbodbc=$1
 target=$2
 
 git clone --recurse-submodules https://github.com/blue-yonder/turbodbc "${target}"
-if [ "${turbodbc}" = "master" ]; then
-  git -C "${target}" checkout master;
-elif [ "${turbodbc}" = "latest" ]; then
+if [ "${turbodbc}" = "latest" ]; then
   git -C "${target}" checkout $(git describe --tags);
 else
   git -C "${target}" checkout ${turbodbc};
