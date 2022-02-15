@@ -16,7 +16,7 @@
 
 package scalar
 
-import "github.com/apache/arrow/go/v7/arrow"
+import "github.com/apache/arrow/go/v8/arrow"
 
 //TODO(zeroshade): approxequals
 // tracked in https://issues.apache.org/jira/browse/ARROW-13980

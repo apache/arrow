@@ -539,3 +539,158 @@ test_that("write_dataset checks for format-specific arguments", {
     error = TRUE
   )
 })
+
+get_num_of_files <- function(dir, format) {
+  files <- list.files(dir, pattern = paste(".", format, sep = ""), recursive = TRUE, full.names = TRUE)
+  length(files)
+}
+
+test_that("Dataset write max open files", {
+  skip_if_not_available("parquet")
+  # test default partitioning
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+  partitioning <- "c2"
+  num_of_unique_c2_groups <- 5
+
+  record_batch_1 <- record_batch(c1 = c(1, 2, 3, 4, 0, 10),
+                                 c2 = c("a", "b", "c", "d", "e", "a"))
+  record_batch_2 <- record_batch(c1 = c(5, 6, 7, 8, 0, 1),
+                                 c2 = c("a", "b", "c", "d", "e", "c"))
+  record_batch_3 <- record_batch(c1 = c(9, 10, 11, 12, 0, 1),
+                                 c2 = c("a", "b", "c", "d", "e", "d"))
+  record_batch_4 <- record_batch(c1 = c(13, 14, 15, 16, 0, 1),
+                                 c2 = c("a", "b", "c", "d", "e", "b"))
+
+  table <- Table$create(d1 = record_batch_1, d2 = record_batch_2,
+                        d3 = record_batch_3, d4 = record_batch_4)
+
+  write_dataset(table, path = dst_dir, format = file_format, partitioning = partitioning)
+
+  # reduce 1 from the length of list of directories, since it list the search path)
+  expect_equal(length(list.dirs(dst_dir)) - 1, num_of_unique_c2_groups)
+
+  max_open_files <- 3
+  dst_dir <- make_temp_dir()
+  write_dataset(
+    table,
+    path = dst_dir,
+    format = file_format,
+    partitioning = partitioning,
+    max_open_files = max_open_files
+  )
+
+  expect_gt(get_num_of_files(dst_dir, file_format), max_open_files)
+})
+
+
+test_that("Dataset write max rows per files", {
+  skip_if_not_available("parquet")
+  num_of_records <- 35
+  df <- tibble::tibble(
+    int = 1:num_of_records,
+    dbl = as.numeric(1:num_of_records),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 7),
+    chr = rep(letters[1:7], 5),
+  )
+  table <- Table$create(df)
+  max_rows_per_file <- 10
+  max_rows_per_group <- 10
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+
+  write_dataset(
+    table,
+    path = dst_dir,
+    format = file_format,
+    max_rows_per_file = max_rows_per_file,
+    max_rows_per_group = max_rows_per_group
+  )
+
+  expected_partitions <- num_of_records %/% max_rows_per_file + 1
+  written_files <- list.files(dst_dir)
+  result_partitions <- length(written_files)
+
+  expect_equal(expected_partitions, result_partitions)
+  total_records <- 0
+  for (file in written_files) {
+    file_path <- paste(dst_dir, file, sep = "/")
+    ds <- read_parquet(file_path)
+    cur_records <- nrow(ds)
+    expect_lte(cur_records, max_rows_per_file)
+    total_records <- total_records + cur_records
+  }
+  expect_equal(total_records, num_of_records)
+})
+
+test_that("Dataset min_rows_per_group", {
+  skip_if_not_available("parquet")
+  rb1 <- record_batch(c1 = c(1, 2, 3, 4),
+                      c2 = c("a", "b", "e", "a"))
+  rb2 <- record_batch(c1 = c(5, 6, 7, 8, 9),
+                      c2 = c("a", "b", "c", "d", "h"))
+  rb3 <- record_batch(c1 = c(10, 11),
+                      c2 = c("a", "b"))
+
+  dataset <- Table$create(d1 = rb1, d2 = rb2, d3 = rb3)
+
+  dst_dir <- make_temp_dir()
+  min_rows_per_group <- 4
+  max_rows_per_group <- 5
+
+  write_dataset(
+    dataset,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    path = dst_dir
+  )
+
+  ds <- open_dataset(dst_dir)
+
+  row_group_sizes <- ds %>%
+    select() %>%
+    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+    unlist()
+  index <- 1
+
+  # We expect there to be 3 row groups since 11/5 = 2.2 and 11/4 = 2.75
+  expect_length(row_group_sizes, 3L)
+
+  # We have all the rows
+  expect_equal(sum(row_group_sizes), nrow(ds))
+
+  # We expect that 2 of those will be between the two bounds
+  in_bounds <- row_group_sizes >= min_rows_per_group & row_group_sizes <= max_rows_per_group
+  expect_equal(sum(in_bounds), 2)
+  # and the last one that is not is less than the max:
+  expect_lte(row_group_sizes[!in_bounds], max_rows_per_group)
+})
+
+test_that("Dataset write max rows per group", {
+  skip_if_not_available("parquet")
+  num_of_records <- 30
+  max_rows_per_group <- 18
+  df <- tibble::tibble(
+    int = 1:num_of_records,
+    dbl = as.numeric(1:num_of_records),
+  )
+  table <- Table$create(df)
+  dst_dir <- make_temp_dir()
+  file_format <- "parquet"
+
+  write_dataset(table, path = dst_dir, format = file_format, max_rows_per_group = max_rows_per_group)
+
+  written_files <- list.files(dst_dir)
+  record_combination <- list()
+
+  # writes only to a single file with multiple groups
+  file_path <- paste(dst_dir, written_files[[1]], sep = "/")
+  ds <- open_dataset(file_path)
+  row_group_sizes <- ds %>%
+    select() %>%
+    map_batches(~ .$num_rows, .data.frame = FALSE) %>%
+    unlist() %>% # Returns list because .data.frame is FALSE
+    sort()
+
+  expect_equal(row_group_sizes, c(12, 18))
+})

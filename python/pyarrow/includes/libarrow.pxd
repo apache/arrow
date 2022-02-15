@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
+
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -798,6 +799,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CTable] Make(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CChunkedArray]]& columns)
+
+        @staticmethod
+        shared_ptr[CTable] MakeWithRows "Make"(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CChunkedArray]]& columns,
+            int64_t num_rows)
 
         @staticmethod
         shared_ptr[CTable] MakeFromArrays" Make"(
@@ -2163,6 +2170,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::IndexOptions"(CFunctionOptions):
         CIndexOptions(shared_ptr[CScalar] value)
         shared_ptr[CScalar] value
+
+    cdef enum CMapLookupOccurrence \
+            "arrow::compute::MapLookupOptions::Occurrence":
+        CMapLookupOccurrence_ALL "arrow::compute::MapLookupOptions::ALL"
+        CMapLookupOccurrence_FIRST "arrow::compute::MapLookupOptions::FIRST"
+        CMapLookupOccurrence_LAST "arrow::compute::MapLookupOptions::LAST"
+
+    cdef cppclass CMapLookupOptions \
+            "arrow::compute::MapLookupOptions"(CFunctionOptions):
+        CMapLookupOptions(shared_ptr[CScalar] query_key,
+                          CMapLookupOccurrence occurrence)
+        CMapLookupOccurrence occurrence
+        shared_ptr[CScalar] query_key
 
     cdef cppclass CMakeStructOptions \
             "arrow::compute::MakeStructOptions"(CFunctionOptions):

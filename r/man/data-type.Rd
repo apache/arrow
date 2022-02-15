@@ -137,6 +137,11 @@ of digits after the decimal point. It can be negative.}
 \item{type}{For \code{list_of()}, a data type to make a list-of-type}
 
 \item{list_size}{list size for \code{FixedSizeList} type.}
+
+\item{key_type, item_type}{For \code{MapType}, the key and item types.}
+
+\item{.keys_sorted}{Use \code{TRUE} to assert that keys of a \code{MapType} are
+sorted.}
 }
 \value{
 An Arrow type object inheriting from DataType.

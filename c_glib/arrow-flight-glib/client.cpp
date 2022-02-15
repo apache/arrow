@@ -266,6 +266,26 @@ gaflight_client_new(GAFlightLocation *location,
 }
 
 /**
+ * gaflight_client_close:
+ * @client: A #GAFlightClient.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 8.0.0
+ */
+gboolean
+gaflight_client_close(GAFlightClient *client,
+                      GError **error)
+{
+  auto flight_client = gaflight_client_get_raw(client);
+  auto status = flight_client->Close();
+  return garrow::check(error,
+                       status,
+                       "[flight-client][close]");
+}
+
+/**
  * gaflight_client_list_flights:
  * @client: A #GAFlightClient.
  * @criteria: (nullable): A #GAFlightCriteria.

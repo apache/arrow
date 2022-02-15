@@ -23,7 +23,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
 	"golang.org/x/xerrors"
 )
 

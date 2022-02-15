@@ -133,10 +133,36 @@ CsvFileFormat$create <- function(...,
   schema_names <- names(schema)
 
   if (!is.null(schema) & !identical(schema_names, column_names)) {
+    missing_from_schema <- setdiff(column_names, schema_names)
+    missing_from_colnames <- setdiff(schema_names, column_names)
+    message_colnames <- NULL
+    message_schema <- NULL
+    message_order <- NULL
+
+    if (length(missing_from_colnames) > 0) {
+      message_colnames <- paste(
+        oxford_paste(missing_from_colnames, quote_symbol = "`"),
+        "not present in `column_names`"
+      )
+    }
+
+    if (length(missing_from_schema) > 0) {
+      message_schema <- paste(
+        oxford_paste(missing_from_schema, quote_symbol = "`"),
+        "not present in `schema`"
+      )
+    }
+
+    if (length(missing_from_schema) == 0 & length(missing_from_colnames) == 0) {
+      message_order <- "`column_names` and `schema` field names match but are not in the same order"
+    }
 
     abort(
-      paste(
-        "Values in `column_names` must match schema field names"
+      c(
+        "Values in `column_names` must match `schema` field names",
+        x = message_order,
+        x = message_schema,
+        x = message_colnames
       )
     )
   }

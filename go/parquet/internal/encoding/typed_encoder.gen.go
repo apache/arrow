@@ -21,12 +21,12 @@ package encoding
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

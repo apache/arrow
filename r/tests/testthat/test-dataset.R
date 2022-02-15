@@ -841,11 +841,44 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
 
 
 test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  ds <- open_dataset(hive_dir)
 
   # export the RecordBatchReader via the C-interface
   stream_ptr <- allocate_arrow_array_stream()
   scan <- Scanner$create(ds)
+  reader <- scan$ToRecordBatchReader()
+  reader$export_to_c(stream_ptr)
+
+  expect_equal(
+    RecordBatchStreamReader$import_from_c(stream_ptr) %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
+    ds %>%
+      filter(int < 8 | int > 55) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
+  )
+
+  # must clean up the pointer or we leak
+  delete_arrow_array_stream(stream_ptr)
+})
+
+test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
+  ds <- open_dataset(hive_dir)
+
+  # filter the dataset
+  ds <- ds %>%
+    filter(int > 2)
+
+  # export the RecordBatchReader via the C-interface
+  stream_ptr <- allocate_arrow_array_stream()
+  scan <- Scanner$create(
+    ds,
+    projection = names(ds),
+    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L)))
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
 
@@ -855,19 +888,16 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   # create an arrow_dplyr_query() from the recordbatch reader
   reader_adq <- arrow_dplyr_query(circle)
 
-  # TODO: ARROW-14321 should be able to arrange then collect
-  tab_from_c_new <- reader_adq %>%
-    filter(int < 8, int > 55) %>%
-    mutate(part_plus = part + 6) %>%
-    collect()
   expect_equal(
-    tab_from_c_new %>%
-      arrange(dbl),
+    reader_adq %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect(),
     ds %>%
-      filter(int < 8, int > 55) %>%
-      mutate(part_plus = part + 6) %>%
-      collect() %>%
-      arrange(dbl)
+      filter(int < 8, int > 2) %>%
+      mutate(part_plus = group + 6) %>%
+      arrange(dbl) %>%
+      collect()
   )
 
   # must clean up the pointer or we leak

@@ -1213,8 +1213,8 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().index(self, value, start, end, memory_pool=memory_pool)
 
-    def _to_pandas(self, options, **kwargs):
-        return _array_like_to_pandas(self, options)
+    def _to_pandas(self, options, types_mapper=None, **kwargs):
+        return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def __array__(self, dtype=None):
         values = self.to_numpy(zero_copy_only=False)
@@ -1402,7 +1402,7 @@ cdef class Array(_PandasConvertible):
         return pyarrow_wrap_array(c_array)
 
 
-cdef _array_like_to_pandas(obj, options):
+cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
         PyObject* out
         PandasOptions c_options = _convert_pandas_options(options)
@@ -1432,6 +1432,8 @@ cdef _array_like_to_pandas(obj, options):
         # ARROW-5359 - need to specify object dtype to avoid pandas to
         # coerce back to ns resolution
         dtype = "object"
+    elif types_mapper:
+        dtype = types_mapper(original_type)
     else:
         dtype = None
 

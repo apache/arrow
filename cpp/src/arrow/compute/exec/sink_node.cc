@@ -259,6 +259,51 @@ class ConsumingSinkNode : public ExecNode {
   std::shared_ptr<SinkNodeConsumer> consumer_;
 };
 
+/**
+ * @brief This node is an extension on ConsumingSinkNode
+ * to facilitate to get the output from an execution plan
+ * as a table. We define a custom SinkNodeConsumer to
+ * enable this functionality.
+ */
+
+struct TableSinkNodeConsumer : public arrow::compute::SinkNodeConsumer {
+ public:
+  TableSinkNodeConsumer(std::shared_ptr<Table>* out,
+                        std::shared_ptr<Schema> output_schema, MemoryPool* pool)
+      : out_(out), output_schema_(std::move(output_schema)), pool_(pool) {}
+
+  Status Consume(ExecBatch batch) override {
+    std::lock_guard<std::mutex> guard(consume_mutex_);
+    ARROW_ASSIGN_OR_RAISE(auto rb, batch.ToRecordBatch(output_schema_, pool_));
+    batches_.push_back(rb);
+    return Status::OK();
+  }
+
+  Future<> Finish() override {
+    ARROW_ASSIGN_OR_RAISE(*out_, Table::FromRecordBatches(batches_));
+    return Status::OK();
+  }
+
+ private:
+  std::shared_ptr<Table>* out_;
+  std::shared_ptr<Schema> output_schema_;
+  MemoryPool* pool_;
+  std::vector<std::shared_ptr<RecordBatch>> batches_;
+  std::mutex consume_mutex_;
+};
+
+static Result<ExecNode*> MakeTableConsumingSinkNode(
+    compute::ExecPlan* plan, std::vector<compute::ExecNode*> inputs,
+    const compute::ExecNodeOptions& options) {
+  RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "TableConsumingSinkNode"));
+  const auto& sink_options = checked_cast<const TableSinkNodeOptions&>(options);
+  MemoryPool* pool = plan->exec_context()->memory_pool();
+  auto tb_consumer = std::make_shared<TableSinkNodeConsumer>(
+      sink_options.output_table, sink_options.output_schema, pool);
+  auto consuming_sink_node_options = ConsumingSinkNodeOptions{tb_consumer};
+  return MakeExecNode("consuming_sink", plan, inputs, consuming_sink_node_options);
+}
+
 // A sink node that accumulates inputs, then sorts them before emitting them.
 struct OrderBySinkNode final : public SinkNode {
   OrderBySinkNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
@@ -350,7 +395,7 @@ struct OrderBySinkNode final : public SinkNode {
   }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     return std::string("by=") + impl_->ToString();
   }
 
@@ -367,6 +412,7 @@ void RegisterSinkNode(ExecFactoryRegistry* registry) {
   DCHECK_OK(registry->AddFactory("order_by_sink", OrderBySinkNode::MakeSort));
   DCHECK_OK(registry->AddFactory("consuming_sink", ConsumingSinkNode::Make));
   DCHECK_OK(registry->AddFactory("sink", SinkNode::Make));
+  DCHECK_OK(registry->AddFactory("table_sink", MakeTableConsumingSinkNode));
 }
 
 }  // namespace internal

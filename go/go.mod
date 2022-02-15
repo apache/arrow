@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/arrow/go/v7
+module github.com/apache/arrow/go/v8
 
 go 1.15
 
@@ -23,8 +23,7 @@ require (
 	github.com/andybalholm/brotli v1.0.4
 	github.com/apache/thrift v0.15.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
-	github.com/goccy/go-json v0.9.4
-	github.com/golang/protobuf v1.5.2
+	github.com/goccy/go-json v0.7.10
 	github.com/golang/snappy v0.0.4
 	github.com/google/flatbuffers v2.0.5+incompatible
 	github.com/google/go-cmp v0.5.7 // indirect

@@ -2286,6 +2286,21 @@ def test_interval_array_from_relativedelta():
         pa.array([DateOffset(microseconds=((1 << 64) // 100))])
 
 
+def test_interval_array_from_tuple():
+    data = [None, (1, 2, -3)]
+
+    # From timedelta (explicit type required)
+    arr = pa.array(data, pa.month_day_nano_interval())
+    assert isinstance(arr, pa.MonthDayNanoIntervalArray)
+    assert arr.type == pa.month_day_nano_interval()
+    expected_list = [
+        None,
+        pa.MonthDayNano([1, 2, -3])]
+    expected = pa.array(expected_list)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == expected_list
+
+
 @pytest.mark.pandas
 def test_interval_array_from_dateoffset():
     from pandas.tseries.offsets import DateOffset

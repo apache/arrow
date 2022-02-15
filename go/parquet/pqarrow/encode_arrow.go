@@ -23,14 +23,14 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/decimal128"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/decimal128"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 

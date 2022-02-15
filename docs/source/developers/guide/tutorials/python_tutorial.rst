@@ -40,12 +40,12 @@ This tutorial is different from the :ref:`step_by_step` as we
 will be working on a specific case. This tutorial is not meant
 as a step-by-step guide.
 
-**Lets start!**
+**Let's start!**
 
 Set up
 ------
 
-Let's setup the Arrow repository. We presume here that Git is
+Let's set up the Arrow repository. We presume here that Git is
 already installed. Otherwise please see the :ref:`set-up` section.
 
 Once the `Apache Arrow repository <https://github.com/apache/arrow>`_
@@ -133,7 +133,7 @@ Start the work on a new branch
 ------------------------------
 
 Before we start working on adding the feature we should
-create a new branch from updated master.
+create a new branch from the updated master branch.
 
 .. code:: console
 
@@ -142,7 +142,7 @@ create a new branch from updated master.
    $ git pull --ff-only upstream master
    $ git checkout -b ARROW-14977
 
-Lets research the Arrow library to see where the ``pc.min_max``
+Let's research the Arrow library to see where the ``pc.min_max``
 function is defined/connected with the C++ and get an idea
 where we could implement the new feature.
 

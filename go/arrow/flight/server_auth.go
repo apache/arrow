@@ -84,70 +84,63 @@ func AuthFromContext(ctx context.Context) interface{} {
 	return ctx.Value(authCtxKey{})
 }
 
-func createServerAuthUnaryInterceptor(auth ServerAuthHandler) grpc.UnaryServerInterceptor {
-	if auth == nil {
-		return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-			return handler(ctx, req)
-		}
-	}
-
-	return func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		var authTok string
-		md, ok := metadata.FromIncomingContext(ctx)
-		if ok {
-			vals := md.Get(grpcAuthHeader)
-			if len(vals) > 0 {
-				authTok = vals[0]
-			}
-		}
-
-		peerIdentity, err := auth.IsValid(authTok)
-		if err != nil {
-			return nil, status.Errorf(codes.PermissionDenied, "auth-error: %s", err)
-		}
-
-		return handler(context.WithValue(ctx, authCtxKey{}, peerIdentity), req)
-	}
+type serverWithAuthHandler interface {
+	GetAuthHandler() ServerAuthHandler
 }
 
-func createServerAuthStreamInterceptor(auth ServerAuthHandler) grpc.StreamServerInterceptor {
+func serverAuthUnaryInterceptor(ctx context.Context, req interface{}, srv *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	var auth ServerAuthHandler
+	if s, ok := srv.Server.(serverWithAuthHandler); ok {
+		auth = s.GetAuthHandler()
+	}
+
 	if auth == nil {
-		return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			return handler(srv, stream)
+		return handler(ctx, req)
+	}
+
+	var authTok string
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		vals := md.Get(grpcAuthHeader)
+		if len(vals) > 0 {
+			authTok = vals[0]
 		}
 	}
 
-	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		if strings.HasSuffix(info.FullMethod, "/Handshake") {
-			return handler(srv, stream)
-		}
+	peerIdentity, err := auth.IsValid(authTok)
+	if err != nil {
+		return nil, status.Errorf(codes.PermissionDenied, "auth-error: %s", err)
+	}
 
-		var authTok string
-		md, ok := metadata.FromIncomingContext(stream.Context())
-		if ok {
-			vals := md.Get(grpcAuthHeader)
-			if len(vals) > 0 {
-				authTok = vals[0]
-			}
-		}
+	return handler(context.WithValue(ctx, authCtxKey{}, peerIdentity), req)
+}
 
-		peerIdentity, err := auth.IsValid(authTok)
-		if err != nil {
-			return status.Errorf(codes.Unauthenticated, "auth-error: %s", err)
-		}
+func serverAuthStreamInterceptor(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	var auth ServerAuthHandler
+	if s, ok := srv.(serverWithAuthHandler); ok {
+		auth = s.GetAuthHandler()
+	}
 
-		stream = &wrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, peerIdentity)}
+	if strings.HasSuffix(info.FullMethod, "/Handshake") || auth == nil {
 		return handler(srv, stream)
 	}
-}
 
-// our implementation of handshake using the authhandler
-func (s *server) handshake(stream FlightService_HandshakeServer) error {
-	if s.authHandler == nil {
-		return nil
+	var authTok string
+	md, ok := metadata.FromIncomingContext(stream.Context())
+	if ok {
+		vals := md.Get(grpcAuthHeader)
+		if len(vals) > 0 {
+			authTok = vals[0]
+		}
 	}
 
-	return s.authHandler.Authenticate(&serverAuthConn{stream})
+	peerIdentity, err := auth.IsValid(authTok)
+	if err != nil {
+		return status.Errorf(codes.Unauthenticated, "auth-error: %s", err)
+	}
+
+	stream = &wrappedStream{ServerStream: stream, ctx: context.WithValue(stream.Context(), authCtxKey{}, peerIdentity)}
+	return handler(srv, stream)
 }
 
 type BasicAuthValidator interface {

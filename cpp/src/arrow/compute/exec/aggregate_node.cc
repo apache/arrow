@@ -252,7 +252,7 @@ class ScalarAggregateNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
     AggregatesToString(&ss, *input_schema, aggs_, target_field_ids_, owned_options_);
@@ -618,7 +618,7 @@ class GroupByNode : public ExecNode {
   Future<> finished() override { return finished_; }
 
  protected:
-  std::string ToStringExtra(int indent) const override {
+  std::string ToStringExtra(int indent = 0) const override {
     std::stringstream ss;
     const auto input_schema = inputs_[0]->output_schema();
     ss << "keys=[";

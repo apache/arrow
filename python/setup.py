@@ -42,8 +42,8 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29':
-    raise Exception('Please upgrade to Cython 0.29 or newer')
+if Cython.__version__ < '0.29.22':
+    raise Exception('Please upgrade to Cython 0.29.22 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -532,7 +532,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '7.0.0-SNAPSHOT'
+default_version = '8.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \

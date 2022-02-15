@@ -22,14 +22,14 @@ import (
 	"sync"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v7/arrow/ipc"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/compress"
-	"github.com/apache/arrow/go/v7/parquet/internal/encryption"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
+	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/compress"
+	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
+	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 

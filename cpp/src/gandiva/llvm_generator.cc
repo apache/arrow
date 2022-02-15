@@ -145,8 +145,9 @@ Status LLVMGenerator::Execute(const arrow::RecordBatch& record_batch,
 
     EvalFunc jit_function = compiled_expr->GetJITFunction(mode);
     jit_function(eval_batch->GetBufferArray(), eval_batch->GetBufferOffsetArray(),
-                 eval_batch->GetLocalBitMapArray(), selection_buffer,
-                 (int64_t)eval_batch->GetExecutionContext(), num_output_rows);
+                 eval_batch->GetLocalBitMapArray(), annotator_.GetHolderPointersArray(),
+                 selection_buffer, (int64_t)eval_batch->GetExecutionContext(),
+                 num_output_rows);
 
     // check for execution errors
     ARROW_RETURN_IF(
@@ -275,6 +276,7 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   arguments.push_back(types()->i64_ptr_type());  // addrs
   arguments.push_back(types()->i64_ptr_type());  // offsets
   arguments.push_back(types()->i64_ptr_type());  // bitmaps
+  arguments.push_back(types()->i64_ptr_type());  // holders
   switch (selection_vector_mode) {
     case SelectionVector::MODE_NONE:
     case SelectionVector::MODE_UINT16:
@@ -309,6 +311,9 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   ++args;
   llvm::Value* arg_local_bitmaps = &*args;
   arg_local_bitmaps->setName("local_bitmaps");
+  ++args;
+  llvm::Value* arg_holder_ptrs = &*args;
+  arg_holder_ptrs->setName("holder_ptrs");
   ++args;
   llvm::Value* arg_selection_vector = &*args;
   arg_selection_vector->setName("selection_vector");
@@ -354,8 +359,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   }
 
   // The visitor can add code to both the entry/loop blocks.
-  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_local_bitmaps, slice_offsets,
-                  arg_context_ptr, position_var);
+  Visitor visitor(this, *fn, loop_entry, arg_addrs, arg_local_bitmaps, arg_holder_ptrs,
+                  slice_offsets, arg_context_ptr, position_var);
   value_expr->Accept(visitor);
   LValuePtr output_value = visitor.result();
 
@@ -542,6 +547,7 @@ std::shared_ptr<DecimalLValue> LLVMGenerator::BuildDecimalLValue(llvm::Value* va
 LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* function,
                                 llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
                                 llvm::Value* arg_local_bitmaps,
+                                llvm::Value* arg_holder_ptrs,
                                 std::vector<llvm::Value*> slice_offsets,
                                 llvm::Value* arg_context_ptr, llvm::Value* loop_var)
     : generator_(generator),
@@ -549,6 +555,7 @@ LLVMGenerator::Visitor::Visitor(LLVMGenerator* generator, llvm::Function* functi
       entry_block_(entry_block),
       arg_addrs_(arg_addrs),
       arg_local_bitmaps_(arg_local_bitmaps),
+      arg_holder_ptrs_(arg_holder_ptrs),
       slice_offsets_(slice_offsets),
       arg_context_ptr_(arg_context_ptr),
       loop_var_(loop_var),
@@ -697,8 +704,7 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
     case arrow::Type::BINARY: {
       const std::string& str = arrow::util::get<std::string>(dex.holder());
 
-      llvm::Constant* str_int_cast = types->i64_constant((int64_t)str.c_str());
-      value = llvm::ConstantExpr::getIntToPtr(str_int_cast, types->i8_ptr_type());
+      value = ir_builder()->CreateGlobalStringPtr(str.c_str());
       len = types->i32_constant(static_cast<int32_t>(str.length()));
       break;
     }
@@ -747,7 +753,7 @@ void LLVMGenerator::Visitor::Visit(const NonNullableFuncDex& dex) {
   const NativeFunction* native_function = dex.native_function();
 
   // build the function params (ignore validity).
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), false,
+  auto params = BuildParams(dex.get_holder_idx(), dex.args(), false,
                             native_function->NeedsContext());
 
   auto arrow_return_type = dex.func_descriptor()->return_type();
@@ -798,7 +804,7 @@ void LLVMGenerator::Visitor::Visit(const NullableNeverFuncDex& dex) {
   const NativeFunction* native_function = dex.native_function();
 
   // build function params along with validity.
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
+  auto params = BuildParams(dex.get_holder_idx(), dex.args(), true,
                             native_function->NeedsContext());
 
   auto arrow_return_type = dex.func_descriptor()->return_type();
@@ -814,7 +820,7 @@ void LLVMGenerator::Visitor::Visit(const NullableInternalFuncDex& dex) {
   const NativeFunction* native_function = dex.native_function();
 
   // build function params along with validity.
-  auto params = BuildParams(dex.function_holder().get(), dex.args(), true,
+  auto params = BuildParams(dex.get_holder_idx(), dex.args(), true,
                             native_function->NeedsContext());
 
   // add an extra arg for validity (allocated on stack).
@@ -1024,10 +1030,19 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   std::vector<llvm::Value*> params;
 
   const InExprDex<Type>& dex_instance = dynamic_cast<const InExprDex<Type>&>(dex);
+
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast =
-      types->i64_constant((int64_t)(dex_instance.in_holder().get()));
-  params.push_back(ptr_int_cast);
+
+  // Switch to the entry block and load the holder pointer
+  auto builder = ir_builder();
+  llvm::BasicBlock* saved_block = builder->GetInsertBlock();
+  builder->SetInsertPoint(entry_block_);
+
+  llvm::Value* in_holder = generator_->LoadVectorAtIndex(
+      arg_holder_ptrs_, dex_instance.get_holder_idx(), "in_holder");
+
+  builder->SetInsertPoint(saved_block);
+  params.push_back(in_holder);
 
   /* eval expr result */
   for (auto& pair : dex.args()) {
@@ -1247,9 +1262,8 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
 }
 
 std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
-    FunctionHolder* holder, const ValueValidityPairVector& args, bool with_validity,
+    int holder_idx, const ValueValidityPairVector& args, bool with_validity,
     bool with_context) {
-  LLVMTypes* types = generator_->types();
   std::vector<llvm::Value*> params;
 
   // add context if required.
@@ -1258,9 +1272,18 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
   }
 
   // if the function has holder, add the holder pointer.
-  if (holder != nullptr) {
-    auto ptr = types->i64_constant((int64_t)holder);
-    params.push_back(ptr);
+  if (holder_idx != -1) {
+    auto builder = ir_builder();
+
+    // Switch to the entry block and load the holder pointers
+    llvm::BasicBlock* saved_block = builder->GetInsertBlock();
+    builder->SetInsertPoint(entry_block_);
+
+    llvm::Value* holder =
+        generator_->LoadVectorAtIndex(arg_holder_ptrs_, holder_idx, "holder");
+
+    builder->SetInsertPoint(saved_block);
+    params.push_back(holder);
   }
 
   // build the function params, along with the validities.
