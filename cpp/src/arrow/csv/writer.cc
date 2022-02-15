@@ -212,7 +212,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   // Returns an error status if string array has any structural characters.
   static Status CheckStringArrayHasNoStructuralChars(const StringArray& array) {
     // scan the underlying string array buffer as a single big string
-    const uint8_t* const data = array.raw_data() + array.offset();
+    const uint8_t* const data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
     int64_t offset = 0;
 #if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
@@ -238,7 +238,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         // extract the offending string from array per offset
         const auto* offsets = array.raw_value_offsets();
         const auto index =
-            std::upper_bound(offsets, offsets + array.length(), offset) - offsets;
+            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) - offsets;
         DCHECK_GT(index, 0);
         return Status::Invalid(
             "CSV values may not contain structural characters if quoting style is "
