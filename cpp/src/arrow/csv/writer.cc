@@ -238,7 +238,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         // extract the offending string from array per offset
         const auto* offsets = array.raw_value_offsets();
         const auto index =
-            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) - offsets;
+            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) -
+            offsets;
         DCHECK_GT(index, 0);
         return Status::Invalid(
             "CSV values may not contain structural characters if quoting style is "
