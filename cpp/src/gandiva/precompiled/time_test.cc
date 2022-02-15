@@ -1166,7 +1166,6 @@ TEST(TestTime, TestTruncTimestamp) {
                                   &out_len);
   EXPECT_EQ(std::string(out, out_len), "2024-01-01");
 
-
   // Testing exceptions
   context.Reset();
 
@@ -1187,7 +1186,6 @@ TEST(TestTime, TestTruncTimestamp) {
   date_trunc_timestamp_utf8(context_ptr, ts1, "MONTH", INT32_MAX, &out_len);
   EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
   context.Reset();
-
 }
 
 TEST(TestTime, TestTruncDate) {
@@ -1266,7 +1264,6 @@ TEST(TestTime, TestTruncDate) {
                                &out_len);
   EXPECT_EQ(std::string(out, out_len), "2024-01-01");
 
-
   // Testing exceptions
   context.Reset();
 
@@ -1280,16 +1277,14 @@ TEST(TestTime, TestTruncDate) {
 
   date_trunc_date64_utf8(context_ptr, ts1, "M", 1, &out_len);
   EXPECT_EQ(context.get_error(),
-  date_trunc_date64_utf8(context_ptr, INT64_MAX, "MONTH", 5, &out_len);
-  EXPECT_EQ(context.get_error(), "The date is invalid");
-  context.Reset();
+            date_trunc_date64_utf8(context_ptr, INT64_MAX, "MONTH", 5, &out_len);
+            EXPECT_EQ(context.get_error(), "The date is invalid"); context.Reset();
             "The parameter pattern_length is not contain a valid value");
   context.Reset();
 
   date_trunc_date64_utf8(context_ptr, ts1, "MONTH", INT32_MAX, &out_len);
   EXPECT_EQ(context.get_error(), "The parameter pattern_name is not recognized");
   context.Reset();
-
 }
 
 TEST(TestTime, TestTruncVarchar) {
@@ -1371,7 +1366,6 @@ TEST(TestTime, TestTruncVarchar) {
   out = trunc_utf8_utf8(context_ptr, ts4, data4_len, PATTERN_YEAR[0],
                         PARTTERN_YEAR_LEN[0], &out_len);
   EXPECT_EQ(std::string(out, out_len), "2024-01-01");
-
 
   // Testing exceptions
   trunc_utf8_utf8(context_ptr, "asdf", 4, "MONTH", 5, &out_len);
