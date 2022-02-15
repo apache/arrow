@@ -309,6 +309,7 @@ class HashJoinDictProbeMulti {
     RowEncoder post_remap_encoder;
   };
   std::vector<ThreadLocalState> local_states_;
+  ThreadLocalState& GetLocalState(size_t thread_index);
 };
 
 }  // namespace compute

@@ -566,7 +566,7 @@ Status HashJoinDictBuildMulti::PostDecode(
 }
 
 void HashJoinDictProbeMulti::Init(size_t num_threads) {
-  local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
+  local_states_.resize(num_threads);
   for (size_t i = 0; i < local_states_.size(); ++i) {
     local_states_[i].is_initialized = false;
   }
@@ -576,13 +576,13 @@ bool HashJoinDictProbeMulti::BatchRemapNeeded(
     size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx) {
   InitLocalStateIfNeeded(thread_index, proj_map_probe, proj_map_build, ctx);
-  return local_states_[thread_index].any_needs_remap;
+  return GetLocalState(thread_index).any_needs_remap;
 }
 
 void HashJoinDictProbeMulti::InitLocalStateIfNeeded(
     size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
     const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx) {
-  ThreadLocalState& local_state = local_states_[thread_index];
+  ThreadLocalState& local_state = GetLocalState(thread_index);
 
   // Check if we need to remap any of the input keys because of dictionary encoding
   // on either side of the join
@@ -659,6 +659,18 @@ Status HashJoinDictProbeMulti::EncodeBatch(
   *out_encoder = &local_state.post_remap_encoder;
 
   return Status::OK();
+}
+
+HashJoinDictProbeMulti::ThreadLocalState& HashJoinDictProbeMulti::GetLocalState(
+    size_t thread_index) {
+  if (ARROW_PREDICT_FALSE(thread_index >= local_states_.size())) {
+    size_t old_size = local_states_.size();
+    local_states_.resize(thread_index + 1);
+    for (size_t i = old_size; i < local_states_.size(); ++i) {
+      local_states_[i].is_initialized = false;
+    }
+  }
+  return local_states_[thread_index];
 }
 
 }  // namespace compute

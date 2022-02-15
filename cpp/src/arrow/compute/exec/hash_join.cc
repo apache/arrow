@@ -103,7 +103,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
+    local_states_.resize(num_threads);
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
@@ -152,7 +152,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
   void InitLocalStateIfNeeded(size_t thread_index) {
     DCHECK_LT(thread_index, local_states_.size());
-    ThreadLocalState& local_state = local_states_[thread_index];
+    ThreadLocalState& local_state = GetLocalState(thread_index);
     if (!local_state.is_initialized) {
       InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys);
       bool has_payload =
@@ -429,7 +429,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         has_right &&
         (schema_mgr_->proj_maps[1].num_cols(HashJoinProjection::PAYLOAD) > 0);
 
-    ThreadLocalState& local_state = local_states_[thread_index];
+    ThreadLocalState& local_state = GetLocalState(thread_index);
     InitLocalStateIfNeeded(thread_index);
 
     ExecBatch left_key;
@@ -541,7 +541,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   Status ProbeBatch(size_t thread_index, const ExecBatch& batch) {
-    ThreadLocalState& local_state = local_states_[thread_index];
+    ThreadLocalState& local_state = GetLocalState(thread_index);
     InitLocalStateIfNeeded(thread_index);
 
     local_state.exec_batch_keys.Clear();
@@ -748,7 +748,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
         static_cast<int32_t>(std::min(static_cast<int64_t>(hash_table_keys_.num_rows()),
                                       hash_table_scan_unit_ * (task_id + 1)));
 
-    ThreadLocalState& local_state = local_states_[thread_index];
+    ThreadLocalState& local_state = GetLocalState(thread_index);
     InitLocalStateIfNeeded(thread_index);
 
     std::vector<int32_t>& id_left = local_state.no_match;
@@ -850,13 +850,13 @@ class HashJoinBasicImpl : public HashJoinImpl {
     memset(has_match_.data(), 0, bit_util::BytesForBits(num_rows));
 
     for (size_t tid = 0; tid < local_states_.size(); ++tid) {
-      if (!local_states_[tid].is_initialized) {
+      if (!GetLocalState(tid).is_initialized) {
         continue;
       }
-      if (!local_states_[tid].is_has_match_initialized) {
+      if (!GetLocalState(tid).is_has_match_initialized) {
         continue;
       }
-      arrow::internal::BitmapOr(has_match_.data(), 0, local_states_[tid].has_match.data(),
+      arrow::internal::BitmapOr(has_match_.data(), 0, GetLocalState(tid).has_match.data(),
                                 0, num_rows, 0, has_match_.data());
     }
   }
@@ -896,6 +896,17 @@ class HashJoinBasicImpl : public HashJoinImpl {
     std::vector<uint8_t> has_match;
   };
   std::vector<ThreadLocalState> local_states_;
+  ThreadLocalState& GetLocalState(size_t thread_index) {
+    if (ARROW_PREDICT_FALSE(thread_index >= local_states_.size())) {
+      size_t old_size = local_states_.size();
+      local_states_.resize(thread_index + 1);
+      for (size_t i = old_size; i < local_states_.size(); ++i) {
+        local_states_[i].is_initialized = false;
+        local_states_[i].is_has_match_initialized = false;
+      }
+    }
+    return local_states_[thread_index];
+  }
 
   // Shared runtime state
   //
