@@ -169,9 +169,9 @@ Besides the CI jobs that check the changes in GitHub repository
 (opening or merging of a pull request) we also use CI for nightly
 builds and releases of the Apache Arrow library.
 
-Also, on-demand triggering jobs can be used in your pull
-request for example ``@github-actions crossbow submit python``
-to run PyArrow tests via GitHub actions. These are mostly used to run
+Also, on-demand triggering jobs can be used in your pull request for
+example adding a comment with ``@github-actions crossbow submit python``
+will run PyArrow tests via GitHub actions. These are mostly used to run
 tests on environments that are less common and are normally
 not needed in first time contributions.
 
