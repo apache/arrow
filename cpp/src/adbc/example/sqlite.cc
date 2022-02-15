@@ -19,6 +19,8 @@
 
 #include <cstring>
 #include <memory>
+#include <queue>
+#include <string>
 
 #include "adbc/c/driver.h"
 #include "adbc/c/types.h"
@@ -27,6 +29,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_builder.h"
 
 namespace {
 
@@ -146,9 +149,43 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
   bool done_;
 };
 
+std::shared_ptr<arrow::Schema> StatementToSchema(sqlite3_stmt* stmt) {
+  const int num_columns = sqlite3_column_count(stmt);
+  arrow::FieldVector fields(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    const char* column_name = sqlite3_column_name(stmt, i);
+    const int column_type = sqlite3_column_type(stmt, i);
+    std::shared_ptr<arrow::DataType> arrow_type = nullptr;
+    switch (column_type) {
+      case SQLITE_INTEGER:
+        arrow_type = arrow::int64();
+        break;
+      case SQLITE_FLOAT:
+        arrow_type = arrow::float64();
+        break;
+      case SQLITE_BLOB:
+        arrow_type = arrow::binary();
+        break;
+      case SQLITE_TEXT:
+        arrow_type = arrow::utf8();
+        break;
+      case SQLITE_NULL:
+      default:
+        arrow_type = arrow::null();
+        break;
+    }
+    fields[i] = arrow::field(column_name, std::move(arrow_type));
+  }
+  return arrow::schema(std::move(fields));
+}
+
 class AdbcSqliteImpl {
  public:
   explicit AdbcSqliteImpl(sqlite3* db) : db_(db) {}
+
+  //----------------------------------------------------------
+  // Common Functions
+  //----------------------------------------------------------
 
   enum AdbcStatusCode Close() {
     auto status = sqlite3_close(db_);
@@ -171,65 +208,58 @@ class AdbcSqliteImpl {
     connection->private_data = nullptr;
   }
 
-  // SQL
+  char* GetError() {
+    if (messages_.empty()) return nullptr;
+    char* result = new char[messages_.front().size()];
+    messages_.front().copy(result, messages_.front().size());
+    messages_.pop();
+    return result;
+  }
+
+  static char* GetErrorMethod(struct AdbcConnection* connection) {
+    if (!connection->private_data) return nullptr;
+    auto* ptr =
+        reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
+    return (*ptr)->GetError();
+  }
+
+  //----------------------------------------------------------
+  // SQL Semantics
+  //----------------------------------------------------------
 
   enum AdbcStatusCode SqlExecute(const char* query, struct AdbcStatement* out) {
     // TODO: we should take an optional length to avoid strlen
 
     // TODO: This needs to get RAII-guarded to clean up error handling
     sqlite3_stmt* stmt = nullptr;
-    auto status = sqlite3_prepare_v2(db_, query, /*nByte*/ -1, &stmt, /*pzTail=*/nullptr);
-    if (status != SQLITE_OK) {
+    auto rc = sqlite3_prepare_v2(db_, query, /*nByte*/ -1, &stmt, /*pzTail=*/nullptr);
+    if (rc != SQLITE_OK) {
       if (stmt) {
-        status = sqlite3_finalize(stmt);
-        if (status != SQLITE_OK) {
-          // TODO: append to error log
+        rc = sqlite3_finalize(stmt);
+        if (rc != SQLITE_OK) {
+          LogLastError("sqlite3_finalize");
           return ADBC_STATUS_UNKNOWN;
         }
       }
-      // TODO: append to error log
+      LogLastError("sqlite3_prepare_v2");
       return ADBC_STATUS_UNKNOWN;
     }
 
     // Step the statement and get the schema (SQLite doesn't
     // necessarily know the schema until it begins to execute it)
-    status = sqlite3_step(stmt);
-    if (status == SQLITE_ERROR) {
-      // TODO: append to error log, free statement
-      ARROW_LOG(WARNING) << "[SQLite3] sqlite3_step: " << sqlite3_errmsg(db_);
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ERROR) {
+      LogLastError("sqlite3_step");
+      rc = sqlite3_finalize(stmt);
+      if (rc != SQLITE_OK) {
+        LogLastError("sqlite3_finalize");
+      }
       return ADBC_STATUS_UNKNOWN;
     }
-
-    const int num_columns = sqlite3_column_count(stmt);
-    arrow::FieldVector fields(num_columns);
-    for (int i = 0; i < num_columns; i++) {
-      const char* column_name = sqlite3_column_name(stmt, i);
-      const int column_type = sqlite3_column_type(stmt, i);
-      std::shared_ptr<arrow::DataType> arrow_type = nullptr;
-      switch (column_type) {
-        case SQLITE_INTEGER:
-          arrow_type = arrow::int64();
-          break;
-        case SQLITE_FLOAT:
-          arrow_type = arrow::float64();
-          break;
-        case SQLITE_BLOB:
-          arrow_type = arrow::binary();
-          break;
-        case SQLITE_TEXT:
-          arrow_type = arrow::utf8();
-          break;
-        case SQLITE_NULL:
-        default:
-          arrow_type = arrow::null();
-          break;
-      }
-      fields[i] = arrow::field(column_name, std::move(arrow_type));
-    }
-    auto schema = arrow::schema(std::move(fields));
+    auto schema = StatementToSchema(stmt);
 
     std::memset(out, 0, sizeof(*out));
-    auto impl = std::make_shared<SqliteStatementImpl>(db_, stmt, schema, status);
+    auto impl = std::make_shared<SqliteStatementImpl>(db_, stmt, std::move(schema), rc);
 
     out->close = &SqliteStatementImpl::CloseMethod;
     out->release = &SqliteStatementImpl::ReleaseMethod;
@@ -250,7 +280,13 @@ class AdbcSqliteImpl {
   }
 
  private:
+  void LogLastError(const std::string& source) {
+    messages_.push(
+        arrow::util::StringBuilder("[SQLite3] ", source, ": ", sqlite3_errmsg(db_)));
+  }
+
   sqlite3* db_;
+  std::queue<std::string> messages_;
 };
 
 }  // namespace
@@ -268,6 +304,7 @@ enum AdbcStatusCode AdbcDriverConnectionInit(const struct AdbcConnectionOptions*
 
   out->close = &AdbcSqliteImpl::CloseMethod;
   out->release = &AdbcSqliteImpl::ReleaseMethod;
+  out->get_error = &AdbcSqliteImpl::GetErrorMethod;
 
   out->sql_execute = &AdbcSqliteImpl::SqlExecuteMethod;
 

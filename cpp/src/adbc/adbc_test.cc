@@ -88,25 +88,40 @@ TEST(AdbcSql, SqlExecute) {
   options.target = kSqliteDriver;
   ADBC_ASSERT_OK(AdbcConnectionInit(&options, &connection));
 
-  auto query = "SELECT 1";
-  AdbcStatement statement;
-  ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement));
+  {
+    auto query = "SELECT 1";
+    AdbcStatement statement;
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement));
 
-  ArrowArrayStream stream;
-  ADBC_ASSERT_OK(statement.get_results(&statement, &stream));
-  ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+    ArrowArrayStream stream;
+    ADBC_ASSERT_OK(statement.get_results(&statement, &stream));
+    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
 
-  auto schema = arrow::schema({arrow::field("1", arrow::int64())});
-  arrow::AssertSchemaEqual(*reader->schema(), *schema);
+    auto schema = arrow::schema({arrow::field("1", arrow::int64())});
+    arrow::AssertSchemaEqual(*reader->schema(), *schema);
 
-  ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-  arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[1]]"), *batch);
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[1]]"), *batch);
 
-  ASSERT_OK_AND_ASSIGN(batch, reader->Next());
-  ASSERT_EQ(batch, nullptr);
+    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
+    ASSERT_EQ(batch, nullptr);
 
-  ADBC_ASSERT_OK(statement.close(&statement));
-  statement.release(&statement);
+    ADBC_ASSERT_OK(statement.close(&statement));
+    statement.release(&statement);
+  }
+
+  {
+    auto query = "INVALID";
+    AdbcStatement statement;
+    ASSERT_NE(connection.sql_execute(&connection, query, &statement), ADBC_STATUS_OK);
+
+    char* message = connection.get_error(&connection);
+    ASSERT_NE(message, nullptr);
+    ARROW_LOG(WARNING) << "Got error message: " << message;
+    EXPECT_THAT(message, ::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"));
+    EXPECT_THAT(message, ::testing::HasSubstr("syntax error"));
+    delete[] message;
+  }
 
   ADBC_ASSERT_OK(connection.close(&connection));
   connection.release(&connection);
