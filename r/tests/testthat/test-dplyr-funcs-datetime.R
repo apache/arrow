@@ -806,6 +806,8 @@ test_that("date works in arrow", {
   test_df <- tibble(
     a = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"))
 
+  # we can't (for now) use namespacing, so we need to make sure lubridate::date()
+  # and not base::date() is being used
   date <- lubridate::date
   compare_dplyr_binding(
     .input %>%
