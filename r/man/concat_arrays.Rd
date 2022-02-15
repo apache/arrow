@@ -20,7 +20,7 @@ A single \link{Array}
 }
 \description{
 Concatenates zero or more \link{Array} objects into a single
-array. This operation will copy its input; if you need
+array. This operation will make a copy of its input; if you need
 the behavior of a single Array but don't need a
 single object, use \link{ChunkedArray}. Note that a \code{\link[=c]{c()}}
 method is provided for convenience but that it may
