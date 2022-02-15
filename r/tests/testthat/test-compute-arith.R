@@ -143,19 +143,25 @@ test_that("Math group generics work on Array objects", {
   expect_equal(floor(Array$create(c(1.3, 2.1))), Array$create(c(1, 2)))
   expect_equal(ceiling(Array$create(c(1.3, 2.1))), Array$create(c(2, 3)))
   expect_equal(trunc(Array$create(c(1.3, 2.1))), Array$create(c(1, 2)))
-  expect_equal(round(Array$create(c(0.6, 2.1))), Array$create(c(1, 2)))
   expect_equal(cos(Array$create(c(0.6, 2.1))), Array$create(cos(c(0.6, 2.1))))
   expect_equal(sin(Array$create(c(0.6, 2.1))), Array$create(sin(c(0.6, 2.1))))
   expect_equal(tan(Array$create(c(0.6, 2.1))), Array$create(tan(c(0.6, 2.1))))
   expect_equal(acos(Array$create(c(0.6, 0.9))), Array$create(acos(c(0.6, 0.9))))
   expect_equal(asin(Array$create(c(0.6, 0.9))), Array$create(asin(c(0.6, 0.9))))
   expect_equal(atan(Array$create(c(0.6, 0.9))), Array$create(atan(c(0.6, 0.9))))
+
   expect_equal(log(Array$create(c(0.6, 2.1))), Array$create(log(c(0.6, 2.1))))
   expect_equal(
     log(Array$create(c(0.6, 2.1)), base = 2),
     Array$create(log(c(0.6, 2.1), base = 2))
   )
   expect_equal(log10(Array$create(c(0.6, 2.1))), Array$create(log10(c(0.6, 2.1))))
+
+  expect_equal(round(Array$create(c(0.6, 2.1))), Array$create(c(1, 2)))
+  expect_equal(
+    round(Array$create(c(0.61, 2.15)), digits = 1),
+    Array$create(c(0.6, 2.2))
+  )
 
   expect_error(
     sqrt(Array$create(c(4L, 1L))),
