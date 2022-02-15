@@ -803,6 +803,7 @@ test_that("dst extracts daylight savings time correctly", {
 test_that("date works in arrow", {
   # this date is specific since lubridate::date() is different from base::as.Date()
   # since as.Date returns the UTC date and date() doesn't
+  library(lubridate)
   test_df <- tibble(
     a = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"))
 
