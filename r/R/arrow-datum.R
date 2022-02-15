@@ -92,15 +92,16 @@ Ops.ArrowDatum <- function(e1, e2) {
 Math.ArrowDatum <- function(x, ...) {
   switch(
     .Generic,
-    abs =, sign =, sqrt =,
+    abs =, sign =,
     floor =, ceiling =, trunc =,
     round =, exp =, log =,
+    acos =, asin =, atan =,
     cos =, sin =, tan = {
       eval_array_expression(.Generic, x)
     },
+    sqrt =,
     signif =, expm1 =, log1p =,
     cospi =, sinpi =, tanpi =,
-    acos =, asin =, atan =,
     cosh =, sinh =, tanh =,
     acosh =, asinh =, atanh =,
     lgamma =, gamma =, digamma =, trigamma =,
