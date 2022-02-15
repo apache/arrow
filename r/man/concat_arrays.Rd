@@ -22,6 +22,7 @@ An \link{Array}
 Concatenate zero or more Arrays
 }
 \examples{
+\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 concat_arrays(Array$create(1:3), Array$create(4:5))
-
+\dontshow{\}) # examplesIf}
 }

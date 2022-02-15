@@ -226,7 +226,7 @@ Array$import_from_c <- ImportArray
 #' @return An [Array]
 #' @export
 #'
-#' @examples
+#' @examplesIf arrow_available()
 #' concat_arrays(Array$create(1:3), Array$create(4:5))
 #'
 concat_arrays <- function(..., type = NULL) {
