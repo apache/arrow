@@ -1277,8 +1277,6 @@ TEST(TestTime, TestTruncDate) {
 
   date_trunc_date64_utf8(context_ptr, ts1, "M", 1, &out_len);
   EXPECT_EQ(context.get_error(),
-            date_trunc_date64_utf8(context_ptr, INT64_MAX, "MONTH", 5, &out_len);
-            EXPECT_EQ(context.get_error(), "The date is invalid"); context.Reset();
             "The parameter pattern_length is not contain a valid value");
   context.Reset();
 
