@@ -801,6 +801,8 @@ test_that("dst extracts daylight savings time correctly", {
 })
 
 test_that("date works in arrow", {
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
   # this date is specific since lubridate::date() is different from base::as.Date()
   # since as.Date returns the UTC date and date() doesn't
   test_df <- tibble(
