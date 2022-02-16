@@ -90,11 +90,12 @@ detect_cuda() {
 if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
   ARROW_CUDA=ON
 fi
-: ${ARROW_S3:=OFF}
 : ${ARROW_CUDA:=OFF}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_PLASMA:=ON}
+: ${ARROW_S3:=OFF}
+: ${ARROW_GCS:=OFF}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -468,8 +469,7 @@ setup_virtualenv() {
     fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
-      $python -m pip install virtualenv
-      $python -m virtualenv ${virtualenv}
+      $python -m venv ${virtualenv}
     fi
     # Activate the environment
     source "${virtualenv}/bin/activate"
@@ -529,25 +529,33 @@ test_and_install_cpp() {
 
   cmake \
     -DARROW_BOOST_USE_SHARED=ON \
+    -DARROW_BUILD_EXAMPLES=ON \
     -DARROW_BUILD_INTEGRATION=ON \
+    -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=ON \
+    -DARROW_BUILD_UTILITIES=ON \
     -DARROW_CUDA=${ARROW_CUDA} \
     -DARROW_DATASET=ON \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-$DEFAULT_DEPENDENCY_SOURCE} \
+    -DARROW_FLIGHT_SQL=${ARROW_FLIGHT_SQL} \
     -DARROW_FLIGHT=${ARROW_FLIGHT} \
     -DARROW_GANDIVA=${ARROW_GANDIVA} \
+    -DARROW_GCS=${ARROW_GCS} \
     -DARROW_HDFS=ON \
+    -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
     -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_PYTHON=ON \
     -DARROW_S3=${ARROW_S3} \
-    -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-OFF} \
+    -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
     -DARROW_WITH_BROTLI=ON \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_RE2=ON \
     -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_UTF8PROC=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
@@ -555,6 +563,8 @@ test_and_install_cpp() {
     -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
     -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD:-OFF} \
     -DGTest_SOURCE=BUNDLED \
+    -DPARQUET_BUILD_EXAMPLES=ON \
+    -DPARQUET_BUILD_EXECUTABLES=ON \
     -DPARQUET_REQUIRE_ENCRYPTION=ON \
     ${ARROW_CMAKE_OPTIONS:-} \
     ${ARROW_SOURCE_DIR}/cpp
@@ -583,9 +593,6 @@ test_python() {
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PARQUET_ENCRYPTION=1
   export PYARROW_WITH_PLASMA=1
-  if [ "${ARROW_S3}" = "ON" ]; then
-    export PYARROW_WITH_S3=1
-  fi
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1
   fi
@@ -594,6 +601,9 @@ test_python() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
+  fi
+  if [ "${ARROW_S3}" = "ON" ]; then
+    export PYARROW_WITH_S3=1
   fi
 
   pushd python
@@ -613,17 +623,17 @@ import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 "
-  if [ "${PYARROW_WITH_S3}" == "ON" ]; then
-    python -c "import pyarrow._s3fs"
-  fi
-  if [ "${PYARROW_WITH_CUDA}" == "ON" ]; then
+  if [ "${ARROW_CUDA}" == "ON" ]; then
     python -c "import pyarrow.cuda"
   fi
-  if [ "${PYARROW_WITH_FLIGHT}" == "ON" ]; then
+  if [ "${ARROW_FLIGHT}" == "ON" ]; then
     python -c "import pyarrow.flight"
   fi
-  if [ "${ARROW_WITH_GANDIVA}" == "ON" ]; then
+  if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
+  fi
+  if [ "${ARROW_S3}" == "ON" ]; then
+    python -c "import pyarrow._s3fs"
   fi
 
   # Install test dependencies

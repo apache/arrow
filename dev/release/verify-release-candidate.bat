@@ -40,7 +40,7 @@ if "%VERSION%"=="" (
     set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
     if "%RC_NUMBER%"=="" (
         @rem verify a specific git revision
-        git clone --recurse-submodules https://github.com/apache/arrow.git !ARROW_SOURCE!
+        git clone https://github.com/apache/arrow.git !ARROW_SOURCE!
         git -C !ARROW_SOURCE! checkout %VERSION%
     ) else (
         @rem verify a release candidate tarball
