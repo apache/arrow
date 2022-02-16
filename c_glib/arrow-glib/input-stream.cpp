@@ -803,13 +803,19 @@ namespace garrow {
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       gsize n_read_bytes = 0;
-      g_input_stream_read_all(input_stream_,
-                              out,
-                              n_bytes,
-                              &n_read_bytes,
-                              NULL,
-                              &error);
-      if (error) {
+      auto success = g_input_stream_read_all(input_stream_,
+                                             out,
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
+        return n_read_bytes;
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read]");
+      }
         return garrow_error_to_status(error,
                                       arrow::StatusCode::IOError,
                                       "[gio-input-stream][read]");
