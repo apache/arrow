@@ -385,9 +385,10 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   accumulated = 0;
   EXPECT_OK_AND_ASSIGN(auto record_batch_reader,
                        reader->GetRecordBatchReader(reader_batch_size, {"col1", "col2"}));
-  ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
   int64_t batches = 0;
-  while (record_batch) {
+  int64_t num_rows = 0;
+  for (const auto maybe_batch : *record_batch_reader) {
+    ASSERT_OK_AND_ASSIGN(record_batch, maybe_batch);
     auto int32_array = checked_pointer_cast<Int32Array>(record_batch->column(0));
     auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
     for (int j = 0; j < record_batch->num_rows(); ++j) {
@@ -395,11 +396,12 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
       EXPECT_EQ(std::to_string(accumulated % stripe_row_count), str_array->GetString(j));
       accumulated++;
     }
-    record_batch.reset();
-    ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
+    EXPECT_LE(record_batch->num_rows(), reader_batch_size);
+    num_rows += record_batch->num_rows();
     batches++;
   }
-  EXPECT_EQ((stripe_row_count * stripe_count) / reader_batch_size, batches);
+  EXPECT_EQ(num_rows, stripe_row_count * stripe_count);
+  EXPECT_EQ(num_rows / reader_batch_size, batches);
 }
 
 // Trivial
