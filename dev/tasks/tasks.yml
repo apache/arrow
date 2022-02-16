@@ -114,10 +114,10 @@ groups:
     - verify-rc-binaries-*
 
   verify-rc-jars:
-    - verify-rc-jars-*
+    - verify-rc-binaries-jars-*
 
   verify-rc-wheels:
-    - verify-rc-wheels-*
+    - verify-rc-binaries-wheels-*
 
   verify-rc-source:
     - verify-rc-source-*
@@ -871,7 +871,7 @@ tasks:
 
   ########################### Release verification ############################
 
-  ######################## Linux source verification ##########################
+  ######################## Linux verification #################################
 
 {% for target in ["cpp", "integration", "python"] %}
   verify-rc-source-{{ target }}-linux-conda-amd64:
@@ -903,7 +903,23 @@ tasks:
 
 {% endfor %}
 
-  ######################## macOS source verification ##########################
+  {% for target in ["binary", "yum", "apt", "jars", "wheels"] %}
+  verify-rc-binaries-{{ target }}-linux-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      target: {{ target }}
+  {% endfor %}
+
+  verify-rc-binaries-wheels-linux-amd64-conda:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      env:
+        USE_CONDA: 1
+      target: wheels
+
+  ######################## macOS verification ################################
 
   {% for target in ["cpp", "integration", "python"] %}
   verify-rc-source-{{ target }}-macos-conda-amd64:
@@ -911,7 +927,6 @@ tasks:
     template: verify-rc/github.macos.amd64.yml
     params:
       target: {{ target }}
-      artifact: source
       use_conda: True
       github_runner: "macos-10.15"
   {% endfor %}
@@ -929,7 +944,6 @@ tasks:
     template: verify-rc/github.macos.amd64.yml
     params:
       target: {{ target }}
-      artifact: "source"
       github_runner: "macos-10.15"
   {% endfor %}
 
@@ -951,11 +965,40 @@ tasks:
         TEST_INTEGRATION_JAVA: 0
         PYTEST_ADDOPTS: "-k 'not test_cancellation'"
       target: {{ target }}
-      artifact: "source"
       github_runner: "self-hosted"
   {% endfor %}
 
-  ######################## Windows source verification ########################
+  verify-rc-binaries-wheels-macos-10.15-amd64:
+    ci: github
+    template: verify-rc/github.macos.amd64.yml
+    params:
+      github_runner: "macos-10.15"
+      target: "wheels"
+
+  verify-rc-binaries-wheels-macos-10.15-amd64-conda:
+    ci: github
+    template: verify-rc/github.linux.amd64.yml
+    params:
+      env:
+        USE_CONDA: 1
+      github_runner: "macos-10.15"
+      target: "wheels"
+
+  # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
+  #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
+  {% for arch, emulation in [("amd64", "x86_64"), ("arm64", "arm64")] %}
+  verify-rc-binaries-wheels-macos-11-{{ arch }}:
+    ci: github
+    template: verify-rc/github.macos.arm64.yml
+    params:
+      env:
+        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
+      github_runner: "self-hosted"
+      arch_emulation: {{ emulation }}
+      target: "wheels"
+  {% endfor %}
+
+  ######################## Windows verification ##############################
 
   verify-rc-source-windows:
     ci: github
@@ -965,34 +1008,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate.bat"
 
-  ######################## Java jars verification #############################
-
-  verify-rc-jars-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      artifact: jars
-
-  ######################## Linux package verification ########################
-
-  {% for target in ["binary", "yum", "apt"] %}
-  verify-rc-binaries-{{ target }}-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      target: {{ target }}
-      artifact: binaries
-  {% endfor %}
-
-  ######################### Wheel Verification ################################
-
-  verify-rc-wheels-linux-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      artifact: wheels
-
-  verify-rc-wheels-windows:
+  verify-rc-binaries-wheels-windows:
     ci: github
     template: verify-rc/github.win.yml
     params:
@@ -1000,28 +1016,7 @@ tasks:
         PYARROW_TEST_GDB: "OFF"
       script: "verify-release-candidate-wheels.bat"
 
-  verify-rc-wheels-macos-10.15-amd64:
-    ci: github
-    template: verify-rc/github.macos.amd64.yml
-    params:
-      github_runner: "macos-10.15"
-      artifact: "wheels"
-
-  # The github hosted macos-11 runners are in preview only, but should be switched once they are generally available:
-  #   https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
-  {% for arch, emulation in [("amd64", "x86_64"), ("arm64", "arm64")] %}
-  verify-rc-wheels-macos-11-{{ arch }}:
-    ci: github
-    template: verify-rc/github.macos.arm64.yml
-    params:
-      arch_emulation: {{ emulation }}
-      env:
-        PYTEST_ADDOPTS: "-k 'not test_cancellation'"
-      artifact: "wheels"
-      github_runner: "self-hosted"
-  {% endfor %}
-
-{############################## Docker tests #################################}
+############################## Docker tests ##################################
 
 {% for image in ["conda-cpp",
                  "debian-c-glib",

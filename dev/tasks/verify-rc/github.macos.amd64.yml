@@ -23,7 +23,7 @@
 
 jobs:
   verify:
-    name: "Verify release candidate macOS {{ artifact }}"
+    name: "Verify release candidate on macOS"
     runs-on: {{ github_runner|default("macos-latest") }}
     {% if env is defined %}
     env:
@@ -57,12 +57,9 @@ jobs:
         shell: bash
         env:
           TEST_DEFAULT: 0
-        {% if target is defined %}
           TEST_{{ target|upper }}: 1
-        {% endif %}
         {% if use_conda %}
           USE_CONDA: 1
         {% endif %}
         run: |
-          arrow/dev/release/verify-release-candidate.sh \
-            {{ artifact }} {{ release|default("") }} {{ rc|default("") }}
+          arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}

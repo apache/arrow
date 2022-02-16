@@ -1719,14 +1719,16 @@ services:
     shm_size: '1gb'
     environment:
       <<: *ccache
-      USE_CONDA: 1
-      DEBIAN_FRONTEND: "noninteractive"
       ARROW_USE_CCACHE: "ON"
       CMAKE_GENERATOR: Ninja
+      DEBIAN_FRONTEND: "noninteractive"
+      TEST_DEFAULT: 0
+      TEST_SOURCE: 1
+      USE_CONDA: 1
     command: >
       /bin/bash -c "
         apt update -y && apt install -y curl git tzdata wget &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc-source:
     # Usage:
@@ -1742,10 +1744,12 @@ services:
     environment:
       <<: *ccache
       ARROW_USE_CCACHE: "ON"
+      TEST_DEFAULT: 0
+      TEST_SOURCE: 1
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-rhel-rebuilds.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   ubuntu-verify-rc-source:
     # Usage:
@@ -1762,7 +1766,9 @@ services:
       <<: *ccache
       DEBIAN_FRONTEND: "noninteractive"
       ARROW_USE_CCACHE: "ON"
+      TEST_DEFAULT: 0
+      TEST_SOURCE: 1
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-ubuntu.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"

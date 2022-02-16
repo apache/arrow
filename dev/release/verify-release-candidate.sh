@@ -42,45 +42,32 @@ if [ ${VERBOSE:-0} -gt 0 ]; then
 fi
 
 case $# in
-  1) ARTIFACT="$1"
-     VERSION="HEAD"
+  0) VERSION="HEAD"
      SOURCE_KIND="local"
-     case $ARTIFACT in
-       source) ;;
-       *) echo "Invalid argument: '${ARTIFACT}', only valid option is 'source'"
-          exit 1
-          ;;
-     esac
+     TEST_BINARIES=0
      ;;
-  2) ARTIFACT="$1"
-     VERSION="$2"
+  1) VERSION="$1"
      SOURCE_KIND="git"
-     case $ARTIFACT in
-       source) ;;
-       *) echo "Invalid argument: '${ARTIFACT}', only valid option is 'source'"
-          exit 1
-          ;;
-     esac
+     TEST_BINARIES=0
      ;;
-  3) ARTIFACT="$1"
-     VERSION="$2"
-     RC_NUMBER="$3"
+  2) VERSION="$1"
+     RC_NUMBER="$2"
      SOURCE_KIND="tarball"
-     case $ARTIFACT in
-       source|binaries|wheels|jars) ;;
-       *) echo "Invalid argument: '${ARTIFACT}', valid options are \
-'source', 'binaries', 'wheels', or 'jars'"
-          exit 1
-          ;;
-     esac
      ;;
   *) echo "Usage:"
      echo "  Verify release candidate:"
-     echo "    $0 source|binaries|wheels|jars X.Y.Z RC_NUMBER"
-     echo "  Verify remote git revision:"
-     echo "    $0 source GIT-REF"
-     echo "  Verify this arrow checkout:"
-     echo "    $0 source"
+     echo "    $0 X.Y.Z RC_NUMBER"
+     echo "  Verify only the source distribution:"
+     echo "    TEST_DEFAULT=0 TEST_SOURCE=1 $0 X.Y.Z RC_NUMBER"
+     echo "  Verify only the binary distributions:"
+     echo "    TEST_DEFAULT=0 TEST_BINARIES=1 $0 X.Y.Z RC_NUMBER"
+     echo "  Verify only the wheels:"
+     echo "    TEST_DEFAULT=0 TEST_WHEELS=1 $0 X.Y.Z RC_NUMBER"
+     echo ""
+     echo "  Run the source verification tasks on a remote git revision:"
+     echo "    $0 GIT-REF"
+     echo "  Run the source verification tasks on this arrow checkout:"
+     echo "    $0"
      exit 1
      ;;
 esac
@@ -125,8 +112,13 @@ download_rc_file() {
 }
 
 import_gpg_keys() {
+  if [ "${GPGKEYS_ALREADY_IMPORTED:-0}" -gt 0 ]; then
+    return 0
+  fi
   download_dist_file KEYS
   gpg --import KEYS
+
+  GPGKEYS_ALREADY_IMPORTED=1
 }
 
 if type shasum >/dev/null 2>&1; then
@@ -138,6 +130,8 @@ else
 fi
 
 fetch_archive() {
+  import_gpg_keys
+
   local dist_name=$1
   download_rc_file ${dist_name}.tar.gz
   download_rc_file ${dist_name}.tar.gz.asc
@@ -149,6 +143,8 @@ fetch_archive() {
 }
 
 verify_dir_artifact_signatures() {
+  import_gpg_keys
+
   # verify the signature and the checksums of each artifact
   find $1 -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
@@ -168,7 +164,7 @@ verify_dir_artifact_signatures() {
   done
 }
 
-test_binary() {
+test_binaries() {
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -439,7 +435,7 @@ setup_conda() {
     conda activate $env
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
-    echo "Deactivate the environment before running the verification script."
+    echo "Deactivate the environment using `conda deactive` before running the verification script."
     exit 1
   fi
 }
@@ -528,7 +524,7 @@ test_and_install_cpp() {
   pushd $ARROW_TMPDIR/build
 
   if [ ! -z "$CMAKE_GENERATOR" ]; then
-    ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G Ninja"
+    ARROW_CMAKE_OPTIONS="${ARROW_CMAKE_OPTIONS:-} -G ${CMAKE_GENERATOR}"
   fi
 
   cmake \
@@ -788,19 +784,11 @@ ensure_source_directory() {
   else
     # Release tarball, testing repositories must be cloned separately
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
-    if [ $((${TEST_SOURCE} + ${TEST_WHEELS})) -gt 0 ]; then
-      import_gpg_keys
-      if [ ! -d "${dist_name}" ]; then
-        fetch_archive ${dist_name}
-        tar xf ${dist_name}.tar.gz
-      fi
-    else
-      mkdir -p ${dist_name}
-      if [ ! -f ${TEST_ARCHIVE} ]; then
-        echo "${TEST_ARCHIVE} not found"
-        exit 1
-      fi
-      tar xf ${TEST_ARCHIVE} -C ${dist_name} --strip-components=1
+    if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
+      pushd $ARROW_TMPDIR
+      fetch_archive ${dist_name}
+      tar xf ${dist_name}.tar.gz
+      popd
     fi
   fi
 
@@ -873,6 +861,12 @@ test_binary_distribution() {
   fi
   if [ ${TEST_YUM} -gt 0 ]; then
     test_yum
+  fi
+  if [ ${TEST_WHEELS} -gt 0 ]; then
+    test_wheels
+  fi
+  if [ ${TEST_JARS} -gt 0 ]; then
+    test_jars
   fi
 }
 
@@ -964,7 +958,7 @@ test_wheels() {
     local filter_regex=.*manylinux.*
   fi
 
-  python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+  ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
          --package_type python \
          --regex=${filter_regex} \
          --dest=${download_dir}
@@ -996,45 +990,29 @@ test_jars() {
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
-
-case "${ARTIFACT}" in
-  source)
-    : ${TEST_SOURCE:=1}
-    ;;
-  binaries)
-    TEST_BINARY_DISTRIBUTIONS=1
-    ;;
-  wheels)
-    TEST_WHEELS=1
-    USE_CONDA=1
-    ;;
-  jars)
-    TEST_JARS=1
-    ;;
-esac
-: ${TEST_SOURCE:=0}
-: ${TEST_BINARY_DISTRIBUTIONS:=0}
-: ${TEST_WHEELS:=0}
-: ${TEST_JARS:=0}
-
 : ${TEST_DEFAULT:=1}
-: ${TEST_JAVA:=${TEST_DEFAULT}}
-: ${TEST_CPP:=${TEST_DEFAULT}}
-: ${TEST_CSHARP:=${TEST_DEFAULT}}
-: ${TEST_GLIB:=${TEST_DEFAULT}}
-: ${TEST_RUBY:=${TEST_DEFAULT}}
-: ${TEST_PYTHON:=${TEST_DEFAULT}}
-: ${TEST_JS:=${TEST_DEFAULT}}
-: ${TEST_GO:=${TEST_DEFAULT}}
-: ${TEST_INTEGRATION:=${TEST_DEFAULT}}
-if [ ${TEST_BINARY_DISTRIBUTIONS} -gt 0 ]; then
-  TEST_BINARY_DISTRIBUTIONS_DEFAULT=${TEST_DEFAULT}
-else
-  TEST_BINARY_DISTRIBUTIONS_DEFAULT=0
-fi
-: ${TEST_BINARY:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
-: ${TEST_APT:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
-: ${TEST_YUM:=${TEST_BINARY_DISTRIBUTIONS_DEFAULT}}
+
+# Verification groups
+: ${TEST_SOURCE:=${TEST_DEFAULT}}
+: ${TEST_BINARIES:=${TEST_DEFAULT}}
+
+# Binary verification tasks
+: ${TEST_APT:=${TEST_BINARIES}}
+: ${TEST_BINARY:=${TEST_BINARIES}}
+: ${TEST_JARS:=${TEST_BINARIES}}
+: ${TEST_WHEELS:=${TEST_BINARIES}}
+: ${TEST_YUM:=${TEST_BINARIES}}
+
+# Source verification tasks
+: ${TEST_JAVA:=${TEST_SOURCE}}
+: ${TEST_CPP:=${TEST_SOURCE}}
+: ${TEST_CSHARP:=${TEST_SOURCE}}
+: ${TEST_GLIB:=${TEST_SOURCE}}
+: ${TEST_RUBY:=${TEST_SOURCE}}
+: ${TEST_PYTHON:=${TEST_SOURCE}}
+: ${TEST_JS:=${TEST_SOURCE}}
+: ${TEST_GO:=${TEST_SOURCE}}
+: ${TEST_INTEGRATION:=${TEST_SOURCE}}
 
 # For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
 : ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
@@ -1050,39 +1028,15 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-: ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
-case "${TEST_ARCHIVE}" in
-  /*)
-   ;;
-  *)
-   TEST_ARCHIVE=${PWD}/${TEST_ARCHIVE}
-   ;;
-esac
-
+# Execute the verification tasks
 TEST_SUCCESS=no
-setup_tempdir
 
-case "${ARTIFACT}" in
-  source)
-    ensure_source_directory
-    pushd ${ARROW_SOURCE_DIR}
-    test_source_distribution
-    popd
-    ;;
-  binaries)
-    import_gpg_keys
-    test_binary_distribution
-    ;;
-  wheels)
-    ensure_source_directory
-    test_wheels
-    ;;
-  jars)
-    import_gpg_keys
-    test_jars
-    ;;
-esac
+setup_tempdir
+ensure_source_directory
+test_source_distribution
+test_binary_distribution
 
 TEST_SUCCESS=yes
+
 echo 'Release candidate looks good!'
 exit 0
