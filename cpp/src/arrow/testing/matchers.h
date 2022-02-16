@@ -61,17 +61,15 @@ class PointeesEqualMatcher {
 // Useful in conjunction with other googletest matchers.
 inline PointeesEqualMatcher PointeesEqual() { return {}; }
 
-class AnyOfJSONMatcher : public ::testing::internal::MatcherBaseImpl<AnyOfJSONMatcher> {
+class AnyOfJSONMatcher {
  public:
-  using AnyOfJSONMatcher::MatcherBaseImpl::MatcherBaseImpl;
   AnyOfJSONMatcher(std::shared_ptr<DataType> type, std::string array_json)
       : type_(std::move(type)), array_json_(std::move(array_json)) {}
 
   template <typename arg_type>
   operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
-    class Impl : public ::testing::MatcherInterface<const arg_type&> {
-     public:
-      explicit Impl(std::shared_ptr<DataType> type, std::string array_json)
+    struct Impl : testing::MatcherInterface<const arg_type&> {
+      Impl(std::shared_ptr<DataType> type, std::string array_json)
           : type_(std::move(type)), array_json_(std::move(array_json)) {
         array = ArrayFromJSON(type_, array_json_);
       }
