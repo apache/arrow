@@ -117,6 +117,12 @@ def _apply_options(cmd, options):
 @cpp_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
+@click.option("--build-static", default=True, type=BOOL,
+              help="Build static libraries")
+@click.option("--build-shared", default=True, type=BOOL,
+              help="Build shared libraries")
+@click.option("--build-unity", default=True, type=BOOL,
+              help="Use CMAKE_UNITY_BUILD")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
