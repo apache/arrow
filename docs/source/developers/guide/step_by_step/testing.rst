@@ -61,13 +61,6 @@ In this section we outline steps needed for unit testing in Arrow.
 
       Tests for Parquet are located in a separate folder ``pyarrow/tests/parquet/``.
 
-      .. Note::
-
-         Good to read:
-         `Invoking pytest versus python -m pytest <https://docs.pytest.org/en/6.2.x/pythonpath.html#pytest-vs-python-m-pytest>`_
-         (bottom of the page).
-
-
       **Running tests**
 
       To run a specific unit test, use this command in
@@ -88,6 +81,12 @@ In this section we outline steps needed for unit testing in Arrow.
       .. code:: console
 
          $ pytest pyarrow
+
+      You can also run the tests with ``python -m pytest [...]``
+      which is almost equivalent to using ``pytest [...]`` directly,
+      except that calling via python will also add the current
+      directory to ``sys.path`` and can in some cases help if
+      ``pytest [...]`` results in an ImportError.
 
       **Recompiling PyArrow or Arrow C++**
 
