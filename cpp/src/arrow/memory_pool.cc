@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/memory_pool.h"
+#include "arrow/util/atomic_shared_ptr.h"
 
 #include <algorithm>  // IWYU pragma: keep
 #include <atomic>
@@ -660,7 +661,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
  public:
   Result<std::shared_ptr<Buffer>> GetImmutableZeros(int64_t size) override {
     // Thread-safely get the current largest buffer of zeros.
-    auto current_buffer = atomic_load(&immutable_zeros_cache_);
+    auto current_buffer = internal::atomic_load(&immutable_zeros_cache_);
 
     // If this buffer satisfies the requirements, return it.
     if (current_buffer && current_buffer->size() >= size) {
@@ -672,7 +673,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
     // Between our previous atomic load and acquisition of the lock, another
     // thread may have allocated a buffer. So we need to check again.
-    current_buffer = atomic_load(&immutable_zeros_cache_);
+    current_buffer = internal::atomic_load(&immutable_zeros_cache_);
     if (current_buffer && current_buffer->size() >= size) {
       return std::move(current_buffer);
     }
@@ -706,7 +707,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
 
     // Store a reference to the new block in the cache, so subsequent calls to
     // this function (from this thread or from other threads) can use it, too.
-    atomic_store(&immutable_zeros_cache_, current_buffer);
+    internal::atomic_store(&immutable_zeros_cache_, current_buffer);
 
     return std::move(current_buffer);
   }
@@ -716,12 +717,13 @@ class BaseMemoryPoolImpl : public MemoryPool {
     // there are other pieces of code using it, getting rid of the cache won't
     // deallocate it anyway, so it's better to hold onto it.
     {
-      auto cache = atomic_load(&immutable_zeros_cache_);
+      auto cache = internal::atomic_load(&immutable_zeros_cache_);
 
       // Because we now have a copy in our thread, the use count will be 2 if
       // nothing else is using it.
       if (cache.use_count() <= 2) {
-        atomic_store(&immutable_zeros_cache_, std::shared_ptr<ImmutableZeros>());
+        internal::atomic_store(&immutable_zeros_cache_,
+                               std::shared_ptr<ImmutableZeros>());
       }
     }
 
