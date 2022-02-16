@@ -1,4 +1,4 @@
-# arrow
+# arrow <a href="https://arrow.apache.org/docs/r/"><img src="man/figures/logo.png" align="right" height="138" /></a>
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
