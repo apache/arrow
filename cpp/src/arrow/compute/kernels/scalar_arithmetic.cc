@@ -2630,7 +2630,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
     DCHECK_OK(
         add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }

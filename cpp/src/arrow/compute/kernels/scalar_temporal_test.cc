@@ -1081,6 +1081,17 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDuration) {
     auto milliseconds_3k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([3000, null])");
     CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
   }
+
+  for (auto unit : TimeUnit::values()) {
+    auto duration_ty = duration(unit);
+    auto arr1 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
+
+    CheckScalarBinary("add", arr1, arr2, arr3);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("add_checked", {arr1, arr2}));
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
