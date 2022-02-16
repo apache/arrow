@@ -781,7 +781,8 @@ test_that("semester errors with integers and characters", {
       arrow_table() %>%
       mutate(sem_month_as_int = semester(month_as_int)) %>%
       collect(),
-    regexp = "no kernel matching input types"
+    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[int32])",
+    fixed = TRUE
   )
 
   expect_error(
@@ -789,6 +790,7 @@ test_that("semester errors with integers and characters", {
       arrow_table() %>%
       mutate(sem_month_as_char_pad = semester(month_as_char_pad)) %>%
       collect(),
-    regexp = "no kernel matching input types"
+    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[string])",
+    fixed = TRUE
   )
 })
