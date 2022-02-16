@@ -492,7 +492,7 @@ Result<std::string> TzinfoToString(PyObject* tzinfo) {
     // _filename returns a full path in general ('/usr/share/zoneinfo/Europe/Paris')
     // or POSIX name on Windows ('Europe/Paris') - we need a substring in first case
     std::size_t pos = result.find("zoneinfo/");
-    if (pos > 0) {
+    if (pos != std::string::npos) {
       return result.substr(pos + 9);
     }
     return result;
