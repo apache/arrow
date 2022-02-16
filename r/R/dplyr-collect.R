@@ -36,7 +36,6 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 
   if (as_data_frame) {
     df <- as.data.frame(tab)
-    tab$invalidate()
     restore_dplyr_features(df, x)
   } else {
     restore_dplyr_features(tab, x)
