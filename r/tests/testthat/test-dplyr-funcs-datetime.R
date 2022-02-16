@@ -715,12 +715,6 @@ test_that("am/pm mirror lubridate", {
 test_that("extract tz", {
   df <- tibble(
     posixct_date = as.POSIXct(c("2022-02-07", "2022-02-10"), tz = "Pacific/Marquesas"),
-    # lubridate::tz() returns -for the time being - "UTC" for NAs, strings,
-    # dates and numerics
-    char_date = c("2022-02-07", NA),
-    date_date = as.Date(c("2022-02-07", NA)),
-    integer_date = c(1L, 5L),
-    double_date = c(1.1, 2.47)
   )
 
   compare_dplyr_binding(
@@ -730,53 +724,21 @@ test_that("extract tz", {
     df
   )
 
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(
-          timezone_posixct_date = tz(posixct_date),
-          timezone_char_date = tz(char_date)
-        ) %>%
-        collect(),
-      df
-    ),
-    error = TRUE
+  expect_error(
+    call_binding("tz", Expression$scalar("2020-10-01")),
+    "timezone extraction for objects of class `string` not supported in Arrow"
   )
-
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(
-          timezone_posixct_date = tz(posixct_date),
-          timezone_date_date = tz(date_date)
-        ) %>%
-        collect(),
-      df
-    ),
-    error = TRUE
+  expect_error(
+    call_binding("tz", Expression$scalar(as.Date("2020-10-01"))),
+    "timezone extraction for objects of class `date32[day]` not supported in Arrow",
+    fixed = TRUE
   )
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(
-          timezone_posixct_date = tz(posixct_date),
-          timezone_integer_date = tz(integer_date)
-        ) %>%
-        collect(),
-      df
-    ),
-    error = TRUE
+  expect_error(
+    call_binding("tz", Expression$scalar(1L)),
+    "timezone extraction for objects of class `int32` not supported in Arrow"
   )
-  expect_snapshot(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(
-          timezone_posixct_date = tz(posixct_date),
-          timezone_double_date = tz(double_date)
-        ) %>%
-        collect(),
-      df
-    ),
-    error = TRUE
+   expect_error(
+    call_binding("tz", Expression$scalar(1.1)),
+    "timezone extraction for objects of class `double` not supported in Arrow"
   )
 })
