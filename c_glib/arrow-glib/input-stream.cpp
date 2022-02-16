@@ -816,12 +816,6 @@ namespace garrow {
                                       arrow::StatusCode::IOError,
                                       "[gio-input-stream][read]");
       }
-        return garrow_error_to_status(error,
-                                      arrow::StatusCode::IOError,
-                                      "[gio-input-stream][read]");
-      } else {
-        return n_read_bytes;
-      }
     }
 
     arrow::Result<int64_t> ReadAt(int64_t position,
@@ -842,21 +836,21 @@ namespace garrow {
       std::lock_guard<std::mutex> guard(lock_);
       GError *error = NULL;
       gsize n_read_bytes = 0;
-      g_input_stream_read_all(input_stream_,
-                              buffer->mutable_data(),
-                              n_bytes,
-                              &n_read_bytes,
-                              NULL,
-                              &error);
-      if (error) {
-        return garrow_error_to_status(error,
-                                      arrow::StatusCode::IOError,
-                                      "[gio-input-stream][read][buffer]");
-      } else {
+      auto success = g_input_stream_read_all(input_stream_,
+                                             buffer->mutable_data(),
+                                             n_bytes,
+                                             &n_read_bytes,
+                                             NULL,
+                                             &error);
+      if (success) {
         if (n_read_bytes < static_cast<gsize>(n_bytes)) {
           RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
         return std::move(buffer);
+      } else {
+        return garrow_error_to_status(error,
+                                      arrow::StatusCode::IOError,
+                                      "[gio-input-stream][read][buffer]");
       }
     }
 
