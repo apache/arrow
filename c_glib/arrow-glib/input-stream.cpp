@@ -853,7 +853,7 @@ namespace garrow {
                                       arrow::StatusCode::IOError,
                                       "[gio-input-stream][read][buffer]");
       } else {
-        if ((int64_t) n_read_bytes < n_bytes) {
+        if (n_read_bytes < static_cast<gsize>(n_bytes)) {
           RETURN_NOT_OK(buffer->Resize(n_read_bytes));
         }
         return std::move(buffer);
