@@ -28,24 +28,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string.h"
 
 namespace arrow {
 
 using internal::StringFormatter;
 
 namespace compute {
-
-template <typename... Elements>
-std::string MakeArray(Elements... elements) {
-  std::vector<std::string> elements_as_strings = {std::to_string(elements)...};
-
-  std::vector<util::string_view> elements_as_views(sizeof...(Elements));
-  std::copy(elements_as_strings.begin(), elements_as_strings.end(),
-            elements_as_views.begin());
-
-  return "[" + ::arrow::internal::JoinStrings(elements_as_views, ",") + "]";
-}
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
@@ -1094,14 +1082,11 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDuration) {
     CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
   }
 
-  auto min = std::numeric_limits<int64_t>::lowest();
-  auto max = std::numeric_limits<int64_t>::max();
-
   for (auto unit : TimeUnit::values()) {
     auto duration_ty = duration(unit);
-    auto arr1 = ArrayFromJSON(duration_ty, MakeArray(max));
-    auto arr2 = ArrayFromJSON(duration_ty, MakeArray(1));
-    auto arr3 = ArrayFromJSON(duration_ty, MakeArray(min));
+    auto arr1 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
 
     CheckScalarBinary("add", arr1, arr2, arr3);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
