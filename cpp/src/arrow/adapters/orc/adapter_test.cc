@@ -435,8 +435,8 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleBatches) {
   ASSERT_EQ(stripe_row_count * stripe_count, reader->NumberOfRows());
   ASSERT_EQ(stripe_count, reader->NumberOfStripes());
   accumulated = 0;
-  std::shared_ptr<RecordBatchReader> record_batch_reader;
-  ABORT_NOT_OK(reader->NextBatchReader(reader_batch_size, {"col1", "col2"}, &record_batch_reader));
+  EXPECT_OK_AND_ASSIGN(auto record_batch_reader,
+                       reader->GetRecordBatchReader(reader_batch_size, {"col1", "col2"}));
   std::shared_ptr<RecordBatch> record_batch;
   ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
   int64_t batches = 0;
@@ -445,15 +445,14 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleBatches) {
     auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
     for (int j = 0; j < record_batch->num_rows(); ++j) {
       EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
-      EXPECT_EQ(std::to_string(accumulated % stripe_row_count),
-                str_array->GetString(j));
+      EXPECT_EQ(std::to_string(accumulated % stripe_row_count), str_array->GetString(j));
       accumulated++;
     }
     record_batch.reset();
     ABORT_NOT_OK(record_batch_reader->ReadNext(&record_batch));
     batches++;
   }
-  EXPECT_EQ((stripe_row_count * stripe_count) / reader_batch_size , batches);
+  EXPECT_EQ((stripe_row_count * stripe_count) / reader_batch_size, batches);
 }
 
 // Trivial

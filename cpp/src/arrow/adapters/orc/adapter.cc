@@ -504,8 +504,9 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status NextBatchReader(int64_t batch_size, const std::vector<std::string>& include_names,
-                          std::shared_ptr<RecordBatchReader>* out) {
+  Status GetRecordBatchReader(int64_t batch_size,
+                              const std::vector<std::string>& include_names,
+                              std::shared_ptr<RecordBatchReader>* out) {
     liborc::RowReaderOptions opts;
     if (!include_names.empty()) {
       RETURN_NOT_OK(SelectNames(&opts, include_names));
@@ -666,10 +667,11 @@ Status ORCFileReader::NextStripeReader(int64_t batch_size,
   return impl_->NextStripeReader(batch_size, include_indices, out);
 }
 
-Status ORCFileReader::NextBatchReader(int64_t batch_size,
-                                       const std::vector<std::string>& include_names,
-                                       std::shared_ptr<RecordBatchReader>* out) {
-  return impl_->NextBatchReader(batch_size, include_names, out);
+Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
+    int64_t batch_size, const std::vector<std::string>& include_names) {
+  std::shared_ptr<RecordBatchReader> reader;
+  RETURN_NOT_OK(impl_->GetRecordBatchReader(batch_size, include_names, &reader));
+  return reader;
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(

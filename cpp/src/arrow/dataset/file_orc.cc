@@ -86,10 +86,11 @@ class OrcScanTask {
         }
 
         std::shared_ptr<RecordBatchReader> record_batch_reader;
-        RETURN_NOT_OK(reader->NextBatchReader(scan_options.batch_size, included_fields, &record_batch_reader));
+        ARROW_ASSIGN_OR_RAISE(
+            record_batch_reader,
+            reader->GetRecordBatchReader(scan_options.batch_size, included_fields));
 
-        return RecordBatchIterator(
-            Impl{std::move(record_batch_reader)});
+        return RecordBatchIterator(Impl{std::move(record_batch_reader)});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
