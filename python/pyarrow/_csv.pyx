@@ -1032,7 +1032,8 @@ cdef class WriteOptions(_Weakrefable):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, include_header=None, batch_size=None, delimiter=None):
+    def __init__(self, *, include_header=None, batch_size=None,
+                 delimiter=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
