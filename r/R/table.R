@@ -118,11 +118,7 @@ Table <- R6Class("Table",
       inherits(other, "Table") && Table__Equals(self, other, isTRUE(check_metadata))
     },
     Validate = function() Table__Validate(self),
-    ValidateFull = function() Table__ValidateFull(self),
-    invalidate = function() {
-      .Call(`_arrow_Table__Reset`, self)
-      super$invalidate()
-    }
+    ValidateFull = function() Table__ValidateFull(self)
   ),
   active = list(
     num_columns = function() Table__num_columns(self),

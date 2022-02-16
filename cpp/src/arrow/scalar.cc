@@ -475,8 +475,14 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
+BinaryScalar::BinaryScalar(std::string s)
+    : BinaryScalar(Buffer::FromString(std::move(s))) {}
+
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
+
+LargeBinaryScalar::LargeBinaryScalar(std::string s)
+    : LargeBinaryScalar(Buffer::FromString(std::move(s))) {}
 
 LargeStringScalar::LargeStringScalar(std::string s)
     : LargeStringScalar(Buffer::FromString(std::move(s))) {}
@@ -487,6 +493,12 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
   ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width(),
                  this->value->size());
 }
+
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value)
+    : BinaryScalar(value, fixed_size_binary(static_cast<int>(value->size()))) {}
+
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::string s)
+    : FixedSizeBinaryScalar(Buffer::FromString(std::move(s))) {}
 
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type)

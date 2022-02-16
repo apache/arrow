@@ -18,7 +18,6 @@
 from collections import namedtuple
 from io import StringIO
 import click
-import errno
 import json
 import logging
 import os
@@ -118,6 +117,12 @@ def _apply_options(cmd, options):
 @cpp_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
+@click.option("--build-static", default=True, type=BOOL,
+              help="Build static libraries")
+@click.option("--build-shared", default=True, type=BOOL,
+              help="Build shared libraries")
+@click.option("--build-unity", default=True, type=BOOL,
+              help="Use CMAKE_UNITY_BUILD")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
@@ -750,11 +755,7 @@ def integration(with_all=False, random_seed=12345, **args):
             enabled_languages += 1
 
     if gen_path:
-        try:
-            os.makedirs(gen_path)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
         if enabled_languages == 0:

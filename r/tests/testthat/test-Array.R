@@ -989,6 +989,75 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
   })
 })
 
+test_that("concat_arrays works", {
+  concat_empty <- concat_arrays()
+  expect_true(concat_empty$type == null())
+  expect_equal(concat_empty$length(), 0L)
+
+  concat_empty_typed <- concat_arrays(type = int64())
+  expect_true(concat_empty_typed$type == int64())
+  expect_equal(concat_empty$length(), 0L)
+
+  concat_int <- concat_arrays(Array$create(1:3), Array$create(4:5))
+  expect_true(concat_int$type == int32())
+  expect_true(all(concat_int == Array$create(1:5)))
+
+  concat_int64 <- concat_arrays(
+    Array$create(1:3),
+    Array$create(4:5, type = int64()),
+    type = int64()
+  )
+  expect_true(concat_int64$type == int64())
+  expect_true(all(concat_int == Array$create(1:5)))
+
+  expect_error(
+    concat_arrays(
+      Array$create(1:3),
+      Array$create(4:5, type = int64())
+    ),
+    "must be identically typed"
+  )
+})
+
+test_that("concat_arrays() coerces its input to Array", {
+  concat_ints <- concat_arrays(1L, 2L)
+  expect_true(concat_ints$type == int32())
+  expect_true(all(concat_ints == Array$create(c(1L, 2L))))
+
+  expect_error(
+    concat_arrays(1L, "not a number", type = int32()),
+    "cannot convert"
+  )
+
+  expect_error(
+    concat_arrays(1L, "not a number"),
+    "must be identically typed"
+  )
+})
+
+test_that("c() works for Array", {
+  expect_r6_class(c(Array$create(1L), Array$create(1L)), "Array")
+
+  struct <- call_function(
+    "make_struct",
+    Array$create(1L),
+    options = list(field_names = "")
+  )
+  expect_r6_class(c(struct, struct), "StructArray")
+
+  list <- Array$create(list(1))
+  expect_r6_class(c(list, list), "ListArray")
+
+  list <- Array$create(list(), type = large_list_of(float64()))
+  expect_r6_class(c(list, list), "LargeListArray")
+
+  list <- Array$create(list(), type = fixed_size_list_of(float64(), 1L))
+  expect_r6_class(c(list, list), "FixedSizeListArray")
+
+  list <- Array$create(list(), type = map_of(string(), float64()))
+  expect_r6_class(c(list, list), "MapArray")
+})
+
 
 test_that("Array to C-interface", {
   # create a struct array since that's one of the more complicated array types

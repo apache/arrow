@@ -171,10 +171,19 @@ std::vector<WriterTestParams> GenerateTestCases() {
         "style is \"None\". See RFC4180. Invalid value: ",
         value);
   };
-  auto reject_structural_params = [&](const char* json_val,
+  auto reject_structural_params = [&](std::vector<const char*> rows,
                                       const char* error_val) -> WriterTestParams {
-    return {schema_custom_reject_structural,
-            std::string(R"([{"a": ")") + json_val + R"("}])",
+    std::string json_rows = "[";
+    for (size_t i = 0; i < rows.size(); ++i) {
+      if (rows[i]) {
+        json_rows += std::string(R"({"a": ")") + rows[i] + R"("})";
+      } else {
+        json_rows += std::string(R"({"a": null})");
+      }
+      if (i != rows.size() - 1) json_rows += ',';
+    }
+    json_rows += ']';
+    return {schema_custom_reject_structural, json_rows,
             DefaultTestOptions(/*include_header=*/false,
                                /*null_string=*/"", QuotingStyle::None),
             /*expected_output*/ "", expected_status_no_quotes_with_structural(error_val)};
@@ -212,10 +221,19 @@ std::vector<WriterTestParams> GenerateTestCases() {
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::None),
        /*expected_output*/ "", expected_status_no_quotes_with_structural("abc\"efg")},
-      reject_structural_params("hi\\nbye", "hi\nbye"),
-      reject_structural_params(",xyz", ",xyz"),
-      reject_structural_params("a\\\"sdf", "a\"sdf"),
-      reject_structural_params("foo\\r", "foo\r")};
+      reject_structural_params({"hi\\nbye"}, "hi\nbye"),
+      reject_structural_params({",xyz"}, ",xyz"),
+      reject_structural_params({"a\\\"sdf"}, "a\"sdf"),
+      reject_structural_params({"foo\\r"}, "foo\r"),
+      reject_structural_params({nullptr, "a", nullptr, "c,d", nullptr, ",e", "f"}, "c,d"),
+      reject_structural_params({"a", "b", nullptr, "c,d", nullptr, nullptr}, "c,d"),
+      // exercise simd code with strings total length >= 16
+      reject_structural_params({nullptr, "0123456789\\nabcdef"}, "0123456789\nabcdef"),
+      reject_structural_params({"0123456\\r789", nullptr, "abcdef"}, "0123456\r789"),
+      reject_structural_params({"0123456789", nullptr, "abcde,", nullptr}, "abcde,"),
+      reject_structural_params({"0123456789", nullptr, "abcdef,", nullptr}, "abcdef,"),
+      reject_structural_params({nullptr, nullptr, ",0123456789", "abcde"}, ",0123456789"),
+      reject_structural_params({"0123456", nullptr, "7\\\"89", ",abcdef"}, "7\"89")};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {

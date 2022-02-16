@@ -826,6 +826,11 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
       columns[i] = i;
     }
   }
+  if (num_columns == 0) {
+    // If we still have no columns(none in file), return early. The remainder of function
+    // expects there to be at least one column.
+    return 0;
+  }
 
   std::vector<int64_t> total_rows(num_columns, 0);
 

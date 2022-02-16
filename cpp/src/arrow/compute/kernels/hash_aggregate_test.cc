@@ -3334,5 +3334,53 @@ TEST(GroupBy, NullTypeEmptyTable) {
     }
   }
 }
+
+TEST(GroupBy, OnlyKeys) {
+  auto table =
+      TableFromJSON(schema({field("key_0", int64()), field("key_1", utf8())}), {R"([
+    [1,    "a"],
+    [null, "a"]
+                        ])",
+                                                                                R"([
+    [0,    "bcdefg"],
+    [null, "aa"],
+    [3,    null],
+    [1,    "a"],
+    [2,    "bcdefg"]
+                        ])",
+                                                                                R"([
+    [0,    "bcdefg"],
+    [1,    null],
+    [null, "a"]
+                        ])"});
+
+  for (bool use_exec_plan : {false, true}) {
+    for (bool use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(
+          Datum aggregated_and_grouped,
+          GroupByTest({},
+                      {table->GetColumnByName("key_0"), table->GetColumnByName("key_1")},
+                      {}, use_threads, use_exec_plan));
+      SortBy({"key_0", "key_1"}, &aggregated_and_grouped);
+
+      AssertDatumsEqual(ArrayFromJSON(struct_({
+                                          field("key_0", int64()),
+                                          field("key_1", utf8()),
+                                      }),
+                                      R"([
+    [0,    "bcdefg"],
+    [1,    "a"],
+    [1,    null],
+    [2,    "bcdefg"],
+    [3,    null],
+    [null, "a"],
+    [null, "aa"]
+  ])"),
+                        aggregated_and_grouped,
+                        /*verbose=*/true);
+    }
+  }
+}
 }  // namespace compute
 }  // namespace arrow

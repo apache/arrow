@@ -135,6 +135,7 @@ reference:
       - ArrayData
       - buffer
       - read_message
+      - concat_arrays
   - title: Arrow data types and schema
     contents:
       - Schema
@@ -151,6 +152,7 @@ reference:
     contents:
       - load_flight_server
       - flight_connect
+      - flight_disconnect
       - flight_get
       - flight_put
       - list_flights
