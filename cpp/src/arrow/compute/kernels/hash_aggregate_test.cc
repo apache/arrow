@@ -2721,12 +2721,12 @@ TEST(GroupBy, OneBinaryTypes) {
 
 TEST(GroupBy, OneScalar) {
   BatchesWithSchema input;
-  input.batches = {
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
-                        R"([[-1, 1], [-1, 1], [-1, 1], [-1, 1]])"),
-      ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
-                        R"([[null, 1], [null, 1], [null, 2], [null, 3]])"),
-      ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])"),
+  input.batches = {ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+                                     R"([[-1, 1], [-1, 1], [-1, 1], [-1, 1]])"),
+                   ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
+                                     R"([[null, 1], [null, 1], [null, 2], [null, 3]])"),
+                   ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])")
+
   };
   input.schema = schema({field("argument", int32()), field("key", int64())});
 
@@ -2743,7 +2743,7 @@ TEST(GroupBy, OneScalar) {
                       struct_arr->field(struct_arr->num_fields() - 1));
 
     const auto& col = struct_arr->field(0);
-    EXPECT_THAT(col->GetScalar(0), ResultWith(AnyOfJSON(int32(), R"([-1])")));
+    EXPECT_THAT(col->GetScalar(0), ResultWith(AnyOfJSON(int32(), R"([-1, 22])")));
     EXPECT_THAT(col->GetScalar(1), ResultWith(AnyOfJSON(int32(), R"([3])")));
     EXPECT_THAT(col->GetScalar(2), ResultWith(AnyOfJSON(int32(), R"([4])")));
   }
