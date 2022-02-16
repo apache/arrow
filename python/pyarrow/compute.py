@@ -41,6 +41,7 @@ from pyarrow._compute import (  # noqa
     IndexOptions,
     JoinOptions,
     MakeStructOptions,
+    MapLookupOptions,
     MatchSubstringOptions,
     ModeOptions,
     NullOptions,
@@ -293,7 +294,7 @@ def _make_global_functions():
     """
     Make global functions wrapping each compute function.
 
-    Note that some of the automatically-generated wrappers may be overriden
+    Note that some of the automatically-generated wrappers may be overridden
     by custom versions below.
     """
     g = globals()

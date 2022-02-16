@@ -9,6 +9,7 @@
 \alias{ListArray}
 \alias{LargeListArray}
 \alias{FixedSizeListArray}
+\alias{MapArray}
 \alias{StructScalar}
 \title{Arrow Arrays}
 \description{
@@ -54,6 +55,7 @@ a == a
 \item \verb{$IsNull(i)}: Return true if value at index is null. Does not boundscheck
 \item \verb{$IsValid(i)}: Return true if value at index is valid. Does not boundscheck
 \item \verb{$length()}: Size in the number of elements this array contains
+\item \verb{$nbytes()}: Total number of bytes consumed by the elements of the array
 \item \verb{$offset}: A relative position into another array's data, to enable zero-copy slicing
 \item \verb{$null_count}: The number of null entries in the array
 \item \verb{$type}: logical type of data

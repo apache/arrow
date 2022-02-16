@@ -37,6 +37,7 @@
 #include "gandiva/formatting_utils.h"
 #include "gandiva/hash_utils.h"
 #include "gandiva/in_holder.h"
+#include "gandiva/interval_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
@@ -1129,6 +1130,41 @@ const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
 
   return out;
 }
+
+int64_t gdv_fn_cast_intervalday_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                     const char* data, int data_len, bool in1_validity,
+                                     bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int64_t gdv_fn_cast_intervalday_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                           const char* data, int data_len,
+                                           bool in1_validity, int32_t /*suppress_errors*/,
+                                           bool /*in3_validity*/, bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalDaysHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int32_t gdv_fn_cast_intervalyear_utf8(int64_t context_ptr, int64_t holder_ptr,
+                                      const char* data, int data_len, bool in1_validity,
+                                      bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
+
+int32_t gdv_fn_cast_intervalyear_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+                                            const char* data, int data_len,
+                                            bool in1_validity,
+                                            int32_t /*suppress_errors*/,
+                                            bool /*in3_validity*/, bool* out_valid) {
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IntervalYearsHolder*>(holder_ptr);
+  return (*holder)(context, data, data_len, in1_validity, out_valid);
+}
 }
 
 namespace gandiva {
@@ -2213,5 +2249,65 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_crc_32_binary",
                                   types->i64_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_crc_32_binary));
+
+  // gdv_fn_cast_intervalday_utf8
+  args = {
+      types->i64_type(),                 // context
+      types->i64_type(),                 // holder
+      types->i8_ptr_type(),              // data
+      types->i32_type(),                 // data_len
+      types->i1_type(),                  // data validity
+      types->ptr_type(types->i8_type())  // out validity
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_cast_intervalday_utf8",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_cast_intervalday_utf8));
+
+  // gdv_fn_cast_intervalday_utf8_int32
+  args = {
+      types->i64_type(),                 // context
+      types->i64_type(),                 // holder
+      types->i8_ptr_type(),              // data
+      types->i32_type(),                 // data_len
+      types->i1_type(),                  // data validity
+      types->i32_type(),                 // suppress_error
+      types->i1_type(),                  // suppress_error validity
+      types->ptr_type(types->i8_type())  // out validity
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_cast_intervalday_utf8_int32", types->i64_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_cast_intervalday_utf8_int32));
+
+  // gdv_fn_cast_intervalyear_utf8
+  args = {
+      types->i64_type(),                 // context
+      types->i64_type(),                 // holder
+      types->i8_ptr_type(),              // data
+      types->i32_type(),                 // data_len
+      types->i1_type(),                  // data validity
+      types->ptr_type(types->i8_type())  // out validity
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_cast_intervalyear_utf8",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8));
+
+  // gdv_fn_cast_intervalyear_utf8_int32
+  args = {
+      types->i64_type(),                 // context
+      types->i64_type(),                 // holder
+      types->i8_ptr_type(),              // data
+      types->i32_type(),                 // data_len
+      types->i1_type(),                  // data validity
+      types->i32_type(),                 // suppress_error
+      types->i1_type(),                  // suppress_error validity
+      types->ptr_type(types->i8_type())  // out validity
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
 }
 }  // namespace gandiva

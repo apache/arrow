@@ -444,7 +444,7 @@ cdef class ParquetReadOptions(_Weakrefable):
     coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-        and therefore INT96 timestamps will be infered as timestamps
+        and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds.
     """
 

@@ -29,7 +29,7 @@ Streaming execution engine
     is not yet guaranteed.
 
 Motivation
-----------
+==========
 
 For many complex computations, successive direct :ref:`invocation of
 compute functions <invoking-compute-functions>` is not feasible
@@ -58,7 +58,7 @@ nodes (its outputs) as they are finalized.
    <https://doi.org/10.1017/s0956796818000102>`_
 
 Overview
---------
+========
 
 :class:`ExecNode`
   Each node in the graph is an implementation of the :class:`ExecNode` interface.
@@ -177,7 +177,7 @@ their completion::
 
 
 Constructing ``ExecPlan`` objects
----------------------------------
+=================================
 
 .. warning::
 
@@ -305,3 +305,427 @@ Datasets may be scanned multiple times; just make multiple scan
 nodes from that dataset. (Useful for a self-join, for example.)
 Note that producing two scan nodes like this will perform all
 reads and decodes twice.
+
+Constructing ``ExecNode`` using Options
+=======================================
+
+:class:`ExecNode` is the component we use as a building block 
+containing in-built operations with various functionalities. 
+
+This is the list of operations associated with the execution plan:
+
+.. list-table:: Operations and Options
+   :widths: 50 50
+   :header-rows: 1
+
+   * - Operation
+     - Options
+   * - ``source``
+     - :class:`arrow::compute::SourceNodeOptions`
+   * - ``filter``
+     - :class:`arrow::compute::FilterNodeOptions`
+   * - ``project``
+     - :class:`arrow::compute::ProjectNodeOptions`
+   * - ``aggregate``
+     - :class:`arrow::compute::AggregateNodeOptions`
+   * - ``sink``
+     - :class:`arrow::compute::SinkNodeOptions`
+   * - ``consuming_sink``
+     - :class:`arrow::compute::ConsumingSinkNodeOptions`
+   * - ``order_by_sink``
+     - :class:`arrow::compute::OrderBySinkNodeOptions`
+   * - ``select_k_sink``
+     - :class:`arrow::compute::SelectKSinkNodeOptions`
+   * - ``scan``
+     - :class:`arrow::dataset::ScanNodeOptions` 
+   * - ``hash_join``
+     - :class:`arrow::compute::HashJoinNodeOptions`
+   * - ``write``
+     - :class:`arrow::dataset::WriteNodeOptions`
+   * - ``union``
+     - N/A
+
+
+.. _stream_execution_source_docs:
+
+``source``
+----------
+
+A ``source`` operation can be considered as an entry point to create a streaming execution plan. 
+:class:`arrow::compute::SourceNodeOptions` are used to create the ``source`` operation.  The
+``source`` operation is the most generic and flexible type of source currently available but it can
+be quite tricky to configure.  To process data from files the scan operation is likely a simpler choice.
+
+The source node requires some kind of function that can be called to poll for more data.  This
+function should take no arguments and should return an
+``arrow::Future<std::shared_ptr<arrow::util::optional<arrow::RecordBatch>>>``.
+This function might be reading a file, iterating through an in memory structure, or receiving data
+from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
+and there are a number of utilities for working with these functions.  For this example we use 
+a vector of record batches that we've already stored in memory.
+In addition, the schema of the data must be known up front.  Arrow's streaming execution
+engine must know the schema of the data at each stage of the execution graph before any
+processing has begun.  This means we must supply the schema for a source node separately
+from the data itself.
+
+Here we define a struct to hold the data generator definition. This includes in-memory batches, schema
+and a function that serves as a data generator :
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: BatchesWithSchema Definition)
+  :end-before: (Doc section: BatchesWithSchema Definition)
+  :linenos:
+  :lineno-match:
+
+Generating sample batches for computation:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: MakeBasicBatches Definition)
+  :end-before: (Doc section: MakeBasicBatches Definition)
+  :linenos:
+  :lineno-match:
+
+Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<stream_execution_sink_docs>`):
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Source Example)
+  :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_filter_docs:
+
+``filter``
+----------
+
+``filter`` operation, as the name suggests, provides an option to define data filtering 
+criteria. It selects rows matching a given expression. Filters can be written using 
+:class:`arrow::compute::Expression`. For example, if we wish to keep rows where the value 
+of column ``b`` is greater than 3,  then we can use the following expression.
+
+Filter example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Filter Example)
+  :end-before: (Doc section: Filter Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_project_docs:
+
+``project``
+-----------
+
+``project`` operation rearranges, deletes, transforms, and creates columns.
+Each output column is computed by evaluating an expression
+against the source record batch. This is exposed via 
+:class:`arrow::compute::ProjectNodeOptions` which requires,
+an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
+provided, the string representations of exprs will be used).  
+
+Project example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Project Example)
+  :end-before: (Doc section: Project Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_aggregate_docs:
+
+``aggregate``
+-------------
+
+The ``aggregate`` node computes various types of aggregates over data.
+
+Arrow supports two types of aggregates: "scalar" aggregates, and
+"hash" aggregates. Scalar aggregates reduce an array or scalar input
+to a single scalar output (e.g. computing the mean of a column). Hash
+aggregates act like ``GROUP BY`` in SQL and first partition data based
+on one or more key columns, then reduce the data in each
+partition. The ``aggregate`` node supports both types of computation,
+and can compute any number of aggregations at once.
+
+:class:`arrow::compute::AggregateNodeOptions` is used to define the
+aggregation criteria.  It takes a list of aggregation functions and
+their options; a list of target fields to aggregate, one per function;
+and a list of names for the output fields, one per function.
+Optionally, it takes a list of columns that are used to partition the
+data, in the case of a hash aggregation.  The aggregation functions
+can be selected from :ref:`this list of aggregation functions
+<aggregation-option-list>`.
+
+.. note:: This node is a "pipeline breaker" and will fully materialize
+          the dataset in memory.  In the future, spillover mechanisms
+          will be added which should alleviate this constraint.
+
+The aggregation can provide results as a group or scalar. For instances,
+an operation like `hash_count` provides the counts per each unique record
+as a grouped result while an operation like `sum` provides a single record. 
+
+Scalar Aggregation example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Scalar Aggregate Example)
+  :end-before: (Doc section: Scalar Aggregate Example)
+  :linenos:
+  :lineno-match:
+
+Group Aggregation example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Group Aggregate Example)
+  :end-before: (Doc section: Group Aggregate Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_sink_docs:
+
+``sink``
+--------
+
+``sink`` operation provides output and is the final node of a streaming 
+execution definition. :class:`arrow::compute::SinkNodeOptions` interface is used to pass 
+the required options. Similar to the source operator the sink operator exposes the output
+with a function that returns a record batch future each time it is called.  It is expected the
+caller will repeatedly call this function until the generator function is exhausted (returns
+``arrow::util::optional::nullopt``).  If this function is not called often enough then record batches
+will accumulate in memory.  An execution plan should only have one
+"terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or 
+an error, before the output is fully consumed. However, the plan can be safely destroyed independently
+of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
+
+As a part of the Source Example, the Sink operation is also included;
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Source Example)
+  :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_consuming_sink_docs:
+
+``consuming_sink``
+------------------
+
+``consuming_sink`` operator is a sink operation containing consuming operation within the
+execution plan (i.e. the exec plan should not complete until the consumption has completed).
+Unlike the ``sink`` node this node takes in a callback function that is expected to consume the
+batch.  Once this callback has finished the execution plan will no longer hold any reference to
+the batch.
+The consuming function may be called before a previous invocation has completed.  If the consuming
+function does not run quickly enough then many concurrent executions could pile up, blocking the
+CPU thread pool.  The execution plan will not be marked finished until all consuming function callbacks
+have been completed.
+Once all batches have been delivered the execution plan will wait for the `finish` future to complete
+before marking the execution plan finished.  This allows for workflows where the consumption function
+converts batches into async tasks (this is currently done internally for the dataset write node).
+
+Example::
+
+  // define a Custom SinkNodeConsumer
+  std::atomic<uint32_t> batches_seen{0};
+  arrow::Future<> finish = arrow::Future<>::Make();
+  struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer {
+
+      CustomSinkNodeConsumer(std::atomic<uint32_t> *batches_seen, arrow::Future<>finish): 
+      batches_seen(batches_seen), finish(std::move(finish)) {}
+      // Consumption logic can be written here
+      arrow::Status Consume(cp::ExecBatch batch) override {
+      // data can be consumed in the expected way
+      // transfer to another system or just do some work 
+      // and write to disk
+      (*batches_seen)++;
+      return arrow::Status::OK();
+      }
+
+      arrow::Future<> Finish() override { return finish; }
+
+      std::atomic<uint32_t> *batches_seen;
+      arrow::Future<> finish;
+      
+  };
+  
+  std::shared_ptr<CustomSinkNodeConsumer> consumer =
+          std::make_shared<CustomSinkNodeConsumer>(&batches_seen, finish);
+
+  arrow::compute::ExecNode *consuming_sink;
+
+  ARROW_ASSIGN_OR_RAISE(consuming_sink, MakeExecNode("consuming_sink", plan.get(),
+      {source}, cp::ConsumingSinkNodeOptions(consumer)));
+
+
+Consuming-Sink example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: ConsumingSink Example)
+  :end-before: (Doc section: ConsumingSink Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_order_by_sink_docs:
+
+``order_by_sink``
+-----------------
+
+``order_by_sink`` operation is an extension to the ``sink`` operation. 
+This operation provides the ability to guarantee the ordering of the 
+stream by providing the :class:`arrow::compute::OrderBySinkNodeOptions`. 
+Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
+are used for sorting and whether to sort by ascending or descending values.
+
+.. note:: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
+          In the future, spillover mechanisms will be added which should alleviate this 
+          constraint.
+
+
+Order-By-Sink example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: OrderBySink Example)
+  :end-before: (Doc section: OrderBySink Example)
+  :linenos:
+  :lineno-match:
+
+
+.. _stream_execution_select_k_docs:
+
+``select_k_sink``
+-----------------
+
+``select_k_sink`` option enables selecting the top/bottom K elements, 
+similar to a SQL ``ORDER BY ... LIMIT K`` clause.  
+:class:`arrow::compute::SelectKOptions` which is a defined by 
+using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
+inputs and then compute top_k/bottom_k.
+
+.. note:: This node is a "pipeline breaker" and will fully materialize the input in memory.
+          In the future, spillover mechanisms will be added which should alleviate this 
+          constraint.
+
+SelectK example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: KSelect Example)
+  :end-before: (Doc section: KSelect Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_scan_docs:
+
+``scan``
+---------
+
+``scan`` is an operation used to load and process datasets.  It should be preferred over the
+more generic ``source`` node when your input is a dataset.  The behavior is defined using 
+:class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
+scan options can be found in :doc:`./dataset`.
+
+This node is capable of applying pushdown filters to the file readers which reduce
+the amount of data that needs to be read.  This means you may supply the same
+filter expression to the scan node that you also supply to the FilterNode because
+the filtering is done in two different places.
+
+Scan example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Scan Example)
+  :end-before: (Doc section: Scan Example)
+  :linenos:
+  :lineno-match:
+
+
+``write``
+---------
+
+The ``write`` node saves query results as a dataset of files in a
+format like Parquet, Feather, CSV, etc. using the :doc:`./dataset`
+functionality in Arrow. The write options are provided via the
+:class:`arrow::dataset::WriteNodeOptions` which in turn contains
+:class:`arrow::dataset::FileSystemDatasetWriteOptions`.
+:class:`arrow::dataset::FileSystemDatasetWriteOptions` provides
+control over the written dataset, including options like the output
+directory, file naming scheme, and so on.
+
+Write example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Write Example)
+  :end-before: (Doc section: Write Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_union_docs:
+
+``union``
+-------------
+
+``union`` merges multiple data streams with the same schema into one, similar to 
+a SQL ``UNION ALL`` clause.
+
+The following example demonstrates how this can be achieved using 
+two data sources.
+
+Union example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Union Example)
+  :end-before: (Doc section: Union Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_hashjoin_docs:
+
+``hash_join``
+-------------
+
+``hash_join`` operation provides the relational algebra operation, join using hash-based
+algorithm. :class:`arrow::compute::HashJoinNodeOptions` contains the options required in 
+defining a join. The hash_join supports 
+`left/right/full semi/anti/outerjoins
+<https://en.wikipedia.org/wiki/Join_(SQL)>`_. 
+Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
+which can be appended as a suffix for column names duplicated in both left and right 
+relations.) can be set via the the join options. 
+`Read more on hash-joins
+<https://en.wikipedia.org/wiki/Hash_join>`_. 
+
+Hash-Join example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: HashJoin Example)
+  :end-before: (Doc section: HashJoin Example)
+  :linenos:
+  :lineno-match:
+
+.. _stream_execution_write_docs:
+
+Summary
+=======
+
+There are examples of these nodes which can be found in 
+``cpp/examples/arrow/execution_plan_documentation_examples.cc`` in the Arrow source.
+
+Complete Example:
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Execution Plan Documentation Example)
+  :end-before: (Doc section: Execution Plan Documentation Example)
+  :linenos:
+  :lineno-match:

@@ -36,6 +36,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
@@ -610,32 +611,42 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
 
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
-TEST_F(TestThreadPool, ForkSafety) {
-  pid_t child_pid;
-  int child_status;
 
+class TestThreadPoolForkSafety : public TestThreadPool {
+ public:
+  void CheckChildExit(int child_pid) {
+    ASSERT_GT(child_pid, 0);
+    int child_status;
+    int got_pid = waitpid(child_pid, &child_status, 0);
+    ASSERT_EQ(got_pid, child_pid);
+    if (WIFSIGNALED(child_status)) {
+      FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
+    }
+    if (!WIFEXITED(child_status)) {
+      FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
+    }
+    ASSERT_EQ(WEXITSTATUS(child_status), 0);
+  }
+};
+
+TEST_F(TestThreadPoolForkSafety, Basics) {
   {
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());
 
-    child_pid = fork();
+    auto child_pid = fork();
     if (child_pid == 0) {
       // Child: thread pool should be usable
       ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
-      if (*fut.result() != 7) {
-        std::exit(1);
-      }
+      ASSERT_FINISHES_OK_AND_EQ(7, fut);
       // Shutting down shouldn't hang or fail
       Status st = pool->Shutdown();
       std::exit(st.ok() ? 0 : 2);
     } else {
       // Parent
-      ASSERT_GT(child_pid, 0);
-      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
-      ASSERT_TRUE(WIFEXITED(child_status));
-      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+      CheckChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -644,7 +655,7 @@ TEST_F(TestThreadPool, ForkSafety) {
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK(pool->Shutdown());
 
-    child_pid = fork();
+    auto child_pid = fork();
     if (child_pid == 0) {
       // Child
       // Spawning a task should return with error (pool was shutdown)
@@ -657,13 +668,87 @@ TEST_F(TestThreadPool, ForkSafety) {
       std::exit(0);
     } else {
       // Parent
-      ASSERT_GT(child_pid, 0);
-      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
-      ASSERT_TRUE(WIFEXITED(child_status));
-      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+      CheckChildExit(child_pid);
     }
   }
 }
+
+TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
+  // ARROW-15593: race condition in after-fork ThreadPool reinitialization
+  // when SpawnReal() was called from multiple threads in a forked child.
+  auto run_in_child = [](ThreadPool* pool) {
+    const int n_threads = 5;
+    std::vector<Future<int>> futures;
+    std::vector<std::thread> threads;
+    futures.reserve(n_threads);
+    threads.reserve(n_threads);
+
+    auto run_in_thread = [&]() {
+      auto maybe_fut = pool->Submit(add<int>, 3, 4);
+      futures.push_back(DeferNotOk(std::move(maybe_fut)));
+    };
+
+    for (int i = 0; i < n_threads; ++i) {
+      threads.emplace_back(run_in_thread);
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    for (const auto& fut : futures) {
+      ASSERT_FINISHES_OK_AND_EQ(7, fut);
+    }
+  };
+
+  {
+    auto pool = this->MakeThreadPool(3);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
+    ASSERT_OK_AND_EQ(9, fut.result());
+
+    auto child_pid = fork();
+    if (child_pid == 0) {
+      // Child: spawn tasks from multiple threads at once
+      run_in_child(pool.get());
+      std::exit(0);
+    } else {
+      // Parent
+      CheckChildExit(child_pid);
+      ASSERT_OK(pool->Shutdown());
+    }
+  }
+}
+
+TEST_F(TestThreadPoolForkSafety, NestedChild) {
+  {
+    auto pool = this->MakeThreadPool(3);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
+    ASSERT_OK_AND_EQ(9, fut.result());
+
+    auto child_pid = fork();
+    if (child_pid == 0) {
+      // Child
+      ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
+      // Fork while the task is running
+      auto grandchild_pid = fork();
+      if (grandchild_pid == 0) {
+        // Grandchild
+        ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 1, 2));
+        ASSERT_FINISHES_OK_AND_EQ(3, fut);
+        ASSERT_OK(pool->Shutdown());
+      } else {
+        // Child
+        CheckChildExit(grandchild_pid);
+        ASSERT_FINISHES_OK_AND_EQ(7, fut);
+        ASSERT_OK(pool->Shutdown());
+      }
+      std::exit(0);
+    } else {
+      // Parent
+      CheckChildExit(child_pid);
+      ASSERT_OK(pool->Shutdown());
+    }
+  }
+}
+
 #endif
 
 TEST(TestGlobalThreadPool, Capacity) {

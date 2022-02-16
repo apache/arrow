@@ -38,18 +38,16 @@ class Cache {
 
   Cache() : Cache(GetCapacity()) {}
 
-  ValueType GetObjectCode(KeyType cache_key) {
+  ValueType GetObjectCode(const KeyType& cache_key) {
     arrow::util::optional<ValueType> result;
-    mtx_.lock();
+    std::lock_guard<std::mutex> lock(mtx_);
     result = cache_.get(cache_key);
-    mtx_.unlock();
     return result != arrow::util::nullopt ? *result : nullptr;
   }
 
-  void PutObjectCode(KeyType cache_key, ValueType module) {
-    mtx_.lock();
+  void PutObjectCode(const KeyType& cache_key, const ValueType& module) {
+    std::lock_guard<std::mutex> lock(mtx_);
     cache_.insert(cache_key, module);
-    mtx_.unlock();
   }
 
  private:

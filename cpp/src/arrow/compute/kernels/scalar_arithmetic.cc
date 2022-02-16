@@ -214,6 +214,143 @@ struct SubtractChecked {
   }
 };
 
+struct SubtractDate32 {
+  static constexpr int64_t kSecondsInDay = 86400;
+
+  template <typename T, typename Arg0, typename Arg1>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    return arrow::internal::SafeSignedSubtract(left, right) * kSecondsInDay;
+  }
+};
+
+struct SubtractCheckedDate32 {
+  static constexpr int64_t kSecondsInDay = 86400;
+
+  template <typename T, typename Arg0, typename Arg1>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, kSecondsInDay, &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
+struct AddTimeDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = arrow::internal::SafeSignedAdd(left, static_cast<T>(right));
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = arrow::internal::SafeSignedAdd(left, right);
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
+struct AddTimeDurationChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
+struct SubtractTimeDuration {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = arrow::internal::SafeSignedSubtract(left, static_cast<T>(right));
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = arrow::internal::SafeSignedSubtract(left, right);
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
+template <bool is_32bit, int64_t multiple>
+struct SubtractTimeDurationChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                       Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                        Status* st) {
+    T result = 0;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, static_cast<T>(right), &result))) {
+      *st = Status::Invalid("overflow");
+    }
+    if (result < 0 || multiple <= result) {
+      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
+                            multiple, ") s");
+    }
+    return result;
+  }
+};
+
 struct Multiply {
   static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
   static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
@@ -1487,6 +1624,7 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
     case Type::UINT32:
       return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
+    case Type::DURATION:
     case Type::INT64:
     case Type::TIMESTAMP:
       return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
@@ -1609,6 +1747,23 @@ Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
         const int32_t precision = p1;
         return std::make_pair(precision, scale);
       });
+}
+
+Result<ValueDescr> ResolveTemporalOutput(KernelContext*,
+                                         const std::vector<ValueDescr>& args) {
+  DCHECK_EQ(args[0].type->id(), args[1].type->id());
+  auto left_type = checked_cast<const TimestampType*>(args[0].type.get());
+  auto right_type = checked_cast<const TimestampType*>(args[1].type.get());
+  DCHECK_EQ(left_type->unit(), left_type->unit());
+
+  if ((left_type->timezone() == "" || right_type->timezone() == "") &&
+      left_type->timezone() != right_type->timezone()) {
+    return Status::Invalid("Subtraction of zoned and non-zoned times is ambiguous. (",
+                           left_type->timezone(), right_type->timezone(), ").");
+  }
+
+  auto type = duration(right_type->unit());
+  return ValueDescr(std::move(type), GetBroadcastShape(args));
 }
 
 template <typename Op>
@@ -2090,6 +2245,34 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
   return func;
 }
 
+template <template <bool, int64_t> class Op>
+void AddArithmeticFunctionTimeDurations(std::shared_ptr<ScalarFunction> func) {
+  // Add Op(time32, duration) -> time32
+  TimeUnit::type unit = TimeUnit::SECOND;
+  auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<true, 86400>>::Exec;
+  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_1)));
+
+  unit = TimeUnit::MILLI;
+  auto exec_2 =
+      ScalarBinary<Time32Type, Time32Type, DurationType, Op<true, 86400000>>::Exec;
+  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_2)));
+
+  // Add Op(time64, duration) -> time64
+  unit = TimeUnit::MICRO;
+  auto exec_3 =
+      ScalarBinary<Time64Type, Time64Type, DurationType, Op<false, 86400000000>>::Exec;
+  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_3)));
+
+  unit = TimeUnit::NANO;
+  auto exec_4 =
+      ScalarBinary<Time64Type, Time64Type, DurationType, Op<false, 86400000000000>>::Exec;
+  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_4)));
+}
+
 const FunctionDoc absolute_value_doc{
     "Calculate the absolute value of the argument element-wise",
     ("Results will wrap around on integer overflow.\n"
@@ -2410,12 +2593,50 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto add = MakeArithmeticFunction<Add>("add", &add_doc);
   AddDecimalBinaryKernels<Add>("add", add.get());
+
+  // Add add(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<TimestampType, DurationType, TimestampType, Add>::Exec;
+    DCHECK_OK(add->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                             std::move(exec)));
+  }
+
+  // Add add(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    DCHECK_OK(add->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDurations<AddTimeDuration>(add);
+
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
       MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
   AddDecimalBinaryKernels<AddChecked>("add_checked", add_checked.get());
+
+  // Add add_checked(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec =
+        ScalarBinary<TimestampType, DurationType, TimestampType, AddChecked>::Exec;
+    DCHECK_OK(add_checked->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                     std::move(exec)));
+  }
+
+  // Add add(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
+    DCHECK_OK(
+        add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDurations<AddTimeDurationChecked>(add_checked);
+
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
@@ -2426,7 +2647,9 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
-    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+    DCHECK_OK(subtract->AddKernel({in_type, in_type},
+                                  OutputType::Resolver(ResolveTemporalOutput),
+                                  std::move(exec)));
   }
 
   // Add subtract(timestamp, duration) -> timestamp
@@ -2437,6 +2660,34 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                   std::move(exec)));
   }
 
+  // Add subtract(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time32Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time64Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract(date32, date32) -> duration(TimeUnit::SECOND)
+  InputType in_type_date_32(date32());
+  auto exec_date_32 = ScalarBinaryEqualTypes<Int64Type, Date32Type, SubtractDate32>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_32, in_type_date_32},
+                                duration(TimeUnit::SECOND), std::move(exec_date_32)));
+
+  // Add subtract(date64, date64) -> duration(TimeUnit::MILLI)
+  InputType in_type_date_64(date64());
+  auto exec_date_64 = ScalarBinaryEqualTypes<Int64Type, Date64Type, Subtract>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_64, in_type_date_64},
+                                duration(TimeUnit::MILLI), std::move(exec_date_64)));
+
+  AddArithmeticFunctionTimeDurations<SubtractTimeDuration>(subtract);
+
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
@@ -2444,7 +2695,17 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
       "subtract_checked", &sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
 
-  // Add subtract(timestamp, duration) -> timestamp
+  // Add subtract_checked(timestamp, timestamp) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
+    DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
+                                          OutputType::Resolver(ResolveTemporalOutput),
+                                          std::move(exec)));
+  }
+
+  // Add subtract_checked(timestamp, duration) -> timestamp
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec =
@@ -2452,6 +2713,38 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(subtract_checked->AddKernel({in_type, duration(unit)},
                                           OutputType(FirstType), std::move(exec)));
   }
+
+  // Add subtract_checked(date32, date32) -> duration(TimeUnit::SECOND)
+  auto exec_date_32_checked =
+      ScalarBinaryEqualTypes<Int64Type, Date32Type, SubtractCheckedDate32>::Exec;
+  DCHECK_OK(subtract_checked->AddKernel({in_type_date_32, in_type_date_32},
+                                        duration(TimeUnit::SECOND),
+                                        std::move(exec_date_32_checked)));
+
+  // Add subtract_checked(date64, date64) -> duration(TimeUnit::MILLI)
+  auto exec_date_64_checked =
+      ScalarBinaryEqualTypes<Int64Type, Date64Type, SubtractChecked>::Exec;
+  DCHECK_OK(subtract_checked->AddKernel({in_type_date_64, in_type_date_64},
+                                        duration(TimeUnit::MILLI),
+                                        std::move(exec_date_64_checked)));
+
+  // Add subtract_checked(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time32Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract_checked(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Time64Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDurations<SubtractTimeDurationChecked>(subtract_checked);
 
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 

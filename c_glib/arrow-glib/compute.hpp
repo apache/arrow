@@ -148,3 +148,10 @@ garrow_round_to_multiple_options_new_raw(
   const arrow::compute::RoundToMultipleOptions *arrow_options);
 arrow::compute::RoundToMultipleOptions *
 garrow_round_to_multiple_options_get_raw(GArrowRoundToMultipleOptions *options);
+
+
+GArrowUTF8NormalizeOptions *
+garrow_utf8_normalize_options_new_raw(
+  const arrow::compute::Utf8NormalizeOptions *arrow_options);
+arrow::compute::Utf8NormalizeOptions *
+garrow_utf8_normalize_options_get_raw(GArrowUTF8NormalizeOptions *options);

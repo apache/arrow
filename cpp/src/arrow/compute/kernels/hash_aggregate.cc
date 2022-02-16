@@ -102,6 +102,11 @@ struct GrouperImpl : Grouper {
         continue;
       }
 
+      if (key->id() == Type::NA) {
+        impl->encoders_[i] = ::arrow::internal::make_unique<NullKeyEncoder>();
+        continue;
+      }
+
       return Status::NotImplemented("Keys of type ", *key);
     }
 
@@ -147,10 +152,13 @@ struct GrouperImpl : Grouper {
       if (it_success.second) {
         // new key; update offsets and key_bytes
         ++num_groups_;
-        auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-        key_bytes_.resize(next_key_offset + key_length);
-        offsets_.push_back(next_key_offset + key_length);
-        memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        // Skip if there are no keys
+        if (key_length > 0) {
+          auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+          key_bytes_.resize(next_key_offset + key_length);
+          offsets_.push_back(next_key_offset + key_length);
+          memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
+        }
       }
 
       group_ids_batch.UnsafeAppend(group_id);
@@ -237,6 +245,9 @@ struct GrouperFastImpl : Grouper {
       } else if (is_binary_like(key->id())) {
         impl->col_metadata_[icol] =
             arrow::compute::KeyEncoder::KeyColumnMetadata(false, sizeof(uint32_t));
+      } else if (key->id() == Type::NA) {
+        impl->col_metadata_[icol] = arrow::compute::KeyEncoder::KeyColumnMetadata(
+            true, 0, /*is_null_type_in=*/true);
       } else {
         return Status::NotImplemented("Keys of type ", *key);
       }
@@ -322,14 +333,19 @@ struct GrouperFastImpl : Grouper {
         group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
 
     for (int icol = 0; icol < num_columns; ++icol) {
-      const uint8_t* non_nulls = nullptr;
-      if (batch[icol].array()->buffers[0] != NULLPTR) {
-        non_nulls = batch[icol].array()->buffers[0]->data();
-      }
-      const uint8_t* fixedlen = batch[icol].array()->buffers[1]->data();
-      const uint8_t* varlen = nullptr;
-      if (!col_metadata_[icol].is_fixed_length) {
-        varlen = batch[icol].array()->buffers[2]->data();
+      const uint8_t* non_nulls = NULLPTR;
+      const uint8_t* fixedlen = NULLPTR;
+      const uint8_t* varlen = NULLPTR;
+
+      // Skip if the key's type is NULL
+      if (key_types_[icol]->id() != Type::NA) {
+        if (batch[icol].array()->buffers[0] != NULLPTR) {
+          non_nulls = batch[icol].array()->buffers[0]->data();
+        }
+        fixedlen = batch[icol].array()->buffers[1]->data();
+        if (!col_metadata_[icol].is_fixed_length) {
+          varlen = batch[icol].array()->buffers[2]->data();
+        }
       }
 
       int64_t offset = batch[icol].array()->offset;
@@ -413,8 +429,15 @@ struct GrouperFastImpl : Grouper {
     std::vector<std::shared_ptr<Buffer>> varlen_bufs(num_columns);
 
     for (size_t i = 0; i < num_columns; ++i) {
+      if (col_metadata_[i].is_null_type) {
+        uint8_t* non_nulls = NULLPTR;
+        uint8_t* fixedlen = NULLPTR;
+        cols_[i] = arrow::compute::KeyEncoder::KeyColumnArray(
+            col_metadata_[i], num_groups, non_nulls, fixedlen, NULLPTR);
+        continue;
+      }
       ARROW_ASSIGN_OR_RAISE(non_null_bufs[i], AllocatePaddedBitmap(num_groups));
-      if (col_metadata_[i].is_fixed_length) {
+      if (col_metadata_[i].is_fixed_length && !col_metadata_[i].is_null_type) {
         if (col_metadata_[i].fixed_length == 0) {
           ARROW_ASSIGN_OR_RAISE(fixedlen_bufs[i], AllocatePaddedBitmap(num_groups));
         } else {
@@ -463,6 +486,10 @@ struct GrouperFastImpl : Grouper {
     ExecBatch out({}, num_groups);
     out.values.resize(num_columns);
     for (size_t i = 0; i < num_columns; ++i) {
+      if (col_metadata_[i].is_null_type) {
+        out.values[i] = ArrayData::Make(null(), num_groups, {nullptr}, num_groups);
+        continue;
+      }
       auto valid_count = arrow::internal::CountSetBits(
           non_null_bufs[i]->data(), /*offset=*/0, static_cast<int64_t>(num_groups));
       int null_count = static_cast<int>(num_groups) - static_cast<int>(valid_count);
@@ -887,7 +914,45 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   MemoryPool* pool_;
 };
 
-template <template <typename> class Impl, const char* kFriendlyName>
+struct GroupedNullImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    pool_ = ctx->memory_pool();
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    if (options_.skip_nulls && options_.min_count == 0) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
+                            AllocateBuffer(num_groups_ * sizeof(int64_t), pool_));
+      output_empty(data);
+      return ArrayData::Make(out_type(), num_groups_, {nullptr, std::move(data)});
+    } else {
+      return MakeArrayOfNull(out_type(), num_groups_, pool_);
+    }
+  }
+
+  virtual void output_empty(const std::shared_ptr<Buffer>& data) = 0;
+
+  int64_t num_groups_;
+  ScalarAggregateOptions options_;
+  MemoryPool* pool_;
+};
+
+template <template <typename> class Impl, const char* kFriendlyName, class NullImpl>
 struct GroupedReducingFactory {
   template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
   Status Visit(const T&) {
@@ -900,9 +965,15 @@ struct GroupedReducingFactory {
         MakeKernel(std::move(argument_type), HashAggregateInit<Impl<Decimal128Type>>);
     return Status::OK();
   }
+
   Status Visit(const Decimal256Type&) {
     kernel =
         MakeKernel(std::move(argument_type), HashAggregateInit<Impl<Decimal256Type>>);
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<NullImpl>);
     return Status::OK();
   }
 
@@ -915,7 +986,7 @@ struct GroupedReducingFactory {
   }
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
-    GroupedReducingFactory<Impl, kFriendlyName> factory;
+    GroupedReducingFactory<Impl, kFriendlyName, NullImpl> factory;
     factory.argument_type = InputType::Array(type->id());
     RETURN_NOT_OK(VisitTypeInline(*type, &factory));
     return std::move(factory.kernel);
@@ -950,8 +1021,17 @@ struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Ty
   using Base::Finish;
 };
 
+struct GroupedSumNullImpl final : public GroupedNullImpl {
+  std::shared_ptr<DataType> out_type() const override { return int64(); }
+
+  void output_empty(const std::shared_ptr<Buffer>& data) override {
+    std::fill_n(reinterpret_cast<int64_t*>(data->mutable_data()), num_groups_, 0);
+  }
+};
+
 static constexpr const char kSumName[] = "sum";
-using GroupedSumFactory = GroupedReducingFactory<GroupedSumImpl, kSumName>;
+using GroupedSumFactory =
+    GroupedReducingFactory<GroupedSumImpl, kSumName, GroupedSumNullImpl>;
 
 // ----------------------------------------------------------------------
 // Product implementation
@@ -981,8 +1061,17 @@ struct GroupedProductImpl final
   using Base::Finish;
 };
 
+struct GroupedProductNullImpl final : public GroupedNullImpl {
+  std::shared_ptr<DataType> out_type() const override { return int64(); }
+
+  void output_empty(const std::shared_ptr<Buffer>& data) override {
+    std::fill_n(reinterpret_cast<int64_t*>(data->mutable_data()), num_groups_, 1);
+  }
+};
+
 static constexpr const char kProductName[] = "product";
-using GroupedProductFactory = GroupedReducingFactory<GroupedProductImpl, kProductName>;
+using GroupedProductFactory =
+    GroupedReducingFactory<GroupedProductImpl, kProductName, GroupedProductNullImpl>;
 
 // ----------------------------------------------------------------------
 // Mean implementation
@@ -1064,8 +1153,17 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
   }
 };
 
+struct GroupedMeanNullImpl final : public GroupedNullImpl {
+  std::shared_ptr<DataType> out_type() const override { return float64(); }
+
+  void output_empty(const std::shared_ptr<Buffer>& data) override {
+    std::fill_n(reinterpret_cast<double*>(data->mutable_data()), num_groups_, 0);
+  }
+};
+
 static constexpr const char kMeanName[] = "mean";
-using GroupedMeanFactory = GroupedReducingFactory<GroupedMeanImpl, kMeanName>;
+using GroupedMeanFactory =
+    GroupedReducingFactory<GroupedMeanImpl, kMeanName, GroupedMeanNullImpl>;
 
 // Variance/Stdev implementation
 
@@ -2741,6 +2839,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     // Type parameters are ignored
     DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
                                 GroupedSumFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null()}, GroupedSumFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2758,6 +2857,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     // Type parameters are ignored
     DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
                                 GroupedProductFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null()}, GroupedProductFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
@@ -2773,6 +2873,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     // Type parameters are ignored
     DCHECK_OK(AddHashAggKernels({decimal128(1, 1), decimal256(1, 1)},
                                 GroupedMeanFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null()}, GroupedMeanFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 

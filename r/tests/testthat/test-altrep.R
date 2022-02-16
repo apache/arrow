@@ -329,8 +329,30 @@ test_that("ChunkedArray$create(...) keeps Array even when from altrep vectors", 
   expect_true(x$chunk(4)$Same(d))
   expect_true(x$chunk(5)$Same(e$chunk(0)))
   expect_true(x$chunk(6)$Same(e$chunk(1)))
-
 })
+
+test_that("dictionaries chunked arrays are made altrep", {
+  # without unification
+  x <- ChunkedArray$create(
+    factor(c("a", "b"), levels = letters[1:5]),
+    factor(c("d", "c", "a", NA, "e"), levels = letters[1:5])
+  )
+  f <- x$as_vector()
+  expect_true(is_arrow_altrep(f))
+  expect_equal(levels(f), letters[1:5])
+  expect_equal(as.integer(f), c(1L, 2L, 4L, 3L, 1L, NA_integer_, 5L))
+
+  # with unification
+  x <- ChunkedArray$create(
+    factor(c("a", "b"), levels = c("a", "b")),
+    factor(c("d", "c", "a", NA, "e"), levels = c("d", "c", "a", "e"))
+  )
+  f <- x$as_vector()
+  expect_true(is_arrow_altrep(f))
+  expect_equal(levels(f), c("a", "b", "d", "c", "e"))
+  expect_equal(as.integer(f), c(1L, 2L, 3L, 4L, 1L, NA_integer_, 5L))
+})
+
 
 test_that("R checks for bounds", {
   v_int <- Array$create(c(1, 2, 3))$as_vector()

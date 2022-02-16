@@ -225,7 +225,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" OFF)
 
-  define_option(ARROW_ENGINE "Build the Arrow Execution Engine" OFF)
+  define_option(ARROW_ENGINE "Build the Arrow Query Engine Module" OFF)
 
   define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" OFF)
 
@@ -477,6 +477,16 @@ Always OFF if building binaries" OFF)
 advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
+
+  set(ARROW_SUBSTRAIT_REPO_DEFAULT "https://github.com/substrait-io/substrait")
+  define_option_string(ARROW_SUBSTRAIT_REPO
+                       "Custom git repository URL for downloading Substrait sources.;\
+See also ARROW_SUBSTRAIT_TAG" "${ARROW_SUBSTRAIT_REPO_DEFAULT}")
+
+  set(ARROW_SUBSTRAIT_TAG_DEFAULT "e1b4c04a1b518912f4c4065b16a1b2c0ac8e14cf")
+  define_option_string(ARROW_SUBSTRAIT_TAG
+                       "Custom git hash/tag/branch for Substrait repository.;\
+See also ARROW_SUBSTRAIT_REPO" "${ARROW_SUBSTRAIT_TAG_DEFAULT}")
 
   option(ARROW_BUILD_CONFIG_SUMMARY_JSON "Summarize build configuration in a JSON file"
          ON)

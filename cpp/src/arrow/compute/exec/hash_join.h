@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -58,8 +59,8 @@ class ARROW_EXPORT HashJoinSchema {
 
   Result<Expression> BindFilter(Expression filter, const Schema& left_schema,
                                 const Schema& right_schema);
-  std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_prefix,
-                                           const std::string& right_field_name_prefix);
+  std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_suffix,
+                                           const std::string& right_field_name_suffix);
 
   bool LeftPayloadIsEmpty() { return PayloadIsEmpty(0); }
 
@@ -112,6 +113,9 @@ class HashJoinImpl {
   virtual void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) = 0;
 
   static Result<std::unique_ptr<HashJoinImpl>> MakeBasic();
+
+ protected:
+  util::tracing::Span span_;
 };
 
 }  // namespace compute

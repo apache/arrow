@@ -22,19 +22,25 @@ Utilities
 Decimal Numbers
 ===============
 
-.. doxygenclass:: arrow::Decimal128
-   :project: arrow_cpp
+.. doxygenclass:: arrow::BasicDecimal128
    :members:
 
-Abstract Sequences
-==================
+.. doxygenclass:: arrow::Decimal128
+   :members:
+
+.. doxygenclass:: arrow::BasicDecimal256
+   :members:
+
+.. doxygenclass:: arrow::Decimal256
+   :members:
+
+Iterators
+=========
 
 .. doxygenclass:: arrow::Iterator
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::VectorIterator
-   :project: arrow_cpp
    :members:
 
 Compression

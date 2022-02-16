@@ -43,6 +43,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    EVENT(span_, "InputReceived");
+
     if (QueueBatchIfNeeded(side, batch)) {
       return Status::OK();
     } else {
@@ -55,6 +57,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    EVENT(span_, "InputFinished", {{"side", side}});
     if (side == 0) {
       bool proceed;
       {
@@ -87,6 +90,11 @@ class HashJoinBasicImpl : public HashJoinImpl {
               TaskScheduler::ScheduleImpl schedule_task_callback) override {
     num_threads = std::max(num_threads, static_cast<size_t>(1));
 
+    START_SPAN(span_, "HashJoinBasicImpl",
+               {{"detail", filter.ToString()},
+                {"join.kind", ToString(join_type)},
+                {"join.threads", static_cast<uint32_t>(num_threads)}});
+
     ctx_ = ctx;
     join_type_ = join_type;
     num_threads_ = num_threads;
@@ -95,7 +103,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     filter_ = std::move(filter);
     output_batch_callback_ = std::move(output_batch_callback);
     finished_callback_ = std::move(finished_callback);
-    local_states_.resize(num_threads);
+    local_states_.resize(num_threads + 1);  // +1 for calling thread + worker threads
     for (size_t i = 0; i < local_states_.size(); ++i) {
       local_states_[i].is_initialized = false;
       local_states_[i].is_has_match_initialized = false;
@@ -122,6 +130,8 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void Abort(TaskScheduler::AbortContinuationImpl pos_abort_callback) override {
+    EVENT(span_, "Abort");
+    END_SPAN(span_);
     cancelled_ = true;
     scheduler_->Abort(std::move(pos_abort_callback));
   }
@@ -141,6 +151,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
   }
 
   void InitLocalStateIfNeeded(size_t thread_index) {
+    DCHECK_LT(thread_index, local_states_.size());
     ThreadLocalState& local_state = local_states_[thread_index];
     if (!local_state.is_initialized) {
       InitEncoder(0, HashJoinProjection::KEY, &local_state.exec_batch_keys);
@@ -775,6 +786,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
     if (cancelled_) {
       return Status::Cancelled("Hash join cancelled");
     }
+    END_SPAN(span_);
     finished_callback_(num_batches_produced_.load());
     return Status::OK();
   }

@@ -102,7 +102,8 @@ Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
 
 template <typename TYPE>
 Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArrays(
-    const Array& offsets, const Array& values, MemoryPool* pool) {
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
+    MemoryPool* pool) {
   using offset_type = typename TYPE::offset_type;
   using ArrayType = typename TypeTraits<TYPE>::ArrayType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
@@ -119,10 +120,8 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   RETURN_NOT_OK(CleanListOffsets<TYPE>(offsets, pool, &offset_buf, &validity_buf));
   BufferVector buffers = {validity_buf, offset_buf};
 
-  auto list_type = std::make_shared<TYPE>(values.type());
-  auto internal_data =
-      ArrayData::Make(list_type, offsets.length() - 1, std::move(buffers),
-                      offsets.null_count(), offsets.offset());
+  auto internal_data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+                                       offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
   return std::make_shared<ArrayType>(internal_data);
@@ -235,13 +234,42 @@ void LargeListArray::SetData(const std::shared_ptr<ArrayData>& data) {
 Result<std::shared_ptr<ListArray>> ListArray::FromArrays(const Array& offsets,
                                                          const Array& values,
                                                          MemoryPool* pool) {
-  return ListArrayFromArrays<ListType>(offsets, values, pool);
+  return ListArrayFromArrays<ListType>(std::make_shared<ListType>(values.type()), offsets,
+                                       values, pool);
+}
+
+Result<std::shared_ptr<ListArray>> ListArray::FromArrays(std::shared_ptr<DataType> type,
+                                                         const Array& offsets,
+                                                         const Array& values,
+                                                         MemoryPool* pool) {
+  if (type->id() != Type::LIST) {
+    return Status::TypeError("Expected list type, got ", type->ToString());
+  }
+  const auto& list_type = checked_cast<const ListType&>(*type);
+  if (!list_type.value_type()->Equals(values.type())) {
+    return Status::TypeError("Mismatching list value type");
+  }
+  return ListArrayFromArrays<ListType>(std::move(type), offsets, values, pool);
 }
 
 Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(const Array& offsets,
                                                                    const Array& values,
                                                                    MemoryPool* pool) {
-  return ListArrayFromArrays<LargeListType>(offsets, values, pool);
+  return ListArrayFromArrays<LargeListType>(
+      std::make_shared<LargeListType>(values.type()), offsets, values, pool);
+}
+
+Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
+    std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
+    MemoryPool* pool) {
+  if (type->id() != Type::LARGE_LIST) {
+    return Status::TypeError("Expected large list type, got ", type->ToString());
+  }
+  const auto& list_type = checked_cast<const LargeListType&>(*type);
+  if (!list_type.value_type()->Equals(values.type())) {
+    return Status::TypeError("Mismatching list value type");
+  }
+  return ListArrayFromArrays<LargeListType>(std::move(type), offsets, values, pool);
 }
 
 Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
@@ -436,6 +464,27 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
   std::shared_ptr<Buffer> validity_buf;
 
   return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
+                                              /*null_count=*/0, /*offset=*/0);
+}
+
+Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
+    const std::shared_ptr<Array>& values, std::shared_ptr<DataType> type) {
+  if (type->id() != Type::FIXED_SIZE_LIST) {
+    return Status::TypeError("Expected fixed size list type, got ", type->ToString());
+  }
+  const auto& list_type = checked_cast<const FixedSizeListType&>(*type);
+
+  if (!list_type.value_type()->Equals(values->type())) {
+    return Status::TypeError("Mismatching list value type");
+  }
+  if ((values->length() % list_type.list_size()) != 0) {
+    return Status::Invalid(
+        "The length of the values Array needs to be a multiple of the list size");
+  }
+  int64_t length = values->length() / list_type.list_size();
+  std::shared_ptr<Buffer> validity_buf;
+
+  return std::make_shared<FixedSizeListArray>(type, length, values, validity_buf,
                                               /*null_count=*/0, /*offset=*/0);
 }
 

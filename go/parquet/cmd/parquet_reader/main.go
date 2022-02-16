@@ -23,9 +23,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 	"github.com/docopt/docopt-go"
 )
 
@@ -70,7 +70,7 @@ func main() {
 		}
 	}
 
-	rdr, err := file.OpenParquetFile(config.File, !config.NoMemoryMap, nil, nil)
+	rdr, err := file.OpenParquetFile(config.File, !config.NoMemoryMap)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error opening parquet file: ", err)
 		os.Exit(1)

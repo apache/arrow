@@ -45,15 +45,21 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
+  endif()
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
+  if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
+  endif()
 endif()
 
 # TODO(wesm): Protobuf shared vs static linking
 
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
-set(FLIGHT_PROTO ${ARROW_SOURCE_DIR}/../format/Flight.proto)
+set(FLIGHT_PROTO "${ARROW_SOURCE_DIR}/../format/Flight.proto")
 
 set(FLIGHT_GENERATED_PROTO_FILES
     "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc" "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h"
@@ -119,6 +125,7 @@ if(GRPC_VENDORED)
   # v1.35.0 -> 1.35
   string(REGEX MATCH "[0-9]+\\.[0-9]+" GRPC_VERSION "${ARROW_GRPC_BUILD_VERSION}")
 else()
+  test_grpc_version(GRPC_VERSION "1.43" "check_tls_opts_143.cc")
   test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
   test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
   test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
@@ -137,6 +144,10 @@ elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
 elseif(GRPC_VERSION EQUAL "1.36")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+elseif(GRPC_VERSION EQUAL "1.43")
+  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
+                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental
+                  -DGRPC_USE_CERTIFICATE_VERIFIER)
 else()
   message(STATUS "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
   )
@@ -152,9 +163,9 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
 # Note, we do not compile the generated Protobuf sources directly, instead
-# compiling then via protocol_internal.cc which contains some gRPC template
+# compiling them via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
-# protobuf-internal.cc
+# protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
     client.cc
     client_cookie_middleware.cc
@@ -243,6 +254,14 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
+endif()
+
+if(ARROW_CUDA AND ARROW_BUILD_TESTS)
+  add_arrow_test(flight_cuda_test
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                 LABELS
+                 "arrow_flight")
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

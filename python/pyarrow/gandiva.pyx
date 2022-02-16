@@ -488,7 +488,7 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
 
 cpdef make_filter(Schema schema, Condition condition):
     """
-    Contruct a filter based on a condition.
+    Construct a filter based on a condition.
 
     A filter is built for a specific schema and condition. Once the filter is
     built, it can be used to evaluate many row batches.
