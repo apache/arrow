@@ -1049,6 +1049,9 @@ tasks:
     params:
       env:
         UBUNTU: "{{ ubuntu_version }}"
+      {% if ubuntu_version == "18.04" %}
+      flags: -e ARROW_ENGINE=OFF
+      {% endif %}
       image: ubuntu-cpp
 {% endfor %}
 

@@ -1523,8 +1523,9 @@ macro(build_protobuf)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
-  if(ARROW_WITH_GRPC)
+  if(ARROW_WITH_GRPC OR ARROW_ENGINE)
     # FlightSQL uses proto3 optionals, which require 3.15 or later.
+    # Substrait (via ARROW_ENGINE) also relies on these optionals
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.15.0")
   elseif(ARROW_GANDIVA_JAVA)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
