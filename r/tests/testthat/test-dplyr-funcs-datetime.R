@@ -751,7 +751,7 @@ test_that("semester", {
 test_that("semester works with temporal types", {
   test_df <- tibble(
     month_as_int = c(1:12, NA),
-    month_as_char_pad = ifelse(month_as_int < 10, paste0("0", month_as_int), month_as_int),
+    month_as_char_pad = sprintf("%02i", month_as_int),
     dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
   )
 
@@ -768,13 +768,13 @@ test_that("semester works with temporal types", {
 test_that("semester errors with integers and characters", {
   test_df <- tibble(
     month_as_int = c(1:12, NA),
-    month_as_char_pad = ifelse(month_as_int < 10, paste0("0", month_as_int), month_as_int),
+    month_as_char_pad = sprintf("%02i", month_as_int),
     dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
   )
 
   # extraction from integers should error as we currently do not support setting
   # month components with month, but this is supported by `lubridate::month()`
-  # this should no longer fail once https://issues.apache.org/jira/browse/ARROW-15701
+  # TODO this should no longer fail once https://issues.apache.org/jira/browse/ARROW-15701
   # is addressed
   expect_error(
     test_df %>%
