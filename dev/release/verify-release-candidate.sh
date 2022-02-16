@@ -74,28 +74,31 @@ esac
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
+show_header() {
+  local repeats=$(seq ${#1})
+  echo ""
+  printf '=%.0s' $repeats; printf '\n'
+  echo "${1}"
+  printf '=%.0s' $repeats; printf '\n'
+}
+
+show_info() {
+  local repeats=$(seq ${#1})
+  echo "└ ${1}"
+}
+
 detect_cuda() {
+  show_header "Detect CUDA"
+
   if ! (which nvcc && which nvidia-smi) > /dev/null; then
+    echo "No devices found."
     return 1
   fi
 
   local n_gpus=$(nvidia-smi --list-gpus | wc -l)
+  echo "Found ${n_gpus} GPU."
   return $((${n_gpus} < 1))
 }
-
-# Execute tests in a conda enviroment
-: ${USE_CONDA:=0}
-
-# Build options for the C++ library
-if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
-  ARROW_CUDA=ON
-fi
-: ${ARROW_CUDA:=OFF}
-: ${ARROW_FLIGHT:=ON}
-: ${ARROW_GANDIVA:=ON}
-: ${ARROW_PLASMA:=ON}
-: ${ARROW_S3:=OFF}
-: ${ARROW_GCS:=OFF}
 
 ARROW_DIST_URL='https://dist.apache.org/repos/dist/dev/arrow'
 
@@ -166,6 +169,8 @@ verify_dir_artifact_signatures() {
 }
 
 test_binaries() {
+  show_header "Testing binary artifacts"
+
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -176,6 +181,8 @@ test_binaries() {
 }
 
 test_apt() {
+  show_header "Testing APT packages"
+
   for target in "debian:buster" \
                 "arm64v8/debian:buster" \
                 "debian:bullseye" \
@@ -219,6 +226,8 @@ test_apt() {
 }
 
 test_yum() {
+  show_header "Testing YUM packages"
+
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
@@ -252,6 +261,8 @@ setup_tempdir() {
     fi
   }
 
+  show_header "Creating temporary directory"
+
   if [ -z "${ARROW_TMPDIR}" ]; then
     # clean up automatically if ARROW_TMPDIR is not defined
     ARROW_TMPDIR=$(mktemp -d -t "arrow-${VERSION}.XXXXX")
@@ -268,15 +279,16 @@ install_nodejs() {
   # Install NodeJS locally for running the JavaScript tests rather than using the
   # system Node installation, which may be too old.
   if [ "${NODEJS_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    show_info "NodeJS $(node --version) already installed"
     return 0
   fi
 
   required_node_major_version=16
   node_major_version=$(node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
 
-  if [ -n "${node_major_version}" -a
+  if [ -n "${node_major_version}" -a \
       "${node_major_version}" -ge ${required_node_major_version} ]; then
-    echo "Found NodeJS installation with major version ${node_major_version}"
+    show_info "Found NodeJS installation with major version ${node_major_version}"
   else
     export NVM_DIR="`pwd`/.nvm"
     mkdir -p $NVM_DIR
@@ -285,6 +297,7 @@ install_nodejs() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install --lts
+    show_info "Installed NodeJS $(node --version)"
   fi
 
   NODEJS_ALREADY_INSTALLED=1
@@ -293,8 +306,11 @@ install_nodejs() {
 install_csharp() {
   # Install C# if doesn't already exist
   if [ "${CSHARP_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    show_info "C# already installed $(which csharp) (.NET $(dotnet --version))"
     return 0
   fi
+
+  show_info "Ensuring that C# is installed..."
 
   if which dotnet > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
@@ -304,7 +320,7 @@ install_csharp() {
         PATH="${dotnet_tools_dir}:$PATH"
       fi
     fi
-    echo "Found C# at ${csharp_bin}"
+    show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
     local dotnet_version=3.1.405
@@ -327,7 +343,7 @@ install_csharp() {
     curl -sL ${dotnet_download_url} | \
       tar xzf - -C ${csharp_bin}
     PATH=${csharp_bin}:${PATH}
-    echo "Installed C# to ${csharp_bin}"
+    show_info "Installed C# at $(which csharp) (.NET $(dotnet --version))"
   fi
 
   # Ensure to have sourcelink installed
@@ -345,10 +361,12 @@ install_csharp() {
 install_go() {
   # Install go
   if [ "${GO_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    show_info "$(go version) already installed at $(which go)"
     return 0
   fi
 
   local version=1.16.12
+  show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
   if [ "$arch" == "x86_64" ]; then
@@ -375,6 +393,8 @@ install_go() {
   export GOPATH=${prefix}/gopath
   export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
 
+  show_info "$(go version) installed at $(which go)"
+
   GO_ALREADY_INSTALLED=1
 }
 
@@ -385,23 +405,27 @@ mamba() {
 
 install_conda() {
   # Setup short-lived miniconda for Python and integration tests
+  local prefix=$ARROW_TMPDIR/mambaforge
+
   if [ "${CONDA_ALREADY_INSTALLED:-0}" -gt 0 ]; then
+    show_info "Conda installed at ${prefix}"
     return 0
   fi
+
+  show_info "Ensuring that Conda is installed..."
 
   local arch=$(uname -m)
   local platform=$(uname)
   local url="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-${platform}-${arch}.sh"
-  local prefix=$ARROW_TMPDIR/mambaforge
 
   # Setup miniconda only if the directory doesn't exist yet
   if [ ! -d "${prefix}" ]; then
+    show_info "Installing miniconda at ${prefix}..."
     curl -sL -o miniconda.sh $url
     bash miniconda.sh -b -p $prefix
     rm -f miniconda.sh
-    echo "Installed miniconda at ${prefix}"
   else
-    echo "Miniconda already installed at ${prefix}"
+    show_info "Miniconda already installed at ${prefix}"
   fi
 
   # Creating a separate conda environment
@@ -417,6 +441,8 @@ setup_conda() {
   local pyver=${PYTHON_VERSION:-3}
 
   if [ "${USE_CONDA}" -gt 0 ]; then
+    show_info "Configuring Conda environment..."
+
     # Deactivate previous env
     if [ ! -z ${CONDA_PREFIX} ]; then
       conda deactivate || :
@@ -426,7 +452,6 @@ setup_conda() {
     # Create environment
     if ! conda env list | grep $env; then
       mamba create -y -n $env python=${pyver}
-      echo "Created conda environment ${CONDA_PREFIX}"
     fi
     # Install dependencies
     if [ $# -gt 0 ]; then
@@ -450,15 +475,19 @@ setup_virtualenv() {
   local skip_missing_python=${SKIP_MISSING_PYTHON:-0}
 
   if [ "${USE_CONDA}" -eq 0 ]; then
+    show_info "Configuring Python virtualenv..."
+
     if [ ! -z ${CONDA_PREFIX} ]; then
       echo "Conda environment is active despite that USE_CONDA is set to 0."
       echo "Deactivate the environment before running the verification script."
       exit 1
     fi
     # Deactivate previous env
-    deactivate || :
+    if command -v deactivate &> /dev/null; then
+      deactivate
+    fi
     # Check that python interpreter exists
-    if ! command -v "${python}"; then
+    if ! command -v "${python}" &> /dev/null; then
       echo "Couldn't locate python interpreter with version ${pyver}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       if [ $skip_missing_python -gt 0 ]; then
@@ -469,30 +498,38 @@ setup_virtualenv() {
     fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
+      show_info "Creating python virtualenv at ${virtualenv}..."
       $python -m venv ${virtualenv}
+    else
+      show_info "Using already created virtualenv at ${virtualenv}"
     fi
     # Activate the environment
     source "${virtualenv}/bin/activate"
     # Install dependencies
     if [ $# -gt 0 ]; then
+      show_info "Installed pip packages $@..."
       pip install $@
     fi
   fi
 }
 
 setup_go() {
+  show_info "Ensuring that Go is installed..."
   if [ "${USE_CONDA}" -eq 0 ]; then
     install_go
   fi
 }
 
 setup_nodejs() {
+  show_info "Ensuring that NodeJS is installed..."
   if [ "${USE_CONDA}" -eq 0 ]; then
     install_nodejs
   fi
 }
 
 test_package_java() {
+  show_header "Build and test Java libraries"
+
   # Build and test Java (Requires newer Maven -- I used 3.3.9)
   setup_conda maven
 
@@ -503,6 +540,8 @@ test_package_java() {
 }
 
 test_and_install_cpp() {
+  show_header "Build, install and test C++ libraries"
+
   # Build and test C++
   setup_virtualenv numpy
   setup_conda \
@@ -582,6 +621,8 @@ test_and_install_cpp() {
 }
 
 test_python() {
+  show_header "Build and test Python libraries"
+
   # Build and test Python
   setup_virtualenv cython numpy setuptools_scm setuptools
   setup_conda --file ci/conda_env_python.txt
@@ -646,6 +687,8 @@ import pyarrow.plasma
 }
 
 test_glib() {
+  show_header "Build and test C Glib libraries"
+
   # Build and test C GLib
   setup_virtualenv meson
   setup_conda meson
@@ -672,6 +715,8 @@ test_glib() {
 }
 
 test_ruby() {
+  show_header "Build and test Ruby libraries"
+
   setup_conda
   setup_virtualenv
 
@@ -700,6 +745,8 @@ test_ruby() {
 }
 
 test_csharp() {
+  show_header "Build and test C# libraries"
+
   install_csharp
 
   pushd csharp
@@ -721,6 +768,8 @@ test_csharp() {
 }
 
 test_js() {
+  show_header "Build and test JavaScript libraries"
+
   setup_nodejs
   setup_conda nodejs=17
 
@@ -737,6 +786,8 @@ test_js() {
 }
 
 test_go() {
+  show_header "Build and test Go libraries"
+
   setup_go
   setup_conda compilers go=1.17
 
@@ -749,6 +800,8 @@ test_go() {
 
 # Run integration tests
 test_integration() {
+  show_header "Build and execute integration tests"
+
   setup_conda
   setup_virtualenv
 
@@ -776,6 +829,8 @@ test_integration() {
 }
 
 ensure_source_directory() {
+  show_header "Ensuring source directory"
+
   dist_name="apache-arrow-${VERSION}"
 
   if [ "${SOURCE_KIND}" = "local" ]; then
@@ -783,16 +838,19 @@ ensure_source_directory() {
     if [ -z "$ARROW_SOURCE_DIR" ]; then
       export ARROW_SOURCE_DIR="$(cd ${SOURCE_DIR}/../.. && pwd)"
     fi
+    echo "Verifying local Arrow checkout at ${ARROW_SOURCE_DIR}"
   elif [ "${SOURCE_KIND}" = "git" ]; then
     # Remote arrow repository, testing repositories must be cloned
+    : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
+    echo "Verifying Arrow repository ${SOURCE_REPOSITORY} with revision checkout ${VERSION}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/arrow"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
-      : ${SOURCE_REPOSITORY:="https://github.com/apache/arrow"}
       git clone --recurse-submodules $SOURCE_REPOSITORY $ARROW_SOURCE_DIR
       git -C $ARROW_SOURCE_DIR checkout $VERSION
     fi
   else
     # Release tarball, testing repositories must be cloned separately
+    echo "Verifying official Arrow release candidate ${VERSION}-rc{$RC_NUMBER}"
     export ARROW_SOURCE_DIR="${ARROW_TMPDIR}/${dist_name}"
     if [ ! -d "${ARROW_SOURCE_DIR}" ]; then
       pushd $ARROW_TMPDIR
@@ -803,14 +861,12 @@ ensure_source_directory() {
   fi
 
   # Ensure that the testing repositories are cloned
-  pushd $ARROW_SOURCE_DIR
-  if [ ! -d "testing/data" ]; then
-    git clone https://github.com/apache/arrow-testing.git testing
+  if [ ! -d "${ARROW_SOURCE_DIR}/testing/data" ]; then
+    git clone https://github.com/apache/arrow-testing.git ${ARROW_SOURCE_DIR}/testing
   fi
-  if [ ! -d "cpp/submodules/parquet-testing/data" ]; then
-    git clone https://github.com/apache/parquet-testing.git cpp/submodules/parquet-testing
+  if [ ! -d "${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing/data" ]; then
+    git clone https://github.com/apache/parquet-testing.git ${ARROW_SOURCE_DIR}/cpp/submodules/parquet-testing
   fi
-  popd
 
   export ARROW_TEST_DATA=$ARROW_SOURCE_DIR/testing/data
   export PARQUET_TEST_DATA=$ARROW_SOURCE_DIR/cpp/submodules/parquet-testing/data
@@ -959,6 +1015,8 @@ test_macos_wheels() {
 }
 
 test_wheels() {
+  show_header "Testing Python wheels"
+
   local download_dir=binaries
   mkdir -p ${download_dir}
 
@@ -987,6 +1045,8 @@ test_wheels() {
 }
 
 test_jars() {
+  show_header "Testing Java JNI jars"
+
   local download_dir=jars
   mkdir -p ${download_dir}
 
@@ -1038,7 +1098,20 @@ TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
 TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
 TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
-# Execute the verification tasks
+# Execute tests in a conda enviroment
+: ${USE_CONDA:=0}
+
+# Build options for the C++ library
+if [ -z "${ARROW_CUDA:-}" ] && detect_cuda; then
+  ARROW_CUDA=ON
+fi
+: ${ARROW_CUDA:=OFF}
+: ${ARROW_FLIGHT:=ON}
+: ${ARROW_GANDIVA:=ON}
+: ${ARROW_PLASMA:=ON}
+: ${ARROW_S3:=OFF}
+: ${ARROW_GCS:=OFF}
+
 TEST_SUCCESS=no
 
 setup_tempdir
