@@ -148,10 +148,15 @@ register_bindings_datetime <- function() {
     !call_binding("am", x)
   })
   register_binding("tz", function(x) {
-    if (inherits(x$type(), "Timestamp")) {
-      return(x$type()$timezone())
-    } else {
-      abort(paste0("timezone extraction for objects of class `", x$type()$ToString(),"` not supported in Arrow"))
+    if (!call_binding("is.POSIXct", x)) {
+      if (inherits(x, "Expression")) {
+        class <- x$type()$ToString()
+      } else {
+        class <- type(x)
+      }
+      abort(paste0("timezone extraction for objects of class `", class, "` not supported in Arrow"))
     }
+
+    x$type()$timezone()
   })
 }
