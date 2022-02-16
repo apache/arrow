@@ -2600,6 +2600,35 @@ cdef class Table(_PandasConvertible):
 
         return table
 
+    def join(self, keys, right_table, right_keys, join_type="left outer"):
+        """
+        Perform a join between this table and another one.
+
+        Result of the join will be a new Table, where further
+        operations can be applied.
+
+        Parameters
+        ----------
+        keys : str or list[str]
+            The columns from current table that should be used as keys
+            of the join operation left side.
+        right_table : Table
+            The table to join to the current one, acting as the right table
+            in the join operation.
+        right_keys : str or list[str]
+            The columns from the right_table that should be used as keys
+            on the join operation right side.
+        join_type : str, default "left outer"
+            The kind of join that should be performed, one of
+            ("left semi", "right semi", "left anti", "right anti",
+            "inner", "left outer", "right outer", "full outer")
+
+        Returns
+        -------
+        Table
+        """
+        return _pc().tables_join(join_type, self, keys, right_table, right_keys)
+
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
 

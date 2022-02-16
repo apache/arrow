@@ -26,11 +26,11 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/result.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
-#include "arrow/util/async_generator.h"
-#include "arrow/result.h"
 
 namespace arrow {
 namespace compute {
@@ -54,7 +54,8 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
                     std::function<Future<util::optional<ExecBatch>>()> generator)
       : output_schema(std::move(output_schema)), generator(std::move(generator)) {}
 
-  static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table);
+  static Result<std::shared_ptr<SourceNodeOptions>> FromTable(const Table& table,
+                                                              arrow::internal::Executor*);
 
   std::shared_ptr<Schema> output_schema;
   std::function<Future<util::optional<ExecBatch>>()> generator;

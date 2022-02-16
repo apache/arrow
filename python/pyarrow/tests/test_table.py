@@ -2043,3 +2043,31 @@ def test_table_to_recordbatchreader():
     reader = table.to_reader(max_chunksize=2)
     assert reader.read_next_batch().num_rows == 2
     assert reader.read_next_batch().num_rows == 1
+
+
+def test_table_join():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colB": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+
+    result = t1.join("colA", t2, "colB")
+    assert result == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "colB": [1, 2, None],
+        "col3": ["A", "B", None]
+    })
+
+    result = t1.join("colA", t2, "colB", join_type="full outer")
+    assert result == pa.table({
+        "colA": [1, 2, 6, None],
+        "col2": ["a", "b", "f", None],
+        "colB": [1, 2, None, 99],
+        "col3": ["A", "B", None, "Z"]
+    })

@@ -1791,13 +1791,26 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
         CResult[shared_ptr[CTable]] Read()
 
 
+cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
+
+    cdef cppclass CExecutor "arrow::internal::Executor":
+        pass
+
+    cdef cppclass CThreadPool "arrow::internal::ThreadPool"(CExecutor):
+        pass
+
+    CThreadPool* GetCpuThreadPool()
+
+
 cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CExecContext" arrow::compute::ExecContext":
         CExecContext()
         CExecContext(CMemoryPool* pool)
+        CExecContext(CMemoryPool* pool, CExecutor* exc)
 
         CMemoryPool* memory_pool() const
+        CExecutor* executor()
 
     cdef cppclass CKernelSignature" arrow::compute::KernelSignature":
         c_string ToString() const
@@ -2430,6 +2443,16 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal":
 
 
 cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil:
+    cdef enum CJoinType "arrow::compute::JoinType":
+        CJoinType_LEFT_SEMI "arrow::compute::JoinType::LEFT_SEMI"
+        CJoinType_RIGHT_SEMI "arrow::compute::JoinType::RIGHT_SEMI"
+        CJoinType_LEFT_ANTI "arrow::compute::JoinType::LEFT_ANTI"
+        CJoinType_RIGHT_ANTI "arrow::compute::JoinType::RIGHT_ANTI"
+        CJoinType_INNER "arrow::compute::JoinType::INNER"
+        CJoinType_LEFT_OUTER "arrow::compute::JoinType::LEFT_OUTER"
+        CJoinType_RIGHT_OUTER "arrow::compute::JoinType::RIGHT_OUTER"
+        CJoinType_FULL_OUTER "arrow::compute::JoinType::FULL_OUTER"
+
     cdef cppclass CAsyncExecBatchGenerator "arrow::compute::AsyncExecBatchGenerator":
         pass
 
@@ -2438,7 +2461,7 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
 
     cdef cppclass CSourceNodeOptions "arrow::compute::SourceNodeOptions"(CExecNodeOptions):
         @staticmethod
-        CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table)
+        CResult[shared_ptr[CSourceNodeOptions]] FromTable(const CTable& table, CExecutor*)
 
     cdef cppclass CSinkNodeOptions "arrow::compute::SinkNodeOptions"(CExecNodeOptions):
         pass
@@ -2447,6 +2470,19 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CProjectNodeOptions(vector[CExpression] expressions)
         CProjectNodeOptions(vector[CExpression] expressions,
                             vector[c_string] names)
+
+    cdef cppclass CHashJoinNodeOptions "arrow::compute::HashJoinNodeOptions"(CExecNodeOptions):
+        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
+                             vector[CFieldRef] in_right_keys)
+        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
+                             vector[CFieldRef] in_right_keys,
+                             CExpression filter)
+        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
+                             vector[CFieldRef] in_right_keys,
+                             CExpression filter,
+                             c_string output_prefix_for_left,
+                             c_string output_prefix_for_right)
+
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
     cdef cppclass CDeclaration "arrow::compute::Declaration":

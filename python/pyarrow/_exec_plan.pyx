@@ -31,8 +31,24 @@ from pyarrow.lib import tobytes
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan):
+    """
+    Internal Function to create and ExecPlan and run it.
+
+    Parameters
+    ----------
+    inputs : list of Table or Dataset
+             The sources from which the ExecPlan should fetch data.
+             In most cases this is only one, unless the first node of the
+             plan is able to get data from multiple different sources.
+    output_type : Table or Dataset
+             In which format the output should be provided.
+    plan : vector[CDeclaration]
+             The nodes of the plan that should be applied to the sources
+             to produce the output.
+    """
     cdef:
-        CExecContext c_exec_context = CExecContext(c_default_memory_pool())
+        CExecContext c_exec_context = CExecContext(c_default_memory_pool(),
+                                                   GetCpuThreadPool())
         shared_ptr[CExecPlan] c_exec_plan = GetResultValue(CExecPlan.Make(&c_exec_context))
         vector[CDeclaration] c_decls
         vector[CExecNode*] _empty
@@ -49,13 +65,13 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
     plan_iter = plan.begin()
 
     # Create source nodes for each input
-    for idx, ipt in enumerate(inputs):
+    for ipt in inputs:
         if isinstance(ipt, Table):
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
-                CSourceNodeOptions.FromTable(deref(c_in_table)))
+                CSourceNodeOptions.FromTable(deref(c_in_table), c_exec_context.executor()))
         else:
-            raise ValueError("Unsupproted type")
+            raise TypeError("Unsupproted type")
 
         if plan_iter != plan.end():
             # Flag the source as the input of the first plan node.
@@ -79,7 +95,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
     )
     c_final_node_vec.push_back(c_node)
 
-    # Create the output node
+    # Create the output node
     c_asyncexecbatchgen = make_shared[CAsyncExecBatchGenerator]()
     c_sinkopts = make_shared[CSinkNodeOptions](c_asyncexecbatchgen.get())
     GetResultValue(
@@ -92,7 +108,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
                                               deref(c_asyncexecbatchgen),
                                               c_exec_context.memory_pool())
 
-    # Start execution of the ExecPlan
+    # Start execution of the ExecPlan
     deref(c_exec_plan).Validate()
     deref(c_exec_plan).StartProducing()
 
@@ -109,28 +125,75 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
     return output
 
 
-def test():
-    # Currently run with
-    #     python -c "__import__('pyarrow._exec_plan')._exec_plan.test()"
+def tables_join(join_type, left_table, left_keys, right_table, right_keys):
+    """
+    Perform join of two tables.
+
+    The result will be an output table with the result of the join operation
+
+    Parameters
+    ----------
+    join_type : str
+        One of supported join types.
+    left_table : Table
+        The left table for the join operation
+    left_keys : str or list[str]
+        The left table key (or keys) on which the join operation should be performed
+    right_table : Table
+        The right table for the join operation
+    right_keys : str or list[str]
+        The right table key (or keys) on which the join operation should be performed
+
+    Returns
+    -------
+    result_table : Table
+    """
     cdef:
-        vector[CExpression] c_project_expr
-        vector[c_string] c_project_names
+        vector[CFieldRef] c_left_keys
+        vector[CFieldRef] c_right_keys
         vector[CDeclaration] c_decl_plan
+        CJoinType c_join_type
 
-    t = Table.from_pydict({
-        "col1": [1, 2, 3, 4, 5],
-        "col2": ["a", "b", "c", "d", "e"]
-    })
+    # Prepare left and right tables Keys to send them to the C++ function
+    if isinstance(left_keys, str):
+        left_keys = [left_keys]
+    for key in left_keys:
+        c_left_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
-    t2 = Table.from_pydict({
-        "col1": [1, 2, 3, 4, 5],
-        "col2": ["a", "b", "c", "d", "e"]
-    })
+    if isinstance(right_keys, str):
+        right_keys = [right_keys]
+    for key in right_keys:
+        c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
-    c_project_expr.push_back(CMakeFieldExpression(tobytes("col1")))
+    # Pick the join type
+    if join_type == "left semi":
+        c_join_type = CJoinType_LEFT_SEMI
+    elif join_type == "right semi":
+        c_join_type = CJoinType_RIGHT_SEMI
+    elif join_type == "left anti":
+        c_join_type = CJoinType_LEFT_ANTI
+    elif join_type == "right anti":
+        c_join_type = CJoinType_RIGHT_ANTI
+    elif join_type == "inner":
+        c_join_type = CJoinType_INNER
+    elif join_type == "left outer":
+        c_join_type = CJoinType_LEFT_OUTER
+    elif join_type == "right outer":
+        c_join_type = CJoinType_RIGHT_OUTER
+    elif join_type == "full outer":
+        c_join_type = CJoinType_FULL_OUTER
+    else:
+        raise ValueError("Unsupporter join type")
+
+    # Add the join node to the execplan
     c_decl_plan.push_back(
-        CDeclaration(tobytes("project"), CProjectNodeOptions(c_project_expr))
+        CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
+            c_join_type, c_left_keys, c_right_keys
+        ))
     )
-    table = execplan([t], output_type=Table, plan=c_decl_plan)
 
-    print(table)
+    result_table = execplan([left_table, right_table],
+                            output_type=Table,
+                            plan=c_decl_plan)
+
+    return result_table
