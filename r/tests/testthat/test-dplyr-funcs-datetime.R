@@ -801,3 +801,26 @@ test_that("dst extracts daylight savings time correctly", {
     test_df
   )
 })
+
+test_that("dst errors with unsupported input", {
+  expect_error(
+    call_function("is_dst", Scalar$create("this is a string, not a timestamp")),
+    "NotImplemented: Function 'is_dst' has no kernel matching input types (scalar[string])",
+    fixed = TRUE
+  )
+  expect_error(
+    call_function("is_dst", Scalar$create(1L)),
+    "NotImplemented: Function 'is_dst' has no kernel matching input types (scalar[int32])",
+    fixed = TRUE
+  )
+  expect_error(
+    call_function("is_dst", Scalar$create(2.2)),
+    "NotImplemented: Function 'is_dst' has no kernel matching input types (scalar[double])",
+    fixed = TRUE
+  )
+  expect_error(
+    call_function("is_dst", Scalar$create(TRUE)),
+    "NotImplemented: Function 'is_dst' has no kernel matching input types (scalar[bool])",
+    fixed = TRUE
+  )
+})
