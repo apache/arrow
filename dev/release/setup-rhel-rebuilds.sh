@@ -47,9 +47,8 @@ dnf -y install \
   nodejs \
   openssl-devel \
   python38-devel \
-  python38-devel \
   python38-pip \
-  python38-pip \
+  python38-venv \
   ruby-devel \
   sqlite-devel \
   wget \

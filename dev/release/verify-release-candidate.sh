@@ -75,15 +75,13 @@ esac
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 show_header() {
-  local repeats=$(seq ${#1})
   echo ""
-  printf '=%.0s' $repeats; printf '\n'
+  printf '=%.0s' $(seq ${#1}); printf '\n'
   echo "${1}"
-  printf '=%.0s' $repeats; printf '\n'
+  printf '=%.0s' $(seq ${#1}); printf '\n'
 }
 
 show_info() {
-  local repeats=$(seq ${#1})
   echo "└ ${1}"
 }
 
@@ -570,7 +568,6 @@ test_and_install_cpp() {
     -DARROW_BOOST_USE_SHARED=ON \
     -DARROW_BUILD_EXAMPLES=ON \
     -DARROW_BUILD_INTEGRATION=ON \
-    -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=ON \
     -DARROW_BUILD_UTILITIES=ON \
     -DARROW_CUDA=${ARROW_CUDA} \

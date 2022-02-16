@@ -1722,6 +1722,7 @@ services:
       ARROW_USE_CCACHE: "ON"
       CMAKE_GENERATOR: Ninja
       DEBIAN_FRONTEND: "noninteractive"
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
       TEST_DEFAULT: 0
       TEST_SOURCE: 1
       USE_CONDA: 1

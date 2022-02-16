@@ -36,5 +36,6 @@ apt-get -y install \
   openjdk-11-jdk \
   pkg-config \
   python3-pip \
+  python3-venv \
   ruby-dev \
   wget
