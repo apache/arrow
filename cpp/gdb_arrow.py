@@ -118,7 +118,7 @@ def for_evaluation(val, ty=None):
     """
     if ty is None:
         ty = get_basic_type(val.type)
-    typename = str(ty)  # (`ty.name` sometimes returns None...)
+    typename = str(ty)  # `ty.name` is sometimes None...
     if '::' in typename and not typename.startswith('::'):
         # ARROW-15652: expressions evaluated by GDB are evaluated in the
         # scope of the C++ namespace of the currently selected frame.

@@ -48,7 +48,7 @@ namespace gdb {
 
 // Add a nested `arrow` namespace to exercise type lookup from GDB (ARROW-15652)
 namespace arrow {
-const int dummy = 42;
+void DummyFunction() {}
 }  // namespace arrow
 
 namespace {
@@ -113,6 +113,8 @@ void TestSession() {
   _Pragma("GCC diagnostic push");
   _Pragma("GCC diagnostic ignored \"-Wunused-variable\"");
 #endif
+
+  arrow::DummyFunction();
 
   // Status & Result
   auto ok_status = Status::OK();
