@@ -2464,7 +2464,6 @@ struct GroupedOneImpl final : public GroupedAggregator {
     // out_type_ initialized by GroupedOneInit
     ones_ = TypedBufferBuilder<CType>(ctx->memory_pool());
     has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
-    has_value_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -2473,7 +2472,6 @@ struct GroupedOneImpl final : public GroupedAggregator {
     num_groups_ = new_num_groups;
     RETURN_NOT_OK(ones_.Append(added_groups, static_cast<CType>(0)));
     RETURN_NOT_OK(has_one_.Append(added_groups, false));
-    RETURN_NOT_OK(has_value_.Append(added_groups, false));
     return Status::OK();
   }
 
@@ -2486,14 +2484,10 @@ struct GroupedOneImpl final : public GroupedAggregator {
           if (!bit_util::GetBit(has_one_.data(), g)) {
             GetSet::Set(raw_ones_, g, val);
             bit_util::SetBit(has_one_.mutable_data(), g);
-            bit_util::SetBit(has_value_.mutable_data(), g);
           }
           return Status::OK();
         },
-        [&](uint32_t g) -> Status {
-          bit_util::SetBit(has_one_.mutable_data(), g);
-          return Status::OK();
-        });
+        [&](uint32_t g) -> Status { return Status::OK(); });
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -2507,11 +2501,10 @@ struct GroupedOneImpl final : public GroupedAggregator {
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
          ++other_g, ++g) {
       if (!bit_util::GetBit(has_one_.data(), *g)) {
-        if (bit_util::GetBit(other->has_value_.data(), other_g)) {
+        if (bit_util::GetBit(other->has_one_.data(), other_g)) {
           GetSet::Set(raw_ones, *g, GetSet::Get(other_raw_ones, other_g));
-          bit_util::SetBit(has_value_.mutable_data(), *g);
+          bit_util::SetBit(has_one_.mutable_data(), *g);
         }
-        bit_util::SetBit(has_one_.mutable_data(), *g);
       }
     }
 
@@ -2519,7 +2512,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
   }
 
   Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_value_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_one_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto data, ones_.Finish());
     return ArrayData::Make(out_type_, num_groups_,
                            {std::move(null_bitmap), std::move(data)});
@@ -2529,7 +2522,7 @@ struct GroupedOneImpl final : public GroupedAggregator {
 
   int64_t num_groups_;
   TypedBufferBuilder<CType> ones_;
-  TypedBufferBuilder<bool> has_one_, has_value_;
+  TypedBufferBuilder<bool> has_one_;
   std::shared_ptr<DataType> out_type_;
 };
 
@@ -2572,7 +2565,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     ctx_ = ctx;
     allocator_ = Allocator(ctx->memory_pool());
     // out_type_ initialized by GroupedOneInit
-    has_value_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
     return Status::OK();
   }
 
@@ -2582,7 +2575,6 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     num_groups_ = new_num_groups;
     ones_.resize(new_num_groups);
     RETURN_NOT_OK(has_one_.Append(added_groups, false));
-    RETURN_NOT_OK(has_value_.Append(added_groups, false));
     return Status::OK();
   }
 
@@ -2593,15 +2585,10 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
           if (!bit_util::GetBit(has_one_.data(), g)) {
             ones_[g].emplace(val.data(), val.size(), allocator_);
             bit_util::SetBit(has_one_.mutable_data(), g);
-            bit_util::SetBit(has_value_.mutable_data(), g);
           }
           return Status::OK();
         },
-        [&](uint32_t g) -> Status {
-          // as has_one_ is set, has_value_ will never be set, resulting in null
-          bit_util::SetBit(has_one_.mutable_data(), g);
-          return Status::OK();
-        });
+        [&](uint32_t g) -> Status { return Status::OK(); });
   }
 
   Status Merge(GroupedAggregator&& raw_other,
@@ -2611,18 +2598,17 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
          ++other_g, ++g) {
       if (!bit_util::GetBit(has_one_.data(), *g)) {
-        if (bit_util::GetBit(other->has_value_.data(), other_g)) {
+        if (bit_util::GetBit(other->has_one_.data(), other_g)) {
           ones_[*g] = std::move(other->ones_[other_g]);
-          bit_util::SetBit(has_value_.mutable_data(), *g);
+          bit_util::SetBit(has_one_.mutable_data(), *g);
         }
-        bit_util::SetBit(has_one_.mutable_data(), *g);
       }
     }
     return Status::OK();
   }
 
   Result<Datum> Finalize() override {
-    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_value_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_one_.Finish());
     auto ones =
         ArrayData::Make(out_type(), num_groups_, {std::move(null_bitmap), nullptr});
     RETURN_NOT_OK(MakeOffsetsValues(ones.get(), ones_));
@@ -2699,7 +2685,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   Allocator allocator_;
   int64_t num_groups_;
   std::vector<util::optional<StringType>> ones_;
-  TypedBufferBuilder<bool> has_one_, has_value_;
+  TypedBufferBuilder<bool> has_one_;
   std::shared_ptr<DataType> out_type_;
 };
 
@@ -2720,15 +2706,9 @@ struct GroupedOneFactory {
     return Status::OK();
   }
 
-  // MSVC2015 apparently doesn't compile this properly if we use
-  // enable_if_floating_point
-  Status Visit(const FloatType&) {
-    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<FloatType>);
-    return Status::OK();
-  }
-
-  Status Visit(const DoubleType&) {
-    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<DoubleType>);
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
     return Status::OK();
   }
 
