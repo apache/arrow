@@ -2461,26 +2461,6 @@ TEST(GroupBy, Distinct) {
   }
 }
 
-MATCHER_P2(AnyOfJSON, type, array_json, "") {
-  auto array = ArrayFromJSON(type, array_json);
-  for (int64_t i = 0; i < array->length(); ++i) {
-    std::shared_ptr<Scalar> scalar;
-    auto maybe_scalar = array->GetScalar(i);
-    if (maybe_scalar.ok()) {
-      scalar = maybe_scalar.ValueOrDie();
-    } else {
-      *result_listener << "Unable to retrieve scalar via GetScalar() "
-                       << "at index " << i << " from the input JSON Array";
-      return false;
-    }
-
-    if (scalar->Equals(arg)) return true;
-  }
-  *result_listener << "Argument scalar: '" << arg->ToString()
-                   << "' matches no input scalar.";
-  return false;
-}
-
 TEST(GroupBy, OneMiscTypes) {
   auto in_schema = schema({
       field("floats", float64()),
@@ -2762,7 +2742,6 @@ TEST(GroupBy, OneScalar) {
                       struct_arr->field(struct_arr->num_fields() - 1));
 
     const auto& col = struct_arr->field(0);
-    ARROW_LOG(WARNING) << col->ToString();
     EXPECT_THAT(col->GetScalar(0),
                 ResultWith(AnyOfJSON(int32(), R"([7, -1, 23, 22, -9])")));
     EXPECT_THAT(col->GetScalar(1), ResultWith(AnyOfJSON(int32(), R"([3])")));
