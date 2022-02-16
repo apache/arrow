@@ -2541,27 +2541,33 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
           ? arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool())
           : arrow::internal::TaskGroup::MakeSerial();
 
-  // Construct and initialize HashAggregateKernels
-  ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
-                        ExecBatch::Make(arguments).Map(
-                            [](ExecBatch batch) { return batch.GetDescriptors(); }));
-
-  ARROW_ASSIGN_OR_RAISE(auto kernels, GetKernels(ctx, aggregates, argument_descrs));
-
-  std::vector<std::vector<std::unique_ptr<KernelState>>> states(
-      task_group->parallelism());
-  for (auto& state : states) {
-    ARROW_ASSIGN_OR_RAISE(state, InitKernels(kernels, ctx, aggregates, argument_descrs));
-  }
-
-  ARROW_ASSIGN_OR_RAISE(
-      FieldVector out_fields,
-      ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
+  std::vector<const HashAggregateKernel*> kernels;
+  std::vector<std::vector<std::unique_ptr<KernelState>>> states;
+  FieldVector out_fields;
 
   using arrow::compute::detail::ExecBatchIterator;
+  std::unique_ptr<ExecBatchIterator> argument_batch_iterator;
 
-  ARROW_ASSIGN_OR_RAISE(auto argument_batch_iterator,
-                        ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
+  if (!arguments.empty()) {
+    // Construct and initialize HashAggregateKernels
+    ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
+                          ExecBatch::Make(arguments).Map(
+                              [](ExecBatch batch) { return batch.GetDescriptors(); }));
+
+    ARROW_ASSIGN_OR_RAISE(kernels, GetKernels(ctx, aggregates, argument_descrs));
+
+    states.resize(task_group->parallelism());
+    for (auto& state : states) {
+      ARROW_ASSIGN_OR_RAISE(state,
+                            InitKernels(kernels, ctx, aggregates, argument_descrs));
+    }
+
+    ARROW_ASSIGN_OR_RAISE(
+        out_fields, ResolveKernels(aggregates, kernels, states[0], ctx, argument_descrs));
+
+    ARROW_ASSIGN_OR_RAISE(argument_batch_iterator,
+                          ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
+  }
 
   // Construct Groupers
   ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
@@ -2586,7 +2592,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   // start "streaming" execution
   ExecBatch key_batch, argument_batch;
-  while (argument_batch_iterator->Next(&argument_batch) &&
+  while ((argument_batch_iterator == NULLPTR ||
+          argument_batch_iterator->Next(&argument_batch)) &&
          key_batch_iterator->Next(&key_batch)) {
     if (key_batch.length == 0) continue;
 
