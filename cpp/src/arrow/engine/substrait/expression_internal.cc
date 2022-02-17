@@ -443,13 +443,10 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
-  // Note: while std::string&& would be better for the argument
-  // type, older versions of protobuf don't have this overload
-  // yet.
-  template <typename ScalarWithBufferValue>
-  Status FromBuffer(void (substrait::Expression::Literal::*set)(const std::string&),
+  template <typename LiteralSetter, typename ScalarWithBufferValue>
+  Status FromBuffer(LiteralSetter&& set_lit,
                     const ScalarWithBufferValue& scalar_with_buffer) {
-    (lit_->*set)(scalar_with_buffer.value->ToString());
+    set_lit(lit_, scalar_with_buffer.value->ToString());
     return Status::OK();
   }
 
@@ -469,11 +466,18 @@ struct ScalarToProtoImpl {
   Status Visit(const FloatScalar& s) { return Primitive(&Lit::set_fp32, s); }
   Status Visit(const DoubleScalar& s) { return Primitive(&Lit::set_fp64, s); }
 
-  Status Visit(const StringScalar& s) { return FromBuffer(&Lit::set_string, s); }
-  Status Visit(const BinaryScalar& s) { return FromBuffer(&Lit::set_binary, s); }
+  Status Visit(const StringScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_string(std::move(s)); },
+                      s);
+  }
+  Status Visit(const BinaryScalar& s) {
+    return FromBuffer([](Lit* lit, std::string&& s) { lit->set_binary(std::move(s)); },
+                      s);
+  }
 
   Status Visit(const FixedSizeBinaryScalar& s) {
-    return FromBuffer(&Lit::set_fixed_binary, s);
+    return FromBuffer(
+        [](Lit* lit, std::string&& s) { lit->set_fixed_binary(std::move(s)); }, s);
   }
 
   Status Visit(const Date32Scalar& s) { return Primitive(&Lit::set_date, s); }
@@ -597,13 +601,14 @@ struct ScalarToProtoImpl {
 
   Status Visit(const ExtensionScalar& s) {
     if (UnwrapUuid(*s.type)) {
-      return FromBuffer(&Lit::set_uuid,
+      return FromBuffer([](Lit* lit, std::string&& s) { lit->set_uuid(std::move(s)); },
                         checked_cast<const FixedSizeBinaryScalar&>(*s.value));
     }
 
     if (UnwrapFixedChar(*s.type)) {
-      return FromBuffer(&Lit::set_fixed_char,
-                        checked_cast<const FixedSizeBinaryScalar&>(*s.value));
+      return FromBuffer(
+          [](Lit* lit, std::string&& s) { lit->set_fixed_char(std::move(s)); },
+          checked_cast<const FixedSizeBinaryScalar&>(*s.value));
     }
 
     if (auto length = UnwrapVarChar(*s.type)) {
