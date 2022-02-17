@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/bitutil"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // reproducer from ARROW-13529
@@ -91,4 +92,32 @@ func TestNewTruncatedBitmap(t *testing.T) {
 	defer result.Release()
 	assert.Equal(t, 64, result.Len(), "truncate to smaller buffer")
 	assert.Equal(t, 8, bitutil.CountSetBits(result.Bytes(), 0, 8))
+}
+
+func TestGetZeroBasedValueOffsets(t *testing.T) {
+	alloc := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer alloc.AssertSize(t, 0)
+
+	vals := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"}
+	b := array.NewStringBuilder(alloc)
+	defer b.Release()
+	b.AppendValues(vals, nil)
+
+	arr := b.NewArray()
+	defer arr.Release()
+
+	env := &recordEncoder{mem: alloc}
+
+	offsets, err := env.getZeroBasedValueOffsets(arr)
+	require.NoError(t, err)
+	defer offsets.Release()
+	assert.Equal(t, 44, offsets.Len(), "include all offsets if array is not sliced")
+
+	sl := array.NewSlice(arr, 0, 4)
+	defer sl.Release()
+
+	offsets, err = env.getZeroBasedValueOffsets(sl)
+	require.NoError(t, err)
+	defer offsets.Release()
+	assert.Equal(t, 20, offsets.Len(), "trim trailing offsets after slice")
 }
