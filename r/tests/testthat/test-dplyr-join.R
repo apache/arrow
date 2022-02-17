@@ -253,6 +253,11 @@ test_that("arrow dplyr query correctly filters then joins", {
 
 test_that("arrow dplyr query can join with tibble", {
   # ARROW-14908
+
+  # By default, snappy encoding will be used, and
+  # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
+  skip_on_linux_devel()
+
   dir_out <- tempdir()
   write_dataset(iris, file.path(dir_out, "iris"))
   species_codes <- data.frame(
