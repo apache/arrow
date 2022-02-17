@@ -65,7 +65,7 @@ jobs:
 
   windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:

@@ -24,6 +24,7 @@
 #include <iostream>  // IWYU pragma: keep
 #include <limits>
 #include <memory>
+#include <mutex>
 
 #if defined(sun) || defined(__sun)
 #include <stdlib.h>
@@ -34,11 +35,14 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/debug.h"
+#include "arrow/util/int_util_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/ubsan.h"
 
 #ifdef __GLIBC__
 #include <malloc.h>
@@ -106,6 +110,7 @@ namespace {
 constexpr size_t kAlignment = 64;
 
 constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
+constexpr char kDebugMemoryEnvVar[] = "ARROW_DEBUG_MEMORY_POOL";
 
 enum class MemoryPoolBackend : uint8_t { System, Jemalloc, Mimalloc };
 
@@ -183,9 +188,156 @@ MemoryPoolBackend DefaultBackend() {
   return default_backend.backend;
 }
 
+static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
+
 // A static piece of memory for 0-size allocations, so as to return
-// an aligned non-null pointer.
-alignas(kAlignment) static uint8_t zero_size_area[1];
+// an aligned non-null pointer.  Note the correct value for DebugAllocator
+// checks is hardcoded.
+alignas(kAlignment) static int64_t zero_size_area[1] = {kDebugXorSuffix};
+static uint8_t* const kZeroSizeArea = reinterpret_cast<uint8_t*>(&zero_size_area);
+
+using MemoryDebugHandler = std::function<void(uint8_t* ptr, int64_t size, const Status&)>;
+
+struct DebugState {
+  void Invoke(uint8_t* ptr, int64_t size, const Status& st) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (handler_) {
+      handler_(ptr, size, st);
+    }
+  }
+
+  void SetHandler(MemoryDebugHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    handler_ = std::move(handler);
+  }
+
+  static DebugState* Instance() {
+    // Instance is constructed on-demand. If it was a global static variable,
+    // it could be constructed after being used.
+    static DebugState instance;
+    return &instance;
+  }
+
+ private:
+  DebugState() = default;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(DebugState);
+
+  std::mutex mutex_;
+  MemoryDebugHandler handler_;
+};
+
+void DebugAbort(uint8_t* ptr, int64_t size, const Status& st) { st.Abort(); }
+
+void DebugTrap(uint8_t* ptr, int64_t size, const Status& st) {
+  ARROW_LOG(ERROR) << st.ToString();
+  arrow::internal::DebugTrap();
+}
+
+void DebugWarn(uint8_t* ptr, int64_t size, const Status& st) {
+  ARROW_LOG(WARNING) << st.ToString();
+}
+
+bool IsDebugEnabled() {
+  static const bool is_enabled = []() {
+    auto maybe_env_value = internal::GetEnvVar(kDebugMemoryEnvVar);
+    if (!maybe_env_value.ok()) {
+      return false;
+    }
+    auto env_value = *std::move(maybe_env_value);
+    if (env_value.empty()) {
+      return false;
+    }
+    auto debug_state = DebugState::Instance();
+    if (env_value == "abort") {
+      debug_state->SetHandler(DebugAbort);
+      return true;
+    }
+    if (env_value == "trap") {
+      debug_state->SetHandler(DebugTrap);
+      return true;
+    }
+    if (env_value == "warn") {
+      debug_state->SetHandler(DebugWarn);
+      return true;
+    }
+    ARROW_LOG(WARNING) << "Invalid value for " << kDebugMemoryEnvVar << ": '" << env_value
+                       << "'. Valid values are 'abort', 'trap', 'warn'.";
+    return false;
+  }();
+
+  return is_enabled;
+}
+
+// An allocator wrapper that adds a suffix at the end of allocation to check
+// for writes beyond the allocated area.
+template <typename WrappedAllocator>
+class DebugAllocator {
+ public:
+  static Status AllocateAligned(int64_t size, uint8_t** out) {
+    if (size == 0) {
+      *out = kZeroSizeArea;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(int64_t raw_size, RawSize(size));
+      RETURN_NOT_OK(WrappedAllocator::AllocateAligned(raw_size, out));
+      InitAllocatedArea(*out, size);
+    }
+    return Status::OK();
+  }
+
+  static void ReleaseUnused() { WrappedAllocator::ReleaseUnused(); }
+
+  static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
+    CheckAllocatedArea(*ptr, old_size, "reallocation");
+    if (*ptr == kZeroSizeArea) {
+      return AllocateAligned(new_size, ptr);
+    }
+    if (new_size == 0) {
+      // Note that an overflow check isn't needed as `old_size` is supposed to have
+      // been successfully passed to AllocateAligned() before.
+      WrappedAllocator::DeallocateAligned(*ptr, old_size + kOverhead);
+      *ptr = kZeroSizeArea;
+      return Status::OK();
+    }
+    ARROW_ASSIGN_OR_RAISE(int64_t raw_new_size, RawSize(new_size));
+    RETURN_NOT_OK(
+        WrappedAllocator::ReallocateAligned(old_size + kOverhead, raw_new_size, ptr));
+    InitAllocatedArea(*ptr, new_size);
+    return Status::OK();
+  }
+
+  static void DeallocateAligned(uint8_t* ptr, int64_t size) {
+    CheckAllocatedArea(ptr, size, "deallocation");
+    if (ptr != kZeroSizeArea) {
+      WrappedAllocator::DeallocateAligned(ptr, size + kOverhead);
+    }
+  }
+
+ private:
+  static Result<int64_t> RawSize(int64_t size) {
+    if (ARROW_PREDICT_FALSE(internal::AddWithOverflow(size, kOverhead, &size))) {
+      return Status::OutOfMemory("Memory allocation size too large");
+    }
+    return size;
+  }
+
+  static void InitAllocatedArea(uint8_t* ptr, int64_t size) {
+    DCHECK_NE(size, 0);
+    util::SafeStore(ptr + size, size ^ kDebugXorSuffix);
+  }
+
+  static void CheckAllocatedArea(uint8_t* ptr, int64_t size, const char* context) {
+    // Check that memory wasn't clobbered at the end of the allocated area.
+    int64_t stored_size = kDebugXorSuffix ^ util::SafeLoadAs<int64_t>(ptr + size);
+    if (ARROW_PREDICT_FALSE(stored_size != size)) {
+      auto st = Status::Invalid("Wrong size on ", context, ": given size = ", size,
+                                ", actual size = ", stored_size);
+      DebugState::Instance()->Invoke(ptr, size, st);
+    }
+  }
+
+  static constexpr int64_t kOverhead = sizeof(int64_t);
+};
 
 // Helper class directing allocations to the standard system allocator.
 class SystemAllocator {
@@ -194,7 +346,7 @@ class SystemAllocator {
   // (as of May 2016 64 bytes)
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = zero_size_area;
+      *out = kZeroSizeArea;
       return Status::OK();
     }
 #ifdef _WIN32
@@ -225,13 +377,13 @@ class SystemAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == zero_size_area) {
+    if (previous_ptr == kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       DeallocateAligned(previous_ptr, old_size);
-      *ptr = zero_size_area;
+      *ptr = kZeroSizeArea;
       return Status::OK();
     }
     // Note: We cannot use realloc() here as it doesn't guarantee alignment.
@@ -252,7 +404,7 @@ class SystemAllocator {
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == zero_size_area) {
+    if (ptr == kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
 #ifdef _WIN32
@@ -279,7 +431,7 @@ class JemallocAllocator {
  public:
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = zero_size_area;
+      *out = kZeroSizeArea;
       return Status::OK();
     }
     *out = reinterpret_cast<uint8_t*>(
@@ -292,13 +444,13 @@ class JemallocAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == zero_size_area) {
+    if (previous_ptr == kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       DeallocateAligned(previous_ptr, old_size);
-      *ptr = zero_size_area;
+      *ptr = kZeroSizeArea;
       return Status::OK();
     }
     *ptr = reinterpret_cast<uint8_t*>(
@@ -311,7 +463,7 @@ class JemallocAllocator {
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == zero_size_area) {
+    if (ptr == kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
       dallocx(ptr, MALLOCX_ALIGN(kAlignment));
@@ -332,7 +484,7 @@ class MimallocAllocator {
  public:
   static Status AllocateAligned(int64_t size, uint8_t** out) {
     if (size == 0) {
-      *out = zero_size_area;
+      *out = kZeroSizeArea;
       return Status::OK();
     }
     *out = reinterpret_cast<uint8_t*>(
@@ -347,13 +499,13 @@ class MimallocAllocator {
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, uint8_t** ptr) {
     uint8_t* previous_ptr = *ptr;
-    if (previous_ptr == zero_size_area) {
+    if (previous_ptr == kZeroSizeArea) {
       DCHECK_EQ(old_size, 0);
       return AllocateAligned(new_size, ptr);
     }
     if (new_size == 0) {
       DeallocateAligned(previous_ptr, old_size);
-      *ptr = zero_size_area;
+      *ptr = kZeroSizeArea;
       return Status::OK();
     }
     *ptr = reinterpret_cast<uint8_t*>(
@@ -366,7 +518,7 @@ class MimallocAllocator {
   }
 
   static void DeallocateAligned(uint8_t* ptr, int64_t size) {
-    if (ptr == zero_size_area) {
+    if (ptr == kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
       mi_free(ptr);
@@ -400,7 +552,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::Invalid("negative malloc size");
     }
     if (static_cast<uint64_t>(size) >= std::numeric_limits<size_t>::max()) {
-      return Status::CapacityError("malloc size overflows size_t");
+      return Status::OutOfMemory("malloc size overflows size_t");
     }
     RETURN_NOT_OK(Allocator::AllocateAligned(size, out));
 #ifndef NDEBUG
@@ -421,7 +573,7 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::Invalid("negative realloc size");
     }
     if (static_cast<uint64_t>(new_size) >= std::numeric_limits<size_t>::max()) {
-      return Status::CapacityError("realloc overflows size_t");
+      return Status::OutOfMemory("realloc overflows size_t");
     }
     RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, ptr));
 #ifndef NDEBUG
@@ -466,8 +618,19 @@ class SystemMemoryPool : public BaseMemoryPoolImpl<SystemAllocator> {
   std::string backend_name() const override { return "system"; }
 };
 
+class SystemDebugMemoryPool : public BaseMemoryPoolImpl<DebugAllocator<SystemAllocator>> {
+ public:
+  std::string backend_name() const override { return "system"; }
+};
+
 #ifdef ARROW_JEMALLOC
 class JemallocMemoryPool : public BaseMemoryPoolImpl<JemallocAllocator> {
+ public:
+  std::string backend_name() const override { return "jemalloc"; }
+};
+
+class JemallocDebugMemoryPool
+    : public BaseMemoryPoolImpl<DebugAllocator<JemallocAllocator>> {
  public:
   std::string backend_name() const override { return "jemalloc"; }
 };
@@ -478,20 +641,29 @@ class MimallocMemoryPool : public BaseMemoryPoolImpl<MimallocAllocator> {
  public:
   std::string backend_name() const override { return "mimalloc"; }
 };
+
+class MimallocDebugMemoryPool
+    : public BaseMemoryPoolImpl<DebugAllocator<MimallocAllocator>> {
+ public:
+  std::string backend_name() const override { return "mimalloc"; }
+};
 #endif
 
 std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
   auto backend = DefaultBackend();
   switch (backend) {
     case MemoryPoolBackend::System:
-      return std::unique_ptr<MemoryPool>(new SystemMemoryPool);
+      return IsDebugEnabled() ? std::unique_ptr<MemoryPool>(new SystemDebugMemoryPool)
+                              : std::unique_ptr<MemoryPool>(new SystemMemoryPool);
 #ifdef ARROW_JEMALLOC
     case MemoryPoolBackend::Jemalloc:
-      return std::unique_ptr<MemoryPool>(new JemallocMemoryPool);
+      return IsDebugEnabled() ? std::unique_ptr<MemoryPool>(new JemallocDebugMemoryPool)
+                              : std::unique_ptr<MemoryPool>(new JemallocMemoryPool);
 #endif
 #ifdef ARROW_MIMALLOC
     case MemoryPoolBackend::Mimalloc:
-      return std::unique_ptr<MemoryPool>(new MimallocMemoryPool);
+      return IsDebugEnabled() ? std::unique_ptr<MemoryPool>(new MimallocDebugMemoryPool)
+                              : std::unique_ptr<MemoryPool>(new MimallocMemoryPool);
 #endif
     default:
       ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";
@@ -500,26 +672,58 @@ std::unique_ptr<MemoryPool> MemoryPool::CreateDefault() {
 }
 
 static struct GlobalState {
-  ~GlobalState() { finalizing.store(true, std::memory_order_relaxed); }
+  ~GlobalState() { finalizing_.store(true, std::memory_order_relaxed); }
 
-  bool is_finalizing() const { return finalizing.load(std::memory_order_relaxed); }
+  bool is_finalizing() const { return finalizing_.load(std::memory_order_relaxed); }
 
-  std::atomic<bool> finalizing{false};  // constructed first, destroyed last
+  MemoryPool* system_memory_pool() {
+    if (IsDebugEnabled()) {
+      return &system_debug_pool_;
+    } else {
+      return &system_pool_;
+    }
+  }
 
-  SystemMemoryPool system_pool;
 #ifdef ARROW_JEMALLOC
-  JemallocMemoryPool jemalloc_pool;
+  MemoryPool* jemalloc_memory_pool() {
+    if (IsDebugEnabled()) {
+      return &jemalloc_debug_pool_;
+    } else {
+      return &jemalloc_pool_;
+    }
+  }
+#endif
+
+#ifdef ARROW_MIMALLOC
+  MemoryPool* mimalloc_memory_pool() {
+    if (IsDebugEnabled()) {
+      return &mimalloc_debug_pool_;
+    } else {
+      return &mimalloc_pool_;
+    }
+  }
+#endif
+
+ private:
+  std::atomic<bool> finalizing_{false};  // constructed first, destroyed last
+
+  SystemMemoryPool system_pool_;
+  SystemDebugMemoryPool system_debug_pool_;
+#ifdef ARROW_JEMALLOC
+  JemallocMemoryPool jemalloc_pool_;
+  JemallocDebugMemoryPool jemalloc_debug_pool_;
 #endif
 #ifdef ARROW_MIMALLOC
-  MimallocMemoryPool mimalloc_pool;
+  MimallocMemoryPool mimalloc_pool_;
+  MimallocDebugMemoryPool mimalloc_debug_pool_;
 #endif
 } global_state;
 
-MemoryPool* system_memory_pool() { return &global_state.system_pool; }
+MemoryPool* system_memory_pool() { return global_state.system_memory_pool(); }
 
 Status jemalloc_memory_pool(MemoryPool** out) {
 #ifdef ARROW_JEMALLOC
-  *out = &global_state.jemalloc_pool;
+  *out = global_state.jemalloc_memory_pool();
   return Status::OK();
 #else
   return Status::NotImplemented("This Arrow build does not enable jemalloc");
@@ -528,7 +732,7 @@ Status jemalloc_memory_pool(MemoryPool** out) {
 
 Status mimalloc_memory_pool(MemoryPool** out) {
 #ifdef ARROW_MIMALLOC
-  *out = &global_state.mimalloc_pool;
+  *out = global_state.mimalloc_memory_pool();
   return Status::OK();
 #else
   return Status::NotImplemented("This Arrow build does not enable mimalloc");
@@ -539,14 +743,14 @@ MemoryPool* default_memory_pool() {
   auto backend = DefaultBackend();
   switch (backend) {
     case MemoryPoolBackend::System:
-      return &global_state.system_pool;
+      return global_state.system_memory_pool();
 #ifdef ARROW_JEMALLOC
     case MemoryPoolBackend::Jemalloc:
-      return &global_state.jemalloc_pool;
+      return global_state.jemalloc_memory_pool();
 #endif
 #ifdef ARROW_MIMALLOC
     case MemoryPoolBackend::Mimalloc:
-      return &global_state.mimalloc_pool;
+      return global_state.mimalloc_memory_pool();
 #endif
     default:
       ARROW_LOG(FATAL) << "Internal error: cannot create default memory pool";

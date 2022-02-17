@@ -41,7 +41,7 @@
       "semi_join", "anti_join", "count", "tally"
     )
   )
-  for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }
@@ -327,9 +327,6 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
-    },
-    invalidate = function() {
-      assign(".:xp:.", NULL, envir = self)
     }
   )
 )

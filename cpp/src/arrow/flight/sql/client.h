@@ -163,6 +163,9 @@ class ARROW_EXPORT FlightSqlClient {
     return info;
   }
 
+  /// \brief Explicitly shut down and clean up the client.
+  Status Close();
+
  protected:
   virtual Status DoPut(const FlightCallOptions& options,
                        const FlightDescriptor& descriptor,

@@ -28,6 +28,7 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -306,12 +307,26 @@ ARROW_EXPORT
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out);
 
+inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilder(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &out));
+  return std::move(out);
+}
+
 /// \brief Construct an empty ArrayBuilder corresponding to the data
 /// type, where any top-level or nested dictionary builders return the
 /// exact index type specified by the type.
 ARROW_EXPORT
 Status MakeBuilderExactIndex(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              std::unique_ptr<ArrayBuilder>* out);
+
+inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeBuilderExactIndex(pool, type, &out));
+  return std::move(out);
+}
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
 /// with a pre-existing dictionary
@@ -323,5 +338,13 @@ ARROW_EXPORT
 Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out);
+
+inline Result<std::unique_ptr<ArrayBuilder>> MakeDictionaryBuilder(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
+    MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, dictionary, &out));
+  return std::move(out);
+}
 
 }  // namespace arrow

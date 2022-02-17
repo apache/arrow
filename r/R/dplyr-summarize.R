@@ -187,7 +187,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
     return(out)
   }
 }
-summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
+summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- summarise.arrow_dplyr_query
 
 # This is the Arrow summarize implementation
 do_arrow_summarize <- function(.data, ..., .groups = NULL) {

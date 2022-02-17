@@ -194,7 +194,9 @@ TEST(TestFlight, ConnectUri) {
   ASSERT_OK(Location::Parse(uri, &location1));
   ASSERT_OK(Location::Parse(uri, &location2));
   ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK(client->Close());
 }
 
 #ifndef _WIN32
@@ -213,28 +215,28 @@ TEST(TestFlight, ConnectUriUnix) {
   ASSERT_OK(Location::Parse(uri, &location1));
   ASSERT_OK(Location::Parse(uri, &location2));
   ASSERT_OK(FlightClient::Connect(location1, &client));
+  ASSERT_OK(client->Close());
   ASSERT_OK(FlightClient::Connect(location2, &client));
+  ASSERT_OK(client->Close());
 }
 #endif
 
 TEST(TestFlight, RoundTripTypes) {
   Ticket ticket{"foo"};
-  std::string ticket_serialized;
-  Ticket ticket_deserialized;
-  ASSERT_OK(ticket.SerializeToString(&ticket_serialized));
-  ASSERT_OK(Ticket::Deserialize(ticket_serialized, &ticket_deserialized));
+  ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
+                       Ticket::Deserialize(ticket_serialized));
   ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
 
   FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
-  std::string desc_serialized;
-  FlightDescriptor desc_deserialized;
-  ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
+  ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
+                       FlightDescriptor::Deserialize(desc_serialized));
   ASSERT_TRUE(desc.Equals(desc_deserialized));
 
   desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
-  ASSERT_OK(desc.SerializeToString(&desc_serialized));
-  ASSERT_OK(FlightDescriptor::Deserialize(desc_serialized, &desc_deserialized));
+  ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
+  ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
   ASSERT_TRUE(desc.Equals(desc_deserialized));
 
   FlightInfo::Data data;
@@ -249,10 +251,9 @@ TEST(TestFlight, RoundTripTypes) {
                                         FlightEndpoint{ticket, {location3}}};
   ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
   std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
-  std::string info_serialized;
-  std::unique_ptr<FlightInfo> info_deserialized;
-  ASSERT_OK(info->SerializeToString(&info_serialized));
-  ASSERT_OK(FlightInfo::Deserialize(info_serialized, &info_deserialized));
+  ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
+                       FlightInfo::Deserialize(info_serialized));
   ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
   ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
   ASSERT_EQ(info->total_records(), info_deserialized->total_records());
@@ -374,6 +375,21 @@ TEST(TestFlight, ServeShutdown) {
   }
 }
 
+TEST(TestFlight, ServeShutdownWithDeadline) {
+  Location location;
+  std::unique_ptr<FlightServerBase> server = ExampleTestServer();
+
+  ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  FlightServerOptions options(location);
+  ASSERT_OK(server->Init(options));
+  ASSERT_GT(server->port(), 0);
+
+  auto deadline = std::chrono::system_clock::now() + std::chrono::microseconds(10);
+
+  ASSERT_OK(server->Shutdown(&deadline));
+  ASSERT_OK(server->Wait());
+}
+
 // ----------------------------------------------------------------------
 // Client tests
 
@@ -390,7 +406,10 @@ class TestFlightClient : public ::testing::Test {
     ASSERT_OK(ConnectClient());
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
   Status ConnectClient() {
     Location location;
@@ -616,7 +635,10 @@ class TestMetadata : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -631,7 +653,10 @@ class TestOptions : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -651,7 +676,10 @@ class TestAuthHandler : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -671,7 +699,10 @@ class TestBasicAuthHandler : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -687,7 +718,10 @@ class TestDoPut : public ::testing::Test {
     do_put_server_ = (DoPutTestServer*)server_.get();
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
   void CheckBatches(FlightDescriptor expected_descriptor,
                     const BatchVector& expected_batches) {
@@ -743,6 +777,7 @@ class TestTls : public ::testing::Test {
   }
 
   void TearDown() {
+    ASSERT_OK(client_->Close());
     ASSERT_OK(server_->Shutdown());
     grpc_shutdown();
   }
@@ -1055,7 +1090,10 @@ class TestRejectServerMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -1075,7 +1113,10 @@ class TestCountingServerMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::shared_ptr<CountingServerMiddlewareFactory> request_counter_;
@@ -1129,6 +1170,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
   }
 
   void TearDown() {
+    ASSERT_OK(client_->Close());
     ASSERT_OK(first_server_->Shutdown());
     ASSERT_OK(second_server_->Shutdown());
   }
@@ -1159,7 +1201,10 @@ class TestErrorMiddleware : public ::testing::Test {
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -1207,7 +1252,10 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
                 ::testing::HasSubstr("Invalid credentials"));
   }
 
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;
@@ -1875,6 +1923,17 @@ TEST_F(TestFlightClient, NoTimeout) {
 #endif
   ASSERT_OK(status);
   ASSERT_NE(nullptr, info);
+}
+
+TEST_F(TestFlightClient, Close) {
+  // For gRPC, this is always effectively a no-op
+  ASSERT_OK(client_->Close());
+  // Idempotent
+  ASSERT_OK(client_->Close());
+
+  std::unique_ptr<FlightListing> listing;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("FlightClient is closed"),
+                                  client_->ListFlights(&listing));
 }
 
 TEST_F(TestDoPut, DoPutInts) {
@@ -2792,7 +2851,10 @@ class TestCancel : public ::testing::Test {
         &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
         [](FlightClientOptions* options) { return Status::OK(); }));
   }
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
 
  protected:
   std::unique_ptr<FlightClient> client_;

@@ -34,7 +34,7 @@ count.arrow_dplyr_query <- function(x, ..., wt = NULL, sort = FALSE, name = NULL
   out
 }
 
-count.Dataset <- count.ArrowTabular <- count.arrow_dplyr_query
+count.Dataset <- count.ArrowTabular <- count.RecordBatchReader <- count.arrow_dplyr_query
 
 #' @importFrom rlang sym :=
 tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
@@ -54,7 +54,7 @@ tally.arrow_dplyr_query <- function(x, wt = NULL, sort = FALSE, name = NULL) {
   }
 }
 
-tally.Dataset <- tally.ArrowTabular <- tally.arrow_dplyr_query
+tally.Dataset <- tally.ArrowTabular <- tally.RecordBatchReader <- tally.arrow_dplyr_query
 
 # we don't want to depend on dplyr, but we refrence these above
 utils::globalVariables(c("n", "desc"))

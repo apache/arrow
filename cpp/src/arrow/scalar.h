@@ -250,6 +250,8 @@ struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar {
   explicit BinaryScalar(std::shared_ptr<Buffer> value)
       : BinaryScalar(std::move(value), binary()) {}
 
+  explicit BinaryScalar(std::string s);
+
   BinaryScalar() : BinaryScalar(binary()) {}
 };
 
@@ -275,6 +277,8 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {
   explicit LargeBinaryScalar(std::shared_ptr<Buffer> value)
       : LargeBinaryScalar(std::move(value), large_binary()) {}
 
+  explicit LargeBinaryScalar(std::string s);
+
   LargeBinaryScalar() : LargeBinaryScalar(large_binary()) {}
 };
 
@@ -295,7 +299,12 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 
   FixedSizeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type);
 
-  explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type) : BinaryScalar(type) {}
+  explicit FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value);
+
+  explicit FixedSizeBinaryScalar(std::string s);
+
+  explicit FixedSizeBinaryScalar(std::shared_ptr<DataType> type)
+      : BinaryScalar(std::move(type)) {}
 };
 
 template <typename T>
@@ -345,8 +354,8 @@ struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
   using TemporalScalar<TimestampType>::TemporalScalar;
 
   TimestampScalar(typename TemporalScalar<TimestampType>::ValueType value,
-                  TimeUnit::type unit)
-      : TimestampScalar(std::move(value), timestamp(unit)) {}
+                  TimeUnit::type unit, std::string tz = "")
+      : TimestampScalar(std::move(value), timestamp(unit, std::move(tz))) {}
 };
 
 template <typename T>
@@ -532,6 +541,11 @@ struct ARROW_EXPORT ExtensionScalar : public Scalar {
 
   ExtensionScalar(std::shared_ptr<Scalar> storage, std::shared_ptr<DataType> type)
       : Scalar(std::move(type), true), value(std::move(storage)) {}
+
+  template <typename Storage,
+            typename = enable_if_t<std::is_base_of<Scalar, Storage>::value>>
+  ExtensionScalar(Storage&& storage, std::shared_ptr<DataType> type)
+      : ExtensionScalar(std::make_shared<Storage>(std::move(storage)), std::move(type)) {}
 
   std::shared_ptr<Scalar> value;
 };

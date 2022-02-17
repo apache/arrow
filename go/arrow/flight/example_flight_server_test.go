@@ -55,9 +55,11 @@ func (sa *serverAuth) IsValid(token string) (interface{}, error) {
 }
 
 func Example_server() {
-	server := flight.NewFlightServer(&serverAuth{})
+	server := flight.NewFlightServer()
 	server.Init("localhost:0")
-	server.RegisterFlightService(&flight.FlightServiceService{})
+	svc := &flight.BaseFlightServer{}
+	svc.SetAuthHandler(&serverAuth{})
+	server.RegisterFlightService(svc)
 
 	go server.Serve()
 	defer server.Shutdown()

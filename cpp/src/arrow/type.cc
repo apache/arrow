@@ -366,6 +366,8 @@ std::string Field::ToString(bool show_metadata) const {
   return ss.str();
 }
 
+void PrintTo(const Field& field, std::ostream* os) { *os << field.ToString(); }
+
 DataType::~DataType() {}
 
 bool DataType::Equals(const DataType& other, bool check_metadata) const {

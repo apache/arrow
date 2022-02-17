@@ -21,6 +21,10 @@ if(ARROW_COMPUTE)
   add_arrow_example(compute_register_example)
 endif()
 
+if(ARROW_ENGINE)
+  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_engine_shared)
+endif()
+
 if(ARROW_COMPUTE AND ARROW_CSV)
   add_arrow_example(compute_and_write_csv_example)
 endif()
@@ -84,6 +88,24 @@ if(ARROW_FLIGHT)
                     EXTRA_SOURCES
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
+
+  if(ARROW_FLIGHT_SQL)
+    if(ARROW_GRPC_USE_SHARED)
+      set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
+    else()
+      set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_static)
+    endif()
+
+    add_arrow_example(flight_sql_example
+                      DEPENDENCIES
+                      flight_sql_test_server
+                      EXTRA_LINK_LIBS
+                      ${FLIGHT_EXAMPLES_LINK_LIBS}
+                      ${FLIGHT_SQL_EXAMPLES_LINK_LIBS}
+                      gRPC::grpc++
+                      ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      ${GFLAGS_LIBRARIES})
+  endif()
 endif()
 
 if(ARROW_PARQUET AND ARROW_DATASET)
@@ -103,5 +125,8 @@ if(ARROW_PARQUET AND ARROW_DATASET)
 
   add_arrow_example(execution_plan_documentation_examples EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(dataset_documentation_example parquet)
+  add_dependencies(execution_plan_documentation_examples parquet)
+
+  add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
+  add_dependencies(join_example parquet)
 endif()

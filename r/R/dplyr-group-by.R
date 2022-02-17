@@ -55,10 +55,10 @@ group_by.arrow_dplyr_query <- function(.data,
   .data$drop_empty_groups <- ifelse(length(gv), .drop, dplyr::group_by_drop_default(.data))
   .data
 }
-group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
+group_by.Dataset <- group_by.ArrowTabular <- group_by.RecordBatchReader <- group_by.arrow_dplyr_query
 
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
-groups.Dataset <- groups.ArrowTabular <- function(x) NULL
+groups.Dataset <- groups.ArrowTabular <- groups.RecordBatchReader <- function(x) NULL
 
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
 group_vars.Dataset <- function(x) NULL
@@ -71,7 +71,7 @@ group_vars.ArrowTabular <- function(x) {
 # the .drop argument to group_by()
 group_by_drop_default.arrow_dplyr_query <-
   function(.tbl) .tbl$drop_empty_groups %||% TRUE
-group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <-
+group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <- group_by_drop_default.RecordBatchReader <-
   function(.tbl) TRUE
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
@@ -79,7 +79,7 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
   x$drop_empty_groups <- NULL
   x
 }
-ungroup.Dataset <- force
+ungroup.Dataset <- ungroup.RecordBatchReader <- force
 ungroup.ArrowTabular <- function(x) {
   x$r_metadata$attributes$.group_vars <- NULL
   x

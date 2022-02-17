@@ -51,7 +51,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   .data$arrange_desc <- c(descs, .data$arrange_desc)
   .data
 }
-arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+arrange.Dataset <- arrange.ArrowTabular <- arrange.RecordBatchReader <- arrange.arrow_dplyr_query
 
 # Helper to handle desc() in arrange()
 # * Takes a quosure as input
