@@ -867,6 +867,9 @@ test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
 })
 
 test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
+  # By default, snappy encoding will be used, and
+  # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
+  skip_on_linux_devel()
   ds <- open_dataset(hive_dir)
 
   # filter the dataset
