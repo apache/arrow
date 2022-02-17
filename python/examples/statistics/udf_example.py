@@ -1,5 +1,5 @@
 import pyarrow as pa
-from pyarrow.compute import UDFInterpreter, UDFSynthesizer
+from pyarrow.compute import register_function
 from pyarrow.compute import Arity, InputType
 func_doc = {}
 func_doc["summary"] = "summary"
@@ -13,10 +13,10 @@ in_types = [InputType.array(pa.int64())]
 out_type = pa.int64()
 
 def udf():
-	print("Hello From Python")
+	pass
 
 callback = udf
-UDFSynthesizer.register_function(func_name, arity, func_doc, in_types, out_type, callback) 
+register_function(func_name, arity, func_doc, in_types, out_type, callback) 
 
 from pyarrow import compute as pc
 

@@ -78,10 +78,9 @@ from pyarrow._compute import (  # noqa
     get_function,
     list_functions,
     _group_by,
+    register_function,
     # Expressions
-    Expression,
-    UDFInterpreter,
-    UDFSynthesizer
+    Expression
 )
 
 from collections import namedtuple

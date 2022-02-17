@@ -29,6 +29,8 @@ from pyarrow.lib cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
+from cpython.ref cimport PyObject
+
 import numpy as np
 
 
@@ -2379,48 +2381,28 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     else:
         raise TypeError(f"func_doc must be a dictionary")
 
-cdef class UDFInterpreter:
 
-    def __init__(self):
-        raise TypeError("Cannot initialize UDFInterpreter from the constructor")
+global function_map 
 
-    @staticmethod
-    def create_scalar_function(function_name, arity, function_doc):
-        cdef:
-            c_string c_func_name
-            Arity c_arity
-            CFunctionDoc c_func_doc
-            ExecFunc c_callback
+function_map = {}
 
-        c_func_name = function_name.encode()
-        c_arity = <Arity>(arity)
-        c_func_doc = _make_function_doc(function_doc)
+def static_py_udf(arrow_array):
+    p_new_array = call_function("add", [arrow_array, 1])
+    return p_new_array
 
-
-    @staticmethod
-    cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
-        cdef:
-            CDatum* res
-        #val = lib.asarray([10])
-        #res = CDatum((<Array> val).sp_array)
-        return CStatus_OK()
-
-cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out):
-    cdef extern from "Python.h":
-        Py_Initialize()
-        cdef c_string tstr = batch.ToString()
-        PyObject* str = PyUnicode_FromString(tstr)
-        Py_Finalize()
+cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out) nogil:
+    cdef CDatum datum = batch.values[0]
+    cdef shared_ptr[CArrayData] array_data = datum.array()
+    cdef shared_ptr[CArray] c_array = MakeArray(array_data)
+    cdef shared_ptr[CArray] new_array
+    with gil:
+        p_array = pyarrow_wrap_array(c_array)
+        new_array = pyarrow_unwrap_array(static_py_udf(p_array))
+    cdef CDatum new_datum = CDatum(new_array)
+    out[0] = new_datum
     return CStatus_OK()
 
-cdef class UDFSynthesizer:
-
-    def __init__(self):
-        # TODO: find a better Exception type to return the response
-        raise ValueError("Cannot be initialized using the constructor.")
-
-    @staticmethod
-    def register_function(func_name, arity, function_doc, in_types, out_type, callback):
+def register_function(func_name, arity, function_doc, in_types, out_type, callback):
         cdef:
             c_string c_func_name
             CArity c_arity
@@ -2453,4 +2435,6 @@ cdef class UDFSynthesizer:
         cdef COutputType* c_out_type = new COutputType(c_type)
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
+        function_map[func_name] = callback
         c_udf_syn.MakeFunction()
+

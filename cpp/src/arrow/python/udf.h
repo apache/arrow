@@ -135,7 +135,6 @@ class ARROW_PYTHON_EXPORT UDFSynthesizer {
       cp::OutputType out_type_;
       //KernelExec kernel_exec_;
       Status(*callback_)(cp::KernelContext*, const cp::ExecBatch&, Datum*);
-      
 };
 
 }  // namespace py

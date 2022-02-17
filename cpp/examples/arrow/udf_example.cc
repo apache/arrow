@@ -20,6 +20,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
+#include <arrow/datum.h>
 #include <arrow/record_batch.h>
 #include <arrow/result.h>
 #include <arrow/status.h>
@@ -437,7 +438,7 @@ arrow::Status ExecutePy() {
 }
 
 int main(int argc, char** argv) {
-  auto status = ExecuteSynth();
+  auto status = Execute();
   if (!status.ok()) {
     std::cerr << "Error occurred : " << status.message() << std::endl;
     return EXIT_FAILURE;
