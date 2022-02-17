@@ -908,19 +908,25 @@ test_that("format date/time", {
   )
 })
 
-test_that("format() for unsupported types errors and pulls back to R", {
-  expect_warning(
+test_that("format() for unsupported types returns the input as string", {
+  expect_equal(
     example_data %>%
       record_batch() %>%
       mutate(x = format(int, trim = TRUE)) %>%
       collect(),
-    regexp = "not supported in Arrow; pulling data into R"
+    example_data %>%
+      record_batch() %>%
+      mutate(x = as.character(int)) %>%
+      collect()
   )
-  expect_warning(
+  expect_equal(
     example_data %>%
       record_batch() %>%
       mutate(y = format(dbl, nsmall = 3)) %>%
       collect(),
-    regexp = "not supported in Arrow; pulling data into R"
+    example_data %>%
+      record_batch() %>%
+      mutate(y = as.character(dbl)) %>%
+      collect()
   )
 })
