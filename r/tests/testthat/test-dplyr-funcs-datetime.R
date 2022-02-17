@@ -749,13 +749,14 @@ test_that("extract tz", {
     "timezone extraction for objects of class `string` not supported in Arrow"
 test_that("semester", {
 test_that("semester works with temporal types", {
+test_that("semester works with temporal types and integers", {
   test_df <- tibble(
     month_as_int = c(1:12, NA),
     month_as_char_pad = sprintf("%02i", month_as_int),
     dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
   )
 
-  # test extraction from dates
+  # semester extraction from dates
   compare_dplyr_binding(
      .input %>%
       mutate(sem_wo_year = semester(dates),
@@ -763,26 +764,16 @@ test_that("semester works with temporal types", {
       collect(),
      test_df
   )
-})
-
-test_that("semester errors with integers and characters", {
-  test_df <- tibble(
-    month_as_int = c(1:12, NA),
-    month_as_char_pad = sprintf("%02i", month_as_int),
-    dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
-  )
-
-  # extraction from integers should error as we currently do not support setting
-  # month components with month, but this is supported by `lubridate::month()`
-  # TODO this should no longer fail once https://issues.apache.org/jira/browse/ARROW-15701
-  # is addressed
-  expect_error(
-    test_df %>%
-      arrow_table() %>%
+  # semester extraction from months as integers
+  compare_dplyr_binding(
+    .input %>%
       mutate(sem_month_as_int = semester(month_as_int)) %>%
       collect(),
-    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[int32])",
-    fixed = TRUE
+    test_df
+  )
+
+  expect_error(
+    call_binding("semester", Expression$scalar(1:13))
   )
 
   expect_error(
