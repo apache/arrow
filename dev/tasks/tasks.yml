@@ -1235,17 +1235,25 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_DEPENDENCY_SOURCE=SYSTEM'
+      flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM'
       image: ubuntu-r-only-r
 
   test-r-offline-minimal:
-      ci: azure
-      template: r/azure.linux.yml
-      params:
-        r_org: rocker
-        r_image: r-base
-        r_tag: latest
-        flags: '-e TEST_OFFLINE_BUILD=true'
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      flags: '-e TEST_OFFLINE_BUILD=true'
+
+  test-r-dev-duckdb:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        R_DUCKDB_DEV: TRUE
+      image: ubuntu-r-only-r
 
   test-r-offline-maximal:
     ci: github
@@ -1286,7 +1294,6 @@ tasks:
       env:
         UBUNTU: 21.04
         R_PRUNE_DEPS: TRUE
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE'
       image: ubuntu-r-only-r
 
   # This also has -flto=auto
@@ -1298,7 +1305,7 @@ tasks:
         UBUNTU: 21.04
         GCC_VERSION: 11
       # S3 support is not buildable with gcc11 right now
-      flags: '-e ARROW_SOURCE_HOME="/arrow" -e FORCE_BUNDLED_BUILD=TRUE -e LIBARROW_BUILD=TRUE -e ARROW_S3=OFF'
+      flags: '-e ARROW_S3=OFF'
       image: ubuntu-r-only-r
 
   test-r-rstudio-r-base-4.1-centos7-devtoolset-8:
