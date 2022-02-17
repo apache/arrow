@@ -304,22 +304,3 @@ register_bindings_type_format <- function() {
     }
   })
 }
-
-binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
-
-  if (usetz) {
-    format <- paste(format, "%Z")
-  }
-
-  if (call_binding("is.POSIXct", x)) {
-    if (tz == "" && x$type()$timezone() != "") {
-      tz <- x$type()$timezone()
-    } else if (tz == "") {
-      tz <- Sys.timezone()
-    }
-    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
-  } else {
-    ts <- x
-  }
-  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
-}
