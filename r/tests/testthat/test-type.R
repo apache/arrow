@@ -229,3 +229,13 @@ test_that("Type strings are correctly canonicalized", {
     "Unrecognized"
   )
 })
+
+test_that("type() gets the right type for Expression", {
+  x <- Expression$field_ref("x")
+  y <- Expression$field_ref("y")
+  y$schema <- Schema$create(y = float64())
+  x$schema <- Schema$create(x = int32())
+
+  b <- Expression$create("add_checked", x, y)
+  expect_equal(b$type, type(b))
+})
