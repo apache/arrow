@@ -39,6 +39,7 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
+    vala-devel \
     gtk-doc \
     json-devel \
     libarchive \

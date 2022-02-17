@@ -7,6 +7,7 @@ Build-Depends:
   debhelper (>= 12),
   git,
   gobject-introspection,
+  vala
   gtk-doc-tools,
   libboost-filesystem-dev,
   libboost-system-dev,
