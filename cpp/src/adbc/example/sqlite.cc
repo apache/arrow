@@ -46,8 +46,8 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
 
   // arrow::RecordBatchReader methods
 
-  std::shared_ptr<arrow::Schema> schema() const { return schema_; }
-  Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) {
+  std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
+  Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) override {
     constexpr int64_t kBatchSize = 1024;
 
     if (done_) {
@@ -99,11 +99,14 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
     return Status::OK();
   }
 
-  // ADBC methods
+  //----------------------------------------------------------
+  // Common Functions
+  //----------------------------------------------------------
 
   enum AdbcStatusCode Close() {
     auto status = sqlite3_finalize(stmt_);
     if (status != SQLITE_OK) {
+      // TODO: record error
       return ADBC_STATUS_UNKNOWN;
     }
     return ADBC_STATUS_OK;
@@ -122,6 +125,10 @@ class SqliteStatementImpl : public arrow::RecordBatchReader {
         statement->private_data);
     statement->private_data = nullptr;
   }
+
+  //----------------------------------------------------------
+  // Statement Functions
+  //----------------------------------------------------------
 
   enum AdbcStatusCode GetResults(const std::shared_ptr<SqliteStatementImpl>& self,
                                  struct ArrowArrayStream* out) {

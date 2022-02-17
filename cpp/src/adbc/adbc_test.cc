@@ -30,13 +30,12 @@
     ASSERT_EQ(code_, ADBC_STATUS_OK); \
   } while (false)
 
-constexpr char kSqliteDriver[] = "libadbc_driver_sqlite.so";
-
 TEST(Adbc, Basics) {
   AdbcConnection connection;
 
   AdbcConnectionOptions options;
-  options.target = kSqliteDriver;
+  std::string target = "Library=libadbc_driver_sqlite.so";
+  options.target = target.c_str();
   ADBC_ASSERT_OK(AdbcConnectionInit(&options, &connection));
   ASSERT_NE(connection.private_data, nullptr);
 
@@ -52,10 +51,9 @@ TEST(Adbc, Basics) {
 TEST(Adbc, Errors) {
   AdbcConnection connection;
 
-  constexpr char kFakeDriver[] = "libadbc_driver_fake.so";
-
   AdbcConnectionOptions options;
-  options.target = kFakeDriver;
+  std::string target = "Library=libadbc_driver_fake.so";
+  options.target = target.c_str();
   auto status = AdbcConnectionInit(&options, &connection);
   ASSERT_EQ(status, ADBC_STATUS_UNKNOWN);
   ASSERT_NE(connection.private_data, nullptr);
@@ -81,11 +79,12 @@ TEST(Adbc, Errors) {
   ASSERT_EQ(connection.private_data, nullptr);
 }
 
-TEST(AdbcSql, SqlExecute) {
+TEST(AdbcSqlite, SqlExecute) {
   AdbcConnection connection;
 
   AdbcConnectionOptions options;
-  options.target = kSqliteDriver;
+  std::string target = "Library=libadbc_driver_sqlite.so";
+  options.target = target.c_str();
   ADBC_ASSERT_OK(AdbcConnectionInit(&options, &connection));
 
   {
@@ -119,6 +118,56 @@ TEST(AdbcSql, SqlExecute) {
     ASSERT_NE(message, nullptr);
     ARROW_LOG(WARNING) << "Got error message: " << message;
     EXPECT_THAT(message, ::testing::HasSubstr("[SQLite3] sqlite3_prepare_v2:"));
+    EXPECT_THAT(message, ::testing::HasSubstr("syntax error"));
+    delete[] message;
+  }
+
+  ADBC_ASSERT_OK(connection.close(&connection));
+  connection.release(&connection);
+}
+
+// TODO: these should be split into separate compilation units
+
+TEST(AdbcFlightSql, SqlExecute) {
+  AdbcConnection connection;
+
+  AdbcConnectionOptions options;
+  std::string target =
+      "Library=libadbc_driver_flight_sql.so;Location=grpc://localhost:31337";
+  options.target = target.c_str();
+  ADBC_ASSERT_OK(AdbcConnectionInit(&options, &connection));
+
+  {
+    auto query = "SELECT 1";
+    AdbcStatement statement;
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement));
+
+    ArrowArrayStream stream;
+    ADBC_ASSERT_OK(statement.get_results(&statement, &stream));
+    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+
+    auto schema = arrow::schema({arrow::field("1", arrow::int64())});
+    arrow::AssertSchemaEqual(*reader->schema(), *schema);
+
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[1]]"), *batch);
+
+    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
+    ASSERT_EQ(batch, nullptr);
+
+    ADBC_ASSERT_OK(statement.close(&statement));
+    statement.release(&statement);
+  }
+
+  {
+    auto query = "INVALID";
+    AdbcStatement statement;
+    ASSERT_NE(connection.sql_execute(&connection, query, &statement), ADBC_STATUS_OK);
+
+    char* message = connection.get_error(&connection);
+    ASSERT_NE(message, nullptr);
+    ARROW_LOG(WARNING) << "Got error message: " << message;
+    EXPECT_THAT(message, ::testing::HasSubstr("[Flight SQL] GetFlightInfo:"));
     EXPECT_THAT(message, ::testing::HasSubstr("syntax error"));
     delete[] message;
   }

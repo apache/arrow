@@ -59,6 +59,10 @@ enum AdbcStatusCode {
   ADBC_STATUS_NOT_IMPLEMENTED = 2,
   /// An operation was attempted on an uninitialized object.
   ADBC_STATUS_UNINITIALIZED = 3,
+  /// The arguments are invalid.
+  ADBC_STATUS_INVALID_ARGUMENT = 4,
+  /// An I/O error occurred.
+  ADBC_STATUS_IO = 5,
   // TODO: more codes as appropriate
 };
 

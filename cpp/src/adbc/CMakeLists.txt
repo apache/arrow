@@ -17,14 +17,12 @@
 
 add_custom_target(adbc)
 
-# define the dependencies
 set(ARROW_SKYHOOK_LINK_STATIC arrow_static)
 set(ARROW_SKYHOOK_LINK_SHARED arrow_shared)
 
-# define the client and cls sources
-set(ADBC_SOURCES adbc.cc)
+# TODO: should util.cc live in a separate 'driver utils' lib?
+set(ADBC_SOURCES adbc.cc util.cc)
 
-# define the client library
 add_arrow_lib(adbc
               PKG_CONFIG_NAME
               adbc
@@ -50,13 +48,26 @@ add_arrow_test(adbc_test
                PREFIX
                "adbc")
 
-             find_package(SQLite3Alt REQUIRED)
-add_arrow_lib(adbc_driver_sqlite
-              SOURCES
-              example/sqlite.cc
-              SHARED_LINK_LIBS
-              ${ADBC_LINK_SHARED} ${SQLite3_LIBRARIES}
-              STATIC_LINK_LIBS
-              ${ADBC_LINK_STATIC})
+if(ARROW_BUILD_TESTS)
+  find_package(SQLite3Alt REQUIRED)
 
-            add_dependencies(adbc-adbc-test adbc_driver_sqlite_shared)
+  # TODO: disable static library builds
+  add_arrow_lib(adbc_driver_sqlite
+                SOURCES
+                example/sqlite.cc
+                SHARED_LINK_LIBS
+                ${ADBC_LINK_SHARED}
+                ${SQLite3_LIBRARIES})
+  add_dependencies(adbc-adbc-test adbc_driver_sqlite_shared)
+
+  if(ARROW_FLIGHT_SQL)
+    add_arrow_lib(adbc_driver_flight_sql
+                  SOURCES
+                  example/flight_sql.cc
+                  SHARED_LINK_LIBS
+                  ${ADBC_LINK_SHARED}
+                  arrow_flight_shared
+                  arrow_flight_sql_shared)
+    add_dependencies(adbc-adbc-test adbc_driver_flight_sql_shared)
+  endif()
+endif()

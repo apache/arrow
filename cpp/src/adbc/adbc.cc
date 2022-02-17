@@ -22,13 +22,14 @@
 #include <cstring>
 #include <queue>
 #include <string>
+#include <unordered_map>
 
 #include "adbc/c/driver.h"
+#include "adbc/util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_builder.h"
 
 namespace {
-
 /// \brief AdbcConnection implementation that only implements release
 /// and get_error, to report errors to the caller.
 class ConnectionError {
@@ -62,14 +63,6 @@ class ConnectionError {
  private:
   std::queue<std::string> messages_;
 };
-
-enum AdbcStatusCode ParseConnectionString(const char* target, std::string* filename,
-                                          ConnectionError* errors) {
-  // Hardcoded here for now
-  *filename = std::string(target);
-  return ADBC_STATUS_OK;
-}
-
 }  // namespace
 
 enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
@@ -84,14 +77,24 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
   // and that may be a bit heavy for us. How do we want to handle this
   // configuration?
 
-  std::string filename;
-  auto status = ParseConnectionString(options->target, &filename, impl.get());
-  if (status != ADBC_STATUS_OK) {
+  std::unordered_map<std::string, std::string> option_pairs;
+  auto status = adbc::ParseConnectionString(options->target).Value(&option_pairs);
+  if (!status.ok()) {
+    impl->LogError("[ADBC] AdbcConnectionInit: invalid target string: ", status);
     out->release = &ConnectionError::ReleaseMethod;
     out->get_error = &ConnectionError::GetErrorMethod;
     out->private_data = new std::shared_ptr<ConnectionError>(impl);
-    return status;
+    return ADBC_STATUS_INVALID_ARGUMENT;
   }
+  auto library_it = option_pairs.find("Library");
+  if (library_it == option_pairs.end()) {
+    impl->LogError("[ADBC] AdbcConnectionInit: must provide Library in target string");
+    out->release = &ConnectionError::ReleaseMethod;
+    out->get_error = &ConnectionError::GetErrorMethod;
+    out->private_data = new std::shared_ptr<ConnectionError>(impl);
+    return ADBC_STATUS_INVALID_ARGUMENT;
+  }
+  const std::string& filename = library_it->second;
 
   // Platform specific
   void* handle = dlopen(filename.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -115,5 +118,7 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
     return ADBC_STATUS_NOT_IMPLEMENTED;
   }
 
+  // TODO: we probably want to wrap the driver and provide default
+  // implementations, error/sanity checking, etc.
   return driver_connection_init(options, out);
 }
