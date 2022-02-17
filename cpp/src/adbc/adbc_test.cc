@@ -160,6 +160,44 @@ TEST(AdbcFlightSql, SqlExecute) {
   }
 
   {
+    auto query = "SELECT 42";
+    AdbcStatement statement;
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement));
+
+    size_t num_partitions = 0;
+    size_t desc_size = 0;
+    ADBC_ASSERT_OK(statement.num_partitions(&statement, &num_partitions));
+    ASSERT_EQ(num_partitions, 1);
+    ADBC_ASSERT_OK(statement.get_partition_desc_size(&statement, 0, &desc_size));
+    ASSERT_GT(desc_size, 0);
+    std::vector<uint8_t> desc(desc_size, 0);
+    ADBC_ASSERT_OK(statement.get_partition_desc(&statement, 0, desc.data()));
+
+    ADBC_ASSERT_OK(statement.close(&statement));
+    statement.release(&statement);
+
+    // Reconstruct the partition
+    ADBC_ASSERT_OK(connection.deserialize_partition_desc(&connection, desc.data(),
+                                                         desc.size(), &statement));
+
+    ArrowArrayStream stream;
+    ADBC_ASSERT_OK(statement.get_results(&statement, &stream));
+    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+
+    auto schema = arrow::schema({arrow::field("42", arrow::int64())});
+    arrow::AssertSchemaEqual(*reader->schema(), *schema);
+
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[42]]"), *batch);
+
+    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
+    ASSERT_EQ(batch, nullptr);
+
+    ADBC_ASSERT_OK(statement.close(&statement));
+    statement.release(&statement);
+  }
+
+  {
     auto query = "INVALID";
     AdbcStatement statement;
     ASSERT_NE(connection.sql_execute(&connection, query, &statement), ADBC_STATUS_OK);

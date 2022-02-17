@@ -141,9 +141,10 @@ struct AdbcConnection {
 
   /// \brief Construct a statement for a partition of a query. The
   ///   statement can then be read independently.
-  enum AdbcStatusCode (*deserialize_partition)(struct AdbcConnection* connection,
-                                               const char* partition,
-                                               struct AdbcStatement* statement);
+  enum AdbcStatusCode (*deserialize_partition_desc)(struct AdbcConnection* connection,
+                                                    const uint8_t* serialized_partition,
+                                                    size_t serialized_length,
+                                                    struct AdbcStatement* statement);
 
   ///@}
 
@@ -205,11 +206,19 @@ struct AdbcStatement {
 
   /// \brief Get the number of partitions in this statement.
   ///
-  /// May be 0, if this statement cannot be distributed. (For example,
-  /// in the case of an in-memory database.)
-  size_t (*num_partitions)(struct AdbcStatement* statement);
+  /// \param[in] statement The statement object.
+  /// \param[out] partitions May be 0, if this statement cannot be
+  ///   distributed. (For example, in the case of an in-memory
+  ///   database.)
+  enum AdbcStatusCode (*num_partitions)(struct AdbcStatement* statement,
+                                        size_t* partitions);
 
-  /// \brief Get the partitions of this evaluated statement.
+  /// \brief Get the length of the serialized descriptor for a partition in this
+  /// statement.
+  enum AdbcStatusCode (*get_partition_desc_size)(struct AdbcStatement* statement,
+                                                 size_t index, size_t* length);
+
+  /// \brief Get a serialized descriptor for a partition in this statement.
   ///
   /// The partitions can be reconstructed via
   /// AdbcConnection::deserialize_partition. Effectively, this means
@@ -217,11 +226,12 @@ struct AdbcStatement {
   /// Flight/Flight SQL and get_partitions is similar to getting the
   /// arrow::flight::Ticket.
   ///
-  /// \return partitions An array of strings of length
-  ///   num_partitions. The caller is responsible for: freeing the
-  ///   individual strings in the result, and freeing the result array
-  ///   itself.
-  char** (*get_partitions)(struct AdbcStatement* statement);
+  /// \param[in] index The partition to get.
+  /// \param[out] partition A caller-allocated buffer, to which the
+  ///   serialized partition will be written. The length to allocate
+  ///   can be queried with get_partition_desc_size.
+  enum AdbcStatusCode (*get_partition_desc)(struct AdbcStatement* statement, size_t index,
+                                            uint8_t* partition);
 
   ///@}
 
