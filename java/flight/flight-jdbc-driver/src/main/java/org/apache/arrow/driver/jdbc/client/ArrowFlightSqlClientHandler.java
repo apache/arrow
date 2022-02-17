@@ -38,6 +38,7 @@ import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.auth2.BearerCredentialWriter;
 import org.apache.arrow.flight.auth2.ClientBearerHeaderHandler;
 import org.apache.arrow.flight.auth2.ClientIncomingAuthHeaderMiddleware;
+import org.apache.arrow.flight.client.ClientCookieMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 import org.apache.arrow.flight.sql.FlightSqlClient;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
@@ -502,6 +503,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           withMiddlewareFactories(authFactory);
         }
         final FlightClient.Builder clientBuilder = FlightClient.builder().allocator(allocator);
+        withMiddlewareFactories(new ClientCookieMiddleware.Factory());
         middlewareFactories.forEach(clientBuilder::intercept);
         Location location;
         if (useTls) {
@@ -524,7 +526,6 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
               ClientAuthenticationUtils.getAuthenticate(
                   client, new CredentialCallOption(new BearerCredentialWriter(token))));
         }
-
         return ArrowFlightSqlClientHandler.createNewHandler(client, options);
       } catch (final IllegalArgumentException | GeneralSecurityException | IOException e) {
         throw new SQLException(e);
