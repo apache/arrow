@@ -52,7 +52,10 @@ base_include_directories = [
 ]
 
 have_gi = dependency('gobject-introspection-1.0', required: false).found()
-vapidir = get_option('datadir') / 'vala' / 'vapi'
+have_vapi = meson.get_compiler('c').find_library('libvala', required: false).found()
+if have_vapi
+  vapidir = get_option('datadir') / 'vala' / 'vapi'
+endif
 
 arrow_cpp_build_dir = get_option('arrow_cpp_build_dir')
 arrow_cpp_build_type = get_option('arrow_cpp_build_type')

@@ -118,12 +118,14 @@ if have_gi
                        '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                      ])
 
-  package_api_name = '@0@-@1@'.format('arrow_gandiva_glib', library_version)
-  gandiva_glib_vapi = gnome.generate_vapi(package_api_name,
-                                          sources: gandiva_glib_gir[0],
-                                          packages: [ 'gio-2.0' ],
-                                          install: true,
-                                          install_dir: vapidir,
-                                          metadata_dirs: [ meson.current_source_dir() ],
-  )
+  if have_vapi
+    package_api_name = '@0@-@1@'.format('arrow_gandiva_glib', library_version)
+    gandiva_glib_vapi = gnome.generate_vapi(package_api_name,
+                                            sources: gandiva_glib_gir[0],
+                                            packages: [ 'gio-2.0' ],
+                                            install: true,
+                                            install_dir: vapidir,
+                                            metadata_dirs: [ meson.current_source_dir() ],
+    )
+  endif
 endif
