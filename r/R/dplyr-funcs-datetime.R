@@ -149,11 +149,7 @@ register_bindings_datetime <- function() {
   })
   register_binding("tz", function(x) {
     if (!call_binding("is.POSIXct", x)) {
-      if (inherits(x, "Expression")) {
-        class <- x$type()$ToString()
-      } else {
-        class <- type(x)$ToString()
-      }
+      class <- type(x)$ToString()
       abort(paste0("timezone extraction for objects of class `", class, "` not supported in Arrow"))
     }
 
