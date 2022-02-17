@@ -443,8 +443,11 @@ struct ScalarToProtoImpl {
     return Status::OK();
   }
 
+  // Note: while std::string&& would be better for the argument
+  // type, older versions of protobuf don't have this overload
+  // yet.
   template <typename ScalarWithBufferValue>
-  Status FromBuffer(void (substrait::Expression::Literal::*set)(std::string&&),
+  Status FromBuffer(void (substrait::Expression::Literal::*set)(const std::string&),
                     const ScalarWithBufferValue& scalar_with_buffer) {
     (lit_->*set)(scalar_with_buffer.value->ToString());
     return Status::OK();
@@ -857,7 +860,8 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(const compute::Expression
     // catch the special case of calls convertible to a ListElement
     if (arguments[0]->has_selection() &&
         arguments[0]->selection().has_direct_reference()) {
-      if (arguments[1]->has_literal() && arguments[1]->literal().has_i32()) {
+      if (arguments[1]->has_literal() && arguments[1]->literal().literal_type_case() ==
+                                             substrait::Expression_Literal::kI32) {
         return MakeListElementReference(std::move(arguments[0]),
                                         arguments[1]->literal().i32());
       }
