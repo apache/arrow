@@ -242,6 +242,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
       reject_structural_params({"0123456789", nullptr, "abcdef,", nullptr}, "abcdef,"),
       reject_structural_params({nullptr, nullptr, ",0123456789", "abcde"}, ",0123456789"),
       reject_structural_params({"0123456", nullptr, "7\\\"89", ",abcdef"}, "7\"89"),
+      // exercise custom delimiter
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, "\n", /*delimiter=*/'\t'),
