@@ -919,7 +919,7 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
     modified = true;
   }
 
- if (origin_type->id() == ::arrow::Type::DURATION &&
+  if (origin_type->id() == ::arrow::Type::DURATION &&
       inferred_type->id() == ::arrow::Type::INT64) {
     // Read back int64 arrays as duration.
     inferred->field = inferred->field->WithType(origin_type);
