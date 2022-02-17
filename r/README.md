@@ -313,7 +313,7 @@ Other applications of `arrow` are described in the following vignettes:
 ## Getting help
 
 There is a 
-[Cheat Sheet](https://docs.google.com/presentation/d/1R1zgGqide5EgEO7WAle8AsdTV0rDu5BJ/edit?usp=sharing&ouid=117459313160574490755&rtpof=true&sd=true)
+[Cheat Sheet](https://github.com/apache/arrow/blob/master/r/cheatsheet/arrow.pdf)
 to get started with the basics. From it, you can jump to the 
 [Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html).
 
