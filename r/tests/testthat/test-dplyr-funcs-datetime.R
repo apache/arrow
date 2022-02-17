@@ -810,6 +810,7 @@ test_that("date works in arrow", {
 
   # we can't (for now) use namespacing, so we need to make sure lubridate::date()
   # and not base::date() is being used
+  # TODO remove once https://issues.apache.org/jira/browse/ARROW-14575 is done
   date <- lubridate::date
   compare_dplyr_binding(
     .input %>%
