@@ -540,8 +540,7 @@ int64_t MemoryPool::max_memory() const { return -1; }
 class ImmutableZeros : public Buffer {
  public:
   explicit ImmutableZeros(uint8_t* data, int64_t size, MemoryPool* pool)
-      : Buffer(data, size, CPUDevice::immutable_zeros_memory_manager(pool)),
-        pool_(pool) {}
+      : Buffer(data, size, CPUDevice::memory_manager(pool)), pool_(pool) {}
 
   ImmutableZeros() : Buffer(nullptr, 0), pool_(nullptr) {}
 
@@ -1125,9 +1124,9 @@ class ImmutableZerosPoolBuffer final : public Buffer {
     std::shared_ptr<MemoryManager> mm;
     if (pool == nullptr) {
       pool = default_memory_pool();
-      mm = default_cpu_immutable_zeros_memory_manager();
+      mm = default_cpu_memory_manager();
     } else {
-      mm = CPUDevice::immutable_zeros_memory_manager(pool);
+      mm = CPUDevice::memory_manager(pool);
     }
     ARROW_ASSIGN_OR_RAISE(auto zeros, pool->GetImmutableZeros(size));
     return std::unique_ptr<ImmutableZerosPoolBuffer>(

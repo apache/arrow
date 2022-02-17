@@ -43,8 +43,6 @@ Device::~Device() {}
     return maybe_buffer;                                  \
   }
 
-bool MemoryManager::is_mutable() const { return true; }
-
 Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
   const auto& from = buf->memory_manager();
@@ -163,10 +161,10 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  if (!to->is_cpu() || !to->is_mutable()) {
+  if (!to->is_cpu()) {
     return nullptr;
   }
-  ARROW_ASSIGN_OR_RAISE(auto dest, to->AllocateBuffer(buf->size()));
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf->size(), pool_));
   if (buf->size() > 0) {
     memcpy(dest->mutable_data(), buf->data(), static_cast<size_t>(buf->size()));
   }
@@ -175,7 +173,7 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferTo(
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  if (!to->is_cpu() || !to->is_mutable()) {
+  if (!to->is_cpu()) {
     return nullptr;
   }
   return buf;
@@ -184,72 +182,6 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
 std::shared_ptr<MemoryManager> default_cpu_memory_manager() {
   static auto instance =
       CPUMemoryManager::Make(CPUDevice::Instance(), default_memory_pool());
-  return instance;
-}
-
-std::shared_ptr<MemoryManager> CPUImmutableZerosMemoryManager::Make(
-    const std::shared_ptr<Device>& device, MemoryPool* pool) {
-  return std::shared_ptr<MemoryManager>(new CPUImmutableZerosMemoryManager(device, pool));
-}
-
-Result<std::shared_ptr<io::RandomAccessFile>>
-CPUImmutableZerosMemoryManager::GetBufferReader(std::shared_ptr<Buffer> buf) {
-  return std::make_shared<io::BufferReader>(std::move(buf));
-}
-
-Result<std::shared_ptr<io::OutputStream>> CPUImmutableZerosMemoryManager::GetBufferWriter(
-    std::shared_ptr<Buffer> buf) {
-  return Status::NotImplemented("cannot write to immutable zero buffers");
-}
-
-Result<std::unique_ptr<Buffer>> CPUImmutableZerosMemoryManager::AllocateBuffer(
-    int64_t size) {
-  return ::arrow::MakeBufferOfZeros(size, pool_);
-}
-
-Result<std::shared_ptr<Buffer>> CPUImmutableZerosMemoryManager::CopyBufferFrom(
-    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
-  // Cannot write to immutable zero buffers
-  return nullptr;
-}
-
-Result<std::shared_ptr<Buffer>> CPUImmutableZerosMemoryManager::ViewBufferFrom(
-    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
-  // Can only guarantee source buffer satisfies our conditions if we're also the
-  // source memory manager
-  if (from.get() != this) {
-    return nullptr;
-  }
-  return buf;
-}
-
-Result<std::shared_ptr<Buffer>> CPUImmutableZerosMemoryManager::CopyBufferTo(
-    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  if (!to->is_cpu() || !to->is_mutable()) {
-    return nullptr;
-  }
-  ARROW_ASSIGN_OR_RAISE(auto dest, to->AllocateBuffer(buf->size()));
-  if (buf->size() > 0) {
-    // Note: we can memset to zero instead of doing a memcpy, because we already
-    // know that the source buffer is all zeros
-    memset(dest->mutable_data(), 0, static_cast<size_t>(buf->size()));
-  }
-  return std::move(dest);
-}
-
-Result<std::shared_ptr<Buffer>> CPUImmutableZerosMemoryManager::ViewBufferTo(
-    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
-  // Can only view this buffer if destination memory manager is either mutable or
-  // generates buffers with the same immutable pattern that we do
-  if (!to->is_cpu() || !(to->is_mutable() || to.get() == this)) {
-    return nullptr;
-  }
-  return buf;
-}
-
-std::shared_ptr<MemoryManager> default_cpu_immutable_zeros_memory_manager() {
-  static auto instance =
-      CPUImmutableZerosMemoryManager::Make(CPUDevice::Instance(), default_memory_pool());
   return instance;
 }
 
@@ -268,11 +200,6 @@ bool CPUDevice::Equals(const Device& other) const {
 
 std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
   return CPUMemoryManager::Make(Instance(), pool);
-}
-
-std::shared_ptr<MemoryManager> CPUDevice::immutable_zeros_memory_manager(
-    MemoryPool* pool) {
-  return CPUImmutableZerosMemoryManager::Make(Instance(), pool);
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {
