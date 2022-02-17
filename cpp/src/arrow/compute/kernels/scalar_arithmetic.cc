@@ -2245,13 +2245,13 @@ const FunctionDoc pow_checked_doc{
 const FunctionDoc sqrt_doc{
     "Takes the square root of arguments element-wise",
     ("A negative argument returns a NaN.  For a variant that returns an\n"
-     "error, use function \"square_root_checked\"."),
+     "error, use function \"sqrt_checked\"."),
     {"x"}};
 
 const FunctionDoc sqrt_checked_doc{
     "Takes the square root of arguments element-wise",
     ("A negative argument returns an error.  For a variant that returns a\n"
-     "NaN, use function \"square_root\"."),
+     "NaN, use function \"sqrt\"."),
     {"x"}};
 
 const FunctionDoc sign_doc{
@@ -2616,14 +2616,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto square_root = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>(
-      "square_root", &sqrt_doc);
-  DCHECK_OK(registry->AddFunction(std::move(square_root)));
+  auto sqrt =
+      MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", &sqrt_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt)));
 
   // ----------------------------------------------------------------------
-  auto square_root_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
-      "square_root_checked", &sqrt_checked_doc);
-  DCHECK_OK(registry->AddFunction(std::move(square_root_checked)));
+  auto sqrt_checked =
+      MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
+          "sqrt_checked", &sqrt_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
 
   // ----------------------------------------------------------------------
   auto sign =
