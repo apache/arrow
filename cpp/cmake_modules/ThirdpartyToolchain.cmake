@@ -1696,7 +1696,7 @@ macro(build_substrait)
                 ${ARROW_PROTOBUF_LIBPROTOBUF}
                 STATIC_LINK_LIBS
                 ${ARROW_PROTOBUF_LIBPROTOBUF}
-                EXTRA_INCLUDES
+                PRIVATE_INCLUDES
                 ${SUBSTRAIT_CPP_DIR})
 
   set(SUBSTRAIT_DEPENDENCIES substrait_gen)
@@ -1706,6 +1706,8 @@ macro(build_substrait)
 endmacro()
 
 if(ARROW_WITH_SUBSTRAIT)
+  # Currently, we can only build Substrait from source.
+  set(Substrait_SOURCE "BUNDLED")
   resolve_dependency(Substrait)
 endif()
 
