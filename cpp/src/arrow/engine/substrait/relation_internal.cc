@@ -90,7 +90,8 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
       std::vector<std::shared_ptr<dataset::FileFragment>> fragments;
 
       for (const auto& item : read.local_files().items()) {
-        if (!item.has_uri_file()) {
+        if (item.path_type_case() !=
+            substrait::ReadRel_LocalFiles_FileOrFiles::kUriFile) {
           return Status::NotImplemented(
               "substrait::ReadRel::LocalFiles::FileOrFiles with "
               "path_type other than uri_file");

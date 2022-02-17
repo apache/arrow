@@ -1530,6 +1530,9 @@ if(ARROW_WITH_PROTOBUF)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
     # Protobuf 3.4.0.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
+  elseif(ARROW_ENGINE)
+    # Substrait protobuf files use proto3 syntax
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
