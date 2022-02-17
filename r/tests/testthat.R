@@ -19,7 +19,10 @@ library(testthat)
 library(arrow)
 library(tibble)
 
-if (identical(tolower(Sys.getenv("ARROW_R_DEV", "false")), "true")) {
+verbose_test_output <- identical(tolower(Sys.getenv("ARROW_R_DEV", "false")), "true") ||
+  identical(tolower(Sys.getenv("ARROW_R_VERBOSE_TEST", "false")), "true")
+
+if (verbose_test_output) {
   arrow_reporter <- MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))
 } else {
   arrow_reporter <- check_reporter()
