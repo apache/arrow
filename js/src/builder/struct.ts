@@ -23,12 +23,31 @@ import { Struct, TypeMap } from '../type.js';
 
 /** @ignore */
 export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
-    public setValue(index: number, value: Struct<T>['TValue']) {
+    /**
+     * Write a value (or null-value sentinel) at the supplied index.
+     * If the value matches one of the null-value representations, a 1-bit is
+     * written to the null `BitmapBufferBuilder`, otherwise, a 0 is written. The
+     * value is then passed to `Builder.prototype.setValue()`.
+     * @param {number} index The index of the value to write.
+     * @param {T['TValue'] | TNull } value The value to write at the supplied index.
+     * @returns {this} The updated `Builder` instance.
+     */
+    public set(index: number, value: Struct<T>['TValue'] | TNull) {
+        this.setValid(index, this.isValid(value));
+        this.setValue(index, value);
+        return this;
+    }
+
+    public setValue(index: number, value: Struct<T>['TValue'] | TNull) {
         const children = this.children;
-        switch (Array.isArray(value) || value.constructor) {
-            case true: return this.type.children.forEach((_, i) => children[i].set(index, value[i]));
-            case Map: return this.type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
-            default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+        if (this.isValid(value) && 'constructor' in value) {
+            switch (Array.isArray(value) || value.constructor) {
+                case true: return this.type.children.forEach((_, i) => children[i].set(index, value[i]));
+                case Map: return this.type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
+                default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+            }
+        } else { // Is a null value
+            return this.type.children.forEach((_, i) => children[i].set(index, value));
         }
     }
     public addChild(child: Builder, name = `${this.numChildren}`) {
