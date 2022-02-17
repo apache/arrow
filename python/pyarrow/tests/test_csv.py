@@ -326,7 +326,7 @@ def test_write_options():
     opts = cls()
 
     check_options_class(
-        cls, include_header=[True, False])
+        cls, include_header=[True, False], delimiter=[",", "\t", "|"])
 
     assert opts.batch_size > 0
     opts.batch_size = 12345
