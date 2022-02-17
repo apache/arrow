@@ -20,6 +20,7 @@
 
 #include <arrow/array/array_base.h>
 #include <arrow/table.h>
+#include <arrow/util/byte_size.h>
 #include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
@@ -281,6 +282,11 @@ std::shared_ptr<arrow::Table> Table__from_record_batches(
   }
 
   return tab;
+}
+
+// [[arrow::export]]
+int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table) {
+  return ValueOrStop(arrow::util::ReferencedBufferSize(*table));
 }
 
 #endif

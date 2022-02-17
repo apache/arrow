@@ -58,7 +58,7 @@ def test_parquet_metadata_api():
     assert meta.num_rows == len(df)
     assert meta.num_columns == ncols + 1  # +1 for index
     assert meta.num_row_groups == 1
-    assert meta.format_version == '2.0'
+    assert meta.format_version == '2.6'
     assert 'parquet-cpp' in meta.created_by
     assert isinstance(meta.serialized_size, int)
     assert isinstance(meta.metadata, dict)
@@ -251,7 +251,7 @@ def test_statistics_convert_logical_types(tempdir):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
                                  ['col'])
         path = str(tempdir / ('example{}.parquet'.format(i)))
-        pq.write_table(t, path, version='2.0')
+        pq.write_table(t, path, version='2.6')
         pf = pq.ParquetFile(path)
         stats = pf.metadata.row_group(0).column(0).statistics
         assert stats.min == min_val
@@ -403,10 +403,13 @@ def test_write_metadata(tempdir):
         assert b'ARROW:schema' not in schema_as_arrow.metadata
 
     # pass through writer keyword arguments
-    for version in ["1.0", "2.0"]:
+    for version in ["1.0", "2.0", "2.4", "2.6"]:
         pq.write_metadata(schema, path, version=version)
         parquet_meta = pq.read_metadata(path)
-        assert parquet_meta.format_version == version
+        # The version is stored as a single integer in the Parquet metadata,
+        # so it cannot correctly express dotted format versions
+        expected_version = "1.0" if version == "1.0" else "2.6"
+        assert parquet_meta.format_version == expected_version
 
     # metadata_collector: list of FileMetaData objects
     table = pa.table({'a': [1, 2], 'b': [.1, .2]}, schema=schema)
@@ -493,3 +496,29 @@ def test_parquet_metadata_empty_to_dict(tempdir):
     assert len(metadata_dict["row_groups"]) == 1
     assert len(metadata_dict["row_groups"][0]["columns"]) == 1
     assert metadata_dict["row_groups"][0]["columns"][0]["statistics"] is None
+
+
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_metadata_exceeds_message_size():
+    # ARROW-13655: Thrift may enable a default message size that limits
+    # the size of Parquet metadata that can be written.
+    NCOLS = 1000
+    NREPEATS = 4000
+
+    table = pa.table({str(i): np.random.randn(10) for i in range(NCOLS)})
+
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    metadata = pq.read_metadata(pa.BufferReader(buf))
+    for i in range(NREPEATS):
+        metadata.append_row_groups(original_metadata)
+
+    with pa.BufferOutputStream() as out:
+        metadata.write_metadata_file(out)
+        buf = out.getvalue()
+
+    metadata = pq.read_metadata(pa.BufferReader(buf))

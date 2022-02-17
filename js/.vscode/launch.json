@@ -36,6 +36,16 @@
     },
     {
       "type": "command",
+      "id": "BUNDLE_FILE",
+      "command": "shellCommand.execute",
+      "args": {
+        "cwd": "${workspaceFolder}",
+        "description": "Select a file to debug",
+        "command": "ls test/bundle/**/*-bundle.js",
+      }
+    },
+    {
+      "type": "command",
       "id": "TEST_RUNTIME_ARGS",
       "command": "shellCommand.execute",
       "args": {
@@ -99,6 +109,29 @@
         "--mode",
         "VALIDATE"
       ]
+    },
+    {
+      "name": "Debug Bundle",
+      "program": "${input:BUNDLE_FILE}",
+      "request": "launch",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "type": "node"
+    },
+    {
+      "name": "Debug Benchmarks",
+      "program": "${workspaceFolder}/perf/index.ts",
+      "request": "launch",
+      "skipFiles": [
+        "<node_internals>/**",
+        "${workspaceFolder}/node_modules/**/*.js"
+      ],
+      "runtimeArgs": [
+        "--loader",
+        "ts-node/esm/transpile-only"
+      ],
+      "type": "node"
     },
     {
       "type": "node",
@@ -213,7 +246,8 @@
         "${workspaceFolder}/bin/print-buffer-alignment.js",
         "./test/data/cpp/stream/struct_example.arrow"
       ]
-    },{
+    },
+    {
       "type": "node",
       "name": "vscode-jest-tests",
       "request": "launch",

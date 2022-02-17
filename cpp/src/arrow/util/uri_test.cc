@@ -41,6 +41,22 @@ TEST(UriEncodeHost, Basics) {
   ASSERT_EQ(UriEscape("192.168.1.1"), "192.168.1.1");
 }
 
+TEST(IsValidUriScheme, Basics) {
+  ASSERT_FALSE(IsValidUriScheme(""));
+  ASSERT_FALSE(IsValidUriScheme(":"));
+  ASSERT_FALSE(IsValidUriScheme("."));
+  ASSERT_TRUE(IsValidUriScheme("a"));
+  ASSERT_TRUE(IsValidUriScheme("file"));
+  ASSERT_TRUE(IsValidUriScheme("local-file"));
+  ASSERT_TRUE(IsValidUriScheme("s3"));
+  ASSERT_TRUE(IsValidUriScheme("grpc+https"));
+  ASSERT_TRUE(IsValidUriScheme("file.local"));
+  ASSERT_FALSE(IsValidUriScheme("3s"));
+  ASSERT_FALSE(IsValidUriScheme("-file"));
+  ASSERT_FALSE(IsValidUriScheme("local/file"));
+  ASSERT_FALSE(IsValidUriScheme("filé"));
+}
+
 TEST(Uri, Empty) {
   Uri uri;
   ASSERT_EQ(uri.scheme(), "");

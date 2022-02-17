@@ -26,10 +26,15 @@ namespace gandiva {
 using arrow::boolean;
 using arrow::float32;
 using arrow::int32;
+using arrow::utf8;
 
 class TestFilter : public ::testing::Test {
  public:
-  void SetUp() { pool_ = arrow::default_memory_pool(); }
+  void SetUp() {
+    pool_ = arrow::default_memory_pool();
+    // Setup arrow log severity threshold to debug level.
+    arrow::util::ArrowLog::StartArrowLog("", arrow::util::ArrowLogLevel::ARROW_DEBUG);
+  }
 
  protected:
   arrow::MemoryPool* pool_;
@@ -55,12 +60,13 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> filter;
   auto status = Filter::Make(schema, condition, configuration, &filter);
   EXPECT_TRUE(status.ok());
+  EXPECT_FALSE(filter->GetBuiltFromCache());
 
   // same schema and condition, should return the same filter as above.
   std::shared_ptr<Filter> cached_filter;
   status = Filter::Make(schema, condition, configuration, &cached_filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_filter.get() == filter.get());
+  EXPECT_TRUE(cached_filter->GetBuiltFromCache());
 
   // schema is different should return a new filter.
   auto field2 = field("f2", int32());
@@ -69,7 +75,7 @@ TEST_F(TestFilter, TestFilterCache) {
   status =
       Filter::Make(different_schema, condition, configuration, &should_be_new_filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_filter.get() != should_be_new_filter.get());
+  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
 
   // condition is different, should return a new filter.
   auto greater_than_10 = TreeExprBuilder::MakeFunction(
@@ -78,7 +84,41 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> should_be_new_filter1;
   status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
-  EXPECT_TRUE(cached_filter.get() != should_be_new_filter1.get());
+  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+}
+
+TEST_F(TestFilter, TestFilterCacheNullTreatment) {
+  // schema for input fields
+  auto field0 = field("f0", utf8());
+  auto field1 = field("f1", utf8());
+  auto schema = arrow::schema({field0, field1});
+
+  // Build condition 'null' == 'null'
+  auto node_f0 = TreeExprBuilder::MakeStringLiteral("null");
+  auto node_f1 = TreeExprBuilder::MakeStringLiteral("null");
+  auto equal_func =
+      TreeExprBuilder::MakeFunction("equal", {node_f0, node_f1}, arrow::boolean());
+  auto condition = TreeExprBuilder::MakeCondition(equal_func);
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, configuration, &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Build condition null == null
+  auto string_type = std::make_shared<arrow::StringType>();
+  node_f0 = TreeExprBuilder::MakeNull(string_type);
+  node_f1 = TreeExprBuilder::MakeNull(string_type);
+  equal_func =
+      TreeExprBuilder::MakeFunction("equal", {node_f0, node_f1}, arrow::boolean());
+  condition = TreeExprBuilder::MakeCondition(equal_func);
+
+  // 'null' vs. null, should return a new filter.
+  std::shared_ptr<Filter> should_be_new_filter;
+  status = Filter::Make(schema, condition, &should_be_new_filter);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_TRUE(filter.get() != should_be_new_filter.get());
 }
 
 TEST_F(TestFilter, TestSimple) {
@@ -324,6 +364,45 @@ TEST_F(TestFilter, TestOffset) {
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
   in_batch = in_batch->Slice(1);
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
+TEST_F(TestFilter, TestLike) {
+  // schema for input fields
+  auto field0 = field("f0", utf8());
+  auto schema = arrow::schema({field0});
+
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto literal_pattern = TreeExprBuilder::MakeStringLiteral("abc-xyz%");
+  auto like_func =
+      TreeExprBuilder::MakeFunction("like", {node_f0, literal_pattern}, boolean());
+
+  auto condition = TreeExprBuilder::MakeCondition(like_func);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 = MakeArrowArrayUtf8({"abc-xyz", "hello", "bye", "abc-x", "abc-xyzw"},
+                                   {true, true, true, true, true});
+
+  // expected output (indices for which condition matches)
+  auto exp = MakeArrowArrayUint16({0, 4});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   std::shared_ptr<SelectionVector> selection_vector;
   status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);

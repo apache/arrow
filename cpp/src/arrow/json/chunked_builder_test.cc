@@ -27,6 +27,7 @@
 #include "arrow/json/options.h"
 #include "arrow/json/test_common.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
@@ -438,15 +439,11 @@ TEST(InferringChunkedArrayBuilder, MultipleChunkList) {
                                     struct_({}), &builder));
 
   std::shared_ptr<ChunkedArray> actual;
-  AssertBuilding(builder,
-                 {
-                     "{}\n",
-                     "{\"a\": []}\n",
-                     "{\"a\": [1, 2]}\n",
-                 },
+  AssertBuilding(builder, {"{}\n", "{\"a\": []}\n", "{\"a\": [1, 2]}\n", "{}\n"},
                  &actual);
 
-  auto expected = ChunkedArrayFromJSON(list(int64()), {"[null]", "[[]]", "[[1, 2]]"});
+  auto expected =
+      ChunkedArrayFromJSON(list(int64()), {"[null]", "[[]]", "[[1, 2]]", "[null]"});
   AssertFieldEqual({"a"}, actual, *expected);
 }
 

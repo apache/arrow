@@ -382,6 +382,7 @@ default_s3_options <- list(
   region = "",
   endpoint_override = "",
   scheme = "",
+  proxy_options = "",
   background_writes = TRUE
 )
 
@@ -396,7 +397,7 @@ default_s3_options <- list(
 #' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
-#' @examplesIf arrow_with_s3()
+#' @examplesIf FALSE
 #' bucket <- s3_bucket("ursa-labs-taxi-data")
 #' @export
 s3_bucket <- function(bucket, ...) {

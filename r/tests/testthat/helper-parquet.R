@@ -16,14 +16,14 @@
 # under the License.
 
 expect_parquet_roundtrip <- function(tab, ...) {
-  expect_equivalent(parquet_roundtrip(tab, ...), tab)
+  expect_equal(parquet_roundtrip(tab, ...), tab)
 }
 
-parquet_roundtrip <- function(x, ...) {
+parquet_roundtrip <- function(x, ..., as_data_frame = FALSE) {
   # write/read parquet, returns Table
   tf <- tempfile()
   on.exit(unlink(tf))
 
   write_parquet(x, tf, ...)
-  read_parquet(tf, as_data_frame = FALSE)
+  read_parquet(tf, as_data_frame = as_data_frame)
 }

@@ -47,6 +47,8 @@ These should be used to create Arrow data types and schemas.
    timestamp
    date32
    date64
+   duration
+   month_day_nano_interval
    binary
    string
    utf8
@@ -62,6 +64,14 @@ These should be used to create Arrow data types and schemas.
    field
    schema
    from_numpy_dtype
+
+Utility Functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   unify_schemas
 
 .. _api.type_classes:
 .. currentmodule:: pyarrow

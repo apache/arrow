@@ -42,8 +42,10 @@ add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
                async_generator_test.cc
+               async_util_test.cc
                bit_block_counter_test.cc
                bit_util_test.cc
+               byte_size_test.cc
                cache_test.cc
                checked_cast_test.cc
                compression_test.cc
@@ -59,6 +61,7 @@ add_arrow_test(utility-test
                range_test.cc
                reflection_test.cc
                rle_encoding_test.cc
+               small_vector_test.cc
                stl_util_test.cc
                string_test.cc
                tdigest_test.cc
@@ -73,6 +76,7 @@ add_arrow_test(utility-test
 add_arrow_test(threading-utility-test
                SOURCES
                cancel_test.cc
+               counting_semaphore_test.cc
                future_test.cc
                task_group_test.cc
                thread_pool_test.cc)
@@ -88,6 +92,7 @@ add_arrow_benchmark(int_util_benchmark)
 add_arrow_benchmark(machine_benchmark)
 add_arrow_benchmark(queue_benchmark)
 add_arrow_benchmark(range_benchmark)
+add_arrow_benchmark(small_vector_benchmark)
 add_arrow_benchmark(tdigest_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)

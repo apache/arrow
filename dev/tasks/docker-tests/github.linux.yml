@@ -21,25 +21,29 @@
 
 jobs:
   test:
-    name: Docker Test
+    name: |
+      Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
     runs-on: ubuntu-latest
   {% if env is defined %}
     env:
     {% for key, value in env.items() %}
-      {{ key }}: {{ value }}
+      {{ key }}: "{{ value }}"
     {% endfor %}
   {% endif %}
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=fetch_depth if fetch_depth is defined else 1)|indent }}
       {{ macros.github_install_archery()|indent }}
-
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
 
       - name: Execute Docker Build
         shell: bash
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ flags|default("") }} {{ image }} {{ command|default("") }}
+        run: |
+          archery docker run \
+            -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" \
+            -e VERIFY_VERSION="{{ release|default("") }}" \
+            -e VERIFY_RC="{{ rc|default("") }}" \
+            {{ flags|default("") }} \
+            {{ image }} \
+            {{ command|default("") }}
 
     {% if '-r' in image %}
       - name: Dump R install logs

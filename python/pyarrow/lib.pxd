@@ -370,7 +370,7 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
-cdef class MapArray(Array):
+cdef class MapArray(ListArray):
     pass
 
 
@@ -396,6 +396,10 @@ cdef class DictionaryArray(Array):
 
 
 cdef class ExtensionArray(Array):
+    pass
+
+
+cdef class MonthDayNanoIntervalArray(Array):
     pass
 
 

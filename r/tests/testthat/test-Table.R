@@ -306,7 +306,7 @@ test_that("table() handles record batches with splicing", {
   tab <- Table$create(batch, batch, batch)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
-  expect_equivalent(
+  expect_equal(
     as.data.frame(tab),
     vctrs::vec_rbind(as.data.frame(batch), as.data.frame(batch), as.data.frame(batch))
   )
@@ -315,7 +315,7 @@ test_that("table() handles record batches with splicing", {
   tab <- Table$create(!!!batches)
   expect_equal(tab$schema, batch$schema)
   expect_equal(tab$num_rows, 6L)
-  expect_equivalent(
+  expect_equal(
     as.data.frame(tab),
     vctrs::vec_rbind(!!!purrr::map(batches, as.data.frame))
   )
@@ -347,14 +347,14 @@ test_that("table() auto splices (ARROW-5718)", {
   tab2 <- Table$create(!!!df)
   expect_equal(tab1, tab2)
   expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
-  expect_equivalent(as.data.frame(tab1), df)
+  expect_equal(as.data.frame(tab1), df)
 
   s <- schema(x = float64(), y = utf8())
   tab3 <- Table$create(df, schema = s)
   tab4 <- Table$create(!!!df, schema = s)
   expect_equal(tab3, tab4)
   expect_equal(tab3$schema, s)
-  expect_equivalent(as.data.frame(tab3), df)
+  expect_equal(as.data.frame(tab3), df)
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
@@ -412,14 +412,14 @@ test_that("Table$Equals(check_metadata)", {
   expect_false(tab1$Equals(tab2, check_metadata = TRUE))
 
   expect_failure(expect_equal(tab1, tab2)) # expect_equal has check_metadata=TRUE
-  expect_equivalent(tab1, tab2) # expect_equivalent has check_metadata=FALSE
+  expect_equal(tab1, tab2, ignore_attr = TRUE) # this sets check_metadata=FALSE
 
   expect_false(tab1$Equals(24)) # Not a Table
 })
 
 test_that("Table handles null type (ARROW-7064)", {
   tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
-  expect_equivalent(tab$schema, schema(a = int32(), n = null()))
+  expect_equal(tab$schema, schema(a = int32(), n = null()), ignore_attr = TRUE)
 })
 
 test_that("Can create table with specific dictionary types", {

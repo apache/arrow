@@ -633,5 +633,50 @@ namespace Apache.Arrow.Tests
 
             return Tuple.Create(new Field($"dictionaryField_{dictionaryArray.Data.DataType.Name}", dictionaryArrayType, false), dictionaryArray);
         }
+
+        /// <summary>
+        /// Tests that writing an arrow stream with no RecordBatches produces the correct result.
+        /// </summary>
+        [Fact]
+        public void WritesEmptyFile()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 1);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+
+            writer.WriteStart();
+            writer.WriteEnd();
+
+            stream.Position = 0;
+
+            var reader = new ArrowStreamReader(stream);
+            RecordBatch readBatch = reader.ReadNextRecordBatch();
+            Assert.Null(readBatch);
+            SchemaComparer.Compare(originalBatch.Schema, reader.Schema);
+        }
+
+        /// <summary>
+        /// Tests that writing an arrow stream with no RecordBatches produces the correct
+        /// result when using WriteStartAsync and WriteEndAsync.
+        /// </summary>
+        [Fact]
+        public async Task WritesEmptyFileAsync()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 1);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+
+            await writer.WriteStartAsync();
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            var reader = new ArrowStreamReader(stream);
+            RecordBatch readBatch = reader.ReadNextRecordBatch();
+            Assert.Null(readBatch);
+            SchemaComparer.Compare(originalBatch.Schema, reader.Schema);
+        }
     }
 }

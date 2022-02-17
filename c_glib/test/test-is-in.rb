@@ -46,6 +46,16 @@ class TestIsIn < Test::Unit::TestCase
       assert_equal(build_boolean_array([false, true, true, true]),
                    left.is_in(right))
     end
+
+    def test_options
+      left = build_int16_array([1, 0, nil, 2])
+      right = build_int16_array([2, 0, nil])
+      is_in = Arrow::Function.find("is_in")
+      options = Arrow::SetLookupOptions.new(Arrow::ArrayDatum.new(right))
+      assert_equal(build_boolean_array([false, true, true, true]),
+                   is_in.execute([Arrow::ArrayDatum.new(left)],
+                                 options).value)
+    end
   end
 
   sub_test_case("ChunkedArray") do
@@ -91,6 +101,20 @@ class TestIsIn < Test::Unit::TestCase
       right = Arrow::ChunkedArray.new(chunks)
       assert_equal(build_boolean_array([false, true, true, true]),
                    left.is_in_chunked_array(right))
+    end
+
+    def test_options
+      left = build_int16_array([1, 0, nil, 2])
+      chunks = [
+        build_int16_array([2, 0]),
+        build_int16_array([3, nil])
+      ]
+      right = Arrow::ChunkedArray.new(chunks)
+      is_in = Arrow::Function.find("is_in")
+      options = Arrow::SetLookupOptions.new(Arrow::ChunkedArrayDatum.new(right))
+      assert_equal(build_boolean_array([false, true, true, true]),
+                   is_in.execute([Arrow::ArrayDatum.new(left)],
+                                 options).value)
     end
   end
 end

@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/exec/exec_plan.h"
-
 #include <mutex>
 
 #include "arrow/compute/exec.h"
+#include "arrow/compute/exec/exec_plan.h"
 #include "arrow/compute/exec/expression.h"
 #include "arrow/compute/exec/options.h"
 #include "arrow/compute/exec/util.h"
@@ -27,11 +26,13 @@
 #include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {
@@ -56,7 +57,7 @@ struct SourceNode : ExecNode {
                                          source_options.generator);
   }
 
-  const char* kind_name() override { return "SourceNode"; }
+  const char* kind_name() const override { return "SourceNode"; }
 
   [[noreturn]] static void NoInputs() {
     Unreachable("no inputs; this should never be called");
@@ -66,10 +67,25 @@ struct SourceNode : ExecNode {
   [[noreturn]] void InputFinished(ExecNode*, int) override { NoInputs(); }
 
   Status StartProducing() override {
-    DCHECK(!stop_requested_) << "Restarted SourceNode";
+    START_SPAN(span_, std::string(kind_name()) + ":" + label(),
+               {{"node.kind", kind_name()},
+                {"node.label", label()},
+                {"node.output_schema", output_schema()->ToString()},
+                {"node.detail", ToString()}});
+    {
+      // If another exec node encountered an error during its StartProducing call
+      // it might have already called StopProducing on all of its inputs (including this
+      // node).
+      //
+      std::unique_lock<std::mutex> lock(mutex_);
+      if (stop_requested_) {
+        return Status::OK();
+      }
+    }
 
     CallbackOptions options;
-    if (auto executor = plan()->exec_context()->executor()) {
+    auto executor = plan()->exec_context()->executor();
+    if (executor) {
       // These options will transfer execution to the desired Executor if necessary.
       // This can happen for in-memory scans where batches didn't require
       // any CPU work to decode. Otherwise, parsing etc should have already
@@ -77,44 +93,60 @@ struct SourceNode : ExecNode {
       options.executor = executor;
       options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     }
+    finished_ =
+        Loop([this, executor, options] {
+          std::unique_lock<std::mutex> lock(mutex_);
+          int total_batches = batch_count_++;
+          if (stop_requested_) {
+            return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+          }
+          lock.unlock();
 
-    finished_ = Loop([this, options] {
-                  std::unique_lock<std::mutex> lock(mutex_);
-                  int total_batches = batch_count_++;
-                  if (stop_requested_) {
-                    return Future<ControlFlow<int>>::MakeFinished(Break(total_batches));
+          return generator_().Then(
+              [=](const util::optional<ExecBatch>& maybe_batch) -> ControlFlow<int> {
+                std::unique_lock<std::mutex> lock(mutex_);
+                if (IsIterationEnd(maybe_batch) || stop_requested_) {
+                  stop_requested_ = true;
+                  return Break(total_batches);
+                }
+                lock.unlock();
+                ExecBatch batch = std::move(*maybe_batch);
+
+                if (executor) {
+                  auto status =
+                      task_group_.AddTask([this, executor, batch]() -> Result<Future<>> {
+                        return executor->Submit([=]() {
+                          outputs_[0]->InputReceived(this, std::move(batch));
+                          return Status::OK();
+                        });
+                      });
+                  if (!status.ok()) {
+                    outputs_[0]->ErrorReceived(this, std::move(status));
+                    return Break(total_batches);
                   }
-                  lock.unlock();
-
-                  return generator_().Then(
-                      [=](const util::optional<ExecBatch>& batch) -> ControlFlow<int> {
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        if (IsIterationEnd(batch) || stop_requested_) {
-                          stop_requested_ = true;
-                          return Break(total_batches);
-                        }
-                        lock.unlock();
-
-                        outputs_[0]->InputReceived(this, *batch);
-                        return Continue();
-                      },
-                      [=](const Status& error) -> ControlFlow<int> {
-                        // NB: ErrorReceived is independent of InputFinished, but
-                        // ErrorReceived will usually prompt StopProducing which will
-                        // prompt InputFinished. ErrorReceived may still be called from a
-                        // node which was requested to stop (indeed, the request to stop
-                        // may prompt an error).
-                        std::unique_lock<std::mutex> lock(mutex_);
-                        stop_requested_ = true;
-                        lock.unlock();
-                        outputs_[0]->ErrorReceived(this, error);
-                        return Break(total_batches);
-                      },
-                      options);
-                }).Then([&](int total_batches) {
-      outputs_[0]->InputFinished(this, total_batches);
-    });
-
+                } else {
+                  outputs_[0]->InputReceived(this, std::move(batch));
+                }
+                return Continue();
+              },
+              [=](const Status& error) -> ControlFlow<int> {
+                // NB: ErrorReceived is independent of InputFinished, but
+                // ErrorReceived will usually prompt StopProducing which will
+                // prompt InputFinished. ErrorReceived may still be called from a
+                // node which was requested to stop (indeed, the request to stop
+                // may prompt an error).
+                std::unique_lock<std::mutex> lock(mutex_);
+                stop_requested_ = true;
+                lock.unlock();
+                outputs_[0]->ErrorReceived(this, error);
+                return Break(total_batches);
+              },
+              options);
+        }).Then([&](int total_batches) {
+          outputs_[0]->InputFinished(this, total_batches);
+          return task_group_.End();
+        });
+    END_SPAN_ON_FUTURE_COMPLETION(span_, finished_, this);
     return Status::OK();
   }
 
@@ -138,12 +170,18 @@ struct SourceNode : ExecNode {
   std::mutex mutex_;
   bool stop_requested_{false};
   int batch_count_{0};
-  Future<> finished_ = Future<>::MakeFinished();
+  util::AsyncTaskGroup task_group_;
   AsyncGenerator<util::optional<ExecBatch>> generator_;
 };
 
-ExecFactoryRegistry::AddOnLoad kRegisterSource("source", SourceNode::Make);
-
 }  // namespace
+
+namespace internal {
+
+void RegisterSourceNode(ExecFactoryRegistry* registry) {
+  DCHECK_OK(registry->AddFactory("source", SourceNode::Make));
+}
+
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

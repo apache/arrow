@@ -23,6 +23,7 @@
 
 #include <arrow-dataset-glib/dataset.h>
 
+
 GADatasetDataset *
 gadataset_dataset_new_raw(
   std::shared_ptr<arrow::dataset::Dataset> *arrow_dataset);
@@ -39,10 +40,7 @@ gadataset_dataset_new_raw_valist(
 std::shared_ptr<arrow::dataset::Dataset>
 gadataset_dataset_get_raw(GADatasetDataset *dataset);
 
-GADatasetFileFormat *
-gadataset_file_format_new_raw(
-  std::shared_ptr<arrow::dataset::FileFormat> *arrow_format);
-std::shared_ptr<arrow::dataset::Dataset>
-gadataset_dataset_get_raw(GADatasetDataset *dataset);
 
-
+arrow::dataset::FileSystemDatasetWriteOptions *
+gadataset_file_system_dataset_write_options_get_raw(
+  GADatasetFileSystemDatasetWriteOptions *options);

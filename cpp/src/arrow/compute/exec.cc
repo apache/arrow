@@ -35,7 +35,6 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/registry.h"
-#include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -101,6 +100,14 @@ void PrintTo(const ExecBatch& batch, std::ostream* os) {
     ARROW_CHECK_OK(PrettyPrint(*array, options, os));
     *os << "\n";
   }
+}
+
+int64_t ExecBatch::TotalBufferSize() const {
+  int64_t sum = 0;
+  for (const auto& value : values) {
+    sum += value.TotalBufferSize();
+  }
+  return sum;
 }
 
 std::string ExecBatch::ToString() const {
@@ -171,7 +178,7 @@ Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t l
   if (bit_width == 1) {
     return ctx->AllocateBitmap(length);
   } else {
-    int64_t buffer_size = BitUtil::BytesForBits(length * bit_width);
+    int64_t buffer_size = bit_util::BytesForBits(length * bit_width);
     return ctx->Allocate(buffer_size);
   }
 }
@@ -398,7 +405,7 @@ class NullPropagator {
     output_->null_count = output_->length;
 
     if (bitmap_preallocated_) {
-      BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+      bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, false);
       return Status::OK();
     }
 
@@ -413,7 +420,7 @@ class NullPropagator {
     }
 
     RETURN_NOT_OK(EnsureAllocated());
-    BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, false);
+    bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, false);
     return Status::OK();
   }
 
@@ -443,7 +450,7 @@ class NullPropagator {
       output_->buffers[0] = arr_bitmap;
     } else if (arr.offset % 8 == 0) {
       output_->buffers[0] =
-          SliceBuffer(arr_bitmap, arr.offset / 8, BitUtil::BytesForBits(arr.length));
+          SliceBuffer(arr_bitmap, arr.offset / 8, bit_util::BytesForBits(arr.length));
     } else {
       RETURN_NOT_OK(EnsureAllocated());
       CopyBitmap(arr_bitmap->data(), arr.offset, arr.length, bitmap_,
@@ -505,7 +512,7 @@ class NullPropagator {
       // No arrays with nulls case
       output_->null_count = 0;
       if (bitmap_preallocated_) {
-        BitUtil::SetBitsTo(bitmap_, output_->offset, output_->length, true);
+        bit_util::SetBitsTo(bitmap_, output_->offset, output_->length, true);
       }
       return Status::OK();
     }
@@ -644,14 +651,9 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   Datum WrapResults(const std::vector<Datum>& inputs,
                     const std::vector<Datum>& outputs) override {
     if (output_descr_.shape == ValueDescr::SCALAR) {
-      DCHECK_GT(outputs.size(), 0);
-      if (outputs.size() == 1) {
-        // Return as SCALAR
-        return outputs[0];
-      } else {
-        // Return as COLLECTION
-        return outputs;
-      }
+      DCHECK_EQ(outputs.size(), 1);
+      // Return as SCALAR
+      return outputs[0];
     } else {
       // If execution yielded multiple chunks (because large arrays were split
       // based on the ExecContext parameters, then the result is a ChunkedArray
@@ -677,7 +679,9 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
 
     if (output_descr_.shape == ValueDescr::ARRAY) {
       ArrayData* out_arr = out.mutable_array();
-      if (kernel_->null_handling == NullHandling::INTERSECTION) {
+      if (output_descr_.type->id() == Type::NA) {
+        out_arr->null_count = out_arr->length;
+      } else if (kernel_->null_handling == NullHandling::INTERSECTION) {
         RETURN_NOT_OK(PropagateNulls(kernel_ctx_, batch, out_arr));
       } else if (kernel_->null_handling == NullHandling::OUTPUT_NOT_NULL) {
         out_arr->null_count = 0;
@@ -694,7 +698,15 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
 
     RETURN_NOT_OK(kernel_->exec(kernel_ctx_, batch, &out));
-    if (!preallocate_contiguous_) {
+    if (preallocate_contiguous_) {
+      // Some kernels may like to simply nullify the validity bitmap when
+      // they know the output will have 0 nulls.  However, this is not compatible
+      // with writing into slices.
+      if (output_descr_.shape == ValueDescr::ARRAY) {
+        DCHECK(out.array()->buffers[0])
+            << "Null bitmap deleted by kernel but can_write_into_slices = true";
+      }
+    } else {
       // If we are producing chunked output rather than one big array, then
       // emit each chunk as soon as it's available
       RETURN_NOT_OK(listener->OnResult(std::move(out)));
@@ -854,11 +866,6 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
 
  protected:
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
-    if (batch.length == 0) {
-      // Skip empty batches. This may only happen when not using
-      // ExecBatchIterator
-      return Status::OK();
-    }
     Datum out;
     if (output_descr_.shape == ValueDescr::ARRAY) {
       // We preallocate (maybe) only for the output of processing the current

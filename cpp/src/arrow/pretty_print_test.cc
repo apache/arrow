@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -28,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
@@ -54,6 +56,7 @@ void CheckStream(const T& obj, const PrettyPrintOptions& options, const char* ex
 
 void CheckArray(const Array& arr, const PrettyPrintOptions& options, const char* expected,
                 bool check_operator = true) {
+  ARROW_SCOPED_TRACE("For datatype: ", arr.type()->ToString());
   CheckStream(arr, options, expected);
 
   if (options.indent == 0 && check_operator) {
@@ -168,6 +171,27 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
   CheckPrimitive<LargeStringType, std::string>({2, 10}, is_valid, values3, ex3_in2);
 }
 
+TEST_F(TestPrettyPrint, PrimitiveTypeNoNewlines) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+  std::vector<int32_t> values = {0, 1, 2, 3, 4};
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+  options.window = 4;
+
+  const char* expected = "[0,1,null,3,null]";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+
+  // With ellipsis
+  is_valid.insert(is_valid.end(), 20, true);
+  is_valid.insert(is_valid.end(), {true, false, true});
+  values.insert(values.end(), 20, 99);
+  values.insert(values.end(), {44, 43, 42});
+
+  expected = "[0,1,null,3,...,99,44,null,42]";
+  CheckPrimitive<Int32Type, int32_t>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, Int8) {
   static const char* expected = R"expected([
   0,
@@ -278,6 +302,288 @@ TEST_F(TestPrettyPrint, DateTimeTypes) {
   }
 }
 
+TEST_F(TestPrettyPrint, TestIntervalTypes) {
+  std::vector<bool> is_valid = {true, true, false, true, false};
+
+  {
+    std::vector<DayTimeIntervalType::DayMilliseconds> values = {
+        {1, 2}, {-3, 4}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1d2ms,
+  -3d4ms,
+  null,
+  0d0ms,
+  null
+])expected";
+    CheckPrimitive<DayTimeIntervalType, DayTimeIntervalType::DayMilliseconds>(
+        {0, 10}, is_valid, values, expected);
+  }
+  {
+    std::vector<MonthDayNanoIntervalType::MonthDayNanos> values = {
+        {1, 2, 3}, {-3, 4, -5}, {}, {}, {}};
+    static const char* expected = R"expected([
+  1M2d3ns,
+  -3M4d-5ns,
+  null,
+  0M0d0ns,
+  null
+])expected";
+    CheckPrimitive<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+        {0, 10}, is_valid, values, expected);
+  }
+}
+
+TEST_F(TestPrettyPrint, DateTimeTypesWithOutOfRangeValues) {
+  // Our vendored date library allows years within [-32767, 32767],
+  // which limits the range of values which can be displayed.
+  const int32_t min_int32 = std::numeric_limits<int32_t>::min();
+  const int32_t max_int32 = std::numeric_limits<int32_t>::max();
+  const int64_t min_int64 = std::numeric_limits<int64_t>::min();
+  const int64_t max_int64 = std::numeric_limits<int64_t>::max();
+
+  const int32_t min_date32 = -12687428;
+  const int32_t max_date32 = 11248737;
+  const int64_t min_date64 = 86400000LL * min_date32;
+  const int64_t max_date64 = 86400000LL * (max_date32 + 1) - 1;
+
+  const int32_t min_time32_seconds = 0;
+  const int32_t max_time32_seconds = 86399;
+  const int32_t min_time32_millis = 0;
+  const int32_t max_time32_millis = 86399999;
+  const int64_t min_time64_micros = 0;
+  const int64_t max_time64_micros = 86399999999LL;
+  const int64_t min_time64_nanos = 0;
+  const int64_t max_time64_nanos = 86399999999999LL;
+
+  const int64_t min_timestamp_seconds = -1096193779200LL;
+  const int64_t max_timestamp_seconds = 971890963199LL;
+  const int64_t min_timestamp_millis = min_timestamp_seconds * 1000;
+  const int64_t max_timestamp_millis = max_timestamp_seconds * 1000 + 999;
+  const int64_t min_timestamp_micros = min_timestamp_millis * 1000;
+  const int64_t max_timestamp_micros = max_timestamp_millis * 1000 + 999;
+
+  std::vector<bool> is_valid = {false, false, false, false, true,
+                                true,  true,  true,  true,  true};
+
+  // Dates
+  {
+    std::vector<int32_t> values = {min_int32,  max_int32, min_date32 - 1, max_date32 + 1,
+                                   min_int32,  max_int32, min_date32 - 1, max_date32 + 1,
+                                   min_date32, max_date32};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -2147483648>,
+  <value out of range: 2147483647>,
+  <value out of range: -12687429>,
+  <value out of range: 11248738>,
+  -32767-01-01,
+  32767-12-31
+])expected";
+    CheckPrimitive<Date32Type, int32_t>({0, 10}, is_valid, values, expected);
+  }
+  {
+    std::vector<int64_t> values = {min_int64,  max_int64, min_date64 - 1, max_date64 + 1,
+                                   min_int64,  max_int64, min_date64 - 1, max_date64 + 1,
+                                   min_date64, max_date64};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200001>,
+  <value out of range: 971890963200000>,
+  -32767-01-01,
+  32767-12-31
+])expected";
+    CheckPrimitive<Date64Type, int64_t>({0, 10}, is_valid, values, expected);
+  }
+
+  // Times
+  {
+    std::vector<int32_t> values = {min_int32,
+                                   max_int32,
+                                   min_time32_seconds - 1,
+                                   max_time32_seconds + 1,
+                                   min_int32,
+                                   max_int32,
+                                   min_time32_seconds - 1,
+                                   max_time32_seconds + 1,
+                                   min_time32_seconds,
+                                   max_time32_seconds};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -2147483648>,
+  <value out of range: 2147483647>,
+  <value out of range: -1>,
+  <value out of range: 86400>,
+  00:00:00,
+  23:59:59
+])expected";
+    CheckPrimitive<Time32Type, int32_t>(time32(TimeUnit::SECOND), {0, 10}, is_valid,
+                                        values, expected);
+  }
+  {
+    std::vector<int32_t> values = {
+        min_int32,         max_int32,        min_time32_millis - 1, max_time32_millis + 1,
+        min_int32,         max_int32,        min_time32_millis - 1, max_time32_millis + 1,
+        min_time32_millis, max_time32_millis};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -2147483648>,
+  <value out of range: 2147483647>,
+  <value out of range: -1>,
+  <value out of range: 86400000>,
+  00:00:00.000,
+  23:59:59.999
+])expected";
+    CheckPrimitive<Time32Type, int32_t>(time32(TimeUnit::MILLI), {0, 10}, is_valid,
+                                        values, expected);
+  }
+  {
+    std::vector<int64_t> values = {
+        min_int64,         max_int64,        min_time64_micros - 1, max_time64_micros + 1,
+        min_int64,         max_int64,        min_time64_micros - 1, max_time64_micros + 1,
+        min_time64_micros, max_time64_micros};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1>,
+  <value out of range: 86400000000>,
+  00:00:00.000000,
+  23:59:59.999999
+])expected";
+    CheckPrimitive<Time64Type, int64_t>(time64(TimeUnit::MICRO), {0, 10}, is_valid,
+                                        values, expected);
+  }
+  {
+    std::vector<int64_t> values = {
+        min_int64,        max_int64,       min_time64_nanos - 1, max_time64_nanos + 1,
+        min_int64,        max_int64,       min_time64_nanos - 1, max_time64_nanos + 1,
+        min_time64_nanos, max_time64_nanos};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1>,
+  <value out of range: 86400000000000>,
+  00:00:00.000000000,
+  23:59:59.999999999
+])expected";
+    CheckPrimitive<Time64Type, int64_t>(time64(TimeUnit::NANO), {0, 10}, is_valid, values,
+                                        expected);
+  }
+
+  // Timestamps
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_seconds - 1,
+                                   max_timestamp_seconds + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_seconds - 1,
+                                   max_timestamp_seconds + 1,
+                                   min_timestamp_seconds,
+                                   max_timestamp_seconds};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779201>,
+  <value out of range: 971890963200>,
+  -32767-01-01 00:00:00,
+  32767-12-31 23:59:59
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::SECOND), {0, 10}, is_valid,
+                                           values, expected);
+  }
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_millis - 1,
+                                   max_timestamp_millis + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_millis - 1,
+                                   max_timestamp_millis + 1,
+                                   min_timestamp_millis,
+                                   max_timestamp_millis};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200001>,
+  <value out of range: 971890963200000>,
+  -32767-01-01 00:00:00.000,
+  32767-12-31 23:59:59.999
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MILLI), {0, 10}, is_valid,
+                                           values, expected);
+  }
+  {
+    std::vector<int64_t> values = {min_int64,
+                                   max_int64,
+                                   min_timestamp_micros - 1,
+                                   max_timestamp_micros + 1,
+                                   min_int64,
+                                   max_int64,
+                                   min_timestamp_micros - 1,
+                                   max_timestamp_micros + 1,
+                                   min_timestamp_micros,
+                                   max_timestamp_micros};
+    static const char* expected = R"expected([
+  null,
+  null,
+  null,
+  null,
+  <value out of range: -9223372036854775808>,
+  <value out of range: 9223372036854775807>,
+  <value out of range: -1096193779200000001>,
+  <value out of range: 971890963200000000>,
+  -32767-01-01 00:00:00.000000,
+  32767-12-31 23:59:59.999999
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::MICRO), {0, 10}, is_valid,
+                                           values, expected);
+  }
+  // Note that while the values below are legal and correct, they used to
+  // trigger an internal signed overflow inside the vendored "date" library
+  // (https://github.com/HowardHinnant/date/issues/696).
+  {
+    std::vector<int64_t> values = {min_int64, max_int64};
+    static const char* expected = R"expected([
+  1677-09-21 00:12:43.145224192,
+  2262-04-11 23:47:16.854775807
+])expected";
+    CheckPrimitive<TimestampType, int64_t>(timestamp(TimeUnit::NANO), {0, 10},
+                                           {true, true}, values, expected);
+  }
+}
+
 TEST_F(TestPrettyPrint, StructTypeBasic) {
   auto simple_1 = field("one", int32());
   auto simple_2 = field("two", int32());
@@ -348,6 +654,22 @@ TEST_F(TestPrettyPrint, BinaryType) {
   CheckPrimitive<LargeBinaryType, std::string>({2}, is_valid, values, ex_in2);
 }
 
+TEST_F(TestPrettyPrint, BinaryNoNewlines) {
+  std::vector<bool> is_valid = {true, true, false, true, true, true};
+  std::vector<std::string> values = {"foo", "bar", "", "baz", "", "\xff"};
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+
+  const char* expected = "[666F6F,626172,null,62617A,,FF]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+
+  // With ellipsis
+  options.window = 2;
+  expected = "[666F6F,626172,...,,FF]";
+  CheckPrimitive<BinaryType, std::string>(options, is_valid, values, expected, false);
+}
+
 TEST_F(TestPrettyPrint, ListType) {
   auto list_type = list(int64());
 
@@ -404,6 +726,22 @@ TEST_F(TestPrettyPrint, ListType) {
   CheckArray(*array, {0, 10}, ex);
   CheckArray(*array, {2, 10}, ex_2);
   CheckStream(*array, {0, 1}, ex_3);
+}
+
+TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
+  auto list_type = list(int64());
+  auto empty_array = ArrayFromJSON(list_type, "[]");
+  auto array = ArrayFromJSON(list_type, "[[null], [], null, [4, 5, 6, 7, 8], [2, 3]]");
+
+  PrettyPrintOptions options{};
+  options.skip_new_lines = true;
+  options.null_rep = "NA";
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
+
+  options.window = 2;
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
 }
 
 TEST_F(TestPrettyPrint, MapType) {

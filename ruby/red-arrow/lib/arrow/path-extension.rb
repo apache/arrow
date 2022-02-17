@@ -24,7 +24,7 @@ module Arrow
     def extract
       basename = ::File.basename(@path)
       components = basename.split(".")
-      return {} if components.size == 1
+      return {} if components.size < 2
 
       extension = components.last.downcase
       if components.size > 2

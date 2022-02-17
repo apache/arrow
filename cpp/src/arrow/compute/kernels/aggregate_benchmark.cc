@@ -19,6 +19,7 @@
 
 #include <vector>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/compute/api.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -36,7 +37,7 @@ namespace compute {
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 using arrow::internal::BitmapReader;
 
 template <typename T>
@@ -104,7 +105,7 @@ struct SumNoNullsUnrolled : public Summer<T> {
 
     const auto values = array.raw_values();
     const auto length = array.length();
-    const int64_t length_rounded = BitUtil::RoundDown(length, 8);
+    const int64_t length_rounded = bit_util::RoundDown(length, 8);
     for (int64_t i = 0; i < length_rounded; i += 8) {
       local.total += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
                      values[i + 4] + values[i + 5] + values[i + 6] + values[i + 7];
@@ -154,7 +155,7 @@ struct SumSentinelUnrolled : public Summer<T> {
 
     const auto values = array.raw_values();
     const auto length = array.length();
-    const int64_t length_rounded = BitUtil::RoundDown(length, 8);
+    const int64_t length_rounded = bit_util::RoundDown(length, 8);
     for (int64_t i = 0; i < length_rounded; i += 8) {
       SUM_NOT_NULL(0);
       SUM_NOT_NULL(1);
@@ -189,7 +190,7 @@ struct SumBitmapNaive : public Summer<T> {
     const auto length = array.length();
 
     for (int64_t i = 0; i < length; ++i) {
-      if (BitUtil::GetBit(bitmap, i)) {
+      if (bit_util::GetBit(bitmap, i)) {
         local.total += values[i];
         ++local.valid_count;
       }
@@ -233,7 +234,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
     const auto values = array.raw_values();
     const auto bitmap = array.null_bitmap_data();
     const auto length = array.length();
-    const int64_t length_rounded = BitUtil::RoundDown(length, 8);
+    const int64_t length_rounded = bit_util::RoundDown(length, 8);
     for (int64_t i = 0; i < length_rounded; i += 8) {
       const uint8_t valid_byte = bitmap[i / 8];
 
@@ -249,7 +250,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
         local.total += SUM_SHIFT(5);
         local.total += SUM_SHIFT(6);
         local.total += SUM_SHIFT(7);
-        local.valid_count += BitUtil::kBytePopcount[valid_byte];
+        local.valid_count += bit_util::kBytePopcount[valid_byte];
       } else {
         // No nulls
         local.total += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +
@@ -261,7 +262,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
 #undef SUM_SHIFT
 
     for (int64_t i = length_rounded; i < length; ++i) {
-      if (BitUtil::GetBit(bitmap, i)) {
+      if (bit_util::GetBit(bitmap, i)) {
         local.total = values[i];
         ++local.valid_count;
       }
@@ -321,6 +322,8 @@ static void BenchmarkGroupBy(benchmark::State& state,
   BENCHMARK(Name)->Apply([](benchmark::internal::Benchmark* bench) { \
     BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});             \
   })
+
+// Grouped Sum
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyStringSet, [&] {
   auto summand = rng.Float64(args.size,
@@ -461,6 +464,39 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
                                        /*max_length=*/32);
 
   BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+});
+
+// Grouped MinMax
+
+GROUP_BY_BENCHMARK(MinMaxDoublesGroupedByMediumInt, [&] {
+  auto input = rng.Float64(args.size,
+                           /*min=*/0.0,
+                           /*max=*/1.0e14,
+                           /*null_probability=*/args.null_proportion,
+                           /*nan_probability=*/args.null_proportion / 10);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+});
+
+GROUP_BY_BENCHMARK(MinMaxShortStringsGroupedByMediumInt, [&] {
+  auto input = rng.String(args.size,
+                          /*min_length=*/0,
+                          /*max_length=*/64,
+                          /*null_probability=*/args.null_proportion);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
+});
+
+GROUP_BY_BENCHMARK(MinMaxLongStringsGroupedByMediumInt, [&] {
+  auto input = rng.String(args.size,
+                          /*min_length=*/0,
+                          /*max_length=*/512,
+                          /*null_probability=*/args.null_proportion);
+  auto int_key = rng.Int64(args.size, /*min=*/0, /*max=*/63);
+
+  BenchmarkGroupBy(state, {{"hash_min_max", NULLPTR}}, {input}, {int_key});
 });
 
 //

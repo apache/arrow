@@ -32,7 +32,6 @@
 #include "arrow/extension_type.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
-#include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -45,6 +44,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
@@ -67,12 +67,31 @@ static std::shared_ptr<Array> InvalidUtf8(std::shared_ptr<DataType> type) {
                        "]");
 }
 
+static std::shared_ptr<Array> FixedSizeInvalidUtf8(std::shared_ptr<DataType> type) {
+  if (type->id() == Type::FIXED_SIZE_BINARY) {
+    // Assume a particular width for testing
+    EXPECT_EQ(3, checked_cast<const FixedSizeBinaryType&>(*type).byte_width());
+  }
+  return ArrayFromJSON(type,
+                       "["
+                       R"(
+                       "Hi!",
+                       "lá",
+                       "你",
+                       "   ",
+                       )"
+                       "\"\xa0\xa1\xa2\""
+                       "]");
+}
+
 static std::vector<std::shared_ptr<DataType>> kNumericTypes = {
     uint8(), int8(),   uint16(), int16(),   uint32(),
     int32(), uint64(), int64(),  float32(), float64()};
 
-static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = {
+static std::vector<std::shared_ptr<DataType>> kIntegerTypes = {
     int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
+
+static std::vector<std::shared_ptr<DataType>> kDictionaryIndexTypes = kIntegerTypes;
 
 static std::vector<std::shared_ptr<DataType>> kBaseBinaryTypes = {
     binary(), utf8(), large_binary(), large_utf8()};
@@ -90,8 +109,9 @@ static void CheckCast(std::shared_ptr<Array> input, std::shared_ptr<Array> expec
 
 static void CheckCastFails(std::shared_ptr<Array> input, CastOptions options) {
   ASSERT_RAISES(Invalid, Cast(input, options))
-      << "\n  to_type: " << options.to_type->ToString()
-      << "\n  input:   " << input->ToString();
+      << "\n  to_type:   " << options.to_type->ToString()
+      << "\n  from_type: " << input->type()->ToString()
+      << "\n  input:     " << input->ToString();
 
   // For the scalars, check that at least one of the input fails (since many
   // of the tests contains a mix of passing and failing values). In some
@@ -195,8 +215,10 @@ TEST(Cast, CanCast) {
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
-  ExpectCannotCast(fixed_size_binary(3),
-                   {fixed_size_binary(3)});  // FIXME missing identity cast
+  ExpectCanCast(fixed_size_binary(3),
+                {binary(), utf8(), large_binary(), large_utf8(), fixed_size_binary(3)});
+  // Doesn't fail since a kernel exists (but it will return an error when executed)
+  // ExpectCannotCast(fixed_size_binary(3), {fixed_size_binary(5)});
 
   ExtensionTypeGuard smallint_guard(smallint());
   ExpectCanCast(smallint(), {int16()});  // cast storage
@@ -414,7 +436,7 @@ TEST(Cast, Decimal128ToInt) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
 
-      auto no_overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
          "-11.0000000000",
           "22.0000000000",
@@ -427,7 +449,7 @@ TEST(Cast, Decimal128ToInt) {
 
   for (bool allow_int_overflow : {false, true}) {
     options.allow_int_overflow = allow_int_overflow;
-    auto truncation_but_no_overflow = ArrayFromJSON(decimal(38, 10), R"([
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal128(38, 10), R"([
           "02.1000000000",
          "-11.0000004500",
           "22.0000004500",
@@ -445,7 +467,7 @@ TEST(Cast, Decimal128ToInt) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto overflow_no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto overflow_no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
         "12345678901234567890000.0000000000",
         "99999999999999999999999.0000000000",
         null])");
@@ -467,7 +489,7 @@ TEST(Cast, Decimal128ToInt) {
       options.allow_int_overflow = allow_int_overflow;
       options.allow_decimal_truncate = allow_decimal_truncate;
 
-      auto overflow_and_truncation = ArrayFromJSON(decimal(38, 10), R"([
+      auto overflow_and_truncation = ArrayFromJSON(decimal128(38, 10), R"([
         "12345678901234567890000.0045345000",
         "99999999999999999999999.0000344300",
         null])");
@@ -485,7 +507,7 @@ TEST(Cast, Decimal128ToInt) {
     }
   }
 
-  Decimal128Builder builder(decimal(38, -4));
+  Decimal128Builder builder(decimal128(38, -4));
   for (auto d : {Decimal128("1234567890000."), Decimal128("-120000.")}) {
     ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
     ASSERT_OK(builder.Append(d));
@@ -587,19 +609,51 @@ TEST(Cast, Decimal256ToInt) {
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
 }
 
+TEST(Cast, IntegerToDecimal) {
+  for (auto decimal_type : {decimal128(22, 2), decimal256(22, 2)}) {
+    for (auto integer_type : kIntegerTypes) {
+      CheckCast(
+          ArrayFromJSON(integer_type, "[0, 7, null, 100, 99]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", "7.00", null, "100.00", "99.00"])"));
+    }
+  }
+
+  // extreme value
+  for (auto decimal_type : {decimal128(19, 0), decimal256(19, 0)}) {
+    CheckCast(ArrayFromJSON(int64(), "[-9223372036854775808, 9223372036854775807]"),
+              ArrayFromJSON(decimal_type,
+                            R"(["-9223372036854775808", "9223372036854775807"])"));
+  }
+  for (auto decimal_type : {decimal128(20, 0), decimal256(20, 0)}) {
+    CheckCast(ArrayFromJSON(uint64(), "[0, 18446744073709551615]"),
+              ArrayFromJSON(decimal_type, R"(["0", "18446744073709551615"])"));
+  }
+
+  // insufficient output precision
+  {
+    CastOptions options;
+
+    options.to_type = decimal128(5, 3);
+    CheckCastFails(ArrayFromJSON(int8(), "[0]"), options);
+
+    options.to_type = decimal256(76, 67);
+    CheckCastFails(ArrayFromJSON(int32(), "[0]"), options);
+  }
+}
+
 TEST(Cast, Decimal128ToDecimal128) {
   CastOptions options;
 
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
           "30.0000000000",
           "22.0000000000",
         "-121.0000000000",
         null])");
-    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+    auto expected = ArrayFromJSON(decimal128(28, 0), R"([
           "02.",
           "30.",
           "22.",
@@ -614,10 +668,10 @@ TEST(Cast, Decimal128ToDecimal128) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
     // Same scale, different precision
-    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+    auto d_5_2 = ArrayFromJSON(decimal128(5, 2), R"([
           "12.34",
            "0.56"])");
-    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+    auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"([
           "12.34",
            "0.56"])");
 
@@ -625,17 +679,17 @@ TEST(Cast, Decimal128ToDecimal128) {
     CheckCast(d_4_2, d_5_2, options);
   }
 
-  auto d_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+  auto d_38_10 = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.1234567890",
        "30.1234567890",
       null])");
 
-  auto d_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
 
-  auto d_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+  auto d_38_10_roundtripped = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.0000000000",
        "30.0000000000",
       null])");
@@ -651,14 +705,15 @@ TEST(Cast, Decimal128ToDecimal128) {
   CheckCast(d_28_0, d_38_10_roundtripped, options);
 
   // Precision loss without rescale leads to truncation
-  auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"(["12.34"])");
   for (auto expected : {
-           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
-           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
-           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+           ArrayFromJSON(decimal128(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal128(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal128(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -737,7 +792,8 @@ TEST(Cast, Decimal256ToDecimal256) {
            ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -751,7 +807,7 @@ TEST(Cast, Decimal128ToDecimal256) {
   for (bool allow_decimal_truncate : {false, true}) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
-    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+    auto no_truncation = ArrayFromJSON(decimal128(38, 10), R"([
           "02.0000000000",
           "30.0000000000",
           "22.0000000000",
@@ -771,7 +827,7 @@ TEST(Cast, Decimal128ToDecimal256) {
     options.allow_decimal_truncate = allow_decimal_truncate;
 
     // Same scale, different precision
-    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+    auto d_5_2 = ArrayFromJSON(decimal128(5, 2), R"([
           "12.34",
            "0.56"])");
     auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
@@ -785,12 +841,12 @@ TEST(Cast, Decimal128ToDecimal256) {
     CheckCast(d_5_2, d_40_2, options);
   }
 
-  auto d128_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+  auto d128_38_10 = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.1234567890",
        "30.1234567890",
       null])");
 
-  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d128_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
@@ -816,14 +872,15 @@ TEST(Cast, Decimal128ToDecimal256) {
   CheckCast(d128_28_0, d256_38_10_roundtripped, options);
 
   // Precision loss without rescale leads to truncation
-  auto d128_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  auto d128_4_2 = ArrayFromJSON(decimal128(4, 2), R"(["12.34"])");
   for (auto expected : {
            ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
            ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
            ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d128_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d128_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -843,7 +900,7 @@ TEST(Cast, Decimal256ToDecimal128) {
           "22.0000000000",
         "-121.0000000000",
         null])");
-    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+    auto expected = ArrayFromJSON(decimal128(28, 0), R"([
           "02.",
           "30.",
           "22.",
@@ -860,7 +917,7 @@ TEST(Cast, Decimal256ToDecimal128) {
     auto d_5_2 = ArrayFromJSON(decimal256(42, 2), R"([
           "12.34",
            "0.56"])");
-    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+    auto d_4_2 = ArrayFromJSON(decimal128(4, 2), R"([
           "12.34",
            "0.56"])");
 
@@ -877,12 +934,12 @@ TEST(Cast, Decimal256ToDecimal128) {
        "30.",
       null])");
 
-  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+  auto d128_28_0 = ArrayFromJSON(decimal128(28, 0), R"([
       "-02.",
        "30.",
       null])");
 
-  auto d128_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+  auto d128_38_10_roundtripped = ArrayFromJSON(decimal128(38, 10), R"([
       "-02.0000000000",
        "30.0000000000",
       null])");
@@ -900,12 +957,13 @@ TEST(Cast, Decimal256ToDecimal128) {
   // Precision loss without rescale leads to truncation
   auto d256_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
   for (auto expected : {
-           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
-           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
-           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+           ArrayFromJSON(decimal128(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal128(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal128(2, 1), R"(["12.3"])"),
        }) {
     options.allow_decimal_truncate = true;
-    CheckCast(d256_4_2, expected, options);
+    ASSERT_OK_AND_ASSIGN(auto invalid, Cast(d256_4_2, expected->type(), options));
+    ASSERT_RAISES(Invalid, invalid.make_array()->ValidateFull());
 
     options.allow_decimal_truncate = false;
     options.to_type = expected->type();
@@ -915,7 +973,7 @@ TEST(Cast, Decimal256ToDecimal128) {
 
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(
           ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
           ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
@@ -959,7 +1017,7 @@ TEST(Cast, FloatingToDecimal) {
 
 TEST(Cast, DecimalToFloating) {
   for (auto float_type : {float32(), float64()}) {
-    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+    for (auto decimal_type : {decimal128(5, 2), decimal256(5, 2)}) {
       CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
                 ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
     }
@@ -1068,47 +1126,307 @@ TEST(Cast, TimestampToTimestampMultiplyOverflow) {
       options);
 }
 
+constexpr char kTimestampJson[] =
+    R"(["1970-01-01T00:00:59.123456789","2000-02-29T23:23:23.999999999",
+          "1899-01-01T00:59:20.001001001","2033-05-18T03:33:20.000000000",
+          "2020-01-01T01:05:05.001", "2019-12-31T02:10:10.002",
+          "2019-12-30T03:15:15.003", "2009-12-31T04:20:20.004132",
+          "2010-01-01T05:25:25.005321", "2010-01-03T06:30:30.006163",
+          "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
+          "2008-12-28", "2008-12-29", "2012-01-01 01:02:03", null])";
+constexpr char kTimestampSecondsJson[] =
+    R"(["1970-01-01T00:00:59","2000-02-29T23:23:23",
+          "1899-01-01T00:59:20","2033-05-18T03:33:20",
+          "2020-01-01T01:05:05", "2019-12-31T02:10:10",
+          "2019-12-30T03:15:15", "2009-12-31T04:20:20",
+          "2010-01-01T05:25:25", "2010-01-03T06:30:30",
+          "2010-01-04T07:35:35", "2006-01-01T08:40:40",
+          "2005-12-31T09:45:45", "2008-12-28", "2008-12-29",
+          "2012-01-01 01:02:03", null])";
+constexpr char kTimestampExtremeJson[] =
+    R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
+
 TEST(Cast, TimestampToDate) {
-  for (auto date : {
-           // 2000-01-01, 2000-01-02, null
-           ArrayFromJSON(date32(), "[10957, 10958, null]"),
-           ArrayFromJSON(date64(), "[946684800000, 946771200000, null]"),
-       }) {
-    for (auto ts : {
-             ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684800, 946771200, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::MILLI),
-                           "[946684800000, 946771200000, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::MICRO),
-                           "[946684800000000, 946771200000000, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::NANO),
-                           "[946684800000000000, 946771200000000000, null]"),
-         }) {
-      CheckCast(ts, date);
-    }
+  // See scalar_temporal_test.cc
+  auto timestamps = ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampJson);
+  auto date_32 = ArrayFromJSON(date32(),
+                               R"([
+          0, 11016, -25932, 23148,
+          18262, 18261, 18260, 14609,
+          14610, 14612, 14613, 13149,
+          13148, 14241, 14242, 15340, null
+      ])");
+  auto date_64 = ArrayFromJSON(date64(),
+                               R"([
+          0, 951782400000, -2240524800000, 1999987200000,
+          1577836800000, 1577750400000, 1577664000000, 1262217600000,
+          1262304000000, 1262476800000, 1262563200000, 1136073600000,
+          1135987200000, 1230422400000, 1230508800000, 1325376000000, null
+      ])");
+  // See TestOutsideNanosecondRange in scalar_temporal_test.cc
+  auto timestamps_extreme =
+      ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                    R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])");
+  auto date_32_extreme = ArrayFromJSON(date32(), "[-106753, 106753]");
+  auto date_64_extreme = ArrayFromJSON(date64(), "[-9223459200000, 9223459200000]");
 
-    for (auto ts : {
-             ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684801, 946771201, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::MILLI),
-                           "[946684800001, 946771200001, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::MICRO),
-                           "[946684800000001, 946771200000001, null]"),
-             ArrayFromJSON(timestamp(TimeUnit::NANO),
-                           "[946684800000000001, 946771200000000001, null]"),
-         }) {
-      auto options = CastOptions::Safe(date->type());
-      CheckCastFails(ts, options);
-
-      options.allow_time_truncate = true;
-      CheckCast(ts, date, options);
-    }
-
-    auto options = CastOptions::Safe(date->type());
-    auto ts = ArrayFromJSON(timestamp(TimeUnit::SECOND), "[946684800, 946771200, 1]");
-    CheckCastFails(ts, options);
-
-    // Make sure that nulls are excluded from the truncation checks
-    CheckCast(MaskArrayWithNullsAt(ts, {2}), date);
+  CheckCast(timestamps, date_32);
+  CheckCast(timestamps, date_64);
+  CheckCast(timestamps_extreme, date_32_extreme);
+  CheckCast(timestamps_extreme, date_64_extreme);
+  for (auto u : TimeUnit::values()) {
+    auto unit = timestamp(u);
+    CheckCast(ArrayFromJSON(unit, kTimestampSecondsJson), date_32);
+    CheckCast(ArrayFromJSON(unit, kTimestampSecondsJson), date_64);
   }
+}
+
+TEST(Cast, ZonedTimestampToDate) {
+#ifdef _WIN32
+  // TODO(ARROW-13168): we lack tzdb on Windows
+  GTEST_SKIP() << "ARROW-13168: no access to timezone database on Windows";
+#endif
+
+  {
+    // See TestZoned in scalar_temporal_test.cc
+    auto timestamps =
+        ArrayFromJSON(timestamp(TimeUnit::NANO, "Pacific/Marquesas"), kTimestampJson);
+    auto date_32 = ArrayFromJSON(date32(),
+                                 R"([
+          -1, 11016, -25933, 23147,
+          18261, 18260, 18259, 14608,
+          14609, 14611, 14612, 13148,
+          13148, 14240, 14241, 15339, null
+      ])");
+    auto date_64 = ArrayFromJSON(date64(), R"([
+          -86400000, 951782400000, -2240611200000, 1999900800000,
+          1577750400000, 1577664000000, 1577577600000, 1262131200000,
+          1262217600000, 1262390400000, 1262476800000, 1135987200000,
+          1135987200000, 1230336000000, 1230422400000, 1325289600000, null
+      ])");
+    CheckCast(timestamps, date_32);
+    CheckCast(timestamps, date_64);
+  }
+
+  auto date_32 = ArrayFromJSON(date32(), R"([
+          0, 11017, -25932, 23148,
+          18262, 18261, 18260, 14609,
+          14610, 14612, 14613, 13149,
+          13148, 14241, 14242, 15340, null
+      ])");
+  auto date_64 = ArrayFromJSON(date64(), R"([
+          0, 951868800000, -2240524800000, 1999987200000, 1577836800000,
+          1577750400000, 1577664000000, 1262217600000, 1262304000000,
+          1262476800000, 1262563200000, 1136073600000, 1135987200000,
+          1230422400000, 1230508800000, 1325376000000, null
+      ])");
+
+  for (auto u : TimeUnit::values()) {
+    auto timestamps =
+        ArrayFromJSON(timestamp(u, "Australia/Broken_Hill"), kTimestampSecondsJson);
+    CheckCast(timestamps, date_32);
+    CheckCast(timestamps, date_64);
+  }
+
+  // Invalid timezone
+  for (auto u : TimeUnit::values()) {
+    auto timestamps =
+        ArrayFromJSON(timestamp(u, "Mars/Mariner_Valley"), kTimestampSecondsJson);
+    CheckCastFails(timestamps, CastOptions::Unsafe(date32()));
+    CheckCastFails(timestamps, CastOptions::Unsafe(date64()));
+  }
+}
+
+TEST(Cast, TimestampToTime) {
+  // See scalar_temporal_test.cc
+  auto timestamps = ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampJson);
+  // See TestOutsideNanosecondRange in scalar_temporal_test.cc
+  auto timestamps_extreme =
+      ArrayFromJSON(timestamp(TimeUnit::MICRO), kTimestampExtremeJson);
+  auto timestamps_us = ArrayFromJSON(timestamp(TimeUnit::MICRO), R"([
+          "1970-01-01T00:00:59.123456","2000-02-29T23:23:23.999999",
+          "1899-01-01T00:59:20.001001","2033-05-18T03:33:20.000000",
+          "2020-01-01T01:05:05.001", "2019-12-31T02:10:10.002",
+          "2019-12-30T03:15:15.003", "2009-12-31T04:20:20.004132",
+          "2010-01-01T05:25:25.005321", "2010-01-03T06:30:30.006163",
+          "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
+          "2008-12-28", "2008-12-29", "2012-01-01 01:02:03", null])");
+  auto timestamps_ms = ArrayFromJSON(timestamp(TimeUnit::MILLI), R"([
+          "1970-01-01T00:00:59.123","2000-02-29T23:23:23.999",
+          "1899-01-01T00:59:20.001","2033-05-18T03:33:20.000",
+          "2020-01-01T01:05:05.001", "2019-12-31T02:10:10.002",
+          "2019-12-30T03:15:15.003", "2009-12-31T04:20:20.004",
+          "2010-01-01T05:25:25.005", "2010-01-03T06:30:30.006",
+          "2010-01-04T07:35:35", "2006-01-01T08:40:40", "2005-12-31T09:45:45",
+          "2008-12-28", "2008-12-29", "2012-01-01 01:02:03", null])");
+  auto timestamps_s = ArrayFromJSON(timestamp(TimeUnit::SECOND), kTimestampSecondsJson);
+
+  auto times = ArrayFromJSON(time64(TimeUnit::NANO), R"([
+          59123456789, 84203999999999, 3560001001001, 12800000000000,
+          3905001000000, 7810002000000, 11715003000000, 15620004132000,
+          19525005321000, 23430006163000, 27335000000000, 31240000000000,
+          35145000000000, 0, 0, 3723000000000, null
+      ])");
+  auto times_ns_us = ArrayFromJSON(time64(TimeUnit::MICRO), R"([
+          59123456, 84203999999, 3560001001, 12800000000,
+          3905001000, 7810002000, 11715003000, 15620004132,
+          19525005321, 23430006163, 27335000000, 31240000000,
+          35145000000, 0, 0, 3723000000, null
+      ])");
+  auto times_ns_ms = ArrayFromJSON(time32(TimeUnit::MILLI), R"([
+          59123, 84203999, 3560001, 12800000,
+          3905001, 7810002, 11715003, 15620004,
+          19525005, 23430006, 27335000, 31240000,
+          35145000, 0, 0, 3723000, null
+      ])");
+  auto times_us_ns = ArrayFromJSON(time64(TimeUnit::NANO), R"([
+          59123456000, 84203999999000, 3560001001000, 12800000000000,
+          3905001000000, 7810002000000, 11715003000000, 15620004132000,
+          19525005321000, 23430006163000, 27335000000000, 31240000000000,
+          35145000000000, 0, 0, 3723000000000, null
+      ])");
+  auto times_ms_ns = ArrayFromJSON(time64(TimeUnit::NANO), R"([
+          59123000000, 84203999000000, 3560001000000, 12800000000000,
+          3905001000000, 7810002000000, 11715003000000, 15620004000000,
+          19525005000000, 23430006000000, 27335000000000, 31240000000000,
+          35145000000000, 0, 0, 3723000000000, null
+      ])");
+  auto times_ms_us = ArrayFromJSON(time64(TimeUnit::MICRO), R"([
+          59123000, 84203999000, 3560001000, 12800000000,
+          3905001000, 7810002000, 11715003000, 15620004000,
+          19525005000, 23430006000, 27335000000, 31240000000,
+          35145000000, 0, 0, 3723000000, null
+      ])");
+
+  auto times_extreme = ArrayFromJSON(time64(TimeUnit::MICRO), "[59123456, 84203999999]");
+  auto times_s = ArrayFromJSON(time32(TimeUnit::SECOND), R"([
+          59, 84203, 3560, 12800,
+          3905, 7810, 11715, 15620,
+          19525, 23430, 27335, 31240,
+          35145, 0, 0, 3723, null
+      ])");
+  auto times_ms = ArrayFromJSON(time32(TimeUnit::MILLI), R"([
+          59000, 84203000, 3560000, 12800000,
+          3905000, 7810000, 11715000, 15620000,
+          19525000, 23430000, 27335000, 31240000,
+          35145000, 0, 0, 3723000, null
+      ])");
+  auto times_us = ArrayFromJSON(time64(TimeUnit::MICRO), R"([
+          59000000, 84203000000, 3560000000, 12800000000,
+          3905000000, 7810000000, 11715000000, 15620000000,
+          19525000000, 23430000000, 27335000000, 31240000000,
+          35145000000, 0, 0, 3723000000, null
+      ])");
+  auto times_ns = ArrayFromJSON(time64(TimeUnit::NANO), R"([
+          59000000000, 84203000000000, 3560000000000, 12800000000000,
+          3905000000000, 7810000000000, 11715000000000, 15620000000000,
+          19525000000000, 23430000000000, 27335000000000, 31240000000000,
+          35145000000000, 0, 0, 3723000000000, null
+      ])");
+
+  CheckCast(timestamps, times);
+  CheckCastFails(timestamps, CastOptions::Safe(time64(TimeUnit::MICRO)));
+  CheckCast(timestamps_extreme, times_extreme);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::SECOND), kTimestampSecondsJson), times_s);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::SECOND), kTimestampSecondsJson), times_ms);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI), kTimestampSecondsJson), times_s);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI), kTimestampSecondsJson), times_ms);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO), kTimestampSecondsJson), times_us);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO), kTimestampSecondsJson), times_ns);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO), kTimestampSecondsJson), times_ms);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO), kTimestampSecondsJson), times_s);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampSecondsJson), times_ns);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampSecondsJson), times_us);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampSecondsJson), times_ms);
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO), kTimestampSecondsJson), times_s);
+
+  CastOptions truncate = CastOptions::Safe();
+  truncate.allow_time_truncate = true;
+
+  // Truncation tests
+  CheckCastFails(timestamps, CastOptions::Safe(time64(TimeUnit::MICRO)));
+  CheckCastFails(timestamps, CastOptions::Safe(time32(TimeUnit::MILLI)));
+  CheckCastFails(timestamps, CastOptions::Safe(time32(TimeUnit::SECOND)));
+  CheckCastFails(timestamps_us, CastOptions::Safe(time32(TimeUnit::MILLI)));
+  CheckCastFails(timestamps_us, CastOptions::Safe(time32(TimeUnit::SECOND)));
+  CheckCastFails(timestamps_ms, CastOptions::Safe(time32(TimeUnit::SECOND)));
+  CheckCast(timestamps, times_ns_us, truncate);
+  CheckCast(timestamps, times_ns_ms, truncate);
+  CheckCast(timestamps, times_s, truncate);
+  CheckCast(timestamps_us, times_ns_ms, truncate);
+  CheckCast(timestamps_us, times_s, truncate);
+  CheckCast(timestamps_ms, times_s, truncate);
+
+  // Upscaling tests
+  CheckCast(timestamps_us, times_us_ns);
+  CheckCast(timestamps_ms, times_ms_ns);
+  CheckCast(timestamps_ms, times_ms_us);
+  CheckCast(timestamps_s, times_ns);
+  CheckCast(timestamps_s, times_us);
+  CheckCast(timestamps_s, times_ms);
+
+  // Invalid timezone
+  for (auto u : TimeUnit::values()) {
+    auto timestamps =
+        ArrayFromJSON(timestamp(u, "Mars/Mariner_Valley"), kTimestampSecondsJson);
+    if (u == TimeUnit::SECOND || u == TimeUnit::MILLI) {
+      CheckCastFails(timestamps, CastOptions::Unsafe(time32(u)));
+    } else {
+      CheckCastFails(timestamps, CastOptions::Unsafe(time64(u)));
+    }
+  }
+}
+
+TEST(Cast, ZonedTimestampToTime) {
+#ifdef _WIN32
+  // TODO(ARROW-13168): we lack tzdb on Windows
+  GTEST_SKIP() << "ARROW-13168: no access to timezone database on Windows";
+#endif
+
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO, "Pacific/Marquesas"), kTimestampJson),
+            ArrayFromJSON(time64(TimeUnit::NANO), R"([
+          52259123456789, 50003999999999, 56480001001001, 65000000000000,
+          56105001000000, 60010002000000, 63915003000000, 67820004132000,
+          71725005321000, 75630006163000, 79535000000000, 83440000000000,
+          945000000000, 52200000000000, 52200000000000, 55923000000000, null
+      ])"));
+
+  auto time_s = R"([
+          34259, 35603, 35960, 47000,
+          41705, 45610, 49515, 53420,
+          57325, 61230, 65135, 69040,
+          72945, 37800, 37800, 41523, null
+      ])";
+  auto time_ms = R"([
+          34259000, 35603000, 35960000, 47000000,
+          41705000, 45610000, 49515000, 53420000,
+          57325000, 61230000, 65135000, 69040000,
+          72945000, 37800000, 37800000, 41523000, null
+      ])";
+  auto time_us = R"([
+          34259000000, 35603000000, 35960000000, 47000000000,
+          41705000000, 45610000000, 49515000000, 53420000000,
+          57325000000, 61230000000, 65135000000, 69040000000,
+          72945000000, 37800000000, 37800000000, 41523000000, null
+      ])";
+  auto time_ns = R"([
+          34259000000000, 35603000000000, 35960000000000, 47000000000000,
+          41705000000000, 45610000000000, 49515000000000, 53420000000000,
+          57325000000000, 61230000000000, 65135000000000, 69040000000000,
+          72945000000000, 37800000000000, 37800000000000, 41523000000000, null
+      ])";
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "Australia/Broken_Hill"),
+                          kTimestampSecondsJson),
+            ArrayFromJSON(time32(TimeUnit::SECOND), time_s));
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI, "Australia/Broken_Hill"),
+                          kTimestampSecondsJson),
+            ArrayFromJSON(time32(TimeUnit::MILLI), time_ms));
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::MICRO, "Australia/Broken_Hill"),
+                          kTimestampSecondsJson),
+            ArrayFromJSON(time64(TimeUnit::MICRO), time_us));
+  CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO, "Australia/Broken_Hill"),
+                          kTimestampSecondsJson),
+            ArrayFromJSON(time64(TimeUnit::NANO), time_ns));
 }
 
 TEST(Cast, TimeToTime) {
@@ -1234,8 +1552,77 @@ TEST(Cast, TimestampToString) {
     CheckCast(
         ArrayFromJSON(timestamp(TimeUnit::SECOND), "[-30610224000, -5364662400]"),
         ArrayFromJSON(string_type, R"(["1000-01-01 00:00:00", "1800-01-01 00:00:00"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MILLI), "[-30610224000000, -5364662400000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000", "1800-01-01 00:00:00.000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO),
+                      "[-30610224000000000, -5364662400000000]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00.000000", "1800-01-01 00:00:00.000000"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO),
+                      "[-596933876543210988, 349837323456789012]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1951-02-01 01:02:03.456789012", "1981-02-01 01:02:03.456789012"])"));
   }
 }
+
+#ifndef _WIN32
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"), "[-30610224000, -5364662400]"),
+        ArrayFromJSON(string_type,
+                      R"(["1000-01-01 00:00:00Z", "1800-01-01 00:00:00Z"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                      "[-34226955, 1456767743]"),
+        ArrayFromJSON(string_type,
+                      R"(["1968-11-30 13:30:45-0700", "2016-02-29 10:42:23-0700"])"));
+
+    CheckCast(ArrayFromJSON(timestamp(TimeUnit::MILLI, "America/Phoenix"),
+                            "[-34226955877, 1456767743456]"),
+              ArrayFromJSON(
+                  string_type,
+                  R"(["1968-11-30 13:30:44.123-0700", "2016-02-29 10:42:23.456-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::MICRO, "America/Phoenix"),
+                      "[-34226955877000, 1456767743456789]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123000-0700", "2016-02-29 10:42:23.456789-0700"])"));
+
+    CheckCast(
+        ArrayFromJSON(timestamp(TimeUnit::NANO, "America/Phoenix"),
+                      "[-34226955876543211, 1456767743456789246]"),
+        ArrayFromJSON(
+            string_type,
+            R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
+  }
+}
+#else
+// TODO(ARROW-13168): we lack tzdb on Windows
+TEST(Cast, TimestampWithZoneToString) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    ASSERT_RAISES(NotImplemented, Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                                     "[-34226955, 1456767743]"),
+                                       CastOptions::Safe(string_type)));
+
+    ASSERT_RAISES(NotImplemented,
+                  Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                     "[-34226955, 1456767743]"),
+                       CastOptions::Safe(string_type)));
+  }
+}
+#endif
 
 TEST(Cast, DateToDate) {
   auto day_32 = ArrayFromJSON(date32(), "[0, null, 100, 1, 10]");
@@ -1283,10 +1670,11 @@ TEST(Cast, DateZeroCopy) {
            date64(),
            int64(),  // ARROW-1773: cast to int64
        }) {
-    CheckCastZeroCopy(ArrayFromJSON(date64(), "[0, null, 2000, 1000, 0]"),
+    CheckCastZeroCopy(ArrayFromJSON(date64(), "[0, null, 172800000, 86400000, 0]"),
                       zero_copy_to_type);
   }
-  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 2000, 1000, 0]"), date64());
+  CheckCastZeroCopy(ArrayFromJSON(int64(), "[0, null, 172800000, 86400000, 0]"),
+                    date64());
 }
 
 TEST(Cast, DurationToDuration) {
@@ -1453,34 +1841,42 @@ TEST(Cast, StringToBoolean) {
 TEST(Cast, StringToInt) {
   for (auto string_type : {utf8(), large_utf8()}) {
     for (auto signed_type : {int8(), int16(), int32(), int64()}) {
-      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "-1", "0"])"),
-                ArrayFromJSON(signed_type, "[0, null, 127, -1, 0]"));
+      CheckCast(
+          ArrayFromJSON(string_type, R"(["0", null, "127", "-1", "0", "0x0", "0x7F"])"),
+          ArrayFromJSON(signed_type, "[0, null, 127, -1, 0, 0, 127]"));
     }
 
-    CheckCast(
-        ArrayFromJSON(string_type, R"(["2147483647", null, "-2147483648", "0", "0"])"),
-        ArrayFromJSON(int32(), "[2147483647, null, -2147483648, 0, 0]"));
+    CheckCast(ArrayFromJSON(string_type, R"(["2147483647", null, "-2147483648", "0",
+          "0X0", "0x7FFFFFFF", "0XFFFFfFfF", "0Xf0000000"])"),
+              ArrayFromJSON(
+                  int32(),
+                  "[2147483647, null, -2147483648, 0, 0, 2147483647, -1, -268435456]"));
 
-    CheckCast(ArrayFromJSON(
-                  string_type,
-                  R"(["9223372036854775807", null, "-9223372036854775808", "0", "0"])"),
+    CheckCast(ArrayFromJSON(string_type,
+                            R"(["9223372036854775807", null, "-9223372036854775808", "0",
+                    "0x0", "0x7FFFFFFFFFFFFFFf", "0XF000000000000001"])"),
               ArrayFromJSON(int64(),
-                            "[9223372036854775807, null, -9223372036854775808, 0, 0]"));
+                            "[9223372036854775807, null, -9223372036854775808, 0, 0, "
+                            "9223372036854775807, -1152921504606846975]"));
 
     for (auto unsigned_type : {uint8(), uint16(), uint32(), uint64()}) {
-      CheckCast(ArrayFromJSON(string_type, R"(["0", null, "127", "255", "0"])"),
-                ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0]"));
+      CheckCast(ArrayFromJSON(string_type,
+                              R"(["0", null, "127", "255", "0", "0X0", "0xff", "0x7f"])"),
+                ArrayFromJSON(unsigned_type, "[0, null, 127, 255, 0, 0, 255, 127]"));
     }
 
     CheckCast(
-        ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0", "0"])"),
-        ArrayFromJSON(uint32(), "[2147483647, null, 4294967295, 0, 0]"));
+        ArrayFromJSON(string_type, R"(["2147483647", null, "4294967295", "0",
+                                    "0x0", "0x7FFFFFFf", "0xFFFFFFFF"])"),
+        ArrayFromJSON(uint32(),
+                      "[2147483647, null, 4294967295, 0, 0, 2147483647, 4294967295]"));
 
-    CheckCast(ArrayFromJSON(
-                  string_type,
-                  R"(["9223372036854775807", null, "18446744073709551615", "0", "0"])"),
+    CheckCast(ArrayFromJSON(string_type,
+                            R"(["9223372036854775807", null, "18446744073709551615", "0",
+                    "0x0", "0x7FFFFFFFFFFFFFFf", "0xfFFFFFFFFFFFFFFf"])"),
               ArrayFromJSON(uint64(),
-                            "[9223372036854775807, null, 18446744073709551615, 0, 0]"));
+                            "[9223372036854775807, null, 18446744073709551615, 0, 0, "
+                            "9223372036854775807, 18446744073709551615]"));
 
     for (std::string not_int8 : {
              "z",
@@ -1488,16 +1884,15 @@ TEST(Cast, StringToInt) {
              "128",
              "-129",
              "0.5",
+             "0x",
+             "0xfff",
+             "-0xf0",
          }) {
       auto options = CastOptions::Safe(int8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_int8 + "\"]"), options);
     }
 
-    for (std::string not_uint8 : {
-             "256",
-             "-1",
-             "0.5",
-         }) {
+    for (std::string not_uint8 : {"256", "-1", "0.5", "0x", "0x3wa", "0x123"}) {
       auto options = CastOptions::Safe(uint8());
       CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_uint8 + "\"]"), options);
     }
@@ -1550,7 +1945,37 @@ TEST(Cast, StringToTimestamp) {
       }
     }
 
-    // NOTE: timestamp parsing is tested comprehensively in parsing-util-test.cc
+    auto zoned = ArrayFromJSON(string_type,
+                               R"(["2020-02-29T00:00:00Z", "2020-03-02T10:11:12+0102"])");
+    auto mixed = ArrayFromJSON(string_type,
+                               R"(["2020-03-02T10:11:12+0102", "2020-02-29T00:00:00"])");
+
+    // Timestamp with zone offset should not parse as naive
+    CheckCastFails(zoned, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+
+    // Mixed zoned/unzoned should not parse as naive
+    CheckCastFails(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND)));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected no zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND))));
+
+    // ...or as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(mixed, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Unzoned should not parse as timestamp with timezone
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("expected a zone offset"),
+        Cast(strings, CastOptions::Safe(timestamp(TimeUnit::SECOND, "UTC"))));
+
+    // Timestamp with zone offset can parse as any time zone (since they're unambiguous)
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
+                                   "[1582934400, 1583140152]"));
+    CheckCast(zoned, ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
+                                   "[1582934400, 1583140152]"));
+
+    // NOTE: timestamp parsing is tested comprehensively in value_parsing_test.cc
   }
 }
 
@@ -1600,6 +2025,29 @@ TEST(Cast, BinaryToString) {
       AssertBinaryZeroCopy(invalid_utf8, strings);
     }
   }
+
+  auto from_type = fixed_size_binary(3);
+  auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
+  for (auto string_type : {utf8(), large_utf8()}) {
+    CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(string_type, "[]"));
+
+    // invalid utf-8 masked by a null bit is not an error
+    CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
+              MaskArrayWithNullsAt(FixedSizeInvalidUtf8(string_type), {4}));
+
+    // error: invalid utf-8
+    auto options = CastOptions::Safe(string_type);
+    CheckCastFails(invalid_utf8, options);
+
+    // override utf-8 check
+    options.allow_invalid_utf8 = true;
+    ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, string_type, options));
+    ASSERT_RAISES(Invalid, strings->ValidateFull());
+
+    // N.B. null buffer is not always the same if input sliced
+    AssertBufferSame(*invalid_utf8, *strings, 0);
+    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+  }
 }
 
 TEST(Cast, BinaryOrStringToBinary) {
@@ -1619,6 +2067,24 @@ TEST(Cast, BinaryOrStringToBinary) {
       CheckCast(MaskArrayWithNullsAt(InvalidUtf8(from_type), {4}),
                 MaskArrayWithNullsAt(InvalidUtf8(to_type), {4}));
     }
+  }
+
+  auto from_type = fixed_size_binary(3);
+  auto invalid_utf8 = FixedSizeInvalidUtf8(from_type);
+  CheckCast(invalid_utf8, invalid_utf8);
+  CheckCastFails(invalid_utf8, CastOptions::Safe(fixed_size_binary(5)));
+  for (auto to_type : {binary(), large_binary()}) {
+    CheckCast(ArrayFromJSON(from_type, "[]"), ArrayFromJSON(to_type, "[]"));
+    ASSERT_OK_AND_ASSIGN(auto strings, Cast(*invalid_utf8, to_type));
+    ValidateOutput(*strings);
+
+    // N.B. null buffer is not always the same if input sliced
+    AssertBufferSame(*invalid_utf8, *strings, 0);
+    ASSERT_EQ(invalid_utf8->data()->buffers[1].get(), strings->data()->buffers[2].get());
+
+    // invalid utf-8 masked by a null bit is not an error
+    CheckCast(MaskArrayWithNullsAt(invalid_utf8, {4}),
+              MaskArrayWithNullsAt(FixedSizeInvalidUtf8(to_type), {4}));
   }
 }
 
@@ -1750,6 +2216,117 @@ TEST(Cast, ListToListOptionsPassthru) {
       CheckCast(list_int32, ArrayFromJSON(make_dest_list(int16()), "[[32689]]"), options);
     }
   }
+}
+
+static void CheckStructToStruct(
+    const std::vector<std::shared_ptr<DataType>>& value_types) {
+  for (const auto& src_value_type : value_types) {
+    for (const auto& dest_value_type : value_types) {
+      std::vector<std::string> field_names = {"a", "b"};
+      std::shared_ptr<Array> a1, b1, a2, b2;
+      a1 = ArrayFromJSON(src_value_type, "[1, 2, 3, 4, null]");
+      b1 = ArrayFromJSON(src_value_type, "[null, 7, 8, 9, 0]");
+      a2 = ArrayFromJSON(dest_value_type, "[1, 2, 3, 4, null]");
+      b2 = ArrayFromJSON(dest_value_type, "[null, 7, 8, 9, 0]");
+      ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a1, b1}, field_names));
+      ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make({a2, b2}, field_names));
+
+      CheckCast(src, dest);
+
+      std::shared_ptr<Buffer> null_bitmap;
+      BitmapFromVector<int>({0, 1, 0, 1, 0}, &null_bitmap);
+
+      ASSERT_OK_AND_ASSIGN(auto src_nulls,
+                           StructArray::Make({a1, b1}, field_names, null_bitmap));
+      ASSERT_OK_AND_ASSIGN(auto dest_nulls,
+                           StructArray::Make({a2, b2}, field_names, null_bitmap));
+      CheckCast(src_nulls, dest_nulls);
+    }
+  }
+}
+
+TEST(Cast, StructToSameSizedAndNamedStruct) {
+  CheckStructToStruct({int32(), float32(), int64()});
+}
+
+TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a, b;
+  a = ArrayFromJSON(int8(), "[1, 2]");
+  b = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+
+  const auto dest = arrow::struct_(
+      {std::make_shared<Field>("c", int8()), std::make_shared<Field>("d", int8())});
+  const auto options = CastOptions::Safe(dest);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field names do not match: struct<a: int8, "
+                           "b: int8> struct<c: int8, d: int8>"),
+      Cast(src, options));
+}
+
+TEST(Cast, StructToDifferentSizeStruct) {
+  std::vector<std::string> field_names = {"a", "b"};
+  std::shared_ptr<Array> a, b;
+  a = ArrayFromJSON(int8(), "[1, 2]");
+  b = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make({a, b}, field_names));
+
+  const auto dest = arrow::struct_({std::make_shared<Field>("a", int8()),
+                                    std::make_shared<Field>("b", int8()),
+                                    std::make_shared<Field>("c", int8())});
+  const auto options = CastOptions::Safe(dest);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr("Type error: struct field sizes do not match: struct<a: int8, "
+                           "b: int8> struct<a: int8, b: int8, c: int8>"),
+      Cast(src, options));
+}
+
+TEST(Cast, StructToSameSizedButDifferentNullabilityStruct) {
+  // OK to go from not-nullable to nullable...
+  std::vector<std::shared_ptr<Field>> fields1 = {
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
+  std::shared_ptr<Array> a1, b1;
+  a1 = ArrayFromJSON(int8(), "[1, 2]");
+  b1 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src1, StructArray::Make({a1, b1}, fields1));
+
+  std::vector<std::shared_ptr<Field>> fields2 = {
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
+  std::shared_ptr<Array> a2, b2;
+  a2 = ArrayFromJSON(int8(), "[1, 2]");
+  b2 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto dest1, StructArray::Make({a2, b2}, fields2));
+
+  CheckCast(src1, dest1);
+
+  // But not the other way around
+  std::vector<std::shared_ptr<Field>> fields3 = {
+      std::make_shared<Field>("a", int8(), true),
+      std::make_shared<Field>("b", int8(), true)};
+  std::shared_ptr<Array> a3, b3;
+  a3 = ArrayFromJSON(int8(), "[1, null]");
+  b3 = ArrayFromJSON(int8(), "[3, 4]");
+  ASSERT_OK_AND_ASSIGN(auto src2, StructArray::Make({a3, b3}, fields3));
+
+  std::vector<std::shared_ptr<Field>> fields4 = {
+      std::make_shared<Field>("a", int8(), false),
+      std::make_shared<Field>("b", int8(), false)};
+  const auto dest2 = arrow::struct_(fields4);
+  const auto options = CastOptions::Safe(dest2);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError,
+      ::testing::HasSubstr(
+          "Type error: cannot cast nullable struct to non-nullable "
+          "struct: struct<a: int8, b: int8> struct<a: int8 not null, b: int8 not null>"),
+      Cast(src2, options));
 }
 
 TEST(Cast, IdentityCasts) {

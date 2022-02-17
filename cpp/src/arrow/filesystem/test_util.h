@@ -23,7 +23,9 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/util/counting_semaphore.h"
 
 namespace arrow {
 namespace fs {
@@ -37,6 +39,33 @@ static inline FileInfo File(std::string path) {
 static inline FileInfo Dir(std::string path) {
   return FileInfo(std::move(path), FileType::Directory);
 }
+
+// A subclass of MockFileSystem that blocks operations until an unlock method is
+// called.
+//
+// This is intended for testing fine-grained ordering of filesystem operations.
+//
+// N.B. Only OpenOutputStream supports gating at the moment but this is simply because
+//      it is all that has been needed so far.  Feel free to add support for more methods
+//      as required.
+class ARROW_TESTING_EXPORT GatedMockFilesystem : public internal::MockFileSystem {
+ public:
+  GatedMockFilesystem(TimePoint current_time,
+                      const io::IOContext& = io::default_io_context());
+  ~GatedMockFilesystem() override;
+
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+
+  // Wait until at least num_waiters are waiting on OpenOutputStream
+  Status WaitForOpenOutputStream(uint32_t num_waiters);
+  // Unlock `num_waiters` individual calls to OpenOutputStream
+  Status UnlockOpenOutputStream(uint32_t num_waiters);
+
+ private:
+  util::CountingSemaphore open_output_sem_;
+};
 
 ARROW_TESTING_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
@@ -133,6 +162,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_implicit_directories() const { return false; }
   // - Whether the filesystem may allow writing a file "over" a directory
   virtual bool allow_write_file_over_dir() const { return false; }
+  // - Whether the filesystem allows reading a directory
+  virtual bool allow_read_dir_as_file() const { return false; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
   // - Whether the filesystem allows moving a directory "over" a non-empty destination

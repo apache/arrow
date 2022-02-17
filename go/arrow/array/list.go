@@ -17,32 +17,34 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 // List represents an immutable sequence of array values.
 type List struct {
 	array
-	values  Interface
+	values  arrow.Array
 	offsets []int32
 }
 
 // NewListData returns a new List array value, from data.
-func NewListData(data *Data) *List {
+func NewListData(data arrow.ArrayData) *List {
 	a := &List{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *List) ListValues() Interface { return a.values }
+func (a *List) ListValues() arrow.Array { return a.values }
 
 func (a *List) String() string {
 	o := new(strings.Builder)
@@ -63,7 +65,7 @@ func (a *List) String() string {
 	return o.String()
 }
 
-func (a *List) newListValue(i int) Interface {
+func (a *List) newListValue(i int) arrow.Array {
 	j := i + a.array.data.offset
 	beg := int64(a.offsets[j])
 	end := int64(a.offsets[j+1])
@@ -77,6 +79,37 @@ func (a *List) setData(data *Data) {
 		a.offsets = arrow.Int32Traits.CastFromBytes(vals.Bytes())
 	}
 	a.values = MakeFromData(data.childData[0])
+}
+
+func (a *List) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(v)
+}
+
+func (a *List) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
 }
 
 func arrayEqualList(left, right *List) bool {
@@ -170,11 +203,6 @@ func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *ListBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
-}
-
 func (b *ListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
@@ -221,7 +249,7 @@ func (b *ListBuilder) ValueBuilder() Builder {
 
 // NewArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
-func (b *ListBuilder) NewArray() Interface {
+func (b *ListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
 }
 
@@ -245,7 +273,7 @@ func (b *ListBuilder) newData() (data *Data) {
 	if b.offsets != nil {
 		arr := b.offsets.NewInt32Array()
 		defer arr.Release()
-		offsets = arr.Data().buffers[1]
+		offsets = arr.Data().Buffers()[1]
 	}
 
 	data = NewData(
@@ -254,13 +282,63 @@ func (b *ListBuilder) newData() (data *Data) {
 			b.nullBitmap,
 			offsets,
 		},
-		[]*Data{values.Data()},
+		[]arrow.ArrayData{values.Data()},
 		b.nulls,
 		0,
 	)
 	b.reset()
 
 	return
+}
+
+func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t {
+	case json.Delim('['):
+		b.Append(true)
+		if err := b.values.unmarshal(dec); err != nil {
+			return err
+		}
+		// consume ']'
+		_, err := dec.Token()
+		return err
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Struct: arrow.ListOf(b.etype).String(),
+		}
+	}
+
+	return nil
+}
+
+func (b *ListBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *ListBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

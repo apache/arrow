@@ -40,11 +40,12 @@
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "arrow/compute/api_scalar.h"
 
@@ -74,7 +75,7 @@ namespace {
 
 Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
-  int64_t null_bytes = BitUtil::BytesForBits(length);
+  int64_t null_bytes = bit_util::BytesForBits(length);
   ARROW_ASSIGN_OR_RAISE(auto null_bitmap, AllocateResizableBuffer(null_bytes, pool));
 
   // Padding zeroed by AllocateResizableBuffer
@@ -98,7 +99,7 @@ inline int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
     if (traits::isnull(values[i])) {
       ++null_count;
     } else {
-      BitUtil::SetBit(bitmap, i);
+      bit_util::SetBit(bitmap, i);
     }
   }
 
@@ -156,13 +157,15 @@ class NumPyNullsConverter {
 int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   int64_t null_count = 0;
 
+  if (!PyArray_Check(mask)) return -1;
+
   Ndarray1DIndexer<uint8_t> mask_values(mask);
   for (int i = 0; i < length; ++i) {
     if (mask_values[i]) {
       ++null_count;
-      BitUtil::ClearBit(bitmap, i);
+      bit_util::ClearBit(bitmap, i);
     } else {
-      BitUtil::SetBit(bitmap, i);
+      bit_util::SetBit(bitmap, i);
     }
   }
   return null_count;
@@ -268,6 +271,7 @@ class NumPyConverter {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count_ = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     } else {
       RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
                                                  &null_count_));
@@ -430,7 +434,7 @@ inline Status NumPyConverter::PrepareInputData(std::shared_ptr<Buffer>* data) {
   }
 
   if (dtype_->type_num == NPY_BOOL) {
-    int64_t nbytes = BitUtil::BytesForBits(length_);
+    int64_t nbytes = bit_util::BytesForBits(length_);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(nbytes, pool_));
 
     Ndarray1DIndexer<uint8_t> values(arr_);
@@ -659,7 +663,13 @@ Status NumPyConverter::Visit(const StringType& type) {
   char numpy_byteorder = dtype_->byteorder;
 
   // For Python C API, -1 is little-endian, 1 is big-endian
+#if ARROW_LITTLE_ENDIAN
+  // Yield little-endian from both '|' (native) and '<'
   int byteorder = numpy_byteorder == '>' ? 1 : -1;
+#else
+  // Yield big-endian from both '|' (native) and '>'
+  int byteorder = numpy_byteorder == '<' ? -1 : 1;
+#endif
 
   PyAcquireGIL gil_lock;
 
@@ -768,6 +778,7 @@ Status NumPyConverter::Visit(const StructType& type) {
     if (mask_ != nullptr) {
       RETURN_NOT_OK(InitNullBitmap());
       null_count = MaskToBitmap(mask_, length_, null_bitmap_data_);
+      if (null_count_ == -1) return Status::Invalid("Invalid mask type");
     }
     groups.push_back({std::make_shared<BooleanArray>(length_, null_bitmap_)});
   }
@@ -776,20 +787,9 @@ Status NumPyConverter::Visit(const StructType& type) {
   for (auto& converter : sub_converters) {
     RETURN_NOT_OK(converter.Convert());
     groups.push_back(converter.result());
-    const auto& group = groups.back();
-    int64_t n = 0;
-    for (const auto& array : group) {
-      n += array->length();
-    }
   }
   // Ensure the different array groups are chunked consistently
   groups = ::arrow::internal::RechunkArraysConsistently(groups);
-  for (const auto& group : groups) {
-    int64_t n = 0;
-    for (const auto& array : group) {
-      n += array->length();
-    }
-  }
 
   // Make struct array chunks by combining groups
   size_t ngroups = groups.size();
@@ -813,7 +813,7 @@ Status NumPyConverter::Visit(const StructType& type) {
                                    // byte offset
                                    null_offset / 8,
                                    // byte size
-                                   BitUtil::BytesForBits(null_data->length));
+                                   bit_util::BytesForBits(null_data->length));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           fixed_null_buffer,

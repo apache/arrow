@@ -15,36 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from '../vector';
-import { DataType } from '../type';
-import { MessageHeader } from '../enum';
-import { Footer } from './metadata/file';
-import { Schema, Field } from '../schema';
-import streamAdapters from '../io/adapters';
-import { Message } from './metadata/message';
-import * as metadata from './metadata/message';
-import { ArrayBufferViewInput } from '../util/buffer';
-import { ByteStream, AsyncByteStream } from '../io/stream';
-import { RandomAccessFile, AsyncRandomAccessFile } from '../io/file';
-import { VectorLoader, JSONVectorLoader } from '../visitor/vectorloader';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
+import { makeData } from '../data.js';
+import { Vector } from '../vector.js';
+import { DataType, Struct, TypeMap } from '../type.js';
+import { MessageHeader } from '../enum.js';
+import { Footer } from './metadata/file.js';
+import { Schema, Field } from '../schema.js';
+import streamAdapters from '../io/adapters.js';
+import { Message } from './metadata/message.js';
+import * as metadata from './metadata/message.js';
+import { ArrayBufferViewInput } from '../util/buffer.js';
+import { ByteStream, AsyncByteStream } from '../io/stream.js';
+import { RandomAccessFile, AsyncRandomAccessFile } from '../io/file.js';
+import { VectorLoader, JSONVectorLoader } from '../visitor/vectorloader.js';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch.js';
 import {
     FileHandle,
     ArrowJSONLike,
     ITERATOR_DONE,
     ReadableInterop,
-} from '../io/interfaces';
+} from '../io/interfaces.js';
 import {
     MessageReader, AsyncMessageReader, JSONMessageReader,
     checkForMagicArrowString, magicLength, magicAndPadding, magicX2AndPadding
-} from './message';
+} from './message.js';
 import {
     isPromise,
     isIterable, isAsyncIterable,
     isIteratorResult, isArrowJSON,
     isFileHandle, isFetchResponse,
     isReadableDOMStream, isReadableNodeStream
-} from '../util/compat';
+} from '../util/compat.js';
 
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;
@@ -55,12 +56,12 @@ import {
 /** @ignore */ export type FromArgs = FromArg0 | FromArg1 | FromArg2 | FromArg3 | FromArg4 | FromArg5;
 
 /** @ignore */ type OpenOptions = { autoDestroy?: boolean };
-/** @ignore */ type RecordBatchReaders<T extends { [key: string]: DataType } = any> = RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
-/** @ignore */ type AsyncRecordBatchReaders<T extends { [key: string]: DataType } = any> = AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>;
-/** @ignore */ type RecordBatchFileReaders<T extends { [key: string]: DataType } = any> = RecordBatchFileReader<T> | AsyncRecordBatchFileReader<T>;
-/** @ignore */ type RecordBatchStreamReaders<T extends { [key: string]: DataType } = any> = RecordBatchStreamReader<T> | AsyncRecordBatchStreamReader<T>;
+/** @ignore */ type RecordBatchReaders<T extends TypeMap = any> = RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
+/** @ignore */ type AsyncRecordBatchReaders<T extends TypeMap = any> = AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>;
+/** @ignore */ type RecordBatchFileReaders<T extends TypeMap = any> = RecordBatchFileReader<T> | AsyncRecordBatchFileReader<T>;
+/** @ignore */ type RecordBatchStreamReaders<T extends TypeMap = any> = RecordBatchStreamReader<T> | AsyncRecordBatchStreamReader<T>;
 
-export class RecordBatchReader<T extends { [key: string]: DataType } = any> extends ReadableInterop<RecordBatch<T>> {
+export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<RecordBatch<T>> {
 
     protected _impl: RecordBatchReaderImpls<T>;
     protected constructor(impl: RecordBatchReaderImpls<T>) {
@@ -107,10 +108,10 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
         return this._impl.isFile() ? this._impl.readRecordBatch(index) : null;
     }
     public [Symbol.iterator](): IterableIterator<RecordBatch<T>> {
-        return (<IterableIterator<RecordBatch<T>>> this._impl)[Symbol.iterator]();
+        return (<IterableIterator<RecordBatch<T>>>this._impl)[Symbol.iterator]();
     }
     public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> {
-        return (<AsyncIterableIterator<RecordBatch<T>>> this._impl)[Symbol.asyncIterator]();
+        return (<AsyncIterableIterator<RecordBatch<T>>>this._impl)[Symbol.asyncIterator]();
     }
     public toDOMStream() {
         return streamAdapters.toDOMStream<RecordBatch<T>>(
@@ -132,7 +133,7 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
-    public static throughDOM<T extends { [key: string]: DataType }>(
+    public static throughDOM<T extends TypeMap>(
         // @ts-ignore
         writableStrategy?: ByteLengthQueuingStrategy,
         // @ts-ignore
@@ -142,14 +143,14 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
     }
 
     public static from<T extends RecordBatchReader>(source: T): T;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg0): RecordBatchStreamReader<T>;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg1): Promise<RecordBatchStreamReader<T>>;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg2): RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg3): Promise<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg4): Promise<RecordBatchFileReader<T> | AsyncRecordBatchReaders<T>>;
-    public static from<T extends { [key: string]: DataType } = any>(source: FromArg5): Promise<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
+    public static from<T extends TypeMap = any>(source: FromArg0): RecordBatchStreamReader<T>;
+    public static from<T extends TypeMap = any>(source: FromArg1): Promise<RecordBatchStreamReader<T>>;
+    public static from<T extends TypeMap = any>(source: FromArg2): RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
+    public static from<T extends TypeMap = any>(source: FromArg3): Promise<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
+    public static from<T extends TypeMap = any>(source: FromArg4): Promise<RecordBatchFileReader<T> | AsyncRecordBatchReaders<T>>;
+    public static from<T extends TypeMap = any>(source: FromArg5): Promise<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
     /** @nocollapse */
-    public static from<T extends { [key: string]: DataType } = any>(source: any) {
+    public static from<T extends TypeMap = any>(source: any) {
         if (source instanceof RecordBatchReader) {
             return source;
         } else if (isArrowJSON(source)) {
@@ -165,14 +166,14 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
     }
 
     public static readAll<T extends RecordBatchReader>(source: T): T extends RecordBatchReaders ? IterableIterator<T> : AsyncIterableIterator<T>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg0): IterableIterator<RecordBatchStreamReader<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg1): AsyncIterableIterator<RecordBatchStreamReader<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg2): IterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg3): AsyncIterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg4): AsyncIterableIterator<RecordBatchFileReader<T> | AsyncRecordBatchReaders<T>>;
-    public static readAll<T extends { [key: string]: DataType } = any>(source: FromArg5): AsyncIterableIterator<AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg0): IterableIterator<RecordBatchStreamReader<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg1): AsyncIterableIterator<RecordBatchStreamReader<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg2): IterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg3): AsyncIterableIterator<RecordBatchFileReader<T> | RecordBatchStreamReader<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg4): AsyncIterableIterator<AsyncRecordBatchReaders<T>>;
+    public static readAll<T extends TypeMap = any>(source: FromArg5): AsyncIterableIterator<AsyncRecordBatchReaders<T>>;
     /** @nocollapse */
-    public static readAll<T extends { [key: string]: DataType } = any>(source: any) {
+    public static readAll<T extends TypeMap = any>(source: any) {
         if (source instanceof RecordBatchReader) {
             return source.isSync() ? readAllSync(source) : readAllAsync(source as AsyncRecordBatchReaders<T>);
         } else if (isArrowJSON(source) || ArrayBuffer.isView(source) || isIterable<ArrayBufferViewInput>(source) || isIteratorResult(source)) {
@@ -203,24 +204,30 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
 //
 
 /** @ignore */
-export class RecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
-    constructor(protected _impl: RecordBatchStreamReaderImpl<T>) { super (_impl); }
+export class RecordBatchStreamReader<T extends TypeMap = any> extends RecordBatchReader<T> {
+    constructor(protected _impl: RecordBatchStreamReaderImpl<T>) { super(_impl); }
+    public readAll() { return [...this]; }
     public [Symbol.iterator]() { return (this._impl as IterableIterator<RecordBatch<T>>)[Symbol.iterator](); }
     public async *[Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> { yield* this[Symbol.iterator](); }
 }
 /** @ignore */
-export class AsyncRecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
-    constructor(protected _impl: AsyncRecordBatchStreamReaderImpl<T>) { super (_impl); }
+export class AsyncRecordBatchStreamReader<T extends TypeMap = any> extends RecordBatchReader<T> {
+    constructor(protected _impl: AsyncRecordBatchStreamReaderImpl<T>) { super(_impl); }
+    public async readAll() {
+        const batches = new Array<RecordBatch<T>>();
+        for await (const batch of this) { batches.push(batch); }
+        return batches;
+    }
     public [Symbol.iterator](): IterableIterator<RecordBatch<T>> { throw new Error(`AsyncRecordBatchStreamReader is not Iterable`); }
     public [Symbol.asyncIterator]() { return (this._impl as AsyncIterableIterator<RecordBatch<T>>)[Symbol.asyncIterator](); }
 }
 /** @ignore */
-export class RecordBatchFileReader<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReader<T> {
-    constructor(protected _impl: RecordBatchFileReaderImpl<T>) { super (_impl); }
+export class RecordBatchFileReader<T extends TypeMap = any> extends RecordBatchStreamReader<T> {
+    constructor(protected _impl: RecordBatchFileReaderImpl<T>) { super(_impl); }
 }
 /** @ignore */
-export class AsyncRecordBatchFileReader<T extends { [key: string]: DataType } = any> extends AsyncRecordBatchStreamReader<T> {
-    constructor(protected _impl: AsyncRecordBatchFileReaderImpl<T>) { super (_impl); }
+export class AsyncRecordBatchFileReader<T extends TypeMap = any> extends AsyncRecordBatchStreamReader<T> {
+    constructor(protected _impl: AsyncRecordBatchFileReaderImpl<T>) { super(_impl); }
 }
 
 //
@@ -228,7 +235,7 @@ export class AsyncRecordBatchFileReader<T extends { [key: string]: DataType } = 
 //
 
 /** @ignore */
-export interface RecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
+export interface RecordBatchStreamReader<T extends TypeMap = any> extends RecordBatchReader<T> {
     open(options?: OpenOptions | undefined): this;
     cancel(): void;
     throw(value?: any): IteratorResult<any>;
@@ -237,7 +244,7 @@ export interface RecordBatchStreamReader<T extends { [key: string]: DataType } =
 }
 
 /** @ignore */
-export interface AsyncRecordBatchStreamReader<T extends { [key: string]: DataType } = any> extends RecordBatchReader<T> {
+export interface AsyncRecordBatchStreamReader<T extends TypeMap = any> extends RecordBatchReader<T> {
     open(options?: OpenOptions | undefined): Promise<this>;
     cancel(): Promise<void>;
     throw(value?: any): Promise<IteratorResult<any>>;
@@ -246,25 +253,25 @@ export interface AsyncRecordBatchStreamReader<T extends { [key: string]: DataTyp
 }
 
 /** @ignore */
-export interface RecordBatchFileReader<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReader<T> {
+export interface RecordBatchFileReader<T extends TypeMap = any> extends RecordBatchStreamReader<T> {
     readRecordBatch(index: number): RecordBatch<T> | null;
 }
 
 /** @ignore */
-export interface AsyncRecordBatchFileReader<T extends { [key: string]: DataType } = any> extends AsyncRecordBatchStreamReader<T> {
+export interface AsyncRecordBatchFileReader<T extends TypeMap = any> extends AsyncRecordBatchStreamReader<T> {
     readRecordBatch(index: number): Promise<RecordBatch<T> | null>;
 }
 
 /** @ignore */
-type RecordBatchReaderImpls<T extends { [key: string]: DataType } = any> =
-     RecordBatchJSONReaderImpl<T> |
-     RecordBatchFileReaderImpl<T> |
-     RecordBatchStreamReaderImpl<T> |
-     AsyncRecordBatchFileReaderImpl<T> |
-     AsyncRecordBatchStreamReaderImpl<T>;
+type RecordBatchReaderImpls<T extends TypeMap = any> =
+    RecordBatchJSONReaderImpl<T> |
+    RecordBatchFileReaderImpl<T> |
+    RecordBatchStreamReaderImpl<T> |
+    AsyncRecordBatchFileReaderImpl<T> |
+    AsyncRecordBatchStreamReaderImpl<T>;
 
 /** @ignore */
-interface RecordBatchReaderImpl<T extends { [key: string]: DataType } = any> {
+interface RecordBatchReaderImpl<T extends TypeMap = any> {
 
     closed: boolean;
     schema: Schema<T>;
@@ -280,7 +287,7 @@ interface RecordBatchReaderImpl<T extends { [key: string]: DataType } = any> {
 }
 
 /** @ignore */
-interface RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchReaderImpl<T> {
+interface RecordBatchStreamReaderImpl<T extends TypeMap = any> extends RecordBatchReaderImpl<T> {
 
     open(options?: OpenOptions): this;
     cancel(): void;
@@ -293,7 +300,7 @@ interface RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = an
 }
 
 /** @ignore */
-interface AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchReaderImpl<T> {
+interface AsyncRecordBatchStreamReaderImpl<T extends TypeMap = any> extends RecordBatchReaderImpl<T> {
 
     open(options?: OpenOptions): Promise<this>;
     cancel(): Promise<void>;
@@ -306,19 +313,19 @@ interface AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType }
 }
 
 /** @ignore */
-interface RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReaderImpl<T> {
+interface RecordBatchFileReaderImpl<T extends TypeMap = any> extends RecordBatchStreamReaderImpl<T> {
     readRecordBatch(index: number): RecordBatch<T> | null;
 }
 
 /** @ignore */
-interface AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends AsyncRecordBatchStreamReaderImpl<T> {
+interface AsyncRecordBatchFileReaderImpl<T extends TypeMap = any> extends AsyncRecordBatchStreamReaderImpl<T> {
     readRecordBatch(index: number): Promise<RecordBatch<T> | null>;
 }
 
 /** @ignore */
-abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any> implements RecordBatchReaderImpl<T> {
+abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordBatchReaderImpl<T> {
 
-    public schema!: Schema<T>;
+    declare public schema: Schema<T>;
     public closed = false;
     public autoDestroy = true;
     public dictionaries: Map<number, Vector>;
@@ -340,25 +347,28 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
     public reset(schema?: Schema<T> | null) {
         this._dictionaryIndex = 0;
         this._recordBatchIndex = 0;
-        this.schema = <any> schema;
+        this.schema = <any>schema;
         this.dictionaries = new Map();
         return this;
     }
 
     protected _loadRecordBatch(header: metadata.RecordBatch, body: any) {
-        return new RecordBatch<T>(this.schema, header.length, this._loadVectors(header, body, this.schema.fields));
+        const children = this._loadVectors(header, body, this.schema.fields);
+        const data = makeData({ type: new Struct(this.schema.fields), length: header.length, children });
+        return new RecordBatch(this.schema, data);
     }
     protected _loadDictionaryBatch(header: metadata.DictionaryBatch, body: any) {
-        const { id, isDelta, data } = header;
+        const { id, isDelta } = header;
         const { dictionaries, schema } = this;
         const dictionary = dictionaries.get(id);
         if (isDelta || !dictionary) {
             const type = schema.dictionaries.get(id)!;
+            const data = this._loadVectors(header.data, body, [type]);
             return (dictionary && isDelta ? dictionary.concat(
-                Vector.new(this._loadVectors(data, body, [type])[0])) :
-                Vector.new(this._loadVectors(data, body, [type])[0])) as Vector;
+                new Vector(data)) :
+                new Vector(data)).memoize() as Vector;
         }
-        return dictionary;
+        return dictionary.memoize();
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
         return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
@@ -366,7 +376,7 @@ abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any
 }
 
 /** @ignore */
-class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchReaderImpl<T> implements IterableIterator<RecordBatch<T>> {
+class RecordBatchStreamReaderImpl<T extends TypeMap = any> extends RecordBatchReaderImpl<T> implements IterableIterator<RecordBatch<T>> {
 
     protected _reader: MessageReader;
     protected _handle: ByteStream | ArrowJSONLike;
@@ -386,8 +396,8 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
     public cancel() {
         if (!this.closed && (this.closed = true)) {
             this.reset()._reader.return();
-            this._reader = <any> null;
-            this.dictionaries = <any> null;
+            this._reader = <any>null;
+            this.dictionaries = <any>null;
         }
     }
     public open(options?: OpenOptions) {
@@ -444,7 +454,7 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
 }
 
 /** @ignore */
-class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchReaderImpl<T> implements AsyncIterableIterator<RecordBatch<T>> {
+class AsyncRecordBatchStreamReaderImpl<T extends TypeMap = any> extends RecordBatchReaderImpl<T> implements AsyncIterableIterator<RecordBatch<T>> {
 
     protected _handle: AsyncByteStream;
     protected _reader: AsyncMessageReader;
@@ -461,8 +471,8 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
     public async cancel() {
         if (!this.closed && (this.closed = true)) {
             await this.reset()._reader.return();
-            this._reader = <any> null;
-            this.dictionaries = <any> null;
+            this._reader = <any>null;
+            this.dictionaries = <any>null;
         }
     }
     public async open(options?: OpenOptions) {
@@ -519,10 +529,10 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
 }
 
 /** @ignore */
-class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReaderImpl<T> {
+class RecordBatchFileReaderImpl<T extends TypeMap = any> extends RecordBatchStreamReaderImpl<T> {
 
     protected _footer?: Footer;
-    protected _handle!: RandomAccessFile;
+    declare protected _handle: RandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }
@@ -544,7 +554,7 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
     public readRecordBatch(index: number) {
         if (this.closed) { return null; }
         if (!this._footer) { this.open(); }
-        const block = this._footer && this._footer.getRecordBatch(index);
+        const block = this._footer?.getRecordBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.RecordBatch);
             if (message?.isRecordBatch()) {
@@ -557,7 +567,7 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
         return null;
     }
     protected _readDictionaryBatch(index: number) {
-        const block = this._footer && this._footer.getDictionaryBatch(index);
+        const block = this._footer?.getDictionaryBatch(index);
         if (block && this._handle.seek(block.offset)) {
             const message = this._reader.readMessage(MessageHeader.DictionaryBatch);
             if (message?.isDictionaryBatch()) {
@@ -578,7 +588,7 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
     protected _readNextMessageAndValidate<T extends MessageHeader>(type?: T | null): Message<T> | null {
         if (!this._footer) { this.open(); }
         if (this._footer && this._recordBatchIndex < this.numRecordBatches) {
-            const block = this._footer && this._footer.getRecordBatch(this._recordBatchIndex);
+            const block = this._footer?.getRecordBatch(this._recordBatchIndex);
             if (block && this._handle.seek(block.offset)) {
                 return this._reader.readMessage(type);
             }
@@ -588,11 +598,11 @@ class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> ext
 }
 
 /** @ignore */
-class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends AsyncRecordBatchStreamReaderImpl<T>
+class AsyncRecordBatchFileReaderImpl<T extends TypeMap = any> extends AsyncRecordBatchStreamReaderImpl<T>
     implements AsyncRecordBatchFileReaderImpl<T> {
 
     protected _footer?: Footer;
-    protected _handle!: AsyncRandomAccessFile;
+    declare protected _handle: AsyncRandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }
@@ -600,8 +610,8 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
     constructor(source: FileHandle, byteLength?: number, dictionaries?: Map<number, Vector>);
     constructor(source: FileHandle | AsyncRandomAccessFile, dictionaries?: Map<number, Vector>);
     constructor(source: FileHandle | AsyncRandomAccessFile, ...rest: any[]) {
-        const byteLength = typeof rest[0] !== 'number' ? <number> rest.shift() : undefined;
-        const dictionaries = rest[0] instanceof Map ? <Map<number, Vector>> rest.shift() : undefined;
+        const byteLength = typeof rest[0] !== 'number' ? <number>rest.shift() : undefined;
+        const dictionaries = rest[0] instanceof Map ? <Map<number, Vector>>rest.shift() : undefined;
         super(source instanceof AsyncRandomAccessFile ? source : new AsyncRandomAccessFile(source, byteLength), dictionaries);
     }
     public isFile(): this is RecordBatchFileReaders<T> { return true; }
@@ -618,7 +628,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
     public async readRecordBatch(index: number) {
         if (this.closed) { return null; }
         if (!this._footer) { await this.open(); }
-        const block = this._footer && this._footer.getRecordBatch(index);
+        const block = this._footer?.getRecordBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.RecordBatch);
             if (message?.isRecordBatch()) {
@@ -631,7 +641,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
         return null;
     }
     protected async _readDictionaryBatch(index: number) {
-        const block = this._footer && this._footer.getDictionaryBatch(index);
+        const block = this._footer?.getDictionaryBatch(index);
         if (block && (await this._handle.seek(block.offset))) {
             const message = await this._reader.readMessage(MessageHeader.DictionaryBatch);
             if (message?.isDictionaryBatch()) {
@@ -663,7 +673,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
 }
 
 /** @ignore */
-class RecordBatchJSONReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReaderImpl<T> {
+class RecordBatchJSONReaderImpl<T extends TypeMap = any> extends RecordBatchStreamReaderImpl<T> {
     constructor(source: ArrowJSONLike, dictionaries?: Map<number, Vector>) {
         super(source, dictionaries);
     }
@@ -684,8 +694,8 @@ function shouldAutoDestroy(self: { autoDestroy: boolean }, options?: OpenOptions
 }
 
 /** @ignore */
-function* readAllSync<T extends { [key: string]: DataType } = any>(source: RecordBatchReaders<T> | FromArg0 | FromArg2) {
-    const reader = RecordBatchReader.from<T>(<any> source) as RecordBatchReaders<T>;
+function* readAllSync<T extends TypeMap = any>(source: RecordBatchReaders<T> | FromArg0 | FromArg2) {
+    const reader = RecordBatchReader.from<T>(<any>source) as RecordBatchReaders<T>;
     try {
         if (!reader.open({ autoDestroy: false }).closed) {
             do { yield reader; } while (!(reader.reset().open()).closed);
@@ -694,8 +704,8 @@ function* readAllSync<T extends { [key: string]: DataType } = any>(source: Recor
 }
 
 /** @ignore */
-async function* readAllAsync<T extends { [key: string]: DataType } = any>(source: AsyncRecordBatchReaders<T> | FromArg1 | FromArg3 | FromArg4 | FromArg5) {
-    const reader = await RecordBatchReader.from<T>(<any> source) as RecordBatchReader<T>;
+async function* readAllAsync<T extends TypeMap = any>(source: AsyncRecordBatchReaders<T> | FromArg1 | FromArg3 | FromArg4 | FromArg5) {
+    const reader = await RecordBatchReader.from<T>(<any>source) as RecordBatchReader<T>;
     try {
         if (!(await reader.open({ autoDestroy: false })).closed) {
             do { yield reader; } while (!(await reader.reset().open()).closed);
@@ -704,36 +714,34 @@ async function* readAllAsync<T extends { [key: string]: DataType } = any>(source
 }
 
 /** @ignore */
-function fromArrowJSON<T extends { [key: string]: DataType }>(source: ArrowJSONLike) {
+function fromArrowJSON<T extends TypeMap>(source: ArrowJSONLike) {
     return new RecordBatchStreamReader(new RecordBatchJSONReaderImpl<T>(source));
 }
 
 /** @ignore */
-function fromByteStream<T extends { [key: string]: DataType }>(source: ByteStream) {
+function fromByteStream<T extends TypeMap>(source: ByteStream) {
     const bytes = source.peek((magicLength + 7) & ~7);
     return bytes && bytes.byteLength >= 4 ? !checkForMagicArrowString(bytes)
         ? new RecordBatchStreamReader(new RecordBatchStreamReaderImpl<T>(source))
         : new RecordBatchFileReader(new RecordBatchFileReaderImpl<T>(source.read()))
-        : new RecordBatchStreamReader(new RecordBatchStreamReaderImpl<T>(function*(): any {}()));
+        : new RecordBatchStreamReader(new RecordBatchStreamReaderImpl<T>(function* (): any { }()));
 }
 
 /** @ignore */
-async function fromAsyncByteStream<T extends { [key: string]: DataType }>(source: AsyncByteStream) {
+async function fromAsyncByteStream<T extends TypeMap>(source: AsyncByteStream) {
     const bytes = await source.peek((magicLength + 7) & ~7);
     return bytes && bytes.byteLength >= 4 ? !checkForMagicArrowString(bytes)
         ? new AsyncRecordBatchStreamReader(new AsyncRecordBatchStreamReaderImpl<T>(source))
         : new RecordBatchFileReader(new RecordBatchFileReaderImpl<T>(await source.read()))
-        : new AsyncRecordBatchStreamReader(new AsyncRecordBatchStreamReaderImpl<T>(async function*(): any {}()));
+        : new AsyncRecordBatchStreamReader(new AsyncRecordBatchStreamReaderImpl<T>(async function* (): any { }()));
 }
 
 /** @ignore */
-async function fromFileHandle<T extends { [key: string]: DataType }>(source: FileHandle) {
+async function fromFileHandle<T extends TypeMap>(source: FileHandle) {
     const { size } = await source.stat();
     const file = new AsyncRandomAccessFile(source, size);
-    if (size >= magicX2AndPadding) {
-        if (checkForMagicArrowString(await file.readAt(0, (magicLength + 7) & ~7))) {
-            return new AsyncRecordBatchFileReader(new AsyncRecordBatchFileReaderImpl<T>(file));
-        }
+    if (size >= magicX2AndPadding && checkForMagicArrowString(await file.readAt(0, (magicLength + 7) & ~7))) {
+        return new AsyncRecordBatchFileReader(new AsyncRecordBatchFileReaderImpl<T>(file));
     }
     return new AsyncRecordBatchStreamReader(new AsyncRecordBatchStreamReaderImpl<T>(file));
 }

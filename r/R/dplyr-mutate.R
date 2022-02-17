@@ -24,7 +24,7 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  exprs <- quos(...)
+  exprs <- ensure_named_exprs(quos(...))
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -35,20 +35,17 @@ mutate.arrow_dplyr_query <- function(.data,
     return(.data)
   }
 
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
 
   # Restrict the cases we support for now
-  if (length(dplyr::group_vars(.data)) > 0) {
+  has_aggregations <- any(unlist(lapply(exprs, all_funs)) %in% names(agg_funcs))
+  if (has_aggregations) {
+    # ARROW-13926
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
-    return(abandon_ship(call, .data, "mutate() on grouped data not supported in Arrow"))
+    return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
-
-  # Check for unnamed expressions and fix if any
-  unnamed <- !nzchar(names(exprs))
-  # Deparse and take the first element in case they're long expressions
-  names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
   mask <- arrow_mask(.data)
   results <- list()
@@ -60,14 +57,14 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- handle_arrow_not_supported(
         results[[new_var]],
-        as_label(exprs[[i]])
+        format_expr(exprs[[i]])
       )
       return(abandon_ship(call, .data, msg))
     } else if (!inherits(results[[new_var]], "Expression") &&
       !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values
       if (length(results[[new_var]]) != 1) {
-        msg <- paste0("In ", new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        msg <- paste0("In ", new_var, " = ", format_expr(exprs[[i]]), ", only values of size one are recycled")
         return(abandon_ship(call, .data, msg))
       }
       results[[new_var]] <- Expression$scalar(results[[new_var]])
@@ -92,7 +89,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     new <- setdiff(new_vars, old_vars)
-    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
+    .data <- dplyr::relocate(.data, all_of(new), .before = !!.before, .after = !!.after)
   }
 
   # Respect .keep
@@ -111,13 +108,13 @@ mutate.arrow_dplyr_query <- function(.data,
   # Even if "none", we still keep group vars
   ensure_group_vars(.data)
 }
-mutate.Dataset <- mutate.ArrowTabular <- mutate.arrow_dplyr_query
+mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arrow_dplyr_query
 
 transmute.arrow_dplyr_query <- function(.data, ...) {
   dots <- check_transmute_args(...)
   dplyr::mutate(.data, !!!dots, .keep = "none")
 }
-transmute.Dataset <- transmute.ArrowTabular <- transmute.arrow_dplyr_query
+transmute.Dataset <- transmute.ArrowTabular <- transmute.RecordBatchReader <- transmute.arrow_dplyr_query
 
 # This function is a copy of dplyr:::check_transmute_args at
 # https://github.com/tidyverse/dplyr/blob/master/R/mutate.R
@@ -132,4 +129,12 @@ check_transmute_args <- function(..., .keep, .before, .after) {
     abort("`transmute()` does not support the `.after` argument")
   }
   enquos(...)
+}
+
+ensure_named_exprs <- function(exprs) {
+  # Check for unnamed expressions and fix if any
+  unnamed <- !nzchar(names(exprs))
+  # Deparse and take the first element in case they're long expressions
+  names(exprs)[unnamed] <- map_chr(exprs[unnamed], format_expr)
+  exprs
 }

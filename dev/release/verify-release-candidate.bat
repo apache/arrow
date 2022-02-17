@@ -37,7 +37,7 @@ wget --no-check-certificate -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TAR
 
 tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
 
-set PYTHON=3.6
+set PYTHON=3.8
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
@@ -49,6 +49,10 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
     || exit /B 1
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
+
+@rem With MSVC we always bundle a more recent GTest which causes a link conflict
+@rem for more context, see https://issues.apache.org/jira/browse/ARROW-15378
+call conda remove -y gtest gmock || exit /B 1
 
 set GENERATOR=Visual Studio 15 2017 Win64
 set CONFIGURATION=release
@@ -88,16 +92,9 @@ cmake -G "%GENERATOR%" ^
       -DCMAKE_BUILD_TYPE=%CONFIGURATION% ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DCMAKE_UNITY_BUILD=ON ^
-      -DGTest_SOURCE=BUNDLED ^
       ..  || exit /B
 
 cmake --build . --target INSTALL --config Release || exit /B 1
-
-@rem NOTE(wesm): Building googletest is flaky for me with ninja. Building it
-@rem first fixes the problem
-
-@rem ninja googletest_ep || exit /B 1
-@rem ninja install || exit /B 1
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing

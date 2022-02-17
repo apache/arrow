@@ -139,14 +139,22 @@ struct ARROW_EXPORT FunctionDoc {
   /// \brief Name of the options class, if any.
   std::string options_class;
 
+  /// \brief Whether options are required for function execution
+  ///
+  /// If false, then either the function does not have an options class
+  /// or there is a usable default options value.
+  bool options_required;
+
   FunctionDoc() = default;
 
   FunctionDoc(std::string summary, std::string description,
-              std::vector<std::string> arg_names, std::string options_class = "")
+              std::vector<std::string> arg_names, std::string options_class = "",
+              bool options_required = false)
       : summary(std::move(summary)),
         description(std::move(description)),
         arg_names(std::move(arg_names)),
-        options_class(std::move(options_class)) {}
+        options_class(std::move(options_class)),
+        options_required(options_required) {}
 
   static const FunctionDoc& Empty();
 };
@@ -227,7 +235,7 @@ class ARROW_EXPORT Function {
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const;
 
-  /// \brief Returns a the default options for this function.
+  /// \brief Returns the default options for this function.
   ///
   /// Whatever option semantics a Function has, implementations must guarantee
   /// that default_options() is valid to pass to Execute as options.

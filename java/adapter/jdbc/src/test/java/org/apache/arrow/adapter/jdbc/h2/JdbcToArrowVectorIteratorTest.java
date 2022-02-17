@@ -27,6 +27,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -77,9 +78,10 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
    * Constructor which populates the table object for each test iteration.
    *
    * @param table Table object
+   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
    */
-  public JdbcToArrowVectorIteratorTest(Table table) {
-    super(table);
+  public JdbcToArrowVectorIteratorTest(Table table, boolean reuseVectorSchemaRoot) {
+    super(table, reuseVectorSchemaRoot);
   }
 
   @Test
@@ -93,6 +95,51 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
         JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
 
     validate(iterator);
+  }
+
+  @Test
+  public void testVectorSchemaRootReuse() throws SQLException, IOException {
+    String[] expectedColValues = {
+        "[101, 102, 103]",
+        "[104, null, null]",
+        "[107, 108, 109]",
+        "[110]"
+    };
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
+
+    ArrowVectorIterator iterator =
+        JdbcToArrow.sqlToArrowVectorIterator(conn.createStatement().executeQuery(table.getQuery()), config);
+
+    int batchCount = 0;
+    VectorSchemaRoot prev = null;
+    while (iterator.hasNext()) {
+      VectorSchemaRoot cur = iterator.next();
+      assertNotNull(cur);
+
+      // verify the first column, with may contain nulls.
+      assertEquals(expectedColValues[batchCount], cur.getVector(0).toString());
+
+      if (prev != null) {
+        // skip the first iteration
+
+        if (reuseVectorSchemaRoot) {
+          // when reuse is enabled, different iterations are based on the same vector schema root.
+          assertTrue(prev == cur);
+        } else {
+          // when reuse is enabled, a new vector schema root is created in each iteration.
+          assertFalse(prev == cur);
+          cur.close();
+        }
+      }
+
+      prev = cur;
+      batchCount += 1;
+    }
+
+    // make sure we have at least two batches, so the above test paths are actually covered
+    assertTrue(batchCount > 1);
   }
 
   @Test
@@ -113,7 +160,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
     // first experiment, with calendar and time zone.
     JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setTargetBatchSize(3).build();
+        Calendar.getInstance()).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
     assertNotNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
@@ -127,7 +174,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
     // second experiment, without calendar and time zone.
     config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        null).setTargetBatchSize(3).build();
+        null).setTargetBatchSize(3).setReuseVectorSchemaRoot(reuseVectorSchemaRoot).build();
     assertNull(config.getCalendar());
 
     try (ArrowVectorIterator iterator =
@@ -164,6 +211,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     while (iterator.hasNext()) {
       VectorSchemaRoot root = iterator.next();
       roots.add(root);
+
       JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
       bigIntVectors.add((BigIntVector) root.getVector(BIGINT));
@@ -370,7 +418,12 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     int index = 0;
     for (IntVector vector : vectors) {
       for (int i = 0; i < vector.getValueCount(); i++) {
-        assertEquals(values[index++].intValue(), vector.get(i));
+        if (values[index] == null) {
+          assertTrue(vector.isNull(i));
+        } else {
+          assertEquals(values[index].longValue(), vector.get(i));
+        }
+        index++;
       }
     }
   }
@@ -397,7 +450,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
   @Test
   public void testJdbcToArrowCustomTypeConversion() throws SQLException, IOException {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE);
+        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
+        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot);
 
     // first experiment, using default type converter
     JdbcToArrowConfig config = builder.build();

@@ -35,7 +35,6 @@
 #include "arrow/type.h"
 #include "arrow/util/key_value_metadata.h"
 
-using arrow::ArrayFromVector;
 using arrow::Field;
 using arrow::TimeUnit;
 
@@ -1338,7 +1337,7 @@ TEST(TestFromParquetSchema, CorruptMetadata) {
 ::arrow::Result<std::deque<LevelInfo>> RootToTreeLeafLevels(
     const SchemaManifest& manifest, int column_number) {
   std::deque<LevelInfo> out;
-  const SchemaField* field;
+  const SchemaField* field = nullptr;
   RETURN_NOT_OK(manifest.GetColumnField(column_number, &field));
   while (field != nullptr) {
     out.push_front(field->level_info);

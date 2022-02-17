@@ -142,28 +142,39 @@ TEST_P(BaseChunkerTest, Empty) {
 }
 
 TEST_P(BaseChunkerTest, Newlines) {
-  MakeChunker();
-  {
-    auto csv = MakeCSVData({"a\n", "b\r", "c,d\r\n"});
+  auto check_csv = [&](const std::string& csv) {
     AssertChunkSize(*chunker_, csv, static_cast<uint32_t>(csv.size()));
     // Trailing \n after \r is optional
     AssertChunkSize(*chunker_, csv.substr(0, csv.size() - 1),
                     static_cast<uint32_t>(csv.size() - 1));
+  };
+
+  MakeChunker();
+  {
+    ARROW_SCOPED_TRACE("short values");
+    check_csv(MakeCSVData({"a\n", "b\r", "c,d\r\n"}));
+    ARROW_SCOPED_TRACE("long values");
+    check_csv(MakeCSVData(
+        {"aaaaaaaaaaaaaaa\n", "bbbbbbbbbbbbb\r", "cccccccccccccc,ddddddddddd\r\n"}));
   }
 }
 
 TEST_P(BaseChunkerTest, QuotingSimple) {
-  auto csv = MakeCSVData({"1,\",3,\",5\n"});
-  {
-    MakeChunker();
+  auto check_csv = [&](const std::string& csv) {
     auto lengths = {csv.size()};
     AssertChunking(*chunker_, csv, lengths);
-  }
-  {
-    options_.quoting = false;
+  };
+
+  auto csv_short_values = MakeCSVData({"1,\",3,\",5\n"});
+  auto csv_long_values = MakeCSVData({"111111111111,\",3333333333333,\",55555555555\n"});
+
+  for (auto quoting : {true, false}) {
+    options_.quoting = quoting;
     MakeChunker();
-    auto lengths = {csv.size()};
-    AssertChunking(*chunker_, csv, lengths);
+    ARROW_SCOPED_TRACE("short values");
+    check_csv(csv_short_values);
+    ARROW_SCOPED_TRACE("long values");
+    check_csv(csv_long_values);
   }
 }
 
@@ -287,6 +298,45 @@ TEST_P(BaseChunkerTest, EscapingNewline) {
       auto lengths = {5, 2};
       MakeChunker();
       AssertChunking(*chunker_, csv, lengths);
+    }
+  }
+}
+
+TEST_P(BaseChunkerTest, EscapingAndQuoting) {
+  if (options_.newlines_in_values) {
+    {
+      auto csv = MakeCSVData({"\"a\\\"\n", "\"b\\\"\n"});
+      {
+        options_.quoting = true;
+        options_.escaping = true;
+        auto lengths = {10};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+      {
+        options_.quoting = true;
+        options_.escaping = false;
+        auto lengths = {5, 5};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+    }
+    {
+      auto csv = MakeCSVData({"\"a\\\n\"\n"});
+      {
+        options_.quoting = false;
+        options_.escaping = true;
+        auto lengths = {6};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
+      {
+        options_.quoting = false;
+        options_.escaping = false;
+        auto lengths = {4, 2};
+        MakeChunker();
+        AssertChunking(*chunker_, csv, lengths);
+      }
     }
   }
 }

@@ -373,7 +373,7 @@ def serialize(object value, SerializationContext context=None):
 
     Parameters
     ----------
-    value: object
+    value : object
         Python object for the sequence that is to be serialized.
     context : SerializationContext
         Custom serialization and deserialization context, uses a default
@@ -412,9 +412,9 @@ def serialize_to(object value, sink, SerializationContext context=None):
 
     Parameters
     ----------
-    value: object
+    value : object
         Python object for the sequence that is to be serialized.
-    sink: NativeFile or file-like
+    sink : NativeFile or file-like
         File the sequence will be written to.
     context : SerializationContext
         Custom serialization and deserialization context, uses a default
@@ -437,9 +437,9 @@ def read_serialized(source, base=None):
 
     Parameters
     ----------
-    source: NativeFile
+    source : NativeFile
         File to read the sequence from.
-    base: object
+    base : object
         This object will be the base object of all the numpy arrays
         contained in the sequence.
 
@@ -478,9 +478,9 @@ def deserialize_from(source, object base, SerializationContext context=None):
 
     Parameters
     ----------
-    source: NativeFile
+    source : NativeFile
         File to read the sequence from.
-    base: object
+    base : object
         This object will be the base object of all the numpy arrays
         contained in the sequence.
     context : SerializationContext

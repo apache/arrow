@@ -33,6 +33,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -74,11 +75,22 @@ void CompareBatchColumnsDetailed(const RecordBatch& result, const RecordBatch& e
 }
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
+                            std::shared_ptr<Array>* out, uint32_t seed, int32_t min,
+                            int32_t max) {
+  random::RandomArrayGenerator rand(seed);
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+
+  *out = rand.Int32(length, min, max, null_probability);
+
+  return Status::OK();
+}
+
+Status MakeRandomInt64Array(int64_t length, bool include_nulls, MemoryPool* pool,
                             std::shared_ptr<Array>* out, uint32_t seed) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
-  *out = rand.Int32(length, 0, 1000, null_probability);
+  *out = rand.Int64(length, 0, 1000, null_probability);
 
   return Status::OK();
 }
@@ -800,9 +812,8 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> date32_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
-  std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-                                        1489272000000, 1489272000000, 1489273000000,
-                                        1489274000000};
+  std::vector<int64_t> date64_values = {86400000,  172800000, 259200000, 1489272000000,
+                                        345600000, 432000000, 518400000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
@@ -836,12 +847,13 @@ Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
   auto f2 = field("f2", duration(TimeUnit::SECOND));
   auto f3 = field("f3", day_time_interval());
   auto f4 = field("f4", month_interval());
-  auto schema = ::arrow::schema({f0, f1, f2, f3, f4});
+  auto f5 = field("f5", month_day_nano_interval());
+  auto schema = ::arrow::schema({f0, f1, f2, f3, f4, f5});
 
   std::vector<int64_t> ts_values = {1489269000000, 1489270000000, 1489271000000,
                                     1489272000000, 1489272000000, 1489273000000};
 
-  std::shared_ptr<Array> a0, a1, a2, a3, a4;
+  std::shared_ptr<Array> a0, a1, a2, a3, a4, a5;
   ArrayFromVector<DurationType, int64_t>(f0->type(), is_valid, ts_values, &a0);
   ArrayFromVector<DurationType, int64_t>(f1->type(), is_valid, ts_values, &a1);
   ArrayFromVector<DurationType, int64_t>(f2->type(), is_valid, ts_values, &a2);
@@ -849,8 +861,11 @@ Status MakeIntervals(std::shared_ptr<RecordBatch>* out) {
       f3->type(), is_valid, {{0, 0}, {0, 1}, {1, 1}, {2, 1}, {3, 4}, {-1, -1}}, &a3);
   ArrayFromVector<MonthIntervalType, int32_t>(f4->type(), is_valid, {0, -1, 1, 2, -2, 24},
                                               &a4);
+  ArrayFromVector<MonthDayNanoIntervalType, MonthDayNanoIntervalType::MonthDayNanos>(
+      f5->type(), is_valid,
+      {{0, 0, 0}, {0, 0, 1}, {-1, 0, 1}, {-1, -2, -3}, {2, 4, 6}, {-3, -4, -5}}, &a5);
 
-  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4});
+  *out = RecordBatch::Make(schema, a0->length(), {a0, a1, a2, a3, a4, a5});
   return Status::OK();
 }
 
@@ -862,8 +877,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   auto f3 = field("f3", time64(TimeUnit::NANO));
   auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
-                                     1489272000, 1489272000, 1489273000};
+  std::vector<int32_t> t32_values = {14896, 14897, 14892, 1489272000, 14893, 14895};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
                                      1489272000000, 1489272000000, 1489273000000};
 
@@ -914,32 +928,17 @@ Status MakeFWBinary(std::shared_ptr<RecordBatch>* out) {
 }
 
 Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
-  constexpr int kDecimalPrecision = 38;
-  auto type = decimal(kDecimalPrecision, 4);
+  constexpr int kLength = 10;
+  auto type = decimal128(38, 4);
   auto f0 = field("f0", type);
   auto f1 = field("f1", type);
   auto schema = ::arrow::schema({f0, f1});
 
-  constexpr int kDecimalSize = 16;
-  constexpr int length = 10;
+  auto gen = random::RandomArrayGenerator(/*seed=*/1);
+  auto a1 = gen.Decimal128(type, kLength, /*null_probability=*/0.1);
+  auto a2 = std::make_shared<Decimal128Array>(type, kLength, a1->data()->buffers[1]);
 
-  std::vector<uint8_t> is_valid_bytes(length);
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> data,
-                        AllocateBuffer(kDecimalSize * length));
-
-  random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
-  random_null_bytes(length, 0.1, is_valid_bytes.data());
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> is_valid,
-                        internal::BytesToBits(is_valid_bytes));
-
-  auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
-                                              kUnknownNullCount);
-
-  auto a2 = std::make_shared<Decimal128Array>(f1->type(), length, data);
-
-  *out = RecordBatch::Make(schema, length, {a1, a2});
+  *out = RecordBatch::Make(schema, kLength, {a1, a2});
   return Status::OK();
 }
 
@@ -976,6 +975,23 @@ Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
   auto a1 = std::make_shared<UuidArray>(
       uuid_type,
       ArrayFromJSON(storage_type, R"(["ZYXWVUTSRQPONMLK", "JIHGFEDBA9876543"])"));
+
+  *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
+  return Status::OK();
+}
+
+Status MakeComplex128(std::shared_ptr<RecordBatch>* out) {
+  auto type = complex128();
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+
+  auto f0 = field("f0", type);
+  auto f1 = field("f1", type, /*nullable=*/false);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ExtensionType::WrapArray(complex128(),
+                                     ArrayFromJSON(storage_type, "[[1.0, -2.5], null]"));
+  auto a1 = ExtensionType::WrapArray(
+      complex128(), ArrayFromJSON(storage_type, "[[1.0, -2.5], [3.0, -4.0]]"));
 
   *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
   return Status::OK();

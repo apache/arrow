@@ -19,10 +19,11 @@ package flight_test
 import (
 	"context"
 	"io"
+	sync "sync"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -86,15 +87,13 @@ func (s ServerExpectHeaderMiddleware) StartCall(ctx context.Context) context.Con
 func (s ServerExpectHeaderMiddleware) CallCompleted(context.Context, error) {}
 
 func TestServerStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -134,15 +133,13 @@ func TestServerStreamMiddleware(t *testing.T) {
 }
 
 func TestServerUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerTraceMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -180,6 +177,7 @@ func TestServerUnaryMiddleware(t *testing.T) {
 type ClientTestSendHeaderMiddleware struct {
 	ctx context.Context
 	md  metadata.MD
+	mx  sync.Mutex
 }
 
 func (c *ClientTestSendHeaderMiddleware) StartCall(ctx context.Context) context.Context {
@@ -200,19 +198,19 @@ func (c *ClientTestSendHeaderMiddleware) HeadersReceived(ctx context.Context, md
 		panic("invalid context client middleware")
 	}
 
+	c.mx.Lock()
+	defer c.mx.Unlock()
 	c.md = md
 }
 
 func TestClientStreamMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerExpectHeaderMiddleware{}),
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		ListFlights: f.ListFlights,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()
@@ -246,20 +244,20 @@ func TestClientStreamMiddleware(t *testing.T) {
 		assert.True(t, recs[0].Schema().Equal(sc))
 	}
 
+	middleware.mx.Lock()
+	defer middleware.mx.Unlock()
 	assert.Equal(t, []string{"bar"}, middleware.md.Get("foo"))
 	assert.Equal(t, []string{"duper"}, middleware.md.Get("super"))
 }
 
 func TestClientUnaryMiddleware(t *testing.T) {
-	s := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+	s := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(&ServerMiddlewareAddHeader{}),
 		flight.CreateServerMiddleware(ServerExpectHeaderMiddleware{}),
 	})
 	s.Init("localhost:0")
 	f := &flightServer{}
-	s.RegisterFlightService(&flight.FlightServiceService{
-		GetSchema: f.GetSchema,
-	})
+	s.RegisterFlightService(f)
 
 	go s.Serve()
 	defer s.Shutdown()

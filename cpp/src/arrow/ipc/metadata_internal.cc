@@ -39,7 +39,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 #include "generated/File_generated.h"
 #include "generated/Message_generated.h"
@@ -203,7 +203,9 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
   *offset = IntToFlatbuffer(fbb, BIT_WIDTH, IS_SIGNED); \
   break;
 
-static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
+}  // namespace
+
+flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
   switch (unit) {
     case TimeUnit::SECOND:
       return flatbuf::TimeUnit::SECOND;
@@ -219,7 +221,7 @@ static inline flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit) {
   return flatbuf::TimeUnit::MIN;
 }
 
-static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
+TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
   switch (unit) {
     case flatbuf::TimeUnit::SECOND:
       return TimeUnit::SECOND;
@@ -237,8 +239,7 @@ static inline TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit) {
 }
 
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
-                                  const std::vector<std::shared_ptr<Field>>& children,
-                                  std::shared_ptr<DataType>* out) {
+                                  FieldVector children, std::shared_ptr<DataType>* out) {
   switch (type) {
     case flatbuf::Type::NONE:
       return Status::Invalid("Type metadata cannot be none");
@@ -333,6 +334,10 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
           *out = day_time_interval();
           return Status::OK();
         }
+        case flatbuf::IntervalUnit::MONTH_DAY_NANO: {
+          *out = month_day_nano_interval();
+          return Status::OK();
+        }
       }
       return Status::NotImplemented("Unrecognized interval type.");
     }
@@ -385,6 +390,8 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
                              std::to_string(static_cast<int>(type)));
   }
 }
+
+namespace {
 
 Status TensorTypeToFlatbuffer(FBB& fbb, const DataType& type, flatbuf::Type* out_type,
                               Offset* offset) {
@@ -587,6 +594,13 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    fb_type_ = flatbuf::Type::Interval;
+    type_offset_ =
+        flatbuf::CreateInterval(fbb_, flatbuf::IntervalUnit::MONTH_DAY_NANO).Union();
+    return Status::OK();
+  }
+
   Status Visit(const MonthIntervalType& type) {
     fb_type_ = flatbuf::Type::Interval;
     type_offset_ =
@@ -767,8 +781,8 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   // 2. Top-level concrete data type
   auto type_data = field->type();
   CHECK_FLATBUFFERS_NOT_NULL(type_data, "Field.type");
-  RETURN_NOT_OK(
-      ConcreteTypeFromFlatbuffer(field->type_type(), type_data, child_fields, &type));
+  RETURN_NOT_OK(ConcreteTypeFromFlatbuffer(field->type_type(), type_data,
+                                           std::move(child_fields), &type));
 
   // 3. Is it a dictionary type?
   int64_t dictionary_id = -1;
@@ -1289,15 +1303,15 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 
 #ifndef NDEBUG
   for (size_t i = 0; i < dictionaries.size(); ++i) {
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].offset)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].metadata_length)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(dictionaries[i].body_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].offset)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].metadata_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(dictionaries[i].body_length)) << i;
   }
 
   for (size_t i = 0; i < record_batches.size(); ++i) {
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].offset)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].metadata_length)) << i;
-    DCHECK(BitUtil::IsMultipleOf8(record_batches[i].body_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].offset)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].metadata_length)) << i;
+    DCHECK(bit_util::IsMultipleOf8(record_batches[i].body_length)) << i;
   }
 #endif
 

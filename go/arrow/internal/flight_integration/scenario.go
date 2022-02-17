@@ -21,16 +21,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/flight"
-	"github.com/apache/arrow/go/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/flight"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v8/arrow/internal/testing/types"
+	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -58,12 +59,19 @@ func GetScenario(name string, args ...string) Scenario {
 	panic(fmt.Errorf("scenario not found: %s", name))
 }
 
-type integrationDataSet struct {
-	schema *arrow.Schema
-	chunks []array.Record
+func initServer(port int, srv flight.Server) int {
+	srv.Init(fmt.Sprintf("0.0.0.0:%d", port))
+	_, p, _ := net.SplitHostPort(srv.Addr().String())
+	port, _ = strconv.Atoi(p)
+	return port
 }
 
-func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *flight.Ticket, orig []array.Record, opts ...grpc.DialOption) error {
+type integrationDataSet struct {
+	schema *arrow.Schema
+	chunks []arrow.Record
+}
+
+func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *flight.Ticket, orig []arrow.Record, opts ...grpc.DialOption) error {
 	client, err := flight.NewClientWithMiddleware(loc.GetUri(), nil, nil, opts...)
 	if err != nil {
 		return err
@@ -103,6 +111,8 @@ func consumeFlightLocation(ctx context.Context, loc *flight.Location, tkt *fligh
 }
 
 type defaultIntegrationTester struct {
+	flight.BaseFlightServer
+
 	port           int
 	path           string
 	uploadedChunks map[string]integrationDataSet
@@ -121,7 +131,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	defer arrow.UnregisterExtensionType("uuid")
 
 	descr := &flight.FlightDescriptor{
-		Type: flight.FlightDescriptor_PATH,
+		Type: flight.DescriptorPATH,
 		Path: []string{s.path},
 	}
 
@@ -137,7 +147,7 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 	}
 
 	dataSet := integrationDataSet{
-		chunks: make([]array.Record, 0),
+		chunks: make([]arrow.Record, 0),
 		schema: rdr.Schema(),
 	}
 
@@ -181,6 +191,8 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 		}
 	}
 
+	wr.Close()
+
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
@@ -209,19 +221,15 @@ func (s *defaultIntegrationTester) RunClient(addr string, opts ...grpc.DialOptio
 }
 
 func (s *defaultIntegrationTester) MakeServer(port int) flight.Server {
-	s.port = port
 	s.uploadedChunks = make(map[string]integrationDataSet)
-	srv := flight.NewServerWithMiddleware(nil, nil)
-	srv.RegisterFlightService(&flight.FlightServiceService{
-		GetFlightInfo: s.GetFlightInfo,
-		DoGet:         s.DoGet,
-		DoPut:         s.DoPut,
-	})
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(s)
+	s.port = initServer(port, srv)
 	return srv
 }
 
 func (s *defaultIntegrationTester) GetFlightInfo(ctx context.Context, in *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if in.Type == flight.FlightDescriptor_PATH {
+	if in.Type == flight.DescriptorPATH {
 		if len(in.Path) == 0 {
 			return nil, status.Error(codes.InvalidArgument, "invalid path")
 		}
@@ -236,7 +244,7 @@ func (s *defaultIntegrationTester) GetFlightInfo(ctx context.Context, in *flight
 			FlightDescriptor: in,
 			Endpoint: []*flight.FlightEndpoint{{
 				Ticket:   &flight.Ticket{Ticket: []byte(in.Path[0])},
-				Location: []*flight.Location{{Uri: fmt.Sprintf("127.0.0.1:%d", s.port)}},
+				Location: []*flight.Location{{Uri: fmt.Sprintf("grpc+tcp://127.0.0.1:%d", s.port)}},
 			}},
 			TotalRecords: 0,
 			TotalBytes:   -1,
@@ -278,13 +286,13 @@ func (s *defaultIntegrationTester) DoPut(stream flight.FlightService_DoPutServer
 	// creating the reader should have gotten the first message which would
 	// have the schema, which should have a populated flight descriptor
 	desc := rdr.LatestFlightDescriptor()
-	if desc.Type != flight.FlightDescriptor_PATH || len(desc.Path) < 1 {
+	if desc.Type != flight.DescriptorPATH || len(desc.Path) < 1 {
 		return status.Error(codes.InvalidArgument, "must specify a path")
 	}
 
 	key = desc.Path[0]
 	dataset.schema = rdr.Schema()
-	dataset.chunks = make([]array.Record, 0)
+	dataset.chunks = make([]arrow.Record, 0)
 	for rdr.Next() {
 		rec := rdr.Record()
 		rec.Retain()
@@ -386,7 +394,9 @@ func (c *clientAuthBasic) GetToken(context.Context) (string, error) {
 	return c.token, nil
 }
 
-type authBasicProtoTester struct{}
+type authBasicProtoTester struct {
+	flight.BaseFlightServer
+}
 
 func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	auth := &clientAuthBasic{}
@@ -420,12 +430,12 @@ func (s *authBasicProtoTester) RunClient(addr string, opts ...grpc.DialOption) e
 	return CheckActionResults(ctx, client, &flight.Action{}, []string{authUsername})
 }
 
-func (s *authBasicProtoTester) MakeServer(_ int) flight.Server {
-	srv := flight.NewServerWithMiddleware(&authBasicValidator{
-		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}}, nil)
-	srv.RegisterFlightService(&flight.FlightServiceService{
-		DoAction: s.DoAction,
-	})
+func (s *authBasicProtoTester) MakeServer(port int) flight.Server {
+	s.SetAuthHandler(&authBasicValidator{
+		auth: flight.BasicAuth{Username: authUsername, Password: authPassword}})
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(s)
+	initServer(port, srv)
 	return srv
 }
 
@@ -435,7 +445,9 @@ func (authBasicProtoTester) DoAction(_ *flight.Action, stream flight.FlightServi
 	return nil
 }
 
-type middlewareScenarioTester struct{}
+type middlewareScenarioTester struct {
+	flight.BaseFlightServer
+}
 
 func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
 	tm := &testClientMiddleware{}
@@ -447,7 +459,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	ctx := context.Background()
 	// this call is expected to fail
-	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD})
+	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD})
 	if err == nil {
 		return xerrors.New("expected call to fail")
 	}
@@ -458,7 +470,7 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 
 	fmt.Fprintln(os.Stderr, "Headers received successfully on failing call.")
 	tm.received = ""
-	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.FlightDescriptor_CMD, Cmd: []byte("success")})
+	_, err = client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("success")})
 	if err != nil {
 		return err
 	}
@@ -470,17 +482,16 @@ func (m *middlewareScenarioTester) RunClient(addr string, opts ...grpc.DialOptio
 	return nil
 }
 
-func (m *middlewareScenarioTester) MakeServer(_ int) flight.Server {
-	srv := flight.NewServerWithMiddleware(nil, []flight.ServerMiddleware{
+func (m *middlewareScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
 		flight.CreateServerMiddleware(testServerMiddleware{})})
-	srv.RegisterFlightService(&flight.FlightServiceService{
-		GetFlightInfo: m.GetFlightInfo,
-	})
+	srv.RegisterFlightService(m)
+	initServer(port, srv)
 	return srv
 }
 
 func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
-	if desc.Type != flight.FlightDescriptor_CMD || string(desc.Cmd) != "success" {
+	if desc.Type != flight.DescriptorCMD || string(desc.Cmd) != "success" {
 		return nil, status.Error(codes.Unknown, "unknown")
 	}
 
@@ -489,7 +500,7 @@ func (m *middlewareScenarioTester) GetFlightInfo(ctx context.Context, desc *flig
 		FlightDescriptor: desc,
 		Endpoint: []*flight.FlightEndpoint{{
 			Ticket:   &flight.Ticket{Ticket: []byte("foo")},
-			Location: []*flight.Location{{Uri: "localhost:10010"}},
+			Location: []*flight.Location{{Uri: "grpc+tcp://localhost:10010"}},
 		}},
 		TotalRecords: -1,
 		TotalBytes:   -1,

@@ -20,25 +20,14 @@ import (
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
-	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
-	"github.com/apache/arrow/go/parquet/schema"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	format "github.com/apache/arrow/go/v8/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 )
-
-var toLEFunc func(uint32) uint32
-
-func init() {
-	if endian.IsBigEndian {
-		toLEFunc = bits.ReverseBytes32
-	} else {
-		toLEFunc = func(in uint32) uint32 { return in }
-	}
-}
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata plain_encoder_types.gen.go.tmpl typed_encoder.gen.go.tmpl
 
@@ -186,7 +175,7 @@ func (d *dictEncoder) BitWidth() int {
 
 // WriteDict writes the dictionary index to the given byte slice.
 func (d *dictEncoder) WriteDict(out []byte) {
-	d.memo.CopyValues(out)
+	d.memo.WriteOut(out)
 }
 
 // WriteIndices performs Run Length encoding on the indexes and the writes the encoded

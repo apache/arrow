@@ -7,7 +7,6 @@
 #include <cinttypes>
 #include <cmath>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 
@@ -21,18 +20,18 @@ namespace fast_float {
 template <int bit_precision>
 fastfloat_really_inline
 value128 compute_product_approximation(int64_t q, uint64_t w) {
-  const int index = 2 * int(q - smallest_power_of_five);
+  const int index = 2 * int(q - powers::smallest_power_of_five);
   // For small values of q, e.g., q in [0,27], the answer is always exact because
   // The line value128 firstproduct = full_multiplication(w, power_of_five_128[index]);
   // gives the exact answer.
-  value128 firstproduct = full_multiplication(w, power_of_five_128[index]);
+  value128 firstproduct = full_multiplication(w, powers::power_of_five_128[index]);
   static_assert((bit_precision >= 0) && (bit_precision <= 64), " precision should  be in (0,64]");
   constexpr uint64_t precision_mask = (bit_precision < 64) ?
                (uint64_t(0xFFFFFFFFFFFFFFFF) >> bit_precision)
                : uint64_t(0xFFFFFFFFFFFFFFFF);
   if((firstproduct.high & precision_mask) == precision_mask) { // could further guard with  (lower + w < lower)
     // regarding the second product, we only need secondproduct.high, but our expectation is that the compiler will optimize this extra work away if needed.
-    value128 secondproduct = full_multiplication(w, power_of_five_128[index + 1]);
+    value128 secondproduct = full_multiplication(w, powers::power_of_five_128[index + 1]);
     firstproduct.low += secondproduct.high;
     if(secondproduct.high > firstproduct.low) {
       firstproduct.high++;
@@ -41,7 +40,7 @@ value128 compute_product_approximation(int64_t q, uint64_t w) {
   return firstproduct;
 }
 
-namespace {
+namespace detail {
 /**
  * For q in (0,350), we have that
  *  f = (((152170 + 65536) * q ) >> 16);
@@ -57,11 +56,34 @@ namespace {
  * where
  *   p = log(5**-q)/log(2) = -q * log(5)/log(2)
  */
-  fastfloat_really_inline int power(int q)  noexcept  {
+  constexpr fastfloat_really_inline int32_t power(int32_t q)  noexcept  {
     return (((152170 + 65536) * q) >> 16) + 63;
   }
-} // namespace
+} // namespace detail
 
+// create an adjusted mantissa, biased by the invalid power2
+// for significant digits already multiplied by 10 ** q.
+template <typename binary>
+fastfloat_really_inline
+adjusted_mantissa compute_error_scaled(int64_t q, uint64_t w, int lz) noexcept  {
+  int hilz = int(w >> 63) ^ 1;
+  adjusted_mantissa answer;
+  answer.mantissa = w << hilz;
+  int bias = binary::mantissa_explicit_bits() - binary::minimum_exponent();
+  answer.power2 = int32_t(detail::power(int32_t(q)) + bias - hilz - lz - 62 + invalid_am_bias);
+  return answer;
+}
+
+// w * 10 ** q, without rounding the representation up.
+// the power2 in the exponent will be adjusted by invalid_am_bias.
+template <typename binary>
+fastfloat_really_inline
+adjusted_mantissa compute_error(int64_t q, uint64_t w)  noexcept  {
+  int lz = leading_zeroes(w);
+  w <<= lz;
+  value128 product = compute_product_approximation<binary::mantissa_explicit_bits() + 3>(q, w);
+  return compute_error_scaled<binary>(q, product.high, lz);
+}
 
 // w * 10 ** q
 // The returned value should be a valid ieee64 number that simply need to be packed.
@@ -84,7 +106,7 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
     answer.mantissa = 0;
     return answer;
   }
-  // At this point in time q is in [smallest_power_of_five, largest_power_of_five].
+  // At this point in time q is in [powers::smallest_power_of_five, powers::largest_power_of_five].
 
   // We want the most significant bit of i to be 1. Shift if needed.
   int lz = leading_zeroes(w);
@@ -103,8 +125,7 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
     const bool inside_safe_exponent = (q >= -27) && (q <= 55); // always good because 5**q <2**128 when q>=0, 
     // and otherwise, for q<0, we have 5**-q<2**64 and the 128-bit reciprocal allows for exact computation.
     if(!inside_safe_exponent) {
-      answer.power2 = -1; // This (a negative value) indicates an error condition.
-      return answer;
+      return compute_error_scaled<binary>(q, product.high, lz);
     }
   }
   // The "compute_product_approximation" function can be slightly slower than a branchless approach:
@@ -115,7 +136,7 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
 
   answer.mantissa = product.high >> (upperbit + 64 - binary::mantissa_explicit_bits() - 3);
 
-  answer.power2 = int(power(int(q)) + upperbit - lz - binary::minimum_exponent());
+  answer.power2 = int32_t(detail::power(int32_t(q)) + upperbit - lz - binary::minimum_exponent());
   if (answer.power2 <= 0) { // we have a subnormal?
     // Here have that answer.power2 <= 0 so -answer.power2 >= 0
     if(-answer.power2 + 1 >= 64) { // if we have more than 64 bits below the minimum exponent, you have a zero for sure.
@@ -168,7 +189,6 @@ adjusted_mantissa compute_float(int64_t q, uint64_t w)  noexcept  {
   }
   return answer;
 }
-
 
 } // namespace fast_float
 } // namespace arrow_vendored

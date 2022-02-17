@@ -168,6 +168,17 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_tz(self):
+        # ARROW-13756
+        # Bug if index is timezone aware DataTimeIndex
+
+        df = pd.DataFrame(
+            np.random.randn(5, 3),
+            columns=pd.date_range(
+                "2021-01-01", "2021-01-3", freq="D", tz="CET")
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'
@@ -1109,39 +1120,30 @@ class TestConvertDateTimeLikeTypes:
 
     @pytest.mark.parametrize('mask', [
         None,
-        np.array([True, False, False]),
+        np.array([True, False, False, True, False, False]),
     ])
     def test_pandas_datetime_to_date64(self, mask):
         s = pd.to_datetime([
             '2018-05-10T00:00:00',
             '2018-05-11T00:00:00',
             '2018-05-12T00:00:00',
+            '2018-05-10T10:24:01',
+            '2018-05-11T10:24:01',
+            '2018-05-12T10:24:01',
         ])
         arr = pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
         data = np.array([
             date(2018, 5, 10),
             date(2018, 5, 11),
-            date(2018, 5, 12)
+            date(2018, 5, 12),
+            date(2018, 5, 10),
+            date(2018, 5, 11),
+            date(2018, 5, 12),
         ])
         expected = pa.array(data, mask=mask, type=pa.date64())
 
         assert arr.equals(expected)
-
-    @pytest.mark.parametrize('mask', [
-        None,
-        np.array([True, False, False])
-    ])
-    def test_pandas_datetime_to_date64_failures(self, mask):
-        s = pd.to_datetime([
-            '2018-05-10T10:24:01',
-            '2018-05-11T10:24:01',
-            '2018-05-12T10:24:01',
-        ])
-
-        expected_msg = 'Timestamp value had non-zero intraday milliseconds'
-        with pytest.raises(pa.ArrowInvalid, match=expected_msg):
-            pa.Array.from_pandas(s, type=pa.date64(), mask=mask)
 
     def test_array_types_date_as_object(self):
         data = [date(2000, 1, 1),
@@ -1503,6 +1505,18 @@ class TestConvertDateTimeLikeTypes:
             df,
             expected_schema=schema,
         )
+
+    def test_month_day_nano_interval(self):
+        from pandas.tseries.offsets import DateOffset
+        df = pd.DataFrame({
+            'date_offset': [None,
+                            DateOffset(days=3600, months=3600, microseconds=3,
+                                       nanoseconds=600)]
+        })
+        schema = pa.schema([('date_offset', pa.month_day_nano_interval())])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema)
 
 
 # ----------------------------------------------------------------------
@@ -3376,7 +3390,7 @@ def test_array_uses_memory_pool():
     arr = pa.array(np.arange(N, dtype=np.int64),
                    mask=np.random.randint(0, 2, size=N).astype(np.bool_))
 
-    # In the case the gc is caught loafing
+    # In the case the gc is caught loading
     gc.collect()
 
     prior_allocation = pa.total_allocated_bytes()
@@ -4068,6 +4082,66 @@ def test_array_to_pandas():
         # tm.assert_series_equal(result, expected)
 
 
+def test_roundtrip_empty_table_with_extension_dtype_index():
+    if Version(pd.__version__) < Version("1.0.0"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    df = pd.DataFrame(index=pd.interval_range(start=0, end=3))
+    table = pa.table(df)
+    table.to_pandas().index == pd.Index([{'left': 0, 'right': 1},
+                                         {'left': 1, 'right': 2},
+                                         {'left': 2, 'right': 3}],
+                                        dtype='object')
+
+
+def test_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    if Version(pd.__version__) < Version("1.0.0"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    data = pa.array([1, 2, 3], pa.int64())
+
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == pd.Int64Dtype()
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+
+@pytest.mark.pandas
+def test_chunked_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    if Version(pd.__version__) < Version("1.0.0"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
+    assert isinstance(data, pa.ChunkedArray)
+
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == pd.Int64Dtype()
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
@@ -4326,8 +4400,8 @@ def make_df_with_timestamps():
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
-        # O == object, <M8[ns] == timestamp64[ns]
-        np.dtype("O"), np.dtype("<M8[ns]")
+        # O == object, M8[ns] == timestamp64[ns]
+        np.dtype("O"), np.dtype("M8[ns]")
     )
     return df
 

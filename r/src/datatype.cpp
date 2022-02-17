@@ -79,9 +79,13 @@ const char* r6_class_name<arrow::DataType>::get(
       return "Time32";
     case Type::TIME64:
       return "Time64";
+    case Type::DURATION:
+      return "DurationType";
 
-    case Type::DECIMAL:
+    case Type::DECIMAL128:
       return "Decimal128Type";
+    case Type::DECIMAL256:
+      return "Decimal256Type";
 
     case Type::LIST:
       return "ListType";
@@ -89,6 +93,9 @@ const char* r6_class_name<arrow::DataType>::get(
       return "LargeListType";
     case Type::FIXED_SIZE_LIST:
       return "FixedSizeListType";
+
+    case Type::MAP:
+      return "MapType";
 
     case Type::STRUCT:
       return "StructType";
@@ -181,6 +188,18 @@ std::shared_ptr<arrow::DataType> Decimal128Type__initialize(int32_t precision,
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> Decimal256Type__initialize(int32_t precision,
+                                                            int32_t scale) {
+  // Use the builder that validates inputs
+  return ValueOrStop(arrow::Decimal256Type::Make(precision, scale));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> DayTimeInterval__initialize() {
+  return arrow::day_time_interval();
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width) {
   if (byte_width == NA_INTEGER) {
     cpp11::stop("'byte_width' cannot be NA");
@@ -189,6 +208,11 @@ std::shared_ptr<arrow::DataType> FixedSizeBinary__initialize(R_xlen_t byte_width
     cpp11::stop("'byte_width' must be > 0");
   }
   return arrow::fixed_size_binary(byte_width);
+}
+
+// [[arrow::export]]
+int FixedSizeBinary__byte_width(const std::shared_ptr<arrow::FixedSizeBinaryType>& type) {
+  return type->byte_width();
 }
 
 // [[arrow::export]]
@@ -205,6 +229,11 @@ std::shared_ptr<arrow::DataType> Time32__initialize(arrow::TimeUnit::type unit) 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Time64__initialize(arrow::TimeUnit::type unit) {
   return arrow::time64(unit);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> Duration__initialize(arrow::TimeUnit::type unit) {
+  return arrow::duration(unit);
 }
 
 // [[arrow::export]]
@@ -250,6 +279,33 @@ std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size) {
 
   auto type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(x);
   return arrow::fixed_size_list(type, list_size);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted = false) {
+  std::shared_ptr<arrow::Field> key_field;
+  std::shared_ptr<arrow::Field> item_field;
+
+  if (Rf_inherits(key, "DataType")) {
+    auto key_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(key);
+    key_field = std::make_shared<arrow::Field>("key", key_type, /* nullable = */ false);
+  } else if (Rf_inherits(key, "Field")) {
+    key_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(key);
+    if (key_field->nullable()) cpp11::stop("key field cannot be nullable.");
+  } else {
+    cpp11::stop("key must be a DataType or Field.");
+  }
+
+  if (Rf_inherits(item, "DataType")) {
+    auto item_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(item);
+    item_field = std::make_shared<arrow::Field>("value", item_type);
+  } else if (Rf_inherits(item, "Field")) {
+    item_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(item);
+  } else {
+    cpp11::stop("item must be a DataType or Field.");
+  }
+
+  return std::make_shared<arrow::MapType>(key_field, item_field);
 }
 
 // [[arrow::export]]
@@ -306,6 +362,12 @@ arrow::DateUnit DateType__unit(const std::shared_ptr<arrow::DateType>& type) {
 
 // [[arrow::export]]
 arrow::TimeUnit::type TimeType__unit(const std::shared_ptr<arrow::TimeType>& type) {
+  return type->unit();
+}
+
+// [[arrow::export]]
+arrow::TimeUnit::type DurationType__unit(
+    const std::shared_ptr<arrow::DurationType>& type) {
   return type->unit();
 }
 
@@ -421,6 +483,35 @@ std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(
 // [[arrow::export]]
 int FixedSizeListType__list_size(const std::shared_ptr<arrow::FixedSizeListType>& type) {
   return type->list_size();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__key_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__item_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__key_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__item_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_type();
+}
+
+// [[arrow::export]]
+bool MapType__keys_sorted(const std::shared_ptr<arrow::MapType>& type) {
+  return type->keys_sorted();
 }
 
 #endif

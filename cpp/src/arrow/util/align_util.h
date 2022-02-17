@@ -41,7 +41,7 @@ struct BitmapWordAlignParams {
 template <uint64_t ALIGN_IN_BYTES>
 inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_offset,
                                              int64_t length) {
-  static_assert(BitUtil::IsPowerOf2(ALIGN_IN_BYTES),
+  static_assert(bit_util::IsPowerOf2(ALIGN_IN_BYTES),
                 "ALIGN_IN_BYTES should be a positive power of two");
   constexpr uint64_t ALIGN_IN_BITS = ALIGN_IN_BYTES * 8;
 
@@ -52,7 +52,7 @@ inline BitmapWordAlignParams BitmapWordAlign(const uint8_t* data, int64_t bit_of
   // difference between both addresses.
   const uint64_t bit_addr =
       reinterpret_cast<size_t>(data) * 8 + static_cast<uint64_t>(bit_offset);
-  const uint64_t aligned_bit_addr = BitUtil::RoundUpToPowerOf2(bit_addr, ALIGN_IN_BITS);
+  const uint64_t aligned_bit_addr = bit_util::RoundUpToPowerOf2(bit_addr, ALIGN_IN_BITS);
 
   p.leading_bits = std::min<int64_t>(length, aligned_bit_addr - bit_addr);
   p.aligned_words = (length - p.leading_bits) / ALIGN_IN_BITS;

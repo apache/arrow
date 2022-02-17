@@ -20,9 +20,9 @@ import (
 	"encoding/binary"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding
@@ -37,7 +37,7 @@ type PlainByteArrayEncoder struct {
 func (enc *PlainByteArrayEncoder) PutByteArray(val parquet.ByteArray) {
 	inc := val.Len() + arrow.Uint32SizeBytes
 	enc.sink.Reserve(inc)
-	vlen := toLEFunc(uint32(val.Len()))
+	vlen := utils.ToLEUint32(uint32(val.Len()))
 	enc.sink.UnsafeWrite((*(*[4]byte)(unsafe.Pointer(&vlen)))[:])
 	enc.sink.UnsafeWrite(val)
 }

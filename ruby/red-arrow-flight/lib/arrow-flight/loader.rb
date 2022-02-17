@@ -26,7 +26,6 @@ module ArrowFlight
     private
     def post_load(repository, namespace)
       require_libraries
-      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
@@ -37,8 +36,9 @@ module ArrowFlight
       require "arrow-flight/ticket"
     end
 
-    def should_unlock_gvl?(info, klass)
-      true
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      function_info.lock_gvl_default = false
     end
   end
 end

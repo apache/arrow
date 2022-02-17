@@ -23,7 +23,7 @@ project('arrow-glib', 'c', 'cpp',
           'cpp_std=c++11',
         ])
 
-version = '6.0.0-SNAPSHOT'
+version = '8.0.0-SNAPSHOT'
 if version.endswith('-SNAPSHOT')
   version_numbers = version.split('-')[0].split('.')
   version_tag = version.split('-')[1]
@@ -122,13 +122,6 @@ endif
 
 cxx = meson.get_compiler('cpp')
 cxx_flags = []
-if get_option('development_mode')
-  if cxx.get_id() == 'msvc'
-    cxx_flags += ['/WX']
-  else
-    cxx_flags += ['-Werror']
-  endif
-endif
 if cxx.get_id() != 'msvc'
   cxx_flags += ['-Wmissing-declarations']
 endif

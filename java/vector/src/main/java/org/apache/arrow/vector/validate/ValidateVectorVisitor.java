@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -39,7 +40,7 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
 /**
  * Visitor to validate vector (without validating data).
  * This visitor could be used for {@link ValueVector#accept(VectorVisitor, Object)} API,
- * and also users could simply use {@link ValueVectorUtility#validate(FieldVector)}.
+ * and also users could simply use {@link ValueVectorUtility#validate(ValueVector)}.
  */
 public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
@@ -261,6 +262,12 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(NullVector vector, Void value) {
+    return null;
+  }
+
+  @Override
+  public Void visit(ExtensionTypeVector<?> vector, Void value) {
+    vector.getUnderlyingVector().accept(this, value);
     return null;
   }
 }

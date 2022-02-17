@@ -19,18 +19,31 @@
 
 set -ex
 
-source_dir=${1}/js
-with_docs=${2:-false}
+arrow_dir=${1}
+source_dir=${arrow_dir}/js
+build_dir=${2}
+
+: ${BUILD_DOCS_JS:=OFF}
 
 pushd ${source_dir}
 
 yarn --frozen-lockfile
-# TODO(kszucs): linting should be moved to archery
 yarn lint:ci
 yarn build
 
-if [ "${with_docs}" == "true" ]; then
-  yarn doc
+if [ "${BUILD_DOCS_JS}" == "ON" ]; then
+  if [ "$(git config --get remote.origin.url)" == "https://github.com/apache/arrow.git" ]; then
+    yarn doc
+  elif [ "$(git config --get remote.upstream.url)" == "https://github.com/apache/arrow.git" ]; then
+    yarn doc --gitRemote upstream
+  elif [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
+    yarn doc --gitRemote apache
+  else
+    echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git or the apache remote to git@github.com:apache/arrow.git."
+    exit 0
+  fi
+  mkdir -p ${build_dir}/docs/js
+  rsync -a ${arrow_dir}/js/doc/ ${build_dir}/docs/js
 fi
 
 popd

@@ -352,6 +352,21 @@ gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader)
 }
 
 /**
+ * gparquet_arrow_file_reader_get_n_rows:
+ * @reader: A #GParquetArrowFileReader.
+ *
+ * Returns: The number of rows.
+ *
+ * Since: 6.0.0
+ */
+gint64
+gparquet_arrow_file_reader_get_n_rows(GParquetArrowFileReader *reader)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  return parquet_arrow_file_reader->parquet_reader()->metadata()->num_rows();
+}
+
+/**
  * gparquet_arrow_file_reader_use_threads:
  * @reader: A #GParquetArrowFileReader.
  * @use_threads: Whether use threads or not.

@@ -35,12 +35,9 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/task_group.h"
 
 namespace arrow {
 namespace csv {
-
-using internal::TaskGroup;
 
 class ConcreteColumnDecoder : public ColumnDecoder {
  public:
@@ -65,7 +62,6 @@ class ConcreteColumnDecoder : public ColumnDecoder {
 
   MemoryPool* pool_;
   int32_t col_index_;
-  internal::Executor* executor_;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -198,6 +194,13 @@ Result<std::shared_ptr<Array>> InferringColumnDecoder::RunInference(
 
 Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
     const std::shared_ptr<BlockParser>& parser) {
+  // Empty arrays before the first inference run must be discarded since the type of the
+  // array will be NA and not match arrays decoded later
+  if (parser->num_rows() == 0) {
+    return Future<std::shared_ptr<Array>>::MakeFinished(
+        MakeArrayOfNull(converter_->type(), 0));
+  }
+
   bool already_taken = first_inferrer_.fetch_or(1);
   // First block: run inference
   if (!already_taken) {
@@ -207,7 +210,7 @@ Future<std::shared_ptr<Array>> InferringColumnDecoder::Decode(
   }
 
   // Non-first block: wait for inference to finish on first block now,
-  // without blocking a TaskGroup thread.
+  // without blocking a worker thread.
   return first_inference_run_.Then([this, parser] {
     DCHECK(type_frozen_);
     auto maybe_array = converter_->Convert(*parser, col_index_);

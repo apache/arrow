@@ -23,8 +23,17 @@ source_dir=${1}/go
 
 pushd ${source_dir}/arrow
 
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
+    if [[ "${MSYSTEM}" = "MINGW64" ]]; then        
+        export PATH=${MINGW_PREFIX}/bin:$PATH
+        go clean -cache
+        go clean -testcache        
+    fi
+    TAGS="-tags assert,test,ccalloc"
+fi
+
 go get -d -t -v ./...
-go install -v ./...
+go install $TAGS -v ./...
 
 popd
 

@@ -192,7 +192,8 @@ class PARQUET_EXPORT FileReader {
   GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
-                          ::arrow::internal::Executor* cpu_executor = NULLPTR) = 0;
+                          ::arrow::internal::Executor* cpu_executor = NULLPTR,
+                          int row_group_readahead = 0) = 0;
 
   ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
                                        const std::vector<int>& column_indices,

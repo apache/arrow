@@ -268,6 +268,59 @@ struct _GArrowHDFSFileSystemClass
 };
 
 
+/**
+ * GArrowS3LogLevel:
+ * @GARROW_S3_LOG_LEVEL_OFF: Off.
+ * @GARROW_S3_LOG_LEVEL_FATAL: Fatal. This is the default.
+ * @GARROW_S3_LOG_LEVEL_ERROR: Error.
+ * @GARROW_S3_LOG_LEVEL_WARN: Warn.
+ * @GARROW_S3_LOG_LEVEL_INFO: Info.
+ * @GARROW_S3_LOG_LEVEL_DEBUG: Debug.
+ * @GARROW_S3_LOG_LEVEL_TRACE: Trace.
+ *
+ * They are corresponding to `arrow::fs::S3LogLevel` values.
+ *
+ * Since: 7.0.0
+ */
+typedef enum {
+  GARROW_S3_LOG_LEVEL_OFF,
+  GARROW_S3_LOG_LEVEL_FATAL,
+  GARROW_S3_LOG_LEVEL_ERROR,
+  GARROW_S3_LOG_LEVEL_WARN,
+  GARROW_S3_LOG_LEVEL_INFO,
+  GARROW_S3_LOG_LEVEL_DEBUG,
+  GARROW_S3_LOG_LEVEL_TRACE,
+} GArrowS3LogLevel;
+
+
+#define GARROW_TYPE_S3_GLOBAL_OPTIONS (garrow_s3_global_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowS3GlobalOptions,
+                         garrow_s3_global_options,
+                         GARROW,
+                         S3_GLOBAL_OPTIONS,
+                         GObject)
+struct _GArrowS3GlobalOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowS3GlobalOptions *
+garrow_s3_global_options_new(void);
+
+
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_s3_is_enabled(void);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_s3_initialize(GArrowS3GlobalOptions *options,
+                     GError **error);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_s3_finalize(GError **error);
+
+
 #define GARROW_TYPE_S3_FILE_SYSTEM (garrow_s3_file_system_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowS3FileSystem,
                          garrow_s3_file_system,

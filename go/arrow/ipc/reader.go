@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"bytes"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -37,7 +37,7 @@ type Reader struct {
 	schema *arrow.Schema
 
 	refCount int64
-	rec      array.Record
+	rec      arrow.Record
 	err      error
 
 	types dictTypeMap
@@ -75,7 +75,7 @@ func NewReaderFromMessageReader(r MessageReader, opts ...Option) (*Reader, error
 
 // NewReader returns a reader that reads records from an input stream.
 func NewReader(r io.Reader, opts ...Option) (*Reader, error) {
-	return NewReaderFromMessageReader(NewMessageReader(r), opts...)
+	return NewReaderFromMessageReader(NewMessageReader(r, opts...), opts...)
 }
 
 // Err returns the last error encountered during the iteration over the
@@ -176,27 +176,27 @@ func (r *Reader) next() bool {
 		return false
 	}
 
-	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()))
+	r.rec = newRecord(r.schema, msg.meta, bytes.NewReader(msg.body.Bytes()), r.mem)
 	return true
 }
 
 // Record returns the current record that has been extracted from the
 // underlying stream.
 // It is valid until the next call to Next.
-func (r *Reader) Record() array.Record {
+func (r *Reader) Record() arrow.Record {
 	return r.rec
 }
 
 // Read reads the current record from the underlying stream and an error, if any.
 // When the Reader reaches the end of the underlying stream, it returns (nil, io.EOF).
-func (r *Reader) Read() (array.Record, error) {
+func (r *Reader) Read() (arrow.Record, error) {
 	if r.rec != nil {
 		r.rec.Release()
 		r.rec = nil
 	}
 
 	if !r.next() {
-		if r.done {
+		if r.done && r.err == nil {
 			return nil, io.EOF
 		}
 		return nil, r.err

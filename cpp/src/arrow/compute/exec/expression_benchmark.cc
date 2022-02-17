@@ -19,6 +19,7 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/compute/exec/test_util.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -28,6 +29,34 @@ namespace compute {
 
 std::shared_ptr<Scalar> ninety_nine_dict =
     DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(int64(), "[99]"));
+
+static void BindAndEvaluate(benchmark::State& state, Expression expr) {
+  ExecContext ctx;
+  auto struct_type = struct_({
+      field("int", int64()),
+      field("float", float64()),
+  });
+  auto dataset_schema = schema({
+      field("int_arr", int64()),
+      field("struct_arr", struct_type),
+      field("int_scalar", int64()),
+      field("struct_scalar", struct_type),
+  });
+  ExecBatch input(
+      {
+          Datum(ArrayFromJSON(int64(), "[0, 2, 4, 8]")),
+          Datum(ArrayFromJSON(struct_type,
+                              "[[0, 2.0], [4, 8.0], [16, 32.0], [64, 128.0]]")),
+          Datum(ScalarFromJSON(int64(), "16")),
+          Datum(ScalarFromJSON(struct_type, "[32, 64.0]")),
+      },
+      /*length=*/4);
+
+  for (auto _ : state) {
+    ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
+    ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
+  }
+}
 
 // A benchmark of SimplifyWithGuarantee using expressions arising from partitioning.
 static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filter,
@@ -83,6 +112,13 @@ BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
                   guarantee_dictionary);
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_cast_guarantee_dictionary,
                   filter_cast_positive, guarantee_dictionary);
+
+BENCHMARK_CAPTURE(BindAndEvaluate, simple_array, field_ref("int_arr"));
+BENCHMARK_CAPTURE(BindAndEvaluate, simple_scalar, field_ref("int_scalar"));
+BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
+                  field_ref(FieldRef("struct_arr", "float")));
+BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
+                  field_ref(FieldRef("struct_scalar", "float")));
 
 }  // namespace compute
 }  // namespace arrow

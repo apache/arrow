@@ -323,6 +323,10 @@ TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
 }
 
 TEST(TestDumpWithLocalFile, DumpOutput) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+
   std::string header_output = R"###(File Name: nested_lists.snappy.parquet
 Version: 1.0
 Created By: parquet-mr version 1.8.2 (build c6522788629e590a53eb79874b95f6c3ff11f16c)

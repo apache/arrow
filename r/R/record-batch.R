@@ -46,6 +46,7 @@
 #' - `$column(i)`: Extract an `Array` by integer position from the batch
 #' - `$column_name(i)`: Get a column's name by integer position
 #' - `$names()`: Get all column names (called by `names(batch)`)
+#' - `$nbytes()`: Total number of bytes consumed by the elements of the record batch
 #' - `$RenameColumns(value)`: Set all column names (called by `names(batch) <- value`)
 #' - `$GetColumnByName(name)`: Extract an `Array` by string name
 #' - `$RemoveColumn(i)`: Drops a column from the batch by integer position
@@ -83,6 +84,7 @@ RecordBatch <- R6Class("RecordBatch",
     column = function(i) RecordBatch__column(self, i),
     column_name = function(i) RecordBatch__column_name(self, i),
     names = function() RecordBatch__names(self),
+    nbytes = function() RecordBatch__ReferencedBufferSize(self),
     RenameColumns = function(value) RecordBatch__RenameColumns(self, value),
     Equals = function(other, check_metadata = FALSE, ...) {
       inherits(other, "RecordBatch") && RecordBatch__Equals(self, other, isTRUE(check_metadata))
@@ -99,6 +101,9 @@ RecordBatch <- R6Class("RecordBatch",
       RecordBatch__SetColumn(self, i, new_field, value)
     },
     RemoveColumn = function(i) RecordBatch__RemoveColumn(self, i),
+    ReplaceSchemaMetadata = function(new) {
+      RecordBatch__ReplaceSchemaMetadata(self, new)
+    },
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         RecordBatch__Slice1(self, offset)
@@ -116,10 +121,6 @@ RecordBatch <- R6Class("RecordBatch",
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       RecordBatch__cast(self, target_schema, options)
     },
-    invalidate = function() {
-      .Call(`_arrow_RecordBatch__Reset`, self)
-      super$invalidate()
-    },
     export_to_c = function(array_ptr, schema_ptr) {
       ExportRecordBatch(self, array_ptr, schema_ptr)
     }
@@ -128,20 +129,6 @@ RecordBatch <- R6Class("RecordBatch",
     num_columns = function() RecordBatch__num_columns(self),
     num_rows = function() RecordBatch__num_rows(self),
     schema = function() RecordBatch__schema(self),
-    metadata = function(new) {
-      if (missing(new)) {
-        # Get the metadata (from the schema)
-        self$schema$metadata
-      } else {
-        # Set the metadata
-        new <- prepare_key_value_metadata(new)
-        out <- RecordBatch__ReplaceSchemaMetadata(self, new)
-        # ReplaceSchemaMetadata returns a new object but we're modifying in place,
-        # so swap in that new C++ object pointer into our R6 object
-        self$set_pointer(out$pointer())
-        self
-      }
-    },
     columns = function() RecordBatch__columns(self)
   )
 )
@@ -158,12 +145,6 @@ RecordBatch$create <- function(..., schema = NULL) {
     names(arrays) <- rep_len("", length(arrays))
   }
   stopifnot(length(arrays) > 0)
-
-  # Preserve any grouping
-  if (length(arrays) == 1 && inherits(arrays[[1]], "grouped_df")) {
-    out <- RecordBatch__from_arrays(schema, arrays)
-    return(dplyr::group_by(out, !!!dplyr::groups(arrays[[1]])))
-  }
 
   # If any arrays are length 1, recycle them
   arrays <- recycle_scalars(arrays)

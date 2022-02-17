@@ -56,6 +56,20 @@ if(GRPCPP_PC_FOUND)
     list(APPEND gRPCAlt_FIND_PACKAGE_ARGS VERSION_VAR gRPCAlt_VERSION)
   endif()
   find_package_handle_standard_args(${gRPCAlt_FIND_PACKAGE_ARGS})
+
+  # gRPC does not expose the reflection library via pkg-config, but it should be alongside the main library
+  get_filename_component(GRPCPP_IMPORTED_DIRECTORY ${GRPCPP_IMPORTED_LOCATION} DIRECTORY)
+  if(ARROW_GRPC_USE_SHARED)
+    set(GRPCPP_REFLECTION_LIB_NAME
+        "${CMAKE_SHARED_LIBRARY_PREFIX}grpc++_reflection${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  else()
+    set(GRPCPP_REFLECTION_LIB_NAME
+        "${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  endif()
+  find_library(GRPCPP_REFLECTION_IMPORTED_LOCATION
+               NAMES grpc++_reflection ${GRPCPP_REFLECTION_LIB_NAME}
+               PATHS ${GRPCPP_IMPORTED_DIRECTORY}
+               NO_DEFAULT_PATH)
 else()
   set(gRPCAlt_FOUND FALSE)
 endif()
@@ -69,6 +83,12 @@ if(gRPCAlt_FOUND)
                                    "${GRPCPP_INCLUDE_DIRECTORIES}"
                                    INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}"
                                    INTERFACE_LINK_OPTIONS "${GRPCPP_LINK_OPTIONS}")
+
+  add_library(gRPC::grpc++_reflection UNKNOWN IMPORTED)
+  set_target_properties(gRPC::grpc++_reflection
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPCPP_REFLECTION_IMPORTED_LOCATION}"
+                                   INTERFACE_LINK_LIBRARIES gRPC::grpc++)
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION

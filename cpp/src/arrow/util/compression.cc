@@ -109,6 +109,8 @@ bool Codec::SupportsCompressionLevel(Compression::type codec) {
     case Compression::BROTLI:
     case Compression::ZSTD:
     case Compression::BZ2:
+    case Compression::LZ4_FRAME:
+    case Compression::LZ4:
       return true;
     default:
       return false;
@@ -176,12 +178,12 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       break;
     case Compression::LZ4:
 #ifdef ARROW_WITH_LZ4
-      codec = internal::MakeLz4RawCodec();
+      codec = internal::MakeLz4RawCodec(compression_level);
 #endif
       break;
     case Compression::LZ4_FRAME:
 #ifdef ARROW_WITH_LZ4
-      codec = internal::MakeLz4FrameCodec();
+      codec = internal::MakeLz4FrameCodec(compression_level);
 #endif
       break;
     case Compression::LZ4_HADOOP:

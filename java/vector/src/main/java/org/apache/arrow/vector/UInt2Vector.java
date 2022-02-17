@@ -29,6 +29,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * UInt2Vector implements a fixed width (2 bytes) vector of
@@ -303,6 +304,12 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
   @Override
   public long getValueAsLong(int index) {
     return this.get(index);
+  }
+
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0, getValueCount(), (v, i) ->
+      v.isNull(i) ? "null" : Integer.toString(v.get(i) & 0x0000ffff));
   }
 
   private class TransferImpl implements TransferPair {

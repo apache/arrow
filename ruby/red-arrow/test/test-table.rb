@@ -53,26 +53,26 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
     test("Array: boolean") do
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -100,7 +100,7 @@ class TableTest < Test::Unit::TestCase
     test("Range: positive: include end") do
       assert_equal(<<-TABLE, @table.slice(2..4).to_s)
 	count	visible
-0	    4	       
+0	    4	 (null)
 1	    8	true   
 2	   16	true   
       TABLE
@@ -109,7 +109,7 @@ class TableTest < Test::Unit::TestCase
     test("Range: positive: exclude end") do
       assert_equal(<<-TABLE, @table.slice(2...4).to_s)
 	count	visible
-0	    4	       
+0	    4	 (null)
 1	    8	true   
       TABLE
     end
@@ -119,7 +119,7 @@ class TableTest < Test::Unit::TestCase
 	count	visible
 0	   16	true   
 1	   32	false  
-2	   64	       
+2	   64	 (null)
       TABLE
     end
 
@@ -144,6 +144,104 @@ class TableTest < Test::Unit::TestCase
 	count	visible
 0	   16	true   
 1	   32	false  
+      TABLE
+    end
+
+    test("{key: Number}") do
+      assert_equal(<<-TABLE, @table.slice(count: 16).to_s)
+	count	visible
+0	   16	true   
+      TABLE
+    end
+
+    test("{key: String}") do
+      table = Arrow::Table.new(name: Arrow::StringArray.new(["a", "b", "c"]))
+      assert_equal(<<-TABLE, table.slice(name: 'b').to_s)
+	name
+0	b   
+      TABLE
+    end
+
+    test("{key: true}") do
+      assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
+	 count	visible
+0	     1	true   
+1	(null)	 (null)
+2	     8	true   
+3	    16	true   
+4	(null)	 (null)
+5	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: false}") do
+      assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	    32	false  
+3	(null)	 (null)
+4	(null)	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: beginless include end") do
+      assert_equal(<<-TABLE, @table.slice(count: ..8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key: Range}: beginless exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: ...8).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: endless") do
+      assert_equal(<<-TABLE, @table.slice(count: 16..).to_s)
+	count	visible
+0	   16	true   
+1	   32	false  
+2	   64	 (null)
+3	  128	 (null)
+      TABLE
+    end
+
+    test("{key: Range}: include end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1..16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+4	   16	true   
+      TABLE
+    end
+
+    test("{key: Range}: exclude end") do
+      assert_equal(<<-TABLE, @table.slice(count: 1...16).to_s)
+	count	visible
+0	    1	true   
+1	    2	false  
+2	    4	 (null)
+3	    8	true   
+      TABLE
+    end
+
+    test("{key1: Range, key2: true}") do
+      assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
+	 count	visible
+0	     2	false  
+1	(null)	 (null)
+2	(null)	 (null)
+3	(null)	 (null)
       TABLE
     end
 
@@ -190,19 +288,44 @@ class TableTest < Test::Unit::TestCase
   end
 
   sub_test_case("#[]") do
+    def setup
+      @table = Arrow::Table.new(a: [true],
+                                b: [true],
+                                c: [true],
+                                d: [true],
+                                e: [true],
+                                f: [true],
+                                g: [true])
+    end
+
     test("[String]") do
       assert_equal(Arrow::Column.new(@table, 0),
-                   @table["count"])
+                   @table["a"])
     end
 
     test("[Symbol]") do
       assert_equal(Arrow::Column.new(@table, 1),
-                   @table[:visible])
+                   @table[:b])
     end
 
     test("[Integer]") do
-      assert_equal(Arrow::Column.new(@table, 1),
+      assert_equal(Arrow::Column.new(@table, 6),
                    @table[-1])
+    end
+
+    test("[Range]") do
+      assert_equal(Arrow::Table.new(d: [true],
+                                    e: [true]),
+                   @table[3..4])
+    end
+
+    test("[[Symbol, String, Integer, Range]]") do
+      assert_equal(Arrow::Table.new(c: [true],
+                                    a: [true],
+                                    g: [true],
+                                    d: [true],
+                                    e: [true]),
+                   @table[[:c, "a", -1, 3..4]])
     end
   end
 
@@ -214,12 +337,12 @@ class TableTest < Test::Unit::TestCase
 	count	visible	name
 0	    1	true   	a   
 1	    2	false  	b   
-2	    4	       	c   
+2	    4	 (null)	c   
 3	    8	true   	d   
 4	   16	true   	e   
 5	   32	false  	f   
-6	   64	       	g   
-7	  128	       	h   
+6	   64	 (null)	g   
+7	  128	 (null)	h   
         TABLE
       end
 
@@ -261,12 +384,12 @@ class TableTest < Test::Unit::TestCase
 	count	visible	name
 0	    1	true   	a   
 1	    2	false  	b   
-2	    4	       	c   
+2	    4	 (null)	c   
 3	    8	true   	d   
 4	   16	true   	e   
 5	   32	false  	f   
-6	   64	       	g   
-7	  128	       	h   
+6	   64	 (null)	g   
+7	  128	 (null)	h   
         TABLE
       end
 
@@ -450,14 +573,20 @@ class TableTest < Test::Unit::TestCase
         assert_equal(@table, Arrow::Table.load(output, format: :batch))
       end
 
+      def test_arrows
+        output = create_output(".arrows")
+        @table.save(output, format: :arrows)
+        assert_equal(@table, Arrow::Table.load(output, format: :arrows))
+      end
+
       def test_arrow_streaming
-        output = create_output(".arrow")
+        output = create_output(".arrows")
         @table.save(output, format: :arrow_streaming)
         assert_equal(@table, Arrow::Table.load(output, format: :arrow_streaming))
       end
 
       def test_stream
-        output = create_output(".arrow")
+        output = create_output(".arrows")
         @table.save(output, format: :stream)
         assert_equal(@table, Arrow::Table.load(output, format: :stream))
       end
@@ -503,6 +632,24 @@ class TableTest < Test::Unit::TestCase
         end
 
         sub_test_case("save: auto detect") do
+          test("arrow") do
+            output = create_output(".arrow")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :arrow,
+                                           schema: @table.schema))
+          end
+
+          test("arrows") do
+            output = create_output(".arrows")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :arrows,
+                                           schema: @table.schema))
+          end
+
           test("csv") do
             output = create_output(".csv")
             @table.save(output)
@@ -541,7 +688,13 @@ class TableTest < Test::Unit::TestCase
 
           test("arrow: streaming") do
             output = create_output(".arrow")
-            @table.save(output, format: :arrow_streaming)
+            @table.save(output, format: :arrows)
+            assert_equal(@table, Arrow::Table.load(output))
+          end
+
+          test("arrows") do
+            output = create_output(".arrows")
+            @table.save(output, format: :arrows)
             assert_equal(@table, Arrow::Table.load(output))
           end
 
@@ -605,6 +758,47 @@ chris\t-1
         end
       end
     end
+
+    sub_test_case("URI") do
+      def start_web_server(path, data, content_type)
+        http_server = WEBrick::HTTPServer.new(:Port => 0)
+        http_server.mount_proc(path) do |request, response|
+          response.body = data
+          response.content_type = content_type
+        end
+        http_server_thread = Thread.new do
+          http_server.start
+        end
+        begin
+          Timeout.timeout(1) do
+            yield(http_server[:Port])
+          end
+        ensure
+          http_server.shutdown
+          http_server_thread.join
+        end
+      end
+
+      data("Arrow File",
+           ["arrow", "application/vnd.apache.arrow.file"])
+      data("Arrow Stream",
+           ["arrows", "application/vnd.apache.arrow.stream"])
+      data("CSV",
+           ["csv", "text/csv"])
+      def test_http(data)
+        extension, content_type = data
+        output = Arrow::ResizableBuffer.new(1024)
+        @table.save(output, format: extension.to_sym)
+        path = "/data.#{extension}"
+        start_web_server(path,
+                         output.data.to_s,
+                         content_type) do |port|
+          input = URI("http://127.0.0.1:#{port}#{path}")
+          loaded_table = Arrow::Table.load(input)
+          assert_equal(@table.to_s, loaded_table.to_s)
+        end
+      end
+    end
   end
 
   test("#pack") do
@@ -614,12 +808,12 @@ chris\t-1
 	count	visible
 0	    1	true   
 1	    2	false  
-2	    4	       
+2	    4	 (null)
 3	    8	true   
 4	   16	true   
 5	   32	false  
-6	   64	       
-7	  128	       
+6	   64	 (null)
+7	  128	 (null)
     TABLE
   end
 
@@ -707,13 +901,13 @@ visible: false
     test("Array: boolean") do
       filter = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -721,13 +915,13 @@ visible: false
       array = [nil, true, true, false, true, false, true, true]
       filter = Arrow::BooleanArray.new(array)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
 
@@ -739,13 +933,13 @@ visible: false
       ]
       filter = Arrow::ChunkedArray.new(filter_chunks)
       assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
-	count	visible
-0	     	       
-1	    2	false  
-2	    4	       
-3	   16	true   
-4	   64	       
-5	  128	       
+	 count	visible
+0	(null)	 (null)
+1	     2	false  
+2	     4	 (null)
+3	    16	true   
+4	    64	 (null)
+5	   128	 (null)
       TABLE
     end
   end
@@ -757,7 +951,7 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
     end
 
@@ -767,7 +961,7 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
     end
 
@@ -781,8 +975,134 @@ visible: false
 	count	visible
 0	    2	false  
 1	    1	true   
-2	    4	       
+2	    4	 (null)
       TABLE
+    end
+  end
+
+  sub_test_case("#concatenate") do
+    test("options: :unify_schemas") do
+      table1 = Arrow::Table.new(a: [true],
+                                b: [false])
+      table2 = Arrow::Table.new(b: [false])
+      concatenated = table1.concatenate([table2], unify_schemas: true)
+      assert_equal(<<-TABLE, concatenated.to_s)
+	a	b
+0	true	false
+1	(null)	false
+      TABLE
+    end
+  end
+
+  sub_test_case("#join") do
+    test("keys: String") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, "key"))
+    end
+
+    test("keys: Symbol") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, :key))
+    end
+
+    test("keys: [String, Symbol]") do
+      table1 = Arrow::Table.new(key1: [1, 1, 2, 2],
+                                key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(key1: [1, 2, 2],
+                                key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["key1", [1, 2]],
+                                      ["key2", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["key1", [1, 2]],
+                                      ["key2", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                   table1.join(table2, ["key1", :key2]))
+    end
+
+    test("keys: {left: String, right: Symbol}") do
+      table1 = Arrow::Table.new(left_key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(right_key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["left_key", [1, 3]],
+                                      ["number", [10, 30]],
+                                      ["right_key", [1, 3]],
+                                      ["string", ["one", "three"]],
+                                    ]),
+                   table1.join(table2, {left: "left_key", right: :right_key}))
+    end
+
+    test("keys: {left: [String, Symbol], right: [Symbol, String]}") do
+      table1 = Arrow::Table.new(left_key1: [1, 1, 2, 2],
+                                left_key2: [10, 100, 20, 200],
+                                number: [1010, 1100, 2020, 2200])
+      table2 = Arrow::Table.new(right_key1: [1, 2, 2],
+                                right_key2: [100, 20, 50],
+                                string: ["1-100", "2-20", "2-50"])
+      assert_equal(Arrow::Table.new([
+                                      ["left_key1", [1, 2]],
+                                      ["left_key2", [100, 20]],
+                                      ["number", [1100, 2020]],
+                                      ["right_key1", [1, 2]],
+                                      ["right_key2", [100, 20]],
+                                      ["string", ["1-100", "2-20"]],
+                                    ]),
+                   table1.join(table2,
+                               {
+                                 left: ["left_key1", :left_key2],
+                                 right: [:right_key1, "right_key2"],
+                               }))
+    end
+
+    test("type:") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new([
+                                      ["key", [1, 3, 2]],
+                                      ["number", [10, 30, 20]],
+                                      ["key", [1, 3, nil]],
+                                      ["string", ["one", "three", nil]],
+                                    ]),
+                   table1.join(table2, "key", type: :left_outer))
+    end
+
+    test("left_outputs: & right_outputs:") do
+      table1 = Arrow::Table.new(key: [1, 2, 3],
+                                number: [10, 20, 30])
+      table2 = Arrow::Table.new(key: [3, 1],
+                                string: ["three", "one"])
+      assert_equal(Arrow::Table.new(key: [1, 3],
+                                    number: [10, 30],
+                                    string: ["one", "three"]),
+                   table1.join(table2,
+                               "key",
+                               left_outputs: ["key", "number"],
+                               right_outputs: ["string"]))
     end
   end
 end

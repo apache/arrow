@@ -22,6 +22,7 @@ sources = files(
   'dataset.cpp',
   'file-format.cpp',
   'fragment.cpp',
+  'partitioning.cpp',
   'scanner.cpp',
 )
 
@@ -31,6 +32,7 @@ c_headers = files(
   'dataset.h',
   'file-format.h',
   'fragment.h',
+  'partitioning.h',
   'scanner.h',
 )
 
@@ -40,8 +42,21 @@ cpp_headers = files(
   'dataset.hpp',
   'file-format.hpp',
   'fragment.hpp',
+  'partitioning.hpp',
   'scanner.hpp',
 )
+
+enums = gnome.mkenums('enums',
+                      sources: c_headers,
+                      identifier_prefix: 'GADataset',
+                      symbol_prefix: 'gadataset',
+                      c_template: 'enums.c.template',
+                      h_template: 'enums.h.template',
+                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_header: true)
+enums_source = enums[0]
+enums_header = enums[1]
+
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-dataset-glib')
@@ -51,7 +66,7 @@ dependencies = [
   arrow_glib,
 ]
 libarrow_dataset_glib = library('arrow-dataset-glib',
-                                sources: sources,
+                                sources: sources + enums,
                                 install: true,
                                 dependencies: dependencies,
                                 include_directories: base_include_directories,
@@ -59,7 +74,8 @@ libarrow_dataset_glib = library('arrow-dataset-glib',
                                 version: library_version)
 arrow_dataset_glib = declare_dependency(link_with: libarrow_dataset_glib,
                                         include_directories: base_include_directories,
-                                        dependencies: dependencies)
+                                        dependencies: dependencies,
+                                        sources: enums_header)
 
 pkgconfig.generate(libarrow_dataset_glib,
                    filebase: 'arrow-dataset-glib',
@@ -71,7 +87,7 @@ pkgconfig.generate(libarrow_dataset_glib,
 if have_gi
   gnome.generate_gir(libarrow_dataset_glib,
                      dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers,
+                     sources: sources + c_headers + enums,
                      namespace: 'ArrowDataset',
                      nsversion: api_version,
                      identifier_prefix: 'GADataset',

@@ -41,19 +41,29 @@ target environment.**
    :maxdepth: 1
    :caption: Supported Environments
 
-   C/GLib <https://arrow.apache.org/docs/c_glib/>
+   C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
-   Go <https://godoc.org/github.com/apache/arrow/go/arrow>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
-   JavaScript <https://arrow.apache.org/docs/js/>
+   JavaScript <js/index>
    Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
    MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
    Python <python/index>
-   R <https://arrow.apache.org/docs/r/>
+   R <r/index>
    Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
    status
+
+.. _toc.cookbook:
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Cookbooks
+
+   C++ <https://arrow.apache.org/cookbook/cpp/>
+   Python <https://arrow.apache.org/cookbook/py/>
+   R <https://arrow.apache.org/cookbook/r/>
 
 .. _toc.columnar:
 
@@ -67,7 +77,7 @@ target environment.**
    format/Integration
    format/CDataInterface
    format/CStreamInterface
-   format/Other   
+   format/Other
 
 .. _toc.development:
 
@@ -76,10 +86,11 @@ target environment.**
    :caption: Development
 
    developers/contributing
+   developers/guide/index
+   developers/reviewing
    developers/cpp/index
    developers/python
-   developers/archery
-   developers/crossbow
-   developers/docker
+   developers/continuous_integration/index
    developers/benchmarks
    developers/documentation
+   developers/computeir

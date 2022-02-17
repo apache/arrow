@@ -1,0 +1,268 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "ARROW_BUILD_STATIC": "OFF"
+      }
+    },
+    {
+      "name": "base-debug",
+      "inherits": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_BUILD_INTEGRATION": "ON",
+        "ARROW_BUILD_TESTS": "ON",
+        "ARROW_EXTRA_ERROR_CONTEXT": "ON",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "base-release",
+      "inherits": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "base-benchmarks",
+      "inherits": "base",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_BUILD_BENCHMARKS": "ON",
+        "ARROW_BUILD_BENCHMARKS_REFERENCE": "ON",
+        "ARROW_BUILD_OPENMP_BENCHMARKS": "ON",
+        "ARROW_BUILD_DETAILED_BENCHMARKS": "OFF",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "features-minimal",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_WITH_RE2": "OFF",
+        "ARROW_WITH_UTF8PROC": "OFF"
+      }
+    },
+    {
+      "name": "features-basic",
+      "inherits": "features-minimal",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_COMPUTE": "ON",
+        "ARROW_CSV": "ON",
+        "ARROW_DATASET": "ON",
+        "ARROW_FILESYSTEM": "ON",
+        "ARROW_JSON": "ON"
+      }
+    },
+    {
+      "name": "features-main",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_ENGINE": "ON",
+        "ARROW_MIMALLOC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_WITH_BROTLI": "ON",
+        "ARROW_WITH_BZ2": "ON",
+        "ARROW_WITH_LZ4": "ON",
+        "ARROW_WITH_RE2": "ON",
+        "ARROW_WITH_SNAPPY": "ON",
+        "ARROW_WITH_UTF8PROC": "ON",
+        "ARROW_WITH_ZLIB": "ON",
+        "ARROW_WITH_ZSTD": "ON"
+      }
+    },
+    {
+      "name": "features-cuda",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_CUDA": "ON"
+      }
+    },
+    {
+      "name": "features-filesystems",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_GCS": "ON",
+        "ARROW_HDFS": "ON",
+        "ARROW_S3": "ON"
+      }
+    },
+    {
+      "name": "features-flight",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_FLIGHT": "ON"
+      }
+    },
+    {
+      "name": "features-gandiva",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_GANDIVA": "ON"
+      }
+    },
+    {
+      "name": "features-python",
+      "inherits": "features-main",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_PYTHON": "ON"
+      }
+    },
+    {
+      "name": "features-maximal",
+      "inherits": ["features-main", "features-cuda",
+                   "features-filesystems", "features-flight",
+                   "features-gandiva", "features-python"],
+      "hidden": true,
+      "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
+      "cacheVariables": {
+        "ARROW_BUILD_EXAMPLES": "ON",
+        "ARROW_BUILD_UTILITIES": "ON",
+        "ARROW_HIVESERVER2": "ON",
+        "ARROW_ORC": "ON",
+        "ARROW_SKYHOOK": "ON",
+        "ARROW_TENSORFLOW": "ON",
+        "PARQUET_BUILD_EXAMPLES": "ON",
+        "PARQUET_BUILD_EXECUTABLES": "ON",
+        "PARQUET_REQUIRE_ENCRYPTION": "ON"
+      }
+    },
+
+    {
+      "name": "ninja-debug-minimal",
+      "inherits": ["base-debug", "features-minimal"],
+      "displayName": "Debug build without anything enabled",
+      "cacheVariables": {
+        "ARROW_BUILD_INTEGRATION": "OFF",
+        "ARROW_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "ninja-debug-basic",
+      "inherits": ["base-debug", "features-basic"],
+      "displayName": "Debug build with tests and reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug",
+      "inherits": ["base-debug", "features-main"],
+      "displayName": "Debug build with tests and more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-cuda",
+      "inherits": ["base-debug", "features-cuda"],
+      "displayName": "Debug build with tests and CUDA integration",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-filesystems",
+      "inherits": ["base-debug", "features-filesystems"],
+      "displayName": "Debug build with tests and filesystems",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-flight",
+      "inherits": ["base-debug", "features-flight"],
+      "displayName": "Debug build with tests and Flight",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-gandiva",
+      "inherits": ["base-debug", "features-gandiva"],
+      "displayName": "Debug build with tests and Gandiva",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-python",
+      "inherits": ["base-debug", "features-python"],
+      "displayName": "Debug build with tests and Python support",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-maximal",
+      "inherits": ["base-debug", "features-maximal"],
+      "displayName": "Debug build with everything enabled (except benchmarks and CUDA)",
+      "cacheVariables": {}
+    },
+
+    {
+      "name": "ninja-release-minimal",
+      "inherits": ["base-release", "features-minimal"],
+      "displayName": "Release build without anything enabled",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-basic",
+      "inherits": ["base-release", "features-basic"],
+      "displayName": "Release build with reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release",
+      "inherits": ["base-release", "features-main"],
+      "displayName": "Release build with more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-cuda",
+      "inherits": ["base-release", "features-cuda"],
+      "displayName": "Release build with CUDA integration",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight",
+      "inherits": ["base-release", "features-flight"],
+      "displayName": "Release build with Flight",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-gandiva",
+      "inherits": ["base-release", "features-gandiva"],
+      "displayName": "Release build with Gandiva",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-python",
+      "inherits": ["base-release", "features-python"],
+      "displayName": "Release build with Python support",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-maximal",
+      "inherits": ["base-release", "features-maximal"],
+      "displayName": "Release build with everything enabled (except benchmarks and CUDA)",
+      "cacheVariables": {}
+    },
+
+    {
+      "name": "ninja-benchmarks-basic",
+      "inherits": ["base-benchmarks", "features-basic"],
+      "displayName": "Benchmarking build with reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-benchmarks",
+      "inherits": ["base-benchmarks", "features-main"],
+      "displayName": "Benchmarking build with more optional components",
+      "cacheVariables": {}
+    }
+  ]
+}

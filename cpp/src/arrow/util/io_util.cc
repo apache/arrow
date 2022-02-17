@@ -34,10 +34,14 @@
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
+#include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <sstream>
 #include <string>
@@ -55,6 +59,7 @@
 // file compatibility stuff
 
 #ifdef _WIN32
+#include <direct.h>
 #include <io.h>
 #include <share.h>
 #else  // POSIX-like platforms
@@ -306,6 +311,26 @@ int SignalFromStatus(const Status& status) {
   return 0;
 }
 
+namespace {
+
+Result<NativePathString> NativeReal(const NativePathString& path) {
+#if _WIN32
+  std::array<wchar_t, _MAX_PATH> resolved;
+  if (_wfullpath(const_cast<wchar_t*>(path.c_str()), resolved.data(), resolved.size()) ==
+      nullptr) {
+    return IOErrorFromWinError(errno, "Failed to resolve real path");
+  }
+#else
+  std::array<char, PATH_MAX + 1> resolved;
+  if (realpath(path.c_str(), resolved.data()) == nullptr) {
+    return IOErrorFromErrno(errno, "Failed to resolve real path");
+  }
+#endif
+  return NativePathString{resolved.data()};
+}
+
+}  // namespace
+
 //
 // PlatformFilename implementation
 //
@@ -342,8 +367,8 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
   return *this;
 }
 
-PlatformFilename::PlatformFilename(const NativePathString& path)
-    : PlatformFilename(Impl{path}) {}
+PlatformFilename::PlatformFilename(NativePathString path)
+    : PlatformFilename(Impl{std::move(path)}) {}
 
 PlatformFilename::PlatformFilename(const NativePathString::value_type* path)
     : PlatformFilename(NativePathString(path)) {}
@@ -374,6 +399,11 @@ std::string PlatformFilename::ToString() const {
 
 PlatformFilename PlatformFilename::Parent() const {
   return PlatformFilename(NativeParent(ToNative()));
+}
+
+Result<PlatformFilename> PlatformFilename::Real() const {
+  ARROW_ASSIGN_OR_RAISE(auto real, NativeReal(ToNative()));
+  return PlatformFilename(std::move(real));
 }
 
 Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
@@ -1662,6 +1692,9 @@ int64_t GetRandomSeed() {
   // The process-global seed generator to aims to avoid calling std::random_device
   // unless truly necessary (it can block on some systems, see ARROW-10287).
   static auto seed_gen = GetSeedGenerator();
+  static std::mutex seed_gen_mutex;
+
+  std::lock_guard<std::mutex> lock(seed_gen_mutex);
   return static_cast<int64_t>(seed_gen());
 }
 

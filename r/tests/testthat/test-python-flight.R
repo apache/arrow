@@ -32,6 +32,10 @@ if (process_is_running("demo_flight_server")) {
     flight_put(client, example_data, path = flight_obj)
     expect_true(flight_path_exists(client, flight_obj))
     expect_true(flight_obj %in% list_flights(client))
+    expect_error(
+      flight_put(client, Array$create(c(1:3)), path = flight_obj),
+      regexp = 'data must be a "data.frame", "Table", or "RecordBatch"'
+    )
   })
 
   test_that("flight_get", {
@@ -52,6 +56,12 @@ if (process_is_running("demo_flight_server")) {
     # Default is TRUE so this will overwrite
     flight_put(client, example_with_times, path = flight_obj)
     expect_identical(as.data.frame(flight_get(client, flight_obj)), example_with_times)
+  })
+
+  test_that("flight_disconnect", {
+    flight_disconnect(client)
+    # Idempotent
+    flight_disconnect(client)
   })
 } else {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests

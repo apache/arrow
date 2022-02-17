@@ -24,10 +24,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 )
 
 func TestLsStream(t *testing.T) {
@@ -72,7 +72,7 @@ records: 2
 			name: "lists",
 			want: `schema:
   fields: 1
-    - list_nullable: type=list<item: int32>, nullable
+    - list_nullable: type=list<item: int32, nullable>, nullable
 records: 4
 `,
 		},
@@ -89,7 +89,7 @@ records: 3
 			name: "fixed_size_lists",
 			want: `schema:
   fields: 1
-    - fixed_size_list_nullable: type=fixed_size_list<item: int32>[3], nullable
+    - fixed_size_list_nullable: type=fixed_size_list<item: int32, nullable>[3], nullable
 records: 3
 `,
 		},
@@ -248,7 +248,7 @@ records: 2
 			name:   "lists",
 			want: `schema:
   fields: 1
-    - list_nullable: type=list<item: int32>, nullable
+    - list_nullable: type=list<item: int32, nullable>, nullable
 records: 4
 `,
 		},
@@ -257,7 +257,7 @@ records: 4
 			want: `version: V5
 schema:
   fields: 1
-    - list_nullable: type=list<item: int32>, nullable
+    - list_nullable: type=list<item: int32, nullable>, nullable
 records: 4
 `,
 		},
@@ -293,7 +293,7 @@ records: 3
 
 				var w interface {
 					io.Closer
-					Write(array.Record) error
+					Write(arrow.Record) error
 				}
 
 				switch {

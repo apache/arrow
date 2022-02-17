@@ -33,7 +33,7 @@ on:
       - 'go/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 env:
@@ -43,14 +43,14 @@ env:
 jobs:
 
   docker:
-    name: AMD64 Debian 10 Go ${{ matrix.go }}
+    name: AMD64 Debian 11 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -58,10 +58,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        run: ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        run: ci/scripts/util_cleanup.sh
+          submodules: recursive
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
@@ -75,6 +72,66 @@ jobs:
         continue-on-error: true
         run: archery docker push debian-go
 
+  docker_cgo:
+    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.16]
+    env:
+      GO: ${{ matrix.go }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-go-cgo
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push debian-go-cgo
+
+
+  docker_cgo_python:
+    name: AMD64 Debian 11 GO ${{ matrix.go }} - CGO Python
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.16]
+    env:
+      GO: ${{ matrix.go }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-go-cgo-python
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push debian-go-cgo-python
+
   windows:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-latest
@@ -83,7 +140,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     steps:
       - name: Install go
         uses: actions/setup-go@v1
@@ -93,15 +150,13 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
 
   macos:
     name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
@@ -111,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.15]
+        go: [1.16]
     steps:
       - name: Install go
         uses: actions/setup-go@v1
@@ -121,12 +176,92 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: ci/scripts/util_checkout.sh
+          submodules: recursive
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/go_build.sh $(pwd)
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/go_test.sh $(pwd)
+
+  macos-cgo:
+    name: AMD64 MacOS 10.15 Go ${{ matrix.go }} - CGO
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.16]
+    env:
+      ARROW_GO_TESTCGO: "1"
+    steps:
+      - name: Install go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Brew Install Arrow
+        shell: bash
+        run: brew install apache-arrow
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/go_test.sh $(pwd)
+
+  windows-mingw:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} CGO
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mingw-n-bits:
+          #- 32 runtime handling for CGO needs 64-bit currently
+          - 64
+    env:
+      ARROW_GO_TESTCGO: "1"
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW${{ matrix.mingw-n-bits }}
+          update: true
+      - name: Setup MSYS2
+        shell: msys2 {0}
+        run: |
+          ci/scripts/msys2_setup.sh cgo
+      - name: Update CGO Env vars
+        shell: msys2 {0}
+        run: |
+          echo "CGO_CPPFLAGS=-I$(cygpath --windows ${MINGW_PREFIX}/include)" >> $GITHUB_ENV
+          echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
+          echo "GOROOT=$(cygpath --windows ${MINGW_PREFIX}/lib/go)" >> $GITHUB_ENV
+          echo "GOPATH=$(cygpath --windows ${HOME}/gopath)" >> $GITHUB_ENV
+          mkdir -p $(cygpath --windows ${HOME}/gopath)
+          echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
+      - name: Build
+        shell: bash
+        run: ci/scripts/go_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/go_test.sh $(pwd)

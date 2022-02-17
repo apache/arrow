@@ -83,6 +83,7 @@ RUN apt-get update -y -q && \
         pkg-config \
         protobuf-compiler \
         rapidjson-dev \
+        rsync \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -116,6 +117,7 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \

@@ -16,8 +16,10 @@
 // under the License.
 
 #include <gtest/gtest.h>
-#include <math.h>
-#include <time.h>
+
+#include <cmath>
+#include <ctime>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/precompiled/time_constants.h"
 #include "gandiva/projector.h"
@@ -358,6 +360,9 @@ TEST_F(TestProjector, TestTimestampDiff) {
   auto diff_days_expr =
       TreeExprBuilder::MakeExpression("timestampdiffDay", {f0, f1}, diff_seconds);
 
+  auto diff_days_expr_with_datediff_fn =
+      TreeExprBuilder::MakeExpression("datediff", {f0, f1}, diff_seconds);
+
   auto diff_weeks_expr =
       TreeExprBuilder::MakeExpression("timestampdiffWeek", {f0, f1}, diff_seconds);
 
@@ -371,8 +376,15 @@ TEST_F(TestProjector, TestTimestampDiff) {
       TreeExprBuilder::MakeExpression("timestampdiffYear", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
-  auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
-                diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
+  auto exprs = {diff_secs_expr,
+                diff_mins_expr,
+                diff_hours_expr,
+                diff_days_expr,
+                diff_days_expr_with_datediff_fn,
+                diff_weeks_expr,
+                diff_months_expr,
+                diff_quarters_expr,
+                diff_years_expr};
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
@@ -407,6 +419,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   exp_output.push_back(MakeArrowArrayInt32({816601, -816601, 0, -23 * 60}, validity));
   exp_output.push_back(MakeArrowArrayInt32({13610, -13610, 0, -23}, validity));
   exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
+  exp_output.push_back(MakeArrowArrayInt32({567, -567, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({81, -81, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({18, -18, 0, 0}, validity));
   exp_output.push_back(MakeArrowArrayInt32({6, -6, 0, 0}, validity));
@@ -440,7 +453,7 @@ TEST_F(TestProjector, TestTimestampDiffMonth) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -498,7 +511,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -537,6 +550,56 @@ TEST_F(TestProjector, TestMonthsBetween) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestCastTimestampFromInt64) {
+  auto f0 = field("f0", arrow::int64());
+  auto schema = arrow::schema({f0});
+
+  // output fields
+  auto output = field("out", arrow::timestamp(arrow::TimeUnit::MILLI));
+
+  auto casttimestamp_expr =
+      TreeExprBuilder::MakeExpression("castTIMESTAMP", {f0}, output);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {casttimestamp_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  int num_records = 5;
+  auto validity = {true, true, true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                  MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                  MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                  MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                  MillisSince(epoch, 1970, 12, 30, 22, 50, 11, 0)};
+
+  auto array0 = MakeArrowArrayInt64(f0_data, validity);
+
+  std::vector<int64_t> f0_output_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                         MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                         MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                         MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                         MillisSince(epoch, 1970, 12, 30, 22, 50, 11, 0)};
+
+  // expected output
+  auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      timestamp(arrow::TimeUnit::MILLI), f0_output_data, validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestLastDay) {
   auto f0 = field("f0", arrow::date64());
   auto schema = arrow::schema({f0});
@@ -548,7 +611,7 @@ TEST_F(TestProjector, TestLastDay) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
-  std::cout << status.message();
+
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
@@ -586,5 +649,4 @@ TEST_F(TestProjector, TestLastDay) {
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp_output, outputs.at(0));
 }
-
 }  // namespace gandiva

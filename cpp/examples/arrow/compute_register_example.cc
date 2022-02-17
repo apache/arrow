@@ -85,7 +85,7 @@ class ExampleNode : public cp::ExecNode {
                  /*input_labels=*/{"ignored"},
                  /*output_schema=*/input->output_schema(), /*num_outputs=*/1) {}
 
-  const char* kind_name() override { return "ExampleNode"; }
+  const char* kind_name() const override { return "ExampleNode"; }
 
   arrow::Status StartProducing() override {
     outputs_[0]->InputFinished(this, 0);
@@ -123,8 +123,10 @@ const cp::FunctionDoc func_doc{
 int main(int argc, char** argv) {
   const std::string name = "compute_register_example";
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc);
-  ABORT_ON_FAILURE(func->AddKernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
-                                   ExampleFunctionImpl));
+  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
+                          ExampleFunctionImpl);
+  kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+  ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
 
   auto registry = cp::GetFunctionRegistry();
   ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));

@@ -1347,6 +1347,23 @@ TEST(TestDayTimeIntervalType, ToString) {
   ASSERT_EQ("day_time_interval", t1->ToString());
 }
 
+TEST(TestMonthDayNanoIntervalType, Equals) {
+  MonthDayNanoIntervalType t1;
+  MonthDayNanoIntervalType t2;
+  MonthIntervalType t3;
+  DayTimeIntervalType t4;
+
+  AssertTypeEqual(t1, t2);
+  AssertTypeNotEqual(t1, t3);
+  AssertTypeNotEqual(t1, t4);
+}
+
+TEST(TestMonthDayNanoIntervalType, ToString) {
+  auto t1 = month_day_nano_interval();
+
+  ASSERT_EQ("month_day_nano_interval", t1->ToString());
+}
+
 TEST(TestDurationType, Equals) {
   DurationType t1;
   DurationType t2;
@@ -1580,6 +1597,38 @@ TEST(TestStructType, TestFieldsDifferOnlyInMetadata) {
 
   ASSERT_EQ(s0.fingerprint(), s1.fingerprint());
   ASSERT_NE(s0.metadata_fingerprint(), s1.metadata_fingerprint());
+}
+
+TEST(TestStructType, FieldModifierMethods) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", utf8());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+
+  StructType struct_type(fields);
+
+  ASSERT_OK_AND_ASSIGN(auto new_struct, struct_type.AddField(1, field("f2", int8())));
+  ASSERT_EQ(3, new_struct->num_fields());
+  ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
+
+  ASSERT_OK_AND_ASSIGN(new_struct, new_struct->RemoveField(1));
+  ASSERT_EQ(2, new_struct->num_fields());
+  ASSERT_EQ(-1, new_struct->GetFieldIndex("f2"));  // No f2 after removal
+
+  ASSERT_OK_AND_ASSIGN(new_struct, new_struct->SetField(1, field("f2", int8())));
+  ASSERT_EQ(2, new_struct->num_fields());
+  ASSERT_EQ(1, new_struct->GetFieldIndex("f2"));
+  ASSERT_EQ(int8(), new_struct->GetFieldByName("f2")->type());
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid column index to add field"),
+                                  new_struct->AddField(5, field("f5", int8())));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid column index to remove field"),
+      new_struct->RemoveField(-1));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("Invalid column index to set field"),
+                                  new_struct->SetField(2, field("f5", int8())));
 }
 
 TEST(TestUnionType, Basics) {

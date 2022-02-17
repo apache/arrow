@@ -66,7 +66,8 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
 
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     if (GetCompression() == Compression::UNCOMPRESSED) {
-      return internal::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
+      return ::arrow::internal::make_unique<FileSource>(
+          Buffer::FromString(std::move(csv)));
     }
     std::string path = "test.csv";
     switch (GetCompression()) {
@@ -94,18 +95,12 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
     EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
-    return internal::make_unique<FileSource>(info, fs, GetCompression());
-  }
-
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
+    return ::arrow::internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    return MakeGeneratorIterator(batch_gen);
   }
 };
 
@@ -354,9 +349,11 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
   options->write_options->include_header = false;
   auto data_schema = schema({field("f64", float64())});
   ASSERT_OK_AND_ASSIGN(auto sink, GetFileSink());
-  ASSERT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, data_schema, options, {}));
+  ASSERT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
+  ASSERT_OK_AND_ASSIGN(auto writer,
+                       format_->MakeWriter(sink, data_schema, options, {fs, "<buffer>"}));
   ASSERT_OK(writer->Write(ConstantArrayGenerator::Zeroes(5, data_schema)));
-  ASSERT_OK(writer->Finish());
+  ASSERT_FINISHES_OK(writer->Finish());
   ASSERT_OK_AND_ASSIGN(auto written, sink->Finish());
   ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
@@ -386,12 +383,20 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
 class TestCsvFileFormatScan : public FileFormatScanMixin<CsvFormatHelper> {};
 
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestCsvFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+// NOTE(ARROW-14658): TestScanProjectedNested is ignored since CSV
+// doesn't have any nested types for us to work with
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols();
+}
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
   TestScanWithVirtualColumn();
 }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols();
+// The CSV reader rejects duplicate columns, so skip
+// ScanRecordBatchReaderWithDuplicateColumn
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,

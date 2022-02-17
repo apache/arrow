@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow/decimal128"
-	"github.com/apache/arrow/go/arrow/endian"
+	"github.com/apache/arrow/go/v8/arrow/decimal128"
+	"github.com/apache/arrow/go/v8/arrow/endian"
 )
 
 // Decimal128 traits

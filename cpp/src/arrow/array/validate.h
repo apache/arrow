@@ -35,8 +35,9 @@ ARROW_EXPORT
 Status ValidateArray(const ArrayData& data);
 
 // O(N) array data validation.
-// Note the "full" routines don't validate metadata.  It should be done
-// beforehand using ValidateArray(), otherwise invalid memory accesses
+// Note that, starting from 7.0.0, "full" routines also validate metadata.
+// Before, ValidateArray() needed to be called before ValidateArrayFull()
+// to ensure metadata correctness, otherwise invalid memory accesses
 // may occur.
 
 ARROW_EXPORT

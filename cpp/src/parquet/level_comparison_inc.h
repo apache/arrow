@@ -43,7 +43,7 @@ inline uint64_t LevelsToBitmap(const int16_t* levels, int64_t num_levels,
   for (int x = 0; x < num_levels; x++) {
     mask |= static_cast<uint64_t>(predicate(levels[x]) ? 1 : 0) << x;
   }
-  return ::arrow::BitUtil::ToLittleEndian(mask);
+  return ::arrow::bit_util::ToLittleEndian(mask);
 }
 
 inline MinMax FindMinMaxImpl(const int16_t* levels, int64_t num_levels) {

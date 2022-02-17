@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("File system")
 
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
@@ -29,9 +28,7 @@ test_that("LocalFilesystem", {
   info <- file.info(DESCRIPTION)
 
   expect_equal(info$size, info$size)
-  # This fails due to a subsecond difference on Appveyor on Windows with R 3.3 only
-  # So add a greater tolerance to allow for that
-  expect_equal(info$mtime, info$mtime, tolerance = 1)
+  expect_equal(info$mtime, info$mtime)
 
   tf <- tempfile(fileext = ".txt")
   fs$CopyFile(DESCRIPTION, tf)
@@ -133,6 +130,19 @@ test_that("LocalFileSystem + Selector", {
   expect_equal(sum(types == FileType$Directory), 1L)
 })
 
+# This test_that block must be above the two that follow it because S3FileSystem$create
+# uses a slightly different set of cpp code that is R-only, so if there are bugs
+# in the initialization of S3 (e.g. ARROW-14667) they will not be caught because
+# the blocks "FileSystem$from_uri" and "SubTreeFileSystem$create() with URI" actually
+# initialize it
+test_that("S3FileSystem", {
+  skip_on_cran()
+  skip_if_not_available("s3")
+  skip_if_offline()
+  s3fs <- S3FileSystem$create()
+  expect_r6_class(s3fs, "S3FileSystem")
+})
+
 test_that("FileSystem$from_uri", {
   skip_on_cran()
   skip_if_not_available("s3")
@@ -154,12 +164,15 @@ test_that("SubTreeFileSystem$create() with URI", {
   )
 })
 
-test_that("S3FileSystem", {
+test_that("S3FileSystem$create() with proxy_options", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  s3fs <- S3FileSystem$create()
-  expect_r6_class(s3fs, "S3FileSystem")
+
+  expect_error(
+    S3FileSystem$create(proxy_options = "definitely not a valid proxy URI"),
+    "Cannot parse URI"
+  )
 })
 
 test_that("s3_bucket", {

@@ -518,10 +518,25 @@ def test_buffer_slicing():
     with pytest.raises(IndexError):
         buf.slice(-1)
 
+    with pytest.raises(IndexError):
+        buf.slice(len(buf) + 1)
+    assert buf[11:].to_pybytes() == b""
+
+    # Slice stop exceeds buffer length
+    with pytest.raises(IndexError):
+        buf.slice(1, len(buf))
+    assert buf[1:11].to_pybytes() == buf.to_pybytes()[1:]
+
+    # Negative length
+    with pytest.raises(IndexError):
+        buf.slice(1, -1)
+
     # Test slice notation
     assert buf[2:].equals(buf.slice(2))
     assert buf[2:5].equals(buf.slice(2, 3))
     assert buf[-5:].equals(buf.slice(len(buf) - 5))
+    assert buf[-5:-2].equals(buf.slice(len(buf) - 5, 3))
+
     with pytest.raises(IndexError):
         buf[::-1]
     with pytest.raises(IndexError):
@@ -639,7 +654,7 @@ def test_compression_level(compression):
         pytest.skip("{} support is not built".format(compression))
 
     # These codecs do not support a compression level
-    no_level = ['snappy', 'lz4']
+    no_level = ['snappy']
     if compression in no_level:
         assert not Codec.supports_compression_level(compression)
         with pytest.raises(ValueError):
@@ -686,7 +701,7 @@ def test_compression_level(compression):
     # The ability to set a seed this way is not present on older versions of
     # numpy (currently in our python 3.6 CI build).  Some inputs might just
     # happen to compress the same between the two levels so using seeded
-    # random numbers is neccesary to help get more reliable results
+    # random numbers is necessary to help get more reliable results
     #
     # The goal of this part is to ensure the compression_level is being
     # passed down to the C++ layer, not to verify the compression algs
@@ -1284,6 +1299,33 @@ def test_compressed_input_bz2(tmpdir):
         check_compressed_input(data, fn, "bz2")
     except NotImplementedError as e:
         pytest.skip(str(e))
+
+
+@pytest.mark.gzip
+def test_compressed_input_openfile(tmpdir):
+    if not Codec.is_available("gzip"):
+        pytest.skip("gzip support is not built")
+
+    data = b"some test data\n" * 10 + b"eof\n"
+    fn = str(tmpdir / "test_compressed_input_openfile.gz")
+    with gzip.open(fn, "wb") as f:
+        f.write(data)
+
+    with pa.CompressedInputStream(fn, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    with pa.CompressedInputStream(pathlib.Path(fn), "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert compressed.closed
+
+    f = open(fn, "rb")
+    with pa.CompressedInputStream(f, "gzip") as compressed:
+        buf = compressed.read_buffer()
+        assert buf.to_pybytes() == data
+    assert f.closed
 
 
 def check_compressed_concatenated(data, fn, compression):

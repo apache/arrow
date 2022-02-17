@@ -125,23 +125,28 @@ inline std::string StringFromFlatbuffers(const flatbuffers::String* s) {
 // dictionary-encoded fields to a DictionaryMemo instance. May be
 // expensive for very large schemas if you are only interested in a
 // few fields
+ARROW_EXPORT
 Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
                  std::shared_ptr<Schema>* out);
 
+ARROW_EXPORT
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                          std::vector<int64_t>* shape, std::vector<int64_t>* strides,
                          std::vector<std::string>* dim_names);
 
 // EXPERIMENTAL: Extracting metadata of a SparseCOOIndex from the message
+ARROW_EXPORT
 Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
                                  std::shared_ptr<DataType>* indices_type);
 
 // EXPERIMENTAL: Extracting metadata of a SparseCSXIndex from the message
+ARROW_EXPORT
 Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type);
 
 // EXPERIMENTAL: Extracting metadata of a SparseCSFIndex from the message
+ARROW_EXPORT
 Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
                                  std::vector<int64_t>* axis_order,
                                  std::vector<int64_t>* indices_size,
@@ -149,13 +154,19 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
                                  std::shared_ptr<DataType>* indices_type);
 
 // EXPERIMENTAL: Extracting metadata of a sparse tensor from the message
+ARROW_EXPORT
 Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,
                                std::vector<int64_t>* shape,
                                std::vector<std::string>* dim_names, int64_t* length,
                                SparseTensorFormat::type* sparse_tensor_format_id);
 
+ARROW_EXPORT
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
                            std::shared_ptr<KeyValueMetadata>* out);
+
+ARROW_EXPORT
+Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
+                                  FieldVector children, std::shared_ptr<DataType>* out);
 
 template <typename RootType>
 bool VerifyFlatbuffers(const uint8_t* data, int64_t size) {
@@ -180,6 +191,7 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 }
 
 // Serialize arrow::Schema as a Flatbuffer
+ARROW_EXPORT
 Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
                           const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
@@ -191,19 +203,23 @@ Status WriteRecordBatchMessage(
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
     const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
 
+ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
                                                    const int64_t buffer_start_offset,
                                                    const IpcWriteOptions& options);
 
+ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> WriteSparseTensorMessage(
     const SparseTensor& sparse_tensor, int64_t body_length,
     const std::vector<BufferMetadata>& buffers, const IpcWriteOptions& options);
 
+ARROW_EXPORT
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
                        const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out);
 
+ARROW_EXPORT
 Status WriteDictionaryMessage(
     const int64_t id, const bool is_delta, const int64_t length,
     const int64_t body_length,
@@ -222,6 +238,12 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
   memcpy(dst, fbb.GetBufferPointer(), size);
   return std::move(result);
 }
+
+ARROW_EXPORT
+flatbuf::TimeUnit ToFlatbufferUnit(TimeUnit::type unit);
+
+ARROW_EXPORT
+TimeUnit::type FromFlatbufferUnit(flatbuf::TimeUnit unit);
 
 }  // namespace internal
 }  // namespace ipc

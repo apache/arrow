@@ -52,6 +52,7 @@ groups = [
     'hypothesis',
     'fastparquet',
     'gandiva',
+    'gdb',
     'gzip',
     'hdfs',
     'large_memory',
@@ -77,24 +78,25 @@ defaults = {
     'cython': False,
     'dataset': False,
     'fastparquet': False,
-    'hypothesis': False,
+    'flight': False,
     'gandiva': False,
+    'gdb': True,
     'gzip': Codec.is_available('gzip'),
     'hdfs': False,
+    'hypothesis': False,
     'large_memory': False,
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
-    'orc': False,
     'nopandas': False,
+    'orc': False,
     'pandas': False,
     'parquet': False,
     'plasma': False,
+    'requires_testing_data': True,
     's3': False,
+    'slow': False,
     'snappy': Codec.is_available('snappy'),
     'tensorflow': False,
-    'flight': False,
-    'slow': False,
-    'requires_testing_data': True,
     'zstd': Codec.is_available('zstd'),
 }
 
@@ -175,7 +177,7 @@ def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):
         value = os.environ.get(name.upper())
-        if value is None:
+        if not value:  # missing or empty
             return default
         value = value.lower()
         if value in {'1', 'true', 'on', 'yes', 'y'}:
@@ -292,7 +294,11 @@ def s3_server(s3_connection):
         except OSError:
             pytest.skip('`minio` command cannot be located')
         else:
-            yield proc
+            yield {
+                'connection': s3_connection,
+                'process': proc,
+                'tempdir': tempdir
+            }
         finally:
             if proc is not None:
                 proc.kill()

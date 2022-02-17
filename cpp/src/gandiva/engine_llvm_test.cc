@@ -80,8 +80,8 @@ class TestEngine : public ::testing::Test {
     loop_var->addIncoming(loop_update, loop_body);
 
     // get the current value
-    llvm::Value* offset = builder->CreateGEP(arg_elements, loop_var, "offset");
-    llvm::Value* current_value = builder->CreateLoad(offset, "value");
+    llvm::Value* offset = CreateGEP(builder, arg_elements, loop_var, "offset");
+    llvm::Value* current_value = CreateLoad(builder, offset, "value");
 
     // setup sum PHI
     llvm::Value* sum_update = builder->CreateAdd(sum, current_value, "sum+ith");

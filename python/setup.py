@@ -42,8 +42,8 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29':
-    raise Exception('Please upgrade to Cython 0.29 or newer')
+if Cython.__version__ < '0.29.22':
+    raise Exception('Please upgrade to Cython 0.29.22 or newer')
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
@@ -137,7 +137,7 @@ class build_ext(_build_ext):
         _build_ext.initialize_options(self)
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
-            self.cmake_generator = 'Visual Studio 14 2015 Win64'
+            self.cmake_generator = 'Visual Studio 15 2017 Win64'
         self.extra_cmake_args = os.environ.get('PYARROW_CMAKE_OPTIONS', '')
         self.build_type = os.environ.get('PYARROW_BUILD_TYPE',
                                          'release').lower()
@@ -198,6 +198,8 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_dataset_orc',
+        '_dataset_parquet',
         '_feather',
         '_parquet',
         '_orc',
@@ -424,6 +426,14 @@ class build_ext(_build_ext):
             return True
         if name == '_dataset' and not self.with_dataset:
             return True
+        if name == '_dataset_orc' and not (
+                self.with_orc and self.with_dataset
+        ):
+            return True
+        if name == '_dataset_parquet' and not (
+                self.with_parquet and self.with_dataset
+        ):
+            return True
         if name == '_cuda' and not self.with_cuda:
             return True
         if name == 'gandiva' and not self.with_gandiva:
@@ -522,7 +532,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '6.0.0-SNAPSHOT'
+default_version = '8.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
@@ -608,16 +618,16 @@ setup(
     setup_requires=['setuptools_scm', 'cython >= 0.29'] + setup_requires,
     install_requires=install_requires,
     tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     description='Python library for Apache Arrow',
     long_description=long_description,
     long_description_content_type='text/markdown',
     classifiers=[
         'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     license='Apache License, Version 2.0',
     maintainer='Apache Arrow Developers',

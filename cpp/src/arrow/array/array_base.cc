@@ -39,8 +39,8 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -85,6 +85,7 @@ struct ScalarFromArraySlotImpl {
   Status Visit(const FixedSizeBinaryArray& a) { return Finish(a.GetString(index_)); }
 
   Status Visit(const DayTimeIntervalArray& a) { return Finish(a.Value(index_)); }
+  Status Visit(const MonthDayNanoIntervalArray& a) { return Finish(a.Value(index_)); }
 
   template <typename T>
   Status Visit(const BaseListArray<T>& a) {
@@ -270,7 +271,7 @@ Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset, int64_t length) 
 Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset) const {
   if (offset < 0) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative array slice offset");
   }
   return SliceSafe(offset, data_->length - offset);
 }
@@ -280,6 +281,8 @@ std::string Array::ToString() const {
   ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
   return ss.str();
 }
+
+void PrintTo(const Array& x, std::ostream* os) { *os << x.ToString(); }
 
 Result<std::shared_ptr<Array>> Array::View(
     const std::shared_ptr<DataType>& out_type) const {
@@ -304,9 +307,6 @@ Status Array::Accept(ArrayVisitor* visitor) const {
 
 Status Array::Validate() const { return internal::ValidateArray(*this); }
 
-Status Array::ValidateFull() const {
-  RETURN_NOT_OK(internal::ValidateArray(*this));
-  return internal::ValidateArrayFull(*this);
-}
+Status Array::ValidateFull() const { return internal::ValidateArrayFull(*this); }
 
 }  // namespace arrow

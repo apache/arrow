@@ -23,14 +23,14 @@ jobs:
 
   build-cpp-ubuntu:
     name: Build C++ Libs Ubuntu
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ Libs
         run: archery docker run java-jni-manylinux-2014
       - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java/dist/
+        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -51,15 +51,24 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
+      - name: Install Dependencies
+        run: brew bundle --file=arrow/cpp/Brewfile
+      - name: Build C Data Interface lib
+        run: |
+          set -e
+          arrow/ci/scripts/java_cdata_build.sh \
+            $GITHUB_WORKSPACE/arrow \
+            $GITHUB_WORKSPACE/arrow/java-native-build \
+            $GITHUB_WORKSPACE/arrow/java-dist
       - name: Build C++ Libs
         run: |
           set -e
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
-            $GITHUB_WORKSPACE/arrow/java/dist
+            $GITHUB_WORKSPACE/arrow/java-dist
       - name: Compress into single artifact
-        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java/dist/
+        run: tar -cvzf arrow-shared-libs-macos.tar.gz arrow/java-dist/
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -71,7 +80,7 @@ jobs:
     runs-on: macos-latest
     needs: [build-cpp-macos, build-cpp-ubuntu]
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Linux C++ Libraries
         uses: actions/download-artifact@v2
         with:
@@ -86,17 +95,23 @@ jobs:
           tar -xvzf arrow-shared-libs-linux.tar.gz
       - name: Test that Shared Libraries Exist
         run: |
-          test -f arrow/java/dist/libarrow_dataset_jni.dylib
-          test -f arrow/java/dist/libgandiva_jni.dylib
-          test -f arrow/java/dist/libarrow_orc_jni.dylib
-          test -f arrow/java/dist/libarrow_dataset_jni.so
-          test -f arrow/java/dist/libarrow_orc_jni.so
-          test -f arrow/java/dist/libgandiva_jni.so
+          test -f arrow/java-dist/libarrow_cdata_jni.dylib
+          test -f arrow/java-dist/libarrow_dataset_jni.dylib
+          test -f arrow/java-dist/libgandiva_jni.dylib
+          test -f arrow/java-dist/libarrow_orc_jni.dylib
+          test -f arrow/java-dist/libarrow_cdata_jni.so
+          test -f arrow/java-dist/libarrow_dataset_jni.so
+          test -f arrow/java-dist/libarrow_orc_jni.so
+          test -f arrow/java-dist/libgandiva_jni.so
       - name: Build Bundled Jar
         run: |
           set -e
-          arrow/ci/scripts/java_jni_build.sh \
+          pushd arrow/java
+          mvn versions:set -DnewVersion={{ arrow.no_rc_version }}
+          popd
+          arrow/ci/scripts/java_full_build.sh \
             $GITHUB_WORKSPACE/arrow \
-            $GITHUB_WORKSPACE/arrow/java/dist \
-            $GITHUB_WORKSPACE/arrow/java/dist
-      {{ macros.github_upload_releases(["arrow/java/dist/*.jar", "arrow/java/dist/*.pom"])|indent }}
+            $GITHUB_WORKSPACE/arrow/java-dist
+      {{ macros.github_upload_releases(["arrow/java-dist/*.jar",
+                                        "arrow/java-dist/*.pom",
+                                        "arrow/java-dist/*.zip"])|indent }}

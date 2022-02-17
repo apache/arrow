@@ -39,7 +39,7 @@ A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
 Using \link{JsonTableReader}
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_json()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 tf <- tempfile()
 on.exit(unlink(tf))
 writeLines('

@@ -149,6 +149,7 @@ def cmake_linter(src, fix=False):
             'ci/**/*.cmake',
             'cpp/CMakeLists.txt',
             'cpp/src/**/CMakeLists.txt',
+            'cpp/examples/**/CMakeLists.txt',
             'cpp/cmake_modules/*.cmake',
             'go/**/CMakeLists.txt',
             'java/**/CMakeLists.txt',
@@ -188,7 +189,8 @@ def python_linter(src, fix=False):
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
                 "python/examples/**/*.py",
-                "dev/archery/**/*.py"]
+                "dev/archery/**/*.py",
+                "dev/release/**/*.py"]
     files = [setup_py]
     for pattern in patterns:
         files += list(map(str, Path(src.path).glob(pattern)))
@@ -221,7 +223,7 @@ def python_linter(src, fix=False):
             f"{_archery_install_msg}")
         return
 
-    flake8_exclude = ['.venv*']
+    flake8_exclude = ['.venv*', 'vendored']
 
     yield LintResult.from_cmd(
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
@@ -245,7 +247,7 @@ def python_numpydoc(symbols=None, allow_rules=None, disallow_rules=None):
         'pyarrow.csv',
         'pyarrow.dataset',
         'pyarrow.feather',
-        'pyarrow.flight',
+        # 'pyarrow.flight',
         'pyarrow.fs',
         'pyarrow.gandiva',
         'pyarrow.ipc',

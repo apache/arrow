@@ -63,7 +63,7 @@ Expression::Expression(Parameter parameter)
 Expression literal(Datum lit) { return Expression(std::move(lit)); }
 
 Expression field_ref(FieldRef ref) {
-  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, -1});
+  return Expression(Expression::Parameter{std::move(ref), ValueDescr{}, {-1}});
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
@@ -394,14 +394,11 @@ Result<Expression> BindImpl(Expression expr, const TypeOrSchema& in,
   if (expr.literal()) return expr;
 
   if (auto ref = expr.field_ref()) {
-    if (ref->IsNested()) {
-      return Status::NotImplemented("nested field references");
-    }
-
     ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(in));
 
     auto bound = *expr.parameter();
-    bound.index = path[0];
+    bound.indices.resize(path.indices().size());
+    std::copy(path.indices().begin(), path.indices().end(), bound.indices.begin());
     ARROW_ASSIGN_OR_RAISE(auto field, path.Get(in));
     bound.descr.type = field->type();
     bound.descr.shape = shape;
@@ -512,7 +509,13 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
       return MakeNullScalar(null());
     }
 
-    const Datum& field = input[param->index];
+    Datum field = input[param->indices[0]];
+    if (param->indices.size() > 1) {
+      std::vector<int> indices(param->indices.begin() + 1, param->indices.end());
+      compute::StructFieldOptions options(std::move(indices));
+      ARROW_ASSIGN_OR_RAISE(
+          field, compute::CallFunction("struct_field", {std::move(field)}, &options));
+    }
     if (!field.type()->Equals(param->descr.type)) {
       return Status::Invalid("Referenced field ", expr.ToString(), " was ",
                              field.type()->ToString(), " but should have been ",
@@ -1154,7 +1157,9 @@ Expression greater_equal(Expression lhs, Expression rhs) {
   return call("greater_equal", {std::move(lhs), std::move(rhs)});
 }
 
-Expression is_null(Expression lhs) { return call("is_null", {std::move(lhs)}); }
+Expression is_null(Expression lhs, bool nan_is_null) {
+  return call("is_null", {std::move(lhs)}, compute::NullOptions(std::move(nan_is_null)));
+}
 
 Expression is_valid(Expression lhs) { return call("is_valid", {std::move(lhs)}); }
 

@@ -23,6 +23,7 @@ import java.util.Objects;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -116,6 +117,11 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(NullVector left, Void value) {
+    return compareField(left.getField(), right.getField());
+  }
+
+  @Override
+  public Boolean visit(ExtensionTypeVector<?> left, Void value) {
     return compareField(left.getField(), right.getField());
   }
 

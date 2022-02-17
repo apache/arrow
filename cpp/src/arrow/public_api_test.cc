@@ -62,8 +62,25 @@
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
 #endif
 
+#ifdef OPENTELEMETRY_VERSION
+#error "OpenTelemetry should not be visible from Arrow public headers."
+#endif
+
 #ifdef XSIMD_VERSION_MAJOR
 #error "xsimd should not be visible from Arrow public headers."
+#endif
+
+#ifdef HAS_CHRONO_ROUNDING
+#error "arrow::vendored::date should not be visible from Arrow public headers."
+#endif
+
+#ifdef PROTOBUF_EXPORT
+#error "Protocol Buffers should not be visible from Arrow public headers."
+#endif
+
+#if defined(SendMessage) || defined(GetObject) || defined(ERROR_INVALID_HANDLE) || \
+    defined(FILE_SHARE_READ) || defined(WAIT_TIMEOUT)
+#error "Windows.h should not be included by Arrow public headers"
 #endif
 
 #include <gmock/gmock-matchers.h>

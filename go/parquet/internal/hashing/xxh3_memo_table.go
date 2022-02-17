@@ -26,10 +26,10 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
 
 	"github.com/zeebo/xxh3"
 )
@@ -192,7 +192,13 @@ func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
 	case parquet.FixedLenByteArray:
 		return *(*[]byte)(unsafe.Pointer(&v))
 	case string:
-		return (*(*[]byte)(unsafe.Pointer(&v)))[:len(v):len(v)]
+		var out []byte
+		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
+		s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
+		s.Data = h.Data
+		s.Len = h.Len
+		s.Cap = h.Len
+		return out
 	default:
 		panic("invalid type for binarymemotable")
 	}
@@ -331,6 +337,14 @@ func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
 
 	outval := out.([]byte)
 	copy(outval, b.builder.Value(start)[0:length])
+}
+
+func (b *BinaryMemoTable) WriteOut(out []byte) {
+	b.CopyValues(out)
+}
+
+func (b *BinaryMemoTable) WriteOutSubset(start int, out []byte) {
+	b.CopyValuesSubset(start, out)
 }
 
 // CopyFixedWidthValues exists to cope with the fact that the table doesn't keep

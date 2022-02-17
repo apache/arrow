@@ -14,17 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -323,7 +322,7 @@ func (f *FileWriter) Close() error {
 	return nil
 }
 
-func (f *FileWriter) Write(rec array.Record) error {
+func (f *FileWriter) Write(rec arrow.Record) error {
 	schema := rec.Schema()
 	if schema == nil || !schema.Equal(f.schema) {
 		return errInconsistentSchema

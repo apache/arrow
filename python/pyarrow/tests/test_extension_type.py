@@ -76,6 +76,19 @@ class MyListType(pa.PyExtensionType):
         return MyListType, (self.storage_type,)
 
 
+class AnnotatedType(pa.PyExtensionType):
+    """
+    Generic extension type that can store any storage type.
+    """
+
+    def __init__(self, storage_type, annotation):
+        self.annotation = annotation
+        super().__init__(storage_type)
+
+    def __reduce__(self):
+        return AnnotatedType, (self.storage_type, self.annotation)
+
+
 def ipc_write_batch(batch):
     stream = pa.BufferOutputStream()
     writer = pa.RecordBatchStreamWriter(stream, batch.schema)
@@ -199,6 +212,34 @@ def test_ext_array_equality():
     assert d.equals(e)
     f = pa.ExtensionArray.from_storage(ty2, storage3)
     assert not d.equals(f)
+
+
+def test_ext_array_wrap_array():
+    ty = ParamExtType(3)
+    storage = pa.array([b"foo", b"bar", None], type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ExtensionArray)
+    assert arr.type == ty
+    assert arr.storage == storage
+
+    storage = pa.chunked_array([[b"abc", b"def"], [b"ghi"]],
+                               type=pa.binary(3))
+    arr = ty.wrap_array(storage)
+    arr.validate(full=True)
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.type == ty
+    assert arr.chunk(0).storage == storage.chunk(0)
+    assert arr.chunk(1).storage == storage.chunk(1)
+
+    # Wrong storage type
+    storage = pa.array([b"foo", b"bar", None])
+    with pytest.raises(TypeError, match="Incompatible storage type"):
+        ty.wrap_array(storage)
+
+    # Not an array or chunked array
+    with pytest.raises(TypeError, match="Expected array or chunked array"):
+        ty.wrap_array(None)
 
 
 def test_ext_scalar_from_array():
@@ -353,6 +394,14 @@ def test_casting_to_extension_type_raises():
     arr = pa.array([1, 2, 3, 4], pa.int64())
     with pytest.raises(pa.ArrowNotImplementedError):
         arr.cast(IntegerType())
+
+
+def test_null_storage_type():
+    ext_type = AnnotatedType(pa.null(), {"key": "value"})
+    storage = pa.array([None] * 10, pa.null())
+    arr = pa.ExtensionArray.from_storage(ext_type, storage)
+    assert arr.null_count == 10
+    arr.validate(full=True)
 
 
 def example_batch():
@@ -734,3 +783,18 @@ def test_to_numpy():
     for result in [np.asarray(charr), charr.to_numpy()]:
         assert result.dtype == np.int64
         np.testing.assert_array_equal(result, np.array([], dtype='int64'))
+
+
+def test_empty_take():
+    # https://issues.apache.org/jira/browse/ARROW-13474
+    ext_type = IntegerType()
+    storage = pa.array([], type=pa.int64())
+    empty_arr = pa.ExtensionArray.from_storage(ext_type, storage)
+
+    result = empty_arr.filter(pa.array([], pa.bool_()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)
+
+    result = empty_arr.take(pa.array([], pa.int32()))
+    assert len(result) == 0
+    assert result.equals(empty_arr)

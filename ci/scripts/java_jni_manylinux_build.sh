@@ -29,6 +29,9 @@ echo "=== Clear output directories and leftovers ==="
 rm -rf ${build_dir}
 
 echo "=== Building Arrow C++ libraries ==="
+devtoolset_version=$(rpm -qa "devtoolset-*-gcc" --queryformat %{VERSION} | \
+                       grep -o "^[0-9]*")
+devtoolset_include_cpp="/opt/rh/devtoolset-${devtoolset_version}/root/usr/include/c++/${devtoolset_version}"
 : ${ARROW_DATASET:=ON}
 : ${ARROW_GANDIVA:=ON}
 : ${ARROW_GANDIVA_JAVA:=ON}
@@ -40,12 +43,13 @@ echo "=== Building Arrow C++ libraries ==="
 : ${ARROW_PLASMA:=ON}
 : ${ARROW_PLASMA_JAVA_CLIENT:=ON}
 : ${ARROW_PYTHON:=OFF}
-: ${ARROW_BUILD_TESTS:=ON}
+: ${ARROW_BUILD_TESTS:=OFF}
 : ${CMAKE_BUILD_TYPE:=Release}
 : ${CMAKE_UNITY_BUILD:=ON}
+: ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-: ${GANDIVA_CXX_FLAGS:=-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9;-isystem;/opt/rh/devtoolset-9/root/usr/include/c++/9/x86_64-redhat-linux;-isystem;-lpthread}
+: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
 export PARQUET_TEST_DATA="${arrow_dir}/cpp/submodules/parquet-testing/data"
@@ -87,6 +91,8 @@ cmake \
   -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${build_dir} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
+  -DORC_SOURCE=BUNDLED \
+  -DORC_PROTOBUF_EXECUTABLE=${VCPKG_ROOT}/installed/${VCPKG_TARGET_TRIPLET}/tools/protobuf/protoc \
   -DPARQUET_BUILD_EXAMPLES=OFF \
   -DPARQUET_BUILD_EXECUTABLES=OFF \
   -DPARQUET_REQUIRE_ENCRYPTION=OFF \
@@ -99,7 +105,11 @@ cmake \
 ninja install
 
 if [ $ARROW_BUILD_TESTS = "ON" ]; then
-  CTEST_OUTPUT_ON_FAILURE=1 ninja test
+    ctest \
+        --label-regex unittest \
+        --output-on-failure \
+        --parallel $(nproc) \
+        --timeout 300
 fi
 
 popd

@@ -28,14 +28,15 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/range.h"
 
 namespace arrow {
+
 using internal::checked_pointer_cast;
 
 namespace dataset {
@@ -319,8 +320,8 @@ TEST_F(TestPartitioning, DictionaryHasUniqueValues) {
   AssertInspect({"/a", "/b", "/a", "/b", "/c", "/a"}, {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
@@ -481,8 +482,8 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
                 {alpha});
   ASSERT_OK_AND_ASSIGN(auto partitioning, factory_->Finish(schema({alpha})));
 
-  auto expected_dictionary = internal::checked_pointer_cast<StringArray>(
-      ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
+  auto expected_dictionary =
+      checked_pointer_cast<StringArray>(ArrayFromJSON(utf8(), R"(["a", "b", "c"])"));
 
   for (int32_t i = 0; i < expected_dictionary->length(); ++i) {
     DictionaryScalar::ValueType index_and_dictionary{std::make_shared<Int32Scalar>(i),
@@ -653,6 +654,53 @@ TEST_F(TestPartitioning, UrlEncodedHive) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("was not valid UTF-8"),
       partitioning_->Parse({"/date=\xAF/time=\xBF/str=\xCF"}));
+}
+
+TEST_F(TestPartitioning, UrlEncodedHiveWithKeyEncoded) {
+  HivePartitioningFactoryOptions options;
+  auto ts = timestamp(TimeUnit::type::SECOND);
+  options.schema =
+      schema({field("test'; date", ts), field("test'; time", ts), field("str", utf8())});
+  options.null_fallback = "$";
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect({"/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=$",
+                 "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+                 "07:27:00/str=%E3%81%8F%E3%81%BE",
+                 "/test%27%3B%20date=2021-05-04 "
+                 "00%3A00%3A00/test%27%3B%20time=2021-05-04 07%3A27%3A00/str=%24"},
+                options.schema->fields());
+
+  auto date = std::make_shared<TimestampScalar>(1620086400, ts);
+  auto time = std::make_shared<TimestampScalar>(1620113220, ts);
+  partitioning_ = std::make_shared<HivePartitioning>(options.schema, ArrayVector(),
+                                                     options.AsHivePartitioningOptions());
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=$",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00:00:00/test%27%3B%20time=2021-05-04 "
+      "07:27:00/str=%E3%81%8F%E3%81%BE",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)),
+            equal(field_ref("str"), literal("\xE3\x81\x8F\xE3\x81\xBE"))}));
+  // URL-encoded null fallback value
+  AssertParse(
+      "/test%27%3B%20date=2021-05-04 00%3A00%3A00/test%27%3B%20time=2021-05-04 "
+      "07%3A27%3A00/str=%24",
+      and_({equal(field_ref("test'; date"), literal(date)),
+            equal(field_ref("test'; time"), literal(time)), is_null(field_ref("str"))}));
+
+  // Invalid UTF-8
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      factory_->Inspect({"/%AF=2021-05-04/time=2021-05-04 07%3A27%3A00/str=%24"}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("was not valid UTF-8"),
+      partitioning_->Parse({"/%AF=2021-05-04/%BF=2021-05-04 07%3A27%3A00/str=%24"}));
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {

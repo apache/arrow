@@ -21,12 +21,13 @@
 
 An implementation of Arrow targeting .NET Standard.
 
-This implementation is under development and may not be suitable for use in production environments.
+See our current [feature matrix](https://github.com/apache/arrow/blob/master/docs/source/status.rst)
+for currently available features.
 
 # Implementation
 
 - Arrow 0.11 (specification)
-- C# 7.2
+- C# 8
 - .NET Standard 1.3
 - Asynchronous I/O
 - Uses modern .NET runtime features such as **Span&lt;T&gt;**, **Memory&lt;T&gt;**, **MemoryManager&lt;T&gt;**, and **System.Buffers** primitives for memory allocation, memory storage, and fast serialization.
@@ -34,8 +35,8 @@ This implementation is under development and may not be suitable for use in prod
 
 # Known Issues
 
-- Can not read Arrow files containing dictionary batches, tensors, or tables.
-- Can not easily modify allocation strategy without implementing a custom memory pool. All allocations are currently 64-byte aligned and padded to 8-bytes.
+- Cannot read Arrow files containing tensors.
+- Cannot easily modify allocation strategy without implementing a custom memory pool. All allocations are currently 64-byte aligned and padded to 8-bytes.
 - Default memory allocation strategy uses an over-allocation strategy with pointer fixing, which results in significant memory overhead for small buffers. A buffer that requires a single byte for storage may be backed by an allocation of up to 64-bytes to satisfy alignment requirements.
 - There are currently few builder APIs available for specific array types. Arrays must be built manually with an arrow buffer builder abstraction.
 - FlatBuffer code generation is not included in the build process.
@@ -44,8 +45,6 @@ This implementation is under development and may not be suitable for use in prod
 - Throws exceptions that are non-specific to the Arrow implementation in some circumstances where it probably should (eg. does not throw ArrowException exceptions)
 - Lack of code documentation
 - Lack of usage examples
-- Lack of comprehensive unit tests
-- Lack of comprehensive benchmarks
 
 # Usage
 
@@ -57,7 +56,7 @@ This implementation is under development and may not be suitable for use in prod
 
     public static async Task<RecordBatch> ReadArrowAsync(string filename)
     {
-        using (var stream = File.OpenRead("test.arrow"))
+        using (var stream = File.OpenRead(filename))
         using (var reader = new ArrowFileReader(stream))
         {
             var recordBatch = await reader.ReadNextRecordBatchAsync();
@@ -113,10 +112,8 @@ This implementation is under development and may not be suitable for use in prod
 - Serialization
     - Exhaustive validation
     - Dictionary Batch
-        - Can not serialize or deserialize files or streams containing dictionary batches
+        - Cannot serialize files or streams containing dictionary batches
     - Dictionary Encoding
-	- Schema Metadata
-	- Schema Field Metadata
 - Types
     - Tensor
     - Table
@@ -125,11 +122,9 @@ This implementation is under development and may not be suitable for use in prod
         - Dense
         - Sparse
     - Half-Float
-    - Dictionary
 - Array Operations
 	- Equality / Comparison
 	- Casting
-	- Builders
 - Compute
     - There is currently no API available for a compute / kernel abstraction.
 

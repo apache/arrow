@@ -29,9 +29,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-using internal::checked_cast;
-
 namespace compute {
 
 struct KnownFieldValues {
@@ -213,7 +210,7 @@ struct Comparison {
 
 inline const compute::CastOptions* GetCastOptions(const Expression::Call& call) {
   if (call.function_name != "cast") return nullptr;
-  return checked_cast<const compute::CastOptions*>(call.options.get());
+  return ::arrow::internal::checked_cast<const compute::CastOptions*>(call.options.get());
 }
 
 inline bool IsSetLookup(const std::string& function) {
@@ -223,7 +220,8 @@ inline bool IsSetLookup(const std::string& function) {
 inline const compute::MakeStructOptions* GetMakeStructOptions(
     const Expression::Call& call) {
   if (call.function_name != "make_struct") return nullptr;
-  return checked_cast<const compute::MakeStructOptions*>(call.options.get());
+  return ::arrow::internal::checked_cast<const compute::MakeStructOptions*>(
+      call.options.get());
 }
 
 /// A helper for unboxing an Expression composed of associative function calls.
@@ -281,7 +279,8 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
     return exec_context->func_registry()->GetFunction(call.function_name);
   }
   // XXX this special case is strange; why not make "cast" a ScalarFunction?
-  const auto& to_type = checked_cast<const compute::CastOptions&>(*call.options).to_type;
+  const auto& to_type =
+      ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;
   return compute::GetCastFunction(to_type);
 }
 

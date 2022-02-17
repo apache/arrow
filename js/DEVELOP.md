@@ -70,11 +70,21 @@ To run tests directly on the sources without bundling, use the `src` target (e.g
 
 Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
 
+* `yarn doc`
+
+Compiles the documentation with [Typedoc](https://typedoc.org/). Use `yarn doc --watch` to automatically rebuild when the docs change.
+
 # Running the Performance Benchmarks
 
 You can run the benchmarks with `yarn perf`. To print the results to stderr as JSON, add the `--json` flag (e.g. `yarn perf --json 2> perf.json`).
 
 You can change the target you want to test by changing the imports in `perf/index.ts`. Note that you need to compile the bundles with `yarn build` before you can import them.
+
+# Testing Bundling
+
+The bunldes use `apache-arrow` so make sure to build it with `yarn build -t apache-arrow`. To bundle with a variety of bundlers, run `yarn test:bundle` or `yarn gulp bundle`.
+
+Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
 
 # Updating the Arrow format flatbuffers generated code
 
@@ -92,27 +102,17 @@ You can change the target you want to test by changing the imports in `perf/inde
     sed -i '+s+org.apache.arrow.flatbuf.++ig' $tmp_format_dir/*.fbs
 
     # Generate TS source from the modified Arrow flatbuffers schemas
-    flatc --ts --no-ts-reexport -o ./js/src/fb $tmp_format_dir/{File,Schema,Message}.fbs
+    flatc --ts -o ./js/src/fb $tmp_format_dir/{File,Schema,Message,Tensor,SparseTensor}.fbs
 
     # Remove the tmpdir
     rm -rf $tmp_format_dir
-
-    cd ./js/src/fb
-
-    # Rename the existing files to <filename>.bak.ts
-    mv File{,.bak}.ts && mv Schema{,.bak}.ts && mv Message{,.bak}.ts
-
-    # Remove `_generated` from the ES6 imports of the generated files
-    sed -i '+s+_generated\";+\";+ig' *_generated.ts
-    # Fix all the `flatbuffers` imports
-    sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
-    # Fix the Union createTypeIdsVector typings
-    sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
-    # Remove "_generated" suffix from TS files
-    mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
     ```
 
-2. Execute `yarn lint` from the `js` directory to fix the linting errors
+2. Manually fix the unused imports and add // @ts-ignore for other errors
+
+3. Add `.js` to the imports. In VSCode, you can search for `^(import [^';]* from '(\./|(\.\./)+)[^';.]*)';` and replace with `$1.js';`.
+
+4. Execute `yarn lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format

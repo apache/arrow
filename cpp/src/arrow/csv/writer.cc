@@ -27,13 +27,20 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/visit_data_inline.h"
+#include "arrow/visit_type_inline.h"
 
-#include "arrow/visitor_inline.h"
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#include <xsimd/xsimd.hpp>
+#endif
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace csv {
 // This implementation is intentionally light on configurability to minimize the size of
-// the initial PR. Aditional features can be added as there is demand and interest to
+// the initial PR. Additional features can be added as there is demand and interest to
 // implement them.
 //
 // The algorithm used here at a high level is to break RecordBatches/Tables into slices
@@ -72,14 +79,15 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
   return RecordBatchIterator(std::move(functor));
 }
 
-// Counts the number of characters that need escaping in s.
-int64_t CountEscapes(util::string_view s) {
+// Counts the number of quotes in s.
+int64_t CountQuotes(arrow::util::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
 constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
+constexpr const char* kStrComma = ",";
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
@@ -87,7 +95,11 @@ constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 // populators (it populates data backwards).
 class ColumnPopulator {
  public:
-  ColumnPopulator(MemoryPool* pool, char end_char) : end_char_(end_char), pool_(pool) {}
+  ColumnPopulator(MemoryPool* pool, std::string end_chars,
+                  std::shared_ptr<Buffer> null_string)
+      : end_chars_(std::move(end_chars)),
+        null_string_(std::move(null_string)),
+        pool_(pool) {}
 
   virtual ~ColumnPopulator() = default;
 
@@ -101,22 +113,25 @@ class ColumnPopulator {
     ASSIGN_OR_RAISE(
         std::shared_ptr<Array> casted,
         compute::Cast(data, /*to_type=*/utf8(), compute::CastOptions(), &ctx));
-    casted_array_ = internal::checked_pointer_cast<StringArray>(casted);
+    casted_array_ = checked_pointer_cast<StringArray>(casted);
     return UpdateRowLengths(row_lengths);
   }
 
   // Places string data onto each row in output and updates the corresponding row
-  // row pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // Implementations may apply certain checks e.g. for illegal values, which in case of
+  // failure causes this function to return an error Status.
   // Args:
   //   output: character buffer to write to.
   //   offsets: an array of end of row column within the the output buffer (values are
   //   one past the end of the position to write to).
-  virtual void PopulateColumns(char* output, int32_t* offsets) const = 0;
+  virtual Status PopulateColumns(char* output, int32_t* offsets) const = 0;
 
  protected:
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
   std::shared_ptr<StringArray> casted_array_;
-  const char end_char_;
+  const std::string end_chars_;
+  std::shared_ptr<Buffer> null_string_;
 
  private:
   MemoryPool* const pool_;
@@ -135,48 +150,120 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
   return out_end;
 }
 
-// Populator for non-string types.  This populator relies on compute Cast functionality to
-// String if it doesn't exist it will be an error.  it also assumes the resulting string
-// from a cast does not require quoting or escaping.
+// Populator used for non-string/binary types, or when unquoted strings/binary types are
+// desired. It assumes the strings in the casted array do not require quoting or escaping.
+// This is enforced by setting reject_values_with_quotes to true, in which case a check
+// for quotes is applied and will cause populating the columns to fail. This guarantees
+// compliance with RFC4180 section 2.5.
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
-  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, char end_char)
-      : ColumnPopulator(memory_pool, end_char) {}
+  explicit UnquotedColumnPopulator(MemoryPool* memory_pool, std::string end_chars,
+                                   std::shared_ptr<Buffer> null_string_,
+                                   bool reject_values_with_quotes)
+      : ColumnPopulator(memory_pool, std::move(end_chars), std::move(null_string_)),
+        reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
+    if (reject_values_with_quotes_) {
+      // When working on values that, after casting, could produce quotes,
+      // we need to return an error in accord with RFC4180.
+      RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars(*casted_array_));
+    }
+
     for (int x = 0; x < casted_array_->length(); x++) {
-      row_lengths[x] += casted_array_->value_length(x);
+      row_lengths[x] += casted_array_->IsNull(x)
+                            ? static_cast<int32_t>(null_string_->size())
+                            : casted_array_->value_length(x);
     }
     return Status::OK();
   }
 
-  void PopulateColumns(char* output, int32_t* offsets) const override {
-    VisitArrayDataInline<StringType>(
-        *casted_array_->data(),
-        [&](arrow::util::string_view s) {
-          int64_t next_column_offset = s.length() + /*end_char*/ 1;
-          memcpy((output + *offsets - next_column_offset), s.data(), s.length());
-          *(output + *offsets - 1) = end_char_;
-          *offsets -= static_cast<int32_t>(next_column_offset);
-          offsets++;
-        },
-        [&]() {
-          // Nulls are empty (unquoted) to distinguish with empty string.
-          *(output + *offsets - 1) = end_char_;
-          *offsets -= 1;
-          offsets++;
-        });
+  Status PopulateColumns(char* output, int32_t* offsets) const override {
+    // Function applied to valid values cast to string.
+    auto valid_function = [&](arrow::util::string_view s) {
+      int32_t next_column_offset = static_cast<int32_t>(s.length() + end_chars_.size());
+      memcpy((output + *offsets - next_column_offset), s.data(), s.length());
+      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+             end_chars_.size());
+      *offsets -= next_column_offset;
+      offsets++;
+      return Status::OK();
+    };
+
+    // Function applied to null values cast to string.
+    auto null_function = [&]() {
+      // For nulls, the configured null value string is copied into the output.
+      int32_t next_column_offset =
+          static_cast<int32_t>(null_string_->size() + end_chars_.size());
+      memcpy((output + *offsets - next_column_offset), null_string_->data(),
+             null_string_->size());
+      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+             end_chars_.size());
+      *offsets -= next_column_offset;
+      offsets++;
+      return Status::OK();
+    };
+
+    return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
+                                            null_function);
   }
+
+ private:
+  // Returns an error status if string array has any structural characters.
+  static Status CheckStringArrayHasNoStructuralChars(const StringArray& array) {
+    // scan the underlying string array buffer as a single big string
+    const uint8_t* const data = array.raw_data() + array.value_offset(0);
+    const int64_t buffer_size = array.total_values_length();
+    int64_t offset = 0;
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+#if defined(ARROW_HAVE_SSE4_2)
+    // _mm_cmpistrc gives slightly better performance than the naive approach,
+    // probably doesn't deserve the effort
+    using simd_batch = xsimd::batch<uint8_t, xsimd::sse4_2>;
+#else
+    using simd_batch = xsimd::batch<uint8_t, xsimd::neon64>;
+#endif
+    while ((offset + 16) <= buffer_size) {
+      const auto v = simd_batch::load_unaligned(data + offset);
+      if (xsimd::any((v == '\n') | (v == '\r') | (v == ',') | (v == '"'))) {
+        break;
+      }
+      offset += 16;
+    }
+#endif
+    while (offset < buffer_size) {
+      // error happened or remaining bytes to check
+      const char c = static_cast<char>(data[offset]);
+      if (c == '\n' || c == '\r' || c == ',' || c == '"') {
+        // extract the offending string from array per offset
+        const auto* offsets = array.raw_value_offsets();
+        const auto index =
+            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) -
+            offsets;
+        DCHECK_GT(index, 0);
+        return Status::Invalid(
+            "CSV values may not contain structural characters if quoting style is "
+            "\"None\". See RFC4180. Invalid value: ",
+            array.GetView(index - 1));
+      }
+      ++offset;
+    }
+    return Status::OK();
+  }
+
+  // Whether to reject values with quotes when populating.
+  const bool reject_values_with_quotes_;
 };
 
 // Strings need special handling to ensure they are escaped properly.
 // This class handles escaping assuming that all strings will be quoted
 // and that the only character within the string that needs to escaped is
-// a quote character (") and escaping is done my adding another quote.
+// a quote character (") and escaping is done by adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
-  QuotedColumnPopulator(MemoryPool* pool, char end_char)
-      : ColumnPopulator(pool, end_char) {}
+  QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
+                        std::shared_ptr<Buffer> null_string)
+      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
@@ -185,7 +272,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *input.data(),
         [&](arrow::util::string_view s) {
-          int64_t escaped_count = CountEscapes(s);
+          // Each quote in the value string needs to be escaped.
+          int64_t escaped_count = CountQuotes(s);
           // TODO: Maybe use 64 bit row lengths or safe cast?
           row_needs_escaping_[row_number] = escaped_count > 0;
           row_lengths[row_number] += static_cast<int32_t>(s.length()) +
@@ -194,12 +282,13 @@ class QuotedColumnPopulator : public ColumnPopulator {
         },
         [&]() {
           row_needs_escaping_[row_number] = false;
+          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
           row_number++;
         });
     return Status::OK();
   }
 
-  void PopulateColumns(char* output, int32_t* offsets) const override {
+  Status PopulateColumns(char* output, int32_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
     VisitArrayDataInline<StringType>(
         *(casted_array_->data()),
@@ -212,25 +301,32 @@ class QuotedColumnPopulator : public ColumnPopulator {
             memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
                    s.length());
           } else {
-            // Adjust row_end by 3: 1 quote char, 1 end char and 1 to position at the
-            // first position to write to.
-            next_column_offset =
-                static_cast<int32_t>(row_end - EscapeReverse(s, row_end - 3));
+            // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
+            // and 1 to position at the first position to write to.
+            next_column_offset = static_cast<int32_t>(
+                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size()));
           }
           *(row_end - next_column_offset) = '"';
-          *(row_end - 2) = '"';
-          *(row_end - 1) = end_char_;
+          *(row_end - end_chars_.size() - 1) = '"';
+          memcpy(row_end - end_chars_.size(), end_chars_.data(), end_chars_.length());
           *offsets -= next_column_offset;
           offsets++;
           needs_escaping++;
         },
         [&]() {
-          // Nulls are empty (unquoted) to distinguish with empty string.
-          *(output + *offsets - 1) = end_char_;
-          *offsets -= 1;
+          // For nulls, the configured null value string is copied into the output.
+          int32_t next_column_offset =
+              static_cast<int32_t>(null_string_->size() + end_chars_.size());
+          memcpy((output + *offsets - next_column_offset), null_string_->data(),
+                 null_string_->size());
+          memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+                 end_chars_.size());
+          *offsets -= next_column_offset;
           offsets++;
           needs_escaping++;
         });
+
+    return Status::OK();
   }
 
  private:
@@ -246,7 +342,22 @@ struct PopulatorFactory {
                   std::is_same<FixedSizeBinaryType, TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new QuotedColumnPopulator(pool, end_char);
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
+    switch (quoting_style) {
+      case QuotingStyle::None:
+        // In unquoted output we must reject values with quotes. Since these types can
+        // produce quotes in their output rendering, we must check them and reject if
+        // quotes appear, hence reject_values_with_quotes is set to true.
+        populator = new UnquotedColumnPopulator(pool, end_chars, null_string,
+                                                /*reject_values_with_quotes=*/true);
+        break;
+        // Quoting is needed for strings/binary, or when all valid values need to be
+        // quoted.
+      case QuotingStyle::Needed:
+      case QuotingStyle::AllValid:
+        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
+        break;
+    }
     return Status::OK();
   }
 
@@ -267,18 +378,36 @@ struct PopulatorFactory {
                   is_null_type<TypeClass>::value || is_temporal_type<TypeClass>::value,
               Status>
   Visit(const TypeClass& type) {
-    populator = new UnquotedColumnPopulator(pool, end_char);
+    // Determine what ColumnPopulator to use based on desired CSV quoting style.
+    switch (quoting_style) {
+        // These types are assumed not to produce any quotes, so we do not need to check
+        // and reject for potential quotes in the casted values in case the QuotingStyle
+        // is None.
+      case QuotingStyle::None:
+      case QuotingStyle::Needed:
+        populator = new UnquotedColumnPopulator(pool, end_chars, null_string,
+                                                /*reject_values_with_quotes=*/false);
+        break;
+      case QuotingStyle::AllValid:
+        populator = new QuotedColumnPopulator(pool, end_chars, null_string);
+        break;
+    }
     return Status::OK();
   }
 
-  char end_char;
+  const std::string end_chars;
+  std::shared_ptr<Buffer> null_string;
+  const QuotingStyle quoting_style;
   MemoryPool* pool;
   ColumnPopulator* populator;
 };
 
-Result<std::unique_ptr<ColumnPopulator>> MakePopulator(const Field& field, char end_char,
-                                                       MemoryPool* pool) {
-  PopulatorFactory factory{end_char, pool, nullptr};
+Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
+    const Field& field, std::string end_chars, std::shared_ptr<Buffer> null_string,
+    QuotingStyle quoting_style, MemoryPool* pool) {
+  PopulatorFactory factory{std::move(end_chars), std::move(null_string), quoting_style,
+                           pool, nullptr};
+
   RETURN_NOT_OK(VisitTypeInline(*field.type(), &factory));
   return std::unique_ptr<ColumnPopulator>(factory.populator);
 }
@@ -289,11 +418,23 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       io::OutputStream* sink, std::shared_ptr<io::OutputStream> owned_sink,
       std::shared_ptr<Schema> schema, const WriteOptions& options) {
     RETURN_NOT_OK(options.Validate());
+    // Reject null string values that contain quotes.
+    if (CountQuotes(options.null_string) != 0) {
+      return Status::Invalid("Null string cannot contain quotes.");
+    }
+
+    ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
+                    arrow::AllocateBuffer(options.null_string.length()));
+    memcpy(null_string->mutable_data(), options.null_string.data(),
+           options.null_string.length());
+
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     for (int col = 0; col < schema->num_fields(); col++) {
-      char end_char = col < schema->num_fields() - 1 ? ',' : '\n';
-      ASSIGN_OR_RAISE(populators[col], MakePopulator(*schema->field(col), end_char,
-                                                     options.io_context.pool()));
+      const std::string& end_chars =
+          col < schema->num_fields() - 1 ? kStrComma : options.eol;
+      ASSIGN_OR_RAISE(populators[col],
+                      MakePopulator(*schema->field(col), end_chars, null_string,
+                                    options.quoting_style, options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
         sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
@@ -362,23 +503,26 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
       header_length += col_name.size();
-      header_length += CountEscapes(col_name);
+      header_length += CountQuotes(col_name);
     }
-    return header_length + (kQuoteDelimiterCount * schema_->num_fields());
+    // header_length + ([quotes + ','] * schema_->num_fields()) + (eol - ',')
+    return header_length + (kQuoteDelimiterCount * schema_->num_fields()) +
+           (options_.eol.size() - 1);
   }
 
   Status WriteHeader() {
     // Only called once, as part of initialization
     RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
-    char* next =
-        reinterpret_cast<char*>(data_buffer_->mutable_data() + data_buffer_->size() - 1);
+    char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
+                                         data_buffer_->size() - options_.eol.size());
     for (int col = schema_->num_fields() - 1; col >= 0; col--) {
       *next-- = ',';
       *next-- = '"';
       next = EscapeReverse(schema_->field(col)->name(), next);
       *next-- = '"';
     }
-    *(data_buffer_->mutable_data() + data_buffer_->size() - 1) = '\n';
+    memcpy(data_buffer_->mutable_data() + data_buffer_->size() - options_.eol.size(),
+           options_.eol.data(), options_.eol.size());
     DCHECK_EQ(reinterpret_cast<uint8_t*>(next + 1), data_buffer_->data());
     return sink_->Write(data_buffer_);
   }
@@ -395,10 +539,13 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       RETURN_NOT_OK(
           column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
     }
-    // Calculate cumulalative offsets for each row (including delimiters).
-    offsets_[0] += batch.num_columns();
+    // Calculate cumulative offsets for each row (including delimiters).
+    // ',' * num_columns - 1(last column doesn't have ,) + eol
+    int32_t delimiters_length =
+        static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
+    offsets_[0] += delimiters_length;
     for (int64_t row = 1; row < batch.num_rows(); row++) {
-      offsets_[row] += offsets_[row - 1] + /*delimiter lengths*/ batch.num_columns();
+      offsets_[row] += offsets_[row - 1] + delimiters_length;
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
     // should be pretty close so don't shrink the buffer to avoid allocation churn.
@@ -407,9 +554,10 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     // Use the offsets to populate contents.
     for (auto populator = column_populators_.rbegin();
          populator != column_populators_.rend(); populator++) {
-      (*populator)
-          ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
-                            offsets_.data());
+      RETURN_NOT_OK(
+          (*populator)
+              ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
+                                offsets_.data()));
     }
     DCHECK_EQ(0, offsets_[0]);
     return Status::OK();
@@ -439,6 +587,18 @@ Status WriteCSV(const RecordBatch& batch, const WriteOptions& options,
                 arrow::io::OutputStream* output) {
   ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, batch.schema(), options));
   RETURN_NOT_OK(writer->WriteRecordBatch(batch));
+  return writer->Close();
+}
+
+Status WriteCSV(const std::shared_ptr<RecordBatchReader>& reader,
+                const WriteOptions& options, arrow::io::OutputStream* output) {
+  ASSIGN_OR_RAISE(auto writer, MakeCSVWriter(output, reader->schema(), options));
+  std::shared_ptr<RecordBatch> batch;
+  while (true) {
+    ASSIGN_OR_RAISE(batch, reader->Next());
+    if (batch == nullptr) break;
+    RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
+  }
   return writer->Close();
 }
 

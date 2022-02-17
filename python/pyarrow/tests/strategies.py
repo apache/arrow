@@ -105,11 +105,13 @@ duration_types = st.builds(
     pa.duration,
     st.sampled_from(['s', 'ms', 'us', 'ns'])
 )
+interval_types = st.just(pa.month_day_nano_interval())
 temporal_types = st.one_of(
     date_types,
     time_types,
     timestamp_types,
-    duration_types
+    duration_types,
+    interval_types
 )
 
 primitive_types = st.one_of(
@@ -272,6 +274,8 @@ def arrays(draw, type, size=None, nullable=True):
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
         value = st.timedeltas()
+    elif pa.types.is_interval(ty):
+        value = st.timedeltas()
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
         value = st.binary()
     elif pa.types.is_string(ty) or pa.types.is_large_string(ty):
@@ -372,6 +376,7 @@ pandas_compatible_primitive_types = st.one_of(
     # discovers ARROW-10210
     # timestamp_types,
     # duration_types
+    interval_types,
     binary_type,
     string_type,
     large_binary_type,

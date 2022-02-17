@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -265,9 +266,11 @@ class ARROW_EXPORT MessageDecoder {
   /// \param[in] listener a MessageDecoderListener that responds events from
   /// the decoder
   /// \param[in] pool an optional MemoryPool to copy metadata on the
+  /// \param[in] skip_body if true the body will be skipped even if the message has a body
   /// CPU, if required
   explicit MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
-                          MemoryPool* pool = default_memory_pool());
+                          MemoryPool* pool = default_memory_pool(),
+                          bool skip_body = false);
 
   /// \brief Construct a message decoder with the specified state.
   ///
@@ -281,9 +284,10 @@ class ARROW_EXPORT MessageDecoder {
   /// to run the next action
   /// \param[in] pool an optional MemoryPool to copy metadata on the
   /// CPU, if required
+  /// \param[in] skip_body if true the body will be skipped even if the message has a body
   MessageDecoder(std::shared_ptr<MessageDecoderListener> listener, State initial_state,
                  int64_t initial_next_required_size,
-                 MemoryPool* pool = default_memory_pool());
+                 MemoryPool* pool = default_memory_pool(), bool skip_body = false);
 
   virtual ~MessageDecoder();
 
@@ -441,6 +445,10 @@ class ARROW_EXPORT MessageReader {
   virtual Result<std::unique_ptr<Message>> ReadNextMessage() = 0;
 };
 
+// the first parameter of the function should be a pointer to metadata (aka.
+// org::apache::arrow::flatbuf::RecordBatch*)
+using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessFile*)>;
+
 /// \brief Read encapsulated RPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
@@ -453,11 +461,32 @@ class ARROW_EXPORT MessageReader {
 /// first 4 bytes after the offset are the message length
 /// \param[in] metadata_length the total number of bytes to read from file
 /// \param[in] file the seekable file interface to read from
+/// \param[in] fields_loader the function for loading subset of fields from the given file
 /// \return the message read
+
 ARROW_EXPORT
-Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
-                                             const int32_t metadata_length,
-                                             io::RandomAccessFile* file);
+Result<std::unique_ptr<Message>> ReadMessage(
+    const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
+    const FieldsLoaderFunction& fields_loader = {});
+
+/// \brief Read encapsulated RPC message from cached buffers
+///
+/// The buffers should contain an entire message.  Partial reads are not handled.
+///
+/// This method can be used to read just the metadata by passing in a nullptr for the
+/// body.  The body will then be skipped and the body size will not be validated.
+///
+/// If the body buffer is provided then it must be the complete body buffer
+///
+/// This is similar to Message::Open but performs slightly more validation (e.g. checks
+/// to see that the metadata length is correct and that the body is the size the metadata
+/// expected)
+///
+/// \param metadata The bytes for the metadata
+/// \param body The bytes for the body
+/// \return The message represented by the buffers
+ARROW_EXPORT Result<std::unique_ptr<Message>> ReadMessage(
+    std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body);
 
 ARROW_EXPORT
 Future<std::shared_ptr<Message>> ReadMessageAsync(

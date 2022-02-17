@@ -23,12 +23,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/arrio"
-	"github.com/apache/arrow/go/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/arrio"
+	"github.com/apache/arrow/go/v8/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v8/arrow/ipc"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 )
 
 type copyKind int
@@ -38,7 +37,7 @@ const (
 	streamKind
 )
 
-func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {
@@ -51,7 +50,7 @@ func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *
 	}
 }
 
-func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {
@@ -65,8 +64,6 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 }
 
 func TestCopy(t *testing.T) {
-	type kind int
-
 	tempDir, err := ioutil.TempDir("", "go-arrow-copy-")
 	if err != nil {
 		t.Fatal(err)

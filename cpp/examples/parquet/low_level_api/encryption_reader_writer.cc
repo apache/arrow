@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <reader_writer.h>
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <memory>
-
-#include <reader_writer.h>
 
 /*
  * This file contains sample for writing and reading encrypted Parquet file with
@@ -38,13 +38,12 @@
  */
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
-const char PARQUET_FILENAME[] = "parquet_cpp_example.parquet.encrypted";
-const std::string kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const std::string kColumnEncryptionKey1 = "1234567890123450";
-const std::string kColumnEncryptionKey2 = "1234567890123451";
+const char* PARQUET_FILENAME = "parquet_cpp_example.parquet.encrypted";
+const char* kFooterEncryptionKey = "0123456789012345";  // 128bit/16
+const char* kColumnEncryptionKey1 = "1234567890123450";
+const char* kColumnEncryptionKey2 = "1234567890123451";
 
 int main(int argc, char** argv) {
-
   /**********************************************************************************
                              PARQUET ENCRYPTION WRITER EXAMPLE
   **********************************************************************************/
@@ -60,8 +59,7 @@ int main(int argc, char** argv) {
 
     // Add encryption properties
     // Encryption configuration: Encrypt two columns and the footer.
-    std::map<std::string,
-             std::shared_ptr<parquet::ColumnEncryptionProperties>>
+    std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
         encryption_cols;
 
     parquet::SchemaDescriptor schema_desc;
@@ -212,7 +210,6 @@ int main(int argc, char** argv) {
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr1);
 
   parquet::FileDecryptionProperties::Builder file_decryption_builder;
-
 
   try {
     parquet::ReaderProperties reader_properties = parquet::default_reader_properties();

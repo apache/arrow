@@ -280,9 +280,9 @@ def _check_component_roundtrip(value, context=global_serialization_context):
     assert_equal(value, recons)
 
 
-@pytest.yield_fixture(scope='session')
+@pytest.fixture(scope='session')
 def large_buffer(size=32*1024*1024):
-    return pa.allocate_buffer(size)
+    yield pa.allocate_buffer(size)
 
 
 def large_memory_map(tmpdir_factory, size=100*1024*1024):

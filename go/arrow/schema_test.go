@@ -354,9 +354,14 @@ func TestSchemaEqual(t *testing.T) {
 			if ab != tc.want {
 				t.Fatalf("got=%v, want=%v", ab, tc.want)
 			}
+
 			ba := tc.b.Equal(tc.a)
 			if ab != ba {
 				t.Fatalf("ab != ba")
+			}
+
+			if (tc.a.Fingerprint() == tc.b.Fingerprint()) != tc.want {
+				t.Fatalf("fingerprint: got=%v;%v, wanted=%v", tc.a.Fingerprint(), tc.b.Fingerprint(), tc.want)
 			}
 		})
 	}

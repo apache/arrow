@@ -40,10 +40,13 @@ constexpr char kCountFieldName[] = "count";
 
 constexpr uint64_t kCountEOF = ~0ULL;
 
-template <typename InType, typename CType = typename InType::c_type>
+template <typename InType, typename CType = typename TypeTraits<InType>::CType>
 Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
                                                   Datum* out) {
-  const auto& mode_type = TypeTraits<InType>::type_singleton();
+  DCHECK_EQ(Type::STRUCT, out->type()->id());
+  const auto& out_type = checked_cast<const StructType&>(*out->type());
+  DCHECK_EQ(2, out_type.num_fields());
+  const auto& mode_type = out_type.field(0)->type();
   const auto& count_type = int64();
 
   auto mode_data = ArrayData::Make(mode_type, /*length=*/n, /*null_count=*/0);
@@ -61,10 +64,7 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
     count_buffer = count_data->template GetMutableValues<int64_t>(1);
   }
 
-  const auto& out_type =
-      struct_({field(kModeFieldName, mode_type), field(kCountFieldName, count_type)});
-  *out = Datum(ArrayData::Make(out_type, n, {nullptr}, {mode_data, count_data}, 0));
-
+  *out = Datum(ArrayData::Make(out->type(), n, {nullptr}, {mode_data, count_data}, 0));
   return std::make_pair(mode_buffer, count_buffer);
 }
 
@@ -72,7 +72,7 @@ Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
 // suboptimal for tiny or large n, possibly okay as we're not in hot path
 template <typename InType, typename Generator>
 Status Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
-  using CType = typename InType::c_type;
+  using CType = typename TypeTraits<InType>::CType;
 
   using ValueCountPair = std::pair<CType, uint64_t>;
   auto gt = [](const ValueCountPair& lhs, const ValueCountPair& rhs) {
@@ -130,6 +130,13 @@ struct CountModer {
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // count values in all chunks, ignore nulls
     const Datum& datum = batch[0];
+
+    const ModeOptions& options = ModeState::Get(ctx);
+    if ((!options.skip_nulls && datum.null_count() > 0) ||
+        (datum.length() - datum.null_count() < options.min_count)) {
+      return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+    }
+
     CountValues<CType>(this->counts.data(), datum, this->min);
 
     // generator to emit next value:count pair
@@ -154,9 +161,16 @@ struct CountModer {
 template <>
 struct CountModer<BooleanType> {
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& datum = batch[0];
+
+    const ModeOptions& options = ModeState::Get(ctx);
+    if ((!options.skip_nulls && datum.null_count() > 0) ||
+        (datum.length() - datum.null_count() < options.min_count)) {
+      return PrepareOutput<BooleanType>(/*n=*/0, ctx, out).status();
+    }
+
     int64_t counts[2]{};
 
-    const Datum& datum = batch[0];
     for (const auto& array : datum.chunks()) {
       if (array->length() > array->null_count()) {
         const int64_t true_count =
@@ -167,7 +181,6 @@ struct CountModer<BooleanType> {
       }
     }
 
-    const ModeOptions& options = ModeState::Get(ctx);
     const int64_t distinct_values = (counts[0] != 0) + (counts[1] != 0);
     const int64_t n = std::min(options.n, distinct_values);
 
@@ -190,20 +203,39 @@ struct CountModer<BooleanType> {
   }
 };
 
-// copy and sort approach for floating points or integers with wide value range
+// copy and sort approach for floating points, decimals, or integers with wide
+// value range
 // O(n) space, O(nlogn) time
 template <typename T>
 struct SortModer {
-  using CType = typename T::c_type;
+  using CType = typename TypeTraits<T>::CType;
   using Allocator = arrow::stl::allocator<CType>;
 
+  template <typename Type = T>
+  static enable_if_floating_point<Type, CType> GetNan() {
+    return static_cast<CType>(NAN);
+  }
+
+  template <typename Type = T>
+  static enable_if_t<!is_floating_type<Type>::value, CType> GetNan() {
+    DCHECK(false);
+    return static_cast<CType>(0);
+  }
+
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const Datum& datum = batch[0];
+    const int64_t in_length = datum.length() - datum.null_count();
+
+    const ModeOptions& options = ModeState::Get(ctx);
+    if ((!options.skip_nulls && datum.null_count() > 0) ||
+        (in_length < options.min_count)) {
+      return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+    }
+
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
 
     uint64_t nan_count = 0;
-    const Datum& datum = batch[0];
-    const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
       CopyNonNullValues(datum, in_buffer.data());
@@ -226,7 +258,7 @@ struct SortModer {
       if (ARROW_PREDICT_FALSE(it == in_buffer.cend())) {
         // handle NAN at last
         if (nan_count > 0) {
-          auto value_count = std::make_pair(static_cast<CType>(NAN), nan_count);
+          auto value_count = std::make_pair(GetNan(), nan_count);
           nan_count = 0;
           return value_count;
         }
@@ -298,13 +330,25 @@ struct Moder<InType, enable_if_t<(is_integer_type<InType>::value &&
 };
 
 template <typename InType>
-struct Moder<InType, enable_if_t<is_floating_type<InType>::value>> {
+struct Moder<InType, enable_if_floating_point<InType>> {
+  SortModer<InType> impl;
+};
+
+template <typename InType>
+struct Moder<InType, enable_if_decimal<InType>> {
   SortModer<InType> impl;
 };
 
 template <typename T>
 Status ScalarMode(KernelContext* ctx, const Scalar& scalar, Datum* out) {
-  using CType = typename T::c_type;
+  using CType = typename TypeTraits<T>::CType;
+
+  const ModeOptions& options = ModeState::Get(ctx);
+  if ((!options.skip_nulls && !scalar.is_valid) ||
+      (static_cast<uint32_t>(scalar.is_valid) < options.min_count)) {
+    return PrepareOutput<T>(/*n=*/0, ctx, out).status();
+  }
+
   if (scalar.is_valid) {
     bool called = false;
     return Finalize<T>(ctx, out, [&]() {
@@ -328,7 +372,7 @@ struct ModeExecutor {
     }
     const ModeOptions& options = ModeState::Get(ctx);
     if (options.n <= 0) {
-      return Status::Invalid("ModeOption::n must be strictly positive");
+      return Status::Invalid("ModeOptions::n must be strictly positive");
     }
 
     if (batch[0].is_scalar()) {
@@ -339,40 +383,44 @@ struct ModeExecutor {
   }
 };
 
-VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type) {
+Result<ValueDescr> ModeType(KernelContext*, const std::vector<ValueDescr>& descrs) {
+  return ValueDescr::Array(
+      struct_({field(kModeFieldName, descrs[0].type), field(kCountFieldName, int64())}));
+}
+
+VectorKernel NewModeKernel(const std::shared_ptr<DataType>& in_type,
+                           ArrayKernelExec exec) {
   VectorKernel kernel;
   kernel.init = ModeState::Init;
   kernel.can_execute_chunkwise = false;
   kernel.output_chunked = false;
-  auto out_type =
-      struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
-  kernel.signature =
-      KernelSignature::Make({InputType(in_type)}, ValueDescr::Array(out_type));
+  switch (in_type->id()) {
+    case Type::DECIMAL128:
+    case Type::DECIMAL256:
+      kernel.signature =
+          KernelSignature::Make({InputType(in_type->id())}, OutputType(ModeType));
+      break;
+    default: {
+      auto out_type =
+          struct_({field(kModeFieldName, in_type), field(kCountFieldName, int64())});
+      kernel.signature = KernelSignature::Make({InputType(in_type->id())},
+                                               ValueDescr::Array(std::move(out_type)));
+      break;
+    }
+  }
+  kernel.exec = std::move(exec);
   return kernel;
 }
 
-void AddBooleanModeKernel(VectorFunction* func) {
-  VectorKernel kernel = NewModeKernel(boolean());
-  kernel.exec = ModeExecutor<StructType, BooleanType>::Exec;
-  DCHECK_OK(func->AddKernel(kernel));
-}
-
-void AddNumericModeKernels(VectorFunction* func) {
-  for (const auto& type : NumericTypes()) {
-    VectorKernel kernel = NewModeKernel(type);
-    kernel.exec = GenerateNumeric<ModeExecutor, StructType>(*type);
-    DCHECK_OK(func->AddKernel(kernel));
-  }
-}
-
 const FunctionDoc mode_doc{
-    "Calculate the modal (most common) values of a numeric array",
-    ("Returns top-n most common values and number of times they occur in an array.\n"
-     "Result is an array of `struct<mode: T, count: int64>`, where T is the input type.\n"
-     "Values with larger counts are returned before smaller counts.\n"
-     "If there are more than one values with same count, smaller one is returned first.\n"
+    "Compute the modal (most common) values of a numeric array",
+    ("Compute the n most common values and their respective occurrence counts.\n"
+     "The output has type `struct<mode: T, count: int64>`, where T is the\n"
+     "input type.\n"
+     "The results are ordered by descending `count` first, and ascending `mode`\n"
+     "when breaking ties.\n"
      "Nulls are ignored.  If there are no non-null values in the array,\n"
-     "empty array is returned."),
+     "an empty array is returned."),
     {"array"},
     "ModeOptions"};
 
@@ -382,8 +430,17 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   static auto default_options = ModeOptions::Defaults();
   auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), &mode_doc,
                                                &default_options);
-  AddBooleanModeKernel(func.get());
-  AddNumericModeKernels(func.get());
+  DCHECK_OK(func->AddKernel(
+      NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec)));
+  for (const auto& type : NumericTypes()) {
+    DCHECK_OK(func->AddKernel(
+        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type))));
+  }
+  // Type parameters are ignored
+  DCHECK_OK(func->AddKernel(
+      NewModeKernel(decimal128(1, 0), ModeExecutor<StructType, Decimal128Type>::Exec)));
+  DCHECK_OK(func->AddKernel(
+      NewModeKernel(decimal256(1, 0), ModeExecutor<StructType, Decimal256Type>::Exec)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

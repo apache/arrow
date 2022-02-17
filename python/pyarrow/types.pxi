@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
+
 import atexit
 from collections.abc import Mapping
 import re
@@ -80,6 +82,32 @@ cdef bytes _datatype_to_pep3118(CDataType* type):
             return b'=' + char
         else:
             return char
+
+
+cdef void* _as_c_pointer(v, allow_null=False) except *:
+    """
+    Convert a Python object to a raw C pointer.
+
+    Used mainly for the C data interface.
+    Integers are accepted as well as capsule objects with a NULL name.
+    (the latter for compatibility with raw pointers exported by reticulate)
+    """
+    cdef void* c_ptr
+    if isinstance(v, int):
+        c_ptr = <void*> <uintptr_t > v
+    elif isinstance(v, float):
+        warnings.warn(
+            "Passing a pointer value as a float is unsafe and only "
+            "supported for compatibility with older versions of the R "
+            "Arrow library", UserWarning, stacklevel=2)
+        c_ptr = <void*> <uintptr_t > v
+    elif PyCapsule_CheckExact(v):
+        c_ptr = PyCapsule_GetPointer(v, NULL)
+    else:
+        raise TypeError(f"Expected a pointer value, got {type(v)!r}")
+    if not allow_null and c_ptr == NULL:
+        raise ValueError(f"Null pointer (value before cast = {v!r})")
+    return c_ptr
 
 
 def _is_primitive(Type type):
@@ -199,7 +227,7 @@ cdef class DataType(_Weakrefable):
         else:
             raise NotImplementedError(str(self))
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -207,16 +235,18 @@ cdef class DataType(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportType(deref(self.type), <ArrowSchema*> out_ptr))
+        check_status(ExportType(deref(self.type),
+                                <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import DataType from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
-        result = GetResultValue(ImportType(<ArrowSchema*> in_ptr))
+        result = GetResultValue(ImportType(<ArrowSchema*>
+                                           _as_c_pointer(in_ptr)))
         return pyarrow_wrap_data_type(result)
 
 
@@ -326,7 +356,14 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.key_type, self.item_type)
+        return map_, (self.key_field, self.item_field)
+
+    @property
+    def key_field(self):
+        """
+        The field for keys in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.key_field())
 
     @property
     def key_type(self):
@@ -334,6 +371,13 @@ cdef class MapType(DataType):
         The data type of keys in the map entries.
         """
         return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_field(self):
+        """
+        The field for items in the map entries.
+        """
+        return pyarrow_wrap_field(self.map_type.item_field())
 
     @property
     def item_type(self):
@@ -694,10 +738,54 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    def wrap_array(self, storage):
+        """
+        Wrap the given storage array as an extension array.
+
+        Parameters
+        ----------
+        storage : Array or ChunkedArray
+
+        Returns
+        -------
+        array : Array or ChunkedArray
+            Extension array wrapping the storage array
+        """
+        cdef:
+            shared_ptr[CDataType] c_storage_type
+
+        if isinstance(storage, Array):
+            c_storage_type = (<Array> storage).ap.type()
+        elif isinstance(storage, ChunkedArray):
+            c_storage_type = (<ChunkedArray> storage).chunked_array.type()
+        else:
+            raise TypeError(
+                f"Expected array or chunked array, got {storage.__class__}")
+
+        if not c_storage_type.get().Equals(deref(self.ext_type)
+                                           .storage_type()):
+            raise TypeError(
+                f"Incompatible storage type for {self}: "
+                f"expected {self.storage_type}, got {storage.type}")
+
+        if isinstance(storage, Array):
+            return pyarrow_wrap_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<Array> storage).sp_array))
+        else:
+            return pyarrow_wrap_chunked_array(
+                self.ext_type.WrapArray(
+                    self.sp_type, (<ChunkedArray> storage).sp_chunked_array))
+
 
 cdef class ExtensionType(BaseExtensionType):
     """
     Concrete base class for Python-defined extension types.
+
+    Parameters
+    ----------
+    storage_type : DataType
+    extension_name : str
     """
 
     def __cinit__(self):
@@ -711,11 +799,6 @@ cdef class ExtensionType(BaseExtensionType):
 
         This should be called at the end of the subclass'
         ``__init__`` method.
-
-        Parameters
-        ----------
-        storage_type : DataType
-        extension_name : str
         """
         cdef:
             shared_ptr[CExtensionType] cpy_ext_type
@@ -788,6 +871,11 @@ cdef class PyExtensionType(ExtensionType):
     """
     Concrete base class for Python-defined extension types based on pickle
     for (de)serialization.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
     """
 
     def __cinit__(self):
@@ -827,6 +915,13 @@ cdef class UnknownExtensionType(PyExtensionType):
     """
     A concrete class for Python-defined extension types that refer to
     an unknown Python implementation.
+
+    Parameters
+    ----------
+    storage_type : DataType
+        The storage type for which the extension is built.
+    serialized : bytes
+        The serialised output.
     """
 
     cdef:
@@ -888,6 +983,16 @@ def unregister_extension_type(type_name):
 
 
 cdef class KeyValueMetadata(_Metadata, Mapping):
+    """
+    KeyValueMetadata
+
+    Parameters
+    ----------
+    __arg0__ : dict
+        A dict of the key-value metadata
+    **kwargs : optional
+        additional key-value metadata
+    """
 
     def __init__(self, __arg0__=None, **kwargs):
         cdef:
@@ -1201,7 +1306,7 @@ cdef class Field(_Weakrefable):
             flattened = self.field.Flatten()
         return [pyarrow_wrap_field(f) for f in flattened]
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1209,17 +1314,19 @@ cdef class Field(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportField(deref(self.field), <ArrowSchema*> out_ptr))
+        check_status(ExportField(deref(self.field),
+                                 <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Field from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportField(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportField(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_field(result)
 
 
@@ -1646,7 +1753,7 @@ cdef class Schema(_Weakrefable):
 
         return frombytes(result, safe=True)
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowSchema struct, given its pointer.
 
@@ -1654,17 +1761,19 @@ cdef class Schema(_Weakrefable):
         its memory will leak.  This is a low-level function intended for
         expert users.
         """
-        check_status(ExportSchema(deref(self.schema), <ArrowSchema*> out_ptr))
+        check_status(ExportSchema(deref(self.schema),
+                                  <ArrowSchema*> _as_c_pointer(out_ptr)))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import Schema from a C ArrowSchema struct, given its pointer.
 
         This is a low-level function intended for expert users.
         """
+        cdef void* c_ptr = _as_c_pointer(in_ptr)
         with nogil:
-            result = GetResultValue(ImportSchema(<ArrowSchema*> in_ptr))
+            result = GetResultValue(ImportSchema(<ArrowSchema*> c_ptr))
         return pyarrow_wrap_schema(result)
 
     def __str__(self):
@@ -1674,7 +1783,7 @@ cdef class Schema(_Weakrefable):
         return self.__str__()
 
 
-def unify_schemas(list schemas):
+def unify_schemas(schemas):
     """
     Unify schemas by merging fields by name.
 
@@ -2101,6 +2210,14 @@ def duration(unit):
     return out
 
 
+def month_day_nano_interval():
+    """
+    Create instance of an interval type representing months, days and
+    nanoseconds between two dates.
+    """
+    return primitive_type(_Type_INTERVAL_MONTH_DAY_NANO)
+
+
 def date32():
     """
     Create instance of 32-bit date (days since UNIX epoch 1970-01-01).
@@ -2336,7 +2453,7 @@ cpdef LargeListType large_list(value_type):
 
 cpdef MapType map_(key_type, item_type, keys_sorted=False):
     """
-    Create MapType instance from key and item data types.
+    Create MapType instance from key and item data types or fields.
 
     Parameters
     ----------
@@ -2349,12 +2466,25 @@ cpdef MapType map_(key_type, item_type, keys_sorted=False):
     map_type : DataType
     """
     cdef:
-        DataType _key_type = ensure_type(key_type, allow_none=False)
-        DataType _item_type = ensure_type(item_type, allow_none=False)
+        Field _key_field
+        Field _item_field
         shared_ptr[CDataType] map_type
         MapType out = MapType.__new__(MapType)
 
-    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+    if isinstance(key_type, Field):
+        if key_type.nullable:
+            raise TypeError('Map key field should be non-nullable')
+        _key_field = key_type
+    else:
+        _key_field = field('key', ensure_type(key_type, allow_none=False),
+                           nullable=False)
+
+    if isinstance(item_type, Field):
+        _item_field = item_type
+    else:
+        _item_field = field('value', ensure_type(item_type, allow_none=False))
+
+    map_type.reset(new CMapType(_key_field.sp_field, _item_field.sp_field,
                                 keys_sorted))
     out.init(map_type)
     return out
@@ -2380,8 +2510,11 @@ cpdef DictionaryType dictionary(index_type, value_type, bint ordered=False):
         DictionaryType out = DictionaryType.__new__(DictionaryType)
         shared_ptr[CDataType] dict_type
 
-    if _index_type.id not in {Type_INT8, Type_INT16, Type_INT32, Type_INT64}:
-        raise TypeError("The dictionary index type should be signed integer.")
+    if _index_type.id not in {
+        Type_INT8, Type_INT16, Type_INT32, Type_INT64,
+        Type_UINT8, Type_UINT16, Type_UINT32, Type_UINT64,
+    }:
+        raise TypeError("The dictionary index type should be integer.")
 
     dict_type.reset(new CDictionaryType(_index_type.sp_type,
                                         _value_type.sp_type, ordered == 1))
@@ -2633,12 +2766,18 @@ cdef dict _type_aliases = {
     'duration[ms]': duration('ms'),
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
+    'month_day_nano_interval': month_day_nano_interval(),
 }
 
 
 def type_for_alias(name):
     """
     Return DataType given a string alias if one exists.
+
+    Parameters
+    ----------
+    name : str
+        The alias of the DataType that should be retrieved.
 
     Returns
     -------
@@ -2672,7 +2811,7 @@ def schema(fields, metadata=None):
 
     Parameters
     ----------
-    field : iterable of Fields or tuples, or mapping of strings to DataTypes
+    fields : iterable of Fields or tuples, or mapping of strings to DataTypes
     metadata : dict, default None
         Keys and values must be coercible to bytes.
 
@@ -2728,6 +2867,10 @@ def schema(fields, metadata=None):
 def from_numpy_dtype(object dtype):
     """
     Convert NumPy dtype to pyarrow.DataType.
+
+    Parameters
+    ----------
+    dtype : the numpy dtype to convert
     """
     cdef shared_ptr[CDataType] c_type
     dtype = np.dtype(dtype)
@@ -2738,14 +2881,38 @@ def from_numpy_dtype(object dtype):
 
 
 def is_boolean_value(object obj):
+    """
+    Check if the object is a boolean.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyBool(obj)
 
 
 def is_integer_value(object obj):
+    """
+    Check if the object is an integer.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyInt(obj)
 
 
 def is_float_value(object obj):
+    """
+    Check if the object is a float.
+
+    Parameters
+    ----------
+    obj : object
+        The object to check
+    """
     return IsPyFloat(obj)
 
 

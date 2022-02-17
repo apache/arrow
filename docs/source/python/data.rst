@@ -52,7 +52,7 @@ array data. These include:
 * **Fixed-length primitive types**: numbers, booleans, date and times, fixed
   size binary, decimals, and other values that fit into a given number
 * **Variable-length primitive types**: binary, string
-* **Nested types**: list, struct, and union
+* **Nested types**: list, map, struct, and union
 * **Dictionary type**: An encoded categorical type (more on this later)
 
 Each logical data type in Arrow has a corresponding factory function for
@@ -90,7 +90,7 @@ user-defined metadata:
    f0.name
    f0.type
 
-Arrow supports **nested value types** like list, struct, and union. When
+Arrow supports **nested value types** like list, map, struct, and union. When
 creating these, you must pass types or fields to indicate the data types of the
 types' children. For example, we can define a list of int32 values with:
 
@@ -233,9 +233,15 @@ like lists:
 Struct arrays
 ~~~~~~~~~~~~~
 
-For other kinds of nested arrays, such as struct arrays, you currently need
-to pass the type explicitly.  Struct arrays can be initialized from a
-sequence of Python dicts or tuples:
+``pyarrow.array`` is able to infer the schema of a struct type from arrays of
+dictionaries:
+
+.. ipython:: python
+
+   pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
+
+Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples, 
+you must explicitly pass the type:
 
 .. ipython:: python
 
@@ -263,6 +269,32 @@ individual arrays, and no copy is involved:
    arr = pa.StructArray.from_arrays((xs, ys), names=('x', 'y'))
    arr.type
    arr
+
+Map arrays
+~~~~~~~~~~
+
+Map arrays can be constructed from lists of lists of tuples (key-item pairs), but only if
+the type is explicitly passed into :meth:`array`:
+
+.. ipython:: python
+
+   data = [[('x', 1), ('y', 0)], [('a', 2), ('b', 45)]]
+   ty = pa.map_(pa.string(), pa.int64())
+   pa.array(data, type=ty)
+
+MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the 
+starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
+properties give the *flattened* keys and items. To keep the keys and items associated to 
+their row, use the :meth:`ListArray.from_arrays` constructor with the 
+:attr:`MapArray.offsets` property.
+
+.. ipython:: python
+
+   arr = pa.MapArray.from_arrays([0, 2, 3], ['x', 'y', 'z'], [4, 5, 6])
+   arr.keys
+   arr.items
+   pa.ListArray.from_arrays(arr.offsets, arr.keys)
+   pa.ListArray.from_arrays(arr.offsets, arr.items)
 
 Union arrays
 ~~~~~~~~~~~~
@@ -299,6 +331,7 @@ each offset in the selected child array it can be found:
    union_arr.type
    union_arr
 
+.. _data.dictionary:
 
 Dictionary Arrays
 ~~~~~~~~~~~~~~~~~
@@ -430,4 +463,52 @@ around, so if your data is already in table form, then use
 Custom Schema and Field Metadata
 --------------------------------
 
-TODO
+Arrow supports both schema-level and field-level custom key-value metadata
+allowing for systems to insert their own application defined metadata to
+customize behavior.
+
+Custom metadata can be accessed at :attr:`Schema.metadata` for the schema-level
+and :attr:`Field.metadata` for the field-level.
+
+Note that this metadata is preserved in :ref:`ipc` processes.
+
+To customize the schema metadata of an existing table you can use
+:meth:`Table.replace_schema_metadata`:
+
+.. ipython:: python
+
+   table.schema.metadata # empty
+   table = table.replace_schema_metadata({"f0": "First dose"})
+   table.schema.metadata
+
+To customize the metadata of the field from the table schema you can use
+:meth:`Field.with_metadata`:
+
+.. ipython:: python
+
+   field_f1 = table.schema.field("f1")
+   field_f1.metadata # empty
+   field_f1 = field_f1.with_metadata({"f1": "Second dose"})
+   field_f1.metadata
+
+Both options create a shallow copy of the data and do not in fact change the
+Schema which is immutable. To change the metadata in the schema of the table
+we created a new object when calling :meth:`Table.replace_schema_metadata`.
+
+To change the metadata of the field in the schema we would need to define
+a new schema and cast the data to this schema:
+
+.. ipython:: python
+
+   my_schema2 = pa.schema([
+      pa.field('f0', pa.int64(), metadata={"name": "First dose"}),
+      pa.field('f1', pa.string(), metadata={"name": "Second dose"}),
+      pa.field('f2', pa.bool_())],
+      metadata={"f2": "booster"})
+   t2 = table.cast(my_schema2)
+   t2.schema.field("f0").metadata
+   t2.schema.field("f1").metadata
+   t2.schema.metadata
+
+Metadata key and value pair are ``std::string`` objects in the C++ implementation
+and so they are bytes objects (``b'...'``) in Python.

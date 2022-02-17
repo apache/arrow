@@ -114,7 +114,7 @@ for (comp in c("lz4", "uncompressed", "zstd")) {
     # though classes are always checked, so that must be removed before checking.
     example_with_metadata_sans_special_class <- example_with_metadata
     example_with_metadata_sans_special_class$a <- unclass(example_with_metadata_sans_special_class$a)
-    expect_equal(df, example_with_metadata_sans_special_class, check.attributes = FALSE)
+    expect_equal(df, example_with_metadata_sans_special_class, ignore_attr = TRUE)
   })
 }
 

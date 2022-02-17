@@ -61,8 +61,8 @@
 #' * "l": `bool()`
 #' * "f": `dictionary()`
 #' * "D": `date32()`
-#' * "T": `time32()`
-#' * "t": `timestamp()`
+#' * "T": `timestamp()`
+#' * "t": `time32()`
 #' * "_": `null()`
 #' * "-": `null()`
 #' * "?": infer the type from the data
@@ -192,7 +192,12 @@ read_delim_arrow <- function(file,
     convert_options = convert_options
   )
 
-  tab <- reader$Read()
+  tryCatch(
+    tab <- reader$Read(),
+    error = function(e) {
+      handle_csv_read_error(e, schema)
+    }
+  )
 
   # TODO: move this into convert_options using include_columns
   col_select <- enquo(col_select)
@@ -295,6 +300,11 @@ CsvTableReader$create <- function(file,
                                   convert_options = CsvConvertOptions$create(),
                                   ...) {
   assert_is(file, "InputStream")
+
+  if (!(tolower(read_options$encoding) %in% c("utf-8", "utf8"))) {
+    file <- MakeReencodeInputStream(file, read_options$encoding)
+  }
+
   csv___TableReader__Make(file, read_options, parse_options, convert_options)
 }
 
@@ -374,6 +384,7 @@ CsvTableReader$create <- function(file,
 #'    (a) `NULL`, the default, which uses the ISO-8601 parser;
 #'    (b) a character vector of [strptime][base::strptime()] parse strings; or
 #'    (c) a list of [TimestampParser] objects.
+#' - `encoding` The file encoding.
 #'
 #' `TimestampParser$create()` takes an optional `format` string argument.
 #' See [`strptime()`][base::strptime()] for example syntax.
@@ -390,6 +401,9 @@ CsvTableReader$create <- function(file,
 #' @export
 CsvReadOptions <- R6Class("CsvReadOptions",
   inherit = ArrowObject,
+  public = list(
+    encoding = NULL
+  ),
   active = list(
     column_names = function() csv___ReadOptions__column_names(self)
   )
@@ -398,8 +412,11 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
                                   block_size = 1048576L,
                                   skip_rows = 0L,
                                   column_names = character(0),
-                                  autogenerate_column_names = FALSE) {
-  csv___ReadOptions__initialize(
+                                  autogenerate_column_names = FALSE,
+                                  encoding = "UTF-8") {
+  assert_that(is.string(encoding))
+
+  options <- csv___ReadOptions__initialize(
     list(
       use_threads = use_threads,
       block_size = block_size,
@@ -407,6 +424,19 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
       column_names = column_names,
       autogenerate_column_names = autogenerate_column_names
     )
+  )
+
+  options$encoding <- encoding
+  options
+}
+
+readr_to_csv_write_options <- function(include_header,
+                                       batch_size = 1024L) {
+  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+  assert_that(is.logical(include_header))
+  CsvWriteOptions$create(
+    include_header = include_header,
+    batch_size = as.integer(batch_size)
   )
 }
 
@@ -569,8 +599,8 @@ readr_to_csv_convert_options <- function(na,
         "l" = bool(),
         "f" = dictionary(),
         "D" = date32(),
-        "T" = time32(),
-        "t" = timestamp(),
+        "T" = timestamp(),
+        "t" = time32(),
         "_" = null(),
         "-" = null(),
         "?" = NULL,
@@ -605,8 +635,13 @@ readr_to_csv_convert_options <- function(na,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
+#' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names
+#' @param col_names identical to `include_header`. Specify this or
+#'     `include_headers`, not both.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024.
+#' @param write_options see [file reader options][CsvWriteOptions]
+#' @param ... additional parameters
 #'
 #' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
 #' the stream will be left open.
@@ -618,9 +653,54 @@ readr_to_csv_convert_options <- function(na,
 #' @include arrow-package.R
 write_csv_arrow <- function(x,
                             sink,
+                            file = NULL,
                             include_header = TRUE,
-                            batch_size = 1024L) {
-  write_options <- CsvWriteOptions$create(include_header, batch_size)
+                            col_names = NULL,
+                            batch_size = 1024L,
+                            write_options = NULL,
+                            ...) {
+  unsupported_passed_args <- names(list(...))
+
+  if (length(unsupported_passed_args)) {
+    stop(
+      "The following ",
+      ngettext(length(unsupported_passed_args), "argument is ", "arguments are "),
+      "not yet supported in Arrow: ",
+      oxford_paste(unsupported_passed_args),
+      call. = FALSE
+    )
+  }
+
+  if (!missing(file) && !missing(sink)) {
+    stop(
+      "You have supplied both \"file\" and \"sink\" arguments. Please ",
+      "supply only one of them.",
+      call. = FALSE
+    )
+  }
+
+  if (missing(sink) && !missing(file)) {
+    sink <- file
+  }
+
+  if (!missing(col_names) && !missing(include_header)) {
+    stop(
+      "You have supplied both \"col_names\" and \"include_header\" ",
+      "arguments. Please supply only one of them.",
+      call. = FALSE
+    )
+  }
+
+  # default values are considered missing by base R
+  if (missing(include_header) && !missing(col_names)) {
+    include_header <- col_names
+  }
+
+  if (is.null(write_options)) {
+    write_options <- readr_to_csv_write_options(
+      include_header = include_header,
+      batch_size = batch_size)
+  }
 
   x_out <- x
   if (is.data.frame(x)) {

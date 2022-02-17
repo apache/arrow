@@ -26,7 +26,7 @@
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
 #' `TRUE` (the default).
-#' @examplesIf arrow_with_parquet()
+#' @examplesIf arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_parquet(mtcars, tf)
@@ -82,7 +82,11 @@ read_parquet <- function(file,
 #' @param x `data.frame`, [RecordBatch], or [Table]
 #' @param sink A string file path, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
-#' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
+#' @param chunk_size how many rows of data to write to disk at once. This
+#' directly corresponds to how many rows will be in each row group in parquet.
+#' If `NULL`, a best guess will be made for optimal size (based on the number of
+#'  columns and number of rows), though if the data has fewer than 250 million
+#'  cells (rows x cols), then the total number of rows is used.
 #' @param version parquet version, "1.0" or "2.0". Default "1.0". Numeric values
 #'   are coerced to character.
 #' @param compression compression algorithm. Default "snappy". See details.
@@ -196,7 +200,13 @@ write_parquet <- function(x,
       allow_truncated_timestamps = allow_truncated_timestamps
     )
   )
-  writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
+
+  # determine an approximate chunk size
+  if (is.null(chunk_size)) {
+    chunk_size <- calculate_chunk_size(x$num_rows, x$num_columns)
+  }
+
+  writer$WriteTable(x, chunk_size = chunk_size)
   writer$Close()
 
   invisible(x_out)
@@ -567,6 +577,12 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
     },
     set_read_dictionary = function(column_index, read_dict) {
       parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
+    },
+    coerce_int96_timestamp_unit = function() {
+      parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(self)
+    },
+    set_coerce_int96_timestamp_unit = function(unit) {
+      parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(self, unit)
     }
   ),
   active = list(
@@ -582,4 +598,29 @@ ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
 
 ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
   parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
+}
+
+calculate_chunk_size <- function(rows,  columns,
+  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
+  max_chunks = getOption("arrow.parquet_max_chunks", 200)
+  ) {
+
+  # Ensure is a float to prevent integer overflow issues
+  num_cells <- as.numeric(rows) * as.numeric(columns)
+
+  if (num_cells < target_cells_per_group) {
+    # If the total number of cells is less than the default 250 million, we want one group
+    num_chunks <- 1
+  } else {
+    # no more than the default 250 million cells (rows * cols) per group
+    # and we use floor, then ceiling to ensure that these are whole numbers
+    num_chunks <- floor(num_cells / target_cells_per_group)
+  }
+
+  # but there are no more than 200 chunks
+  num_chunks <- min(num_chunks, max_chunks)
+
+  chunk_size <- ceiling(rows / num_chunks)
+
+  chunk_size
 }

@@ -29,6 +29,9 @@
 #include "arrow/util/make_unique.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace dataset {
 
 Fragment::Fragment(compute::Expression partition_expression,
@@ -77,29 +80,6 @@ InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
   physical_schema_ = record_batches_.empty() ? schema({}) : record_batches_[0]->schema();
 }
 
-Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options) {
-  // Make an explicit copy of record_batches_ to ensure Scan can be called
-  // multiple times.
-  auto batches_it = MakeVectorIterator(record_batches_);
-
-  auto batch_size = options->batch_size;
-  // RecordBatch -> ScanTask
-  auto self = shared_from_this();
-  auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
-    RecordBatchVector batches;
-
-    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
-    for (int i = 0; i < n_batches; i++) {
-      batches.push_back(batch->Slice(batch_size * i, batch_size));
-    }
-
-    return ::arrow::internal::make_unique<InMemoryScanTask>(std::move(batches),
-                                                            std::move(options), self);
-  };
-
-  return MakeMapIterator(fn, std::move(batches_it));
-}
-
 Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options) {
   struct State {
@@ -145,7 +125,7 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
 
     std::shared_ptr<State> state;
   };
-  return Generator(internal::checked_pointer_cast<InMemoryFragment>(shared_from_this()),
+  return Generator(checked_pointer_cast<InMemoryFragment>(shared_from_this()),
                    options->batch_size);
 }
 

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Array")
-
 test_that("Integer Array", {
   ints <- c(1:10, 1:10, 1:5)
   x <- expect_array_roundtrip(ints, int32())
@@ -53,7 +51,7 @@ test_that("binary Array", {
   expect_array_roundtrip(bin, fixed_size_binary(byte_width = 10))
 
   # degenerate cases
-  skip_on_valgrind() # valgrind errors on these tests ARROW-12638
+  skip_on_linux_devel() # valgrind errors on these tests ARROW-12638
   bin <- vctrs::new_vctr(
     list(1:10),
     class = "arrow_binary"
@@ -157,8 +155,8 @@ test_that("Array supports NA", {
   expect_true(x_int$IsNull(10L))
   expect_true(x_dbl$IsNull(10))
 
-  expect_equal(as.vector(is.na(x_int)), c(rep(FALSE, 10), TRUE))
-  expect_equal(as.vector(is.na(x_dbl)), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_int), c(rep(FALSE, 10), TRUE))
+  expect_as_vector(is.na(x_dbl), c(rep(FALSE, 10), TRUE))
 
   # Input validation
   expect_error(x_int$IsValid("ten"))
@@ -305,10 +303,16 @@ test_that("array supports integer64", {
   expect_true(as.vector(is.na(all_na)))
 })
 
-test_that("array supports difftime", {
+test_that("array supports hms difftime", {
   time <- hms::hms(56, 34, 12)
   expect_array_roundtrip(c(time, time), time32("s"))
   expect_array_roundtrip(vctrs::vec_c(NA, time), time32("s"))
+})
+
+test_that("array supports difftime", {
+  time <- as.difftime(1234, units = "secs")
+  expect_array_roundtrip(c(time, time), duration("s"))
+  expect_array_roundtrip(vctrs::vec_c(NA, time), duration("s"))
 })
 
 test_that("support for NaN (ARROW-3615)", {
@@ -320,19 +324,19 @@ test_that("support for NaN (ARROW-3615)", {
 
 test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
-  expect_vector_equal(is.nan(input), x)
+  compare_expression(is.nan(.input), x)
 })
 
 test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
-  expect_vector_equal(is.nan(input), x)
-  expect_vector_equal(is.nan(input), y)
+  compare_expression(is.nan(.input), x)
+  compare_expression(is.nan(.input), y)
 })
 
 test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
-  expect_vector_equal(is.na(input), x)
+  compare_expression(is.na(.input), x)
 })
 
 test_that("integer types casts (ARROW-3741)", {
@@ -438,12 +442,12 @@ test_that("Array<int8>$as_vector() converts to integer (ARROW-3794)", {
   i8 <- (-128):127
   a <- Array$create(i8)$cast(int8())
   expect_type_equal(a, int8())
-  expect_equal(as.vector(a), i8)
+  expect_as_vector(a, i8)
 
   u8 <- 0:255
   a <- Array$create(u8)$cast(uint8())
   expect_type_equal(a, uint8())
-  expect_equal(as.vector(a), u8)
+  expect_as_vector(a, u8)
 })
 
 test_that("Arrays of {,u}int{32,64} convert to integer if they can fit", {
@@ -474,7 +478,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   df <- tibble::tibble(x = 1:10, y = x / 2, z = letters[1:10])
   a <- Array$create(df)
   expect_type_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df)
 
   df <- structure(
     list(col = structure(list(structure(list(list(structure(1))), class = "inner")), class = "outer")),
@@ -482,7 +486,7 @@ test_that("Array$create() handles data frame -> struct arrays (ARROW-3811)", {
   )
   a <- Array$create(df)
   expect_type_equal(a$type, struct(col = list_of(list_of(list_of(float64())))))
-  expect_equivalent(as.vector(a), df)
+  expect_as_vector(a, df, ignore_attr = TRUE)
 })
 
 test_that("StructArray methods", {
@@ -566,6 +570,29 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   # degenerated data frame
   df <- structure(list(x = 1:2, y = 1), class = "data.frame", row.names = 1:2)
   expect_error(Array$create(list(df)))
+})
+
+test_that("Array$create() handles list of dataframes -> map arrays", {
+  # Should be able to create an empty map with a type hint.
+  expect_r6_class(Array$create(list(), type = map_of(utf8(), boolean())), "MapArray")
+
+  # MapType is alias for List<Struct<keys, values>>
+  data <- list(data.frame(key = c("a", "b"), value = c(1, 2), stringsAsFactors = FALSE),
+               data.frame(key = c("a", "c"), value = c(4, 7), stringsAsFactors = FALSE))
+  arr <- Array$create(data, type = map_of(utf8(), int32()))
+
+  expect_r6_class(arr, "MapArray")
+  expect_as_vector(arr, data, ignore_attr = TRUE)
+
+  expect_equal(arr$keys()$type, utf8())
+  expect_equal(arr$items()$type, int32())
+  expect_equal(arr$keys(), Array$create(c("a", "b", "a", "c")))
+  expect_equal(arr$items(), Array$create(c(1, 2, 4, 7), type = int32()))
+
+  expect_equal(arr$keys_nested()$type, list_of(utf8()))
+  expect_equal(arr$items_nested()$type, list_of(int32()))
+  expect_equal(arr$keys_nested(), Array$create(list(c("a", "b"), c("a", "c")), type = list_of(utf8())))
+  expect_equal(arr$items_nested(), Array$create(list(c(1, 2), c(4, 7)), type = list_of(int32())))
 })
 
 test_that("Array$create() handles vector -> large list arrays", {
@@ -730,8 +757,27 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(
-    as.vector(array_with_nul),
+
+  # The behavior of the warnings/errors is slightly different with and without
+  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
+  # on `as.vector()` where as with it, the error only happens on materialization)
+  skip_if_r_version("3.5.0")
+
+  # no error on conversion, because altrep laziness
+  v <- expect_error(as.vector(array_with_nul), NA)
+
+  # attempting materialization -> error
+
+  expect_error(v[],
+    paste0(
+      "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
+      "to R, set options(arrow.skip_nul = TRUE)"
+    ),
+    fixed = TRUE
+  )
+
+  # also error on materializing v[3]
+  expect_error(v[3],
     paste0(
       "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow ",
       "to R, set options(arrow.skip_nul = TRUE)"
@@ -740,11 +786,28 @@ test_that("Handling string data with embedded nuls", {
   )
 
   withr::with_options(list(arrow.skip_nul = TRUE), {
+    # no warning yet because altrep laziness
+    v <- as.vector(array_with_nul)
+
     expect_warning(
       expect_identical(
-        as.vector(array_with_nul),
+        v[],
         c("person", "woman", "man", "fan", "camera", "tv")
       ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[3], "man"),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+
+    v <- as.vector(array_with_nul)
+    expect_warning(
+      expect_identical(v[4], "fan"),
       "Stripping '\\0' (nul) from character vector",
       fixed = TRUE
     )
@@ -761,6 +824,24 @@ test_that("Array$create() should have helpful error", {
   expect_error(Array$create(list()), "Requires at least one element to infer")
   expect_error(Array$create(list(lgl, lgl, int)), "Expecting a logical vector")
   expect_error(Array$create(list(char, num, char)), "Expecting a character vector")
+
+  # hint at casting if direct fails and casting looks like it might work
+  expect_error(
+    Array$create(as.double(1:10), type = decimal(4, 2)),
+    "You might want to try casting manually"
+  )
+
+  expect_error(
+    Array$create(1:10, type = decimal(12, 2)),
+    "You might want to try casting manually"
+  )
+
+  a <- expect_error(Array$create("one", int32()))
+  b <- expect_error(vec_to_Array("one", int32()))
+  # the captured conditions (errors) are not identical, but their messages should be
+  expect_s3_class(a, "rlang_error")
+  expect_s3_class(b, "simpleError")
+  expect_equal(a$message, b$message, ignore_attr = TRUE)
 })
 
 test_that("Array$View() (ARROW-6542)", {
@@ -791,7 +872,7 @@ test_that("is.Array", {
 
 test_that("Array$Take()", {
   a <- Array$create(10:20)
-  expect_equal(as.vector(a$Take(c(4, 2))), c(14, 12))
+  expect_as_vector(a$Take(c(4, 2)), c(14, 12))
 })
 
 test_that("[ method on Array", {
@@ -906,6 +987,75 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
     tab <- Table$create(x = a)
     expect_true(inherits(as.data.frame(batch)$x, "integer64"))
   })
+})
+
+test_that("concat_arrays works", {
+  concat_empty <- concat_arrays()
+  expect_true(concat_empty$type == null())
+  expect_equal(concat_empty$length(), 0L)
+
+  concat_empty_typed <- concat_arrays(type = int64())
+  expect_true(concat_empty_typed$type == int64())
+  expect_equal(concat_empty$length(), 0L)
+
+  concat_int <- concat_arrays(Array$create(1:3), Array$create(4:5))
+  expect_true(concat_int$type == int32())
+  expect_true(all(concat_int == Array$create(1:5)))
+
+  concat_int64 <- concat_arrays(
+    Array$create(1:3),
+    Array$create(4:5, type = int64()),
+    type = int64()
+  )
+  expect_true(concat_int64$type == int64())
+  expect_true(all(concat_int == Array$create(1:5)))
+
+  expect_error(
+    concat_arrays(
+      Array$create(1:3),
+      Array$create(4:5, type = int64())
+    ),
+    "must be identically typed"
+  )
+})
+
+test_that("concat_arrays() coerces its input to Array", {
+  concat_ints <- concat_arrays(1L, 2L)
+  expect_true(concat_ints$type == int32())
+  expect_true(all(concat_ints == Array$create(c(1L, 2L))))
+
+  expect_error(
+    concat_arrays(1L, "not a number", type = int32()),
+    "cannot convert"
+  )
+
+  expect_error(
+    concat_arrays(1L, "not a number"),
+    "must be identically typed"
+  )
+})
+
+test_that("c() works for Array", {
+  expect_r6_class(c(Array$create(1L), Array$create(1L)), "Array")
+
+  struct <- call_function(
+    "make_struct",
+    Array$create(1L),
+    options = list(field_names = "")
+  )
+  expect_r6_class(c(struct, struct), "StructArray")
+
+  list <- Array$create(list(1))
+  expect_r6_class(c(list, list), "ListArray")
+
+  list <- Array$create(list(), type = large_list_of(float64()))
+  expect_r6_class(c(list, list), "LargeListArray")
+
+  list <- Array$create(list(), type = fixed_size_list_of(float64(), 1L))
+  expect_r6_class(c(list, list), "FixedSizeListArray")
+
+  list <- Array$create(list(), type = map_of(string(), float64()))
+  expect_r6_class(c(list, list), "MapArray")
 })
 
 

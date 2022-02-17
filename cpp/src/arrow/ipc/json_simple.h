@@ -23,6 +23,7 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
@@ -48,12 +49,22 @@ Status ArrayFromJSON(const std::shared_ptr<DataType>&, const char* json,
                      std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
+Status ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                            const std::vector<std::string>& json_strings,
+                            std::shared_ptr<ChunkedArray>* out);
+
+ARROW_EXPORT
 Status DictArrayFromJSON(const std::shared_ptr<DataType>&, util::string_view indices_json,
                          util::string_view dictionary_json, std::shared_ptr<Array>* out);
 
 ARROW_EXPORT
 Status ScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view json,
                       std::shared_ptr<Scalar>* out);
+
+ARROW_EXPORT
+Status DictScalarFromJSON(const std::shared_ptr<DataType>&, util::string_view index_json,
+                          util::string_view dictionary_json,
+                          std::shared_ptr<Scalar>* out);
 
 }  // namespace json
 }  // namespace internal

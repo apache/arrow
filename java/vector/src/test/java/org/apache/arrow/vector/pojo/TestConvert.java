@@ -144,7 +144,7 @@ public class TestConvert {
           Collections2.asImmutableList(
             new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
             new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), Collections.emptyList()),
-            new Field("child5.3", true, new Timestamp(TimeUnit.MILLISECOND, "UTC"), null)
+            new Field("child5.3", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, "UTC")), null)
           )));
     Schema initialSchema = new Schema(children);
     run(initialSchema);

@@ -47,7 +47,7 @@ class Tester(object):
     def file_to_stream(self, file_path, stream_path):
         raise NotImplementedError
 
-    def validate(self, json_path, arrow_path):
+    def validate(self, json_path, arrow_path, quirks=None):
         raise NotImplementedError
 
     def flight_server(self, scenario_name=None):

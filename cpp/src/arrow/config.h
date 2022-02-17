@@ -37,12 +37,20 @@ struct BuildInfo {
   std::string version_string;
   std::string so_version;
   std::string full_so_version;
+
+  /// The CMake compiler identifier, e.g. "GNU"
   std::string compiler_id;
   std::string compiler_version;
   std::string compiler_flags;
+
+  /// The git changeset id, if available
   std::string git_id;
+  /// The git changeset description, if available
   std::string git_description;
   std::string package_kind;
+
+  /// The uppercase build type, e.g. "DEBUG" or "RELEASE"
+  std::string build_type;
 };
 
 struct RuntimeInfo {

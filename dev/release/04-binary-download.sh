@@ -20,13 +20,15 @@
 
 set -e
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <rc-num>"
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <version> <rc-num> [options]"
   exit
 fi
 
 version=$1
-rc_number=$2
+shift
+rc_number=$1
+shift
 version_with_rc="${version}-rc${rc_number}"
 crossbow_job_prefix="release-${version_with_rc}"
 
@@ -36,4 +38,4 @@ crossbow_job_prefix="release-${version_with_rc}"
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 
-archery crossbow download-artifacts ${CROSSBOW_JOB_ID} --no-fetch
+archery crossbow download-artifacts --no-fetch ${CROSSBOW_JOB_ID} "$@"

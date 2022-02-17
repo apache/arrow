@@ -94,14 +94,23 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "SSE4_2")
+  endif()
 elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   # power compiler flags, gcc/clang only
   set(ARROW_ALTIVEC_FLAG "-maltivec")
   check_cxx_compiler_flag(${ARROW_ALTIVEC_FLAG} CXX_SUPPORTS_ALTIVEC)
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "NONE")
+  endif()
 elseif(ARROW_CPU_FLAG STREQUAL "armv8")
   # Arm64 compiler flags, gcc/clang only
   set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
   check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
+  if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
+    set(ARROW_SIMD_LEVEL "NEON")
+  endif()
 endif()
 
 # Support C11
@@ -134,6 +143,21 @@ if(WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
   # insecure, like std::getenv
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+
+  # Disable static assertion in Microsoft C++ standard library.
+  #
+  # """[...]\include\type_traits(1271): error C2338:
+  # You've instantiated std::aligned_storage<Len, Align> with an extended
+  # alignment (in other words, Align > alignof(max_align_t)).
+  # Before VS 2017 15.8, the member type would non-conformingly have an
+  # alignment of only alignof(max_align_t). VS 2017 15.8 was fixed to handle
+  # this correctly, but the fix inherently changes layout and breaks binary
+  # compatibility (*only* for uses of aligned_storage with extended alignments).
+  # Please define either (1) _ENABLE_EXTENDED_ALIGNED_STORAGE to acknowledge
+  # that you understand this message and that you actually want a type with
+  # an extended alignment, or (2) _DISABLE_EXTENDED_ALIGNED_STORAGE to silence
+  # this message and get the old non-conformant behavior."""
+  add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
     if(MSVC_VERSION VERSION_LESS 19)
@@ -266,6 +290,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
@@ -296,6 +321,7 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wpedantic")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
@@ -431,6 +457,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
     add_definitions(-DARROW_HAVE_SSE4_2)
+  elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+    message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by x86.")
   endif()
 endif()
 
@@ -441,7 +469,7 @@ if(ARROW_CPU_FLAG STREQUAL "ppc")
 endif()
 
 if(ARROW_CPU_FLAG STREQUAL "armv8")
-  if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+  if(ARROW_SIMD_LEVEL STREQUAL "NEON")
     set(ARROW_HAVE_NEON ON)
 
     if(NOT CXX_SUPPORTS_ARMV8_ARCH)
@@ -467,6 +495,8 @@ if(ARROW_CPU_FLAG STREQUAL "armv8")
         add_definitions(-DARROW_HAVE_ARMV8_CRC)
       endif()
     endif()
+  elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
+    message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
   endif()
 endif()
 

@@ -54,6 +54,14 @@ _WriteStats = namedtuple(
 
 class WriteStats(_WriteStats):
     """IPC write statistics
+
+    Parameters
+    ----------
+    num_messages : number of messages.
+    num_record_batches : number of record batches.
+    num_dictionary_batches : number of dictionary batches.
+    num_dictionary_deltas : delta of dictionaries.
+    num_replaced_dictionaries : number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -73,6 +81,14 @@ _ReadStats = namedtuple(
 
 class ReadStats(_ReadStats):
     """IPC read statistics
+
+    Parameters
+    ----------
+    num_messages : number of messages.
+    num_record_batches : number of record batches.
+    num_dictionary_batches : number of dictionary batches.
+    num_dictionary_deltas : delta of dictionaries.
+    num_replaced_dictionaries : number of replaced dictionaries.
     """
     __slots__ = ()
 
@@ -85,28 +101,38 @@ cdef _wrap_read_stats(CIpcReadStats c):
 
 
 cdef class IpcWriteOptions(_Weakrefable):
-    """Serialization options for the IPC format.
+    """
+    Serialization options for the IPC format.
 
     Parameters
     ----------
     metadata_version : MetadataVersion, default MetadataVersion.V5
         The metadata version to write.  V5 is the current and latest,
         V4 is the pre-1.0 metadata version (with incompatible Union layout).
-    allow_64bit: bool, default False
+    allow_64bit : bool, default False
         If true, allow field lengths that don't fit in a signed 32-bit int.
     use_legacy_format : bool, default False
         Whether to use the pre-Arrow 0.15 IPC format.
-    compression: str, Codec, or None
+    compression : str, Codec, or None
         compression codec to use for record batch buffers.
         If None then batch buffers will be uncompressed.
         Must be "lz4", "zstd" or None.
         To specify a compression_level use `pyarrow.Codec`
-    use_threads: bool
+    use_threads : bool
         Whether to use the global CPU thread pool to parallelize any
         computational tasks like compression.
-    emit_dictionary_deltas: bool
+    emit_dictionary_deltas : bool
         Whether to emit dictionary deltas.  Default is false for maximum
         stream compatibility.
+    unify_dictionaries : bool
+        If true then calls to write_table will attempt to unify dictionaries
+        across all batches in the table.  This can help avoid the need for
+        replacement dictionaries (which the file format does not support)
+        but requires computing the unified dictionary and then remapping
+        the indices arrays.
+
+        This parameter is ignored when writing to the IPC stream format as
+        the IPC stream format can support replacement dictionaries.
     """
     __slots__ = ()
 
@@ -115,7 +141,8 @@ cdef class IpcWriteOptions(_Weakrefable):
     def __init__(self, *, metadata_version=MetadataVersion.V5,
                  bint allow_64bit=False, use_legacy_format=False,
                  compression=None, bint use_threads=True,
-                 bint emit_dictionary_deltas=False):
+                 bint emit_dictionary_deltas=False,
+                 bint unify_dictionaries=False):
         self.c_options = CIpcWriteOptions.Defaults()
         self.allow_64bit = allow_64bit
         self.use_legacy_format = use_legacy_format
@@ -124,6 +151,7 @@ cdef class IpcWriteOptions(_Weakrefable):
             self.compression = compression
         self.use_threads = use_threads
         self.emit_dictionary_deltas = emit_dictionary_deltas
+        self.unify_dictionaries = unify_dictionaries
 
     @property
     def allow_64bit(self):
@@ -184,6 +212,14 @@ cdef class IpcWriteOptions(_Weakrefable):
     @emit_dictionary_deltas.setter
     def emit_dictionary_deltas(self, bint value):
         self.c_options.emit_dictionary_deltas = value
+
+    @property
+    def unify_dictionaries(self):
+        return self.c_options.unify_dictionaries
+
+    @unify_dictionaries.setter
+    def unify_dictionaries(self, bint value):
+        self.c_options.unify_dictionaries = value
 
 
 cdef class Message(_Weakrefable):
@@ -310,6 +346,14 @@ cdef class MessageReader(_Weakrefable):
 
     @staticmethod
     def open_stream(source):
+        """
+        Open stream from source.
+
+        Parameters
+        ----------
+        source
+            A readable source, like an InputStream
+        """
         cdef:
             MessageReader result = MessageReader.__new__(MessageReader)
             shared_ptr[CInputStream] in_stream
@@ -332,7 +376,8 @@ cdef class MessageReader(_Weakrefable):
 
         Raises
         ------
-        StopIteration : at end of stream
+        StopIteration
+            At end of stream
         """
         cdef Message result = Message.__new__(Message)
 
@@ -491,7 +536,8 @@ class _ReadPandasMixin:
 
         Parameters
         ----------
-        **options : arguments to forward to Table.to_pandas
+        **options
+            Arguments to forward to Table.to_pandas.
 
         Returns
         -------
@@ -571,7 +617,7 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def _export_to_c(self, uintptr_t out_ptr):
+    def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
 
@@ -584,12 +630,14 @@ cdef class RecordBatchReader(_Weakrefable):
         consumer, array memory will leak.  This is a low-level function
         intended for expert users.
         """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
         with nogil:
             check_status(ExportRecordBatchReader(
-                self.reader, <ArrowArrayStream*> out_ptr))
+                self.reader, <ArrowArrayStream*> c_ptr))
 
     @staticmethod
-    def _import_from_c(uintptr_t in_ptr):
+    def _import_from_c(in_ptr):
         """
         Import RecordBatchReader from a C ArrowArrayStream struct,
         given its pointer.
@@ -602,12 +650,13 @@ cdef class RecordBatchReader(_Weakrefable):
         This is a low-level function intended for expert users.
         """
         cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
             shared_ptr[CRecordBatchReader] c_reader
             RecordBatchReader self
 
         with nogil:
             c_reader = GetResultValue(ImportRecordBatchReader(
-                <ArrowArrayStream*> in_ptr))
+                <ArrowArrayStream*> c_ptr))
 
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader
@@ -781,6 +830,11 @@ cdef class _RecordBatchFileReader(_Weakrefable):
 def get_tensor_size(Tensor tensor):
     """
     Return total size of serialized Tensor including metadata and padding.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The tensor for which we want to known the size.
     """
     cdef int64_t size
     with nogil:
@@ -791,6 +845,11 @@ def get_tensor_size(Tensor tensor):
 def get_record_batch_size(RecordBatch batch):
     """
     Return total size of serialized RecordBatch including metadata and padding.
+
+    Parameters
+    ----------
+    batch : RecordBatch
+        The recordbatch for which we want to know the size.
     """
     cdef int64_t size
     with nogil:

@@ -20,33 +20,46 @@
 set -e
 
 declare -A archs
-archs=([amd64]=amd64
-       [arm64v8]=arm64
-       [arm32v7]=arm
+archs=([x86_64]=amd64
+       [arm64]=arm64
+       [aarch64]=arm64
        [s390x]=s390x)
 
 declare -A platforms
-platforms=([linux]=linux
-           [macos]=darwin)
+platforms=([Linux]=linux
+           [Darwin]=darwin)
 
-arch=${archs[$1]}
-platform=${platforms[$2]}
-version=$3
-prefix=$4
+arch=$(uname -m)
+platform=$(uname)
+version=$1
+prefix=$2
 
-if [ "$#" -ne 4 ]; then
-  echo "Usage: $0 <architecture> <platform> <version> <prefix>"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <prefix>"
   exit 1
-elif [[ -z ${arch} ]]; then
-  echo "Unexpected architecture: ${1}"
-  exit 1
-elif [[ -z ${platform} ]]; then
-  echo "Unexpected platform: ${2}"
-  exit 1
-elif [[ ${version} != "latest" ]]; then
+elif [ -z ${archs[$arch]} ]; then
+  echo "Unsupported architecture: ${arch}"
+  exit 0
+elif [ -z ${platforms[$platform]} ]; then
+  echo "Unsupported platform: ${platform}"
+  exit 0
+elif [ "${version}" != "latest" ]; then
   echo "Cannot fetch specific versions of minio, only latest is supported."
   exit 1
 fi
 
-wget -nv -P ${prefix}/bin https://dl.min.io/server/minio/release/${platform}-${arch}/minio
-chmod +x ${prefix}/bin/minio
+arch=${archs[$arch]}
+platform=${platforms[$platform]}
+
+if [[ ! -x ${prefix}/bin/minio ]]; then
+  url="https://dl.min.io/server/minio/release/${platform}-${arch}/minio"
+  echo "Fetching ${url}..."
+  wget -nv -P ${prefix}/bin ${url}
+  chmod +x ${prefix}/bin/minio
+fi
+if [[ ! -x ${prefix}/bin/mc ]]; then
+  url="https://dl.min.io/client/mc/release/${platform}-${arch}/mc"
+  echo "Fetching ${url}..."
+  wget -nv -P ${prefix}/bin ${url}
+  chmod +x ${prefix}/bin/mc
+fi

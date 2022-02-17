@@ -235,8 +235,7 @@ bool Cookie::IsExpired() const {
 
 std::string Cookie::AsCookieString() const {
   // Return the string for the cookie as it would appear in a Cookie header.
-  // Keys must be wrapped in quotes depending on if this is a v1 or v2 cookie.
-  return cookie_name_ + "=\"" + cookie_value_ + "\"";
+  return cookie_name_ + "=" + cookie_value_;
 }
 
 std::string Cookie::GetName() const { return cookie_name_; }
@@ -293,11 +292,8 @@ std::string CookieCache::GetValidCookiesAsString() {
 void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username,
                          const std::string& password) {
   const std::string credentials = username + ":" + password;
-  context->AddMetadata(
-      kAuthHeader,
-      kBasicPrefix + arrow::util::base64_encode(
-                         reinterpret_cast<const unsigned char*>(credentials.c_str()),
-                         static_cast<unsigned int>(credentials.size())));
+  context->AddMetadata(kAuthHeader,
+                       kBasicPrefix + arrow::util::base64_encode(credentials));
 }
 
 /// \brief Get bearer token from inbound headers.

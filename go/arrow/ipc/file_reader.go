@@ -14,18 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"bytes"
 	"encoding/binary"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -43,10 +43,12 @@ type FileReader struct {
 	memo   dictMemo
 
 	schema *arrow.Schema
-	record array.Record
+	record arrow.Record
 
 	irec int   // current record index. used for the arrio.Reader interface
 	err  error // last error
+
+	mem memory.Allocator
 }
 
 // NewFileReader opens an Arrow file using the provided reader r.
@@ -59,6 +61,7 @@ func NewFileReader(r ReadAtSeeker, opts ...Option) (*FileReader, error) {
 			r:      r,
 			fields: make(dictTypeMap),
 			memo:   newMemo(),
+			mem:    cfg.alloc,
 		}
 	)
 
@@ -134,6 +137,7 @@ func (f *FileReader) readSchema() error {
 		return xerrors.Errorf("arrow/ipc: could not load dictionary types from file: %w", err)
 	}
 
+	//lint:ignore SA4008 readDictionary always panics currently. ignore lint until DictionaryArray is implemented.
 	for i := 0; i < f.NumDictionaries(); i++ {
 		blk, err := f.dict(i)
 		if err != nil {
@@ -243,7 +247,7 @@ func (f *FileReader) Close() error {
 // Record returns the i-th record from the file.
 // The returned value is valid until the next call to Record.
 // Users need to call Retain on that Record to keep it valid for longer.
-func (f *FileReader) Record(i int) (array.Record, error) {
+func (f *FileReader) Record(i int) (arrow.Record, error) {
 	record, err := f.RecordAt(i)
 	if err != nil {
 		return nil, err
@@ -260,7 +264,7 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 // Record returns the i-th record from the file. Ownership is transferred to the
 // caller and must call Release() to free the memory. This method is safe to
 // call concurrently.
-func (f *FileReader) RecordAt(i int) (array.Record, error) {
+func (f *FileReader) RecordAt(i int) (arrow.Record, error) {
 	if i < 0 || i > f.NumRecords() {
 		panic("arrow/ipc: record index out of bounds")
 	}
@@ -288,7 +292,7 @@ func (f *FileReader) RecordAt(i int) (array.Record, error) {
 		return nil, xerrors.Errorf("arrow/ipc: message %d is not a Record", i)
 	}
 
-	return newRecord(f.schema, msg.meta, bytes.NewReader(msg.body.Bytes())), nil
+	return newRecord(f.schema, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem), nil
 }
 
 // Read reads the current record from the underlying stream and an error, if any.
@@ -296,7 +300,7 @@ func (f *FileReader) RecordAt(i int) (array.Record, error) {
 //
 // The returned record value is valid until the next call to Read.
 // Users need to call Retain on that Record to keep it valid for longer.
-func (f *FileReader) Read() (rec array.Record, err error) {
+func (f *FileReader) Read() (rec arrow.Record, err error) {
 	if f.irec == f.NumRecords() {
 		return nil, io.EOF
 	}
@@ -306,11 +310,11 @@ func (f *FileReader) Read() (rec array.Record, err error) {
 }
 
 // ReadAt reads the i-th record from the underlying stream and an error, if any.
-func (f *FileReader) ReadAt(i int64) (array.Record, error) {
+func (f *FileReader) ReadAt(i int64) (arrow.Record, error) {
 	return f.Record(int(i))
 }
 
-func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) array.Record {
+func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker, mem memory.Allocator) arrow.Record {
 	var (
 		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 		md    flatbuf.RecordBatch
@@ -329,13 +333,15 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) arr
 			meta:  &md,
 			r:     body,
 			codec: codec,
+			mem:   mem,
 		},
 		max: kMaxNestingDepth,
 	}
 
-	cols := make([]array.Interface, len(schema.Fields()))
+	cols := make([]arrow.Array, len(schema.Fields()))
 	for i, field := range schema.Fields() {
 		cols[i] = ctx.loadArray(field.Type)
+		defer cols[i].Release()
 	}
 
 	return array.NewRecord(schema, cols, rows)
@@ -345,6 +351,7 @@ type ipcSource struct {
 	meta  *flatbuf.RecordBatch
 	r     ReadAtSeeker
 	codec decompressor
+	mem   memory.Allocator
 }
 
 func (src *ipcSource) buffer(i int) *memory.Buffer {
@@ -356,10 +363,10 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 		return memory.NewBufferBytes(nil)
 	}
 
-	var raw []byte
+	raw := memory.NewResizableBuffer(src.mem)
 	if src.codec == nil {
-		raw = make([]byte, buf.Length())
-		_, err := src.r.ReadAt(raw, buf.Offset())
+		raw.Resize(int(buf.Length()))
+		_, err := src.r.ReadAt(raw.Bytes(), buf.Offset())
 		if err != nil {
 			panic(err)
 		}
@@ -375,19 +382,19 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 		var r io.Reader = sr
 		// check for an uncompressed buffer
 		if int64(uncompressedSize) != -1 {
-			raw = make([]byte, uncompressedSize)
+			raw.Resize(int(uncompressedSize))
 			src.codec.Reset(sr)
 			r = src.codec
 		} else {
-			raw = make([]byte, buf.Length())
+			raw.Resize(int(buf.Length()))
 		}
 
-		if _, err = io.ReadFull(r, raw); err != nil {
+		if _, err = io.ReadFull(r, raw.Bytes()); err != nil {
 			panic(err)
 		}
 	}
 
-	return memory.NewBufferBytes(raw)
+	return raw
 }
 
 func (src *ipcSource) fieldMetadata(i int) *flatbuf.FieldNode {
@@ -417,7 +424,7 @@ func (ctx *arrayLoaderContext) buffer() *memory.Buffer {
 	return buf
 }
 
-func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
+func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) arrow.Array {
 	switch dt := dt.(type) {
 	case *arrow.NullType:
 		return ctx.loadNull()
@@ -430,7 +437,7 @@ func (ctx *arrayLoaderContext) loadArray(dt arrow.DataType) array.Interface {
 		*arrow.Time32Type, *arrow.Time64Type,
 		*arrow.TimestampType,
 		*arrow.Date32Type, *arrow.Date64Type,
-		*arrow.MonthIntervalType, *arrow.DayTimeIntervalType,
+		*arrow.MonthIntervalType, *arrow.DayTimeIntervalType, *arrow.MonthDayNanoIntervalType,
 		*arrow.DurationType:
 		return ctx.loadPrimitive(dt)
 
@@ -478,7 +485,7 @@ func (ctx *arrayLoaderContext) loadCommon(nbufs int) (*flatbuf.FieldNode, []*mem
 	return field, buffers
 }
 
-func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
+func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) arrow.Array {
 	if ctx.max == 0 {
 		panic("arrow/ipc: nested type limit reached")
 	}
@@ -488,7 +495,7 @@ func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
 	return sub
 }
 
-func (ctx *arrayLoaderContext) loadNull() array.Interface {
+func (ctx *arrayLoaderContext) loadNull() arrow.Array {
 	field := ctx.field()
 	data := array.NewData(arrow.Null, int(field.Length()), nil, nil, int(field.NullCount()), 0)
 	defer data.Release()
@@ -496,7 +503,7 @@ func (ctx *arrayLoaderContext) loadNull() array.Interface {
 	return array.MakeFromData(data)
 }
 
-func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) array.Interface {
+func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) arrow.Array {
 	field, buffers := ctx.loadCommon(2)
 
 	switch field.Length() {
@@ -507,15 +514,18 @@ func (ctx *arrayLoaderContext) loadPrimitive(dt arrow.DataType) array.Interface 
 		buffers = append(buffers, ctx.buffer())
 	}
 
+	defer releaseBuffers(buffers)
+
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.MakeFromData(data)
 }
 
-func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
+func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) arrow.Array {
 	field, buffers := ctx.loadCommon(3)
 	buffers = append(buffers, ctx.buffer(), ctx.buffer())
+	defer releaseBuffers(buffers)
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()
@@ -523,9 +533,10 @@ func (ctx *arrayLoaderContext) loadBinary(dt arrow.DataType) array.Interface {
 	return array.MakeFromData(data)
 }
 
-func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) array.Interface {
+func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType) arrow.Array {
 	field, buffers := ctx.loadCommon(2)
 	buffers = append(buffers, ctx.buffer())
+	defer releaseBuffers(buffers)
 
 	data := array.NewData(dt, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
 	defer data.Release()
@@ -533,49 +544,53 @@ func (ctx *arrayLoaderContext) loadFixedSizeBinary(dt *arrow.FixedSizeBinaryType
 	return array.MakeFromData(data)
 }
 
-func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) array.Interface {
+func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.Array {
 	field, buffers := ctx.loadCommon(2)
 	buffers = append(buffers, ctx.buffer())
+	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.ValueType())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewMapData(data)
 }
 
-func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) array.Interface {
+func (ctx *arrayLoaderContext) loadList(dt *arrow.ListType) arrow.Array {
 	field, buffers := ctx.loadCommon(2)
 	buffers = append(buffers, ctx.buffer())
+	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewListData(data)
 }
 
-func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) array.Interface {
+func (ctx *arrayLoaderContext) loadFixedSizeList(dt *arrow.FixedSizeListType) arrow.Array {
 	field, buffers := ctx.loadCommon(1)
+	defer releaseBuffers(buffers)
 
 	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
-	data := array.NewData(dt, int(field.Length()), buffers, []*array.Data{sub.Data()}, int(field.NullCount()), 0)
+	data := array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub.Data()}, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.NewFixedSizeListData(data)
 }
 
-func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface {
+func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) arrow.Array {
 	field, buffers := ctx.loadCommon(1)
+	defer releaseBuffers(buffers)
 
-	arrs := make([]array.Interface, len(dt.Fields()))
-	subs := make([]*array.Data, len(dt.Fields()))
+	arrs := make([]arrow.Array, len(dt.Fields()))
+	subs := make([]arrow.ArrayData, len(dt.Fields()))
 	for i, f := range dt.Fields() {
 		arrs[i] = ctx.loadChild(f.Type)
 		subs[i] = arrs[i].Data()
@@ -592,7 +607,7 @@ func (ctx *arrayLoaderContext) loadStruct(dt *arrow.StructType) array.Interface 
 	return array.NewStructData(data)
 }
 
-func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int64, array.Interface, error) {
+func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int64, arrow.Array, error) {
 	//	msg := flatbuf.GetRootAsMessage(meta.Bytes(), 0)
 	//	var dictBatch flatbuf.DictionaryBatch
 	//	initFB(&dictBatch, msg.Header)
@@ -625,7 +640,7 @@ func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int
 	//		max: kMaxNestingDepth,
 	//	}
 	//
-	//	cols := make([]array.Interface, len(schema.Fields()))
+	//	cols := make([]arrow.Array, len(schema.Fields()))
 	//	for i, field := range schema.Fields() {
 	//		cols[i] = ctx.loadArray(field.Type)
 	//	}
@@ -633,4 +648,12 @@ func readDictionary(meta *memory.Buffer, types dictTypeMap, r ReadAtSeeker) (int
 	//	batch := array.NewRecord(schema, cols, rows)
 
 	panic("not implemented")
+}
+
+func releaseBuffers(buffers []*memory.Buffer) {
+	for _, b := range buffers {
+		if b != nil {
+			b.Release()
+		}
+	}
 }

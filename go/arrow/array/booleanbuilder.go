@@ -17,12 +17,17 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"reflect"
+	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 type BooleanBuilder struct {
@@ -129,7 +134,7 @@ func (b *BooleanBuilder) Resize(n int) {
 
 // NewArray creates a Boolean array from the memory buffers used by the builder and resets the BooleanBuilder
 // so it can be used to build a new array.
-func (b *BooleanBuilder) NewArray() Interface {
+func (b *BooleanBuilder) NewArray() arrow.Array {
 	return b.NewBooleanArray()
 }
 
@@ -158,6 +163,56 @@ func (b *BooleanBuilder) newData() *Data {
 	}
 
 	return res
+}
+
+func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case bool:
+		b.Append(v)
+	case string:
+		val, err := strconv.ParseBool(v)
+		if err != nil {
+			return err
+		}
+		b.Append(val)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf(true),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *BooleanBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("boolean builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

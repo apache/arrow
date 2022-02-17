@@ -36,7 +36,7 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
@@ -70,7 +70,11 @@ struct ScalarHashImpl {
   }
 
   Status Visit(const DayTimeIntervalScalar& s) {
-    return StdHash(s.value.days) & StdHash(s.value.days);
+    return StdHash(s.value.days) & StdHash(s.value.milliseconds);
+  }
+
+  Status Visit(const MonthDayNanoIntervalScalar& s) {
+    return StdHash(s.value.days) & StdHash(s.value.months) & StdHash(s.value.nanoseconds);
   }
 
   Status Visit(const Decimal128Scalar& s) {
@@ -226,12 +230,20 @@ struct ScalarValidateImpl {
   }
 
   Status Visit(const Decimal128Scalar& s) {
-    // XXX validate precision?
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
+    }
     return Status::OK();
   }
 
   Status Visit(const Decimal256Scalar& s) {
-    // XXX validate precision?
+    const auto& ty = checked_cast<const DecimalType&>(*s.type);
+    if (!s.value.FitsInPrecision(ty.precision())) {
+      return Status::Invalid("Decimal value ", s.value.ToIntegerString(),
+                             " does not fit in precision of ", ty);
+    }
     return Status::OK();
   }
 
@@ -463,8 +475,14 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
+BinaryScalar::BinaryScalar(std::string s)
+    : BinaryScalar(Buffer::FromString(std::move(s))) {}
+
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
+
+LargeBinaryScalar::LargeBinaryScalar(std::string s)
+    : LargeBinaryScalar(Buffer::FromString(std::move(s))) {}
 
 LargeStringScalar::LargeStringScalar(std::string s)
     : LargeStringScalar(Buffer::FromString(std::move(s))) {}
@@ -475,6 +493,12 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
   ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*this->type).byte_width(),
                  this->value->size());
 }
+
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value)
+    : BinaryScalar(value, fixed_size_binary(static_cast<int>(value->size()))) {}
+
+FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::string s)
+    : FixedSizeBinaryScalar(Buffer::FromString(std::move(s))) {}
 
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type)
@@ -538,7 +562,7 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 }
 
 DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
-    : Scalar(std::move(type)),
+    : internal::PrimitiveScalarBase(std::move(type)),
       value{MakeNullScalar(checked_cast<const DictionaryType&>(*this->type).index_type()),
             MakeArrayOfNull(checked_cast<const DictionaryType&>(*this->type).value_type(),
                             0)
@@ -595,8 +619,9 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
                                                          std::shared_ptr<Array> dict) {
   auto type = dictionary(index->type, dict->type());
+  auto is_valid = index->is_valid;
   return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
-                                            std::move(type));
+                                            std::move(type), is_valid);
 }
 
 namespace {
@@ -781,7 +806,8 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 // numeric to temporal
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value,
+                            !std::is_same<DayTimeIntervalType, To>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, To>::value,
                         Status>::type
 CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -791,7 +817,8 @@ CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
 // temporal to numeric
 template <typename From, typename To>
 typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value,
+                            !std::is_same<DayTimeIntervalType, From>::value &&
+                            !std::is_same<MonthDayNanoIntervalType, From>::value,
                         Status>::type
 CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
@@ -913,6 +940,15 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+Status CastImpl(const UnionScalar& from, StringScalar* to) {
+  const auto& union_ty = checked_cast<const UnionType&>(*from.type);
+  std::stringstream ss;
+  ss << "union{" << union_ty.field(union_ty.child_ids()[from.type_code])->ToString()
+     << " = " << from.value->ToString() << '}';
+  to->value = Buffer::FromString(ss.str());
+  return Status::OK();
+}
+
 struct CastImplVisitor {
   Status NotImplemented() {
     return Status::NotImplemented("cast to ", *to_type_, " from ", *from_.type);
@@ -946,8 +982,6 @@ struct FromTypeVisitor : CastImplVisitor {
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const DictionaryType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
@@ -976,8 +1010,6 @@ struct ToTypeVisitor : CastImplVisitor {
     return Int32Scalar(0).CastTo(dict_type.index_type()).Value(&out.index);
   }
 
-  Status Visit(const SparseUnionType&) { return NotImplemented(); }
-  Status Visit(const DenseUnionType&) { return NotImplemented(); }
   Status Visit(const ExtensionType&) { return NotImplemented(); }
 };
 

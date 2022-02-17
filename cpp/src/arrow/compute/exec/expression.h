@@ -27,10 +27,15 @@
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/small_vector.h"
 #include "arrow/util/variant.h"
 
 namespace arrow {
 namespace compute {
+
+/// \defgroup expression-core Expressions to describe transformations in execution plans
+///
+/// @{
 
 /// An unbound expression which maps a single Datum to another Datum.
 /// An expression is one of
@@ -112,7 +117,7 @@ class ARROW_EXPORT Expression {
 
     // post-bind properties
     ValueDescr descr;
-    int index;
+    internal::SmallVector<int, 2> indices;
   };
   const Parameter* parameter() const;
 
@@ -171,6 +176,8 @@ struct ARROW_EXPORT KnownFieldValues;
 ARROW_EXPORT
 Result<KnownFieldValues> ExtractKnownFieldValues(
     const Expression& guaranteed_true_predicate);
+
+/// @}
 
 /// \defgroup expression-passes Functions for modification of Expressions
 ///
@@ -238,7 +245,9 @@ Result<std::shared_ptr<Buffer>> Serialize(const Expression&);
 ARROW_EXPORT
 Result<Expression> Deserialize(std::shared_ptr<Buffer>);
 
-// Convenience aliases for factories
+/// \defgroup expression-convenience Functions convenient expression creation
+///
+/// @{
 
 ARROW_EXPORT Expression project(std::vector<Expression> values,
                                 std::vector<std::string> names);
@@ -255,7 +264,7 @@ ARROW_EXPORT Expression greater(Expression lhs, Expression rhs);
 
 ARROW_EXPORT Expression greater_equal(Expression lhs, Expression rhs);
 
-ARROW_EXPORT Expression is_null(Expression lhs);
+ARROW_EXPORT Expression is_null(Expression lhs, bool nan_is_null = false);
 
 ARROW_EXPORT Expression is_valid(Expression lhs);
 
@@ -264,6 +273,8 @@ ARROW_EXPORT Expression and_(const std::vector<Expression>&);
 ARROW_EXPORT Expression or_(Expression lhs, Expression rhs);
 ARROW_EXPORT Expression or_(const std::vector<Expression>&);
 ARROW_EXPORT Expression not_(Expression operand);
+
+/// @}
 
 }  // namespace compute
 }  // namespace arrow

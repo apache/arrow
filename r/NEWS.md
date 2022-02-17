@@ -17,7 +17,131 @@
   under the License.
 -->
 
-# arrow 5.0.0.9000
+# arrow 7.0.0.9000
+
+# arrow 7.0.0
+
+## Enhancements to dplyr and datasets
+
+* Additional `lubridate` features: `week()`, more of the `is.*()` functions, and the label argument to `month()` have been implemented.
+* More complex expressions inside `summarize()`, such as `ifelse(n() > 1, mean(y), mean(z))`, are supported.
+* When adding columns in a dplyr pipeline, one can now use `tibble` and `data.frame` to create columns of tibbles or data.frames respectively (e.g. `... %>% mutate(df_col = tibble(a, b)) %>% ...`).
+* Dictionary columns (R `factor` type) are supported inside of `coalesce()`.
+* `open_dataset()` accepts the `partitioning` argument when reading Hive-style partitioned files, even though it is not required.
+* The experimental `map_batches()` function for custom operations on dataset has been restored.
+
+## CSV
+
+* Delimited files (including CSVs) with encodings other than UTF can now be read (using the `encoding` argument when reading).
+* `open_dataset()` correctly ignores byte-order marks (`BOM`s) in CSVs, as already was true for reading single files
+* Reading a dataset internally uses an asynchronous scanner by default, which resolves a potential deadlock when reading in large CSV datasets.
+* `head()` no longer hangs on large CSV datasets.
+* There is an improved error message when there is a conflict between a header in the file and schema/column names provided as arguments.
+* `write_csv_arrow()` now follows the signature of `readr::write_csv()`.
+
+## Other improvements and fixes
+
+* Many of the vignettes have been reorganized, restructured and expanded to improve their usefulness and clarity.
+* Code to generate schemas (and individual data type specficiations) are accessible with the `$code()` method on a `schema` or `type`. This allows you to easily get the code needed to create a schema from an object that already has one.
+* Arrow `Duration` type has been mapped to R's `difftime` class.
+* The `decimal256()` type is supported. The `decimal()` function has been revised to call either `decimal256()` or `decimal128()` based on the value of the `precision` argument.
+* `write_parquet()` uses a reasonable guess at `chunk_size` instead of always writing a single chunk. This improves the speed of reading and writing large Parquet files.
+* `write_parquet()` no longer drops attributes for grouped data.frames.
+* Chunked arrays are now supported using ALTREP.
+* ALTREP vectors backed by Arrow arrays are no longer unexpectedly mutated by sorting or negation.
+* S3 file systems can be created with `proxy_options`.
+* A segfault when creating S3 file systems has been fixed.
+* Integer division in Arrow more closely matches R's behavior.
+
+## Installation
+
+* Source builds now by default use `pkg-config` to search for system dependencies (such as `libz`) and link to them if present. This new default will make building Arrow from source quicker on systems that have these dependencies installed already. To retain the previous behavior of downloading and building all dependencies, set `ARROW_DEPENDENCY_SOURCE=BUNDLED`.
+* Snappy and lz4 compression libraries are enabled by default in Linux builds. This means that the default build of Arrow, without setting any environment variables, will be able to read and write snappy encoded Parquet files.
+* Windows binary packages include brotli compression support.
+* Building Arrow on Windows can find a locally built libarrow library.
+* The package compiles and installs on Raspberry Pi OS.
+
+## Under-the-hood changes
+
+* The pointers used to pass data between R and Python have been made more reliable. Backwards compatibility with older versions of pyarrow has been maintained.
+* The internal method of registering new bindings for use in dplyr queries has changed. See the new vignette about writing bindings for more information about how that works.
+* R 3.3 is no longer supported. `glue`, which `arrow` depends on transitively, has dropped support for it.
+
+# arrow 6.0.1
+
+* Joins now support inclusion of dictionary columns, and multiple crashes have been fixed
+* Grouped aggregation no longer crashes when working on data that has been filtered down to 0 rows
+* Bindings added for `str_count()` in dplyr queries
+* Work around a critical bug in the AWS SDK for C++ that could affect S3 multipart upload
+* A UBSAN warning in the round kernel has been resolved
+* Fixes for build failures on Solaris and on old versions of macOS
+
+# arrow 6.0.0
+
+There are now two ways to query Arrow data:
+
+## 1. Expanded Arrow-native queries: aggregation and joins
+
+`dplyr::summarize()`, both grouped and ungrouped, is now implemented for Arrow Datasets, Tables, and RecordBatches. Because data is scanned in chunks, you can aggregate over larger-than-memory datasets backed by many files. Supported aggregation functions include `n()`, `n_distinct()`, `min(),` `max()`, `sum()`, `mean()`, `var()`, `sd()`, `any()`, and `all()`. `median()` and `quantile()` with one probability are also supported and currently return approximate results using the t-digest algorithm.
+
+Along with `summarize()`, you can also call `count()`, `tally()`, and `distinct()`, which effectively wrap `summarize()`.
+
+This enhancement does change the behavior of `summarize()` and `collect()` in some cases: see "Breaking changes" below for details.
+
+In addition to `summarize()`, mutating and filtering equality joins (`inner_join()`, `left_join()`, `right_join()`, `full_join()`, `semi_join()`, and `anti_join()`) with are also supported natively in Arrow.
+
+Grouped aggregation and (especially) joins should be considered somewhat experimental in this release. We expect them to work, but they may not be well optimized for all workloads. To help us focus our efforts on improving them in the next release, please let us know if you encounter unexpected behavior or poor performance.
+
+New non-aggregating compute functions include string functions like `str_to_title()` and `strftime()` as well as compute functions for extracting date parts (e.g. `year()`, `month()`) from dates. This is not a complete list of additional compute functions; for an exhaustive list of available compute functions see `list_compute_functions()`.
+
+We've also worked to fill in support for all data types, such as `Decimal`, for functions added in previous releases. All type limitations mentioned in previous release notes should be no longer valid, and if you find a function that is not implemented for a certain data type, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+
+## 2. DuckDB integration
+
+If you have the [duckdb package](https://CRAN.R-project.org/package=duckdb) installed, you can hand off an Arrow Dataset or query object to [DuckDB](https://duckdb.org/) for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well. This handoff *does not* copy the data, instead it uses Arrow's C-interface (just like passing arrow data between R and Python). This means there is no serialization or data copying costs are incurred.
+
+You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's query engine. This means that in a single dplyr pipeline, you could start with an Arrow Dataset, evaluate some steps in DuckDB, then evaluate the rest in Arrow.
+
+## Breaking changes
+
+* Row order of data from a Dataset query is no longer deterministic. If you need a stable sort order, you should explicitly `arrange()` the query result. For calls to `summarize()`, you can set `options(arrow.summarise.sort = TRUE)` to match the current `dplyr` behavior of sorting on the grouping columns.
+* `dplyr::summarize()` on an in-memory Arrow Table or RecordBatch no longer eagerly evaluates. Call `compute()` or `collect()` to evaluate the query.
+* `head()` and `tail()` also no longer eagerly evaluate, both for in-memory data and for Datasets. Also, because row order is no longer deterministic, they will effectively give you a random slice of data from somewhere in the dataset unless you `arrange()` to specify sorting.
+* Simple Feature (SF) columns no longer save all of their metadata when converting to Arrow tables (and thus when saving to Parquet or Feather). This also includes any dataframe column that has attributes on each element (in other words: row-level metadata). Our previous approach to saving this metadata is both (computationally) inefficient and unreliable with Arrow queries + datasets. This will most impact saving SF columns. For saving these columns we recommend either converting the columns to well-known binary representations (using `sf::st_as_binary(col)`) or using the [sfarrow package](https://CRAN.R-project.org/package=sfarrow) which handles some of the intricacies of this conversion process. We have plans to improve this and re-enable custom metadata like this in the future when we can implement the saving in a safe and efficient way. If you need to preserve the pre-6.0.0 behavior of saving this metadata, you can set `options(arrow.preserve_row_level_metadata = TRUE)`. We will be removing this option in a coming release. We strongly recommend avoiding using this workaround if possible since the results will not be supported in the future and can lead to surprising and inaccurate results. If you run into a custom class besides sf columns that are impacted by this please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues).
+* Datasets are officially no longer supported on 32-bit Windows on R < 4.0 (Rtools 3.5). 32-bit Windows users should upgrade to a newer version of R in order to use datasets.
+
+
+## Installation on Linux
+
+* Package installation now fails if the Arrow C++ library does not compile. In previous versions, if the C++ library failed to compile, you would get a successful R package installation that wouldn't do much useful.
+* You can disable all optional C++ components when building from source by setting the environment variable `LIBARROW_MINIMAL=true`. This will have the core Arrow/Feather components but excludes Parquet, Datasets, compression libraries, and other optional features.
+* Source packages now bundle the Arrow C++ source code, so it does not have to be downloaded in order to build the package. Because the source is included, it is now possible to build the package on an offline/airgapped system. By default, the offline build will be minimal because it cannot download third-party C++ dependencies required to support all features. To allow a fully featured offline build, the included `create_package_with_all_dependencies()` function (also available on GitHub without installing the arrow package) will download all third-party C++ dependencies and bundle them inside the R source package. Run this function on a system connected to the network to produce the "fat" source package, then copy that .tar.gz package to your offline machine and install. Special thanks to @karldw for the huge amount of work on this.
+* Source builds can make use of system dependencies (such as `libz`) by setting `ARROW_DEPENDENCY_SOURCE=AUTO`. This is not the default in this release (`BUNDLED`, i.e. download and build all dependencies) but may become the default in the future.
+* The JSON library components (`read_json_arrow()`) are now optional and still on by default; set `ARROW_JSON=OFF` before building to disable them.
+
+## Other enhancements and fixes
+
+* More Arrow data types use ALTREP when converting to and from R. This speeds up some workflows significantly, while for others it merely delays conversion from Arrow to R. ALTREP is used by default, but to disable it, set `options(arrow.use_altrep = FALSE)`
+* `Field` objects can now be created as non-nullable, and `schema()` now optionally accepts a list of `Field`s
+* Numeric division by zero now matches R's behavior and no longer raises an error
+* `write_parquet()` no longer errors when used with a grouped data.frame
+* `case_when()` now errors cleanly if an expression is not supported in Arrow
+* `open_dataset()` now works on CSVs without header rows
+* Fixed a minor issue where the short readr-style types `T` and `t` were reversed in `read_csv_arrow()`
+* Bindings for `log(..., base = b)` where b is something other than 2, e, or 10
+* A number of updates and expansions to our vignettes
+* Fix segfaults in converting length-0 ChunkedArrays to R vectors
+* `Table$create()` now has alias `arrow_table()`
+
+## Internals
+
+* We now use testthat 3rd edition as our default
+* A number of large test reorganizations
+* Style changes to conform with the tidyverse style guide + using lintr
+
+# arrow 5.0.0.2
+
+This patch version contains fixes for some sanitizer and compiler warnings.
 
 # arrow 5.0.0
 
@@ -135,7 +259,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * Table columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
 * Column names of Tables and RecordBatches can be renamed by assigning `names()`
 * Large string types can now be written to Parquet files
-* The [pronouns `.data` and `.env`](https://rlang.r-lib.org/reference/tidyeval-data.html) are now fully supported in Arrow `dplyr` pipelines.
+* The `rlang` pronouns `.data` and `.env` are now fully supported in Arrow `dplyr` pipelines.
 * Option `arrow.skip_nul` (default `FALSE`, as in `base::scan()`) allows conversion of Arrow string (`utf8()`) type data containing embedded nul `\0` characters to R. If set to `TRUE`, nuls will be stripped and a warning is emitted if any are found.
 * `arrow_info()` for an overview of various run-time and build-time Arrow configurations, useful for debugging
 * Set environment variable `ARROW_DEFAULT_MEMORY_POOL` before loading the Arrow package to change memory allocators. Windows packages are built with `mimalloc`; most others are built with both `jemalloc` (used by default) and `mimalloc`. These alternative memory allocators are generally much faster than the system memory allocator, so they are used by default when available, but sometimes it is useful to turn them off for debugging purposes. To disable them, set `ARROW_DEFAULT_MEMORY_POOL=system`.

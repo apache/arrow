@@ -105,21 +105,58 @@ TEST_F(TestLikeHolder, TestDot) {
   EXPECT_FALSE(like("abcd"));
 }
 
+TEST_F(TestLikeHolder, TestMatchSubString) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("%abc%", "\\", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc"));
+  EXPECT_FALSE(like("xxabdc"));
+
+  status = LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", &like_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like_reserved_char = *like_holder;
+  EXPECT_TRUE(like_reserved_char("XXab-.^$*+?()[]{}|—/c%d"));
+  EXPECT_FALSE(like_reserved_char("xxad-.^$*+?()[]{}|—/c"));
+}
+
 TEST_F(TestLikeHolder, TestOptimise) {
   // optimise for 'starts_with'
   auto fnode = LikeHolder::TryOptimize(BuildLike("xy 123z%"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
-  EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) xy 123z)");
+  EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) 'xy 123z')");
 
   // optimise for 'ends_with'
   fnode = LikeHolder::TryOptimize(BuildLike("%xyz"));
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
-  EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) xyz)");
+  EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) 'xyz')");
 
   // optimise for 'is_substr'
   fnode = LikeHolder::TryOptimize(BuildLike("%abc%"));
   EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
-  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) abc)");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'abc')");
+
+  // optimise for 'is_substr with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab-c%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "is_substr");
+  EXPECT_EQ(fnode.ToString(), "bool is_substr((string) in, (const string) 'ab-c')");
+
+  // optimise for 'ends_with with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("%ab-c"));
+  EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
+  EXPECT_EQ(fnode.ToString(),
+            "bool ends_with((string) in, (const string) "
+            "'ab-c')");
+
+  // optimise for 'starts_with with special characters'
+  fnode = LikeHolder::TryOptimize(BuildLike("ab-c%"));
+  EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
+  EXPECT_EQ(fnode.ToString(),
+            "bool starts_with((string) in, (const string) "
+            "'ab-c')");
 
   // no optimisation for others.
   fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
@@ -141,7 +178,7 @@ TEST_F(TestLikeHolder, TestOptimise) {
   fnode = LikeHolder::TryOptimize(BuildLike("\\%xyz", '\\'));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
   EXPECT_EQ(fnode.ToString(),
-            "bool like((string) in, (const string) \\%xyz, (const int8) \\)");
+            "bool like((string) in, (const string) '\\%xyz', (const int8) \\)");
 }
 
 TEST_F(TestLikeHolder, TestMatchOneEscape) {
@@ -277,5 +314,4 @@ TEST_F(TestILikeHolder, TestDot) {
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
 }
-
 }  // namespace gandiva

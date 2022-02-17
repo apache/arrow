@@ -17,6 +17,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <cstdint>
+
 #include "../execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -32,6 +35,22 @@ TEST(TestArithmeticOps, TestIsDistinctFrom) {
   EXPECT_EQ(is_not_distinct_from_int32_int32(1000, false, 1000, true), false);
   EXPECT_EQ(is_not_distinct_from_int32_int32(1000, false, 1000, false), true);
   EXPECT_EQ(is_not_distinct_from_int32_int32(1000, true, 1000, true), true);
+}
+
+TEST(TestArithmeticOps, TestPmod) {
+  gandiva::ExecutionContext context;
+  auto ctx = reinterpret_cast<gdv_int64>(&context);
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, 4), 3);
+  EXPECT_EQ(pmod_int64_int64(ctx, 4, 3), 1);
+  EXPECT_EQ(pmod_int64_int64(ctx, -3, 4), 1);
+  EXPECT_EQ(pmod_int64_int64(ctx, -4, 3), 2);
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, -4), -1);
+  EXPECT_EQ(pmod_int64_int64(ctx, 4, -3), -2);
+
+  EXPECT_EQ(pmod_int64_int64(ctx, 3, 0), 0);
+  EXPECT_TRUE(context.has_error());
+  EXPECT_EQ(context.get_error(), "divide by zero error");
+  context.Reset();
 }
 
 TEST(TestArithmeticOps, TestMod) {
@@ -59,6 +78,45 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 9.2, 3.7), 1.8,
               acceptable_abs_error);
   EXPECT_FALSE(context.has_error());
+}
+
+TEST(TestArithmeticOps, TestPositiveNegative) {
+  EXPECT_EQ(positive_int32(10), 10);
+  EXPECT_EQ(positive_int64(1000), 1000);
+  EXPECT_EQ(positive_float32(1.500f), 1.500f);
+  EXPECT_EQ(positive_float64(10.500f), 10.500f);
+
+  EXPECT_EQ(negative_float32(1.500f), -1.500f);
+  EXPECT_EQ(negative_float64(10.500f), -10.500f);
+
+  EXPECT_EQ(positive_int32(-10), -10);
+  EXPECT_EQ(positive_int64(-1000), -1000);
+  EXPECT_EQ(positive_float32(-1.500f), -1.500f);
+  EXPECT_EQ(positive_float64(-10.500f), -10.500f);
+
+  EXPECT_EQ(negative_float32(-1.500f), 1.500f);
+  EXPECT_EQ(negative_float64(-10.500f), 10.500f);
+
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  EXPECT_EQ(negative_int32(ctx_ptr, 100), -100);
+  EXPECT_EQ(negative_int32(ctx_ptr, -100), 100);
+
+  EXPECT_EQ(negative_int64(ctx_ptr, 100L), -100L);
+  EXPECT_EQ(negative_int64(ctx_ptr, -100L), 100L);
+
+  EXPECT_EQ(negative_int32(ctx_ptr, (INT32_MIN + 1)), (INT32_MAX));
+  EXPECT_EQ(negative_int64(ctx_ptr, (INT64_MIN + 1)), (INT64_MAX));
+
+  negative_int32(ctx_ptr, INT32_MIN);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Overflow in negative execution"));
+  ctx.Reset();
+
+  negative_int64(ctx_ptr, INT64_MIN);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Overflow in negative execution"));
+  ctx.Reset();
 }
 
 TEST(TestArithmeticOps, TestDivide) {
@@ -99,6 +157,166 @@ TEST(TestArithmeticOps, TestDiv) {
             481.0f);
   EXPECT_EQ(context.has_error(), false);
   context.Reset();
+}
+
+TEST(TestArithmeticOps, TestGreatestLeast) {
+  // Comparable functions - Greatest and Least
+  EXPECT_EQ(greatest_int32_int32(1, 2), 2);
+  EXPECT_EQ(greatest_int32_int32(1, INT32_MAX), INT32_MAX);
+  EXPECT_EQ(greatest_int32_int32(2, 1), 2);
+  EXPECT_EQ(greatest_int64_int64(1, 2), 2);
+  EXPECT_EQ(greatest_int64_int64(1, INT64_MAX), INT64_MAX);
+  EXPECT_EQ(greatest_int64_int64(2, 1), 2);
+  EXPECT_EQ(greatest_float32_float32(1.0f, 2.0f), 2.0f);
+  EXPECT_EQ(greatest_float32_float32(1.0f, INFINITY), INFINITY);
+  EXPECT_EQ(greatest_float32_float32(1.0f, FLT_MAX), FLT_MAX);
+  EXPECT_EQ(greatest_float32_float32(2.0f, 1.0f), 2.0f);
+  EXPECT_EQ(greatest_float64_float64(1.0, 2.0), 2.0);
+  EXPECT_EQ(greatest_float64_float64(1.0, DBL_MAX), DBL_MAX);
+  EXPECT_EQ(greatest_float64_float64(2.0, 1.0), 2.0);
+  EXPECT_EQ(least_int32_int32(1, 2), 1);
+  EXPECT_EQ(least_int32_int32(INT32_MIN, 2), INT32_MIN);
+  EXPECT_EQ(least_int32_int32(2, 1), 1);
+  EXPECT_EQ(least_int64_int64(1, 2), 1);
+  EXPECT_EQ(least_int64_int64(INT64_MIN, 2), INT64_MIN);
+  EXPECT_EQ(least_int64_int64(2, 1), 1);
+  EXPECT_EQ(least_float32_float32(1.0f, 2.0f), 1.0f);
+  EXPECT_EQ(least_float32_float32(FLT_MIN, 2.0f), FLT_MIN);
+  EXPECT_EQ(least_float32_float32(2.0f, 1.0f), 1.0f);
+  EXPECT_EQ(least_float64_float64(1.0, 2.0), 1.0);
+  EXPECT_EQ(least_float64_float64(DBL_MIN, 2.0), DBL_MIN);
+  EXPECT_EQ(least_float64_float64(2.0, 1.0), 1.0);
+
+  EXPECT_EQ(greatest_int32_int32_int32(1, 2, 3), 3);
+  EXPECT_EQ(greatest_int32_int32_int32(3, 2, 1), 3);
+  EXPECT_EQ(greatest_int64_int64_int64(1, 2, 3), 3);
+  EXPECT_EQ(greatest_int64_int64_int64(3, 2, 1), 3);
+  EXPECT_EQ(greatest_float32_float32_float32(1.0f, 2.0f, 3.0f), 3.0f);
+  EXPECT_EQ(greatest_float32_float32_float32(3.0f, 2.0f, 1.0f), 3.0f);
+  EXPECT_EQ(greatest_float64_float64_float64(1.0, 2.0, 3.0), 3.0);
+  EXPECT_EQ(greatest_float64_float64_float64(3.0, 2.0, 1.0), 3.0);
+  EXPECT_EQ(least_int32_int32_int32(1, 2, 3), 1);
+  EXPECT_EQ(least_int32_int32_int32(2, 1, 3), 1);
+  EXPECT_EQ(least_int64_int64_int64(1, 2, 3), 1);
+  EXPECT_EQ(least_int64_int64_int64(2, 1, 3), 1);
+  EXPECT_EQ(least_float32_float32_float32(1.0f, 2.0f, 3.0f), 1.0f);
+  EXPECT_EQ(least_float32_float32_float32(3.0f, 2.0f, 1.0f), 1.0f);
+  EXPECT_EQ(least_float64_float64_float64(1.0, 2.0, 2.0), 1.0);
+  EXPECT_EQ(least_float64_float64_float64(3.0, 2.0, 1.0), 1.0);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32(1, 2, 3, 4), 4);
+  EXPECT_EQ(greatest_int32_int32_int32_int32(2, 4, 3, 1), 4);
+  EXPECT_EQ(greatest_int64_int64_int64_int64(1, 2, 3, 4), 4);
+  EXPECT_EQ(greatest_int64_int64_int64_int64(2, 4, 3, 1), 4);
+  EXPECT_EQ(greatest_float32_float32_float32_float32(1.0f, 2.0f, 3.0f, 4.0f), 4.0f);
+  EXPECT_EQ(greatest_float32_float32_float32_float32(2.0f, 4.0f, 3, 1.0f), 4.0f);
+  EXPECT_EQ(greatest_float64_float64_float64_float64(1.0, 2.0, 3.0, 4.0), 4.0);
+  EXPECT_EQ(greatest_float64_float64_float64_float64(2.0, 4.0, 3.0, 1.0), 4.0);
+  EXPECT_EQ(least_int32_int32_int32_int32(1, 2, 3, 4), 1);
+  EXPECT_EQ(least_int32_int32_int32_int32(2, 4, 3, 1), 1);
+  EXPECT_EQ(least_int64_int64_int64_int64(1, 2, 3, 4), 1);
+  EXPECT_EQ(least_int64_int64_int64_int64(2, 4, 3, 1), 1);
+  EXPECT_EQ(least_float32_float32_float32_float32(1.0f, 2.0f, 3.0f, 4.0f), 1.0f);
+  EXPECT_EQ(least_float32_float32_float32_float32(2.0f, 4.0f, 3, 1.0f), 1.0f);
+  EXPECT_EQ(least_float64_float64_float64_float64(1.0, 2.0, 3.0, 4.0), 1.0);
+  EXPECT_EQ(least_float64_float64_float64_float64(2.0, 4.0, 3.0, 1.0), 1.0);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32(1, 2, 3, 5, 4), 5);
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32(2, 4, 5, 3, 1), 5);
+  EXPECT_EQ(greatest_int64_int64_int64_int64_int64(1, 2, 3, 5, 4), 5);
+  EXPECT_EQ(greatest_int64_int64_int64_int64_int64(2, 4, 5, 3, 1), 5);
+  EXPECT_EQ(
+      greatest_float32_float32_float32_float32_float32(1.0f, 2.0f, 3.0f, 5.0f, 4.0f),
+      5.0f);
+  EXPECT_EQ(
+      greatest_float32_float32_float32_float32_float32(2.0f, 4.0f, 5.0f, 3.0f, 1.0f),
+      5.0f);
+  EXPECT_EQ(greatest_float64_float64_float64_float64_float64(1.0, 2.0, 3.0, 5.0, 4.0),
+            5.0);
+  EXPECT_EQ(greatest_float64_float64_float64_float64_float64(2.0, 4.0, 5.0, 3.0, 1.0),
+            5.0);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32(1, 2, 3, 4, -10), -10);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32(-10, 4, 2, 1, 3), -10);
+  EXPECT_EQ(least_int64_int64_int64_int64_int64(1, 2, 3, 4, -10), -10);
+  EXPECT_EQ(least_int64_int64_int64_int64_int64(-10, 4, 2, 1, 3), -10);
+  EXPECT_EQ(least_float32_float32_float32_float32_float32(1.0f, 2.0f, 3.0f, -10.0f, 4.0f),
+            -10.0f);
+  EXPECT_EQ(least_float32_float32_float32_float32_float32(2.0f, 4.0f, -10.0f, 3.0f, 1.0f),
+            -10.0f);
+  EXPECT_EQ(least_float64_float64_float64_float64_float64(1.0, 2.0, 3.0, -10.0, 4.0),
+            -10.0);
+  EXPECT_EQ(least_float64_float64_float64_float64_float64(-10.0, 4.0, 5.0, 3.0, 1.0),
+            -10.0);
+
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32_int32(7, 1, 2, 3, 5, 4), 7);
+  EXPECT_EQ(greatest_int32_int32_int32_int32_int32_int32(2, 4, 7, 5, 3, 1), 7);
+  EXPECT_EQ(greatest_int64_int64_int64_int64_int64_int64(7, 1, 2, 3, 5, 4), 7);
+  EXPECT_EQ(greatest_int64_int64_int64_int64_int64_int64(2, 4, 7, 5, 3, 1), 7);
+  EXPECT_EQ(greatest_float32_float32_float32_float32_float32_float32(7.0f, 1.0f, 2.0f,
+                                                                     3.0f, 5.0f, 4.0f),
+            7.0f);
+  EXPECT_EQ(greatest_float32_float32_float32_float32_float32_float32(2.0f, 4.0f, 7.0f,
+                                                                     5.0f, 3.0f, 1.0f),
+            7.0f);
+  EXPECT_EQ(greatest_float64_float64_float64_float64_float64_float64(7.0, 1.0, 2.0, 3.0,
+                                                                     5.0, 4.0),
+            7.0);
+  EXPECT_EQ(greatest_float64_float64_float64_float64_float64_float64(2.0, 4.0, 7.0, 5.0,
+                                                                     3.0, 1.0),
+            7.0);
+
+  EXPECT_EQ(least_int32_int32_int32_int32_int32_int32(1, 2, 3, -99, 4, -10), -99);
+  EXPECT_EQ(least_int32_int32_int32_int32_int32_int32(-10, 4, 2, 1, -99, 3), -99);
+  EXPECT_EQ(least_int64_int64_int64_int64_int64_int64(1, 2, 3, -99, 4, -10), -99);
+  EXPECT_EQ(least_int64_int64_int64_int64_int64_int64(-10, 4, 2, 1, -99, 3), -99);
+  EXPECT_EQ(least_float32_float32_float32_float32_float32_float32(1.0f, 2.0f, 3.0f,
+                                                                  -99.0f, 4.0f, -10.0f),
+            -99.0f);
+  EXPECT_EQ(least_float32_float32_float32_float32_float32_float32(-10.0f, 4.0f, 2.0f,
+                                                                  1.0f, -99.0f, 3.0f),
+            -99.0f);
+  EXPECT_EQ(least_float64_float64_float64_float64_float64_float64(1.0, 2.0, 3.0, -99.0,
+                                                                  4.0, -10.0),
+            -99.0);
+  EXPECT_EQ(least_float64_float64_float64_float64_float64_float64(-10.0, 4.0, 2.0, 1.0,
+                                                                  -99.0, 3.0),
+            -99.0);
+}
+
+TEST(TestArithmeticOps, TestIsTrueFalse) {
+  EXPECT_EQ(istrue_boolean(true), true);
+  EXPECT_EQ(istrue_boolean(false), false);
+  EXPECT_EQ(isfalse_boolean(true), false);
+  EXPECT_EQ(isfalse_boolean(false), true);
+  EXPECT_EQ(istrue_int32(10), true);
+  EXPECT_EQ(istrue_int32(0), false);
+  EXPECT_EQ(isfalse_int32(10), false);
+  EXPECT_EQ(isfalse_int32(0), true);
+  EXPECT_EQ(istrue_int64(10), true);
+  EXPECT_EQ(istrue_int64(0), false);
+  EXPECT_EQ(isfalse_int64(10), false);
+  EXPECT_EQ(isfalse_int64(0), true);
+  EXPECT_EQ(istrue_uint32(10), true);
+  EXPECT_EQ(istrue_uint32(0), false);
+  EXPECT_EQ(isfalse_uint32(10), false);
+  EXPECT_EQ(isfalse_uint32(0), true);
+  EXPECT_EQ(istrue_uint64(10), true);
+  EXPECT_EQ(istrue_uint64(0), false);
+  EXPECT_EQ(isfalse_uint64(10), false);
+  EXPECT_EQ(isfalse_uint64(0), true);
+}
+
+TEST(TestArithmeticOps, TestNvl) {
+  EXPECT_EQ(nvl_int32_int32(10, false, 20, true), 20);
+  EXPECT_EQ(nvl_int64_int64(10, false, 20, true), 20);
+  EXPECT_EQ(nvl_float32_float32(10.0, false, 20.0, true), 20);
+  EXPECT_EQ(nvl_float64_float64(10.0, false, 20.0, true), 20);
+  EXPECT_EQ(nvl_boolean_boolean(true, false, false, true), false);
+  EXPECT_EQ(nvl_int32_int32(10, true, 20, true), 10);
+  EXPECT_EQ(nvl_int64_int64(10, true, 20, true), 10);
+  EXPECT_EQ(nvl_float32_float32(10.0, true, 20.0, true), 10);
+  EXPECT_EQ(nvl_float64_float64(10.0, true, 20.0, true), 10);
+  EXPECT_EQ(nvl_boolean_boolean(true, true, false, true), true);
 }
 
 TEST(TestArithmeticOps, TestBitwiseOps) {

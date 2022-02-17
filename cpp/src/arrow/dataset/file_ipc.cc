@@ -75,10 +75,10 @@ static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderAsyn
 }
 
 static inline Result<std::vector<int>> GetIncludedFields(
-    const Schema& schema, const std::vector<std::string>& materialized_fields) {
+    const Schema& schema, const std::vector<FieldRef>& materialized_fields) {
   std::vector<int> included_fields;
 
-  for (FieldRef ref : materialized_fields) {
+  for (const auto& ref : materialized_fields) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(schema));
     if (match.indices().empty()) continue;
 
@@ -108,73 +108,6 @@ static inline Result<ipc::IpcReadOptions> GetReadOptions(
   return options;
 }
 
-/// \brief A ScanTask backed by an Ipc file.
-class IpcScanTask : public ScanTask {
- public:
-  IpcScanTask(std::shared_ptr<FileFragment> fragment,
-              std::shared_ptr<ScanOptions> options)
-      : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
-
-  Result<RecordBatchIterator> Execute() override {
-    struct Impl {
-      static Result<RecordBatchIterator> Make(const FileSource& source,
-                                              const FileFormat& format,
-                                              const ScanOptions& scan_options) {
-        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-        ARROW_ASSIGN_OR_RAISE(auto options,
-                              GetReadOptions(*reader->schema(), format, scan_options));
-        ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(Impl{std::move(reader), 0});
-      }
-
-      Result<std::shared_ptr<RecordBatch>> Next() {
-        if (i_ == reader_->num_record_batches()) {
-          return nullptr;
-        }
-
-        return reader_->ReadRecordBatch(i_++);
-      }
-
-      std::shared_ptr<ipc::RecordBatchFileReader> reader_;
-      int i_;
-    };
-
-    return Impl::Make(source_,
-                      *internal::checked_pointer_cast<FileFragment>(fragment_)->format(),
-                      *options_);
-  }
-
- private:
-  FileSource source_;
-};
-
-class IpcScanTaskIterator {
- public:
-  static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
-                                       std::shared_ptr<FileFragment> fragment) {
-    return ScanTaskIterator(IpcScanTaskIterator(std::move(options), std::move(fragment)));
-  }
-
-  Result<std::shared_ptr<ScanTask>> Next() {
-    if (once_) {
-      // Iteration is done.
-      return nullptr;
-    }
-
-    once_ = true;
-    return std::shared_ptr<ScanTask>(new IpcScanTask(fragment_, options_));
-  }
-
- private:
-  IpcScanTaskIterator(std::shared_ptr<ScanOptions> options,
-                      std::shared_ptr<FileFragment> fragment)
-      : options_(std::move(options)), fragment_(std::move(fragment)) {}
-
-  bool once_ = false;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<FileFragment> fragment_;
-};
-
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
   return OpenReader(source).ok();
@@ -183,12 +116,6 @@ Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
   return reader->schema();
-}
-
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  return IpcScanTaskIterator::Make(options, fragment);
 }
 
 Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
@@ -216,15 +143,16 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
     RecordBatchGenerator generator;
     if (ipc_scan_options->cache_options) {
       // Transferring helps performance when coalescing
-      ARROW_ASSIGN_OR_RAISE(
-          generator, reader->GetRecordBatchGenerator(
-                         /*coalesce=*/true, options->io_context,
-                         *ipc_scan_options->cache_options, internal::GetCpuThreadPool()));
+      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
+                                           /*coalesce=*/true, options->io_context,
+                                           *ipc_scan_options->cache_options,
+                                           ::arrow::internal::GetCpuThreadPool()));
     } else {
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
-    return MakeReadaheadGenerator(std::move(generator), readahead_level);
+    auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
+    return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }
@@ -235,7 +163,7 @@ Future<util::optional<int64_t>> IpcFileFormat::CountRows(
   if (ExpressionHasFieldRefs(predicate)) {
     return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
   }
-  auto self = internal::checked_pointer_cast<IpcFileFormat>(shared_from_this());
+  auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
       [self, file]() -> Result<util::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
@@ -266,9 +194,6 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
 
   auto ipc_options = checked_pointer_cast<IpcFileWriteOptions>(options);
 
-  // override use_threads to avoid nested parallelism
-  ipc_options->options->use_threads = false;
-
   ARROW_ASSIGN_OR_RAISE(auto writer,
                         ipc::MakeFileWriter(destination, schema, *ipc_options->options,
                                             ipc_options->metadata));
@@ -291,7 +216,10 @@ Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status IpcFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> IpcFileWriter::FinishInternal() {
+  return DeferNotOk(destination_locator_.filesystem->io_context().executor()->Submit(
+      [this]() { return batch_writer_->Close(); }));
+}
 
 }  // namespace dataset
 }  // namespace arrow

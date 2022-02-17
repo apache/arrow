@@ -47,7 +47,7 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
-set(ARROW_VERSION "6.0.0-SNAPSHOT")
+set(ARROW_VERSION "8.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -111,6 +111,7 @@ set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 
 set(ARROW_LLVM_VERSIONS
+    "13.0"
     "12.0"
     "11.1"
     "11.0"
@@ -232,15 +233,22 @@ find_program(CPPLINT_BIN
              HINTS ${BUILD_SUPPORT_DIR})
 message(STATUS "Found cpplint executable at ${CPPLINT_BIN}")
 
+set(COMMON_LINT_OPTIONS
+    --exclude_globs
+    ${LINT_EXCLUSIONS_FILE}
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/examples
+    --source_dir
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools)
+
 add_custom_target(lint
                   ${PYTHON_EXECUTABLE}
                   ${BUILD_SUPPORT_DIR}/run_cpplint.py
                   --cpplint_binary
                   ${CPPLINT_BIN}
-                  --exclude_globs
-                  ${LINT_EXCLUSIONS_FILE}
-                  --source_dir
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src
+                  ${COMMON_LINT_OPTIONS}
                   ${ARROW_LINT_QUIET})
 
 #
@@ -253,10 +261,7 @@ if(${CLANG_FORMAT_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_format.py
                     --clang_format_binary
                     ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${COMMON_LINT_OPTIONS}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -266,10 +271,7 @@ if(${CLANG_FORMAT_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_format.py
                     --clang_format_binary
                     ${CLANG_FORMAT_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${COMMON_LINT_OPTIONS}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -293,12 +295,9 @@ if(${CLANG_TIDY_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
                     --clang_tidy_binary
                     ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${COMMON_LINT_OPTIONS}
                     --fix
                     ${ARROW_LINT_QUIET})
 
@@ -308,12 +307,9 @@ if(${CLANG_TIDY_FOUND})
                     ${BUILD_SUPPORT_DIR}/run_clang_tidy.py
                     --clang_tidy_binary
                     ${CLANG_TIDY_BIN}
-                    --exclude_globs
-                    ${LINT_EXCLUSIONS_FILE}
                     --compile_commands
                     ${CMAKE_BINARY_DIR}/compile_commands.json
-                    --source_dir
-                    ${CMAKE_CURRENT_SOURCE_DIR}/src
+                    ${COMMON_LINT_OPTIONS}
                     ${ARROW_LINT_QUIET})
 endif()
 
@@ -338,6 +334,14 @@ if(ARROW_GANDIVA)
   set(ARROW_WITH_RE2 ON)
 endif()
 
+if(ARROW_BUILD_INTEGRATION AND ARROW_FLIGHT)
+  set(ARROW_FLIGHT_SQL ON)
+endif()
+
+if(ARROW_FLIGHT_SQL)
+  set(ARROW_FLIGHT ON)
+endif()
+
 if(ARROW_CUDA
    OR ARROW_FLIGHT
    OR ARROW_PARQUET
@@ -347,7 +351,16 @@ if(ARROW_CUDA
 endif()
 
 if(ARROW_ENGINE)
+  set(ARROW_PARQUET ON)
   set(ARROW_COMPUTE ON)
+  set(ARROW_DATASET ON)
+endif()
+
+if(ARROW_SKYHOOK)
+  set(ARROW_DATASET ON)
+  set(ARROW_PARQUET ON)
+  set(ARROW_WITH_LZ4 ON)
+  set(ARROW_WITH_SNAPPY ON)
 endif()
 
 if(ARROW_DATASET)
@@ -740,6 +753,14 @@ if(ARROW_ORC)
   endif()
 endif()
 
+if(ARROW_GCS)
+  list(APPEND ARROW_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
+  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+  endif()
+endif()
+
 if(ARROW_USE_GLOG)
   list(APPEND ARROW_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
@@ -752,6 +773,19 @@ endif()
 if(ARROW_S3)
   list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND
+       ARROW_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
+       opentelemetry-cpp::otlp_http_exporter)
+  list(APPEND
+       ARROW_STATIC_LINK_LIBS
+       opentelemetry-cpp::trace
+       opentelemetry-cpp::ostream_span_exporter
+       opentelemetry-cpp::otlp_http_exporter)
 endif()
 
 if(ARROW_WITH_UTF8PROC)
@@ -793,7 +827,11 @@ endif()
 set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
 # boost::filesystem is needed for S3 and Flight tests as a boost::process dependency.
-if(((ARROW_FLIGHT OR ARROW_S3) AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)))
+if(((ARROW_FLIGHT
+     OR ARROW_S3
+     OR ARROW_GCS)
+    AND (ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+   ))
   list(APPEND ARROW_TEST_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
 endif()
 
@@ -923,6 +961,10 @@ endif()
 
 if(ARROW_GANDIVA)
   add_subdirectory(src/gandiva)
+endif()
+
+if(ARROW_SKYHOOK)
+  add_subdirectory(src/skyhook)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

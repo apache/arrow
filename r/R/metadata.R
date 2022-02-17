@@ -72,7 +72,8 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         # we cannot apply this row-level metadata, since the order of the rows is
         # not guaranteed to be the same, so don't even try, but warn what's going on
         trace <- trace_back()
-        in_dplyr_collect <- any(map_lgl(trace$calls, function(x) {
+        # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
+        in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
           grepl("collect.arrow_dplyr_query", x, fixed = TRUE)[[1]]
         }))
         if (in_dplyr_collect) {
@@ -98,6 +99,10 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
           # of class data.frame, remove the extraneous attribute
           attr(x, "row.names") <- NULL
         }
+        if (!is.null(attr(x, ".group_vars")) && requireNamespace("dplyr", quietly = TRUE)) {
+          x <- dplyr::group_by(x, !!!syms(attr(x, ".group_vars")))
+          attr(x, ".group_vars") <- NULL
+        }
       }
     },
     error = function(e) {
@@ -107,9 +112,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
   x
 }
 
-arrow_attributes <- function(x, only_top_level = FALSE) {
-  att <- attributes(x)
-
+remove_attributes <- function(x) {
   removed_attributes <- character()
   if (identical(class(x), c("tbl_df", "tbl", "data.frame"))) {
     removed_attributes <- c("class", "row.names", "names")
@@ -117,15 +120,37 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     removed_attributes <- c("row.names", "names")
   } else if (inherits(x, "factor")) {
     removed_attributes <- c("class", "levels")
-  } else if (inherits(x, "integer64") || inherits(x, "Date")) {
+  } else if (inherits(x, c("integer64", "Date", "arrow_binary", "arrow_large_binary"))) {
     removed_attributes <- c("class")
+  } else if (inherits(x, "arrow_fixed_size_binary")) {
+    removed_attributes <- c("class", "byte_width")
   } else if (inherits(x, "POSIXct")) {
     removed_attributes <- c("class", "tzone")
   } else if (inherits(x, "hms") || inherits(x, "difftime")) {
     removed_attributes <- c("class", "units")
   }
+  removed_attributes
+}
+
+arrow_attributes <- function(x, only_top_level = FALSE) {
+
+  att <- attributes(x)
+  removed_attributes <- remove_attributes(x)
+
+  if (inherits(x, "grouped_df")) {
+    # Keep only the group var names, not the rest of the cached data that dplyr
+    # uses, which may be large
+    if (requireNamespace("dplyr", quietly = TRUE)) {
+      gv <- dplyr::group_vars(x)
+      x <- dplyr::ungroup(x)
+      # ungroup() first, then set attribute, bc ungroup() would erase it
+      att[[".group_vars"]] <- gv
+      removed_attributes <- c(removed_attributes, "groups", "class")
+    }
+  }
 
   att <- att[setdiff(names(att), removed_attributes)]
+
   if (isTRUE(only_top_level)) {
     return(att)
   }
@@ -139,12 +164,15 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
   }
 
   columns <- NULL
-  if (is.list(x) && !inherits(x, "POSIXlt")) {
+  attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
+    is.list(x) && !inherits(x, "POSIXlt")
+  if (attempt_to_save_row_level) {
     # However, if we are inside of a dplyr collection (including all datasets),
     # we cannot apply this row-level metadata, since the order of the rows is
     # not guaranteed to be the same, so don't even try, but warn what's going on
     trace <- trace_back()
-    in_dataset_write <- any(map_lgl(trace$calls, function(x) {
+    # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
+    in_dataset_write <- any(map_lgl(trace$calls %||% trace$call, function(x) {
       grepl("write_dataset", x, fixed = TRUE)[[1]]
     }))
     if (in_dataset_write) {
@@ -160,6 +188,18 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
     if (all(map_lgl(columns, is.null))) {
       columns <- NULL
     }
+  } else if (inherits(x, c("sfc", "sf"))) {
+    # Check if there are any columns that look like sf columns, warn that we will
+    # not be saving this data for now (but only if arrow.preserve_row_level_metadata
+    # is set to FALSE)
+    warning(
+      "One of the columns given appears to be an `sfc` SF column. Due to their unique ",
+      "nature, these columns do not convert to Arrow well. We are working on ",
+      "better ways to do this, but in the interim we recommend converting any `sfc` ",
+      "columns to WKB (well-known binary) columns before using them with Arrow ",
+      "(for example, with `sf::st_as_binary(col)`).",
+      call. = FALSE
+    )
   }
 
   if (length(att) || !is.null(columns)) {

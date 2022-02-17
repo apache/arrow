@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/builder_dict.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -29,7 +30,7 @@
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/visitor_inline.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -267,15 +268,6 @@ struct AppendScalarImpl {
 };
 
 }  // namespace
-
-Status ArrayBuilder::AppendScalar(const Scalar& scalar) {
-  if (!scalar.type->Equals(type())) {
-    return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
-                           " to builder for type ", type()->ToString());
-  }
-  std::shared_ptr<Scalar> shared{const_cast<Scalar*>(&scalar), [](Scalar*) {}};
-  return AppendScalarImpl{&shared, &shared + 1, /*n_repeats=*/1, this}.Convert();
-}
 
 Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   if (!scalar.type->Equals(type())) {

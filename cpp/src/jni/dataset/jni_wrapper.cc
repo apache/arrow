@@ -18,6 +18,7 @@
 #include <mutex>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
@@ -145,7 +146,7 @@ class DisposableScannerAdaptor {
 
   static arrow::Result<std::shared_ptr<DisposableScannerAdaptor>> Create(
       std::shared_ptr<arrow::dataset::Scanner> scanner) {
-    ARROW_ASSIGN_OR_RAISE(auto batch_itr, scanner->ScanBatches())
+    ARROW_ASSIGN_OR_RAISE(auto batch_itr, scanner->ScanBatches());
     return std::make_shared<DisposableScannerAdaptor>(scanner, std::move(batch_itr));
   }
 
@@ -410,9 +411,8 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       JniGetOrThrow(dataset->NewScan());
   JniAssertOkOrThrow(scanner_builder->Pool(pool));
-
-  std::vector<std::string> column_vector = ToStringVector(env, columns);
-  if (!column_vector.empty()) {
+  if (columns != nullptr) {
+    std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
@@ -477,7 +477,18 @@ JNIEXPORT jobject JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_nextRecor
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
+    // TODO: If the array has an offset then we need to de-offset the array
+    // in order for it to be properly consumed on the Java end.
+    // This forces a copy, it would be nice to avoid this if Java
+    // could consume offset-arrays.  Perhaps at some point in the future
+    // using the C data interface.  See ARROW-15275
+    //
+    // Generally a non-zero offset will occur whenever the scanner batch
+    // size is smaller than the batch size of the underlying files.
     auto column = record_batch->column(i);
+    if (column->offset() != 0) {
+      column = JniGetOrThrow(arrow::Concatenate({column}));
+    }
     auto dataArray = column->data();
     jobject field = env->NewObject(record_batch_handle_field_class,
                                    record_batch_handle_field_constructor,

@@ -26,7 +26,7 @@ jobs:
     env:
       # archery uses these environment variables
       ARCH: amd64
-      PYTHON: {{ python_version }}
+      PYTHON: "{{ python_version }}"
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}

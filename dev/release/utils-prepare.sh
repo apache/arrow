@@ -32,6 +32,7 @@ update_versions() {
       local r_version=${base_version}.9000
       ;;
   esac
+  local major_version=${version%%.*}
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
@@ -86,9 +87,14 @@ update_versions() {
   git add autobrew/apache-arrow.rb
   sed -i.bak -E -e \
     "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
+    apache-arrow-glib.rb \
     apache-arrow.rb
-  rm -f apache-arrow.rb.bak
-  git add apache-arrow.rb
+  rm -f \
+    apache-arrow-glib.rb.bak \
+    apache-arrow.rb.bak
+  git add \
+    apache-arrow-glib.rb \
+    apache-arrow.rb
   popd
 
   pushd "${ARROW_DIR}/js"
@@ -142,4 +148,21 @@ update_versions() {
   rm -f */*/*/version.rb.bak
   git add */*/*/version.rb
   popd
+
+  pushd "${ARROW_DIR}/go"
+  find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  find . -name "*.bak" -exec rm {} \;
+  git add .
+  popd
+
+  case ${type} in
+    snapshot)
+      pushd "${ARROW_DIR}"
+      ${PYTHON:-python3} "dev/release/utils-update-docs-versions.py" . "${version}" "${r_version}"
+      git add r/pkgdown/assets/versions.json
+      git add docs/source/_static/versions.json
+      popd
+      ;;
+  esac
 }

@@ -15,15 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/chunked_array.h"
+
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include <gtest/gtest.h>
-
-#include "arrow/chunked_array.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
-#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -32,7 +34,7 @@
 
 namespace arrow {
 
-class TestChunkedArray : public TestBase {
+class TestChunkedArray : public ::testing::Test {
  protected:
   virtual void Construct() {
     one_ = std::make_shared<ChunkedArray>(arrays_one_);
@@ -65,6 +67,14 @@ TEST_F(TestChunkedArray, Make) {
 
   ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0, chunk1}));
   ASSERT_RAISES(Invalid, ChunkedArray::Make({chunk0}, int16()));
+}
+
+TEST_F(TestChunkedArray, MakeEmpty) {
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> empty,
+                       ChunkedArray::MakeEmpty(int64()));
+  AssertTypeEqual(*int64(), *empty->type());
+  ASSERT_OK(empty->ValidateFull());
+  ASSERT_EQ(empty->length(), 0);
 }
 
 TEST_F(TestChunkedArray, BasicEquals) {
@@ -137,9 +147,11 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(100));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
-  arrays_one_.push_back(MakeRandomArray<Int32Array>(50));
+  random::RandomArrayGenerator gen(42);
+
+  arrays_one_.push_back(gen.Int32(100, -12345, 12345));
+  arrays_one_.push_back(gen.Int32(50, -12345, 12345));
+  arrays_one_.push_back(gen.Int32(50, -12345, 12345));
   Construct();
 
   std::shared_ptr<ChunkedArray> slice = one_->Slice(125, 50);
@@ -186,14 +198,21 @@ TEST_F(TestChunkedArray, Validate) {
   ASSERT_OK(no_chunks->ValidateFull());
 
   random::RandomArrayGenerator gen(0);
-  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
-  Construct();
-  ASSERT_OK(one_->ValidateFull());
+
+  // Valid if non-empty and ommitted type
+  ArrayVector arrays = {gen.Int64(50, 0, 100, 0.1), gen.Int64(50, 0, 100, 0.1)};
+  auto chunks_with_no_type = std::make_shared<ChunkedArray>(arrays, nullptr);
+  ASSERT_OK(chunks_with_no_type->ValidateFull());
 
   arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
   Construct();
   ASSERT_OK(one_->ValidateFull());
 
+  arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
+  Construct();
+  ASSERT_OK(one_->ValidateFull());
+
+  // Invalid if different chunk types
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
   Construct();
   ASSERT_RAISES(Invalid, one_->ValidateFull());
@@ -239,6 +258,27 @@ TEST_F(TestChunkedArray, View) {
   expected = std::make_shared<ChunkedArray>(empty, out_ty);
   ASSERT_OK_AND_ASSIGN(result, carr->View(out_ty));
   AssertChunkedEqual(*expected, *result);
+}
+
+TEST_F(TestChunkedArray, GetScalar) {
+  auto ty = int32();
+  ArrayVector chunks{ArrayFromJSON(ty, "[6, 7, null]"), ArrayFromJSON(ty, "[]"),
+                     ArrayFromJSON(ty, "[null]"), ArrayFromJSON(ty, "[3, 4, 5]")};
+  ChunkedArray carr(chunks);
+
+  auto check_scalar = [](const ChunkedArray& array, int64_t index,
+                         const Scalar& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, array.GetScalar(index));
+    AssertScalarsEqual(expected, *actual, /*verbose=*/true);
+  };
+
+  check_scalar(carr, 0, **MakeScalar(ty, 6));
+  check_scalar(carr, 2, *MakeNullScalar(ty));
+  check_scalar(carr, 3, *MakeNullScalar(ty));
+  check_scalar(carr, 4, **MakeScalar(ty, 3));
+  check_scalar(carr, 6, **MakeScalar(ty, 5));
+
+  ASSERT_RAISES(Invalid, carr.GetScalar(7));
 }
 
 }  // namespace arrow

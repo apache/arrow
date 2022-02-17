@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package float16 // import "github.com/apache/arrow/go/arrow/float16"
+package float16
 
 import (
 	"math"

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("install_arrow()")
-
 r_only({
   test_that("arrow_repos", {
     cran <- "https://cloud.r-project.org/"

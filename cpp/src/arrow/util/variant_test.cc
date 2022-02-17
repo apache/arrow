@@ -226,6 +226,20 @@ TEST(Variant, ExceptionSafety) {
   EXPECT_EQ(v.index(), 0);
 }
 
+// XXX GTest 1.11 exposes a `using std::visit` in its headers which
+// somehow gets preferred to `arrow::util::visit`, even if there is
+// a using clause (perhaps because of macros such as EXPECT_EQ).
+template <typename... Args>
+void DoVisit(Args&&... args) {
+  return ::arrow::util::visit(std::forward<Args>(args)...);
+}
+
+template <typename T, typename... Args>
+void AssertVisitedEquals(const T& expected, Args&&... args) {
+  const auto actual = ::arrow::util::visit(std::forward<Args>(args)...);
+  EXPECT_EQ(expected, actual);
+}
+
 template <typename V, typename T>
 struct AssertVisitOne {
   void operator()(const T& actual) { EXPECT_EQ(&actual, expected_); }
@@ -247,16 +261,17 @@ struct AssertVisitOne {
   void operator()() {
     V v{member_};
     expected_ = &get<T>(v);
-    visit(*this, v);
-    visit(*this, &v);
+    DoVisit(*this, v);
+    DoVisit(*this, &v);
   }
 
   T member_;
   const T* expected_;
 };
 
+// Try visiting all alternatives on a Variant<T...>
 template <typename... T>
-void AssertVisit(T... member) {
+void AssertVisitAll(T... member) {
   for (auto Assert :
        {std::function<void()>(AssertVisitOne<Variant<T...>, T>{member})...}) {
     Assert();
@@ -264,10 +279,10 @@ void AssertVisit(T... member) {
 }
 
 TEST(VariantTest, Visit) {
-  AssertVisit(32, std::string("hello"), true);
-  AssertVisit(std::string("world"), false, 53);
-  AssertVisit(nullptr, std::true_type{}, std::string("!"));
-  AssertVisit(std::vector<int>{1, 3, 3, 7}, "C string");
+  AssertVisitAll(32, std::string("hello"), true);
+  AssertVisitAll(std::string("world"), false, 53);
+  AssertVisitAll(nullptr, std::true_type{}, std::string("!"));
+  AssertVisitAll(std::vector<int>{1, 3, 3, 7}, "C string");
 
   using int_or_string = Variant<int, std::string>;
   int_or_string v;
@@ -279,10 +294,10 @@ TEST(VariantTest, Visit) {
   } Double;
 
   v = 7;
-  EXPECT_EQ(visit(Double, v), int_or_string{14});
+  AssertVisitedEquals(int_or_string{14}, Double, v);
 
   v = "lolol";
-  EXPECT_EQ(visit(Double, v), int_or_string{"lolollolol"});
+  AssertVisitedEquals(int_or_string{"lolollolol"}, Double, v);
 
   // mutating visit:
   struct {
@@ -291,11 +306,11 @@ TEST(VariantTest, Visit) {
   } DoubleInplace;
 
   v = 7;
-  visit(DoubleInplace, &v);
+  DoVisit(DoubleInplace, &v);
   EXPECT_EQ(v, int_or_string{14});
 
   v = "lolol";
-  visit(DoubleInplace, &v);
+  DoVisit(DoubleInplace, &v);
   EXPECT_EQ(v, int_or_string{"lolollolol"});
 }
 

@@ -46,9 +46,6 @@ pushd ${source_dir}
 
 printenv
 
-: ${TEST_R_WITH_ARROW:=TRUE}
-export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
-
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE

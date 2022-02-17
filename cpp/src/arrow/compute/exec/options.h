@@ -26,11 +26,15 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec/expression.h"
+#include "arrow/util/async_util.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace compute {
+
+/// \addtogroup execnode-options
+/// @{
 
 class ARROW_EXPORT ExecNodeOptions {
  public:
@@ -58,10 +62,11 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
 /// excluded in the batch emitted by this node.
 class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
  public:
-  explicit FilterNodeOptions(Expression filter_expression)
-      : filter_expression(std::move(filter_expression)) {}
+  explicit FilterNodeOptions(Expression filter_expression, bool async_mode = true)
+      : filter_expression(std::move(filter_expression)), async_mode(async_mode) {}
 
   Expression filter_expression;
+  bool async_mode;
 };
 
 /// \brief Make a node which executes expressions on input batches, producing new batches.
@@ -73,11 +78,14 @@ class ARROW_EXPORT FilterNodeOptions : public ExecNodeOptions {
 class ARROW_EXPORT ProjectNodeOptions : public ExecNodeOptions {
  public:
   explicit ProjectNodeOptions(std::vector<Expression> expressions,
-                              std::vector<std::string> names = {})
-      : expressions(std::move(expressions)), names(std::move(names)) {}
+                              std::vector<std::string> names = {}, bool async_mode = true)
+      : expressions(std::move(expressions)),
+        names(std::move(names)),
+        async_mode(async_mode) {}
 
   std::vector<Expression> expressions;
   std::vector<std::string> names;
+  bool async_mode;
 };
 
 /// \brief Make a node which aggregates input batches, optionally grouped by keys.
@@ -106,10 +114,32 @@ class ARROW_EXPORT AggregateNodeOptions : public ExecNodeOptions {
 /// Emitted batches will not be ordered.
 class ARROW_EXPORT SinkNodeOptions : public ExecNodeOptions {
  public:
-  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator)
-      : generator(generator) {}
+  explicit SinkNodeOptions(std::function<Future<util::optional<ExecBatch>>()>* generator,
+                           util::BackpressureOptions backpressure = {})
+      : generator(generator), backpressure(std::move(backpressure)) {}
 
   std::function<Future<util::optional<ExecBatch>>()>* generator;
+  util::BackpressureOptions backpressure;
+};
+
+class ARROW_EXPORT SinkNodeConsumer {
+ public:
+  virtual ~SinkNodeConsumer() = default;
+  /// \brief Consume a batch of data
+  virtual Status Consume(ExecBatch batch) = 0;
+  /// \brief Signal to the consumer that the last batch has been delivered
+  ///
+  /// The returned future should only finish when all outstanding tasks have completed
+  virtual Future<> Finish() = 0;
+};
+
+/// \brief Add a sink node which consumes data within the exec plan run
+class ARROW_EXPORT ConsumingSinkNodeOptions : public ExecNodeOptions {
+ public:
+  explicit ConsumingSinkNodeOptions(std::shared_ptr<SinkNodeConsumer> consumer)
+      : consumer(std::move(consumer)) {}
+
+  std::shared_ptr<SinkNodeConsumer> consumer;
 };
 
 /// \brief Make a node which sorts rows passed through it
@@ -124,6 +154,146 @@ class ARROW_EXPORT OrderBySinkNodeOptions : public SinkNodeOptions {
       : SinkNodeOptions(generator), sort_options(std::move(sort_options)) {}
 
   SortOptions sort_options;
+};
+
+/// @}
+
+enum class JoinType {
+  LEFT_SEMI,
+  RIGHT_SEMI,
+  LEFT_ANTI,
+  RIGHT_ANTI,
+  INNER,
+  LEFT_OUTER,
+  RIGHT_OUTER,
+  FULL_OUTER
+};
+
+std::string ToString(JoinType t);
+
+enum class JoinKeyCmp { EQ, IS };
+
+/// \addtogroup execnode-options
+/// @{
+
+/// \brief Make a node which implements join operation using hash join strategy.
+class ARROW_EXPORT HashJoinNodeOptions : public ExecNodeOptions {
+ public:
+  static constexpr const char* default_output_suffix_for_left = "";
+  static constexpr const char* default_output_suffix_for_right = "";
+  HashJoinNodeOptions(
+      JoinType in_join_type, std::vector<FieldRef> in_left_keys,
+      std::vector<FieldRef> in_right_keys, Expression filter = literal(true),
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
+      : join_type(in_join_type),
+        left_keys(std::move(in_left_keys)),
+        right_keys(std::move(in_right_keys)),
+        output_all(true),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
+        filter(std::move(filter)) {
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output, Expression filter = literal(true),
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
+        filter(std::move(filter)) {
+    this->key_cmp.resize(this->left_keys.size());
+    for (size_t i = 0; i < this->left_keys.size(); ++i) {
+      this->key_cmp[i] = JoinKeyCmp::EQ;
+    }
+  }
+  HashJoinNodeOptions(
+      JoinType join_type, std::vector<FieldRef> left_keys,
+      std::vector<FieldRef> right_keys, std::vector<FieldRef> left_output,
+      std::vector<FieldRef> right_output, std::vector<JoinKeyCmp> key_cmp,
+      Expression filter = literal(true),
+      std::string output_suffix_for_left = default_output_suffix_for_left,
+      std::string output_suffix_for_right = default_output_suffix_for_right)
+      : join_type(join_type),
+        left_keys(std::move(left_keys)),
+        right_keys(std::move(right_keys)),
+        output_all(false),
+        left_output(std::move(left_output)),
+        right_output(std::move(right_output)),
+        key_cmp(std::move(key_cmp)),
+        output_suffix_for_left(std::move(output_suffix_for_left)),
+        output_suffix_for_right(std::move(output_suffix_for_right)),
+        filter(std::move(filter)) {}
+
+  // type of join (inner, left, semi...)
+  JoinType join_type;
+  // key fields from left input
+  std::vector<FieldRef> left_keys;
+  // key fields from right input
+  std::vector<FieldRef> right_keys;
+  // if set all valid fields from both left and right input will be output
+  // (and field ref vectors for output fields will be ignored)
+  bool output_all;
+  // output fields passed from left input
+  std::vector<FieldRef> left_output;
+  // output fields passed from right input
+  std::vector<FieldRef> right_output;
+  // key comparison function (determines whether a null key is equal another null
+  // key or not)
+  std::vector<JoinKeyCmp> key_cmp;
+  // suffix added to names of output fields coming from left input (used to distinguish,
+  // if necessary, between fields of the same name in left and right input and can be left
+  // empty if there are no name collisions)
+  std::string output_suffix_for_left;
+  // suffix added to names of output fields coming from right input
+  std::string output_suffix_for_right;
+  // residual filter which is applied to matching rows.  Rows that do not match
+  // the filter are not included.  The filter is applied against the
+  // concatenated input schema (left fields then right fields) and can reference
+  // fields that are not included in the output.
+  Expression filter;
+};
+
+/// \brief Make a node which select top_k/bottom_k rows passed through it
+///
+/// All batches pushed to this node will be accumulated, then selected, by the given
+/// fields. Then sorted batches will be forwarded to the generator in sorted order.
+class ARROW_EXPORT SelectKSinkNodeOptions : public SinkNodeOptions {
+ public:
+  explicit SelectKSinkNodeOptions(
+      SelectKOptions select_k_options,
+      std::function<Future<util::optional<ExecBatch>>()>* generator)
+      : SinkNodeOptions(generator), select_k_options(std::move(select_k_options)) {}
+
+  /// SelectK options
+  SelectKOptions select_k_options;
+};
+
+/// @}
+
+/// \brief Adapt an Table as a sink node
+///
+/// obtains the output of a execution plan to
+/// a table pointer.
+class ARROW_EXPORT TableSinkNodeOptions : public ExecNodeOptions {
+ public:
+  TableSinkNodeOptions(std::shared_ptr<Table>* output_table,
+                       std::shared_ptr<Schema> output_schema)
+      : output_table(output_table), output_schema(std::move(output_schema)) {}
+
+  std::shared_ptr<Table>* output_table;
+  std::shared_ptr<Schema> output_schema;
 };
 
 }  // namespace compute

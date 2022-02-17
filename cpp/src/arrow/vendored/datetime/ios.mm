@@ -53,7 +53,7 @@ namespace date
 {
     namespace iOSUtils
     {
-        
+
         struct TarInfo
         {
             char objType;
@@ -62,14 +62,14 @@ namespace date
             size_t blocksContentSize; // adjusted size to 512 bytes blocks
             bool success;
         };
-        
+
         std::string convertCFStringRefPathToCStringPath(CFStringRef ref);
         bool extractTzdata(CFURLRef homeUrl, CFURLRef archiveUrl, std::string destPath);
         TarInfo getTarObjectInfo(std::ifstream &readStream);
         std::string getTarObject(std::ifstream &readStream, int64_t size);
         bool writeFile(const std::string &tzdataPath, const std::string &fileName,
                        const std::string &data, size_t realContentSize);
-        
+
         std::string
         get_current_timezone()
         {
@@ -77,18 +77,18 @@ namespace date
             CFStringRef tzNameRef = CFTimeZoneGetName(tzRef);
             CFIndex bufferSize = CFStringGetLength(tzNameRef) + 1;
             char buffer[bufferSize];
-            
+
             if (CFStringGetCString(tzNameRef, buffer, bufferSize, kCFStringEncodingUTF8))
             {
                 CFRelease(tzRef);
                 return std::string(buffer);
             }
-            
+
             CFRelease(tzRef);
-            
+
             return "";
         }
-        
+
         std::string
         get_tzdata_path()
         {
@@ -98,7 +98,7 @@ namespace date
                              INTERNAL_DIR + "/" + TZDATA_DIR);
             std::string result_path(std::string(convertCFStringRefPathToCStringPath(homePath)) +
                                     INTERNAL_DIR);
-            
+
             if (access(path.c_str(), F_OK) == 0)
             {
 #if TAR_DEBUG
@@ -106,34 +106,34 @@ namespace date
 #endif
                 CFRelease(homeUrlRef);
                 CFRelease(homePath);
-                
+
                 return result_path;
             }
-            
+
             CFBundleRef mainBundle = CFBundleGetMainBundle();
             CFArrayRef paths = CFBundleCopyResourceURLsOfType(mainBundle, CFSTR(TARGZ_EXTENSION),
                                                               NULL);
-            
+
             if (CFArrayGetCount(paths) != 0)
             {
                 // get archive path, assume there is no other tar.gz in bundle
                 CFURLRef archiveUrl = static_cast<CFURLRef>(CFArrayGetValueAtIndex(paths, 0));
                 CFStringRef archiveName = CFURLCopyPath(archiveUrl);
                 archiveUrl = CFBundleCopyResourceURL(mainBundle, archiveName, NULL, NULL);
-                
+
                 extractTzdata(homeUrlRef, archiveUrl, path);
-                
+
                 CFRelease(archiveUrl);
                 CFRelease(archiveName);
             }
-            
+
             CFRelease(homeUrlRef);
             CFRelease(homePath);
             CFRelease(paths);
-            
+
             return result_path;
         }
-        
+
         std::string
         convertCFStringRefPathToCStringPath(CFStringRef ref)
         {
@@ -144,55 +144,55 @@ namespace date
             delete[] buffer;
             return result;
         }
-        
+
         bool
         extractTzdata(CFURLRef homeUrl, CFURLRef archiveUrl, std::string destPath)
         {
             std::string TAR_TMP_PATH = "/tmp.tar";
-            
+
             CFStringRef homeStringRef = CFURLCopyPath(homeUrl);
             auto homePath = convertCFStringRefPathToCStringPath(homeStringRef);
             CFRelease(homeStringRef);
-            
+
             CFStringRef archiveStringRef = CFURLCopyPath(archiveUrl);
             auto archivePath = convertCFStringRefPathToCStringPath(archiveStringRef);
             CFRelease(archiveStringRef);
-            
+
             // create Library path
             auto libraryPath = homePath + INTERNAL_DIR;
-            
+
             // create tzdata path
             auto tzdataPath = libraryPath + "/" + TZDATA_DIR;
-            
+
             // -- replace %20 with " "
             const std::string search = "%20";
             const std::string replacement = " ";
             size_t pos = 0;
-            
+
             while ((pos = archivePath.find(search, pos)) != std::string::npos) {
                 archivePath.replace(pos, search.length(), replacement);
                 pos += replacement.length();
             }
-            
+
             gzFile tarFile = gzopen(archivePath.c_str(), "rb");
-            
+
             // create tar unpacking path
             auto tarPath = libraryPath + TAR_TMP_PATH;
-            
+
             // create tzdata directory
             mkdir(destPath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            
+
             // ======= extract tar ========
-            
+
             std::ofstream os(tarPath.c_str(), std::ofstream::out | std::ofstream::app);
             unsigned int bufferLength = 1024 * 256;  // 256Kb
             unsigned char *buffer = (unsigned char *)malloc(bufferLength);
             bool success = true;
-            
+
             while (true)
             {
                 int readBytes = gzread(tarFile, buffer, bufferLength);
-                
+
                 if (readBytes > 0)
                 {
                     os.write((char *) &buffer[0], readBytes);
@@ -216,21 +216,21 @@ namespace date
                             break;
                         }
             }
-            
+
             os.close();
             free(buffer);
             gzclose(tarFile);
-            
+
             if (!success)
             {
                 remove(tarPath.c_str());
                 return false;
             }
-            
+
             // ======== extract files =========
-            
+
             uint64_t location = 0; // Position in the file
-            
+
             // get file size
             struct stat stat_buf;
             int res = stat(tarPath.c_str(), &stat_buf);
@@ -241,20 +241,20 @@ namespace date
                 return false;
             }
             int64_t tarSize = stat_buf.st_size;
-            
+
             // create read stream
             std::ifstream is(tarPath.c_str(), std::ifstream::in | std::ifstream::binary);
-            
+
             // process files
             while (location < tarSize)
             {
                 TarInfo info = getTarObjectInfo(is);
-                
+
                 if (!info.success || info.realContentSize == 0)
                 {
                     break; // something wrong or all files are read
                 }
-                
+
                 switch (info.objType)
                 {
                     case '0':   // file
@@ -268,17 +268,17 @@ namespace date
 #endif
                         writeFile(tzdataPath, info.objName, obj, info.realContentSize);
                         location += info.blocksContentSize;
-                        
+
                         break;
                     }
                 }
             }
-            
+
             remove(tarPath.c_str());
-            
+
             return true;
         }
-        
+
         TarInfo
         getTarObjectInfo(std::ifstream &readStream)
         {
@@ -287,22 +287,22 @@ namespace date
             char type;
             char name[TAR_NAME_SIZE + 1];
             char sizeBuf[TAR_SIZE_SIZE + 1];
-            
+
             readStream.read(buffer, length);
-            
+
             memcpy(&type, &buffer[TAR_TYPE_POSITION], 1);
-            
+
             memset(&name, '\0', TAR_NAME_SIZE + 1);
             memcpy(&name, &buffer[TAR_NAME_POSITION], TAR_NAME_SIZE);
-            
+
             memset(&sizeBuf, '\0', TAR_SIZE_SIZE + 1);
             memcpy(&sizeBuf, &buffer[TAR_SIZE_POSITION], TAR_SIZE_SIZE);
             size_t realSize = strtol(sizeBuf, NULL, 8);
             size_t blocksSize = realSize + (TAR_BLOCK_SIZE - (realSize % TAR_BLOCK_SIZE));
-            
+
             return {type, std::string(name), realSize, blocksSize, true};
         }
-        
+
         std::string
         getTarObject(std::ifstream &readStream, int64_t size)
         {
@@ -310,29 +310,29 @@ namespace date
             readStream.read(buffer, size);
             return std::string(buffer);
         }
-        
+
         bool
         writeFile(const std::string &tzdataPath, const std::string &fileName, const std::string &data,
                   size_t realContentSize)
         {
             std::ofstream os(tzdataPath + "/" + fileName, std::ofstream::out | std::ofstream::binary);
-            
+
             if (!os) {
                 return false;
             }
-            
+
             // trim empty space
             char trimmedData[realContentSize + 1];
             memset(&trimmedData, '\0', realContentSize);
             memcpy(&trimmedData, data.c_str(), realContentSize);
-            
+
             // write
             os.write(trimmedData, realContentSize);
             os.close();
-            
+
             return true;
         }
-        
+
     }  // namespace iOSUtils
 }  // namespace date
 }  // namespace arrow_vendored

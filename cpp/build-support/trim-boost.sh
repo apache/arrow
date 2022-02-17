@@ -48,7 +48,7 @@ BOOST_LIBS="system.hpp filesystem.hpp process.hpp"
 # Add these to be able to build those
 BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
 # Gandiva needs these (and some Arrow tests do too)
-BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
+BOOST_LIBS="$BOOST_LIBS crc.hpp multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
 BOOST_LIBS="$BOOST_LIBS locale.hpp scope_exit.hpp boost/typeof/incr_registration_group.hpp"
 

@@ -26,6 +26,7 @@ import numpy as np
 import os
 import random
 import signal
+import socket
 import string
 import subprocess
 import sys
@@ -33,6 +34,7 @@ import sys
 import pytest
 
 import pyarrow as pa
+import pyarrow.fs
 
 
 def randsign():
@@ -251,6 +253,71 @@ class FSProtocolClass:
         return str(self._path)
 
 
+class ProxyHandler(pyarrow.fs.FileSystemHandler):
+    """
+    A dataset handler that proxies to an underlying filesystem.  Useful
+    to partially wrap an existing filesystem with partial changes.
+    """
+
+    def __init__(self, fs):
+        self._fs = fs
+
+    def __eq__(self, other):
+        if isinstance(other, ProxyHandler):
+            return self._fs == other._fs
+        return NotImplemented
+
+    def __ne__(self, other):
+        if isinstance(other, ProxyHandler):
+            return self._fs != other._fs
+        return NotImplemented
+
+    def get_type_name(self):
+        return "proxy::" + self._fs.type_name
+
+    def normalize_path(self, path):
+        return self._fs.normalize_path(path)
+
+    def get_file_info(self, paths):
+        return self._fs.get_file_info(paths)
+
+    def get_file_info_selector(self, selector):
+        return self._fs.get_file_info(selector)
+
+    def create_dir(self, path, recursive):
+        return self._fs.create_dir(path, recursive=recursive)
+
+    def delete_dir(self, path):
+        return self._fs.delete_dir(path)
+
+    def delete_dir_contents(self, path):
+        return self._fs.delete_dir_contents(path)
+
+    def delete_root_dir_contents(self):
+        return self._fs.delete_dir_contents("", accept_root_dir=True)
+
+    def delete_file(self, path):
+        return self._fs.delete_file(path)
+
+    def move(self, src, dest):
+        return self._fs.move(src, dest)
+
+    def copy_file(self, src, dest):
+        return self._fs.copy_file(src, dest)
+
+    def open_input_stream(self, path):
+        return self._fs.open_input_stream(path)
+
+    def open_input_file(self, path):
+        return self._fs.open_input_file(path)
+
+    def open_output_stream(self, path, metadata):
+        return self._fs.open_output_stream(path, metadata=metadata)
+
+    def open_append_stream(self, path, metadata):
+        return self._fs.open_append_stream(path, metadata=metadata)
+
+
 def get_raise_signal():
     if sys.version_info >= (3, 8):
         return signal.raise_signal
@@ -263,3 +330,22 @@ def get_raise_signal():
         def raise_signal(signum):
             os.kill(os.getpid(), signum)
         return raise_signal
+
+
+@contextlib.contextmanager
+def signal_wakeup_fd(*, warn_on_full_buffer=False):
+    # Use a socket pair, rather a self-pipe, so that select() can be used
+    # on Windows.
+    r, w = socket.socketpair()
+    old_fd = None
+    try:
+        r.setblocking(False)
+        w.setblocking(False)
+        old_fd = signal.set_wakeup_fd(
+            w.fileno(), warn_on_full_buffer=warn_on_full_buffer)
+        yield r
+    finally:
+        if old_fd is not None:
+            signal.set_wakeup_fd(old_fd)
+        r.close()
+        w.close()

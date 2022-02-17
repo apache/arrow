@@ -6,7 +6,7 @@
 \alias{field}
 \title{Field class}
 \usage{
-field(name, type, metadata)
+field(name, type, metadata, nullable = TRUE)
 }
 \arguments{
 \item{name}{field name}
@@ -14,6 +14,8 @@ field(name, type, metadata)
 \item{type}{logical type, instance of \link{DataType}}
 
 \item{metadata}{currently ignored}
+
+\item{nullable}{TRUE if field is nullable}
 }
 \description{
 \code{field()} lets you create an \code{arrow::Field} that maps a

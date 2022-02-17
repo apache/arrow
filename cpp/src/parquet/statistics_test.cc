@@ -26,6 +26,10 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/memory_pool.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -47,7 +51,7 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::util::SafeCopy;
 
-namespace BitUtil = arrow::BitUtil;
+namespace bit_util = arrow::bit_util;
 
 namespace parquet {
 
@@ -318,9 +322,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
     std::vector<uint8_t> valid_bits(
-        BitUtil::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
+        bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     statistics3->UpdateSpaced(this->values_ptr_, valid_bits.data(), 0,
-                              this->values_.size(), 0);
+                              this->values_.size(), this->values_.size(), 0);
     std::string encoded_min_spaced = statistics3->EncodeMin();
     std::string encoded_max_spaced = statistics3->EncodeMax();
 
@@ -653,6 +657,12 @@ class TestStatisticsSortOrder : public ::testing::Test {
  public:
   using c_type = typename TestType::c_type;
 
+  void SetUp() override {
+#ifndef ARROW_WITH_SNAPPY
+    GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  }
+
   void AddNodes(std::string name) {
     fields_.push_back(schema::PrimitiveNode::Make(
         name, Repetition::REQUIRED, TestType::type_num, ConvertedType::NONE));
@@ -897,6 +907,7 @@ void TestByteArrayStatisticsFromArrow() {
 
   ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
   ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
+  ASSERT_EQ(2, stats->null_count());
 }
 
 TEST(TestByteArrayStatisticsFromArrow, StringType) {
@@ -947,7 +958,8 @@ void AssertMinMaxAre(Stats stats, const Array& values, const uint8_t* valid_bitm
   auto n_values = values.size();
   auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
   auto non_null_count = n_values - null_count;
-  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
+                      non_null_count, null_count);
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->min(), expected_min);
   EXPECT_EQ(stats->max(), expected_max);
@@ -964,7 +976,8 @@ void AssertUnsetMinMax(Stats stats, const Array& values, const uint8_t* valid_bi
   auto n_values = values.size();
   auto null_count = ::arrow::internal::CountSetBits(valid_bitmap, n_values, 0);
   auto non_null_count = n_values - null_count;
-  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count, null_count);
+  stats->UpdateSpaced(values.data(), valid_bitmap, 0, non_null_count + null_count,
+                      non_null_count, null_count);
   ASSERT_FALSE(stats->HasMinMax());
 }
 

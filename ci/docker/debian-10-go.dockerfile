@@ -17,7 +17,8 @@
 
 ARG arch=amd64
 ARG go=1.15
-FROM ${arch}/golang:${go}
+FROM ${arch}/golang:${go}-buster
+
 
 # TODO(kszucs):
 # 1. add the files required to install the dependencies to .dockerignore

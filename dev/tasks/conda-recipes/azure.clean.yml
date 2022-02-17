@@ -1,7 +1,7 @@
 jobs:
 - job: linux
   pool:
-    vmImage: ubuntu-18.04
+    vmImage: ubuntu-latest
   timeoutInMinutes: 360
 
   steps:

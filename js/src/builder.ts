@@ -15,18 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Vector } from './vector';
-import { BufferType } from './enum';
-import { Data, Buffers } from './data';
-import { createIsValidFunction } from './builder/valid';
-import { BuilderType as B, VectorType as V} from './interfaces';
-import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer';
+import { Vector } from './vector.js';
+import { Data, makeData } from './data.js';
+import { MapRow, kKeys } from './row/map.js';
 import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
     Date_, Time, Timestamp, Interval,
-    Utf8, Binary, List, Map_
-} from './type';
+    Utf8, Binary, List, Map_,
+} from './type.js';
+import { createIsValidFunction } from './builder/valid.js';
+import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
 
 /**
  * A set of options required to create a `Builder` instance for a given `DataType`.
@@ -39,19 +38,6 @@ export interface BuilderOptions<T extends DataType = any, TNull = any> {
 }
 
 /**
- * A set of options to create an Iterable or AsyncIterable `Builder` transform function.
- * @see {@link Builder.throughIterable}
- * @see {@link Builder.throughAsyncIterable}
- */
-
-export interface IterableBuilderOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
-    highWaterMark?: number;
-    queueingStrategy?: 'bytes' | 'count';
-    dictionaryHashFunction?: (value: any) => string | number;
-    valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
-}
-
-/**
  * An abstract base class for types that construct Arrow Vectors from arbitrary JavaScript values.
  *
  * A `Builder` is responsible for writing arbitrary JavaScript values
@@ -59,7 +45,7 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
  * for each DataType, creating or resizing the underlying ArrayBuffers as necessary.
  *
  * The `Builder` for each Arrow `DataType` handles converting and appending
- * values for a given `DataType`. The high-level {@link Builder.new `Builder.new()`} convenience
+ * values for a given `DataType`. The high-level {@link makeBuilder `makeBuilder()`} convenience
  * method creates the specific `Builder` subclass for the supplied `DataType`.
  *
  * Once created, `Builder` instances support both appending values to the end
@@ -84,10 +70,11 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
  * because this is when it flushes the values that have been enqueued in its internal
  * dictionary's `Builder`, and creates the `dictionaryVector` for the `Dictionary` `DataType`.
  *
+ * @example
  * ```ts
  * import { Builder, Utf8 } from 'apache-arrow';
  *
- * const utf8Builder = Builder.new({
+ * const utf8Builder = makeBuilder({
  *     type: new Utf8(),
  *     nullValues: [null, 'n/a']
  * });
@@ -109,18 +96,6 @@ export interface IterableBuilderOptions<T extends DataType = any, TNull = any> e
  */
 export abstract class Builder<T extends DataType = any, TNull = any> {
 
-    /**
-     * Create a `Builder` instance based on the `type` property of the supplied `options` object.
-     * @param {BuilderOptions<T, TNull>} options An object with a required `DataType` instance
-     * and other optional parameters to be passed to the `Builder` subclass for the given `type`.
-     *
-     * @typeparam T The `DataType` of the `Builder` to create.
-     * @typeparam TNull The type(s) of values which will be considered null-value sentinels.
-     * @nocollapse
-     */
-    // @ts-ignore
-    public static new<T extends DataType = any, TNull = any>(options: BuilderOptions<T, TNull>): B<T, TNull> {}
-
     /** @nocollapse */
     // @ts-ignore
     public static throughNode<T extends DataType = any, TNull = any>(options: import('./io/node/builder').BuilderDuplexOptions<T, TNull>): import('stream').Duplex {
@@ -130,63 +105,6 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
     // @ts-ignore
     public static throughDOM<T extends DataType = any, TNull = any>(options: import('./io/whatwg/builder').BuilderTransformOptions<T, TNull>): import('./io/whatwg/builder').BuilderTransform<T, TNull> {
         throw new Error(`"throughDOM" not available in this environment`);
-    }
-
-    /**
-     * Transform a synchronous `Iterable` of arbitrary JavaScript values into a
-     * sequence of Arrow Vector<T> following the chunking semantics defined in
-     * the supplied `options` argument.
-     *
-     * This function returns a function that accepts an `Iterable` of values to
-     * transform. When called, this function returns an Iterator of `Vector<T>`.
-     *
-     * The resulting `Iterator<Vector<T>>` yields Vectors based on the
-     * `queueingStrategy` and `highWaterMark` specified in the `options` argument.
-     *
-     * * If `queueingStrategy` is `"count"` (or omitted), The `Iterator<Vector<T>>`
-     *   will flush the underlying `Builder` (and yield a new `Vector<T>`) once the
-     *   Builder's `length` reaches or exceeds the supplied `highWaterMark`.
-     * * If `queueingStrategy` is `"bytes"`, the `Iterator<Vector<T>>` will flush
-     *   the underlying `Builder` (and yield a new `Vector<T>`) once its `byteLength`
-     *   reaches or exceeds the supplied `highWaterMark`.
-     *
-     * @param {IterableBuilderOptions<T, TNull>} options An object of properties which determine the `Builder` to create and the chunking semantics to use.
-     * @returns A function which accepts a JavaScript `Iterable` of values to
-     *          write, and returns an `Iterator` that yields Vectors according
-     *          to the chunking semantics defined in the `options` argument.
-     * @nocollapse
-     */
-    public static throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughIterable(options);
-    }
-
-    /**
-     * Transform an `AsyncIterable` of arbitrary JavaScript values into a
-     * sequence of Arrow Vector<T> following the chunking semantics defined in
-     * the supplied `options` argument.
-     *
-     * This function returns a function that accepts an `AsyncIterable` of values to
-     * transform. When called, this function returns an AsyncIterator of `Vector<T>`.
-     *
-     * The resulting `AsyncIterator<Vector<T>>` yields Vectors based on the
-     * `queueingStrategy` and `highWaterMark` specified in the `options` argument.
-     *
-     * * If `queueingStrategy` is `"count"` (or omitted), The `AsyncIterator<Vector<T>>`
-     *   will flush the underlying `Builder` (and yield a new `Vector<T>`) once the
-     *   Builder's `length` reaches or exceeds the supplied `highWaterMark`.
-     * * If `queueingStrategy` is `"bytes"`, the `AsyncIterator<Vector<T>>` will flush
-     *   the underlying `Builder` (and yield a new `Vector<T>`) once its `byteLength`
-     *   reaches or exceeds the supplied `highWaterMark`.
-     *
-     * @param {IterableBuilderOptions<T, TNull>} options An object of properties which determine the `Builder` to create and the chunking semantics to use.
-     * @returns A function which accepts a JavaScript `AsyncIterable` of values
-     *          to write, and returns an `AsyncIterator` that yields Vectors
-     *          according to the chunking semantics defined in the `options`
-     *          argument.
-     * @nocollapse
-     */
-    public static throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-        return throughAsyncIterable(options);
     }
 
     /**
@@ -242,7 +160,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Flush the `Builder` and return a `Vector<T>`.
      * @returns {Vector<T>} A `Vector<T>` of the flushed values.
      */
-    public toVector() { return Vector.new(this.flush()); }
+    public toVector() { return new Vector([this.flush()]); }
 
     public get ArrayType() { return this.type.ArrayType; }
     public get nullCount() { return this._nulls.numInvalid; }
@@ -253,11 +171,12 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public get byteLength(): number {
         let size = 0;
-        this._offsets && (size += this._offsets.byteLength);
-        this._values && (size += this._values.byteLength);
-        this._nulls && (size += this._nulls.byteLength);
-        this._typeIds && (size += this._typeIds.byteLength);
-        return this.children.reduce((size, child) => size + child.byteLength, size);
+        const { _offsets, _values, _nulls, _typeIds, children } = this;
+        _offsets && (size += _offsets.byteLength);
+        _values && (size += _values.byteLength);
+        _nulls && (size += _nulls.byteLength);
+        _typeIds && (size += _typeIds.byteLength);
+        return children.reduce((size, child) => size + child.byteLength, size);
     }
 
     /**
@@ -279,20 +198,20 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return this.children.reduce((size, child) => size + child.reservedByteLength, size);
     }
 
-    protected _offsets!: DataBufferBuilder<Int32Array>;
+    declare protected _offsets: DataBufferBuilder<Int32Array>;
     public get valueOffsets() { return this._offsets ? this._offsets.buffer : null; }
 
-    protected _values!: BufferBuilder<T['TArray'], any>;
+    declare protected _values: BufferBuilder<T['TArray'], any>;
     public get values() { return this._values ? this._values.buffer : null; }
 
-    protected _nulls: BitmapBufferBuilder;
+    declare protected _nulls: BitmapBufferBuilder;
     public get nullBitmap() { return this._nulls ? this._nulls.buffer : null; }
 
-    protected _typeIds!: DataBufferBuilder<Int8Array>;
+    declare protected _typeIds: DataBufferBuilder<Int8Array>;
     public get typeIds() { return this._typeIds ? this._typeIds.buffer : null; }
 
-    protected _isValid!: (value: T['TValue'] | TNull) => boolean;
-    protected _setValue!: (inst: Builder<T>, index: number, value: T['TValue']) => void;
+    declare protected _isValid: (value: T['TValue'] | TNull) => boolean;
+    declare protected _setValue: (inst: Builder<T>, index: number, value: T['TValue']) => void;
 
     /**
      * Appends a value (or null) to this `Builder`.
@@ -355,37 +274,39 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      * Commit all the values that have been written to their underlying
      * ArrayBuffers, including any child Builders if applicable, and reset
      * the internal `Builder` state.
-     * @returns A `Data<T>` of the buffers and childData representing the values written.
+     * @returns A `Data<T>` of the buffers and children representing the values written.
      */
-    public flush() {
+    public flush(): Data<T> {
 
-        const buffers: any = [];
-        const values =  this._values;
-        const offsets =  this._offsets;
-        const typeIds =  this._typeIds;
-        const { length, nullCount } = this;
+        let data;
+        let typeIds;
+        let nullBitmap;
+        let valueOffsets;
+        const { type, length, nullCount, _typeIds, _offsets, _values, _nulls } = this;
 
-        if (typeIds) { /* Unions */
-            buffers[BufferType.TYPE] = typeIds.flush(length);
+        if (typeIds = _typeIds?.flush(length)) { // Unions
             // DenseUnions
-            offsets && (buffers[BufferType.OFFSET] = offsets.flush(length));
-        } else if (offsets) { /* Variable-width primitives (Binary, Utf8) and Lists */
+            valueOffsets = _offsets?.flush(length);
+        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, Utf8), and Lists
             // Binary, Utf8
-            values && (buffers[BufferType.DATA] = values.flush(offsets.last()));
-            buffers[BufferType.OFFSET] = offsets.flush(length);
-        } else if (values) { /* Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval) */
-            buffers[BufferType.DATA] = values.flush(length);
+            data = _values?.flush(_offsets.last());
+        } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, and Interval)
+            data = _values?.flush(length);
         }
 
-        nullCount > 0 && (buffers[BufferType.VALIDITY] = this._nulls.flush(length));
+        if (nullCount > 0) {
+            nullBitmap = _nulls?.flush(length);
+        }
 
-        const data = Data.new<T>(
-            this.type, 0, length, nullCount, buffers as Buffers<T>,
-            this.children.map((child) => child.flush())) as Data<T>;
+        const children = this.children.map((child) => child.flush());
 
         this.clear();
 
-        return data;
+        return makeData(<any>{
+            type, length, nullCount,
+            children, 'child': children[0],
+            data, typeIds, nullBitmap, valueOffsets,
+        }) as Data<T>;
     }
 
     /**
@@ -394,7 +315,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public finish() {
         this.finished = true;
-        this.children.forEach((child) => child.finish());
+        for (const child of this.children) child.finish();
         return this;
     }
 
@@ -404,11 +325,11 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
      */
     public clear() {
         this.length = 0;
-        this._offsets && (this._offsets.clear());
-        this._values && (this._values.clear());
-        this._nulls && (this._nulls.clear());
-        this._typeIds && (this._typeIds.clear());
-        this.children.forEach((child) => child.clear());
+        this._nulls?.clear();
+        this._values?.clear();
+        this._offsets?.clear();
+        this._typeIds?.clear();
+        for (const child of this.children) child.clear();
         return this;
     }
 }
@@ -446,7 +367,7 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
         const pending = this._pending || (this._pending = new Map());
         const current = pending.get(index);
         current && (this._pendingLength -= current.length);
-        this._pendingLength += value.length;
+        this._pendingLength += (value instanceof MapRow) ? value[kKeys].length : value.length;
         pending.set(index, value);
     }
     public setValid(index: number, isValid: boolean) {
@@ -480,48 +401,4 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
         return this;
     }
     protected abstract _flushPending(pending: Map<number, any>, pendingLength: number): void;
-}
-
-/** @ignore */
-type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
-
-/** @ignore */
-function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-    const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
-    const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
-    const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
-    return function*(source: Iterable<T['TValue'] | TNull>) {
-        let numChunks = 0;
-        const builder = Builder.new(options);
-        for (const value of source) {
-            if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                ++numChunks && (yield builder.toVector());
-            }
-        }
-        if (builder.finish().length > 0 || numChunks === 0) {
-            yield builder.toVector();
-        }
-    } as ThroughIterable<T, TNull>;
-}
-
-/** @ignore */
-type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
-
-/** @ignore */
-function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
-    const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
-    const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
-    const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
-    return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
-        let numChunks = 0;
-        const builder = Builder.new(options);
-        for await (const value of source) {
-            if (builder.append(value)[sizeProperty] >= highWaterMark) {
-                ++numChunks && (yield builder.toVector());
-            }
-        }
-        if (builder.finish().length > 0 || numChunks === 0) {
-            yield builder.toVector();
-        }
-    } as ThroughAsyncIterable<T, TNull>;
 }

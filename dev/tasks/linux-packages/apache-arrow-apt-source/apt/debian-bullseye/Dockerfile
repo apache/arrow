@@ -37,4 +37,5 @@ RUN \
     fakeroot \
     gnupg \
     lsb-release && \
-  apt clean
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*

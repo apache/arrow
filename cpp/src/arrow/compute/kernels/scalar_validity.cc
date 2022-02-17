@@ -17,6 +17,7 @@
 
 #include <cmath>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 
 #include "arrow/util/bit_util.h"
@@ -46,16 +47,17 @@ struct IsValidOperator {
       // and set the offset to the remaining bit offset.
       out->offset = arr.offset % 8;
       out->buffers[1] =
-          arr.offset == 0 ? arr.buffers[0]
-                          : SliceBuffer(arr.buffers[0], arr.offset / 8,
-                                        BitUtil::BytesForBits(out->length + out->offset));
+          arr.offset == 0
+              ? arr.buffers[0]
+              : SliceBuffer(arr.buffers[0], arr.offset / 8,
+                            bit_util::BytesForBits(out->length + out->offset));
       return Status::OK();
     }
 
     // Input has no nulls => output is entirely true.
     ARROW_ASSIGN_OR_RAISE(out->buffers[1],
                           ctx->AllocateBitmap(out->length + out->offset));
-    BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
+    bit_util::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length, true);
     return Status::OK();
   }
 };
@@ -74,21 +76,71 @@ struct IsInfOperator {
   }
 };
 
+using NanOptionsState = OptionsWrapper<NullOptions>;
+
 struct IsNullOperator {
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    checked_cast<BooleanScalar*>(out)->value = !in.is_valid;
+    const auto& options = NanOptionsState::Get(ctx);
+    bool* out_value = &checked_cast<BooleanScalar*>(out)->value;
+
+    if (in.is_valid) {
+      if (options.nan_is_null && is_floating(in.type->id())) {
+        switch (in.type->id()) {
+          case Type::FLOAT:
+            *out_value = std::isnan(internal::UnboxScalar<FloatType>::Unbox(in));
+            break;
+          case Type::DOUBLE:
+            *out_value = std::isnan(internal::UnboxScalar<DoubleType>::Unbox(in));
+            break;
+          default:
+            return Status::NotImplemented("NaN detection not implemented for type ",
+                                          in.type->ToString());
+        }
+      } else {
+        *out_value = false;
+      }
+    } else {
+      *out_value = true;
+    }
+
     return Status::OK();
   }
 
+  template <typename T>
+  static void SetNanBits(const ArrayData& arr, uint8_t* out_bitmap, int64_t out_offset) {
+    const T* data = arr.GetValues<T>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      if (std::isnan(data[i])) {
+        bit_util::SetBit(out_bitmap, i + out_offset);
+      }
+    }
+  }
+
   static Status Call(KernelContext* ctx, const ArrayData& arr, ArrayData* out) {
-    if (arr.MayHaveNulls()) {
+    const auto& options = NanOptionsState::Get(ctx);
+
+    uint8_t* out_bitmap = out->buffers[1]->mutable_data();
+    if (arr.GetNullCount() > 0) {
       // Input has nulls => output is the inverted null (validity) bitmap.
-      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length,
-                   out->buffers[1]->mutable_data(), out->offset);
+      InvertBitmap(arr.buffers[0]->data(), arr.offset, arr.length, out_bitmap,
+                   out->offset);
     } else {
       // Input has no nulls => output is entirely false.
-      BitUtil::SetBitsTo(out->buffers[1]->mutable_data(), out->offset, out->length,
-                         false);
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, false);
+    }
+
+    if (is_floating(arr.type->id()) && options.nan_is_null) {
+      switch (arr.type->id()) {
+        case Type::FLOAT:
+          SetNanBits<float>(arr, out_bitmap, out->offset);
+          break;
+        case Type::DOUBLE:
+          SetNanBits<double>(arr, out_bitmap, out->offset);
+          break;
+        default:
+          return Status::NotImplemented("NaN detection not implemented for type ",
+                                        arr.type->ToString());
+      }
     }
     return Status::OK();
   }
@@ -104,11 +156,13 @@ struct IsNanOperator {
 void MakeFunction(std::string name, const FunctionDoc* doc,
                   std::vector<InputType> in_types, OutputType out_type,
                   ArrayKernelExec exec, FunctionRegistry* registry,
-                  MemAllocation::type mem_allocation, bool can_write_into_slices) {
+                  MemAllocation::type mem_allocation, bool can_write_into_slices,
+                  const FunctionOptions* default_options = NULLPTR,
+                  KernelInit init = NULLPTR) {
   Arity arity{static_cast<int>(in_types.size())};
-  auto func = std::make_shared<ScalarFunction>(name, arity, doc);
+  auto func = std::make_shared<ScalarFunction>(name, arity, doc, default_options);
 
-  ScalarKernel kernel(std::move(in_types), out_type, exec);
+  ScalarKernel kernel(std::move(in_types), out_type, exec, init);
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel.can_write_into_slices = can_write_into_slices;
   kernel.mem_allocation = mem_allocation;
@@ -123,12 +177,33 @@ void AddFloatValidityKernel(const std::shared_ptr<DataType>& ty, ScalarFunction*
                             applicator::ScalarUnary<BooleanType, InType, Op>::Exec));
 }
 
+template <bool kConstant>
+Status ConstBoolExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  if (batch.values[0].is_scalar()) {
+    checked_cast<BooleanScalar*>(out->scalar().get())->value = kConstant;
+    return Status::OK();
+  }
+  ArrayData* array = out->mutable_array();
+  bit_util::SetBitsTo(array->buffers[1]->mutable_data(), array->offset, array->length,
+                      kConstant);
+  return Status::OK();
+}
+
 std::shared_ptr<ScalarFunction> MakeIsFiniteFunction(std::string name,
                                                      const FunctionDoc* doc) {
   auto func = std::make_shared<ScalarFunction>(name, Arity::Unary(), doc);
 
   AddFloatValidityKernel<FloatType, IsFiniteOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsFiniteOperator>(float64(), func.get());
+
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<true>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<true>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<true>));
 
   return func;
 }
@@ -140,6 +215,15 @@ std::shared_ptr<ScalarFunction> MakeIsInfFunction(std::string name,
   AddFloatValidityKernel<FloatType, IsInfOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsInfOperator>(float64(), func.get());
 
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
+
   return func;
 }
 
@@ -149,6 +233,15 @@ std::shared_ptr<ScalarFunction> MakeIsNanFunction(std::string name,
 
   AddFloatValidityKernel<FloatType, IsNanOperator>(float32(), func.get());
   AddFloatValidityKernel<DoubleType, IsNanOperator>(float64(), func.get());
+
+  for (const auto& ty : IntTypes()) {
+    DCHECK_OK(func->AddKernel({InputType(ty->id())}, boolean(), ConstBoolExec<false>));
+  }
+  DCHECK_OK(func->AddKernel({InputType(Type::NA)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL128)}, boolean(), ConstBoolExec<false>));
+  DCHECK_OK(
+      func->AddKernel({InputType(Type::DECIMAL256)}, boolean(), ConstBoolExec<false>));
 
   return func;
 }
@@ -179,8 +272,8 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     } else {
       // Data is preallocated
       ArrayData* out_arr = out->mutable_array();
-      BitUtil::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
-                         out_arr->length, true);
+      bit_util::SetBitsTo(out_arr->buffers[1]->mutable_data(), out_arr->offset,
+                          out_arr->length, true);
     }
     return Status::OK();
   } else {
@@ -190,11 +283,13 @@ Status IsNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
 
 const FunctionDoc is_valid_doc(
     "Return true if non-null",
-    ("For each input value, emit true iff the value is valid (non-null)."), {"values"});
+    ("For each input value, emit true iff the value is valid (i.e. non-null)."),
+    {"values"});
 
 const FunctionDoc is_finite_doc(
     "Return true if value is finite",
-    ("For each input value, emit true iff the value is finite (not NaN, inf, or -inf)."),
+    ("For each input value, emit true iff the value is finite\n"
+     "(i.e. neither NaN, inf, nor -inf)."),
     {"values"});
 
 const FunctionDoc is_inf_doc(
@@ -202,9 +297,11 @@ const FunctionDoc is_inf_doc(
     ("For each input value, emit true iff the value is infinite (inf or -inf)."),
     {"values"});
 
-const FunctionDoc is_null_doc("Return true if null",
-                              ("For each input value, emit true iff the value is null."),
-                              {"values"});
+const FunctionDoc is_null_doc(
+    "Return true if null (and optionally NaN)",
+    ("For each input value, emit true iff the value is null.\n"
+     "True may also be emitted for NaN values by setting the `nan_is_null` flag."),
+    {"values"}, "NullOptions");
 
 const FunctionDoc is_nan_doc("Return true if NaN",
                              ("For each input value, emit true iff the value is NaN."),
@@ -213,12 +310,13 @@ const FunctionDoc is_nan_doc("Return true if NaN",
 }  // namespace
 
 void RegisterScalarValidity(FunctionRegistry* registry) {
+  static auto kNullOptions = NullOptions::Defaults();
   MakeFunction("is_valid", &is_valid_doc, {ValueDescr::ANY}, boolean(), IsValidExec,
                registry, MemAllocation::NO_PREALLOCATE, /*can_write_into_slices=*/false);
 
   MakeFunction("is_null", &is_null_doc, {ValueDescr::ANY}, boolean(), IsNullExec,
                registry, MemAllocation::PREALLOCATE,
-               /*can_write_into_slices=*/true);
+               /*can_write_into_slices=*/true, &kNullOptions, NanOptionsState::Init);
 
   DCHECK_OK(registry->AddFunction(MakeIsFiniteFunction("is_finite", &is_finite_doc)));
   DCHECK_OK(registry->AddFunction(MakeIsInfFunction("is_inf", &is_inf_doc)));

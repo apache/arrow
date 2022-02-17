@@ -17,12 +17,13 @@
 
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
-#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap_chr
+#' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dfr map_int map_lgl keep imap imap_chr
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos
-#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec
-#' @importFrom rlang is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs
-#' @importFrom rlang expr caller_env is_character quo_name
+#' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
+#' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
+#' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
+#' @importFrom rlang is_list call2
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -35,10 +36,12 @@
     c(
       "select", "filter", "collect", "summarise", "group_by", "groups",
       "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
-      "arrange", "rename", "pull", "relocate", "compute"
+      "arrange", "rename", "pull", "relocate", "compute", "collapse",
+      "distinct", "left_join", "right_join", "inner_join", "full_join",
+      "semi_join", "anti_join", "count", "tally"
     )
   )
-  for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }
@@ -53,21 +56,17 @@
     s3_register("reticulate::r_to_py", cl)
   }
 
-  # Create these once, at package build time
-  if (arrow_available()) {
-    # Also include all available Arrow Compute functions,
-    # namespaced as arrow_fun.
-    # We can't do this at install time because list_compute_functions() may error
-    all_arrow_funs <- list_compute_functions()
-    arrow_funcs <- set_names(
-      lapply(all_arrow_funs, function(fun) {
-        force(fun)
-        function(...) build_expr(fun, ...)
-      }),
-      paste0("arrow_", all_arrow_funs)
-    )
-    .cache$functions <- c(nse_funcs, arrow_funcs)
+  # Create the .cache$functions list at package load time.
+  # We can't do this at build time because list_compute_functions() may error
+  # if arrow_available() is FALSE
+  create_binding_cache()
+
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    # Disable multithreading on Windows
+    # See https://issues.apache.org/jira/browse/ARROW-8379
+    options(arrow.use_threads = FALSE)
   }
+
   invisible()
 }
 
@@ -105,12 +104,14 @@
 #' * The Arrow C++ library (check with `arrow_available()`)
 #' * Arrow Dataset support enabled (check with `arrow_with_dataset()`)
 #' * Parquet support enabled (check with `arrow_with_parquet()`)
+#' * JSON support enabled (check with `arrow_with_json()`)
 #' * Amazon S3 support enabled (check with `arrow_with_s3()`)
 #' @export
 #' @examples
 #' arrow_available()
 #' arrow_with_dataset()
 #' arrow_with_parquet()
+#' arrow_with_json()
 #' arrow_with_s3()
 #' @seealso If any of these are `FALSE`, see
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
@@ -124,6 +125,15 @@ arrow_available <- function() {
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+  if (is_32bit && is_old_r && is_windows) {
+    # 32-bit rtools 3.5 does not properly implement the std::thread expectations
+    # but we can't just disable ARROW_DATASET in that build,
+    # so report it as "off" here.
+    return(FALSE)
+  }
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })
@@ -143,6 +153,21 @@ arrow_with_s3 <- function() {
   tryCatch(.Call(`_s3_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+#' @rdname arrow_available
+#' @export
+arrow_with_json <- function() {
+  tryCatch(.Call(`_json_available`), error = function(e) {
+    return(FALSE)
+  })
+}
+
+# True when the OS is linux + and the R version is development
+# helpful for skipping on Valgrind, and the sanitizer checks (clang + gcc) on cran
+on_linux_dev <- function() {
+  identical(tolower(Sys.info()[["sysname"]]), "linux") &&
+    grepl("devel", R.version.string)
 }
 
 option_use_threads <- function() {
@@ -174,6 +199,7 @@ arrow_info <- function() {
       capabilities = c(
         dataset = arrow_with_dataset(),
         parquet = arrow_with_parquet(),
+        json = arrow_with_json(),
         s3 = arrow_with_s3(),
         utf8proc = "utf8_upper" %in% compute_funcs,
         re2 = "replace_substring_regex" %in% compute_funcs,
@@ -301,9 +327,6 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
-    },
-    invalidate = function() {
-      assign(".:xp:.", NULL, envir = self)
     }
   )
 )

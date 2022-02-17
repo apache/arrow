@@ -26,6 +26,10 @@
 
 namespace arrow {
 
+/// \addtogroup temporal-builders
+///
+/// @{
+
 // TODO(ARROW-7938): this class is untested
 
 class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeIntervalType> {
@@ -39,5 +43,20 @@ class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeInterva
                                   MemoryPool* pool = default_memory_pool())
       : NumericBuilder<DayTimeIntervalType>(type, pool) {}
 };
+
+class ARROW_EXPORT MonthDayNanoIntervalBuilder
+    : public NumericBuilder<MonthDayNanoIntervalType> {
+ public:
+  using MonthDayNanos = MonthDayNanoIntervalType::MonthDayNanos;
+
+  explicit MonthDayNanoIntervalBuilder(MemoryPool* pool = default_memory_pool())
+      : MonthDayNanoIntervalBuilder(month_day_nano_interval(), pool) {}
+
+  explicit MonthDayNanoIntervalBuilder(std::shared_ptr<DataType> type,
+                                       MemoryPool* pool = default_memory_pool())
+      : NumericBuilder<MonthDayNanoIntervalType>(type, pool) {}
+};
+
+/// @}
 
 }  // namespace arrow

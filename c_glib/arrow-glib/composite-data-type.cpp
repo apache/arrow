@@ -376,7 +376,7 @@ garrow_map_data_type_new(GArrowDataType *key_type,
  * garrow_map_data_type_get_key_type:
  * @map_data_type: A #GArrowMapDataType.
  *
- * Return: (transfer full): The key type of the map.
+ * Returns: (transfer full): The key type of the map.
  *
  * Since: 0.17.0
  */
@@ -395,7 +395,7 @@ garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
  * garrow_map_data_type_get_item_type:
  * @map_data_type: A #GArrowMapDataType.
  *
- * Return: (transfer full): The item type of the map.
+ * Returns: (transfer full): The item type of the map.
  *
  * Since: 0.17.0
  */

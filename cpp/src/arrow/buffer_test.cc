@@ -99,7 +99,7 @@ class MyMemoryManager : public MemoryManager {
     return Status::NotImplemented("");
   }
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override {
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override {
     return Status::NotImplemented("");
   }
 
@@ -492,12 +492,12 @@ TEST(TestBuffer, SliceBufferSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size(), 0));
   AssertBufferEqual(*sliced, "");
 
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1, 0));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, -1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 0, buf->size() + 1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, 2, buf->size() - 1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1, 0));
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, -1, 0));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 0, -1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 0, buf->size() + 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, 2, buf->size() - 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, buf->size() + 1, 0));
+  ASSERT_RAISES(IndexError,
                 SliceBufferSafe(buf, 3, std::numeric_limits<int64_t>::max() - 2));
 
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, 0));
@@ -507,8 +507,8 @@ TEST(TestBuffer, SliceBufferSafe) {
   ASSERT_OK_AND_ASSIGN(sliced, SliceBufferSafe(buf, buf->size()));
   AssertBufferEqual(*sliced, "");
 
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, -1));
-  ASSERT_RAISES(Invalid, SliceBufferSafe(buf, buf->size() + 1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, -1));
+  ASSERT_RAISES(IndexError, SliceBufferSafe(buf, buf->size() + 1));
 }
 
 TEST(TestMutableBuffer, Wrap) {
@@ -797,12 +797,12 @@ TEST(TestBoolBufferBuilder, Basics) {
   ASSERT_OK(builder.Finish(&built));
   AssertIsCPUBuffer(*built);
 
-  ASSERT_EQ(BitUtil::GetBit(built->data(), 0), false);
+  ASSERT_EQ(bit_util::GetBit(built->data(), 0), false);
   for (int i = 0; i != nvalues; ++i) {
-    ASSERT_EQ(BitUtil::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
+    ASSERT_EQ(bit_util::GetBit(built->data(), i + 1), static_cast<bool>(values[i]));
   }
 
-  ASSERT_EQ(built->size(), BitUtil::BytesForBits(nvalues + 1));
+  ASSERT_EQ(built->size(), bit_util::BytesForBits(nvalues + 1));
 }
 
 TEST(TestBoolBufferBuilder, AppendCopies) {
@@ -819,10 +819,10 @@ TEST(TestBoolBufferBuilder, AppendCopies) {
   AssertIsCPUBuffer(*built);
 
   for (int i = 0; i != 13 + 17; ++i) {
-    EXPECT_EQ(BitUtil::GetBit(built->data(), i), i < 13) << "index = " << i;
+    EXPECT_EQ(bit_util::GetBit(built->data(), i), i < 13) << "index = " << i;
   }
 
-  ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
+  ASSERT_EQ(built->size(), bit_util::BytesForBits(13 + 17));
 }
 
 TEST(TestBoolBufferBuilder, Reserve) {
@@ -837,7 +837,7 @@ TEST(TestBoolBufferBuilder, Reserve) {
 
   ASSERT_OK_AND_ASSIGN(auto built, builder.Finish());
   AssertIsCPUBuffer(*built);
-  ASSERT_EQ(built->size(), BitUtil::BytesForBits(13 + 17));
+  ASSERT_EQ(built->size(), bit_util::BytesForBits(13 + 17));
 }
 
 template <typename T>

@@ -38,6 +38,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // ListArray
 
@@ -125,6 +129,10 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
       const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
 
+  static Result<std::shared_ptr<ListArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
+      MemoryPool* pool = default_memory_pool());
+
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
   /// Note that it's different from `values()` in that it takes into
@@ -168,6 +176,10 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
   /// allocated because of null values
   static Result<std::shared_ptr<LargeListArray>> FromArrays(
       const Array& offsets, const Array& values,
+      MemoryPool* pool = default_memory_pool());
+
+  static Result<std::shared_ptr<LargeListArray>> FromArrays(
+      std::shared_ptr<DataType> type, const Array& offsets, const Array& values,
       MemoryPool* pool = default_memory_pool());
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
@@ -280,9 +292,9 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   std::shared_ptr<DataType> value_type() const;
 
   // The following functions will not perform boundschecking
-  int32_t value_offset(int64_t i) const {
+  int64_t value_offset(int64_t i) const {
     i += data_->offset;
-    return static_cast<int32_t>(list_size_ * i);
+    return list_size_ * i;
   }
   int32_t value_length(int64_t i = 0) const {
     ARROW_UNUSED(i);
@@ -292,6 +304,13 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     return values_->Slice(value_offset(i), value_length(i));
   }
 
+  /// \brief Return an Array that is a concatenation of the lists in this array.
+  ///
+  /// Note that it's different from `values()` in that it takes into
+  /// consideration null elements (they are skipped, thus copying may be needed).
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
+
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
   /// \param[in] values Array containing list values
@@ -299,6 +318,14 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// \return Will have length equal to values.length() / list_size
   static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
                                                    int32_t list_size);
+
+  /// \brief Construct FixedSizeListArray from child value array and type
+  ///
+  /// \param[in] values Array containing list values
+  /// \param[in] type The fixed sized list type
+  /// \return Will have length equal to values.length() / type.list_size()
+  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
+                                                   std::shared_ptr<DataType> type);
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
@@ -358,6 +385,14 @@ class ARROW_EXPORT StructArray : public Array {
   ///
   /// \param[in] pool The pool to allocate null bitmaps from, if necessary
   Result<ArrayVector> Flatten(MemoryPool* pool = default_memory_pool()) const;
+
+  /// \brief Get one of the child arrays, combining its null bitmap
+  /// with the parent struct array's bitmap.
+  ///
+  /// \param[in] index Which child array to get
+  /// \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
 
  private:
   // For caching boxed child data
@@ -445,6 +480,14 @@ class ARROW_EXPORT SparseUnionArray : public UnionArray {
     return internal::checked_cast<const SparseUnionType*>(union_type_);
   }
 
+  /// \brief Get one of the child arrays, adjusting its null bitmap
+  /// where the union array type code does not match.
+  ///
+  /// \param[in] index Which child array to get (i.e. the physical index, not the type
+  /// code) \param[in] pool The pool to allocate null bitmaps from, if necessary
+  Result<std::shared_ptr<Array>> GetFlattenedField(
+      int index, MemoryPool* pool = default_memory_pool()) const;
+
  protected:
   void SetData(std::shared_ptr<ArrayData> data);
 };
@@ -516,5 +559,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
 
   void SetData(const std::shared_ptr<ArrayData>& data);
 };
+
+/// @}
 
 }  // namespace arrow

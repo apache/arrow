@@ -30,7 +30,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     # Nothing to do
     return(.data)
   }
-  .data <- arrow_dplyr_query(.data)
+  .data <- as_adq(.data)
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
   sorts <- vector("list", length(exprs))
@@ -40,18 +40,18 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     x <- find_and_remove_desc(exprs[[i]])
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    names(sorts)[i] <- format_expr(exprs[[i]])
     if (inherits(sorts[[i]], "try-error")) {
-      msg <- paste("Expression", as_label(exprs[[i]]), "not supported in Arrow")
+      msg <- paste("Expression", names(sorts)[i], "not supported in Arrow")
       return(abandon_ship(call, .data, msg))
     }
-    names(sorts)[i] <- as_label(exprs[[i]])
     descs[i] <- x[["desc"]]
   }
   .data$arrange_vars <- c(sorts, .data$arrange_vars)
   .data$arrange_desc <- c(descs, .data$arrange_desc)
   .data
 }
-arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+arrange.Dataset <- arrange.ArrowTabular <- arrange.RecordBatchReader <- arrange.arrow_dplyr_query
 
 # Helper to handle desc() in arrange()
 # * Takes a quosure as input

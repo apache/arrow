@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/parquet"
-	"github.com/apache/arrow/go/parquet/internal/utils"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/internal/utils"
 	"golang.org/x/xerrors"
 )
 
@@ -45,7 +45,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 
 	unalignedExtract := func(start, end, curBitOffset int) int {
 		i := start
-		for ; curBitOffset < end; i, curBitOffset = i+1, curBitOffset+1 {
+		for ; curBitOffset < end && i < max; i, curBitOffset = i+1, curBitOffset+1 {
 			out[i] = (dec.data[0] & byte(1<<curBitOffset)) != 0
 		}
 		return i // return the number of bits we extracted
@@ -56,7 +56,7 @@ func (dec *PlainBooleanDecoder) Decode(out []bool) (int, error) {
 	i := 0
 	if dec.bitOffset != 0 {
 		i = unalignedExtract(0, 8, dec.bitOffset)
-		dec.bitOffset = 0
+		dec.bitOffset = (dec.bitOffset + i) % 8
 	}
 
 	// determine the number of full bytes worth of bits we can decode

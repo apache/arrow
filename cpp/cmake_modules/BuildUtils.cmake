@@ -527,6 +527,7 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       EXTRA_LINK_LIBS
       STATIC_LINK_LIBS
       DEPENDENCIES
+      SOURCES
       PREFIX
       LABELS)
   cmake_parse_arguments(ARG
@@ -547,13 +548,19 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(BENCHMARK_NAME "${ARG_PREFIX}-${BENCHMARK_NAME}")
   endif()
 
+  if(ARG_SOURCES)
+    set(SOURCES ${ARG_SOURCES})
+  else()
+    set(SOURCES "${REL_BENCHMARK_NAME}.cc")
+  endif()
+
   # Make sure the executable name contains only hyphens, not underscores
   string(REPLACE "_" "-" BENCHMARK_NAME ${BENCHMARK_NAME})
 
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME}.cc)
     # This benchmark has a corresponding .cc file, set it up as an executable.
     set(BENCHMARK_PATH "${EXECUTABLE_OUTPUT_PATH}/${BENCHMARK_NAME}")
-    add_executable(${BENCHMARK_NAME} "${REL_BENCHMARK_NAME}.cc")
+    add_executable(${BENCHMARK_NAME} ${SOURCES})
 
     if(ARG_STATIC_LINK_LIBS)
       # Customize link libraries
@@ -600,6 +607,10 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(ARG_LABELS "benchmark;${ARG_LABELS}")
   else()
     set(ARG_LABELS benchmark)
+  endif()
+
+  if(ARROW_BUILD_DETAILED_BENCHMARKS)
+    target_compile_definitions(${BENCHMARK_NAME} PRIVATE ARROW_BUILD_DETAILED_BENCHMARKS)
   endif()
 
   add_test(${BENCHMARK_NAME}
@@ -652,6 +663,7 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       EXTRA_DEPENDENCIES
       LABELS
       EXTRA_LABELS
+      TEST_ARGUMENTS
       PREFIX)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -730,15 +742,16 @@ function(ADD_TEST_CASE REL_TEST_NAME)
              "cd '${CMAKE_SOURCE_DIR}'; \
                valgrind --suppressions=valgrind.supp --tool=memcheck --gen-suppressions=all \
                  --num-callers=500 --leak-check=full --leak-check-heuristics=stdstring \
-                 --error-exitcode=1 ${TEST_PATH}")
+                 --error-exitcode=1 ${TEST_PATH} ${ARG_TEST_ARGUMENTS}")
   elseif(WIN32)
-    add_test(${TEST_NAME} ${TEST_PATH})
+    add_test(${TEST_NAME} ${TEST_PATH} ${ARG_TEST_ARGUMENTS})
   else()
     add_test(${TEST_NAME}
              ${BUILD_SUPPORT_DIR}/run-test.sh
              ${CMAKE_BINARY_DIR}
              test
-             ${TEST_PATH})
+             ${TEST_PATH}
+             ${ARG_TEST_ARGUMENTS})
   endif()
 
   # Add test as dependency of relevant targets
@@ -798,7 +811,12 @@ endfunction()
 function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   set(options)
   set(one_value_args)
-  set(multi_value_args EXTRA_LINK_LIBS DEPENDENCIES PREFIX)
+  set(multi_value_args
+      EXTRA_INCLUDES
+      EXTRA_LINK_LIBS
+      EXTRA_SOURCES
+      DEPENDENCIES
+      PREFIX)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -820,7 +838,7 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
     set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
-    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc")
+    add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})
     set(NO_COLOR "--color_print=false")
@@ -832,6 +850,10 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
 
   if(ARG_DEPENDENCIES)
     add_dependencies(${EXAMPLE_NAME} ${ARG_DEPENDENCIES})
+  endif()
+
+  if(ARG_EXTRA_INCLUDES)
+    target_include_directories(${EXAMPLE_NAME} SYSTEM PUBLIC ${ARG_EXTRA_INCLUDES})
   endif()
 
   add_test(${EXAMPLE_NAME} ${EXAMPLE_PATH})

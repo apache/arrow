@@ -376,9 +376,10 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
   };
   constexpr CombinationOption combinations[] = {
       {Compression::GZIP, 2, true},     {Compression::BROTLI, 10, true},
-      {Compression::ZSTD, 4, true},     {Compression::LZ4, -10, false},
+      {Compression::ZSTD, 4, true},     {Compression::LZ4, 10, true},
       {Compression::LZO, -22, false},   {Compression::UNCOMPRESSED, 10, false},
-      {Compression::SNAPPY, 16, false}, {Compression::GZIP, -992, false}};
+      {Compression::SNAPPY, 16, false}, {Compression::GZIP, -992, false},
+      {Compression::LZ4_FRAME, 9, true}};
 
   std::vector<uint8_t> data = MakeRandomData(2000);
   for (const auto& combination : combinations) {
@@ -583,6 +584,11 @@ TEST_P(CodecTest, StreamingMultiFlush) {
   ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
   ASSERT_FALSE(result.should_retry);
 }
+
+#if !defined ARROW_WITH_ZLIB && !defined ARROW_WITH_SNAPPY && !defined ARROW_WITH_LZ4 && \
+    !defined ARROW_WITH_BROTLI && !defined ARROW_WITH_BZ2 && !defined ARROW_WITH_ZSTD
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CodecTest);
+#endif
 
 #ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_SUITE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));

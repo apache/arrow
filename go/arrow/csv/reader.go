@@ -24,10 +24,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -38,7 +38,7 @@ type Reader struct {
 
 	refs int64
 	bld  *array.RecordBuilder
-	cur  array.Record
+	cur  arrow.Record
 	err  error
 
 	chunk int
@@ -57,7 +57,7 @@ type Reader struct {
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
-// array.Records from the given schema.
+// arrow.Records from the given schema.
 //
 // NewReader panics if the given schema contains fields that have types that are not
 // primitive types.
@@ -133,7 +133,7 @@ func (r *Reader) Schema() *arrow.Schema { return r.schema }
 // Record returns the current record that has been extracted from the
 // underlying CSV file.
 // It is valid until the next call to Next.
-func (r *Reader) Record() array.Record { return r.cur }
+func (r *Reader) Record() arrow.Record { return r.cur }
 
 // Next returns whether a Record could be extracted from the underlying CSV file.
 //
@@ -340,7 +340,7 @@ func (r *Reader) parseBool(field array.Builder, str string) {
 	case "true", "True", "1":
 		v = true
 	default:
-		r.err = fmt.Errorf("Unrecognized boolean: %s", str)
+		r.err = fmt.Errorf("unrecognized boolean: %s", str)
 		field.AppendNull()
 		return
 	}

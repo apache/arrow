@@ -22,6 +22,7 @@
 #include <mach-o/dyld.h>
 #endif
 
+#include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
@@ -33,6 +34,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -698,8 +701,7 @@ Status TestServerBasicAuthHandler::Authenticate(ServerAuthSender* outgoing,
                                                 ServerAuthReader* incoming) {
   std::string token;
   RETURN_NOT_OK(incoming->Read(&token));
-  BasicAuth incoming_auth;
-  RETURN_NOT_OK(BasicAuth::Deserialize(token, &incoming_auth));
+  ARROW_ASSIGN_OR_RAISE(BasicAuth incoming_auth, BasicAuth::Deserialize(token));
   if (incoming_auth.username != basic_auth_.username ||
       incoming_auth.password != basic_auth_.password) {
     return MakeFlightError(FlightStatusCode::Unauthenticated, "Invalid token");
@@ -749,8 +751,7 @@ TestClientBasicAuthHandler::~TestClientBasicAuthHandler() {}
 
 Status TestClientBasicAuthHandler::Authenticate(ClientAuthSender* outgoing,
                                                 ClientAuthReader* incoming) {
-  std::string pb_result;
-  RETURN_NOT_OK(BasicAuth::Serialize(basic_auth_, &pb_result));
+  ARROW_ASSIGN_OR_RAISE(std::string pb_result, basic_auth_.SerializeToString());
   RETURN_NOT_OK(outgoing->Write(pb_result));
   RETURN_NOT_OK(incoming->Read(&token_));
   return Status::OK();

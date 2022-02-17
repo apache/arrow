@@ -97,7 +97,7 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>
     // then byte-swapping (which is a single CPU instruction) allows the
     // combined high and low bits to participate in the initial hash table index.
     auto h = static_cast<hash_t>(value);
-    return BitUtil::ByteSwap(multipliers[AlgNum] * h);
+    return bit_util::ByteSwap(multipliers[AlgNum] * h);
   }
 };
 
@@ -212,7 +212,7 @@ class HashTable {
     DCHECK_NE(pool, nullptr);
     // Minimum of 32 elements
     capacity = std::max<uint64_t>(capacity, 32UL);
-    capacity_ = BitUtil::NextPower2(capacity);
+    capacity_ = bit_util::NextPower2(capacity);
     capacity_mask_ = capacity_ - 1;
     size_ = 0;
 
@@ -881,6 +881,15 @@ static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& me
 
   return Status::OK();
 }
+
+struct StringViewHash {
+  // std::hash compatible hasher for use with std::unordered_*
+  // (the std::hash specialization provided by nonstd constructs std::string
+  // temporaries then invokes std::hash<std::string> against those)
+  hash_t operator()(const util::string_view& value) const {
+    return ComputeStringHash<0>(value.data(), static_cast<int64_t>(value.size()));
+  }
+};
 
 }  // namespace internal
 }  // namespace arrow

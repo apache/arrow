@@ -167,7 +167,7 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
       std::shared_ptr<Buffer> buf) override;
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override;
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override;
 
   /// \brief The CudaDevice instance tied to this MemoryManager
   ///
@@ -217,7 +217,7 @@ class ARROW_EXPORT CudaContext : public std::enable_shared_from_this<CudaContext
   /// \brief Allocate CUDA memory on GPU device for this context
   /// \param[in] nbytes number of bytes
   /// \return the allocated buffer
-  Result<std::shared_ptr<CudaBuffer>> Allocate(int64_t nbytes);
+  Result<std::unique_ptr<CudaBuffer>> Allocate(int64_t nbytes);
 
   /// \brief Release CUDA memory on GPU device for this context
   /// \param[in] device_ptr the buffer address

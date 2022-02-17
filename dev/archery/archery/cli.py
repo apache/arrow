@@ -18,7 +18,6 @@
 from collections import namedtuple
 from io import StringIO
 import click
-import errno
 import json
 import logging
 import os
@@ -118,11 +117,17 @@ def _apply_options(cmd, options):
 @cpp_toolchain_options
 @click.option("--build-type", default=None, type=build_type,
               help="CMake's CMAKE_BUILD_TYPE")
+@click.option("--build-static", default=True, type=BOOL,
+              help="Build static libraries")
+@click.option("--build-shared", default=True, type=BOOL,
+              help="Build shared libraries")
+@click.option("--build-unity", default=True, type=BOOL,
+              help="Use CMAKE_UNITY_BUILD")
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 @click.option("--use-gold-linker", default=True, type=BOOL,
               help="Toggles ARROW_USE_LD_GOLD option.")
-@click.option("--simd-level", default="SSE4_2", type=simd_level,
+@click.option("--simd-level", default="DEFAULT", type=simd_level,
               help="Toggles ARROW_SIMD_LEVEL option.")
 # Tests and benchmarks
 @click.option("--with-tests", default=True, type=BOOL,
@@ -353,7 +358,7 @@ def benchmark_common_options(cmd):
                      is_flag=True,
                      help="Preserve workspace for investigation."),
         click.option("--output", metavar="<output>",
-                     type=click.File("w", encoding="utf8"), default="-",
+                     type=click.File("w", encoding="utf8"), default=None,
                      help="Capture output result into file."),
         click.option("--language", metavar="<lang>", type=str, default="cpp",
                      show_default=True, callback=check_language,
@@ -418,7 +423,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 src, root, rev_or_path, conf)
 
         for b in runner_base.list_benchmarks:
-            click.echo(b, file=output)
+            click.echo(b, file=output or sys.stdout)
 
 
 @benchmark.command(name="run", short_help="Run benchmark suite")
@@ -494,7 +499,12 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 repetitions=repetitions,
                 benchmark_filter=benchmark_filter)
 
-        json.dump(runner_base, output, cls=JsonEncoder)
+        # XXX for some reason, the benchmark runner only does its work
+        # when asked to JSON-serialize the results, so produce a JSON
+        # output even when none is requested.
+        json_out = json.dumps(runner_base, cls=JsonEncoder)
+        if output is not None:
+            output.write(json_out)
 
 
 @benchmark.command(name="diff", short_help="Compare benchmark suites")
@@ -633,8 +643,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
         ren_counters = language == "java"
         formatted = _format_comparisons_with_pandas(comparisons_json,
                                                     no_counters, ren_counters)
-        output.write(formatted)
-        output.write('\n')
+        print(formatted, file=output or sys.stdout)
 
 
 def _get_comparisons_as_json(comparisons):
@@ -692,6 +701,8 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
+@click.option('--with-csharp', type=bool, default=False,
+              help='Include C# in integration tests')
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests')
 @click.option('--with-js', type=bool, default=False,
@@ -701,7 +712,7 @@ def _set_default(opt, default):
 @click.option('--with-rust', type=bool, default=False,
               help='Include Rust in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
-@click.option('--write_generated_json', default=False,
+@click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
@@ -732,7 +743,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'java', 'js', 'go', 'rust']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
 
     enabled_languages = 0
     for lang in languages:
@@ -744,11 +755,7 @@ def integration(with_all=False, random_seed=12345, **args):
             enabled_languages += 1
 
     if gen_path:
-        try:
-            os.makedirs(gen_path)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
+        os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
         if enabled_languages == 0:
@@ -859,7 +866,7 @@ def release_changelog_regenerate(obj):
     jira, repo = obj['jira'], obj['repo']
     changelogs = []
 
-    for version in jira.arrow_versions():
+    for version in jira.project_versions('ARROW'):
         if not version.released:
             continue
         release = Release.from_jira(version, jira=jira, repo=repo)

@@ -119,28 +119,21 @@ For now just say n as we have 1 branch
 
 ## Verifying Release Candidates
 
-We have provided a script to assist with verifying release candidates:
+We have provided a script to assist with verifying release candidates on Linux
+and macOS:
 
 ```shell
 bash dev/release/verify-release-candidate.sh 0.7.0 0
 ```
 
-Currently this only works on Linux (patches to expand to macOS welcome!). Read
-the script for information about system dependencies.
+Read the script and check the notes in dev/release for information about system 
+dependencies.
 
 On Windows, we have a script that verifies C++ and Python (requires Visual
 Studio 2015):
 
 ```
 dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
-```
-
-### Verifying the JavaScript release
-
-For JavaScript-specific releases, use a different verification script:
-
-```shell
-bash dev/release/js-verify-release-candidate.sh 0.7.0 0
 ```
 
 # Integration testing

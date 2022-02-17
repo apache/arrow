@@ -23,14 +23,18 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_traits.h"
 
 namespace arrow {
@@ -197,6 +201,10 @@ class TestRealScalar : public ::testing::Test {
     scalar_other_ = std::make_shared<ScalarType>(static_cast<CType>(1.1));
     ASSERT_TRUE(scalar_other_->is_valid);
 
+    scalar_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
+    scalar_other_zero_ = std::make_shared<ScalarType>(static_cast<CType>(0.0));
+    scalar_neg_zero_ = std::make_shared<ScalarType>(static_cast<CType>(-0.0));
+
     const CType nan_value = std::numeric_limits<CType>::quiet_NaN();
     scalar_nan_ = std::make_shared<ScalarType>(nan_value);
     ASSERT_TRUE(scalar_nan_->is_valid);
@@ -216,6 +224,18 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_nan_->Equals(*scalar_val_, options));
     ASSERT_TRUE(scalar_nan_->Equals(*scalar_nan_, options));
     ASSERT_TRUE(scalar_nan_->Equals(*scalar_other_nan_, options));
+  }
+
+  void TestSignedZeroEquals() {
+    EqualOptions options = EqualOptions::Defaults();
+    ASSERT_FALSE(scalar_zero_->Equals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_zero_->Equals(*scalar_other_zero_, options));
+    ASSERT_TRUE(scalar_zero_->Equals(*scalar_neg_zero_, options));
+
+    options = options.signed_zeros_equal(false);
+    ASSERT_FALSE(scalar_zero_->Equals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_zero_->Equals(*scalar_other_zero_, options));
+    ASSERT_FALSE(scalar_zero_->Equals(*scalar_neg_zero_, options));
   }
 
   void TestApproxEquals() {
@@ -244,6 +264,16 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_other_->ApproxEquals(*scalar_val_, options));
     ASSERT_FALSE(scalar_nan_->ApproxEquals(*scalar_val_, options));
     ASSERT_TRUE(scalar_nan_->ApproxEquals(*scalar_other_nan_, options));
+
+    // Negative zeros
+    ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_zero_->ApproxEquals(*scalar_other_zero_, options));
+    ASSERT_TRUE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
+
+    options = options.signed_zeros_equal(false);
+    ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_zero_->ApproxEquals(*scalar_other_zero_, options));
+    ASSERT_FALSE(scalar_zero_->ApproxEquals(*scalar_neg_zero_, options));
   }
 
   void TestStructOf() {
@@ -362,12 +392,15 @@ class TestRealScalar : public ::testing::Test {
 
  protected:
   std::shared_ptr<DataType> type_;
-  std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_;
+  std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
+      scalar_zero_, scalar_other_zero_, scalar_neg_zero_;
 };
 
 TYPED_TEST_SUITE(TestRealScalar, RealArrowTypes);
 
 TYPED_TEST(TestRealScalar, NanEquals) { this->TestNanEquals(); }
+
+TYPED_TEST(TestRealScalar, SignedZeroEquals) { this->TestSignedZeroEquals(); }
 
 TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
 
@@ -407,6 +440,11 @@ class TestDecimalScalar : public ::testing::Test {
     ASSERT_FALSE(first->Equals(pi));
     ASSERT_TRUE(second->Equals(pi));
     ASSERT_FALSE(second->Equals(null));
+
+    auto invalid = ScalarType(ValueType::GetMaxValue(6), std::make_shared<T>(5, 2));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("does not fit in precision of"),
+                                    invalid.ValidateFull());
   }
 };
 
@@ -553,6 +591,14 @@ TYPED_TEST(TestStringScalar, ValidateErrors) { this->TestValidateErrors(); }
 TEST(TestStringScalar, MakeScalarImplicit) {
   // MakeScalar("string literal") creates a StringScalar
   auto three = MakeScalar("three");
+  ASSERT_OK(three->ValidateFull());
+  ASSERT_EQ(StringScalar("three"), *three);
+}
+
+TEST(TestStringScalar, MakeScalarString) {
+  // MakeScalar(std::string) creates a StringScalar via FromBuffer
+  std::string buf = "three";
+  auto three = MakeScalar(std::move(buf));
   ASSERT_OK(three->ValidateFull());
   ASSERT_EQ(StringScalar("three"), *three);
 }

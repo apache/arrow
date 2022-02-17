@@ -28,6 +28,10 @@
 
 namespace arrow {
 
+/// \addtogroup numeric-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // Decimal128Array
 
@@ -62,5 +66,7 @@ class ARROW_EXPORT Decimal256Array : public FixedSizeBinaryArray {
 
   std::string FormatValue(int64_t i) const;
 };
+
+/// @}
 
 }  // namespace arrow

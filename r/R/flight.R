@@ -40,6 +40,14 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
   pa$flight$FlightClient(location)
 }
 
+#' Explicitly close a Flight client
+#'
+#' @param client The client to disconnect
+#' @export
+flight_disconnect <- function(client) {
+  client$close()
+}
+
 #' Send data to a Flight server
 #'
 #' @param client `pyarrow.flight.FlightClient`, as returned by [flight_connect()]
@@ -51,12 +59,15 @@ flight_connect <- function(host = "localhost", port, scheme = "grpc+tcp") {
 #' @return `client`, invisibly.
 #' @export
 flight_put <- function(client, data, path, overwrite = TRUE) {
+  assert_is(data, c("data.frame", "Table", "RecordBatch"))
+
   if (!overwrite && flight_path_exists(client, path)) {
     stop(path, " exists.", call. = FALSE)
   }
   if (is.data.frame(data)) {
     data <- Table$create(data)
   }
+
   py_data <- reticulate::r_to_py(data)
   writer <- client$do_put(descriptor_for_path(path), py_data$schema)[[1]]
   if (inherits(data, "RecordBatch")) {

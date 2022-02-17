@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>6.0.0-SNAPSHOT</version>
+  <version>8.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -28,12 +28,12 @@
   <url>https://arrow.apache.org/</url>
 
   <properties>
-    <target.gen.source.path>${project.basedir}/target/generated-sources</target.gen.source.path>
+    <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.4.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.4.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava.version>30.1.1-jre</dep.guava.version>
-    <dep.netty.version>4.1.48.Final</dep.netty.version>
+    <dep.netty.version>4.1.68.Final</dep.netty.version>
     <dep.jackson.version>2.11.4</dep.jackson.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
@@ -84,6 +84,14 @@
   </issueManagement>
 
   <build>
+    <extensions>
+      <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.5.0.Final</version>
+      </extension>
+    </extensions>
 
     <plugins>
       <plugin>
@@ -128,6 +136,7 @@
             <exclude>**/TAGS</exclude>
             <exclude>**/*.checkstyle</exclude>
             <exclude>**/.classpath</exclude>
+            <exclude>**/.factorypath</exclude>
             <exclude>**/.settings/**</exclude>
             <exclude>.*/**</exclude>
             <exclude>**/*.patch</exclude>
@@ -394,13 +403,28 @@
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
               <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
               <user.timezone>UTC</user.timezone>
+              <!-- Note: changing the below configuration might increase the max allocation size for a vector
+              which in turn can cause OOM. -->
+              <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
-            <!-- Note: changing the below configuration might increase the max allocation size for a vector
-            which in turn can cause OOM. -->
-            <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
-
+        <plugin>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.0.0-M3</version>
+          <configuration>
+            <systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+              <user.timezone>UTC</user.timezone>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.7</version>
+        </plugin>
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
           only. It has no influence on the Maven build itself. -->
@@ -549,6 +573,11 @@
         <version>2.8.2</version>
         <scope>provided</scope>
       </dependency>
+      <dependency>
+        <groupId>org.hamcrest</groupId>
+        <artifactId>hamcrest</artifactId>
+        <version>2.2</version>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -660,8 +689,7 @@
     <module>tools</module>
     <module>adapter/jdbc</module>
     <module>plasma</module>
-    <module>flight/flight-core</module>
-    <module>flight/flight-grpc</module>
+    <module>flight</module>
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>
@@ -678,6 +706,14 @@
         <doclint>none</doclint>
         <additionalparam>-Xdoclint:none</additionalparam>
       </properties>
+    </profile>
+
+    <profile>
+      <!-- C data interface depends on building a native library -->
+      <id>arrow-c-data</id>
+      <modules>
+        <module>c</module>
+      </modules>
     </profile>
 
     <profile>
@@ -757,6 +793,57 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <profile>
+      <id>code-coverage</id>
+      <!--
+        Use `mvn -Pcode-coverage install site` to capture and generate the code coverage report
+        Alternatively, if you do not want to generate the full set of reports, use:
+        `mvn -Pcode-coverage install org.jacoco:jacoco-maven-plugin:report org.jacoco:jacoco-maven-plugin:report-integration`
+
+        Add `-Pintegration-tests` to the previous commandline to also capture integration tests coverage
+      -->
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>default-prepare-agent</id>
+                <goals>
+                  <goal>prepare-agent</goal>
+                </goals>
+              </execution>
+              <execution>
+                <id>default-prepare-agent-integration</id>
+                <goals>
+                  <goal>prepare-agent-integration</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+      <reporting>
+        <plugins>
+          <plugin>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.7</version>
+            <reportSets>
+              <reportSet>
+                <inherited>false</inherited><!-- don't run aggregate in child modules -->
+                <reports>
+                  <!-- select non-aggregate reports -->
+                  <report>report</report>
+                </reports>
+              </reportSet>
+            </reportSets>
+          </plugin>
+        </plugins>
+      </reporting>
     </profile>
 
   </profiles>

@@ -30,6 +30,7 @@ module Arrow
       require_libraries
       require_extension_library
       gc_guard
+      self.class.start_callback_dispatch_thread
     end
 
     def require_libraries
@@ -40,6 +41,8 @@ module Arrow
       require "arrow/record-containable"
       require "arrow/symbol-values-appendable"
 
+      require "arrow/aggregate-node-options"
+      require "arrow/aggregation"
       require "arrow/array"
       require "arrow/array-builder"
       require "arrow/bigdecimal-extension"
@@ -68,10 +71,13 @@ module Arrow
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
       require "arrow/equal-options"
+      require "arrow/expression"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/file-system"
       require "arrow/fixed-size-binary-array"
       require "arrow/fixed-size-binary-array-builder"
+      require "arrow/function"
       require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
@@ -89,17 +95,20 @@ module Arrow
       require "arrow/record-batch-reader"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
+      require "arrow/s3-global-options"
       require "arrow/scalar"
       require "arrow/schema"
       require "arrow/slicer"
       require "arrow/sort-key"
       require "arrow/sort-options"
+      require "arrow/source-node-options"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"
       require "arrow/struct-data-type"
       require "arrow/table"
+      require "arrow/table-concatenate-options"
       require "arrow/table-formatter"
       require "arrow/table-list-formatter"
       require "arrow/table-table-formatter"
@@ -204,6 +213,17 @@ module Arrow
         super(info, klass, method_name)
       else
         super
+      end
+    end
+
+    def prepare_function_info_lock_gvl(function_info, klass)
+      super
+      case klass.name
+      when "Arrow::RecordBatchFileReader"
+        case function_info.name
+        when "new"
+          function_info.lock_gvl_default = false
+        end
       end
     end
   end

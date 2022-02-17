@@ -49,13 +49,7 @@ is.infinite.ArrowDatum <- function(x) {
 
 #' @export
 is.na.ArrowDatum <- function(x) {
-  # TODO: if an option is added to the is_null kernel to treat NaN as NA,
-  # use that to simplify the code here (ARROW-13367)
-  if (x$type_id() %in% TYPES_WITH_NAN) {
-    call_function("is_nan", x) | call_function("is_null", x)
-  } else {
-    call_function("is_null", x)
-  }
+  call_function("is_null", x, options = list(nan_is_null = TRUE))
 }
 
 #' @export
@@ -71,10 +65,7 @@ is.nan.ArrowDatum <- function(x) {
 
 #' @export
 as.vector.ArrowDatum <- function(x, mode) {
-  tryCatch(
-    x$as_vector(),
-    error = handle_embedded_nul_error
-  )
+  x$as_vector()
 }
 
 #' @export
@@ -111,8 +102,24 @@ eval_array_expression <- function(FUN,
     args <- map(args, ~ .$cast(float64()))
   } else if (FUN == "%/%") {
     # In R, integer division works like floor(float division)
-    out <- eval_array_expression("/", args = args, options = options)
-    return(out$cast(int32(), allow_float_truncate = TRUE))
+    out <- eval_array_expression("/", args = args)
+
+    # integer output only for all integer input
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+    if (numerator_is_int && denominator_is_int) {
+      out_float <- eval_array_expression(
+        "if_else",
+        eval_array_expression("equal", args[[2]], 0L),
+        Scalar$create(NA_integer_),
+        eval_array_expression("floor", out)
+      )
+      return(out_float$cast(args[[1]]$type))
+    } else {
+      return(eval_array_expression("floor", out))
+    }
   } else if (FUN == "%%") {
     # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
     # eagerly, but we can build that up
@@ -241,6 +248,7 @@ is.sliceable <- function(i) {
   is.numeric(i) &&
     length(i) > 0 &&
     all(i > 0) &&
+    i[1] <= i[length(i)] &&
     identical(as.integer(i), i[1]:i[length(i)])
 }
 

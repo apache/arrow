@@ -197,6 +197,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         const CS3GlobalOptions& options)
     cdef CStatus CFinalizeS3 "arrow::fs::FinalizeS3"()
 
+    cdef CResult[c_string] ResolveS3BucketRegion(const c_string& bucket)
+
     cdef cppclass CHdfsOptions "arrow::fs::HdfsOptions":
         HdfsConnectionConfig connection_config
         int32_t buffer_size
@@ -224,6 +226,19 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef cppclass CMockFileSystem "arrow::fs::internal::MockFileSystem"(
             CFileSystem):
         CMockFileSystem(CTimePoint current_time)
+
+    CStatus CCopyFiles "arrow::fs::CopyFiles"(
+        const vector[CFileLocator]& sources,
+        const vector[CFileLocator]& destinations,
+        const CIOContext& io_context,
+        int64_t chunk_size, c_bool use_threads)
+    CStatus CCopyFilesWithSelector "arrow::fs::CopyFiles"(
+        const shared_ptr[CFileSystem]& source_fs,
+        const CFileSelector& source_sel,
+        const shared_ptr[CFileSystem]& destination_fs,
+        const c_string& destination_base_dir,
+        const CIOContext& io_context,
+        int64_t chunk_size, c_bool use_threads)
 
 
 # Callbacks for implementing Python filesystems

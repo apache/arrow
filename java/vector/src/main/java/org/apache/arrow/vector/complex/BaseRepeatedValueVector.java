@@ -138,6 +138,12 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     offsetAllocationSizeInBytes = newAllocationSize;
   }
 
+  /**
+   * Get the offset vector.
+   * @deprecated This API will be removed, as the current implementations no longer hold inner offset vectors.
+   *
+   * @return the underlying offset vector or null if none exists.
+   */
   @Override
   @Deprecated
   public UInt4Vector getOffsetVector() {

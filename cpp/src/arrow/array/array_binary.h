@@ -37,6 +37,10 @@
 
 namespace arrow {
 
+/// \addtogroup binary-arrays
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // Binary and String
 
@@ -69,6 +73,10 @@ class BaseBinaryArray : public FlatArray {
     const offset_type pos = raw_value_offsets_[i];
     return util::string_view(reinterpret_cast<const char*>(raw_data_ + pos),
                              raw_value_offsets_[i + 1] - pos);
+  }
+
+  util::optional<util::string_view> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
   }
 
   /// \brief Get binary value as a string_view
@@ -232,6 +240,10 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
     return util::string_view(reinterpret_cast<const char*>(GetValue(i)), byte_width());
   }
 
+  util::optional<util::string_view> operator[](int64_t i) const {
+    return *IteratorType(*this, i);
+  }
+
   std::string GetString(int64_t i) const { return std::string(GetView(i)); }
 
   int32_t byte_width() const { return byte_width_; }
@@ -251,5 +263,7 @@ class ARROW_EXPORT FixedSizeBinaryArray : public PrimitiveArray {
 
   int32_t byte_width_;
 };
+
+/// @}
 
 }  // namespace arrow

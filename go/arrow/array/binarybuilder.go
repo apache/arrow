@@ -17,12 +17,17 @@
 package array
 
 import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
 	"math"
+	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/goccy/go-json"
 )
 
 const (
@@ -176,7 +181,7 @@ func (b *BinaryBuilder) Resize(n int) {
 
 // NewArray creates a Binary array from the memory buffers used by the builder and resets the BinaryBuilder
 // so it can be used to build a new array.
-func (b *BinaryBuilder) NewArray() Interface {
+func (b *BinaryBuilder) NewArray() arrow.Array {
 	return b.NewBinaryArray()
 }
 
@@ -208,8 +213,58 @@ func (b *BinaryBuilder) newData() (data *Data) {
 
 func (b *BinaryBuilder) appendNextOffset() {
 	numBytes := b.values.Len()
-	// TODO(sgc): check binaryArrayMaximumCapacity?
+	debug.Assert(numBytes <= binaryArrayMaximumCapacity, "exceeded maximum capacity of binary array")
 	b.offsets.AppendValue(int32(numBytes))
+}
+
+func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case string:
+		data, err := base64.StdEncoding.DecodeString(v)
+		if err != nil {
+			return err
+		}
+		b.Append(data)
+	case []byte:
+		b.Append(v)
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Type:   reflect.TypeOf([]byte{}),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *BinaryBuilder) unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.unmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
+	}
+
+	return b.unmarshal(dec)
 }
 
 var (

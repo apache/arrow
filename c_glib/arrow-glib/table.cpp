@@ -39,6 +39,9 @@ G_BEGIN_DECLS
  * @short_description: Table class
  * @include: arrow-glib/arrow-glib.h
  *
+ * #GArrowTableConcatenateOptions is a class for customizing
+ * garrow_table_concatenate() behavior.
+ *
  * #GArrowTable is a class for table. Table has zero or more
  * #GArrowChunkedArrays and zero or more records.
  *
@@ -46,13 +49,158 @@ G_BEGIN_DECLS
  * Feather data.
  */
 
+typedef struct GArrowTableConcatenateOptionsPrivate_ {
+  arrow::ConcatenateTablesOptions options;
+} GArrowTableConcatenateOptionsPrivate;
+
+enum {
+  PROP_UNIFY_SCHEMAS = 1,
+  PROP_PROMOTE_NULLABILITY,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowTableConcatenateOptions,
+                           garrow_table_concatenate_options,
+                           G_TYPE_OBJECT)
+
+#define GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(obj)       \
+  static_cast<GArrowTableConcatenateOptionsPrivate *>(          \
+    garrow_table_concatenate_options_get_instance_private(      \
+      GARROW_TABLE_CONCATENATE_OPTIONS(obj)))
+
+static void
+garrow_table_concatenate_options_finalize(GObject *object)
+{
+  auto priv = GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(object);
+  priv->options.~ConcatenateTablesOptions();
+  G_OBJECT_CLASS(garrow_table_concatenate_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_table_concatenate_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_UNIFY_SCHEMAS:
+    priv->options.unify_schemas = g_value_get_boolean(value);
+    break;
+  case PROP_PROMOTE_NULLABILITY:
+    priv->options.field_merge_options.promote_nullability =
+      g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_table_concatenate_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto priv = GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_UNIFY_SCHEMAS:
+    g_value_set_boolean(value, priv->options.unify_schemas);
+    break;
+  case PROP_PROMOTE_NULLABILITY:
+    g_value_set_boolean(value,
+                        priv->options.field_merge_options.promote_nullability);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_table_concatenate_options_init(GArrowTableConcatenateOptions *object)
+{
+  auto priv = GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(object);
+  new(&(priv->options)) arrow::ConcatenateTablesOptions;
+}
+
+static void
+garrow_table_concatenate_options_class_init(
+  GArrowTableConcatenateOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->finalize     = garrow_table_concatenate_options_finalize;
+  gobject_class->set_property = garrow_table_concatenate_options_set_property;
+  gobject_class->get_property = garrow_table_concatenate_options_get_property;
+
+  GParamSpec *spec;
+
+  auto default_options = arrow::ConcatenateTablesOptions::Defaults();
+
+  /**
+   * GArrowTableConcatenateOptions:unify-schemas:
+   *
+   * If true, the schemas of the tables will be first unified with
+   * fields of the same name being merged, according to
+   * #GArrowTableConcatenateOptions:promote-nullability, then each
+   * table will be promoted to the unified schema before being
+   * concatenated.
+   *
+   * Otherwise, all tables should have the same schema. Each column in
+   * the output table is the result of concatenating the corresponding
+   * columns in all input tables.
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_boolean("unify-schemas",
+                              "Unify schemas",
+                              "Whether unifying schemas or not",
+                              default_options.unify_schemas,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_UNIFY_SCHEMAS, spec);
+
+  /**
+   * GArrowTableConcatenateOptions:promote-nullability:
+   *
+   * If true, a #GArrowField of #GArrowNullDataType can be unified
+   * with a #GArrowField of another type. The unified field will be of
+   * the other type and become nullable. Nullability will be promoted
+   * to the looser option (nullable if one is not nullable).
+   *
+   * Since: 6.0.0
+   */
+  spec = g_param_spec_boolean("promote-nullability",
+                              "Promote nullability",
+                              "Whether promoting nullability or not",
+                              default_options.field_merge_options.promote_nullability,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PROMOTE_NULLABILITY, spec);
+}
+
+/**
+ * garrow_table_concatenate_options_new:
+ *
+ * Returns: A newly created #GArrowTableConcatenateOptions.
+ *
+ * Since: 6.0.0
+ */
+GArrowTableConcatenateOptions *
+garrow_table_concatenate_options_new(void)
+{
+  return GARROW_TABLE_CONCATENATE_OPTIONS(
+    g_object_new(GARROW_TYPE_TABLE_CONCATENATE_OPTIONS,
+                 NULL));
+}
+
+
 typedef struct GArrowTablePrivate_ {
   std::shared_ptr<arrow::Table> table;
 } GArrowTablePrivate;
 
 enum {
-  PROP_0,
-  PROP_TABLE
+  PROP_TABLE = 1,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowTable,
@@ -543,6 +691,7 @@ garrow_table_to_string(GArrowTable *table, GError **error)
  * garrow_table_concatenate:
  * @table: A #GArrowTable.
  * @other_tables: (element-type GArrowTable): The tables to be concatenated.
+ * @options: (nullable): The options to customize concatenation.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable) (transfer full): The table concatenated vertically.
@@ -552,6 +701,7 @@ garrow_table_to_string(GArrowTable *table, GError **error)
 GArrowTable *
 garrow_table_concatenate(GArrowTable *table,
                          GList *other_tables,
+                         GArrowTableConcatenateOptions *options,
                          GError **error)
 {
   auto arrow_table = garrow_table_get_raw(table);
@@ -560,9 +710,18 @@ garrow_table_concatenate(GArrowTable *table,
     auto arrow_other_table = garrow_table_get_raw(GARROW_TABLE(node->data));
     arrow_tables.push_back(arrow_other_table);
   }
-  auto arrow_concatenated_table = arrow::ConcatenateTables(arrow_tables);
-  if (garrow::check(error, arrow_concatenated_table, "[table][concatenate]")) {
-    return garrow_table_new_raw(&arrow_concatenated_table.ValueOrDie());
+  auto arrow_options = arrow::ConcatenateTablesOptions::Defaults();
+  if (options) {
+    auto options_priv = GARROW_TABLE_CONCATENATE_OPTIONS_GET_PRIVATE(options);
+    arrow_options = options_priv->options;
+  }
+  auto arrow_concatenated_table_result =
+    arrow::ConcatenateTables(arrow_tables, arrow_options);
+  if (garrow::check(error,
+                    arrow_concatenated_table_result,
+                    "[table][concatenate]")) {
+    auto arrow_concatenated_table = std::move(*arrow_concatenated_table_result);
+    return garrow_table_new_raw(&arrow_concatenated_table);
   } else {
     return NULL;
   }

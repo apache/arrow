@@ -214,10 +214,12 @@ class ParquetFile:
         Coalesce and issue file reads in parallel to improve performance on
         high-latency filesystems (e.g. S3). If True, Arrow will use a
         background I/O thread pool.
+    read_dictionary : list
+        List of column names to read directly as DictionaryArray.
     coerce_int96_timestamp_unit : str, default None.
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
-        and therefore INT96 timestamps will be infered as timestamps
+        and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds.
     """
 
@@ -283,7 +285,9 @@ class ParquetFile:
 
         Parameters
         ----------
-        columns: list
+        i : int
+            Index of the individual row group that we want to read.
+        columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -310,9 +314,9 @@ class ParquetFile:
 
         Parameters
         ----------
-        row_groups: list
+        row_groups : list
             Only these row groups will be read from the file.
-        columns: list
+        columns : list
             If not None, only these columns will be read from the row group. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -340,12 +344,12 @@ class ParquetFile:
 
         Parameters
         ----------
-        batch_size: int, default 64K
+        batch_size : int, default 64K
             Maximum number of records to yield per batch. Batches may be
             smaller if there aren't enough rows in the file.
-        row_groups: list
+        row_groups : list
             Only these row groups will be read from the file.
-        columns: list
+        columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -377,7 +381,7 @@ class ParquetFile:
 
         Parameters
         ----------
-        columns: list
+        columns : list
             If not None, only these columns will be read from the file. A
             column name may be a prefix of a nested field, e.g. 'a' will select
             'a.b', 'a.c', and 'a.d.e'.
@@ -492,16 +496,18 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.0"}, default "1.0"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "1.0"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
-    added in format version 2.0.0 and after. Note that files written with
-    version='2.0' may not be readable in all Parquet implementations, so
-    version='1.0' is likely the choice that maximizes file compatibility. Some
-    features, such as lossless storage of nanosecond timestamps as INT64
-    physical storage, are only available with version='2.0'. The Parquet 2.0.0
-    format version also introduced a new serialized data page format; this can
-    be enabled separately using the data_page_version option.
+    added in later format versions.
+    Files written with version='2.4' or '2.6' may not be readable in all
+    Parquet implementations, so version='1.0' is likely the choice that
+    maximizes file compatibility.
+    UINT32 and some logical types are only available with version '2.4'.
+    Nanosecond timestamps are only available with version '2.6'.
+    Other features such as compression algorithms or the new serialized
+    data page format must be enabled separately (see 'compression' and
+    'data_page_version').
 use_dictionary : bool or list
     Specify if we should use dictionary encoding in general or only for
     some columns.
@@ -509,13 +515,14 @@ use_deprecated_int96_timestamps : bool, default None
     Write timestamps to INT96 Parquet format. Defaults to False unless enabled
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
-    Cast timestamps a particular resolution. The defaults depends on `version`.
-    For ``version='1.0'`` (the default), nanoseconds will be cast to
-    microseconds ('us'), and seconds to milliseconds ('ms') by default. For
-    ``version='2.0'``, the original resolution is preserved and no casting
-    is done by default. The casting might result in loss of data, in which
-    case ``allow_truncated_timestamps=True`` can be used to suppress the
-    raised exception.
+    Cast timestamps to a particular resolution. If omitted, defaults are chosen
+    depending on `version`. By default, for ``version='1.0'`` (the default)
+    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
+    for other `version` values, they are written natively without loss
+    of resolution.  Seconds are always cast to milliseconds ('ms') by default,
+    as Parquet does not have any temporal type with seconds resolution.
+    If the casting results in loss of data, it will raise an exception
+    unless ``allow_truncated_timestamps=True`` is given.
     Valid values: {None, 'ms', 'us'}
 data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
@@ -539,7 +546,7 @@ flavor : {'spark'}, default None
 filesystem : FileSystem, default None
     If nothing passed, will be inferred from `where` if path-like, else
     `where` is already a file-like object so no filesystem is needed.
-compression_level: int or dict, default None
+compression_level : int or dict, default None
     Specify the compression level for a codec, either on a general basis or
     per-column. If None is passed, arrow selects the compression level for
     the compression codec in use. The compression level has a different
@@ -547,17 +554,23 @@ compression_level: int or dict, default None
     codec you are using.
     An exception is thrown if the compression codec does not allow specifying
     a compression level.
-use_byte_stream_split: bool or list, default False
+use_byte_stream_split : bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
     enabled, then dictionary is preferred.
     The byte_stream_split encoding is valid only for floating-point data types
     and should be combined with a compression codec.
+column_encoding : string or dict, default None
+    Specify the encoding scheme on a per column basis.
+    Currently supported values: {'PLAIN', 'BYTE_STREAM_SPLIT'}.
+    Certain encodings are only compatible with certain data types.
+    Please refer to the encodings section of `Reading and writing Parquet
+    files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
 data_page_version : {"1.0", "2.0"}, default "1.0"
     The serialized Parquet data page format version to write, defaults to
     1.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
-use_compliant_nested_type: bool, default False
+use_compliant_nested_type : bool, default False
     Whether to write compliant Parquet nested type (lists) as defined
     `here <https://github.com/apache/parquet-format/blob/master/
     LogicalTypes.md#nested-types>`_, defaults to ``False``.
@@ -592,8 +605,9 @@ Class for incrementally building a Parquet file for Arrow tables.
 Parameters
 ----------
 where : path or file-like object
-schema : arrow Schema
+schema : pyarrow.Schema
 {}
+writer_engine_version : unused
 **options : dict
     If options contains a key `metadata_collector` then the
     corresponding value is assumed to be a list (or any object with
@@ -610,6 +624,7 @@ schema : arrow Schema
                  use_deprecated_int96_timestamps=None,
                  compression_level=None,
                  use_byte_stream_split=False,
+                 column_encoding=None,
                  writer_engine_version=None,
                  data_page_version='1.0',
                  use_compliant_nested_type=False,
@@ -661,6 +676,7 @@ schema : arrow Schema
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
+            column_encoding=column_encoding,
             writer_engine_version=engine_version,
             data_page_version=data_page_version,
             use_compliant_nested_type=use_compliant_nested_type,
@@ -679,7 +695,52 @@ schema : arrow Schema
         # return false since we want to propagate exceptions
         return False
 
+    def write(self, table_or_batch, row_group_size=None):
+        """
+        Write RecordBatch or Table to the Parquet file.
+
+        Parameters
+        ----------
+        table_or_batch : {RecordBatch, Table}
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the input
+            table or batch length and 64 * 1024 * 1024.
+        """
+        if isinstance(table_or_batch, pa.RecordBatch):
+            self.write_batch(table_or_batch, row_group_size)
+        elif isinstance(table_or_batch, pa.Table):
+            self.write_table(table_or_batch, row_group_size)
+        else:
+            raise TypeError(type(table_or_batch))
+
+    def write_batch(self, batch, row_group_size=None):
+        """
+        Write RecordBatch to the Parquet file.
+
+        Parameters
+        ----------
+        batch : RecordBatch
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the RecordBatch
+            size and 64 * 1024 * 1024.
+        """
+        table = pa.Table.from_batches([batch], batch.schema)
+        self.write_table(table, row_group_size)
+
     def write_table(self, table, row_group_size=None):
+        """
+        Write Table to the Parquet file.
+
+        Parameters
+        ----------
+        table : Table
+        row_group_size : int, default None
+            Maximum size of each written row group. If None, the
+            row group size will be the minimum of the Table size
+            and 64 * 1024 * 1024.
+        """
         if self.schema_changed:
             table = _sanitize_table(table, self.schema, self.flavor)
         assert self.is_open
@@ -735,6 +796,8 @@ class ParquetDatasetPiece:
         Two-element tuples of ``(column name, ordinal index)``.
     row_group : int, default None
         Row group to load. By default, reads all row groups.
+    file_options : dict
+        Options
     """
 
     def __init__(self, path, open_file_func=partial(open, mode='rb'),
@@ -823,6 +886,8 @@ class ParquetDatasetPiece:
         partitions : ParquetPartitions, default None
         file : file-like object
             Passed to ParquetFile.
+        use_pandas_metadata : bool
+            If pandas metadata should be used or not.
 
         Returns
         -------
@@ -889,6 +954,13 @@ class PartitionSet:
     Then we have two partition sets, one for foo, another for bar. As we visit
     levels of the partition hierarchy, a PartitionSet tracks the distinct
     values and assigns categorical codes to use when reading the pieces
+
+    Parameters
+    ----------
+    name : str
+        Name of the partition set. Under which key to collect all values.
+    keys : list
+        All possible values that have been collected for that partition set.
     """
 
     def __init__(self, name, keys=None):
@@ -901,6 +973,10 @@ class PartitionSet:
         """
         Get the index of the partition value if it is known, otherwise assign
         one
+
+        Parameters
+        ----------
+        key : The value for which we want to known the index.
         """
         if key in self.key_indices:
             return self.key_indices[key]
@@ -963,7 +1039,8 @@ class ParquetPartitions:
         Record a partition value at a particular level, returning the distinct
         code for that value at that level.
 
-        Example:
+        Examples
+        --------
 
         partitions.get_index(1, 'foo', 'a') returns 0
         partitions.get_index(1, 'foo', 'b') returns 1
@@ -1205,7 +1282,8 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : Partitioning or str or list of str, default "hive"
+partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
@@ -1245,7 +1323,7 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     and different partitioning schemes are supported.
 
     {1}
-metadata_nthreads: int, default 1
+metadata_nthreads : int, default 1
     How many threads to allow the thread pool which is used to read the
     dataset metadata. Increasing this is helpful to read partitioned
     datasets.
@@ -1265,7 +1343,7 @@ pre_buffer : bool, default True
 coerce_int96_timestamp_unit : str, default None.
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
-    timestamps will be infered as timestamps in nanoseconds.
+    timestamps will be inferred as timestamps in nanoseconds.
 """.format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
@@ -1460,6 +1538,11 @@ coerce_int96_timestamp_unit : str, default None.
         Read dataset including pandas metadata, if any. Other arguments passed
         through to ParquetDataset.read, see docstring for further details.
 
+        Parameters
+        ----------
+        **kwargs : optional
+            All additional options to pass to the reader.
+
         Returns
         -------
         pyarrow.Table
@@ -1501,7 +1584,11 @@ coerce_int96_timestamp_unit : str, default None.
     @property
     def partitions(self):
         warnings.warn(
-            _DEPR_MSG.format("ParquetDataset.partitions", ""),
+            _DEPR_MSG.format(
+                "ParquetDataset.partitions",
+                " Specify 'use_legacy_dataset=False' while constructing the "
+                "ParquetDataset, and then use the '.partitioning' attribute "
+                "instead."),
             DeprecationWarning, stacklevel=2)
         return self._partitions
 
@@ -1783,20 +1870,29 @@ class _ParquetDatasetV2:
     def filesystem(self):
         return self._dataset.filesystem
 
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+        """
+        return self._dataset.partitioning
+
 
 _read_table_docstring = """
 {0}
 
 Parameters
 ----------
-source: str, pyarrow.NativeFile, or file-like object
+source : str, pyarrow.NativeFile, or file-like object
     If a string passed, can be a single file name or directory name. For
     file-like objects, only read a single file. Use pyarrow.BufferReader to
     read a file contained in a bytes or buffer-like object.
-columns: list
+columns : list
     If not None, only these columns will be read from the file. A column
     name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
-    'a.c', and 'a.d.e'.
+    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    that the table will still have the correct num_rows set despite having
+    no columns.
 use_threads : bool, default True
     Perform multi-threaded column reads.
 metadata : FileMetaData
@@ -1834,6 +1930,11 @@ pre_buffer : bool, default True
     use_legacy_dataset=False. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
+coerce_int96_timestamp_unit : str, default None.
+    Cast timestamps that are stored in INT96 format to a particular
+    resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
+    and therefore INT96 timestamps will be inferred as timestamps
+    in nanoseconds.
 
 Returns
 -------
@@ -1944,7 +2045,9 @@ def read_pandas(source, columns=None, **kwargs):
 read_pandas.__doc__ = _read_table_docstring.format(
     'Read a Table from Parquet format, also reading DataFrame\n'
     'index values if known in the file metadata',
-    _read_docstring_common,
+    "\n".join((_read_docstring_common,
+               """**kwargs
+    additional options for :func:`read_table`""")),
     """pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
     indexes as columns""",
@@ -1961,6 +2064,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 filesystem=None,
                 compression_level=None,
                 use_byte_stream_split=False,
+                column_encoding=None,
                 data_page_version='1.0',
                 use_compliant_nested_type=False,
                 **kwargs):
@@ -1981,6 +2085,7 @@ def write_table(table, where, row_group_size=None, version='1.0',
                 use_deprecated_int96_timestamps=use_int96,
                 compression_level=compression_level,
                 use_byte_stream_split=use_byte_stream_split,
+                column_encoding=column_encoding,
                 data_page_version=data_page_version,
                 use_compliant_nested_type=use_compliant_nested_type,
                 **kwargs) as writer:
@@ -2000,10 +2105,14 @@ Write a Table to Parquet format.
 Parameters
 ----------
 table : pyarrow.Table
-where: string or pyarrow.NativeFile
-row_group_size: int
-    The number of rows per rowgroup
+where : string or pyarrow.NativeFile
+row_group_size : int
+    Maximum size of each written row group. If None, the
+    row group size will be the minimum of the Table size
+    and 64 * 1024 * 1024.
 {}
+**kwargs : optional
+    Additional options for ParquetWriter
 """.format(_parquet_writer_arg_docs)
 
 
@@ -2176,8 +2285,9 @@ def write_metadata(schema, where, metadata_collector=None, **kwargs):
     Parameters
     ----------
     schema : pyarrow.Schema
-    where: string or pyarrow.NativeFile
-    metadata_collector:
+    where : string or pyarrow.NativeFile
+    metadata_collector : list
+        where to collect metadata information.
     **kwargs : dict,
         Additional kwargs for ParquetWriter class. See docstring for
         `ParquetWriter` for more information.
@@ -2221,7 +2331,7 @@ def read_metadata(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 
@@ -2238,7 +2348,7 @@ def read_schema(where, memory_map=False):
 
     Parameters
     ----------
-    where : str (filepath) or file-like object
+    where : str (file path) or file-like object
     memory_map : bool, default False
         Create memory map when the source is a file path.
 

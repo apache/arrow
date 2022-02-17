@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/datum.h>
+#include <arrow-glib/reader.h>
 
 G_BEGIN_DECLS
 
@@ -39,11 +40,48 @@ GArrowExecuteContext *garrow_execute_context_new(void);
 
 
 #define GARROW_TYPE_FUNCTION_OPTIONS (garrow_function_options_get_type())
-G_DECLARE_INTERFACE(GArrowFunctionOptions,
-                    garrow_function_options,
-                    GARROW,
-                    FUNCTION_OPTIONS,
-                    GObject)
+G_DECLARE_DERIVABLE_TYPE(GArrowFunctionOptions,
+                         garrow_function_options,
+                         GARROW,
+                         FUNCTION_OPTIONS,
+                         GObject)
+struct _GArrowFunctionOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_options_equal(GArrowFunctionOptions *options,
+                              GArrowFunctionOptions *other_options);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_options_to_string(GArrowFunctionOptions *options);
+
+
+#define GARROW_TYPE_FUNCTION_DOC (garrow_function_doc_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFunctionDoc,
+                         garrow_function_doc,
+                         GARROW,
+                         FUNCTION_DOC,
+                         GObject)
+struct _GArrowFunctionDocClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_summary(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_description(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar **
+garrow_function_doc_get_arg_names(GArrowFunctionDoc *doc);
+GARROW_AVAILABLE_IN_6_0
+gchar *
+garrow_function_doc_get_options_class_name(GArrowFunctionDoc *doc);
 
 
 #define GARROW_TYPE_FUNCTION (garrow_function_get_type())
@@ -61,6 +99,9 @@ struct _GArrowFunctionClass
 GARROW_AVAILABLE_IN_1_0
 GArrowFunction *garrow_function_find(const gchar *name);
 
+GARROW_AVAILABLE_IN_7_0
+GList *garrow_function_all(void);
+
 GARROW_AVAILABLE_IN_1_0
 GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GList *args,
@@ -68,30 +109,287 @@ GArrowDatum *garrow_function_execute(GArrowFunction *function,
                                      GArrowExecuteContext *context,
                                      GError **error);
 
+GARROW_AVAILABLE_IN_7_0
+const gchar *
+garrow_function_get_name(GArrowFunction *function);
+GARROW_AVAILABLE_IN_6_0
+GArrowFunctionDoc *
+garrow_function_get_doc(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GArrowFunctionOptions *
+garrow_function_get_default_options(GArrowFunction *function);
+GARROW_AVAILABLE_IN_7_0
+GType
+garrow_function_get_options_type(GArrowFunction *function);
+
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_function_equal(GArrowFunction *function,
+                      GArrowFunction *other_function);
+GARROW_AVAILABLE_IN_7_0
+gchar *
+garrow_function_to_string(GArrowFunction *function);
+
+
+#define GARROW_TYPE_EXECUTE_NODE_OPTIONS (garrow_execute_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExecuteNodeOptions,
+                         garrow_execute_node_options,
+                         GARROW,
+                         EXECUTE_NODE_OPTIONS,
+                         GObject)
+struct _GArrowExecuteNodeOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+
+#define GARROW_TYPE_SOURCE_NODE_OPTIONS (garrow_source_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSourceNodeOptions,
+                         garrow_source_node_options,
+                         GARROW,
+                         SOURCE_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowSourceNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowSourceNodeOptions *
+garrow_source_node_options_new_record_batch_reader(
+  GArrowRecordBatchReader *reader);
+GARROW_AVAILABLE_IN_6_0
+GArrowSourceNodeOptions *
+garrow_source_node_options_new_record_batch(GArrowRecordBatch *record_batch);
+GARROW_AVAILABLE_IN_6_0
+GArrowSourceNodeOptions *
+garrow_source_node_options_new_table(GArrowTable *table);
+
+
+#define GARROW_TYPE_AGGREGATION (garrow_aggregation_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowAggregation,
+                         garrow_aggregation,
+                         GARROW,
+                         AGGREGATION,
+                         GObject)
+struct _GArrowAggregationClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowAggregation *
+garrow_aggregation_new(const gchar *function,
+                       GArrowFunctionOptions *options,
+                       const gchar *input,
+                       const gchar *output);
+
+#define GARROW_TYPE_AGGREGATE_NODE_OPTIONS      \
+  (garrow_aggregate_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowAggregateNodeOptions,
+                         garrow_aggregate_node_options,
+                         GARROW,
+                         AGGREGATE_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowAggregateNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowAggregateNodeOptions *
+garrow_aggregate_node_options_new(GList *aggregations,
+                                  const gchar **keys,
+                                  gsize n_keys,
+                                  GError **error);
+
+
+#define GARROW_TYPE_SINK_NODE_OPTIONS (garrow_sink_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSinkNodeOptions,
+                         garrow_sink_node_options,
+                         GARROW,
+                         SINK_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowSinkNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowSinkNodeOptions *
+garrow_sink_node_options_new(void);
+GARROW_AVAILABLE_IN_6_0
+GArrowRecordBatchReader *
+garrow_sink_node_options_get_reader(GArrowSinkNodeOptions *options,
+                                    GArrowSchema *schema);
+
+
+/**
+ * GArrowJoinType:
+ * @GARROW_JOIN_TYPE_LEFT_SEMI:
+ * @GARROW_JOIN_TYPE_RIGHT_SEMI:
+ * @GARROW_JOIN_TYPE_LEFT_ANTI:
+ * @GARROW_JOIN_TYPE_RIGHT_ANTI:
+ * @GARROW_JOIN_TYPE_INNER:
+ * @GARROW_JOIN_TYPE_LEFT_OUTER:
+ * @GARROW_JOIN_TYPE_RIGHT_OUTER:
+ * @GARROW_JOIN_TYPE_FULL_OUTER:
+ *
+ * They correspond to the values of `arrow::compute::JoinType`.
+ *
+ * Since: 7.0.0
+ */
+typedef enum {
+  GARROW_JOIN_TYPE_LEFT_SEMI,
+  GARROW_JOIN_TYPE_RIGHT_SEMI,
+  GARROW_JOIN_TYPE_LEFT_ANTI,
+  GARROW_JOIN_TYPE_RIGHT_ANTI,
+  GARROW_JOIN_TYPE_INNER,
+  GARROW_JOIN_TYPE_LEFT_OUTER,
+  GARROW_JOIN_TYPE_RIGHT_OUTER,
+  GARROW_JOIN_TYPE_FULL_OUTER,
+} GArrowJoinType;
+
+#define GARROW_TYPE_HASH_JOIN_NODE_OPTIONS      \
+  (garrow_hash_join_node_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHashJoinNodeOptions,
+                         garrow_hash_join_node_options,
+                         GARROW,
+                         HASH_JOIN_NODE_OPTIONS,
+                         GArrowExecuteNodeOptions)
+struct _GArrowHashJoinNodeOptionsClass
+{
+  GArrowExecuteNodeOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowHashJoinNodeOptions *
+garrow_hash_join_node_options_new(GArrowJoinType type,
+                                  const gchar **left_keys,
+                                  gsize n_left_keys,
+                                  const gchar **right_keys,
+                                  gsize n_right_keys,
+                                  GError **error);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_hash_join_node_options_set_left_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error);
+GARROW_AVAILABLE_IN_7_0
+gboolean
+garrow_hash_join_node_options_set_right_outputs(
+  GArrowHashJoinNodeOptions *options,
+  const gchar **outputs,
+  gsize n_outputs,
+  GError **error);
+
+
+#define GARROW_TYPE_EXECUTE_NODE (garrow_execute_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExecuteNode,
+                         garrow_execute_node,
+                         GARROW,
+                         EXECUTE_NODE,
+                         GObject)
+struct _GArrowExecuteNodeClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+const gchar *
+garrow_execute_node_get_kind_name(GArrowExecuteNode *node);
+GARROW_AVAILABLE_IN_6_0
+GArrowSchema *
+garrow_execute_node_get_output_schema(GArrowExecuteNode *node);
+
+
+#define GARROW_TYPE_EXECUTE_PLAN (garrow_execute_plan_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExecutePlan,
+                         garrow_execute_plan,
+                         GARROW,
+                         EXECUTE_PLAN,
+                         GObject)
+struct _GArrowExecutePlanClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowExecutePlan *
+garrow_execute_plan_new(GError **error);
+GARROW_AVAILABLE_IN_6_0
+GArrowExecuteNode *
+garrow_execute_plan_build_node(GArrowExecutePlan *plan,
+                               const gchar *factory_name,
+                               GList *inputs,
+                               GArrowExecuteNodeOptions *options,
+                               GError **error);
+GARROW_AVAILABLE_IN_6_0
+GArrowExecuteNode *
+garrow_execute_plan_build_source_node(GArrowExecutePlan *plan,
+                                      GArrowSourceNodeOptions *options,
+                                      GError **error);
+GARROW_AVAILABLE_IN_6_0
+GArrowExecuteNode *
+garrow_execute_plan_build_aggregate_node(GArrowExecutePlan *plan,
+                                         GArrowExecuteNode *input,
+                                         GArrowAggregateNodeOptions *options,
+                                         GError **error);
+GARROW_AVAILABLE_IN_6_0
+GArrowExecuteNode *
+garrow_execute_plan_build_sink_node(GArrowExecutePlan *plan,
+                                    GArrowExecuteNode *input,
+                                    GArrowSinkNodeOptions *options,
+                                    GError **error);
+GARROW_AVAILABLE_IN_7_0
+GArrowExecuteNode *
+garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
+                                         GArrowExecuteNode *left,
+                                         GArrowExecuteNode *right,
+                                         GArrowHashJoinNodeOptions *options,
+                                         GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+garrow_execute_plan_validate(GArrowExecutePlan *plan,
+                             GError **error);
+GARROW_AVAILABLE_IN_6_0
+gboolean
+garrow_execute_plan_start(GArrowExecutePlan *plan,
+                          GError **error);
+GARROW_AVAILABLE_IN_6_0
+void
+garrow_execute_plan_stop(GArrowExecutePlan *plan);
+GARROW_AVAILABLE_IN_6_0
+void
+garrow_execute_plan_wait(GArrowExecutePlan *plan);
+
 
 #define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCastOptions,
                          garrow_cast_options,
                          GARROW,
                          CAST_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowCastOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GArrowCastOptions *garrow_cast_options_new(void);
 
 
-#define GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS (garrow_scalar_aggregate_options_get_type())
+#define GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS    \
+  (garrow_scalar_aggregate_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowScalarAggregateOptions,
                          garrow_scalar_aggregate_options,
                          GARROW,
                          SCALAR_AGGREGATE_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowScalarAggregateOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_5_0
@@ -120,10 +418,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowCountOptions,
                          garrow_count_options,
                          GARROW,
                          COUNT_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowCountOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_6_0
@@ -151,10 +449,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowFilterOptions,
                          garrow_filter_options,
                          GARROW,
                          FILTER_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowFilterOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_17
@@ -167,10 +465,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowTakeOptions,
                          garrow_take_options,
                          GARROW,
                          TAKE_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowTakeOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_0_14
@@ -197,10 +495,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowArraySortOptions,
                          garrow_array_sort_options,
                          GARROW,
                          ARRAY_SORT_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowArraySortOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
@@ -225,7 +523,9 @@ struct _GArrowSortKeyClass
 
 GARROW_AVAILABLE_IN_3_0
 GArrowSortKey *
-garrow_sort_key_new(const gchar *name, GArrowSortOrder order);
+garrow_sort_key_new(const gchar *target,
+                    GArrowSortOrder order,
+                    GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean
@@ -238,10 +538,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowSortOptions,
                          garrow_sort_options,
                          GARROW,
                          SORT_OPTIONS,
-                         GObject)
+                         GArrowFunctionOptions)
 struct _GArrowSortOptionsClass
 {
-  GObjectClass parent_class;
+  GArrowFunctionOptionsClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_3_0
@@ -262,6 +562,154 @@ GARROW_AVAILABLE_IN_3_0
 void
 garrow_sort_options_add_sort_key(GArrowSortOptions *options,
                                  GArrowSortKey *sort_key);
+
+
+#define GARROW_TYPE_SET_LOOKUP_OPTIONS (garrow_set_lookup_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSetLookupOptions,
+                         garrow_set_lookup_options,
+                         GARROW,
+                         SET_LOOKUP_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSetLookupOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowSetLookupOptions *
+garrow_set_lookup_options_new(GArrowDatum *value_set);
+
+
+#define GARROW_TYPE_VARIANCE_OPTIONS (garrow_variance_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowVarianceOptions,
+                         garrow_variance_options,
+                         GARROW,
+                         VARIANCE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowVarianceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_6_0
+GArrowVarianceOptions *
+garrow_variance_options_new(void);
+
+
+/**
+ * GArrowRoundMode:
+ * @GARROW_ROUND_MODE_DOWN:
+ *   Round to nearest integer less than or equal in magnitude (aka "floor").
+ * @GARROW_ROUND_MODE_UP:
+ *   Round to nearest integer greater than or equal in magnitude (aka "ceil").
+ * @GARROW_ROUND_TOWARDS_ZERO:
+ *   Get the integral part without fractional digits (aka "trunc")
+ * @GARROW_ROUND_TOWARDS_INFINITY,
+ *   Round negative values with @GARROW_ROUND_MODE_DOWN rule
+ *   and positive values with UP rule (aka "away from zero")
+ * @GARROW_ROUND_HALF_DOWN,
+ *   Round ties with @GARROW_ROUND_MODE_DOWN rule
+ *   (also called "round half towards negative infinity")
+ * @GARROW_ROUND_HALF_UP,
+ *   Round ties with @GARROW_ROUND_MODE_UP rule
+ *   (also called "round half towards positive infinity")
+ * @GARROW_ROUND_HALF_TOWARDS_ZERO,
+ *   Round ties with GARROW_ROUND_MODE_TOWARDS_ZERO rule
+ *   (also called "round half away from infinity")
+ * @GARROW_ROUND_HALF_TOWARDS_INFINITY,
+ *   Round ties with GARROW_ROUND_MODE_TOWARDS_INFINITY rule
+ *   (also called "round half away from zero")
+ * @GARROW_ROUND_HALF_TO_EVEN,
+ *   Round ties to nearest even integer
+ * @GARROW_ROUND_HALF_TO_ODD,
+ *   Round ties to nearest odd integer
+ *
+ * They correspond to the values of `arrow::compute::RoundMode`.
+ *
+ * Since: 7.0.0
+ */
+typedef enum {
+  GARROW_ROUND_DOWN,
+  GARROW_ROUND_UP,
+  GARROW_ROUND_TOWARDS_ZERO,
+  GARROW_ROUND_TOWARDS_INFINITY,
+  GARROW_ROUND_HALF_DOWN,
+  GARROW_ROUND_HALF_UP,
+  GARROW_ROUND_HALF_TOWARDS_ZERO,
+  GARROW_ROUND_HALF_TOWARDS_INFINITY,
+  GARROW_ROUND_HALF_TO_EVEN,
+  GARROW_ROUND_HALF_TO_ODD,
+} GArrowRoundMode;
+
+
+#define GARROW_TYPE_ROUND_OPTIONS (garrow_round_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundOptions,
+                         garrow_round_options,
+                         GARROW,
+                         ROUND_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundOptions *
+garrow_round_options_new(void);
+
+
+#define GARROW_TYPE_ROUND_TO_MULTIPLE_OPTIONS   \
+  (garrow_round_to_multiple_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundToMultipleOptions,
+                         garrow_round_to_multiple_options,
+                         GARROW,
+                         ROUND_TO_MULTIPLE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundToMultipleOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_7_0
+GArrowRoundToMultipleOptions *
+garrow_round_to_multiple_options_new(void);
+
+
+/**
+ * GArrowUTF8NormalizeForm:
+ * @GARROW_UTF8_NORMALIZE_FORM_NFC: Normalization Form Canonical Composition.
+ * @GARROW_UTF8_NORMALIZE_FORM_NFKC: Normalization Form Compatibility
+ *   Composition.
+ * @GARROW_UTF8_NORMALIZE_FORM_NFD: Normalization Form Canonical Decomposition.
+ * @GARROW_UTF8_NORMALIZE_FORM_NFKD: Normalization Form Compatibility
+ *   Decomposition.
+ *
+ * They correspond to the values of `arrow::compute::Utf8NormalizeOptions::Form`.
+ *
+ * Since: 8.0.0
+ */
+typedef enum /*< underscore_name=garrow_utf8_normalize_form >*/ {
+  GARROW_UTF8_NORMALIZE_FORM_NFC,
+  GARROW_UTF8_NORMALIZE_FORM_NFKC,
+  GARROW_UTF8_NORMALIZE_FORM_NFD,
+  GARROW_UTF8_NORMALIZE_FORM_NFKD,
+} GArrowUTF8NormalizeForm;
+
+#define GARROW_TYPE_UTF8_NORMALIZE_OPTIONS      \
+  (garrow_utf8_normalize_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowUTF8NormalizeOptions,
+                         garrow_utf8_normalize_options,
+                         GARROW,
+                         UTF8_NORMALIZE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowUTF8NormalizeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowUTF8NormalizeOptions *
+garrow_utf8_normalize_options_new(void);
 
 
 GArrowArray *garrow_array_cast(GArrowArray *array,

@@ -272,8 +272,15 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     valueCount = 0;
   }
 
-  @Override
+  /**
+   * Get the inner vectors.
+   *
+   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
+   *
+   * @return the inner vectors for this field as defined by the TypeLayout
+   */
   @Deprecated
+  @Override
   public List<BufferBacked> getFieldInnerVectors() {
     throw new UnsupportedOperationException("There are no inner vectors. Use getFieldBuffers");
   }
@@ -1213,17 +1220,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     valueBuffer.setBytes(startOffset, value, start, length);
-  }
-
-  /**
-   * Gets the starting offset of a record, given its index.
-   * This method is deprecated. Please use {@link BaseVariableWidthVector#getStartOffset(int)} instead.
-   * @param index index of the record.
-   * @return the starting offset of the record.
-   */
-  @Deprecated
-  protected final int getstartOffset(int index) {
-    return getStartOffset(index);
   }
 
   public final int getStartOffset(int index) {

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("BufferReader")
-
 test_that("BufferReader can be created from R objects", {
   num <- BufferReader$create(numeric(13))
   int <- BufferReader$create(integer(13))

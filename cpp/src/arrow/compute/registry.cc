@@ -35,7 +35,11 @@ namespace compute {
 class FunctionRegistry::FunctionRegistryImpl {
  public:
   Status AddFunction(std::shared_ptr<Function> function, bool allow_overwrite) {
+#ifndef NDEBUG
+    // This validates docstrings extensively, so don't waste time on it
+    // in release builds.
     RETURN_NOT_OK(function->Validate());
+#endif
 
     std::lock_guard<std::mutex> mutation_guard(lock_);
 
@@ -156,32 +160,35 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterScalarBoolean(registry.get());
   RegisterScalarCast(registry.get());
   RegisterScalarComparison(registry.get());
+  RegisterScalarIfElse(registry.get());
   RegisterScalarNested(registry.get());
+  RegisterScalarRandom(registry.get());  // Nullary
   RegisterScalarSetLookup(registry.get());
   RegisterScalarStringAscii(registry.get());
+  RegisterScalarStringUtf8(registry.get());
+  RegisterScalarTemporalBinary(registry.get());
+  RegisterScalarTemporalUnary(registry.get());
   RegisterScalarValidity(registry.get());
-  RegisterScalarFillNull(registry.get());
-  RegisterScalarIfElse(registry.get());
-  RegisterScalarTemporal(registry.get());
 
   RegisterScalarOptions(registry.get());
 
   // Vector functions
+  RegisterVectorArraySort(registry.get());
   RegisterVectorHash(registry.get());
+  RegisterVectorNested(registry.get());
   RegisterVectorReplace(registry.get());
   RegisterVectorSelection(registry.get());
-  RegisterVectorNested(registry.get());
   RegisterVectorSort(registry.get());
 
   RegisterVectorOptions(registry.get());
 
   // Aggregate functions
+  RegisterHashAggregateBasic(registry.get());
   RegisterScalarAggregateBasic(registry.get());
   RegisterScalarAggregateMode(registry.get());
   RegisterScalarAggregateQuantile(registry.get());
   RegisterScalarAggregateTDigest(registry.get());
   RegisterScalarAggregateVariance(registry.get());
-  RegisterHashAggregateBasic(registry.get());
 
   RegisterAggregateOptions(registry.get());
 

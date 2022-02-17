@@ -139,6 +139,8 @@ struct ARROW_EXPORT S3Options {
   /// delay between retries.
   std::shared_ptr<S3RetryStrategy> retry_strategy;
 
+  S3Options();
+
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
@@ -230,6 +232,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
   Status DeleteDirContents(const std::string& path) override;
+  Future<> DeleteDirContentsAsync(const std::string& path) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -309,7 +312,7 @@ ARROW_EXPORT
 Status FinalizeS3();
 
 ARROW_EXPORT
-Result<std::string> ResolveBucketRegion(const std::string& bucket);
+Result<std::string> ResolveS3BucketRegion(const std::string& bucket);
 
 }  // namespace fs
 }  // namespace arrow

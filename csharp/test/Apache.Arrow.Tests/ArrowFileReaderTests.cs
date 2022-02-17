@@ -15,7 +15,9 @@
 
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Memory;
+using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using Xunit;
@@ -143,19 +145,31 @@ namespace Apache.Arrow.Tests
                 await writer.WriteEndAsync();
                 stream.Position = 0;
 
-                // the recordbatches by index are in reverse order - back to front.
-                // TODO: is this a bug??
                 ArrowFileReader reader = new ArrowFileReader(stream);
                 RecordBatch readBatch1 = await reader.ReadRecordBatchAsync(0);
-                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch1);
+                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch1);
 
                 RecordBatch readBatch2 = await reader.ReadRecordBatchAsync(1);
-                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch2);
+                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch2);
 
                 // now read the first again, for random access
                 RecordBatch readBatch3 = await reader.ReadRecordBatchAsync(0);
-                ArrowReaderVerifier.CompareBatches(originalBatch2, readBatch3);
+                ArrowReaderVerifier.CompareBatches(originalBatch1, readBatch3);
             }
         }
+
+        [Fact]
+        public void TestRecordBatchBasics()
+        {
+            RecordBatch recordBatch = TestData.CreateSampleRecordBatch(length: 1);
+            Assert.Throws<ArgumentOutOfRangeException>(() => new RecordBatch(recordBatch.Schema, recordBatch.Arrays, -1));
+
+            var col1 = recordBatch.Column(0);
+            var col2 = recordBatch.Column("list0");
+            ArrowReaderVerifier.CompareArrays(col1, col2);
+
+            recordBatch.Dispose();
+        }
+
     }
 }

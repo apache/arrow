@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"encoding/binary"
@@ -22,9 +22,9 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -64,13 +64,6 @@ func (m MessageType) String() string {
 	}
 	return fmt.Sprintf("MessageType(%d)", int(m))
 }
-
-const (
-	// maxNestingDepth is an arbitrary value to catch user mistakes.
-	// For deeply nested schemas, it is expected the user will indicate
-	// explicitly the maximum allowed recursion depth.
-	maxNestingDepth = 64
-)
 
 // Message is an IPC message, including metadata and body.
 type Message struct {
@@ -154,11 +147,18 @@ type messageReader struct {
 
 	refCount int64
 	msg      *Message
+
+	mem memory.Allocator
 }
 
 // NewMessageReader returns a reader that reads messages from an input stream.
-func NewMessageReader(r io.Reader) MessageReader {
-	return &messageReader{r: r, refCount: 1}
+func NewMessageReader(r io.Reader, opts ...Option) MessageReader {
+	cfg := newConfig()
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	return &messageReader{r: r, refCount: 1, mem: cfg.alloc}
 }
 
 // Retain increases the reference count by 1.
@@ -224,12 +224,14 @@ func (r *messageReader) Message() (*Message, error) {
 	meta := flatbuf.GetRootAsMessage(buf, 0)
 	bodyLen := meta.BodyLength()
 
-	buf = make([]byte, bodyLen)
-	_, err = io.ReadFull(r.r, buf)
+	body := memory.NewResizableBuffer(r.mem)
+	defer body.Release()
+	body.Resize(int(bodyLen))
+
+	_, err = io.ReadFull(r.r, body.Bytes())
 	if err != nil {
 		return nil, xerrors.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
-	body := memory.NewBufferBytes(buf)
 
 	if r.msg != nil {
 		r.msg.Release()

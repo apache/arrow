@@ -52,6 +52,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TypeLayout;
@@ -277,6 +278,25 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         return buf;
       }
     };
+
+    BufferReader MONTH_DAY_NANOS = new BufferReader() {
+      @Override
+      protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+        final long size = (long) count * IntervalMonthDayNanoVector.TYPE_WIDTH;
+        ArrowBuf buf = allocator.buffer(size);
+
+        for (int i = 0; i < count; i++) {
+          readToken(START_OBJECT);
+          buf.writeInt(readNextField("months", Integer.class));
+          buf.writeInt(readNextField("days", Integer.class));
+          buf.writeLong(readNextField("nanoseconds", Long.class));
+          readToken(END_OBJECT);
+        }
+
+        return buf;
+      }
+    };
+
 
     BufferReader INT1 = new BufferReader() {
       @Override
@@ -645,6 +665,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           break;
         case INTERVALDAY:
           reader = helper.DAY_MILLIS;
+          break;
+        case INTERVALMONTHDAYNANO:
+          reader = helper.MONTH_DAY_NANOS;
           break;
         case DURATION:
           reader = helper.INT8;

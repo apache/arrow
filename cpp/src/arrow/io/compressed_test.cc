@@ -273,6 +273,12 @@ TEST(TestSnappyOutputStream, NotImplemented) {
 }
 #endif
 
+#if !defined ARROW_WITH_ZLIB && !defined ARROW_WITH_BROTLI && !defined ARROW_WITH_LZ4 && \
+    !defined ARROW_WITH_ZSTD
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompressedInputStreamTest);
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(CompressedOutputStreamTest);
+#endif
+
 #ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_SUITE_P(TestGZipInputStream, CompressedInputStreamTest,
                          ::testing::Values(Compression::GZIP));

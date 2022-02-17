@@ -103,9 +103,21 @@ set(BUILD_WARNING_LEVEL "PRODUCTION")
 
 # This must be synchronized with the definition in
 # cpp/cmake_modules/DefineOptions.cmake.
-set(ARROW_ARMV8_ARCH
-    "armv8-a"
-    CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+if(NOT DEFINED ARROW_SIMD_LEVEL)
+  set(ARROW_SIMD_LEVEL
+      "DEFAULT"
+      CACHE STRING "Compile time SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
+  set(ARROW_RUNTIME_SIMD_LEVEL
+      "MAX"
+      CACHE STRING "Max runtime SIMD optimization level")
+endif()
+if(NOT DEFINED ARROW_ARMV8_ARCH)
+  set(ARROW_ARMV8_ARCH
+      "armv8-a"
+      CACHE STRING "Arm64 arch and extensions: armv8-a, armv8-a or armv8-a+crc+crypto")
+endif()
 include(SetupCxxFlags)
 
 # Add common flags
@@ -464,6 +476,9 @@ if(PYARROW_BUILD_PARQUET)
     set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_parquet)
+  endif()
 endif()
 
 # Plasma
@@ -486,6 +501,9 @@ endif()
 if(PYARROW_BUILD_ORC)
   # ORC
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _orc)
+  if(PYARROW_BUILD_DATASET)
+    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset_orc)
+  endif()
 endif()
 
 # Flight
@@ -603,6 +621,12 @@ endif()
 
 if(PYARROW_BUILD_DATASET)
   target_link_libraries(_dataset PRIVATE ${DATASET_LINK_LIBS})
+  if(PYARROW_BUILD_ORC)
+    target_link_libraries(_dataset_orc PRIVATE ${DATASET_LINK_LIBS})
+  endif()
+  if(PYARROW_BUILD_PARQUET)
+    target_link_libraries(_dataset_parquet PRIVATE ${DATASET_LINK_LIBS})
+  endif()
 endif()
 
 if(PYARROW_BUILD_GANDIVA)

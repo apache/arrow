@@ -53,6 +53,8 @@ namespace dataset {
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
+constexpr int32_t kDefaultBackpressureHigh = 64;
+constexpr int32_t kDefaultBackpressureLow = 32;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -113,64 +115,64 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Note: This  must be true in order for any readahead to happen
   bool use_threads = false;
 
-  /// If true then an asycnhronous implementation of the scanner will be used.
-  /// This implementation is newer and generally performs better.  However, it
-  /// makes extensive use of threading and is still considered experimental
-  bool use_async = false;
-
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
 
-  // Return a vector of fields that requires materialization.
-  //
-  // This is usually the union of the fields referenced in the projection and the
-  // filter expression. Examples:
-  //
-  // - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
-  // - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
-  //
-  // This is needed for expression where a field may not be directly
-  // used in the final projection but is still required to evaluate the
-  // expression.
-  //
-  // This is used by Fragment implementations to apply the column
-  // sub-selection optimization.
-  std::vector<std::string> MaterializedFields() const;
-
-  // Return a threaded or serial TaskGroup according to use_threads.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
+  /// Return a vector of FieldRefs that require materialization.
+  ///
+  /// This is usually the union of the fields referenced in the projection and the
+  /// filter expression. Examples:
+  ///
+  /// - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
+  /// - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
+  ///
+  /// This is needed for expression where a field may not be directly
+  /// used in the final projection but is still required to evaluate the
+  /// expression.
+  ///
+  /// This is used by Fragment implementations to apply the column
+  /// sub-selection optimization.
+  std::vector<FieldRef> MaterializedFields() const;
 };
 
-/// \brief Read record batches from a range of a single data fragment. A
-/// ScanTask is meant to be a unit of work to be dispatched. The implementation
-/// must be thread and concurrent safe.
-class ARROW_DS_EXPORT ScanTask {
- public:
-  /// \brief Iterate through sequence of materialized record batches
-  /// resulting from the Scan. Execution semantics are encapsulated in the
-  /// particular ScanTask implementation
-  virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Future<RecordBatchVector> SafeExecute(internal::Executor* executor);
-  virtual Future<> SafeVisit(internal::Executor* executor,
-                             std::function<Status(std::shared_ptr<RecordBatch>)> visitor);
+/// \brief Describes a projection
+struct ARROW_DS_EXPORT ProjectionDescr {
+  /// \brief The projection expression itself
+  /// This expression must be a call to make_struct
+  compute::Expression expression;
+  /// \brief The output schema of the projection.
 
-  virtual ~ScanTask() = default;
+  /// This can be calculated from the input schema and the expression but it
+  /// is cached here for convenience.
+  std::shared_ptr<Schema> schema;
 
-  const std::shared_ptr<ScanOptions>& options() const { return options_; }
-  const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
+  /// \brief Create a ProjectionDescr by binding an expression to the dataset schema
+  ///
+  /// expression must return a struct type
+  static Result<ProjectionDescr> FromStructExpression(
+      const compute::Expression& expression, const Schema& dataset_schema);
 
- protected:
-  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<Fragment> fragment)
-      : options_(std::move(options)), fragment_(std::move(fragment)) {}
+  /// \brief Create a ProjectionDescr from expressions/names for each field
+  static Result<ProjectionDescr> FromExpressions(std::vector<compute::Expression> exprs,
+                                                 std::vector<std::string> names,
+                                                 const Schema& dataset_schema);
 
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<Fragment> fragment_;
+  /// \brief Create a default projection referencing fields in the dataset schema
+  static Result<ProjectionDescr> FromNames(std::vector<std::string> names,
+                                           const Schema& dataset_schema);
+
+  /// \brief Make a projection that projects every field in the dataset schema
+  static Result<ProjectionDescr> Default(const Schema& dataset_schema);
 };
+
+/// \brief Utility method to set the projection expression and schema
+ARROW_DS_EXPORT void SetProjection(ScanOptions* options, ProjectionDescr projection);
 
 /// \brief Combines a record batch with the fragment that the record batch originated
 /// from
 ///
-/// Knowing the source fragment can be useful for debugging & understanding loaded data
+/// Knowing the source fragment can be useful for debugging & understanding loaded
+/// data
 struct TaggedRecordBatch {
   std::shared_ptr<RecordBatch> record_batch;
   std::shared_ptr<Fragment> fragment;
@@ -246,15 +248,6 @@ class ARROW_DS_EXPORT Scanner {
  public:
   virtual ~Scanner() = default;
 
-  /// \brief The Scan operator returns a stream of ScanTask. The caller is
-  /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
-  /// in a concurrent fashion and outlive the iterator.
-  ///
-  /// Note: Not supported by the async scanner
-  /// Planned for removal from the public API in ARROW-11782.
-  ARROW_DEPRECATED("Deprecated in 4.0.0 for removal in 5.0.0. Use ScanBatches().")
-  virtual Result<ScanTaskIterator> Scan();
-
   /// \brief Apply a visitor to each RecordBatch as it is scanned. If multiple threads
   /// are used (via use_threads), the visitor will be invoked from those threads and is
   /// responsible for any synchronization.
@@ -281,25 +274,27 @@ class ARROW_DS_EXPORT Scanner {
   ///
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
-  virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
+  virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() = 0;
   virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() = 0;
   /// \brief A convenience to synchronously load the given rows by index.
   ///
   /// Will only consume as many batches as needed from ScanBatches().
-  virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
+  virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices) = 0;
   /// \brief Get the first N rows.
-  virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows);
+  virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows) = 0;
   /// \brief Count rows matching a predicate.
   ///
   /// This method will push down the predicate and compute the result based on fragment
   /// metadata if possible.
-  virtual Result<int64_t> CountRows();
+  virtual Result<int64_t> CountRows() = 0;
   /// \brief Convert the Scanner to a RecordBatchReader so it can be
   /// easily used with APIs that expect a reader.
-  Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader();
+  virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
+  /// \brief Get the dataset that this scanner will scan
+  virtual const std::shared_ptr<Dataset>& dataset() const = 0;
 
  protected:
   explicit Scanner(std::shared_ptr<ScanOptions> scan_options)
@@ -373,15 +368,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status UseThreads(bool use_threads = true);
 
   /// \brief Limit how many fragments the scanner will read at once
-  ///
-  /// Note: This is only enforced in "async" mode
   Status FragmentReadahead(int fragment_readahead);
-
-  /// \brief Indicate if the Scanner should run in experimental "async" mode
-  ///
-  /// This mode should have considerably better performance on high-latency or parallel
-  /// filesystems but is still experimental
-  Status UseAsync(bool use_async = true);
 
   /// \brief Set the maximum number of rows per RecordBatch.
   ///
@@ -415,30 +402,25 @@ class ARROW_DS_EXPORT ScannerBuilder {
 /// ordering for simple ExecPlans.
 class ARROW_DS_EXPORT ScanNodeOptions : public compute::ExecNodeOptions {
  public:
-  explicit ScanNodeOptions(std::shared_ptr<Dataset> dataset,
-                           std::shared_ptr<ScanOptions> scan_options)
-      : dataset(std::move(dataset)), scan_options(std::move(scan_options)) {}
+  explicit ScanNodeOptions(
+      std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
+      std::shared_ptr<util::AsyncToggle> backpressure_toggle = NULLPTR,
+      bool require_sequenced_output = false)
+      : dataset(std::move(dataset)),
+        scan_options(std::move(scan_options)),
+        backpressure_toggle(std::move(backpressure_toggle)),
+        require_sequenced_output(require_sequenced_output) {}
 
   std::shared_ptr<Dataset> dataset;
   std::shared_ptr<ScanOptions> scan_options;
+  std::shared_ptr<util::AsyncToggle> backpressure_toggle;
+  bool require_sequenced_output;
 };
 
 /// @}
 
-/// \brief A trivial ScanTask that yields the RecordBatch of an array.
-class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
- public:
-  InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                   std::shared_ptr<ScanOptions> options,
-                   std::shared_ptr<Fragment> fragment)
-      : ScanTask(std::move(options), std::move(fragment)),
-        record_batches_(std::move(record_batches)) {}
-
-  Result<RecordBatchIterator> Execute() override;
-
- protected:
-  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-};
-
+namespace internal {
+ARROW_DS_EXPORT void InitializeScanner(arrow::compute::ExecFactoryRegistry* registry);
+}  // namespace internal
 }  // namespace dataset
 }  // namespace arrow

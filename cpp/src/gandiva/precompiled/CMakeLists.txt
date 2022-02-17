@@ -31,14 +31,13 @@ set(PRECOMPILED_SRCS
     ../../arrow/util/basic_decimal.cc)
 
 if(MSVC)
-  # clang pretends to be a particular version of MSVC. Version 1900 is
-  # Visual Studio 2015, 191[0-9] is Visual Studio 2017, and the standard
-  # library uses C++14 features, so we have to use that -std version to
-  # get the IR compilation to work
+  # clang pretends to be a particular version of MSVC. 191[0-9] is
+  # Visual Studio 2017, and the standard library uses C++14 features,
+  # so we have to use that -std version to get the IR compilation to work
   if(MSVC_VERSION MATCHES "^191[0-9]$")
     set(FMS_COMPATIBILITY 19.10)
   else()
-    set(FMS_COMPATIBILITY 19)
+    message(FATAL_ERROR "Unsupported MSVC_VERSION=${MSVC_VERSION}")
   endif()
   set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility
                              -fms-compatibility-version=${FMS_COMPATIBILITY})

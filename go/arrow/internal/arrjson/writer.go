@@ -14,15 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package arrjson // import "github.com/apache/arrow/go/arrow/internal/arrjson"
+package arrjson
 
 import (
 	"encoding/json"
 	"io"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/arrio"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/arrio"
 )
 
 const (
@@ -52,7 +51,7 @@ func NewWriter(w io.Writer, schema *arrow.Schema) (*Writer, error) {
 	return ww, nil
 }
 
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	w.raw.Records = append(w.raw.Records, recordToJSON(rec))
 	w.nrecs++
 	return nil

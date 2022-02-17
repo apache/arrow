@@ -47,7 +47,9 @@ set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
+set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
@@ -75,16 +77,17 @@ cmake ^
     -DARROW_WITH_SNAPPY=%ARROW_WITH_SNAPPY% ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
+    -DAWSSDK_SOURCE=BUNDLED ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
     -DVCPKG_MANIFEST_MODE=OFF ^
-    -DVCPKG_TARGET_TRIPLET=x64-windows-static-md-%CMAKE_BUILD_TYPE% ^
+    -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
-    C:\arrow\cpp || exit /B
-cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B
+    C:\arrow\cpp || exit /B 1
+cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
 echo "=== (%PYTHON_VERSION%) Building wheel ==="
@@ -105,5 +108,5 @@ set ARROW_HOME=C:\arrow-dist
 pushd C:\arrow\python
 @REM bundle the msvc runtime
 cp "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Redist\MSVC\14.16.27012\x64\Microsoft.VC141.CRT\msvcp140.dll" pyarrow\
-python setup.py bdist_wheel || exit /B
+python setup.py bdist_wheel || exit /B 1
 popd

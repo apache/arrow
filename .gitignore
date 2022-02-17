@@ -47,6 +47,8 @@ perf.data.old
 cpp/.idea/
 .clangd/
 cpp/.clangd/
+.cache/clangd/
+cpp/.cache/clangd/
 cpp/apidoc/xml/
 docs/example.gz
 docs/example1.dat

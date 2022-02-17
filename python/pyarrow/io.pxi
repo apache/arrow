@@ -285,7 +285,8 @@ cdef class NativeFile(_Weakrefable):
 
         Returns
         -------
-        new_position : the new absolute stream position
+        int
+            The new absolute stream position.
         """
         cdef int64_t offset
         handle = self.get_random_access_file()
@@ -331,7 +332,8 @@ cdef class NativeFile(_Weakrefable):
 
         Returns
         -------
-        nbytes : number of bytes written
+        int
+            nbytes: number of bytes written
         """
         self._assert_writable()
         handle = self.get_output_stream()
@@ -447,7 +449,8 @@ cdef class NativeFile(_Weakrefable):
 
         Returns
         --------
-        number of bytes written
+        int
+            number of bytes written
         """
 
         cdef:
@@ -759,6 +762,16 @@ cdef class MemoryMappedFile(NativeFile):
 
     @staticmethod
     def create(path, size):
+        """
+        Create a MemoryMappedFile
+
+        Parameters
+        ----------
+        path : str
+            Where to create the file.
+        size : int
+            Size of the memory mapped file.
+        """
         cdef:
             shared_ptr[CMemoryMappedFile] handle
             c_string c_path = encode_file_path(path)
@@ -1046,10 +1059,10 @@ cdef class Buffer(_Weakrefable):
             raise IndexError('Offset must be non-negative')
 
         if length is None:
-            result = SliceBuffer(self.buffer, offset)
+            result = GetResultValue(SliceBufferSafe(self.buffer, offset))
         else:
-            result = SliceBuffer(self.buffer, offset, max(length, 0))
-
+            result = GetResultValue(SliceBufferSafe(self.buffer, offset,
+                                                    length))
         return pyarrow_wrap_buffer(result)
 
     def equals(self, Buffer other):
@@ -1062,7 +1075,8 @@ cdef class Buffer(_Weakrefable):
 
         Returns
         -------
-        are_equal : True if buffer contents and size are equal
+        are_equal : bool
+            True if buffer contents and size are equal
         """
         cdef c_bool result = False
         with nogil:
@@ -1256,21 +1270,22 @@ cdef class CompressedInputStream(NativeFile):
 
     Parameters
     ----------
-    stream : pa.NativeFile
+    stream : string, path, pyarrow.NativeFile, or file-like object
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
 
-    def __init__(self, NativeFile stream, str compression not None):
+    def __init__(self, object stream, str compression not None):
         cdef:
+            NativeFile nf
             Codec codec = Codec(compression)
+            shared_ptr[CInputStream] c_reader
             shared_ptr[CCompressedInputStream] compressed_stream
+        nf = get_native_file(stream, False)
+        c_reader = nf.get_input_stream()
         compressed_stream = GetResultValue(
-            CCompressedInputStream.Make(
-                codec.unwrap(),
-                stream.get_input_stream()
-            )
+            CCompressedInputStream.Make(codec.unwrap(), c_reader)
         )
         self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True
@@ -1282,7 +1297,7 @@ cdef class CompressedOutputStream(NativeFile):
 
     Parameters
     ----------
-    stream : string, path, pa.NativeFile, or file-like object
+    stream : string, path, pyarrow.NativeFile, or file-like object
         Input stream object to wrap with the compression.
     compression : str
         The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
@@ -1307,6 +1322,20 @@ ctypedef CRandomAccessFile* _RandomAccessFilePtr
 
 
 cdef class BufferedInputStream(NativeFile):
+    """
+    An input stream that performs buffered reads from
+    an unbuffered input stream, which can mitigate the overhead
+    of many small reads in some cases.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The input stream to wrap with the buffer
+    buffer_size : int
+        Size of the temporary read buffer.
+    memory_pool : MemoryPool
+        The memory pool used to allocate the buffer.
+    """
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
@@ -1357,6 +1386,20 @@ cdef class BufferedInputStream(NativeFile):
 
 
 cdef class BufferedOutputStream(NativeFile):
+    """
+    An output stream that performs buffered reads from
+    an unbuffered output stream, which can mitigate the overhead
+    of many small writes in some cases.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The writable output stream to wrap with the buffer
+    buffer_size : int
+        Size of the buffer that should be added.
+    memory_pool : MemoryPool
+        The memory pool used to allocate the buffer.
+    """
 
     def __init__(self, NativeFile stream, int buffer_size,
                  MemoryPool memory_pool=None):
@@ -1406,6 +1449,16 @@ cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
 
 
 cdef class TransformInputStream(NativeFile):
+    """
+    Transform an input stream.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The stream to transform.
+    transform_func : callable
+        The transformation to apply.
+    """
 
     def __init__(self, NativeFile stream, transform_func):
         self.set_input_stream(TransformInputStream.make_native(
@@ -1436,6 +1489,20 @@ class Transcoder:
 
 
 def transcoding_input_stream(stream, src_encoding, dest_encoding):
+    """
+    Add a transcoding transformation to the stream.
+    Incoming data will be decoded according to ``src_encoding`` and
+    then re-encoded according to ``dest_encoding``.
+
+    Parameters
+    ----------
+    stream : NativeFile
+        The stream to which the transformation should be applied.
+    src_encoding : str
+        The codec to use when reading data data.
+    dest_encoding : str
+        The codec to use for emitted data.
+    """
     src_codec = codecs.lookup(src_encoding)
     dest_codec = codecs.lookup(dest_encoding)
     if src_codec.name == dest_codec.name:
@@ -1464,6 +1531,11 @@ cdef shared_ptr[CInputStream] native_transcoding_input_stream(
 def py_buffer(object obj):
     """
     Construct an Arrow buffer from a Python bytes-like or buffer-like object
+
+    Parameters
+    ----------
+    obj : object
+        the object from which the buffer should be constructed.
     """
     cdef shared_ptr[CBuffer] buf
     buf = GetResultValue(PyBuffer.FromPyObject(obj))
@@ -1478,6 +1550,18 @@ def foreign_buffer(address, size, base=None):
     The *base* object will be kept alive as long as this buffer is alive,
     including across language boundaries (for example if the buffer is
     referenced by C++ code).
+
+    Parameters
+    ----------
+    address : int
+        The starting address of the buffer. The address can
+        refer to both device or host memory but it must be
+        accessible from device after mapping it with
+        `get_device_address` method.
+    size : int
+        The size of device buffer in bytes.
+    base : {None, object}
+        Object that owns the referenced memory.
     """
     cdef:
         intptr_t c_addr = address
@@ -1625,7 +1709,7 @@ cdef class Codec(_Weakrefable):
         Type of compression codec to initialize, valid values are: 'gzip',
         'bz2', 'brotli', 'lz4' (or 'lz4_frame'), 'lz4_raw', 'zstd' and
         'snappy'.
-    compression_level: int, None
+    compression_level : int, None
         Optional parameter specifying how aggressively to compress.  The
         possible ranges and effect of this parameter depend on the specific
         codec chosen.  Higher values compress more but typically use more
@@ -1708,9 +1792,9 @@ cdef class Codec(_Weakrefable):
 
         Parameters
         ----------
-        compression: str
-             Type of compression codec, valid values are: gzip, bz2, brotli,
-             lz4, zstd and snappy.
+        compression : str
+             Type of compression codec,
+             refer to Codec docstring for a list of supported ones.
 
         Returns
         -------
@@ -1724,6 +1808,12 @@ cdef class Codec(_Weakrefable):
         """
         Returns true if the compression level parameter is supported
         for the given codec.
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return CCodec.SupportsCompressionLevel(typ)
@@ -1733,6 +1823,12 @@ cdef class Codec(_Weakrefable):
         """
         Returns the compression level that Arrow will use for the codec if
         None is specified.
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.DefaultCompressionLevel(typ))
@@ -1741,6 +1837,12 @@ cdef class Codec(_Weakrefable):
     def minimum_compression_level(str compression not None):
         """
         Returns the smallest valid value for the compression level
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MinimumCompressionLevel(typ))
@@ -1749,6 +1851,12 @@ cdef class Codec(_Weakrefable):
     def maximum_compression_level(str compression not None):
         """
         Returns the largest valid value for the compression level
+
+        Parameters
+        ----------
+        compression : str
+            Type of compression codec,
+            refer to Codec docstring for a list of supported ones.
         """
         cdef CCompressionType typ = _ensure_compression(compression)
         return GetResultValue(CCodec.MaximumCompressionLevel(typ))
@@ -1829,7 +1937,7 @@ cdef class Codec(_Weakrefable):
         Parameters
         ----------
         buf : pyarrow.Buffer, bytes, or memoryview-compatible object
-        decompressed_size : int64_t, default None
+        decompressed_size : int, default None
             If not specified, will be computed if the codec is able to
             determine the uncompressed buffer size.
         asbytes : boolean, default False
@@ -1910,7 +2018,7 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     ----------
     buf : pyarrow.Buffer, bytes, or memoryview-compatible object
         Input object to decompress data from.
-    decompressed_size : int64_t, default None
+    decompressed_size : int, default None
         If not specified, will be computed if the codec is able to determine
         the uncompressed buffer size.
     codec : str, default 'lz4'
@@ -1936,15 +2044,15 @@ def input_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object, ...
         The source to open for reading.
-    compression: str optional, default 'detect'
+    compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
-    buffer_size: int, default None
+    buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
     """
@@ -1988,15 +2096,15 @@ def output_stream(source, compression='detect', buffer_size=None):
 
     Parameters
     ----------
-    source: str, Path, buffer, file-like object, ...
+    source : str, Path, buffer, file-like object, ...
         The source to open for writing.
-    compression: str optional, default 'detect'
+    compression : str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
         Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
-    buffer_size: int, default None
+    buffer_size : int, default None
         If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
     """

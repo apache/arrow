@@ -26,13 +26,16 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
@@ -45,6 +48,7 @@ using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
 using internal::ArrayStreamExportGuard;
 using internal::ArrayStreamExportTraits;
+using internal::checked_cast;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
 
@@ -122,6 +126,10 @@ using ArrayReleaseCallback = ReleaseCallback<ArrayExportTraits>;
 
 static const std::vector<std::string> kMetadataKeys1{"key1", "key2"};
 static const std::vector<std::string> kMetadataValues1{"", "bar"};
+
+static const std::vector<std::string> kMetadataKeys2{"key"};
+static const std::vector<std::string> kMetadataValues2{"abcde"};
+
 // clang-format off
 static const std::string kEncodedMetadata1{  // NOLINT: runtime/string
 #if ARROW_LITTLE_ENDIAN
@@ -133,11 +141,7 @@ static const std::string kEncodedMetadata1{  // NOLINT: runtime/string
     0, 0, 0, 4, 'k', 'e', 'y', '1', 0, 0, 0, 0,
     0, 0, 0, 4, 'k', 'e', 'y', '2', 0, 0, 0, 3, 'b', 'a', 'r'};
 #endif
-// clang-format on
 
-static const std::vector<std::string> kMetadataKeys2{"key"};
-static const std::vector<std::string> kMetadataValues2{"abcde"};
-// clang-format off
 static const std::string kEncodedMetadata2{  // NOLINT: runtime/string
 #if ARROW_LITTLE_ENDIAN
     1, 0, 0, 0,
@@ -145,6 +149,51 @@ static const std::string kEncodedMetadata2{  // NOLINT: runtime/string
 #else
     0, 0, 0, 1,
     0, 0, 0, 3, 'k', 'e', 'y', 0, 0, 0, 5, 'a', 'b', 'c', 'd', 'e'};
+#endif
+
+static const std::string kEncodedUuidMetadata =  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
+    std::string {2, 0, 0, 0} +
+    std::string {20, 0, 0, 0} + kExtensionTypeKeyName +
+    std::string {4, 0, 0, 0} + "uuid" +
+    std::string {24, 0, 0, 0} + kExtensionMetadataKeyName +
+    std::string {15, 0, 0, 0} + "uuid-serialized";
+#else
+    std::string {0, 0, 0, 2} +
+    std::string {0, 0, 0, 20} + kExtensionTypeKeyName +
+    std::string {0, 0, 0, 4} + "uuid" +
+    std::string {0, 0, 0, 24} + kExtensionMetadataKeyName +
+    std::string {0, 0, 0, 15} + "uuid-serialized";
+#endif
+
+static const std::string kEncodedDictExtensionMetadata =  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
+    std::string {2, 0, 0, 0} +
+    std::string {20, 0, 0, 0} + kExtensionTypeKeyName +
+    std::string {14, 0, 0, 0} + "dict-extension" +
+    std::string {24, 0, 0, 0} + kExtensionMetadataKeyName +
+    std::string {25, 0, 0, 0} + "dict-extension-serialized";
+#else
+    std::string {0, 0, 0, 2} +
+    std::string {0, 0, 0, 20} + kExtensionTypeKeyName +
+    std::string {0, 0, 0, 14} + "dict-extension" +
+    std::string {0, 0, 0, 24} + kExtensionMetadataKeyName +
+    std::string {0, 0, 0, 25} + "dict-extension-serialized";
+#endif
+
+static const std::string kEncodedComplex128Metadata =  // NOLINT: runtime/string
+#if ARROW_LITTLE_ENDIAN
+    std::string {2, 0, 0, 0} +
+    std::string {20, 0, 0, 0} + kExtensionTypeKeyName +
+    std::string {10, 0, 0, 0} + "complex128" +
+    std::string {24, 0, 0, 0} + kExtensionMetadataKeyName +
+    std::string {21, 0, 0, 0} + "complex128-serialized";
+#else
+    std::string {0, 0, 0, 2} +
+    std::string {0, 0, 0, 20} + kExtensionTypeKeyName +
+    std::string {0, 0, 0, 10} + "complex128" +
+    std::string {0, 0, 0, 24} + kExtensionMetadataKeyName +
+    std::string {0, 0, 0, 21} + "complex128-serialized";
 #endif
 // clang-format on
 
@@ -303,7 +352,7 @@ TEST_F(TestSchemaExport, Temporal) {
   TestPrimitive(duration(TimeUnit::MICRO), "tDu");
   TestPrimitive(duration(TimeUnit::NANO), "tDn");
   TestPrimitive(month_interval(), "tiM");
-
+  TestPrimitive(month_day_nano_interval(), "tin");
   TestPrimitive(day_time_interval(), "tiD");
 
   TestPrimitive(timestamp(TimeUnit::SECOND), "tss:");
@@ -404,6 +453,16 @@ TEST_F(TestSchemaExport, Dictionary) {
   }
 }
 
+TEST_F(TestSchemaExport, Extension) {
+  TestPrimitive(uuid(), "w:16", "", kDefaultFlags, kEncodedUuidMetadata);
+
+  TestNested(dict_extension_type(), {"c", "u"}, {"", ""}, {kDefaultFlags, kDefaultFlags},
+             {kEncodedDictExtensionMetadata, ""});
+
+  TestNested(complex128(), {"+s", "g", "g"}, {"", "real", "imag"},
+             {ARROW_FLAG_NULLABLE, 0, 0}, {kEncodedComplex128Metadata, "", ""});
+}
+
 TEST_F(TestSchemaExport, ExportField) {
   TestPrimitive(field("thing", null()), "n", "thing", ARROW_FLAG_NULLABLE);
   // With nullable = false
@@ -445,13 +504,16 @@ struct ArrayExportChecker {
     ASSERT_EQ(c_export->null_count, expected_data.null_count);
     ASSERT_EQ(c_export->offset, expected_data.offset);
 
-    ASSERT_EQ(c_export->n_buffers, static_cast<int64_t>(expected_data.buffers.size()));
-    ASSERT_EQ(c_export->n_children,
-              static_cast<int64_t>(expected_data.child_data.size()));
+    auto expected_n_buffers = static_cast<int64_t>(expected_data.buffers.size());
+    auto expected_buffers = expected_data.buffers.data();
+    if (!internal::HasValidityBitmap(expected_data.type->id())) {
+      --expected_n_buffers;
+      ++expected_buffers;
+    }
+    ASSERT_EQ(c_export->n_buffers, expected_n_buffers);
     ASSERT_NE(c_export->buffers, nullptr);
     for (int64_t i = 0; i < c_export->n_buffers; ++i) {
-      auto expected_ptr =
-          expected_data.buffers[i] ? expected_data.buffers[i]->data() : nullptr;
+      auto expected_ptr = expected_buffers[i] ? expected_buffers[i]->data() : nullptr;
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
     }
 
@@ -463,6 +525,8 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->dictionary, nullptr);
     }
 
+    ASSERT_EQ(c_export->n_children,
+              static_cast<int64_t>(expected_data.child_data.size()));
     if (c_export->n_children > 0) {
       ASSERT_NE(c_export->children, nullptr);
       // Recurse into children
@@ -507,11 +571,9 @@ class TestArrayExport : public ::testing::Test {
  public:
   void SetUp() override { pool_ = default_memory_pool(); }
 
-  static std::function<Status(std::shared_ptr<Array>*)> JSONArrayFactory(
+  static std::function<Result<std::shared_ptr<Array>>()> JSONArrayFactory(
       std::shared_ptr<DataType> type, const char* json) {
-    return [=](std::shared_ptr<Array>* out) -> Status {
-      return ::arrow::ipc::internal::json::ArrayFromJSON(type, json, out);
-    };
+    return [=]() { return ArrayFromJSON(type, json); };
   }
 
   template <typename ArrayFactory, typename ExportCheckFunc>
@@ -519,7 +581,9 @@ class TestArrayExport : public ::testing::Test {
     auto orig_bytes = pool_->bytes_allocated();
 
     std::shared_ptr<Array> arr;
-    ASSERT_OK(factory(&arr));
+    ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
+    ARROW_SCOPED_TRACE("type = ", arr->type()->ToString(),
+                       ", array data = ", arr->ToString());
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowArray c_export;
     ASSERT_OK(ExportArray(*arr, &c_export));
@@ -562,7 +626,7 @@ class TestArrayExport : public ::testing::Test {
     auto orig_bytes = pool_->bytes_allocated();
 
     std::shared_ptr<Array> arr;
-    ASSERT_OK(factory(&arr));
+    ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowArray c_export_temp, c_export_final;
     ASSERT_OK(ExportArray(*arr, &c_export_temp));
@@ -607,7 +671,7 @@ class TestArrayExport : public ::testing::Test {
     auto orig_bytes = pool_->bytes_allocated();
 
     std::shared_ptr<Array> arr;
-    ASSERT_OK(factory(&arr));
+    ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
     struct ArrowArray c_export_parent, c_export_child;
     ASSERT_OK(ExportArray(*arr, &c_export_parent));
 
@@ -661,7 +725,7 @@ class TestArrayExport : public ::testing::Test {
     auto orig_bytes = pool_->bytes_allocated();
 
     std::shared_ptr<Array> arr;
-    ASSERT_OK(factory(&arr));
+    ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
     struct ArrowArray c_export_parent;
     ASSERT_OK(ExportArray(*arr, &c_export_parent));
 
@@ -749,13 +813,12 @@ TEST_F(TestArrayExport, Primitive) {
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
+
+  TestPrimitive(month_day_nano_interval(), R"([[-1, 5, 20], null])");
 }
 
 TEST_F(TestArrayExport, PrimitiveSliced) {
-  auto factory = [](std::shared_ptr<Array>* out) -> Status {
-    *out = ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2);
-    return Status::OK();
-  };
+  auto factory = []() { return ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2); };
 
   TestPrimitive(factory);
 }
@@ -802,18 +865,17 @@ TEST_F(TestArrayExport, List) {
 
 TEST_F(TestArrayExport, ListSliced) {
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
-      *out = ArrayFromJSON(list(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
-                 ->Slice(1, 2);
-      return Status::OK();
+    auto factory = []() {
+      return ArrayFromJSON(list(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
+          ->Slice(1, 2);
     };
     TestNested(factory);
   }
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->Slice(1, 6);
       auto offsets = ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->Slice(2, 4);
-      return ListArray::FromArrays(*offsets, *values).Value(out);
+      return ListArray::FromArrays(*offsets, *values);
     };
     TestNested(factory);
   }
@@ -847,28 +909,25 @@ TEST_F(TestArrayExport, Union) {
 
 TEST_F(TestArrayExport, Dictionary) {
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(uint16(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values)
-          .Value(out);
+                                         indices, values);
     };
     TestNested(factory);
   }
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-                 dictionary(indices->type(), values->type(), /*ordered=*/true), indices,
-                 values)
-          .Value(out);
+          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values);
     };
     TestNested(factory);
   }
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() -> Result<std::shared_ptr<Array>> {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
@@ -876,11 +935,18 @@ TEST_F(TestArrayExport, Dictionary) {
           DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
                                       indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
-      return (*out)->ValidateFull();
+      ARROW_ASSIGN_OR_RAISE(auto arr, LargeListArray::FromArrays(*offsets, *dict_array));
+      RETURN_NOT_OK(arr->ValidateFull());
+      return arr;
     };
     TestNested(factory);
   }
+}
+
+TEST_F(TestArrayExport, Extension) {
+  TestPrimitive(ExampleUuid);
+  TestPrimitive(ExampleSmallint);
+  TestPrimitive(ExampleComplex128);
 }
 
 TEST_F(TestArrayExport, MovePrimitive) {
@@ -898,17 +964,16 @@ TEST_F(TestArrayExport, MoveNested) {
 
 TEST_F(TestArrayExport, MoveDictionary) {
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values)
-          .Value(out);
+                                         indices, values);
     };
     TestMoveNested(factory);
   }
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() -> Result<std::shared_ptr<Array>> {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
@@ -916,8 +981,9 @@ TEST_F(TestArrayExport, MoveDictionary) {
           DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
                                       indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
-      return (*out)->ValidateFull();
+      ARROW_ASSIGN_OR_RAISE(auto arr, LargeListArray::FromArrays(*offsets, *dict_array));
+      RETURN_NOT_OK(arr->ValidateFull());
+      return arr;
     };
     TestMoveNested(factory);
   }
@@ -934,7 +1000,7 @@ TEST_F(TestArrayExport, MoveChild) {
                 R"([[1, "foo"], [2, null]])",
                 /*child_id=*/1);
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() -> Result<std::shared_ptr<Array>> {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       ARROW_ASSIGN_OR_RAISE(
@@ -942,8 +1008,9 @@ TEST_F(TestArrayExport, MoveChild) {
           DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
                                       indices, values));
       auto offsets = ArrayFromJSON(int64(), "[0, 2, 5]");
-      RETURN_NOT_OK(LargeListArray::FromArrays(*offsets, *dict_array).Value(out));
-      return (*out)->ValidateFull();
+      ARROW_ASSIGN_OR_RAISE(auto arr, LargeListArray::FromArrays(*offsets, *dict_array));
+      RETURN_NOT_OK(arr->ValidateFull());
+      return arr;
     };
     TestMoveChild(factory, /*child_id=*/0);
   }
@@ -1246,6 +1313,8 @@ TEST_F(TestSchemaImport, Temporal) {
   CheckImport(month_interval());
   FillPrimitive("tiD");
   CheckImport(day_time_interval());
+  FillPrimitive("tin");
+  CheckImport(month_day_nano_interval());
 
   FillPrimitive("tss:");
   CheckImport(timestamp(TimeUnit::SECOND));
@@ -1400,6 +1469,32 @@ TEST_F(TestSchemaImport, Dictionary) {
   CheckImport(expected);
 }
 
+TEST_F(TestSchemaImport, UnregisteredExtension) {
+  FillPrimitive("w:16");
+  c_struct_.metadata = kEncodedUuidMetadata.c_str();
+  auto expected = fixed_size_binary(16);
+  CheckImport(expected);
+}
+
+TEST_F(TestSchemaImport, RegisteredExtension) {
+  {
+    ExtensionTypeGuard guard(uuid());
+    FillPrimitive("w:16");
+    c_struct_.metadata = kEncodedUuidMetadata.c_str();
+    auto expected = uuid();
+    CheckImport(expected);
+  }
+  {
+    ExtensionTypeGuard guard(dict_extension_type());
+    FillPrimitive(AddChild(), "u");
+    FillPrimitive("c");
+    FillDictionary();
+    c_struct_.metadata = kEncodedDictExtensionMetadata.c_str();
+    auto expected = dict_extension_type();
+    CheckImport(expected);
+  }
+}
+
 TEST_F(TestSchemaImport, FormatStringError) {
   FillPrimitive("");
   CheckImportError();
@@ -1481,6 +1576,22 @@ TEST_F(TestSchemaImport, DictionaryError) {
   CheckImportError();
 }
 
+TEST_F(TestSchemaImport, ExtensionError) {
+  ExtensionTypeGuard guard(uuid());
+
+  // Storage type doesn't match
+  FillPrimitive("w:15");
+  c_struct_.metadata = kEncodedUuidMetadata.c_str();
+  CheckImportError();
+
+  // Invalid serialization
+  std::string bogus_metadata = kEncodedUuidMetadata;
+  bogus_metadata[bogus_metadata.size() - 5] += 1;
+  FillPrimitive("w:16");
+  c_struct_.metadata = bogus_metadata.c_str();
+  CheckImportError();
+}
+
 TEST_F(TestSchemaImport, RecursionError) {
   FillPrimitive(AddChild(), "c", "unused");
   auto c = AddChild();
@@ -1557,6 +1668,7 @@ static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};
 static const double data_buffer6[] = {0.0, 1.5, -2.0, 3.0, 4.0, 5.0};
 static const int32_t data_buffer7[] = {1234, 5678, 9012, 3456};
 static const int64_t data_buffer8[] = {123456789, 987654321, -123456789, -987654321};
+static const int64_t date64_data_buffer8[] = {86400000, 172800000, -86400000, -172800000};
 #if ARROW_LITTLE_ENDIAN
 static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1};
@@ -1587,6 +1699,9 @@ static const void* primitive_buffers_no_nulls7[2] = {nullptr, data_buffer7};
 static const void* primitive_buffers_nulls7[2] = {bits_buffer1, data_buffer7};
 static const void* primitive_buffers_no_nulls8[2] = {nullptr, data_buffer8};
 static const void* primitive_buffers_nulls8[2] = {bits_buffer1, data_buffer8};
+
+static const void* date64_buffers_no_nulls8[2] = {nullptr, date64_data_buffer8};
+static const void* date64_buffers_nulls8[2] = {bits_buffer1, date64_data_buffer8};
 
 static const int64_t timestamp_data_buffer1[] = {0, 951782400, -2203977600LL};
 static const int64_t timestamp_data_buffer2[] = {0, 951782400000LL, -2203977600000LL};
@@ -1620,10 +1735,11 @@ static const void* large_list_buffers_no_nulls1[2] = {nullptr,
 
 static const int8_t type_codes_buffer1[] = {42, 42, 43, 43, 42};
 static const int32_t union_offsets_buffer1[] = {0, 1, 0, 1, 2};
-static const void* sparse_union_buffers_no_nulls1[3] = {nullptr, type_codes_buffer1,
-                                                        nullptr};
-static const void* dense_union_buffers_no_nulls1[3] = {nullptr, type_codes_buffer1,
-                                                       union_offsets_buffer1};
+static const void* sparse_union_buffers1_legacy[2] = {nullptr, type_codes_buffer1};
+static const void* dense_union_buffers1_legacy[3] = {nullptr, type_codes_buffer1,
+                                                     union_offsets_buffer1};
+static const void* sparse_union_buffers1[1] = {type_codes_buffer1};
+static const void* dense_union_buffers1[2] = {type_codes_buffer1, union_offsets_buffer1};
 
 void NoOpArrayRelease(struct ArrowArray* schema) { ArrowArrayMarkReleased(schema); }
 
@@ -1721,13 +1837,18 @@ class TestArrayImport : public ::testing::Test {
     c->children = NLastChildren(c->n_children, c);
   }
 
+  // `legacy` selects pre-ARROW-14179 behaviour
   void FillUnionLike(struct ArrowArray* c, UnionMode::type mode, int64_t length,
                      int64_t null_count, int64_t offset, int64_t n_children,
-                     const void** buffers) {
+                     const void** buffers, bool legacy) {
     c->length = length;
     c->null_count = null_count;
     c->offset = offset;
-    c->n_buffers = mode == UnionMode::SPARSE ? 2 : 3;
+    if (mode == UnionMode::SPARSE) {
+      c->n_buffers = legacy ? 2 : 1;
+    } else {
+      c->n_buffers = legacy ? 3 : 2;
+    }
     c->buffers = buffers;
     c->n_children = n_children;
     c->children = NLastChildren(c->n_children, c);
@@ -1761,8 +1882,10 @@ class TestArrayImport : public ::testing::Test {
   }
 
   void FillUnionLike(UnionMode::type mode, int64_t length, int64_t null_count,
-                     int64_t offset, int64_t n_children, const void** buffers) {
-    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers);
+                     int64_t offset, int64_t n_children, const void** buffers,
+                     bool legacy) {
+    FillUnionLike(&c_struct_, mode, length, null_count, offset, n_children, buffers,
+                  legacy);
   }
 
   void CheckImport(const std::shared_ptr<Array>& expected) {
@@ -1868,8 +1991,8 @@ TEST_F(TestArrayImport, Primitive) {
 TEST_F(TestArrayImport, Temporal) {
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, 5678, 9012]"));
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, 987654321, -123456789]"));
+  FillPrimitive(3, 0, 0, date64_buffers_no_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, 172800000, -86400000]"));
 
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(time32(TimeUnit::SECOND), "[1234, 5678]"));
@@ -1907,8 +2030,8 @@ TEST_F(TestArrayImport, Temporal) {
   // With nulls
   FillPrimitive(3, -1, 0, primitive_buffers_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, null, 9012]"));
-  FillPrimitive(3, -1, 0, primitive_buffers_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, null, -123456789]"));
+  FillPrimitive(3, -1, 0, date64_buffers_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, null, -86400000]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
   CheckImport(ArrayFromJSON(time64(TimeUnit::NANO), "[123456789, null]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
@@ -1923,13 +2046,16 @@ TEST_F(TestArrayImport, Temporal) {
 }
 
 TEST_F(TestArrayImport, Null) {
-  const void* buffers[] = {nullptr};
-  c_struct_.length = 3;
-  c_struct_.null_count = 3;
-  c_struct_.offset = 0;
-  c_struct_.n_buffers = 1;
-  c_struct_.buffers = buffers;
-  CheckImport(ArrayFromJSON(null(), "[null, null, null]"));
+  // Arrow C++ used to export null arrays with a null bitmap buffer
+  for (const int64_t n_buffers : {0, 1}) {
+    const void* buffers[] = {nullptr};
+    c_struct_.length = 3;
+    c_struct_.null_count = 3;
+    c_struct_.offset = 0;
+    c_struct_.buffers = buffers;
+    c_struct_.n_buffers = n_buffers;
+    CheckImport(ArrayFromJSON(null(), "[null, null, null]"));
+  }
 }
 
 TEST_F(TestArrayImport, PrimitiveWithOffset) {
@@ -2059,23 +2185,39 @@ TEST_F(TestArrayImport, Struct) {
   CheckImport(expected);
 }
 
-TEST_F(TestArrayImport, Union) {
-  // Sparse
-  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
-  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers_no_nulls1);
+TEST_F(TestArrayImport, SparseUnion) {
   auto type = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
   auto expected =
       ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "bar"], [43, "quux"]])");
+
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers1, /*legacy=*/false);
   CheckImport(expected);
 
-  // Dense
+  // Legacy format with null bitmap (ARROW-14179)
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers1_legacy,
+                /*legacy=*/true);
+  CheckImport(expected);
+}
+
+TEST_F(TestArrayImport, DenseUnion) {
+  auto type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  auto expected =
+      ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
+
   FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
-  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers_no_nulls1);
-  type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
-  expected =
-      ArrayFromJSON(type, R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])");
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers1, /*legacy=*/false);
+  CheckImport(expected);
+
+  // Legacy format with null bitmap (ARROW-14179)
+  FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers1_legacy,
+                /*legacy=*/true);
   CheckImport(expected);
 }
 
@@ -2163,21 +2305,44 @@ TEST_F(TestArrayImport, DictionaryWithOffset) {
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls4);
   FillDictionary();
 
-  auto dict_values = ArrayFromJSON(utf8(), R"(["", "bar", "quux"])");
-  auto indices = ArrayFromJSON(int8(), "[1, 2, 0]");
-  ASSERT_OK_AND_ASSIGN(
-      auto expected,
-      DictionaryArray::FromArrays(dictionary(int8(), utf8()), indices, dict_values));
+  auto expected = DictArrayFromJSON(dictionary(int8(), utf8()), "[1, 2, 0]",
+                                    R"(["", "bar", "quux"])");
   CheckImport(expected);
 
   FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
   FillPrimitive(4, 0, 2, primitive_buffers_no_nulls4);
   FillDictionary();
 
-  dict_values = ArrayFromJSON(utf8(), R"(["foo", "", "bar", "quux"])");
-  indices = ArrayFromJSON(int8(), "[0, 1, 3, 0]");
-  ASSERT_OK_AND_ASSIGN(expected, DictionaryArray::FromArrays(dictionary(int8(), utf8()),
-                                                             indices, dict_values));
+  expected = DictArrayFromJSON(dictionary(int8(), utf8()), "[0, 1, 3, 0]",
+                               R"(["foo", "", "bar", "quux"])");
+  CheckImport(expected);
+}
+
+TEST_F(TestArrayImport, RegisteredExtension) {
+  ExtensionTypeGuard guard({smallint(), dict_extension_type(), complex128()});
+
+  // smallint
+  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls1_16);
+  auto expected =
+      ExtensionType::WrapArray(smallint(), ArrayFromJSON(int16(), "[513, 1027, 1541]"));
+  CheckImport(expected);
+
+  // dict_extension_type
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(6, 0, 0, primitive_buffers_no_nulls4);
+  FillDictionary();
+
+  auto storage = DictArrayFromJSON(dictionary(int8(), utf8()), "[1, 2, 0, 1, 3, 0]",
+                                   R"(["foo", "", "bar", "quux"])");
+  expected = ExtensionType::WrapArray(dict_extension_type(), storage);
+  CheckImport(expected);
+
+  // complex128
+  FillPrimitive(AddChild(), 3, 0, /*offset=*/0, primitive_buffers_no_nulls6);
+  FillPrimitive(AddChild(), 3, 0, /*offset=*/3, primitive_buffers_no_nulls6);
+  FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
+  expected = MakeComplex128(ArrayFromJSON(float64(), "[0.0, 1.5, -2.0]"),
+                            ArrayFromJSON(float64(), "[3.0, 4.0, 5.0]"));
   CheckImport(expected);
 }
 
@@ -2206,6 +2371,21 @@ TEST_F(TestArrayImport, MapError) {
   FillStructLike(AddChild(), 5, 0, 0, 1, buffers_no_nulls_no_data);
   FillListLike(3, 1, 0, list_buffers_nulls1);
   CheckImportError(map(utf8(), uint8()));
+}
+
+TEST_F(TestArrayImport, UnionError) {
+  // Non-zero null count
+  auto type = sparse_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  FillStringLike(AddChild(), 4, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 4, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::SPARSE, 4, -1, 0, 2, sparse_union_buffers1, /*legacy=*/false);
+  CheckImportError(type);
+
+  type = dense_union({field("strs", utf8()), field("ints", int8())}, {43, 42});
+  FillStringLike(AddChild(), 2, 0, 0, string_buffers_no_nulls1);
+  FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
+  FillUnionLike(UnionMode::DENSE, 5, -1, 0, 2, dense_union_buffers1, /*legacy=*/false);
+  CheckImportError(type);
 }
 
 TEST_F(TestArrayImport, DictionaryError) {
@@ -2341,8 +2521,9 @@ class TestSchemaRoundtrip : public ::testing::Test {
  public:
   void SetUp() override { pool_ = default_memory_pool(); }
 
-  template <typename TypeFactory>
-  void TestWithTypeFactory(TypeFactory&& factory) {
+  template <typename TypeFactory, typename ExpectedTypeFactory>
+  void TestWithTypeFactory(TypeFactory&& factory,
+                           ExpectedTypeFactory&& factory_expected) {
     std::shared_ptr<DataType> type, actual;
     struct ArrowSchema c_schema {};  // zeroed
     SchemaExportGuard schema_guard(&c_schema);
@@ -2359,12 +2540,17 @@ class TestSchemaRoundtrip : public ::testing::Test {
 
     // Recreate the type
     ASSERT_OK_AND_ASSIGN(actual, ImportType(&c_schema));
-    type = factory();
+    type = factory_expected();
     AssertTypeEqual(*type, *actual);
     type.reset();
     actual.reset();
 
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename TypeFactory>
+  void TestWithTypeFactory(TypeFactory&& factory) {
+    TestWithTypeFactory(factory, factory);
   }
 
   template <typename SchemaFactory>
@@ -2419,6 +2605,7 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(date32);
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
+  TestWithTypeFactory(month_day_nano_interval);
   TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
   TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
@@ -2459,6 +2646,27 @@ TEST_F(TestSchemaRoundtrip, Dictionary) {
   }
 }
 
+TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
+  TestWithTypeFactory(uuid, []() { return fixed_size_binary(16); });
+  TestWithTypeFactory(dict_extension_type, []() { return dictionary(int8(), utf8()); });
+
+  // Inside nested type
+  TestWithTypeFactory([]() { return list(dict_extension_type()); },
+                      []() { return list(dictionary(int8(), utf8())); });
+}
+
+TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
+  ExtensionTypeGuard guard({uuid(), dict_extension_type(), complex128()});
+  TestWithTypeFactory(uuid);
+  TestWithTypeFactory(dict_extension_type);
+  TestWithTypeFactory(complex128);
+
+  // Inside nested type
+  TestWithTypeFactory([]() { return list(uuid()); });
+  TestWithTypeFactory([]() { return list(dict_extension_type()); });
+  TestWithTypeFactory([]() { return list(complex128()); });
+}
+
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(list(utf8()), int32()); });
@@ -2482,28 +2690,30 @@ TEST_F(TestSchemaRoundtrip, Schema) {
 
 class TestArrayRoundtrip : public ::testing::Test {
  public:
-  using ArrayFactory = std::function<Status(std::shared_ptr<Array>*)>;
+  using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
 
   void SetUp() override { pool_ = default_memory_pool(); }
 
   static ArrayFactory JSONArrayFactory(std::shared_ptr<DataType> type, const char* json) {
-    return [=](std::shared_ptr<Array>* out) -> Status {
-      return ::arrow::ipc::internal::json::ArrayFromJSON(type, json, out);
-    };
+    return [=]() { return ArrayFromJSON(type, json); };
   }
 
   static ArrayFactory SlicedArrayFactory(ArrayFactory factory) {
-    return [=](std::shared_ptr<Array>* out) -> Status {
-      std::shared_ptr<Array> arr;
-      RETURN_NOT_OK(factory(&arr));
+    return [=]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, factory());
       DCHECK_GE(arr->length(), 2);
-      *out = arr->Slice(1, arr->length() - 2);
-      return Status::OK();
+      return arr->Slice(1, arr->length() - 2);
     };
   }
 
   template <typename ArrayFactory>
   void TestWithArrayFactory(ArrayFactory&& factory) {
+    TestWithArrayFactory(factory, factory);
+  }
+
+  template <typename ArrayFactory, typename ExpectedArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory,
+                            ExpectedArrayFactory&& factory_expected) {
     std::shared_ptr<Array> array;
     struct ArrowArray c_array {};
     struct ArrowSchema c_schema {};
@@ -2512,7 +2722,7 @@ class TestArrayRoundtrip : public ::testing::Test {
 
     auto orig_bytes = pool_->bytes_allocated();
 
-    ASSERT_OK(factory(&array));
+    ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
     ASSERT_OK(ExportType(*array->type(), &c_schema));
     ASSERT_OK(ExportArray(*array, &c_array));
 
@@ -2539,7 +2749,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     // Check value of imported array
     {
       std::shared_ptr<Array> expected;
-      ASSERT_OK(factory(&expected));
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
       AssertTypeEqual(*expected->type(), *array->type());
       AssertArraysEqual(*expected, *array, true);
     }
@@ -2556,7 +2766,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     SchemaExportGuard schema_guard(&c_schema);
 
     auto orig_bytes = pool_->bytes_allocated();
-    ASSERT_OK(factory(&batch));
+    ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
     ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
     ASSERT_OK(ExportRecordBatch(*batch, &c_array));
 
@@ -2579,7 +2789,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     // Check value of imported record batch
     {
       std::shared_ptr<RecordBatch> expected;
-      ASSERT_OK(factory(&expected));
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
       AssertSchemaEqual(*expected->schema(), *batch->schema());
       AssertBatchesEqual(*expected, *batch);
     }
@@ -2614,31 +2824,37 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSON(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSON(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
 
+  TestWithJSON(month_day_nano_interval(), R"([[1, -600, 5000], null])");
+
   TestWithJSONSliced(int32(), "[4, 5]");
   TestWithJSONSliced(int32(), "[4, 5, 6, null]");
   TestWithJSONSliced(decimal128(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
+  TestWithJSONSliced(month_day_nano_interval(),
+                     R"([[4, 5, 6], [1, -600, 5000], null, null])");
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
-  TestWithArrayFactory([](std::shared_ptr<Array>* arr) -> Status {
-    *arr = ArrayFromJSON(int32(), "[0, 1, 2]");
-    if ((*arr)->null_bitmap()) {
+  TestWithArrayFactory([]() -> Result<std::shared_ptr<Array>> {
+    auto arr = ArrayFromJSON(int32(), "[0, 1, 2]");
+    if (arr->null_bitmap()) {
       return Status::Invalid(
           "Failed precondition: "
           "the array shouldn't have a null bitmap.");
     }
-    (*arr)->data()->SetNullCount(kUnknownNullCount);
-    return Status::OK();
+    arr->data()->SetNullCount(kUnknownNullCount);
+    return arr;
   });
 }
 
-TEST_F(TestArrayRoundtrip, Nested) {
+TEST_F(TestArrayRoundtrip, List) {
   TestWithJSON(list(int32()), "[]");
   TestWithJSON(list(int32()), "[[4, 5], [6, null], null]");
 
   TestWithJSONSliced(list(int32()), "[[4, 5], [6, null], null]");
+}
 
+TEST_F(TestArrayRoundtrip, Struct) {
   auto type = struct_({field("ints", int16()), field("bools", boolean())});
   TestWithJSON(type, "[]");
   TestWithJSON(type, "[[4, true], [5, false]]");
@@ -2655,9 +2871,11 @@ TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSON(type, "[[4, true], [5, null]]");
 
   TestWithJSONSliced(type, "[[4, true], [5, null], [6, false]]");
+}
 
+TEST_F(TestArrayRoundtrip, Map) {
   // Map type
-  type = map(utf8(), int32());
+  auto type = map(utf8(), int32());
   const char* json = R"([[["foo", 123], ["bar", -456]], null,
                         [["foo", null]], []])";
   TestWithJSON(type, json);
@@ -2668,30 +2886,76 @@ TEST_F(TestArrayRoundtrip, Nested) {
   TestWithJSONSliced(type, json);
 }
 
+TEST_F(TestArrayRoundtrip, Union) {
+  FieldVector fields = {field("strs", utf8()), field("ints", int8())};
+  std::vector<int8_t> type_codes = {43, 42};
+  DataTypeVector union_types = {sparse_union(fields, type_codes),
+                                dense_union(fields, type_codes)};
+  const char* json = R"([[42, 1], [42, null], [43, "foo"], [43, ""], [42, 3]])";
+
+  for (const auto& type : union_types) {
+    TestWithJSON(type, "[]");
+    TestWithJSON(type, json);
+    TestWithJSONSliced(type, json);
+  }
+}
+
 TEST_F(TestArrayRoundtrip, Dictionary) {
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
-                                         indices, values)
-          .Value(out);
+                                         indices, values);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));
   }
   {
-    auto factory = [](std::shared_ptr<Array>* out) -> Status {
+    auto factory = []() {
       auto values = ArrayFromJSON(list(utf8()), R"([["abc", "def"], ["efg"], []])");
       auto indices = ArrayFromJSON(int32(), "[0, 2, 1, null, 1]");
       return DictionaryArray::FromArrays(
-                 dictionary(indices->type(), values->type(), /*ordered=*/true), indices,
-                 values)
-          .Value(out);
+          dictionary(indices->type(), values->type(), /*ordered=*/true), indices, values);
     };
     TestWithArrayFactory(factory);
     TestWithArrayFactory(SlicedArrayFactory(factory));
   }
+}
+
+TEST_F(TestArrayRoundtrip, RegisteredExtension) {
+  ExtensionTypeGuard guard({smallint(), complex128(), dict_extension_type(), uuid()});
+
+  TestWithArrayFactory(ExampleSmallint);
+  TestWithArrayFactory(ExampleUuid);
+  TestWithArrayFactory(ExampleComplex128);
+  TestWithArrayFactory(ExampleDictExtension);
+
+  // Nested inside outer array
+  auto NestedFactory = [](ArrayFactory factory) {
+    return [factory]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, ToResult(factory()));
+      return FixedSizeListArray::FromArrays(arr, /*list_size=*/1);
+    };
+  };
+  TestWithArrayFactory(NestedFactory(ExampleSmallint));
+  TestWithArrayFactory(NestedFactory(ExampleUuid));
+  TestWithArrayFactory(NestedFactory(ExampleComplex128));
+  TestWithArrayFactory(NestedFactory(ExampleDictExtension));
+}
+
+TEST_F(TestArrayRoundtrip, UnregisteredExtension) {
+  auto StorageExtractor = [](ArrayFactory factory) {
+    return [factory]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, ToResult(factory()));
+      return checked_cast<const ExtensionArray&>(*arr).storage();
+    };
+  };
+
+  TestWithArrayFactory(ExampleSmallint, StorageExtractor(ExampleSmallint));
+  TestWithArrayFactory(ExampleUuid, StorageExtractor(ExampleUuid));
+  TestWithArrayFactory(ExampleComplex128, StorageExtractor(ExampleComplex128));
+  TestWithArrayFactory(ExampleDictExtension, StorageExtractor(ExampleDictExtension));
 }
 
 TEST_F(TestArrayRoundtrip, RecordBatch) {
@@ -2701,22 +2965,18 @@ TEST_F(TestArrayRoundtrip, RecordBatch) {
   auto arr1 = ArrayFromJSON(boolean(), "[false, true, false]");
 
   {
-    auto factory = [&](std::shared_ptr<RecordBatch>* out) -> Status {
-      *out = RecordBatch::Make(schema, 3, {arr0, arr1});
-      return Status::OK();
-    };
+    auto factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
     TestWithBatchFactory(factory);
   }
   {
     // With schema and field metadata
-    auto factory = [&](std::shared_ptr<RecordBatch>* out) -> Status {
+    auto factory = [&]() {
       auto f0 = schema->field(0);
       auto f1 = schema->field(1);
       f1 = f1->WithMetadata(key_value_metadata(kMetadataKeys1, kMetadataValues1));
       auto schema_with_md =
           ::arrow::schema({f0, f1}, key_value_metadata(kMetadataKeys2, kMetadataValues2));
-      *out = RecordBatch::Make(schema_with_md, 3, {arr0, arr1});
-      return Status::OK();
+      return RecordBatch::Make(schema_with_md, 3, {arr0, arr1});
     };
     TestWithBatchFactory(factory);
   }

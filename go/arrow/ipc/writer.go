@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipc // import "github.com/apache/arrow/go/arrow/ipc"
+package ipc
 
 import (
 	"bytes"
@@ -24,11 +24,11 @@ import (
 	"math"
 	"sync"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/bitutil"
-	"github.com/apache/arrow/go/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/array"
+	"github.com/apache/arrow/go/v8/arrow/bitutil"
+	"github.com/apache/arrow/go/v8/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -117,7 +117,7 @@ func (w *Writer) Close() error {
 	return nil
 }
 
-func (w *Writer) Write(rec array.Record) error {
+func (w *Writer) Write(rec arrow.Record) error {
 	if !w.started {
 		err := w.start()
 		if err != nil {
@@ -260,7 +260,7 @@ func (w *recordEncoder) compressBodyBuffers(p *Payload) error {
 	return <-errch
 }
 
-func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
+func (w *recordEncoder) Encode(p *Payload, rec arrow.Record) error {
 
 	// perform depth-first traversal of the row-batch
 	for i, col := range rec.Columns() {
@@ -307,7 +307,7 @@ func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
 	return w.encodeMetadata(p, rec.NumRows())
 }
 
-func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
+func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 	if w.depth <= 0 {
 		return errMaxRecursion
 	}
@@ -332,18 +332,27 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 		Offset: 0,
 	})
 
+	if arr.DataType().ID() == arrow.NULL {
+		return nil
+	}
+
 	switch arr.NullN() {
 	case 0:
+		// there are no null values, drop the null bitmap
 		p.body = append(p.body, nil)
 	default:
-		switch arr.DataType().ID() {
-		case arrow.NULL:
-			// Null type has no validity bitmap
-		default:
-			data := arr.Data()
-			bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
-			p.body = append(p.body, bitmap)
+		data := arr.Data()
+		var bitmap *memory.Buffer
+		if data.NullN() == data.Len() {
+			// every value is null, just use a new unset bitmap to avoid the expense of copying
+			bitmap = memory.NewResizableBuffer(w.mem)
+			minLength := paddedLength(bitutil.BytesForBits(int64(data.Len())), kArrowAlignment)
+			bitmap.Resize(int(minLength))
+		} else {
+			// otherwise truncate and copy the bits
+			bitmap = newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
 		}
+		p.body = append(p.body, bitmap)
 	}
 
 	switch dtype := arr.DataType().(type) {
@@ -373,13 +382,12 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// non-zero offset: slice the buffer
 			offset := int64(data.Offset()) * typeWidth
 			// send padding if available
-			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(data.Len())-offset)
-			data = array.NewSliceData(data, offset, offset+len)
-			defer data.Release()
-			values = data.Buffers()[1]
-		}
-		if values != nil {
-			values.Retain()
+			len := minI64(bitutil.CeilByte64(arrLen*typeWidth), int64(values.Len())-offset)
+			values = memory.NewBufferBytes(values.Bytes()[offset : offset+len])
+		default:
+			if values != nil {
+				values.Retain()
+			}
 		}
 		p.body = append(p.body, values)
 
@@ -402,11 +410,9 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// slice data buffer to include the range we need now.
 			var (
 				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
-			data = array.NewSliceData(data, beg, beg+len)
-			defer data.Release()
-			values = data.Buffers()[2]
+			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
 		default:
 			if values != nil {
 				values.Retain()
@@ -426,7 +432,7 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 
 		var totalDataBytes int64
 		if voffsets != nil {
-			totalDataBytes = int64(arr.ValueOffset(arr.Len()) - arr.ValueOffset(0))
+			totalDataBytes = int64(len(arr.ValueBytes()))
 		}
 
 		switch {
@@ -434,11 +440,9 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 			// slice data buffer to include the range we need now.
 			var (
 				beg = int64(arr.ValueOffset(0))
-				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(data.Len())-beg)
+				len = minI64(paddedLength(totalDataBytes, kArrowAlignment), int64(totalDataBytes))
 			)
-			data = array.NewSliceData(data, beg, beg+len)
-			defer data.Release()
-			values = data.Buffers()[2]
+			values = memory.NewBufferBytes(data.Buffers()[2].Bytes()[beg : beg+len])
 		default:
 			if values != nil {
 				values.Retain()
@@ -559,18 +563,31 @@ func (w *recordEncoder) visit(p *Payload, arr array.Interface) error {
 	return nil
 }
 
-func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.Buffer, error) {
+func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
 	if data.Offset() != 0 {
-		// FIXME(sbinet): writer.cc:231
-		panic(xerrors.Errorf("not implemented offset=%d", data.Offset()))
+		// if we have a non-zero offset, then the value offsets do not start at
+		// zero. we must a) create a new offsets array with shifted offsets and
+		// b) slice the values array accordingly
+		shiftedOffsets := memory.NewResizableBuffer(w.mem)
+		shiftedOffsets.Resize(arrow.Int32Traits.BytesRequired(data.Len() + 1))
+
+		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
+		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
+
+		startOffset := offsets[0]
+		for i, o := range offsets {
+			dest[i] = o - startOffset
+		}
+		voffsets = shiftedOffsets
+	} else {
+		voffsets.Retain()
 	}
 	if voffsets == nil || voffsets.Len() == 0 {
 		return nil, nil
 	}
 
-	voffsets.Retain()
 	return voffsets, nil
 }
 
@@ -580,16 +597,18 @@ func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {
 }
 
 func newTruncatedBitmap(mem memory.Allocator, offset, length int64, input *memory.Buffer) *memory.Buffer {
-	if input != nil {
-		input.Retain()
-		return input
+	if input == nil {
+		return nil
 	}
 
 	minLength := paddedLength(bitutil.BytesForBits(length), kArrowAlignment)
 	switch {
 	case offset != 0 || minLength < int64(input.Len()):
 		// with a sliced array / non-zero offset, we must copy the bitmap
-		panic("not implemented") // FIXME(sbinet): writer.cc:75
+		buf := memory.NewResizableBuffer(mem)
+		buf.Resize(int(minLength))
+		bitutil.CopyBitmap(input.Bytes(), int(offset), int(length), buf.Bytes(), 0)
+		return buf
 	default:
 		input.Retain()
 		return input

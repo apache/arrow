@@ -151,11 +151,28 @@ def _as_numpy_array(xs):
     return arr
 
 
+def _as_set(xs):
+    return set(xs)
+
+
+SEQUENCE_TYPES = [_as_list, _as_tuple, _as_numpy_array]
+ITERABLE_TYPES = [_as_set, _as_dict_values] + SEQUENCE_TYPES
+COLLECTIONS_TYPES = [_as_deque] + ITERABLE_TYPES
+
 parametrize_with_iterable_types = pytest.mark.parametrize(
-    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_numpy_array])
+    "seq", ITERABLE_TYPES
+)
+
+parametrize_with_sequence_types = pytest.mark.parametrize(
+    "seq", SEQUENCE_TYPES
+)
+
+parametrize_with_collections_types = pytest.mark.parametrize(
+    "seq", COLLECTIONS_TYPES
+)
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_sequence_types(seq):
     arr1 = pa.array(seq([1, 2, 3]))
     arr2 = pa.array([1, 2, 3])
@@ -164,6 +181,14 @@ def test_sequence_types(seq):
 
 
 @parametrize_with_iterable_types
+def test_nested_sequence_types(seq):
+    arr1 = pa.array([seq([1, 2, 3])])
+    arr2 = pa.array([[1, 2, 3]])
+
+    assert arr1.equals(arr2)
+
+
+@parametrize_with_sequence_types
 def test_sequence_boolean(seq):
     expected = [True, None, False, None]
     arr = pa.array(seq(expected))
@@ -173,7 +198,7 @@ def test_sequence_boolean(seq):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_sequence_numpy_boolean(seq):
     expected = [np.bool_(True), None, np.bool_(False), None]
     arr = pa.array(seq(expected))
@@ -181,7 +206,7 @@ def test_sequence_numpy_boolean(seq):
     assert arr.to_pylist() == [True, None, False, None]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_sequence_mixed_numpy_python_bools(seq):
     values = np.array([True, False])
     arr = pa.array(seq([values[0], None, values[1], True, False]))
@@ -189,7 +214,7 @@ def test_sequence_mixed_numpy_python_bools(seq):
     assert arr.to_pylist() == [True, None, False, True, False]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_empty_list(seq):
     arr = pa.array(seq([]))
     assert len(arr) == 0
@@ -198,7 +223,7 @@ def test_empty_list(seq):
     assert arr.to_pylist() == []
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_nested_lists(seq):
     data = [[], [1, 2], None]
     arr = pa.array(seq(data))
@@ -214,7 +239,7 @@ def test_nested_lists(seq):
     assert arr.to_pylist() == data
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_nested_large_lists(seq):
     data = [[], [1, 2], None]
     arr = pa.array(seq(data), type=pa.large_list(pa.int16()))
@@ -224,7 +249,7 @@ def test_nested_large_lists(seq):
     assert arr.to_pylist() == data
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
     with pytest.raises(TypeError):
@@ -233,7 +258,7 @@ def test_list_with_non_list(seq):
         pa.array(seq([[], [1, 2], 3]), type=pa.large_list(pa.int64()))
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_nested_arrays(seq):
     arr = pa.array(seq([np.array([], dtype=np.int64),
                         np.array([1, 2], dtype=np.int64), None]))
@@ -243,7 +268,7 @@ def test_nested_arrays(seq):
     assert arr.to_pylist() == [[], [1, 2], None]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_nested_fixed_size_list(seq):
     # sequence of lists
     data = [[1, 2], [3, None], None]
@@ -278,7 +303,7 @@ def test_nested_fixed_size_list(seq):
     assert arr.to_pylist() == [[], [], None]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_sequence_all_none(seq):
     arr = pa.array(seq([None, None]))
     assert len(arr) == 2
@@ -287,7 +312,7 @@ def test_sequence_all_none(seq):
     assert arr.to_pylist() == [None, None]
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_integer(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -300,7 +325,7 @@ def test_sequence_integer(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_integer_np_nan(seq, np_scalar_pa_type):
     # ARROW-2806: numpy.nan is a double value and thus should produce
@@ -317,7 +342,7 @@ def test_sequence_integer_np_nan(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_integer_nested_np_nan(seq, np_scalar_pa_type):
     # ARROW-2806: numpy.nan is a double value and thus should produce
@@ -334,7 +359,7 @@ def test_sequence_integer_nested_np_nan(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_sequence_integer_inferred(seq):
     expected = [1, None, 3, None]
     arr = pa.array(seq(expected))
@@ -344,7 +369,7 @@ def test_sequence_integer_inferred(seq):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_numpy_integer(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -358,7 +383,7 @@ def test_sequence_numpy_integer(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 @pytest.mark.parametrize("np_scalar_pa_type", int_type_pairs)
 def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     np_scalar, pa_type = np_scalar_pa_type
@@ -372,7 +397,7 @@ def test_sequence_numpy_integer_inferred(seq, np_scalar_pa_type):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 def test_sequence_custom_integers(seq):
     expected = [0, 42, 2**33 + 1, -2**63]
     data = list(map(MyInt, expected))
@@ -380,7 +405,7 @@ def test_sequence_custom_integers(seq):
     assert arr.to_pylist() == expected
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 def test_broken_integers(seq):
     data = [MyBrokenInt()]
     with pytest.raises(pa.ArrowInvalid, match="tried to convert to int"):
@@ -434,7 +459,7 @@ def test_unsigned_integer_overflow(bits):
         pa.array([-1], ty)
 
 
-@parametrize_with_iterable_types
+@parametrize_with_collections_types
 @pytest.mark.parametrize("typ", pa_int_types)
 def test_integer_from_string_error(seq, typ):
     # ARROW-9451: pa.array(['1'], type=pa.uint32()) should not succeed
@@ -540,7 +565,7 @@ def test_mixed_sequence_errors():
         pa.array([1.5, 'foo'])
 
 
-@parametrize_with_iterable_types
+@parametrize_with_sequence_types
 @pytest.mark.parametrize("np_scalar,pa_type", [
     (np.float16, pa.float16()),
     (np.float32, pa.float32()),

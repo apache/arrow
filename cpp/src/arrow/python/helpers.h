@@ -87,6 +87,9 @@ bool IsPandasTimedelta(PyObject* obj);
 // \brief Check that obj is a pandas.Timestamp instance
 bool IsPandasTimestamp(PyObject* obj);
 
+// \brief Returned a borrowed reference to the pandas.tseries.offsets.DateOffset
+PyObject* BorrowPandasDataOffsetType();
+
 // \brief Check whether obj is a floating-point NaN
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);

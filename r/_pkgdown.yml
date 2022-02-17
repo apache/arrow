@@ -44,7 +44,7 @@ navbar:
       text: Project docs
       menu:
         - text: Specification
-          href: https://arrow.apache.org/docs/format/README.html
+          href: https://arrow.apache.org/docs/format/Columnar.html
         - text: C GLib
           href: https://arrow.apache.org/docs/c_glib
         - text: C++
@@ -72,6 +72,20 @@ navbar:
           href: articles/flight.html
         - text: Arrow R Developer Guide
           href: articles/developing.html
+        - text: Developers
+          menu:
+          - text: Developer Environment Setup
+            href: articles/developers/setup.html
+          - text: Common Workflow Tasks
+            href: articles/developers/workflow.html
+          - text: Debugging
+            href: articles/developers/debugging.html
+          - text: Package Installation Details
+            href: articles/developers/install_details.html
+          - text: Docker
+            href: articles/developers/docker.html
+          - text: Writing Bindings
+            href: articles/developers/bindings.html
 reference:
   - title: Multi-file datasets
     contents:
@@ -121,6 +135,7 @@ reference:
       - ArrayData
       - buffer
       - read_message
+      - concat_arrays
   - title: Arrow data types and schema
     contents:
       - Schema
@@ -137,6 +152,7 @@ reference:
     contents:
       - load_flight_server
       - flight_connect
+      - flight_disconnect
       - flight_get
       - flight_put
       - list_flights
@@ -166,6 +182,7 @@ reference:
       - list_compute_functions
   - title: Connections to other systems
     contents:
+      - to_arrow
       - to_duckdb
   - title: Configuration
     contents:
@@ -175,6 +192,7 @@ reference:
       - arrow_available
       - install_arrow
       - install_pyarrow
+      - create_package_with_all_dependencies
 
 repo:
   jira_projects: [ARROW]

@@ -85,6 +85,7 @@ starting from the beginning of this vector. Possible values are
 (a) \code{NULL}, the default, which uses the ISO-8601 parser;
 (b) a character vector of \link[base:strptime]{strptime} parse strings; or
 (c) a list of \link{TimestampParser} objects.
+\item \code{encoding} The file encoding.
 }
 
 \code{TimestampParser$create()} takes an optional \code{format} string argument.

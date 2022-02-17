@@ -43,7 +43,11 @@
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
 #include <arrow/ipc/type_fwd.h>
+
+#if defined(ARROW_R_WITH_JSON)
 #include <arrow/json/type_fwd.h>
+#endif
+
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
 
@@ -71,17 +75,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 arrow::MemoryPool* gc_memory_pool();
 arrow::compute::ExecContext* gc_context();
 
-#if (R_VERSION < R_Version(3, 5, 0))
-#define LOGICAL_RO(x) ((const int*)LOGICAL(x))
-#define INTEGER_RO(x) ((const int*)INTEGER(x))
-#define REAL_RO(x) ((const double*)REAL(x))
-#define COMPLEX_RO(x) ((const Rcomplex*)COMPLEX(x))
-#define STRING_PTR_RO(x) ((const SEXP*)STRING_PTR(x))
-#define RAW_RO(x) ((const Rbyte*)RAW(x))
-#define DATAPTR_RO(x) ((const void*)STRING_PTR(x))
-#define DATAPTR(x) (void*)STRING_PTR(x)
-#endif
-
 #define VECTOR_PTR_RO(x) ((const SEXP*)DATAPTR_RO(x))
 
 namespace arrow {
@@ -101,6 +94,7 @@ auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
 }
 
 namespace r {
+class RTasks;
 
 std::shared_ptr<arrow::DataType> InferArrowType(SEXP x);
 std::shared_ptr<arrow::Array> vec_to_arrow__reuse_memory(SEXP x);
@@ -109,9 +103,10 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 Status count_fields(SEXP lst, int* out);
 
 void inspect(SEXP obj);
-std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
-                                           const std::shared_ptr<arrow::DataType>& type,
-                                           bool type_inferred);
+std::shared_ptr<arrow::Array> vec_to_arrow_Array(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
+std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
+    SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_inferred);
 
 // the integer64 sentinel
 constexpr int64_t NA_INT64 = std::numeric_limits<int64_t>::min();
@@ -173,11 +168,20 @@ arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
 arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema);
 
+namespace altrep {
+
 #if defined(HAS_ALTREP)
 void Init_Altrep_classes(DllInfo* dll);
-SEXP MakeInt32ArrayNoNull(const std::shared_ptr<Array>& array);
-SEXP MakeDoubleArrayNoNull(const std::shared_ptr<Array>& array);
 #endif
+
+SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
+bool is_arrow_altrep(SEXP x);
+std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
+
+}  // namespace altrep
+
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array);
 
 }  // namespace r
 }  // namespace arrow
@@ -216,9 +220,11 @@ R6_CLASS_NAME(parquet::arrow::FileWriter, "ParquetFileWriter");
 
 R6_CLASS_NAME(arrow::ipc::feather::Reader, "FeatherReader");
 
+#if defined(ARROW_R_WITH_JSON)
 R6_CLASS_NAME(arrow::json::ReadOptions, "JsonReadOptions");
 R6_CLASS_NAME(arrow::json::ParseOptions, "JsonParseOptions");
 R6_CLASS_NAME(arrow::json::TableReader, "JsonTableReader");
+#endif
 
 #undef R6_CLASS_NAME
 

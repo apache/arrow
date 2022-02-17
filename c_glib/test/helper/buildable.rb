@@ -17,6 +17,13 @@
 
 module Helper
   module Buildable
+    def build_schema(fields)
+      fields = fields.collect do |name, data_type|
+        Arrow::Field.new(name, data_type)
+      end
+      Arrow::Schema.new(fields)
+    end
+
     def build_null_array(values)
       build_array(Arrow::NullArrayBuilder.new, values)
     end

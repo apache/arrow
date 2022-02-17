@@ -17,11 +17,14 @@
 package array
 
 import (
+	"hash/maphash"
+	"math/bits"
 	"sync/atomic"
+	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/debug"
-	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/apache/arrow/go/v8/arrow/internal/debug"
+	"github.com/apache/arrow/go/v8/arrow/memory"
 )
 
 // Data represents the memory and metadata of an Arrow array.
@@ -31,12 +34,12 @@ type Data struct {
 	nulls     int
 	offset    int
 	length    int
-	buffers   []*memory.Buffer // TODO(sgc): should this be an interface?
-	childData []*Data          // TODO(sgc): managed by ListArray, StructArray and UnionArray types
+	buffers   []*memory.Buffer  // TODO(sgc): should this be an interface?
+	childData []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
 }
 
 // NewData creates a new Data.
-func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) *Data {
+func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []arrow.ArrayData, nulls, offset int) *Data {
 	for _, b := range buffers {
 		if b != nil {
 			b.Retain()
@@ -61,7 +64,7 @@ func NewData(dtype arrow.DataType, length int, buffers []*memory.Buffer, childDa
 }
 
 // Reset sets the Data for re-use.
-func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []*Data, nulls, offset int) {
+func (d *Data) Reset(dtype arrow.DataType, length int, buffers []*memory.Buffer, childData []arrow.ArrayData, nulls, offset int) {
 	// Retain new buffers before releasing existing buffers in-case they're the same ones to prevent accidental premature
 	// release.
 	for _, b := range buffers {
@@ -137,6 +140,8 @@ func (d *Data) Offset() int { return d.offset }
 // Buffers returns the buffers.
 func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 
+func (d *Data) Children() []arrow.ArrayData { return d.childData }
+
 // NewSliceData returns a new slice that shares backing data with the input.
 // The returned Data slice starts at i and extends j-i elements, such as:
 //    slice := data[i:j]
@@ -144,18 +149,18 @@ func (d *Data) Buffers() []*memory.Buffer { return d.buffers }
 //
 // NewSliceData panics if the slice is outside the valid range of the input Data.
 // NewSliceData panics if j < i.
-func NewSliceData(data *Data, i, j int64) *Data {
-	if j > int64(data.length) || i > j || data.offset+int(i) > data.offset+data.length {
+func NewSliceData(data arrow.ArrayData, i, j int64) arrow.ArrayData {
+	if j > int64(data.Len()) || i > j || data.Offset()+int(i) > data.Offset()+data.Len() {
 		panic("arrow/array: index out of range")
 	}
 
-	for _, b := range data.buffers {
+	for _, b := range data.Buffers() {
 		if b != nil {
 			b.Retain()
 		}
 	}
 
-	for _, child := range data.childData {
+	for _, child := range data.Children() {
 		if child != nil {
 			child.Retain()
 		}
@@ -163,17 +168,30 @@ func NewSliceData(data *Data, i, j int64) *Data {
 
 	o := &Data{
 		refCount:  1,
-		dtype:     data.dtype,
+		dtype:     data.DataType(),
 		nulls:     UnknownNullCount,
 		length:    int(j - i),
-		offset:    data.offset + int(i),
-		buffers:   data.buffers,
-		childData: data.childData,
+		offset:    data.Offset() + int(i),
+		buffers:   data.Buffers(),
+		childData: data.Children(),
 	}
 
-	if data.nulls == 0 {
+	if data.NullN() == 0 {
 		o.nulls = 0
 	}
 
 	return o
+}
+
+func Hash(h *maphash.Hash, data arrow.ArrayData) {
+	a := data.(*Data)
+
+	h.Write((*[bits.UintSize / 8]byte)(unsafe.Pointer(&a.length))[:])
+	h.Write((*[bits.UintSize / 8]byte)(unsafe.Pointer(&a.length))[:])
+	if len(a.buffers) > 0 && a.buffers[0] != nil {
+		h.Write(a.buffers[0].Bytes())
+	}
+	for _, c := range a.childData {
+		Hash(h, c)
+	}
 }

@@ -423,4 +423,15 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
   return out;
 }
 
+Future<> AllFinished(const std::vector<Future<>>& futures) {
+  return All(futures).Then([](const std::vector<Result<internal::Empty>>& results) {
+    for (const auto& res : results) {
+      if (!res.ok()) {
+        return res.status();
+      }
+    }
+    return Status::OK();
+  });
+}
+
 }  // namespace arrow

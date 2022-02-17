@@ -36,14 +36,13 @@ namespace compute {
 // This is more or less translation of equivalent scalar code, adjusted for a different
 // instruction set (e.g. missing leading zero count instruction).
 //
-void SwissTable::lookup_1_avx2_x8(const int num_hashes, const uint32_t* hashes,
-                                  uint8_t* out_match_bitvector, uint32_t* out_group_ids,
-                                  uint32_t* out_next_slot_ids) {
+void SwissTable::early_filter_imp_avx2_x8(const int num_hashes, const uint32_t* hashes,
+                                          uint8_t* out_match_bitvector,
+                                          uint8_t* out_local_slots) const {
   // Number of inputs processed together in a loop
   constexpr int unroll = 8;
 
   const int num_group_id_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-  uint32_t group_id_mask = ~static_cast<uint32_t>(0) >> (32 - num_group_id_bits);
   const __m256i* vhash_ptr = reinterpret_cast<const __m256i*>(hashes);
   const __m256i vstamp_mask = _mm256_set1_epi32((1 << bits_stamp_) - 1);
 
@@ -85,6 +84,15 @@ void SwissTable::lookup_1_avx2_x8(const int num_hashes, const uint32_t* hashes,
         vstamp_B, _mm256_or_si256(vbyte_repeat_pattern, vblock_highbits_B));
     __m256i vmatches_A = _mm256_cmpeq_epi8(vblock_A, vstamp_A);
     __m256i vmatches_B = _mm256_cmpeq_epi8(vblock_B, vstamp_B);
+
+    // In case when there are no matches in slots and the block is full (no empty slots),
+    // pretend that there is a match in the last slot.
+    //
+    vmatches_A = _mm256_or_si256(
+        vmatches_A, _mm256_andnot_si256(vblock_highbits_A, _mm256_set1_epi64x(0xff)));
+    vmatches_B = _mm256_or_si256(
+        vmatches_B, _mm256_andnot_si256(vblock_highbits_B, _mm256_set1_epi64x(0xff)));
+
     __m256i vmatch_found = _mm256_andnot_si256(
         _mm256_blend_epi32(_mm256_cmpeq_epi64(vmatches_A, _mm256_setzero_si256()),
                            _mm256_cmpeq_epi64(vmatches_B, _mm256_setzero_si256()),
@@ -106,46 +114,30 @@ void SwissTable::lookup_1_avx2_x8(const int num_hashes, const uint32_t* hashes,
     //
     // Emulating lzcnt in lowest bytes of 32-bit elements
     __m256i vgt = _mm256_cmpgt_epi32(_mm256_set1_epi32(16), vmatches);
-    __m256i vnext_slot_id =
+    __m256i vlocal_slot =
         _mm256_blendv_epi8(_mm256_srli_epi32(vmatches, 4),
                            _mm256_and_si256(vmatches, _mm256_set1_epi32(0x0f)), vgt);
-    vnext_slot_id = _mm256_shuffle_epi8(
+    vlocal_slot = _mm256_shuffle_epi8(
         _mm256_setr_epi8(4, 3, 2, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 4, 3, 2, 2, 1, 1,
                          1, 1, 0, 0, 0, 0, 0, 0, 0, 0),
-        vnext_slot_id);
-    vnext_slot_id =
-        _mm256_add_epi32(_mm256_and_si256(vnext_slot_id, _mm256_set1_epi32(0xff)),
-                         _mm256_and_si256(vgt, _mm256_set1_epi32(4)));
-
-    // Lookup group ids
-    //
-    __m256i vgroupid_bit_offset =
-        _mm256_mullo_epi32(_mm256_and_si256(vnext_slot_id, _mm256_set1_epi32(7)),
-                           _mm256_set1_epi32(num_group_id_bits));
-
-    // This only works for up to 25 bits per group id, since it uses 32-bit gather
-    // TODO: make sure this will never get called when there are more than 2^25 groups.
-    __m256i vgroupid =
-        _mm256_add_epi32(_mm256_srli_epi32(vgroupid_bit_offset, 3),
-                         _mm256_add_epi32(vblock_offset, _mm256_set1_epi32(8)));
-    vgroupid = _mm256_i32gather_epi32(reinterpret_cast<const int*>(blocks_), vgroupid, 1);
-    vgroupid = _mm256_srlv_epi32(
-        vgroupid, _mm256_and_si256(vgroupid_bit_offset, _mm256_set1_epi32(7)));
-    vgroupid = _mm256_and_si256(vgroupid, _mm256_set1_epi32(group_id_mask));
+        vlocal_slot);
+    vlocal_slot = _mm256_add_epi32(_mm256_and_si256(vlocal_slot, _mm256_set1_epi32(0xff)),
+                                   _mm256_and_si256(vgt, _mm256_set1_epi32(4)));
 
     // Convert slot id relative to the block to slot id relative to the beginnning of the
     // table
     //
-    vnext_slot_id = _mm256_add_epi32(
-        _mm256_add_epi32(vnext_slot_id,
-                         _mm256_and_si256(vmatch_found, _mm256_set1_epi32(1))),
-        _mm256_slli_epi32(vblock_id, 3));
+    uint64_t local_slot = _mm256_extract_epi64(
+        _mm256_permutevar8x32_epi32(
+            _mm256_shuffle_epi8(
+                vlocal_slot, _mm256_setr_epi32(0x0c080400, 0, 0, 0, 0x0c080400, 0, 0, 0)),
+            _mm256_setr_epi32(0, 4, 0, 0, 0, 0, 0, 0)),
+        0);
+    (reinterpret_cast<uint64_t*>(out_local_slots))[i] = local_slot;
 
     // Convert match found vector from 32-bit elements to bit vector
     out_match_bitvector[i] = _pext_u32(_mm256_movemask_epi8(vmatch_found),
                                        0x11111111);  // 0b00010001 repeated 4x
-    _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, vgroupid);
-    _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_next_slot_ids) + i, vnext_slot_id);
   }
 }
 
@@ -214,9 +206,9 @@ inline void split_bytes_avx2(__m256i word0, __m256i word1, __m256i word2, __m256
 // using a different method.
 // TODO: Explain the idea behind storing arrays in SIMD registers.
 // Explain why it is faster with SIMD than using memory loads.
-void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
-                                   uint8_t* out_match_bitvector, uint32_t* out_group_ids,
-                                   uint32_t* out_next_slot_ids) {
+void SwissTable::early_filter_imp_avx2_x32(const int num_hashes, const uint32_t* hashes,
+                                           uint8_t* out_match_bitvector,
+                                           uint8_t* out_local_slots) const {
   constexpr int unroll = 32;
 
   // There is a limit on the number of input blocks,
@@ -227,8 +219,6 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
   // table. We put them in the same order.
   __m256i vblock_byte0, vblock_byte1, vblock_byte2, vblock_byte3, vblock_byte4,
       vblock_byte5, vblock_byte6, vblock_byte7;
-  __m256i vgroupid_byte0, vgroupid_byte1, vgroupid_byte2, vgroupid_byte3, vgroupid_byte4,
-      vgroupid_byte5, vgroupid_byte6, vgroupid_byte7;
   // What we output if there is no match in the block
   __m256i vslot_empty_or_end;
 
@@ -236,22 +226,16 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
   constexpr uint32_t k4ByteSequence_1_5_9_13 = 0x0d090501;
   constexpr uint32_t k4ByteSequence_2_6_10_14 = 0x0e0a0602;
   constexpr uint32_t k4ByteSequence_3_7_11_15 = 0x0f0b0703;
-  constexpr uint64_t kEachByteIs1 = 0x0101010101010101ULL;
   constexpr uint64_t kByteSequence7DownTo0 = 0x0001020304050607ULL;
   constexpr uint64_t kByteSequence15DownTo8 = 0x08090A0B0C0D0E0FULL;
 
   // Bit unpack group ids into 1B.
   // Assemble the sequence of block bytes.
   uint64_t block_bytes[16];
-  uint64_t groupid_bytes[16];
   const int num_groupid_bits = num_groupid_bits_from_log_blocks(log_blocks_);
-  uint64_t bit_unpack_mask = ((1 << num_groupid_bits) - 1) * kEachByteIs1;
   for (int i = 0; i < (1 << log_blocks_); ++i) {
-    uint64_t in_groupids =
-        *reinterpret_cast<const uint64_t*>(blocks_ + (8 + num_groupid_bits) * i + 8);
     uint64_t in_blockbytes =
         *reinterpret_cast<const uint64_t*>(blocks_ + (8 + num_groupid_bits) * i);
-    groupid_bytes[i] = _pdep_u64(in_groupids, bit_unpack_mask);
     block_bytes[i] = in_blockbytes;
   }
 
@@ -275,18 +259,11 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
   split_bytes_avx2(vblock_words0, vblock_words1, vblock_words2, vblock_words3,
                    vblock_byte0, vblock_byte1, vblock_byte2, vblock_byte3, vblock_byte4,
                    vblock_byte5, vblock_byte6, vblock_byte7);
-  split_bytes_avx2(
-      _mm256_loadu_si256(reinterpret_cast<const __m256i*>(groupid_bytes) + 0),
-      _mm256_loadu_si256(reinterpret_cast<const __m256i*>(groupid_bytes) + 1),
-      _mm256_loadu_si256(reinterpret_cast<const __m256i*>(groupid_bytes) + 2),
-      _mm256_loadu_si256(reinterpret_cast<const __m256i*>(groupid_bytes) + 3),
-      vgroupid_byte0, vgroupid_byte1, vgroupid_byte2, vgroupid_byte3, vgroupid_byte4,
-      vgroupid_byte5, vgroupid_byte6, vgroupid_byte7);
 
   // Calculate the slot to output when there is no match in a block.
-  // It will be the index of the first empty slot or 8 (the number of slots in block)
+  // It will be the index of the first empty slot or 7 (the number of slots in block)
   // if there are no empty slots.
-  vslot_empty_or_end = _mm256_set1_epi8(8);
+  vslot_empty_or_end = _mm256_set1_epi8(7);
   {
     __m256i vis_empty;
 #define CMP(VBLOCKBYTE, BYTENUM)                                                         \
@@ -304,6 +281,9 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
     CMP(vblock_byte0, 0);
 #undef CMP
   }
+  __m256i vblock_is_full = _mm256_andnot_si256(
+      _mm256_cmpeq_epi8(vblock_byte7, _mm256_set1_epi8(static_cast<unsigned char>(0x80))),
+      _mm256_set1_epi8(static_cast<unsigned char>(0xff)));
 
   const int block_id_mask = (1 << log_blocks_) - 1;
 
@@ -339,29 +319,28 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
     __m256i vblock_id = _mm256_or_si256(vblock_id_A, _mm256_slli_epi16(vblock_id_B, 8));
 
     // Visit all block bytes in reverse order (overwriting data on multiple matches)
-    __m256i vmatch_found = _mm256_setzero_si256();
+    //
+    // Always set match found to true for full blocks.
+    //
+    __m256i vmatch_found = _mm256_shuffle_epi8(vblock_is_full, vblock_id);
     __m256i vslot_id = _mm256_shuffle_epi8(vslot_empty_or_end, vblock_id);
-    __m256i vgroup_id = _mm256_setzero_si256();
-#define CMP(VBLOCK_BYTE, VGROUPID_BYTE, BYTENUM)                                         \
-  {                                                                                      \
-    __m256i vcmp =                                                                       \
-        _mm256_cmpeq_epi8(_mm256_shuffle_epi8(VBLOCK_BYTE, vblock_id), vstamp);          \
-    vmatch_found = _mm256_or_si256(vmatch_found, vcmp);                                  \
-    vgroup_id = _mm256_blendv_epi8(vgroup_id,                                            \
-                                   _mm256_shuffle_epi8(VGROUPID_BYTE, vblock_id), vcmp); \
-    vslot_id = _mm256_blendv_epi8(vslot_id, _mm256_set1_epi8(BYTENUM + 1), vcmp);        \
+#define CMP(VBLOCK_BYTE, BYTENUM)                                               \
+  {                                                                             \
+    __m256i vcmp =                                                              \
+        _mm256_cmpeq_epi8(_mm256_shuffle_epi8(VBLOCK_BYTE, vblock_id), vstamp); \
+    vmatch_found = _mm256_or_si256(vmatch_found, vcmp);                         \
+    vslot_id = _mm256_blendv_epi8(vslot_id, _mm256_set1_epi8(BYTENUM), vcmp);   \
   }
-    CMP(vblock_byte7, vgroupid_byte7, 7);
-    CMP(vblock_byte6, vgroupid_byte6, 6);
-    CMP(vblock_byte5, vgroupid_byte5, 5);
-    CMP(vblock_byte4, vgroupid_byte4, 4);
-    CMP(vblock_byte3, vgroupid_byte3, 3);
-    CMP(vblock_byte2, vgroupid_byte2, 2);
-    CMP(vblock_byte1, vgroupid_byte1, 1);
-    CMP(vblock_byte0, vgroupid_byte0, 0);
+    CMP(vblock_byte7, 7);
+    CMP(vblock_byte6, 6);
+    CMP(vblock_byte5, 5);
+    CMP(vblock_byte4, 4);
+    CMP(vblock_byte3, 3);
+    CMP(vblock_byte2, 2);
+    CMP(vblock_byte1, 1);
+    CMP(vblock_byte0, 0);
 #undef CMP
 
-    vslot_id = _mm256_add_epi8(vslot_id, _mm256_slli_epi32(vblock_id, 3));
     // So far the output is in the order: [0, 8, 16, 24, 1, 9, 17, 25, 2, 10, 18, 26, ...]
     vmatch_found = _mm256_shuffle_epi8(
         vmatch_found,
@@ -374,30 +353,58 @@ void SwissTable::lookup_1_avx2_x32(const int num_hashes, const uint32_t* hashes,
     vmatch_found = _mm256_permutevar8x32_epi32(vmatch_found,
                                                _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7));
 
+    // Repeat the same permutation for slot ids
+    vslot_id = _mm256_shuffle_epi8(
+        vslot_id, _mm256_setr_epi32(k4ByteSequence_0_4_8_12, k4ByteSequence_1_5_9_13,
+                                    k4ByteSequence_2_6_10_14, k4ByteSequence_3_7_11_15,
+                                    k4ByteSequence_0_4_8_12, k4ByteSequence_1_5_9_13,
+                                    k4ByteSequence_2_6_10_14, k4ByteSequence_3_7_11_15));
+    vslot_id =
+        _mm256_permutevar8x32_epi32(vslot_id, _mm256_setr_epi32(0, 4, 1, 5, 2, 6, 3, 7));
+    _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_local_slots) + i, vslot_id);
+
     reinterpret_cast<uint32_t*>(out_match_bitvector)[i] =
         _mm256_movemask_epi8(vmatch_found);
-    _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + 4 * i + 0,
-                        _mm256_and_si256(vgroup_id, _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_group_ids) + 4 * i + 1,
-        _mm256_and_si256(_mm256_srli_epi32(vgroup_id, 8), _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_group_ids) + 4 * i + 2,
-        _mm256_and_si256(_mm256_srli_epi32(vgroup_id, 16), _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_group_ids) + 4 * i + 3,
-        _mm256_and_si256(_mm256_srli_epi32(vgroup_id, 24), _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_next_slot_ids) + 4 * i + 0,
-                        _mm256_and_si256(vslot_id, _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_next_slot_ids) + 4 * i + 1,
-        _mm256_and_si256(_mm256_srli_epi32(vslot_id, 8), _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_next_slot_ids) + 4 * i + 2,
-        _mm256_and_si256(_mm256_srli_epi32(vslot_id, 16), _mm256_set1_epi32(0xff)));
-    _mm256_storeu_si256(
-        reinterpret_cast<__m256i*>(out_next_slot_ids) + 4 * i + 3,
-        _mm256_and_si256(_mm256_srli_epi32(vslot_id, 24), _mm256_set1_epi32(0xff)));
+  }
+}
+
+void SwissTable::extract_group_ids_avx2(const int num_keys, const uint32_t* hashes,
+                                        const uint8_t* local_slots,
+                                        uint32_t* out_group_ids, int byte_offset,
+                                        int byte_multiplier, int byte_size) const {
+  ARROW_DCHECK(byte_size == 1 || byte_size == 2 || byte_size == 4);
+  uint32_t mask = byte_size == 1 ? 0xFF : byte_size == 2 ? 0xFFFF : 0xFFFFFFFF;
+  auto elements = reinterpret_cast<const int*>(blocks_ + byte_offset);
+  constexpr int unroll = 8;
+  if (log_blocks_ == 0) {
+    ARROW_DCHECK(byte_size == 1 && byte_offset == 8 && byte_multiplier == 16);
+    __m256i block_group_ids =
+        _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(blocks_)[1]);
+    for (int i = 0; i < (num_keys + unroll - 1) / unroll; ++i) {
+      __m256i local_slot =
+          _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
+      __m256i group_id = _mm256_shuffle_epi8(block_group_ids, local_slot);
+      group_id = _mm256_shuffle_epi8(
+          group_id, _mm256_setr_epi32(0x80808000, 0x80808001, 0x80808002, 0x80808003,
+                                      0x80808004, 0x80808005, 0x80808006, 0x80808007));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
+    }
+  } else {
+    for (int i = 0; i < (num_keys + unroll - 1) / unroll; ++i) {
+      __m256i hash = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hashes) + i);
+      __m256i local_slot =
+          _mm256_set1_epi64x(reinterpret_cast<const uint64_t*>(local_slots)[i]);
+      local_slot = _mm256_shuffle_epi8(
+          local_slot, _mm256_setr_epi32(0x80808000, 0x80808001, 0x80808002, 0x80808003,
+                                        0x80808004, 0x80808005, 0x80808006, 0x80808007));
+      local_slot = _mm256_mullo_epi32(local_slot, _mm256_set1_epi32(byte_size));
+      __m256i pos = _mm256_srlv_epi32(hash, _mm256_set1_epi32(bits_hash_ - log_blocks_));
+      pos = _mm256_mullo_epi32(pos, _mm256_set1_epi32(byte_multiplier));
+      pos = _mm256_add_epi32(pos, local_slot);
+      __m256i group_id = _mm256_i32gather_epi32(elements, pos, 1);
+      group_id = _mm256_and_si256(group_id, _mm256_set1_epi32(mask));
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(out_group_ids) + i, group_id);
+    }
   }
 }
 

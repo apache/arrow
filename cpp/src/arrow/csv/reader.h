@@ -99,7 +99,7 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   /// parsing (see ARROW-11889)
   static Future<std::shared_ptr<StreamingReader>> MakeAsync(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
+      arrow::internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
       const ConvertOptions&);
 
   static Result<std::shared_ptr<StreamingReader>> Make(
@@ -118,8 +118,8 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
 ARROW_EXPORT
 Future<int64_t> CountRowsAsync(io::IOContext io_context,
                                std::shared_ptr<io::InputStream> input,
-                               internal::Executor* cpu_executor, const ReadOptions&,
-                               const ParseOptions&);
+                               arrow::internal::Executor* cpu_executor,
+                               const ReadOptions&, const ParseOptions&);
 
 }  // namespace csv
 }  // namespace arrow

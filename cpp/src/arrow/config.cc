@@ -43,6 +43,7 @@ const BuildInfo kBuildInfo = {
     ARROW_GIT_ID,
     ARROW_GIT_DESCRIPTION,
     ARROW_PACKAGE_KIND,
+    ARROW_BUILD_TYPE,
     // clang-format on
 };
 

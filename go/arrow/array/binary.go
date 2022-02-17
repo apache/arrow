@@ -22,7 +22,8 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/v8/arrow"
+	"github.com/goccy/go-json"
 )
 
 // A type which represents an immutable sequence of variable-length binary strings.
@@ -33,10 +34,10 @@ type Binary struct {
 }
 
 // NewBinaryData constructs a new Binary array from data.
-func NewBinaryData(data *Data) *Binary {
+func NewBinaryData(data arrow.ArrayData) *Binary {
 	a := &Binary{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -117,12 +118,29 @@ func (a *Binary) setData(data *Data) {
 	}
 }
 
+func (a *Binary) getOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+	return a.Value(i)
+}
+
+func (a *Binary) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.getOneForMarshal(i)
+	}
+	// golang marshal standard says that []byte will be marshalled
+	// as a base64-encoded string
+	return json.Marshal(vals)
+}
+
 func arrayEqualBinary(left, right *Binary) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
 			continue
 		}
-		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+		if !bytes.Equal(left.Value(i), right.Value(i)) {
 			return false
 		}
 	}

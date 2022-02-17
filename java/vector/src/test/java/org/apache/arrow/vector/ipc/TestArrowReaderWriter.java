@@ -241,7 +241,7 @@ public class TestArrowReaderWriter {
 
     int valueCount = 3;
 
-    NullVector nullVector = new NullVector();
+    NullVector nullVector = new NullVector("vector");
     nullVector.setValueCount(valueCount);
 
     Schema schema = new Schema(asList(nullVector.getField()));

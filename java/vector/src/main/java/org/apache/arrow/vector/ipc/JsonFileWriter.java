@@ -45,6 +45,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMicroVector;
@@ -231,7 +232,7 @@ public class JsonFileWriter implements AutoCloseable {
             ArrowBuf vectorBufferTmp = vector.getAllocator().buffer(4);
             vectorBufferTmp.setInt(0, 0);
             writeValueToGenerator(bufferType, vectorBufferTmp, null, vector, i);
-            vectorBufferTmp.release();
+            vectorBufferTmp.close();
           } else {
             writeValueToGenerator(bufferType, vectorBuffer, null, vector, i);
           }
@@ -353,6 +354,13 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeStartObject();
           generator.writeObjectField("days", IntervalDayVector.getDays(buffer, index));
           generator.writeObjectField("milliseconds", IntervalDayVector.getMilliseconds(buffer, index));
+          generator.writeEndObject();
+          break;
+        case INTERVALMONTHDAYNANO:
+          generator.writeStartObject();
+          generator.writeObjectField("months", IntervalMonthDayNanoVector.getMonths(buffer, index));
+          generator.writeObjectField("days", IntervalMonthDayNanoVector.getDays(buffer, index));
+          generator.writeObjectField("nanoseconds", IntervalMonthDayNanoVector.getNanoseconds(buffer, index));
           generator.writeEndObject();
           break;
         case BIT:

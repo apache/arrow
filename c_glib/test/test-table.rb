@@ -185,12 +185,29 @@ valid:
       TABLE
     end
 
-    def test_concatenate
-      table = build_table("visible" => build_boolean_array([true, false, true, false]))
-      table1 = build_table("visible" => build_boolean_array([true]))
-      table2 = build_table("visible" => build_boolean_array([false, true]))
-      table3 = build_table("visible" => build_boolean_array([false]))
-      assert_equal(table, table1.concatenate([table2, table3]))
+    sub_test_case("#concatenate") do
+      def test_without_options
+        table = build_table("visible" =>
+                            build_boolean_array([true, false, true, false]))
+        table1 = build_table("visible" => build_boolean_array([true]))
+        table2 = build_table("visible" => build_boolean_array([false, true]))
+        table3 = build_table("visible" => build_boolean_array([false]))
+        assert_equal(table, table1.concatenate([table2, table3]))
+      end
+
+      def test_with_options
+        options = Arrow::TableConcatenateOptions.new
+        options.unify_schemas = true
+        table = build_table("a" => build_int32_array([1, nil, 3]),
+                            "b" => build_int32_array([10, nil, 30]),
+                            "c" => build_int32_array([nil, 200, nil]))
+        table1 = build_table("a" => build_int32_array([1]),
+                             "b" => build_int32_array([10]))
+        table2 = build_table("c" => build_int32_array([200]))
+        table3 = build_table("a" => build_int32_array([3]),
+                             "b" => build_int32_array([30]))
+        assert_equal(table, table1.concatenate([table2, table3], options))
+      end
     end
 
     sub_test_case("#slice") do

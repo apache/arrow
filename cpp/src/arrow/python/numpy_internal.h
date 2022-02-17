@@ -43,12 +43,11 @@ class Ndarray1DIndexer {
   explicit Ndarray1DIndexer(PyArrayObject* arr) : Ndarray1DIndexer() {
     arr_ = arr;
     DCHECK_EQ(1, PyArray_NDIM(arr)) << "Only works with 1-dimensional arrays";
-    Py_INCREF(arr);
     data_ = reinterpret_cast<uint8_t*>(PyArray_DATA(arr));
     stride_ = PyArray_STRIDES(arr)[0];
   }
 
-  ~Ndarray1DIndexer() { Py_XDECREF(arr_); }
+  ~Ndarray1DIndexer() = default;
 
   int64_t size() const { return PyArray_SIZE(arr_); }
 

@@ -18,7 +18,7 @@
 /** @ignore */ const undf = void (0);
 
 /** @ignore */
-export function valueToString(x: any) {
+export function valueToString(x: any): string {
     if (x === null) { return 'null'; }
     if (x === undf) { return 'undefined'; }
     switch (typeof x) {
@@ -33,5 +33,11 @@ export function valueToString(x: any) {
     if (typeof x[Symbol.toPrimitive] === 'function') {
         return x[Symbol.toPrimitive]('string');
     }
-    return ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x);
+    if (ArrayBuffer.isView(x)) {
+        if (x instanceof BigInt64Array || x instanceof BigUint64Array) {
+            return `[${[...x].map(x => valueToString(x))}]`;
+        }
+        return `[${x}]`;
+    }
+    return ArrayBuffer.isView(x) ? `[${x}]` : JSON.stringify(x, (_, y) => typeof y === 'bigint' ? `${y}` : y);
 }

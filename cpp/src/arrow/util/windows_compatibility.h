@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #ifdef _WIN32
 
 // Windows defines min and max macros that mess up std::min/max

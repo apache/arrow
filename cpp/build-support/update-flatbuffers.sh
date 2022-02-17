@@ -20,22 +20,31 @@
 
 # Run this from cpp/ directory. flatc is expected to be in your path
 
+set -euo pipefail
+
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
-SOURCE_DIR=$CWD/../src
-FORMAT_DIR=$CWD/../../format
-FLATC="flatc -c --cpp-std c++11"
+SOURCE_DIR="$CWD/../src"
+PYTHON_SOURCE_DIR="$CWD/../../python"
+FORMAT_DIR="$CWD/../../format"
+TOP="$FORMAT_DIR/.."
+FLATC="flatc"
 
-$FLATC -o $SOURCE_DIR/generated \
-      --scoped-enums \
-      $FORMAT_DIR/Message.fbs \
-      $FORMAT_DIR/File.fbs \
-      $FORMAT_DIR/Schema.fbs \
-      $FORMAT_DIR/Tensor.fbs \
-      $FORMAT_DIR/SparseTensor.fbs \
-      src/arrow/ipc/feather.fbs
+OUT_DIR="$SOURCE_DIR/generated"
+FILES=($(find $FORMAT_DIR -name '*.fbs'))
+FILES+=("$SOURCE_DIR/arrow/ipc/feather.fbs")
 
-$FLATC -o $SOURCE_DIR/plasma \
-      --gen-object-api \
-      --scoped-enums \
-      $SOURCE_DIR/plasma/common.fbs \
-      $SOURCE_DIR/plasma/plasma.fbs
+# add compute ir files
+FILES+=($(find "$TOP/experimental/computeir" -name '*.fbs'))
+
+$FLATC --cpp --cpp-std c++11 \
+  --scoped-enums \
+  -o "$OUT_DIR" \
+  "${FILES[@]}"
+
+PLASMA_FBS=("$SOURCE_DIR"/plasma/{plasma,common}.fbs)
+
+$FLATC --cpp --cpp-std c++11 \
+  -o "$SOURCE_DIR/plasma" \
+  --gen-object-api \
+  --scoped-enums \
+  "${PLASMA_FBS[@]}"
