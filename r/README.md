@@ -312,6 +312,11 @@ Other applications of `arrow` are described in the following vignettes:
 
 ## Getting help
 
+There is a 
+[Cheat Sheet](https://docs.google.com/presentation/d/1R1zgGqide5EgEO7WAle8AsdTV0rDu5BJ/edit?usp=sharing&ouid=117459313160574490755&rtpof=true&sd=true)
+to get started with the basics. From it, you can jump to the 
+[Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html).
+
 If you encounter a bug, please file an issue with a minimal reproducible
 example on the [Apache Jira issue
 tracker](https://issues.apache.org/jira/projects/ARROW/issues). Create
