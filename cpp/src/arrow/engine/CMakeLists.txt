@@ -34,7 +34,7 @@ set(ARROW_ENGINE_SRCS
     substrait/relation_internal.cc
     substrait/type_internal.cc)
 
-set(SUBSTRAIT_LOCAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait_clone")
+set(SUBSTRAIT_LOCAL_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait")
 set(SUBSTRAIT_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(SUBSTRAIT_PROTOS
     capabilities
