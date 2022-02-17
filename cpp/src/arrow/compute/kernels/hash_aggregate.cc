@@ -2451,6 +2451,313 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
   return std::move(impl);
 }
 
+// ----------------------------------------------------------------------
+// One implementation
+
+template <typename Type, typename Enable = void>
+struct GroupedOneImpl final : public GroupedAggregator {
+  using CType = typename TypeTraits<Type>::CType;
+  using GetSet = GroupedValueTraits<Type>;
+
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    // out_type_ initialized by GroupedOneInit
+    ones_ = TypedBufferBuilder<CType>(ctx->memory_pool());
+    has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    RETURN_NOT_OK(ones_.Append(added_groups, static_cast<CType>(0)));
+    RETURN_NOT_OK(has_one_.Append(added_groups, false));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    auto raw_ones_ = ones_.mutable_data();
+
+    return VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, CType val) -> Status {
+          if (!bit_util::GetBit(has_one_.data(), g)) {
+            GetSet::Set(raw_ones_, g, val);
+            bit_util::SetBit(has_one_.mutable_data(), g);
+          }
+          return Status::OK();
+        },
+        [&](uint32_t g) -> Status { return Status::OK(); });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedOneImpl*>(&raw_other);
+
+    auto raw_ones = ones_.mutable_data();
+    auto other_raw_ones = other->ones_.mutable_data();
+
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+      if (!bit_util::GetBit(has_one_.data(), *g)) {
+        if (bit_util::GetBit(other->has_one_.data(), other_g)) {
+          GetSet::Set(raw_ones, *g, GetSet::Get(other_raw_ones, other_g));
+          bit_util::SetBit(has_one_.mutable_data(), *g);
+        }
+      }
+    }
+
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_one_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto data, ones_.Finish());
+    return ArrayData::Make(out_type_, num_groups_,
+                           {std::move(null_bitmap), std::move(data)});
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  int64_t num_groups_;
+  TypedBufferBuilder<CType> ones_;
+  TypedBufferBuilder<bool> has_one_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+struct GroupedNullOneImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override { return Status::OK(); }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    return ArrayData::Make(null(), num_groups_, {nullptr}, num_groups_);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return null(); }
+
+  int64_t num_groups_;
+};
+
+template <typename Type>
+struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
+                                        std::is_same<Type, FixedSizeBinaryType>::value>>
+    final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    allocator_ = Allocator(ctx->memory_pool());
+    // out_type_ initialized by GroupedOneInit
+    has_one_ = TypedBufferBuilder<bool>(ctx->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    DCHECK_GE(added_groups, 0);
+    num_groups_ = new_num_groups;
+    ones_.resize(new_num_groups);
+    RETURN_NOT_OK(has_one_.Append(added_groups, false));
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    return VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t g, util::string_view val) -> Status {
+          if (!bit_util::GetBit(has_one_.data(), g)) {
+            ones_[g].emplace(val.data(), val.size(), allocator_);
+            bit_util::SetBit(has_one_.mutable_data(), g);
+          }
+          return Status::OK();
+        },
+        [&](uint32_t g) -> Status { return Status::OK(); });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedOneImpl*>(&raw_other);
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
+         ++other_g, ++g) {
+      if (!bit_util::GetBit(has_one_.data(), *g)) {
+        if (bit_util::GetBit(other->has_one_.data(), other_g)) {
+          ones_[*g] = std::move(other->ones_[other_g]);
+          bit_util::SetBit(has_one_.mutable_data(), *g);
+        }
+      }
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_one_.Finish());
+    auto ones =
+        ArrayData::Make(out_type(), num_groups_, {std::move(null_bitmap), nullptr});
+    RETURN_NOT_OK(MakeOffsetsValues(ones.get(), ones_));
+    return ones;
+  }
+
+  template <typename T = Type>
+  enable_if_base_binary<T, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    using offset_type = typename T::offset_type;
+    ARROW_ASSIGN_OR_RAISE(
+        auto raw_offsets,
+        AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
+    auto* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    offsets[0] = 0;
+    offsets++;
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    offset_type total_length = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        if (value->size() >
+                static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
+            arrow::internal::AddWithOverflow(
+                total_length, static_cast<offset_type>(value->size()), &total_length)) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
+      }
+      offsets[i] = total_length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), value->size());
+        offset += value->size();
+      }
+    }
+    array->buffers[1] = std::move(raw_offsets);
+    array->buffers.push_back(std::move(data));
+    return Status::OK();
+  }
+
+  template <typename T = Type>
+  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    const int32_t slot_width =
+        checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
+    int64_t total_length = values.size() * slot_width;
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
+      } else {
+        std::memset(data->mutable_data() + offset, 0x00, slot_width);
+      }
+      offset += slot_width;
+    }
+    array->buffers[1] = std::move(data);
+    return Status::OK();
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return out_type_; }
+
+  ExecContext* ctx_;
+  Allocator allocator_;
+  int64_t num_groups_;
+  std::vector<util::optional<StringType>> ones_;
+  TypedBufferBuilder<bool> has_one_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+template <typename T>
+Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
+  auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
+  instance->out_type_ = args.inputs[0].type;
+  return std::move(impl);
+}
+
+struct GroupedOneFactory {
+  template <typename T>
+  enable_if_physical_integer<T, Status> Visit(const T&) {
+    using PhysicalType = typename T::PhysicalType;
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<PhysicalType>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<FixedSizeBinaryType>);
+    return Status::OK();
+  }
+
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedOneInit<BooleanType>);
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullOneImpl>);
+    return Status::OK();
+  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Outputting one of data of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Outputting one of data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedOneFactory factory;
+    factory.argument_type = InputType::Array(type->id());
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
+
 }  // namespace
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -2818,6 +3125,10 @@ const FunctionDoc hash_distinct_doc{
     {"array", "group_id_array"},
     "CountOptions"};
 
+const FunctionDoc hash_one_doc{"Get one value from each group",
+                               ("Null values are also returned."),
+                               {"array", "group_id_array"}};
+
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -2998,6 +3309,18 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
         "hash_distinct", Arity::Binary(), &hash_distinct_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(
         MakeKernel(ValueDescr::ARRAY, GroupedDistinctInit<GroupedDistinctImpl>)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_one", Arity::Binary(),
+                                                        &hash_one_doc);
+    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedOneFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedOneFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedOneFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedOneFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }

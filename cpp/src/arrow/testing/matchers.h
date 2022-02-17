@@ -63,6 +63,65 @@ class PointeesEqualMatcher {
 // Useful in conjunction with other googletest matchers.
 inline PointeesEqualMatcher PointeesEqual() { return {}; }
 
+class AnyOfJSONMatcher {
+ public:
+  AnyOfJSONMatcher(std::shared_ptr<DataType> type, std::string array_json)
+      : type_(std::move(type)), array_json_(std::move(array_json)) {}
+
+  template <typename arg_type>
+  operator testing::Matcher<arg_type>() const {  // NOLINT runtime/explicit
+    struct Impl : testing::MatcherInterface<const arg_type&> {
+      Impl(std::shared_ptr<DataType> type, std::string array_json)
+          : type_(std::move(type)), array_json_(std::move(array_json)) {
+        array = ArrayFromJSON(type_, array_json_);
+      }
+      void DescribeTo(std::ostream* os) const override {
+        *os << "matches at least one scalar from ";
+        *os << array->ToString();
+      }
+      void DescribeNegationTo(::std::ostream* os) const override {
+        *os << "matches no scalar from ";
+        *os << array->ToString();
+      }
+      bool MatchAndExplain(
+          const arg_type& arg,
+          ::testing::MatchResultListener* result_listener) const override {
+        for (int64_t i = 0; i < array->length(); ++i) {
+          std::shared_ptr<Scalar> scalar;
+          auto maybe_scalar = array->GetScalar(i);
+          if (maybe_scalar.ok()) {
+            scalar = maybe_scalar.ValueOrDie();
+          } else {
+            *result_listener << "GetScalar() had status "
+                             << maybe_scalar.status().ToString() << "at index " << i
+                             << " in the input JSON Array";
+            return false;
+          }
+
+          if (scalar->Equals(arg)) return true;
+        }
+        *result_listener << "Argument scalar: '" << arg->ToString()
+                         << "' matches no scalar from " << array->ToString();
+        return false;
+      }
+      const std::shared_ptr<DataType> type_;
+      const std::string array_json_;
+      std::shared_ptr<Array> array;
+    };
+
+    return testing::Matcher<arg_type>(new Impl(type_, array_json_));
+  }
+
+ private:
+  const std::shared_ptr<DataType> type_;
+  const std::string array_json_;
+};
+
+inline AnyOfJSONMatcher AnyOfJSON(std::shared_ptr<DataType> type,
+                                  std::string array_json) {
+  return {std::move(type), std::move(array_json)};
+}
+
 template <typename ResultMatcher>
 class FutureMatcher {
  public:
