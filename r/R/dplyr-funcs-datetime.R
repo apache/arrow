@@ -152,7 +152,7 @@ register_bindings_datetime <- function() {
       if (inherits(x, "Expression")) {
         class <- x$type()$ToString()
       } else {
-        class <- type(x)
+        class <- type(x)$ToString()
       }
       abort(paste0("timezone extraction for objects of class `", class, "` not supported in Arrow"))
     }
