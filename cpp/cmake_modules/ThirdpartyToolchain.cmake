@@ -359,19 +359,10 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
     continue()
   endif()
 
-  # Allow values to be overridden to test specific versions during development
-  if(${_VARIABLE_NAME})
+  # For debugging
+  message(STATUS "${_VARIABLE_NAME}: ${_VARIABLE_VALUE}")
 
-    # For debugging
-    message(STATUS "${_VARIABLE_NAME}: overridden to ${${_VARIABLE_NAME}}")
-
-  else()
-
-    # For debugging
-    message(STATUS "${_VARIABLE_NAME}: ${_VARIABLE_VALUE}")
-
-    set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
-  endif()
+  set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
 set(THIRDPARTY_MIRROR_URL "https://apache.jfrog.io/artifactory/arrow/thirdparty/7.0.0")
