@@ -34,6 +34,15 @@ previous_version=$2
 release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
+case "${version}" in
+  *.0.0)
+    is_major_release=yes
+    ;;
+  *)
+    is_major_release=no
+    ;;
+esac
+
 pushd "${ARROW_SITE_DIR}"
 git fetch --all --prune --tags --force -j$(nproc)
 git checkout .
@@ -53,10 +62,12 @@ done
 # add to list and remove dev docs
 versioned_paths+=("docs/dev/")
 rm -rf docs/dev/
-# copy the current stable docs to temporary directory
-# (remove java reference to reduce size)
-rm -rf docs/java/reference/
-cp -r docs/ docs_temp/
+if [ "$is_major_release" = true ] ; then
+  # copy the current stable docs to temporary directory
+  # (remove java reference to reduce size)
+  rm -rf docs/java/reference/
+  cp -r docs/ docs_temp/
+fi
 # delete current stable docs and restore all previous versioned docs
 rm -rf docs/*
 git checkout "${versioned_paths[@]}"
@@ -69,7 +80,9 @@ cp ../docs.tar.gz .
 tar xvf docs.tar.gz
 rm -f docs.tar.gz
 git checkout docs/c_glib/index.html
-mv docs_temp docs/${previous_version}
+if [ "$is_major_release" = true ] ; then
+  mv docs_temp docs/${previous_version}
+fi
 git add docs
 git commit -m "[Website] Update documentations for ${version}"
 git clean -d -f -x
