@@ -140,6 +140,10 @@ TEST_F(TestConvertParquetSchema, ParquetFlatPrimitives) {
       ::arrow::field("time64", ::arrow::time64(TimeUnit::MICRO), false));
 
   parquet_fields.push_back(
+      PrimitiveNode::Make("duration[us]", Repetition::REQUIRED, ParquetType::INT64));
+  arrow_fields.push_back(::arrow::field("duration[us]", INT64, false));
+
+  parquet_fields.push_back(
       PrimitiveNode::Make("timestamp96", Repetition::REQUIRED, ParquetType::INT96));
   arrow_fields.push_back(::arrow::field("timestamp96", TIMESTAMP_NS, false));
 
