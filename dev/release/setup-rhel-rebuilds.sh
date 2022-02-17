@@ -33,6 +33,7 @@ dnf -y install \
   cmake \
   git \
   gobject-introspection-devel \
+  vala \
   java-1.8.0-openjdk-devel \
   libcurl-devel \
   llvm-devel \

@@ -163,7 +163,7 @@ ${APT_INSTALL} libarrow-glib-dev=${package_version}
 ${APT_INSTALL} libarrow-glib-doc=${package_version}
 
 ${APT_INSTALL} ruby-dev rubygems-integration
-gem install gobject-introspection
+gem install gobject-introspection vala
 ruby -r gi -e "p GI.load('Arrow')"
 echo "::endgroup::"
 

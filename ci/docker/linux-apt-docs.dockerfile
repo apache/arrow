@@ -36,6 +36,7 @@ RUN apt-get update -y && \
         curl \
         doxygen \
         gobject-introspection \
+        vala \
         gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \

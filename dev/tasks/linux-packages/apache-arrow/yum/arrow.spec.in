@@ -115,6 +115,7 @@ BuildRequires:	ncurses-devel
 
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
+BuildRequires:	vala
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -586,6 +587,7 @@ Requires:	%{name}-devel = %{version}-%{release}
 Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
+Requires:	vala-devel
 
 %description glib-devel
 Libraries and header files for Apache Arrow GLib.
