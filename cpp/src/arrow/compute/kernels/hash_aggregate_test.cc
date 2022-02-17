@@ -2725,9 +2725,7 @@ TEST(GroupBy, OneScalar) {
                                      R"([[-1, 1], [-1, 1], [-1, 1], [-1, 1]])"),
                    ExecBatchFromJSON({ValueDescr::Scalar(int32()), int64()},
                                      R"([[null, 1], [null, 1], [null, 2], [null, 3]])"),
-                   ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])")
-
-  };
+                   ExecBatchFromJSON({int32(), int64()}, R"([[22, 1], [3, 2], [4, 3]])")};
   input.schema = schema({field("argument", int32()), field("key", int64())});
 
   for (bool use_threads : {true, false}) {
