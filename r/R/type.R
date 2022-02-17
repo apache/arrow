@@ -308,6 +308,9 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' @param scale For `decimal()`, `decimal128()`, and `decimal256()` the number
 #'    of digits after the decimal point. It can be negative.
 #' @param type For `list_of()`, a data type to make a list-of-type
+#' @param key_type,item_type For `MapType`, the key and item types.
+#' @param .keys_sorted Use `TRUE` to assert that keys of a `MapType` are
+#'   sorted.
 #' @param ... For `struct()`, a named list of types to define the struct columns
 #'
 #' @name data-type
@@ -606,6 +609,23 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 #' @export
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
+#' @rdname data-type
+#' @export
+MapType <- R6Class("MapType",
+  inherit = ListType,
+  active = list(
+    key_field = function() MapType__key_field(self),
+    item_field = function() MapType__item_field(self),
+    key_type = function() MapType__key_type(self),
+    item_type = function() MapType__item_type(self),
+    keys_sorted = function() MapType__keys_sorted(self)
+  )
+)
+
+#' @rdname data-type
+#' @export
+map_of <- function(key_type, item_type, .keys_sorted = FALSE) map__(key_type, item_type, .keys_sorted)
+
 as_type <- function(type, name = "type") {
   # magic so we don't have to mask base::double()
   if (identical(type, double())) {
@@ -663,6 +683,7 @@ canonical_type_str <- function(type_str) {
     large_list = "large_list",
     fixed_size_list_of = "fixed_size_list",
     fixed_size_list = "fixed_size_list",
+    map_of = "map",
     duration = "duration",
     stop("Unrecognized string representation of data type", call. = FALSE)
   )

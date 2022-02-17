@@ -201,3 +201,237 @@ simply do::
    std::shared_ptr<arrow::Buffer> arbitrary_buffer = ... ;
    std::shared_ptr<arrow::Buffer> cpu_buffer = arrow::Buffer::ViewOrCopy(
       arbitrary_buffer, arrow::default_cpu_memory_manager());
+
+
+Memory Profiling
+================
+
+On Linux, detailed profiles of memory allocations can be generated using 
+``perf record``, without any need to modify the binaries. These profiles can
+show the traceback in addition to allocation size. This does require debug
+symbols, from either a debug build or a release with debug symbols build.
+
+.. note::
+   If you profiling Arrow's tests on another platform, you can run the following
+   docker container using archery to access a Linux environment:::
+
+      archery docker run ubuntu-cpp bash
+      /arrow/ci/scripts/cpp_build.sh /arrow /build
+      cd build/cpp/debug
+      ./arrow-array-test # Run a test
+      apt-get update
+      apt-get install -y linux-tools-generic
+      alias perf=/usr/lib/linux-tools/<version-path>/perf
+
+
+To track allocations, create probe points on each of the allocator methods used.
+Collecting ``$params`` allows us to record the size of the allocations
+requested, while collecting ``$retval`` allows us to record the address of
+recorded allocations, so we can correlate them with the call to free/de-allocate.
+
+.. tabs::
+
+   .. tab:: jemalloc
+      
+      :: 
+      
+         perf probe -x libarrow.so je_arrow_mallocx '$params' 
+         perf probe -x libarrow.so je_arrow_mallocx%return '$retval' 
+         perf probe -x libarrow.so je_arrow_rallocx '$params' 
+         perf probe -x libarrow.so je_arrow_rallocx%return '$retval' 
+         perf probe -x libarrow.so je_arrow_dallocx '$params' 
+         PROBE_ARGS="-e probe_libarrow:je_arrow_mallocx \
+            -e probe_libarrow:je_arrow_mallocx__return \
+            -e probe_libarrow:je_arrow_rallocx \
+            -e probe_libarrow:je_arrow_rallocx__return \
+            -e probe_libarrow:je_arrow_dallocx"
+
+   .. tab:: mimalloc
+      
+      ::
+
+         perf probe -x libarrow.so mi_malloc_aligned '$params' 
+         perf probe -x libarrow.so mi_malloc_aligned%return '$retval' 
+         perf probe -x libarrow.so mi_realloc_aligned '$params' 
+         perf probe -x libarrow.so mi_realloc_aligned%return '$retval' 
+         perf probe -x libarrow.so mi_free '$params'
+         PROBE_ARGS="-e probe_libarrow:mi_malloc_aligned \
+            -e probe_libarrow:mi_malloc_aligned__return \
+            -e probe_libarrow:mi_realloc_aligned \
+            -e probe_libarrow:mi_realloc_aligned__return \
+            -e probe_libarrow:mi_free"
+
+Once probes have been set, you can record calls with associated tracebacks using
+``perf record``. In this example, we are running the StructArray unit tests in
+Arrow::
+   
+   perf record -g --call-graph dwarf \
+     $PROBE_ARGS \
+     ./arrow-array-test --gtest_filter=StructArray*
+
+If you want to profile a running process, you can run ``perf record -p <PID>``
+and it will record until you interrupt with CTRL+C. Alternatively, you can do
+``perf record -P <PID> sleep 10`` to record for 10 seconds.
+
+The resulting data can be processed with standard tools to work with perf or 
+``perf script`` can be used to pipe a text format of the data to custom scripts.
+The following script parses ``perf script`` output and prints the output in 
+new lines delimited JSON for easier processing.
+
+.. code-block:: python
+   :caption: process_perf_events.py
+
+   import sys
+   import re
+   import json
+
+   # Example non-traceback line
+   # arrow-array-tes 14344 [003]  7501.073802: probe_libarrow:je_arrow_mallocx: (7fbcd20bb640) size=0x80 flags=6
+
+   current = {}
+   current_traceback = ''
+
+   def new_row():
+       global current_traceback
+       current['traceback'] = current_traceback
+       print(json.dumps(current))
+       current_traceback = ''
+
+   for line in sys.stdin:
+       if line == '\n':
+           continue
+       elif line[0] == '\t':
+           # traceback line
+           current_traceback += line.strip("\t")
+       else:
+           line = line.rstrip('\n')
+           if not len(current) == 0:
+               new_row()
+           parts = re.sub(' +', ' ', line).split(' ')
+
+           parts.reverse()
+           parts.pop() # file
+           parts.pop() # "14344"
+           parts.pop() # "[003]"
+
+           current['time'] = float(parts.pop().rstrip(":"))
+           current['event'] = parts.pop().rstrip(":")
+
+           parts.pop() # (7fbcd20bddf0)
+           if parts[-1] == "<-":
+               parts.pop()
+               parts.pop()
+
+           params = {}
+
+           for pair in parts:
+               key, value = pair.split("=")
+               params[key] = value
+
+           current['params'] = params
+
+
+Here's an example invocation of that script, with a preview of output data::
+
+   > perf script | python3 /arrow/process_perf_events.py > processed_events.jsonl
+   > head head processed_events.jsonl | cut -c -120
+   {"time": 14814.954378, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x80"}, "traceback"
+   {"time": 14814.95443, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e09000"}, "traceba
+   {"time": 14814.95448, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback":
+   {"time": 14814.954486, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a000"}, "traceb
+   {"time": 14814.954502, "event": "probe_libarrow:je_arrow_rallocx", "params": {"flags": "6", "size": "0x40", "ptr": "0x7f
+   {"time": 14814.954507, "event": "probe_libarrow:je_arrow_rallocx__return", "params": {"arg1": "0x7f4a97e0a040"}, "traceb
+   {"time": 14814.954796, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback"
+   {"time": 14814.954805, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a080"}, "traceb
+   {"time": 14814.954817, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback"
+   {"time": 14814.95482, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e0a0c0"}, "traceba
+
+
+From there one can answer a number of questions. For example, the following
+script will find which allocations were never freed, and print the associated 
+tracebacks along with the count of dangling allocations:
+
+.. code-block:: python
+   :caption: count_tracebacks.py
+
+   '''Find tracebacks of allocations with no corresponding free'''
+   import sys
+   import json
+   from collections import defaultdict
+
+   allocated = dict()
+
+   for line in sys.stdin:
+       line = line.rstrip('\n')
+       data = json.loads(line)
+
+       if data['event'] == "probe_libarrow:je_arrow_mallocx__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       elif data['event'] == "probe_libarrow:je_arrow_rallocx":
+           address = data['params']['ptr']
+           del allocated[address]
+       elif data['event'] == "probe_libarrow:je_arrow_rallocx__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       elif data['event'] == "probe_libarrow:je_arrow_dallocx":
+           address = data['params']['ptr']
+           if address in allocated:
+               del allocated[address]
+       elif data['event'] == "probe_libarrow:mi_malloc_aligned__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       elif data['event'] == "probe_libarrow:mi_realloc_aligned":
+           address = data['params']['p']
+           del allocated[address]
+       elif data['event'] == "probe_libarrow:mi_realloc_aligned__return":
+           address = data['params']['arg1']
+           allocated[address] = data['traceback']
+       elif data['event'] == "probe_libarrow:mi_free":
+           address = data['params']['p']
+           if address in allocated:
+               del allocated[address]
+
+   traceback_counts = defaultdict(int)
+
+   for traceback in allocated.values():
+       traceback_counts[traceback] += 1
+
+   for traceback, count in sorted(traceback_counts.items(), key=lambda x: -x[1]):
+       print("Num of dangling allocations:", count)
+       print(traceback)
+
+
+The script can be invoked like so:
+
+::
+
+   > cat processed_events.jsonl | python3 /arrow/count_tracebacks.py
+   Num of dangling allocations: 1
+    7fc945e5cfd2 arrow::(anonymous namespace)::JemallocAllocator::ReallocateAligned+0x13b (/build/cpp/debug/libarrow.so.700.0.0)
+    7fc945e5fe4f arrow::BaseMemoryPoolImpl<arrow::(anonymous namespace)::JemallocAllocator>::Reallocate+0x93 (/build/cpp/debug/libarrow.so.700.0.0)
+    7fc945e618f7 arrow::PoolBuffer::Resize+0xed (/build/cpp/debug/libarrow.so.700.0.0)
+    55a38b163859 arrow::BufferBuilder::Resize+0x12d (/build/cpp/debug/arrow-array-test)
+    55a38b163bbe arrow::BufferBuilder::Finish+0x48 (/build/cpp/debug/arrow-array-test)
+    55a38b163e3a arrow::BufferBuilder::Finish+0x50 (/build/cpp/debug/arrow-array-test)
+    55a38b163f90 arrow::BufferBuilder::FinishWithLength+0x4e (/build/cpp/debug/arrow-array-test)
+    55a38b2c8fa7 arrow::TypedBufferBuilder<int, void>::FinishWithLength+0x4f (/build/cpp/debug/arrow-array-test)
+    55a38b2bcce7 arrow::NumericBuilder<arrow::Int32Type>::FinishInternal+0x107 (/build/cpp/debug/arrow-array-test)
+    7fc945c065ae arrow::ArrayBuilder::Finish+0x5a (/build/cpp/debug/libarrow.so.700.0.0)
+    7fc94736ed41 arrow::ipc::internal::json::(anonymous namespace)::Converter::Finish+0x123 (/build/cpp/debug/libarrow.so.700.0.0)
+    7fc94737426e arrow::ipc::internal::json::ArrayFromJSON+0x299 (/build/cpp/debug/libarrow.so.700.0.0)
+    7fc948e98858 arrow::ArrayFromJSON+0x64 (/build/cpp/debug/libarrow_testing.so.700.0.0)
+    55a38b6773f3 arrow::StructArray_FlattenOfSlice_Test::TestBody+0x79 (/build/cpp/debug/arrow-array-test)
+    7fc944689633 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc94468132a testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc9446555eb testing::Test::Run+0xf1 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc94465602d testing::TestInfo::Run+0x13f (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc944656947 testing::TestSuite::Run+0x14b (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc9446663f5 testing::internal::UnitTestImpl::RunAllTests+0x433 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc94468ab61 testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x68 (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc944682568 testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>+0x5d (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc944664b0c testing::UnitTest::Run+0xcc (/build/cpp/googletest_ep-prefix/lib/libgtestd.so.1.11.0)
+    7fc9446d0299 RUN_ALL_TESTS+0x14 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+    7fc9446d021b main+0x42 (/build/cpp/googletest_ep-prefix/lib/libgtest_maind.so.1.11.0)
+    7fc9441e70b2 __libc_start_main+0xf2 (/usr/lib/x86_64-linux-gnu/libc-2.31.so)
+    55a38b10a50d _start+0x2d (/build/cpp/debug/arrow-array-test)

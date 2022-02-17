@@ -177,7 +177,7 @@ def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):
         value = os.environ.get(name.upper())
-        if value is None:
+        if not value:  # missing or empty
             return default
         value = value.lower()
         if value in {'1', 'true', 'on', 'yes', 'y'}:

@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -149,6 +150,9 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware;
 
+  /// \brief An optional memory manager to control where to allocate incoming data.
+  std::shared_ptr<MemoryManager> memory_manager;
+
   /// \brief A Flight implementation-specific callback to customize
   /// transport-specific options.
   ///
@@ -197,10 +201,11 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   int GotSignal() const;
 
   /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Serve() blocks.
+  /// thread while Serve() blocks. Optionally a deadline can be set. Once the
+  /// the deadline expires server will wait until remaining running calls
+  /// complete.
   ///
-  /// TODO(wesm): Shutdown with deadline
-  Status Shutdown();
+  Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
   /// \brief Block until server is terminated with Shutdown.
   Status Wait();

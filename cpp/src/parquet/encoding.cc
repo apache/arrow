@@ -1486,8 +1486,9 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
       return;
     }
     uint8_t bit_width = *data;
-    if (ARROW_PREDICT_FALSE(bit_width >= 64)) {
-      throw ParquetException("Invalid or corrupted bit_width");
+    if (ARROW_PREDICT_FALSE(bit_width > 32)) {
+      throw ParquetException("Invalid or corrupted bit_width " +
+                             std::to_string(bit_width) + ". Maximum allowed is 32.");
     }
     idx_decoder_ = ::arrow::util::RleDecoder(++data, --len, bit_width);
   }
@@ -2108,9 +2109,9 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
     }
     std::vector<T> values(num_values);
-    GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->AppendValues(values));
-    return num_values;
+    int decoded_count = GetInternal(values.data(), num_values);
+    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
+    return decoded_count;
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -2120,12 +2121,12 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
       ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
     }
     std::vector<T> values(num_values);
-    GetInternal(values.data(), num_values);
-    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
-    for (T value : values) {
-      PARQUET_THROW_NOT_OK(out->Append(value));
+    int decoded_count = GetInternal(values.data(), num_values);
+    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
+    for (int i = 0; i < decoded_count; ++i) {
+      PARQUET_THROW_NOT_OK(out->Append(values[i]));
     }
-    return num_values;
+    return decoded_count;
   }
 
  private:
@@ -2180,12 +2181,11 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
   }
 
   int GetInternal(T* buffer, int max_values) {
-    max_values = std::min(max_values, this->num_values_);
+    max_values = static_cast<int>(std::min<int64_t>(max_values, total_value_count_));
     if (max_values == 0) {
       return 0;
     }
 
-    DCHECK_LE(static_cast<uint32_t>(max_values), total_value_count_);
     int i = 0;
     while (i < max_values) {
       if (ARROW_PREDICT_FALSE(values_current_mini_block_ == 0)) {
@@ -2423,7 +2423,12 @@ class DeltaByteArrayDecoder : public DecoderImpl,
       return max_values;
     }
 
-    suffix_decoder_.Decode(buffer, max_values);
+    int suffix_read = suffix_decoder_.Decode(buffer, max_values);
+    if (ARROW_PREDICT_FALSE(suffix_read != max_values)) {
+      ParquetException::EofException("Read " + std::to_string(suffix_read) +
+                                     ", expecting " + std::to_string(max_values) +
+                                     " from suffix decoder");
+    }
 
     int64_t data_size = 0;
     const int32_t* prefix_len_ptr =

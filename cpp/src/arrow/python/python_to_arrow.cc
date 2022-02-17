@@ -417,11 +417,21 @@ class PyValue {
     RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kNanoseconds>::Field(
         obj, &output.nanoseconds, &found_attrs));
 
-    if (ARROW_PREDICT_FALSE(!found_attrs) && !is_date_offset) {
-      // date_offset can have zero fields.
-      return Status::TypeError("No temporal attributes found on object.");
+    // date_offset can have zero fields.
+    if (found_attrs || is_date_offset) {
+      return output;
     }
-    return output;
+    if (PyTuple_Check(obj) && PyTuple_Size(obj) == 3) {
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 0), &output.months,
+                                             "Months (tuple item #0) too large"));
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 1), &output.days,
+                                             "Days (tuple item #1) too large"));
+      RETURN_NOT_OK(internal::CIntFromPython(PyTuple_GET_ITEM(obj, 2),
+                                             &output.nanoseconds,
+                                             "Nanoseconds (tuple item #2) too large"));
+      return output;
+    }
+    return Status::TypeError("No temporal attributes found on object.");
   }
 
   static Result<int64_t> Convert(const DurationType* type, const O&, I obj) {

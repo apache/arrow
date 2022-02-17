@@ -623,7 +623,21 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
     metadata.update(pandas_metadata)
     schema = schema.with_metadata(metadata)
 
-    return arrays, schema
+    # If dataframe is empty but with RangeIndex ->
+    # remember the length of the indexes
+    n_rows = None
+    if len(arrays) == 0:
+        try:
+            kind = index_descriptors[0]["kind"]
+            if kind == "range":
+                start = index_descriptors[0]["start"]
+                stop = index_descriptors[0]["stop"]
+                step = index_descriptors[0]["step"]
+                n_rows = len(range(start, stop, step))
+        except IndexError:
+            pass
+
+    return arrays, schema, n_rows
 
 
 def get_datetimetz_type(values, dtype, type_):
@@ -822,8 +836,12 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper=None):
 
     # infer the extension columns from the pandas metadata
     for col_meta in columns_metadata:
-        name = col_meta['name']
+        try:
+            name = col_meta['field_name']
+        except KeyError:
+            name = col_meta['name']
         dtype = col_meta['numpy_type']
+
         if dtype not in _pandas_supported_numpy_types:
             # pandas_dtype is expensive, so avoid doing this for types
             # that are certainly numpy dtypes

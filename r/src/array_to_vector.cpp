@@ -542,6 +542,24 @@ class Converter_FixedSizeBinary : public Converter {
   int byte_width_;
 };
 
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array) {
+  int n = chunked_array->num_chunks();
+  if (n < 2) {
+    return false;
+  }
+  const auto& arr_first =
+      internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+  for (int i = 1; i < n; i++) {
+    const auto& arr =
+        internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i));
+    if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class Converter_Dictionary : public Converter {
  private:
   bool need_unification_;
@@ -552,7 +570,8 @@ class Converter_Dictionary : public Converter {
 
  public:
   explicit Converter_Dictionary(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : Converter(chunked_array), need_unification_(NeedUnification()) {
+      : Converter(chunked_array),
+        need_unification_(DictionaryChunkArrayNeedUnification(chunked_array)) {
     if (need_unification_) {
       const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
@@ -585,8 +604,8 @@ class Converter_Dictionary : public Converter {
       }
 
       if (chunked_array->num_chunks() > 0) {
-        // NeedUnification() returned false so we can safely assume the
-        // dictionary of the first chunk applies everywhere
+        // DictionaryChunkArrayNeedUnification() returned false so we can safely assume
+        // the dictionary of the first chunk applies everywhere
         const auto& dict_array =
             checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
         dictionary_ = dict_array.dictionary();
@@ -675,22 +694,6 @@ class Converter_Dictionary : public Converter {
       };
       return IngestSome(array, n, ingest_one, null_one);
     }
-  }
-
-  bool NeedUnification() {
-    int n = chunked_array_->num_chunks();
-    if (n < 2) {
-      return false;
-    }
-    const auto& arr_first =
-        checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0));
-    for (int i = 1; i < n; i++) {
-      const auto& arr = checked_cast<const DictionaryArray&>(*chunked_array_->chunk(i));
-      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
-        return true;
-      }
-    }
-    return false;
   }
 
   bool GetOrdered() const {
@@ -1004,9 +1007,14 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
-                                  ? arrow::r::data::classes_arrow_list
-                                  : arrow::r::data::classes_arrow_large_list;
+
+    if (std::is_same<ListArrayType, MapArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else if (std::is_same<ListArrayType, ListArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
+    }
 
     std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
@@ -1300,6 +1308,10 @@ std::shared_ptr<Converter> Converter::Make(
           chunked_array,
           checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
           checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
+
+    case Type::MAP:
+      return std::make_shared<arrow::r::Converter_List<arrow::MapArray>>(
+          chunked_array, checked_cast<const arrow::MapType&>(*type).value_type());
 
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);

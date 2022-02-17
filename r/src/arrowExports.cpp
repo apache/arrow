@@ -569,6 +569,66 @@ extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 
 // array.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__keys(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__keys(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__keys(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__keys(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__keys(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__items(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__items(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__items(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__items(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__items(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__keys_nested(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__keys_nested(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__keys_nested(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__keys_nested(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__keys_nested(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> MapArray__items_nested(const std::shared_ptr<arrow::MapArray>& array);
+extern "C" SEXP _arrow_MapArray__items_nested(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(MapArray__items_nested(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapArray__items_nested(SEXP array_sexp){
+	Rf_error("Cannot call MapArray__items_nested(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// array.cpp
+#if defined(ARROW_R_WITH_ARROW)
 bool Array__Same(const std::shared_ptr<arrow::Array>& x, const std::shared_ptr<arrow::Array>& y);
 extern "C" SEXP _arrow_Array__Same(SEXP x_sexp, SEXP y_sexp){
 BEGIN_CPP11
@@ -598,48 +658,18 @@ extern "C" SEXP _arrow_Array__ReferencedBufferSize(SEXP x_sexp){
 }
 #endif
 
-//chunkedarray.cpp
+// array.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t ChunkedArray__ReferencedBufferSize(const std::shared_ptr<arrow::ChunkedArray>& x);
-extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
+std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots);
+extern "C" SEXP _arrow_arrow__Concatenate(SEXP dots_sexp){
 BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
-	return cpp11::as_sexp(ChunkedArray__ReferencedBufferSize(x));
+	arrow::r::Input<cpp11::list>::type dots(dots_sexp);
+	return cpp11::as_sexp(arrow__Concatenate(dots));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
-	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-//recordbatch.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t RecordBatch__ReferencedBufferSize(const std::shared_ptr<arrow::RecordBatch>& x);
-extern "C" SEXP _arrow_RecordBatch__ReferencedBufferSize(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type x(x_sexp);
-	return cpp11::as_sexp(RecordBatch__ReferencedBufferSize(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP x_sexp){
-	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-// table.cpp
-#if defined(ARROW_R_WITH_ARROW)
-int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& x);
-extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type x(x_sexp);
-	return cpp11::as_sexp(Table__ReferencedBufferSize(x));
-END_CPP11
-}
-#else
-extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP x_sexp){
-	Rf_error("Cannot call Table__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_arrow__Concatenate(SEXP dots_sexp){
+	Rf_error("Cannot call arrow__Concatenate(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1434,6 +1464,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
 	Rf_error("Cannot call ChunkedArray__from_list(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t ChunkedArray__ReferencedBufferSize(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP chunked_array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return cpp11::as_sexp(ChunkedArray__ReferencedBufferSize(chunked_array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ChunkedArray__ReferencedBufferSize(SEXP chunked_array_sexp){
+	Rf_error("Cannot call ChunkedArray__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -2817,8 +2862,8 @@ extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions);
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
+void dataset___Dataset__Write(const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, const std::shared_ptr<ds::Scanner>& scanner, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
@@ -2828,12 +2873,16 @@ BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
 	arrow::r::Input<arrow::dataset::ExistingDataBehavior>::type existing_data_behavior(existing_data_behavior_sexp);
 	arrow::r::Input<int>::type max_partitions(max_partitions_sexp);
-	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions);
+	arrow::r::Input<uint32_t>::type max_open_files(max_open_files_sexp);
+	arrow::r::Input<uint64_t>::type max_rows_per_file(max_rows_per_file_sexp);
+	arrow::r::Input<uint64_t>::type min_rows_per_group(min_rows_per_group_sexp);
+	arrow::r::Input<uint64_t>::type max_rows_per_group(max_rows_per_group_sexp);
+	dataset___Dataset__Write(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
+extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP scanner_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
 	Rf_error("Cannot call dataset___Dataset__Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -3320,6 +3369,23 @@ extern "C" SEXP _arrow_fixed_size_list__(SEXP x_sexp, SEXP list_size_sexp){
 
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted);
+extern "C" SEXP _arrow_map__(SEXP key_sexp, SEXP item_sexp, SEXP keys_sorted_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type key(key_sexp);
+	arrow::r::Input<SEXP>::type item(item_sexp);
+	arrow::r::Input<bool>::type keys_sorted(keys_sorted_sexp);
+	return cpp11::as_sexp(map__(key, item, keys_sorted));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_map__(SEXP key_sexp, SEXP item_sexp, SEXP keys_sorted_sexp){
+	Rf_error("Cannot call map__(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::DataType> struct__(const std::vector<std::shared_ptr<arrow::Field>>& fields);
 extern "C" SEXP _arrow_struct__(SEXP fields_sexp){
 BEGIN_CPP11
@@ -3785,6 +3851,81 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_FixedSizeListType__list_size(SEXP type_sexp){
 	Rf_error("Cannot call FixedSizeListType__list_size(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> MapType__key_field(const std::shared_ptr<arrow::MapType>& type);
+extern "C" SEXP _arrow_MapType__key_field(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapType>&>::type type(type_sexp);
+	return cpp11::as_sexp(MapType__key_field(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapType__key_field(SEXP type_sexp){
+	Rf_error("Cannot call MapType__key_field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Field> MapType__item_field(const std::shared_ptr<arrow::MapType>& type);
+extern "C" SEXP _arrow_MapType__item_field(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapType>&>::type type(type_sexp);
+	return cpp11::as_sexp(MapType__item_field(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapType__item_field(SEXP type_sexp){
+	Rf_error("Cannot call MapType__item_field(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> MapType__key_type(const std::shared_ptr<arrow::MapType>& type);
+extern "C" SEXP _arrow_MapType__key_type(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapType>&>::type type(type_sexp);
+	return cpp11::as_sexp(MapType__key_type(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapType__key_type(SEXP type_sexp){
+	Rf_error("Cannot call MapType__key_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> MapType__item_type(const std::shared_ptr<arrow::MapType>& type);
+extern "C" SEXP _arrow_MapType__item_type(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapType>&>::type type(type_sexp);
+	return cpp11::as_sexp(MapType__item_type(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapType__item_type(SEXP type_sexp){
+	Rf_error("Cannot call MapType__item_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// datatype.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool MapType__keys_sorted(const std::shared_ptr<arrow::MapType>& type);
+extern "C" SEXP _arrow_MapType__keys_sorted(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::MapType>&>::type type(type_sexp);
+	return cpp11::as_sexp(MapType__keys_sorted(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_MapType__keys_sorted(SEXP type_sexp){
+	Rf_error("Cannot call MapType__keys_sorted(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6285,6 +6426,21 @@ extern "C" SEXP _arrow_RecordBatch__from_arrays(SEXP schema_sxp_sexp, SEXP lst_s
 }
 #endif
 
+// recordbatch.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t RecordBatch__ReferencedBufferSize(const std::shared_ptr<arrow::RecordBatch>& batch);
+extern "C" SEXP _arrow_RecordBatch__ReferencedBufferSize(SEXP batch_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	return cpp11::as_sexp(RecordBatch__ReferencedBufferSize(batch));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatch__ReferencedBufferSize(SEXP batch_sexp){
+	Rf_error("Cannot call RecordBatch__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> RecordBatchReader__schema(const std::shared_ptr<arrow::RecordBatchReader>& reader);
@@ -7277,6 +7433,21 @@ extern "C" SEXP _arrow_Table__from_record_batches(SEXP batches_sexp, SEXP schema
 }
 #endif
 
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
+int64_t Table__ReferencedBufferSize(const std::shared_ptr<arrow::Table>& table);
+extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP table_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	return cpp11::as_sexp(Table__ReferencedBufferSize(table));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Table__ReferencedBufferSize(SEXP table_sexp){
+	Rf_error("Cannot call Table__ReferencedBufferSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // threadpool.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int GetCpuThreadPoolCapacity();
@@ -7424,11 +7595,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
@@ -7465,11 +7636,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2},
+		{ "_arrow_MapArray__keys", (DL_FUNC) &_arrow_MapArray__keys, 1}, 
+		{ "_arrow_MapArray__items", (DL_FUNC) &_arrow_MapArray__items, 1}, 
+		{ "_arrow_MapArray__keys_nested", (DL_FUNC) &_arrow_MapArray__keys_nested, 1}, 
+		{ "_arrow_MapArray__items_nested", (DL_FUNC) &_arrow_MapArray__items_nested, 1}, 
+		{ "_arrow_Array__Same", (DL_FUNC) &_arrow_Array__Same, 2}, 
 		{ "_arrow_Array__ReferencedBufferSize", (DL_FUNC) &_arrow_Array__ReferencedBufferSize, 1}, 
-		{ "_arrow_ChunkedArray__ReferencedBufferSize", (DL_FUNC) &_arrow_ChunkedArray__ReferencedBufferSize, 1},
-		{ "_arrow_RecordBatch__ReferencedBufferSize", (DL_FUNC) &_arrow_RecordBatch__ReferencedBufferSize, 1},
-		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1},
+		{ "_arrow_arrow__Concatenate", (DL_FUNC) &_arrow_arrow__Concatenate, 1}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 2}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -7521,6 +7694,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
 		{ "_arrow_ChunkedArray__ToString", (DL_FUNC) &_arrow_ChunkedArray__ToString, 1}, 
 		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
+		{ "_arrow_ChunkedArray__ReferencedBufferSize", (DL_FUNC) &_arrow_ChunkedArray__ReferencedBufferSize, 1}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
@@ -7607,7 +7781,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__ToRecordBatchReader", (DL_FUNC) &_arrow_dataset___Scanner__ToRecordBatchReader, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
-		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 8}, 
+		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 12}, 
 		{ "_arrow_dataset___Scanner__TakeRows", (DL_FUNC) &_arrow_dataset___Scanner__TakeRows, 2}, 
 		{ "_arrow_dataset___Scanner__CountRows", (DL_FUNC) &_arrow_dataset___Scanner__CountRows, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 
@@ -7641,6 +7815,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_list__", (DL_FUNC) &_arrow_list__, 1}, 
 		{ "_arrow_large_list__", (DL_FUNC) &_arrow_large_list__, 1}, 
 		{ "_arrow_fixed_size_list__", (DL_FUNC) &_arrow_fixed_size_list__, 2}, 
+		{ "_arrow_map__", (DL_FUNC) &_arrow_map__, 3}, 
 		{ "_arrow_struct__", (DL_FUNC) &_arrow_struct__, 1}, 
 		{ "_arrow_DataType__ToString", (DL_FUNC) &_arrow_DataType__ToString, 1}, 
 		{ "_arrow_DataType__name", (DL_FUNC) &_arrow_DataType__name, 1}, 
@@ -7672,6 +7847,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__value_field", (DL_FUNC) &_arrow_FixedSizeListType__value_field, 1}, 
 		{ "_arrow_FixedSizeListType__value_type", (DL_FUNC) &_arrow_FixedSizeListType__value_type, 1}, 
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
+		{ "_arrow_MapType__key_field", (DL_FUNC) &_arrow_MapType__key_field, 1}, 
+		{ "_arrow_MapType__item_field", (DL_FUNC) &_arrow_MapType__item_field, 1}, 
+		{ "_arrow_MapType__key_type", (DL_FUNC) &_arrow_MapType__key_type, 1}, 
+		{ "_arrow_MapType__item_type", (DL_FUNC) &_arrow_MapType__item_type, 1}, 
+		{ "_arrow_MapType__keys_sorted", (DL_FUNC) &_arrow_MapType__keys_sorted, 1}, 
 		{ "_arrow_compute___expr__equals", (DL_FUNC) &_arrow_compute___expr__equals, 2}, 
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
 		{ "_arrow_field_names_in_expression", (DL_FUNC) &_arrow_field_names_in_expression, 1}, 
@@ -7828,6 +8008,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___SerializeRecordBatch__Raw", (DL_FUNC) &_arrow_ipc___SerializeRecordBatch__Raw, 1}, 
 		{ "_arrow_ipc___ReadRecordBatch__InputStream__Schema", (DL_FUNC) &_arrow_ipc___ReadRecordBatch__InputStream__Schema, 2}, 
 		{ "_arrow_RecordBatch__from_arrays", (DL_FUNC) &_arrow_RecordBatch__from_arrays, 2}, 
+		{ "_arrow_RecordBatch__ReferencedBufferSize", (DL_FUNC) &_arrow_RecordBatch__ReferencedBufferSize, 1}, 
 		{ "_arrow_RecordBatchReader__schema", (DL_FUNC) &_arrow_RecordBatchReader__schema, 1}, 
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
 		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
@@ -7891,6 +8072,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__SelectColumns", (DL_FUNC) &_arrow_Table__SelectColumns, 2}, 
 		{ "_arrow_all_record_batches", (DL_FUNC) &_arrow_all_record_batches, 1}, 
 		{ "_arrow_Table__from_record_batches", (DL_FUNC) &_arrow_Table__from_record_batches, 2}, 
+		{ "_arrow_Table__ReferencedBufferSize", (DL_FUNC) &_arrow_Table__ReferencedBufferSize, 1}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 

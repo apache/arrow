@@ -434,12 +434,14 @@ template <typename Reader>
 class GrpcIpcMessageReader : public ipc::MessageReader {
  public:
   GrpcIpcMessageReader(
-      std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
+      std::shared_ptr<ClientRpc> rpc, std::shared_ptr<MemoryManager> memory_manager,
+      std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream,
       std::shared_ptr<internal::PeekableFlightDataReader<std::shared_ptr<Reader>>>
           peekable_reader,
       std::shared_ptr<Buffer>* app_metadata)
       : rpc_(rpc),
+        memory_manager_(std::move(memory_manager)),
         read_mutex_(read_mutex),
         stream_(std::move(stream)),
         peekable_reader_(peekable_reader),
@@ -460,6 +462,11 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
       stream_finished_ = true;
       return stream_->Finish(Status::OK());
     }
+
+    if (ARROW_PREDICT_FALSE(!memory_manager_->is_cpu() && data->body)) {
+      ARROW_ASSIGN_OR_RAISE(data->body, Buffer::ViewOrCopy(data->body, memory_manager_));
+    }
+
     // Validate IPC message
     auto result = data->OpenMessage();
     if (!result.ok()) {
@@ -472,6 +479,7 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
  private:
   // The RPC context lifetime must be coupled to the ClientReader
   std::shared_ptr<ClientRpc> rpc_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   // Guard reads with a mutex to prevent concurrent reads if the write
   // side calls Finish(). Nullable as DoGet doesn't need this.
   std::shared_ptr<std::mutex> read_mutex_;
@@ -492,10 +500,14 @@ class GrpcIpcMessageReader : public ipc::MessageReader {
 template <typename Reader>
 class GrpcStreamReader : public FlightStreamReader {
  public:
-  GrpcStreamReader(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<std::mutex> read_mutex,
+  GrpcStreamReader(std::shared_ptr<ClientRpc> rpc,
+                   std::shared_ptr<MemoryManager> memory_manager,
+                   std::shared_ptr<std::mutex> read_mutex,
                    const ipc::IpcReadOptions& options, StopToken stop_token,
                    std::shared_ptr<FinishableStream<Reader, internal::FlightData>> stream)
       : rpc_(rpc),
+        memory_manager_(memory_manager ? std::move(memory_manager)
+                                       : CPUDevice::Instance()->default_memory_manager()),
         read_mutex_(read_mutex),
         options_(options),
         stop_token_(std::move(stop_token)),
@@ -517,9 +529,9 @@ class GrpcStreamReader : public FlightStreamReader {
             FlightStatusCode::Internal, "Server never sent a data message"));
       }
 
-      auto message_reader =
-          std::unique_ptr<ipc::MessageReader>(new GrpcIpcMessageReader<Reader>(
-              rpc_, read_mutex_, stream_, peekable_reader_, &app_metadata_));
+      auto message_reader = std::unique_ptr<ipc::MessageReader>(
+          new GrpcIpcMessageReader<Reader>(rpc_, memory_manager_, read_mutex_, stream_,
+                                           peekable_reader_, &app_metadata_));
       auto result =
           ipc::RecordBatchStreamReader::Open(std::move(message_reader), options_);
       RETURN_NOT_OK(OverrideWithServerError(std::move(result).Value(&batch_reader_)));
@@ -601,6 +613,7 @@ class GrpcStreamReader : public FlightStreamReader {
 
   friend class GrpcIpcMessageReader<Reader>;
   std::shared_ptr<ClientRpc> rpc_;
+  std::shared_ptr<MemoryManager> memory_manager_;
   // Guard reads with a lock to prevent Finish()/Close() from being
   // called on the writer while the reader has a pending
   // read. Nullable, as DoGet() doesn't need this.
@@ -930,8 +943,25 @@ class FlightClient::FlightClientImpl {
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
-          // A callback to supply to TlsCredentialsOptions that accepts any server
-          // arguments.
+#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+          // gRPC >= 1.43
+          class NoOpCertificateVerifier : public ge::ExternalCertificateVerifier {
+           public:
+            bool Verify(ge::TlsCustomVerificationCheckRequest*,
+                        std::function<void(grpc::Status)>,
+                        grpc::Status* sync_status) override {
+              *sync_status = grpc::Status::OK;
+              return true;  // Check done synchronously
+            }
+            void Cancel(ge::TlsCustomVerificationCheckRequest*) override {}
+          };
+          auto cert_verifier =
+              ge::ExternalCertificateVerifier::Create<NoOpCertificateVerifier>();
+
+#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+        // gRPC < 1.43
+        // A callback to supply to TlsCredentialsOptions that accepts any server
+        // arguments.
           struct NoOpTlsAuthorizationCheck
               : public ge::TlsServerAuthorizationCheckInterface {
             int Schedule(ge::TlsServerAuthorizationCheckArg* arg) override {
@@ -943,6 +973,8 @@ class FlightClient::FlightClientImpl {
           auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
               server_authorization_check);
+#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
+
 #if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto certificate_provider =
               std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
@@ -950,31 +982,38 @@ class FlightClient::FlightClientImpl {
 #if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           grpc::experimental::TlsChannelCredentialsOptions tls_options(
               certificate_provider);
-#else
-          // While gRPC >= 1.36 does not require a root cert (it has a default)
-          // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+#else   // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+        // While gRPC >= 1.36 does not require a root cert (it has a default)
+        // in practice the path it hardcodes is broken. See grpc/grpc#21655.
           grpc::experimental::TlsChannelCredentialsOptions tls_options;
           tls_options.set_certificate_provider(certificate_provider);
-#endif
+#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
           tls_options.watch_root_certs();
           tls_options.set_root_cert_name("dummy");
+#if defined(GRPC_USE_CERTIFICATE_VERIFIER)
+          tls_options.set_certificate_verifier(std::move(cert_verifier));
+          tls_options.set_check_call_host(false);
+          tls_options.set_verify_server_certs(false);
+#else   // defined(GRPC_USE_CERTIFICATE_VERIFIER)
           tls_options.set_server_verification_option(
               grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
           tls_options.set_server_authorization_check_config(noop_auth_check_);
+#endif  // defined(GRPC_USE_CERTIFICATE_VERIFIER)
 #elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+          // continues defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
           materials_config->set_pem_root_certs(kDummyRootCert);
           ge::TlsCredentialsOptions tls_options(
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
-#endif
+#endif  // defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
           creds = ge::TlsCredentials(tls_options);
-#else
+#else   // defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           return Status::NotImplemented(
               "Using encryption with server verification disabled is unsupported. "
               "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
-#endif
+#endif  // defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
         } else {
           grpc::SslCredentialsOptions ssl_options;
           if (!options.tls_root_certs.empty()) {
@@ -1205,8 +1244,9 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream = std::make_shared<
         FinishableStream<grpc::ClientReader<pb::FlightData>, internal::FlightData>>(
         rpc, stream);
-    *out = std::unique_ptr<StreamReader>(new StreamReader(
-        rpc, nullptr, options.read_options, options.stop_token, finishable_stream));
+    *out = std::unique_ptr<StreamReader>(
+        new StreamReader(rpc, options.memory_manager, nullptr, options.read_options,
+                         options.stop_token, finishable_stream));
     // Eagerly read the schema
     return static_cast<StreamReader*>(out->get())->EnsureDataStarted();
   }
@@ -1250,8 +1290,9 @@ class FlightClient::FlightClientImpl {
     auto finishable_stream =
         std::make_shared<FinishableWritableStream<GrpcStream, internal::FlightData>>(
             rpc, read_mutex, stream);
-    *reader = std::unique_ptr<StreamReader>(new StreamReader(
-        rpc, read_mutex, options.read_options, options.stop_token, finishable_stream));
+    *reader = std::unique_ptr<StreamReader>(
+        new StreamReader(rpc, options.memory_manager, read_mutex, options.read_options,
+                         options.stop_token, finishable_stream));
     // Do not eagerly read the schema. There may be metadata messages
     // before any data is sent, or data may not be sent at all.
     return StreamWriter::Open(descriptor, nullptr, options.write_options, rpc,
@@ -1261,7 +1302,8 @@ class FlightClient::FlightClientImpl {
  private:
   std::unique_ptr<pb::FlightService::Stub> stub_;
   std::shared_ptr<ClientAuthHandler> auth_handler_;
-#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS) && \
+    !defined(GRPC_USE_CERTIFICATE_VERIFIER)
   // Scope the TlsServerAuthorizationCheckConfig to be at the class instance level, since
   // it gets created during Connect() and needs to persist to DoAction() calls. gRPC does
   // not correctly increase the reference count of this object:
@@ -1275,7 +1317,13 @@ class FlightClient::FlightClientImpl {
 
 FlightClient::FlightClient() { impl_.reset(new FlightClientImpl); }
 
-FlightClient::~FlightClient() {}
+FlightClient::~FlightClient() {
+  auto st = Close();
+  if (!st.ok()) {
+    ARROW_LOG(WARNING) << "FlightClient::~FlightClient(): Close() failed: "
+                       << st.ToString();
+  }
+}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
@@ -1290,49 +1338,58 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
                                   std::unique_ptr<ClientAuthHandler> auth_handler) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->Authenticate(options, std::move(auth_handler));
 }
 
 arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
     const FlightCallOptions& options, const std::string& username,
     const std::string& password) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->AuthenticateBasicToken(options, username, password);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoAction(options, action, results);
 }
 
 Status FlightClient::ListActions(const FlightCallOptions& options,
                                  std::vector<ActionType>* actions) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->ListActions(options, actions);
 }
 
 Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->GetFlightInfo(options, descriptor, info);
 }
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
+  RETURN_NOT_OK(CheckOpen());
   return ListFlights({}, {}, listing);
 }
 
 Status FlightClient::ListFlights(const FlightCallOptions& options,
                                  const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->ListFlights(options, criteria, listing);
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoGet(options, ticket, stream);
 }
 
@@ -1341,6 +1398,7 @@ Status FlightClient::DoPut(const FlightCallOptions& options,
                            const std::shared_ptr<Schema>& schema,
                            std::unique_ptr<FlightStreamWriter>* stream,
                            std::unique_ptr<FlightMetadataReader>* reader) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoPut(options, descriptor, schema, stream, reader);
 }
 
@@ -1348,7 +1406,22 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
                                 const FlightDescriptor& descriptor,
                                 std::unique_ptr<FlightStreamWriter>* writer,
                                 std::unique_ptr<FlightStreamReader>* reader) {
+  RETURN_NOT_OK(CheckOpen());
   return impl_->DoExchange(options, descriptor, writer, reader);
+}
+
+Status FlightClient::Close() {
+  // gRPC doesn't offer an explicit shutdown
+  impl_.reset(nullptr);
+  // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
+  return Status::OK();
+}
+
+Status FlightClient::CheckOpen() const {
+  if (!impl_) {
+    return Status::Invalid("FlightClient is closed");
+  }
+  return Status::OK();
 }
 
 }  // namespace flight

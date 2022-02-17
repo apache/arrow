@@ -82,8 +82,8 @@ class ARROW_EXPORT Fingerprintable {
   virtual std::string ComputeFingerprint() const = 0;
   virtual std::string ComputeMetadataFingerprint() const = 0;
 
-  mutable std::atomic<std::string*> fingerprint_;
-  mutable std::atomic<std::string*> metadata_fingerprint_;
+  mutable std::atomic<std::string*> fingerprint_{NULLPTR};
+  mutable std::atomic<std::string*> metadata_fingerprint_{NULLPTR};
 };
 
 }  // namespace detail
@@ -364,6 +364,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
  private:
   std::string ComputeFingerprint() const override;
   std::string ComputeMetadataFingerprint() const override;
+
+  ARROW_EXPORT friend void PrintTo(const Field& field, std::ostream* os);
 
   // Field name
   std::string name_;
@@ -817,7 +819,7 @@ class ARROW_EXPORT Decimal256Type : public DecimalType {
 class ARROW_EXPORT BaseListType : public NestedType {
  public:
   using NestedType::NestedType;
-  std::shared_ptr<Field> value_field() const { return children_[0]; }
+  const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
   std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
 };

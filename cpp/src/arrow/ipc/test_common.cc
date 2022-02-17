@@ -812,9 +812,8 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> date32_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
-  std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-                                        1489272000000, 1489272000000, 1489273000000,
-                                        1489274000000};
+  std::vector<int64_t> date64_values = {86400000,  172800000, 259200000, 1489272000000,
+                                        345600000, 432000000, 518400000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
@@ -878,8 +877,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   auto f3 = field("f3", time64(TimeUnit::NANO));
   auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
-                                     1489272000, 1489272000, 1489273000};
+  std::vector<int32_t> t32_values = {14896, 14897, 14892, 1489272000, 14893, 14895};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
                                      1489272000000, 1489272000000, 1489273000000};
 

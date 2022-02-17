@@ -24,9 +24,3 @@ C++ Implementation
    getting_started
    Examples <examples/index>
    api
-
-.. TODO add "topics" chapter
-.. - nested arrays
-.. - dictionary encoding
-
-.. TODO add "building" or "development" chapter

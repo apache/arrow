@@ -94,6 +94,9 @@ const char* r6_class_name<arrow::DataType>::get(
     case Type::FIXED_SIZE_LIST:
       return "FixedSizeListType";
 
+    case Type::MAP:
+      return "MapType";
+
     case Type::STRUCT:
       return "StructType";
     case Type::DICTIONARY:
@@ -279,6 +282,33 @@ std::shared_ptr<arrow::DataType> fixed_size_list__(SEXP x, int list_size) {
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::DataType> map__(SEXP key, SEXP item, bool keys_sorted = false) {
+  std::shared_ptr<arrow::Field> key_field;
+  std::shared_ptr<arrow::Field> item_field;
+
+  if (Rf_inherits(key, "DataType")) {
+    auto key_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(key);
+    key_field = std::make_shared<arrow::Field>("key", key_type, /* nullable = */ false);
+  } else if (Rf_inherits(key, "Field")) {
+    key_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(key);
+    if (key_field->nullable()) cpp11::stop("key field cannot be nullable.");
+  } else {
+    cpp11::stop("key must be a DataType or Field.");
+  }
+
+  if (Rf_inherits(item, "DataType")) {
+    auto item_type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(item);
+    item_field = std::make_shared<arrow::Field>("value", item_type);
+  } else if (Rf_inherits(item, "Field")) {
+    item_field = cpp11::as_cpp<std::shared_ptr<arrow::Field>>(item);
+  } else {
+    cpp11::stop("item must be a DataType or Field.");
+  }
+
+  return std::make_shared<arrow::MapType>(key_field, item_field);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> struct__(
     const std::vector<std::shared_ptr<arrow::Field>>& fields) {
   return arrow::struct_(fields);
@@ -453,6 +483,35 @@ std::shared_ptr<arrow::DataType> FixedSizeListType__value_type(
 // [[arrow::export]]
 int FixedSizeListType__list_size(const std::shared_ptr<arrow::FixedSizeListType>& type) {
   return type->list_size();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__key_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> MapType__item_field(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_field();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__key_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->key_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> MapType__item_type(
+    const std::shared_ptr<arrow::MapType>& type) {
+  return type->item_type();
+}
+
+// [[arrow::export]]
+bool MapType__keys_sorted(const std::shared_ptr<arrow::MapType>& type) {
+  return type->keys_sorted();
 }
 
 #endif

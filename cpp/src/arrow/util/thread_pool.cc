@@ -28,6 +28,7 @@
 
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 
 namespace arrow {
 namespace internal {
@@ -235,24 +236,28 @@ ThreadPool::~ThreadPool() {
 void ThreadPool::ProtectAgainstFork() {
 #ifndef _WIN32
   pid_t current_pid = getpid();
-  if (pid_ != current_pid) {
-    // Reinitialize internal state in child process after fork()
-    // Ideally we would use pthread_at_fork(), but that doesn't allow
-    // storing an argument, hence we'd need to maintain a list of all
-    // existing ThreadPools.
-    int capacity = state_->desired_capacity_;
+  if (pid_.load() != current_pid) {
+    // Reinitialize internal state in child process after fork().
+    {
+      // Since after-fork reinitialization is triggered when one of the ThreadPool
+      // methods is called, it can be very well be called from multiple threads
+      // at once.  Therefore, it needs to be guarded with a lock.
+      auto lock = util::GlobalForkSafeMutex()->Lock();
 
-    auto new_state = std::make_shared<ThreadPool::State>();
-    new_state->please_shutdown_ = state_->please_shutdown_;
-    new_state->quick_shutdown_ = state_->quick_shutdown_;
+      if (pid_.load() != current_pid) {
+        int capacity = state_->desired_capacity_;
 
-    pid_ = current_pid;
-    sp_state_ = new_state;
-    state_ = sp_state_.get();
+        auto new_state = std::make_shared<ThreadPool::State>();
+        new_state->please_shutdown_ = state_->please_shutdown_;
+        new_state->quick_shutdown_ = state_->quick_shutdown_;
 
-    // Launch worker threads anew
-    if (!state_->please_shutdown_) {
-      ARROW_UNUSED(SetCapacity(capacity));
+        sp_state_ = new_state;
+        state_ = sp_state_.get();
+        pid_ = current_pid;
+
+        // Launch worker threads anew
+        ARROW_UNUSED(SetCapacity(capacity));
+      }
     }
   }
 #endif

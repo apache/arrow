@@ -23,10 +23,10 @@ import (
 	"path"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/internal/encryption"
 	"github.com/stretchr/testify/suite"
 )
 

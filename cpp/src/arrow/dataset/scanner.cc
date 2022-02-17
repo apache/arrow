@@ -766,6 +766,17 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
                           scan_options->filter.Bind(*dataset->schema()));
   }
 
+  // If no projection schema is specified we will use a default projection.  In
+  // general we should not be able to get here if using the ScannerBuilder but
+  // it is possible to get here if scan_options is used directly.  To be cleaned up
+  // in ARROW-12311
+  if (!scan_options->projected_schema) {
+    ARROW_ASSIGN_OR_RAISE(auto projection_descr,
+                          ProjectionDescr::Default(*dataset->schema()));
+    scan_options->projected_schema = std::move(projection_descr.schema);
+    scan_options->projection = projection_descr.expression;
+  }
+
   if (!scan_options->projection.IsBound()) {
     auto fields = dataset->schema()->fields();
     for (const auto& aug_field : kAugmentedFields) {

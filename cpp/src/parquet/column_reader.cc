@@ -752,9 +752,6 @@ class ColumnReaderImplBase {
     auto it = decoders_.find(static_cast<int>(encoding));
     if (it != decoders_.end()) {
       DCHECK(it->second.get() != nullptr);
-      if (encoding == Encoding::RLE_DICTIONARY) {
-        DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
-      }
       current_decoder_ = it->second.get();
     } else {
       switch (encoding) {

@@ -344,6 +344,15 @@ struct ProductImpl : public ScalarAggregator {
   bool nulls_observed;
 };
 
+struct NullProductImpl : public NullImpl<Int64Type> {
+  explicit NullProductImpl(const ScalarAggregateOptions& options_)
+      : NullImpl<Int64Type>(options_) {}
+
+  std::shared_ptr<Scalar> output_empty() override {
+    return std::make_shared<Int64Scalar>(1);
+  }
+};
+
 struct ProductInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
@@ -378,6 +387,11 @@ struct ProductInit {
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
     state.reset(new ProductImpl<Type>(type, options));
+    return Status::OK();
+  }
+
+  Status Visit(const NullType&) {
+    state.reset(new NullProductImpl(options));
     return Status::OK();
   }
 
@@ -1020,6 +1034,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddAggKernel(
       KernelSignature::Make({InputType(Type::DECIMAL256)}, OutputType(ScalarFirstType)),
       ProductInit::Init, func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(ProductInit::Init, {null()}, int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   // any

@@ -4,13 +4,17 @@
 \alias{to_arrow}
 \title{Create an Arrow object from others}
 \usage{
-to_arrow(.data)
+to_arrow(.data, as_arrow_query = TRUE)
 }
 \arguments{
 \item{.data}{the object to be converted}
+
+\item{as_arrow_query}{should the returned object be wrapped as an
+\code{arrow_dplyr_query}? (logical, default: \code{TRUE})}
 }
 \value{
-an \code{arrow_dplyr_query} object, to be used in dplyr pipelines.
+a \code{RecordBatchReader} object, wrapped as an arrow dplyr query which
+can be used in dplyr pipelines.
 }
 \description{
 This can be used in pipelines that pass data back and forth between Arrow and

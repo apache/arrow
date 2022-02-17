@@ -33,6 +33,7 @@ API Reference
    api/compute
    api/tensor
    api/utilities
+   api/async
    api/io
    api/ipc
    api/formats

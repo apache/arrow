@@ -73,6 +73,9 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
 
   /// \brief A token to enable interactive user cancellation of long-running requests.
   StopToken stop_token;
+
+  /// \brief An optional memory manager to control where to allocate incoming data.
+  std::shared_ptr<MemoryManager> memory_manager;
 };
 
 /// \brief Indicate that the client attempted to write a message
@@ -320,8 +323,19 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return DoExchange({}, descriptor, writer, reader);
   }
 
+  /// \brief Explicitly shut down and clean up the client.
+  ///
+  /// For backwards compatibility, this will be implicitly called by
+  /// the destructor if not already called, but this gives the
+  /// application no chance to handle errors, so it is recommended to
+  /// explicitly close the client.
+  ///
+  /// \since 8.0.0
+  Status Close();
+
  private:
   FlightClient();
+  Status CheckOpen() const;
   class FlightClientImpl;
   std::unique_ptr<FlightClientImpl> impl_;
 };

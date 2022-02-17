@@ -15,38 +15,81 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. default-domain:: cpp
+.. highlight:: cpp
+
 ===================
 Programming Support
 ===================
 
 General information
--------------------
+===================
 
 .. doxygenfunction:: arrow::GetBuildInfo
-   :project: arrow_cpp
 
 .. doxygenstruct:: arrow::BuildInfo
-   :project: arrow_cpp
    :members:
 
+.. doxygenfunction:: arrow::GetRuntimeInfo
+
+.. doxygenstruct:: arrow::RuntimeInfo
+   :members:
+
+Macro definitions
+-----------------
+
+These can be useful if you need to decide between different blocks of code
+*at compile time* (for example to conditionally take advantage of a recently
+introduced API).
+
+.. c:macro:: ARROW_VERSION_MAJOR
+
+   The Arrow major version number, for example ``7`` for Arrow 7.0.1.
+
+.. c:macro:: ARROW_VERSION_MINOR
+
+   The Arrow minor version number, for example ``0`` for Arrow 7.0.1.
+
+.. c:macro:: ARROW_VERSION_PATCH
+
+   The Arrow patch version number, for example ``1`` for Arrow 7.0.1.
+
+.. c:macro:: ARROW_VERSION
+
+   A consolidated integer representing the full Arrow version in an easily
+   comparable form, computed with the formula:
+   ``((ARROW_VERSION_MAJOR * 1000) + ARROW_VERSION_MINOR) * 1000 + ARROW_VERSION_PATCH``.
+
+   For example, this would choose a different block of code if the code is
+   being compiled against a Arrow version equal to or greater than 7.0.1::
+
+      #if ARROW_VERSION >= 7000001
+      // Arrow 7.0.1 or later...
+      #endif
+
+.. c:macro:: ARROW_VERSION_STRING
+
+   A human-readable string representation of the Arrow version, such as
+   ``"7.0.1"``.
+
+
 Error return and reporting
---------------------------
+==========================
 
 .. doxygenclass:: arrow::Status
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::StatusDetail
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::Result
-   :project: arrow_cpp
    :members:
 
 .. doxygenclass:: parquet::ParquetException
-   :project: arrow_cpp
    :members:
+
+Functional macros for error-based control flow
+----------------------------------------------
 
 .. doxygendefine:: ARROW_RETURN_NOT_OK
 

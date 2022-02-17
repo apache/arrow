@@ -1049,19 +1049,6 @@ static Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
                           io_context);
 }
 
-static Status ReadOneDictionary(Message* message, const IpcReadContext& context) {
-  CHECK_HAS_BODY(*message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
-  DictionaryKind kind;
-  RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
-  if (kind != DictionaryKind::New) {
-    return Status::Invalid(
-        "Unsupported dictionary replacement or "
-        "dictionary delta in IPC file");
-  }
-  return Status::OK();
-}
-
 class RecordBatchFileReaderImpl;
 
 /// A generator of record batches.
@@ -1378,6 +1365,19 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       ARROW_ASSIGN_OR_RAISE(auto message, ReadMessageFromBlock(GetDictionaryBlock(i)));
       RETURN_NOT_OK(ReadOneDictionary(message.get(), context));
       ++stats_.num_dictionary_batches;
+    }
+    return Status::OK();
+  }
+
+  Status ReadOneDictionary(Message* message, const IpcReadContext& context) {
+    CHECK_HAS_BODY(*message);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+    DictionaryKind kind;
+    RETURN_NOT_OK(ReadDictionary(*message->metadata(), context, &kind, reader.get()));
+    if (kind == DictionaryKind::Replacement) {
+      return Status::Invalid("Unsupported dictionary replacement in IPC file");
+    } else if (kind == DictionaryKind::Delta) {
+      ++stats_.num_dictionary_deltas;
     }
     return Status::OK();
   }
@@ -1820,7 +1820,7 @@ Status WholeIpcFileRecordBatchGenerator::ReadDictionaries(
     std::vector<std::shared_ptr<Message>> dictionary_messages) {
   IpcReadContext context(&state->dictionary_memo_, state->options_, state->swap_endian_);
   for (const auto& message : dictionary_messages) {
-    RETURN_NOT_OK(ReadOneDictionary(message.get(), context));
+    RETURN_NOT_OK(state->ReadOneDictionary(message.get(), context));
   }
   return Status::OK();
 }

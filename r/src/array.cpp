@@ -20,6 +20,7 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/byte_size.h>
 
@@ -38,6 +39,8 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
       return "LargeListArray";
     case arrow::Type::FIXED_SIZE_LIST:
       return "FixedSizeListArray";
+    case arrow::Type::MAP:
+      return "MapArray";
 
     default:
       return "Array";
@@ -285,6 +288,31 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->keys();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->items();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->keys())));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(
+      arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
+}
+
+// [[arrow::export]]
 bool Array__Same(const std::shared_ptr<arrow::Array>& x,
                  const std::shared_ptr<arrow::Array>& y) {
   return x.get() == y.get();
@@ -294,4 +322,17 @@ bool Array__Same(const std::shared_ptr<arrow::Array>& x,
 int64_t Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
   return ValueOrStop(arrow::util::ReferencedBufferSize(*x));
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots) {
+  arrow::ArrayVector vector;
+  vector.reserve(dots.size());
+
+  for (const cpp11::sexp& item : dots) {
+    vector.push_back(cpp11::as_cpp<std::shared_ptr<arrow::Array>>(item));
+  }
+
+  return ValueOrStop(arrow::Concatenate(vector));
+}
+
 #endif

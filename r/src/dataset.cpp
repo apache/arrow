@@ -517,7 +517,9 @@ void dataset___Dataset__Write(
     const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
     const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
     const std::shared_ptr<ds::Scanner>& scanner,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions) {
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions,
+    uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group,
+    uint64_t max_rows_per_group) {
   ds::FileSystemDatasetWriteOptions opts;
   opts.file_write_options = file_write_options;
   opts.existing_data_behavior = existing_data_behavior;
@@ -526,6 +528,10 @@ void dataset___Dataset__Write(
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
   opts.max_partitions = max_partitions;
+  opts.max_open_files = max_open_files;
+  opts.max_rows_per_file = max_rows_per_file;
+  opts.min_rows_per_group = min_rows_per_group;
+  opts.max_rows_per_group = max_rows_per_group;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 

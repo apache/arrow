@@ -200,12 +200,12 @@ jobs:
           restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
       # We use the makepkg-mingw setup that is included in rtools40 even when
       # we use the rtools35 compilers, so we always install R 4.0/Rtools40
-      - uses: r-lib/actions/setup-r@master
+      - uses: r-lib/actions/setup-r@v2
         with:
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
-      - uses: r-lib/actions/setup-r@master
+      - uses: r-lib/actions/setup-r@v2
         if: ${{ matrix.config.rtools == 35 }}
         with:
           rtools-version: 35
@@ -303,13 +303,13 @@ jobs:
           path: ccache
           key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
           restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
-      - uses: r-lib/actions/setup-r@master
+      - uses: r-lib/actions/setup-r@v2
         if: ${{ matrix.rtools == 40 }}
         with:
           r-version: "4.1"
           rtools-version: 40
           Ncpus: 2
-      - uses: r-lib/actions/setup-r@master
+      - uses: r-lib/actions/setup-r@v2
         if: ${{ matrix.rtools == 35 }}
         with:
           rtools-version: 35
@@ -327,7 +327,7 @@ jobs:
       - name: Install cpp11 (on R 3.6)
       # Since we force installation of binary packages below, dependency versions
       # are frozen for old versions of R. We need newer cpp11 than is available as
-      # "binary" (though it doesn't matter because the cpp11 R package is just a 
+      # "binary" (though it doesn't matter because the cpp11 R package is just a
       # vehicle for the header-only C++ code.
         if: ${{ matrix.rtools == 35 }}
         shell: Rscript {0}

@@ -187,6 +187,8 @@ If you are unsure whether a function supports a concrete input type, we
 recommend you try it out.  Unsupported input types return a ``TypeError``
 :class:`Status`.
 
+.. _aggregation-option-list:
+
 Aggregations
 ------------
 
@@ -421,39 +423,39 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+----------------------------+----------------------------+-------+
-| Function name    | Arity  | Input types                | Output type                | Notes |
-+==================+========+============================+============================+=======+
-| abs              | Unary  | Numeric                    | Numeric                    |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| abs_checked      | Unary  | Numeric                    | Numeric                    |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| add              | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| add_checked      | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| divide           | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| divide_checked   | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| multiply         | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| multiply_checked | Binary | Numeric                    | Numeric                    | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| negate           | Unary  | Numeric                    | Numeric                    |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| negate_checked   | Unary  | Signed Numeric             | Signed Numeric             |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| power            | Binary | Numeric                    | Numeric                    |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| power_checked    | Binary | Numeric                    | Numeric                    |       |
-+------------------+--------+----------------------------+----------------------------+-------+
-| sign             | Unary  | Numeric                    | Int8/Float32/Float64       | \(2)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| subtract         | Binary | Numeric/Date/Duration      | Numeric/Date/Duration      | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
-| subtract_checked | Binary | Numeric/Date/Duration      | Numeric/Date/Duration      | \(1)  |
-+------------------+--------+----------------------------+----------------------------+-------+
++------------------+--------+------------------+----------------------+-------+
+| Function name    | Arity  | Input types      | Output type          | Notes |
++==================+========+==================+======================+=======+
+| abs              | Unary  | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| abs_checked      | Unary  | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| add              | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| add_checked      | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| divide           | Binary | Numeric          | Numeric              | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| divide_checked   | Binary | Numeric          | Numeric              | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| multiply         | Binary | Numeric          | Numeric              | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| multiply_checked | Binary | Numeric          | Numeric              | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| negate           | Unary  | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| negate_checked   | Unary  | Signed Numeric   | Signed Numeric       |       |
++------------------+--------+------------------+----------------------+-------+
+| power            | Binary | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| power_checked    | Binary | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| sign             | Unary  | Numeric          | Int8/Float32/Float64 | \(2)  |
++------------------+--------+------------------+----------------------+-------+
+| subtract         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
++------------------+--------+------------------+----------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
++------------------+--------+------------------+----------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -1380,11 +1382,15 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | hour               | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
+| is_dst             | Unary      | Timestamp         | Boolean       |                            |       |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_week           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_year           | Unary      | Temporal          | Int64         |                            | \(2)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | iso_calendar       | Unary      | Temporal          | Struct        |                            | \(3)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| is_leap_year       | Unary      | Timestamp, Date   | Boolean       |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | microsecond        | Unary      | Timestamp, Time   | Int64         |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1403,6 +1409,8 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
 | subsecond          | Unary      | Timestamp, Time   | Float64       |                            |       |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | us_week            | Unary      | Temporal          | Int64         |                            | \(4)  |
++--------------------+------------+-------------------+---------------+----------------------------+-------+
+| us_year            | Unary      | Temporal          | Int64         |                            | \(4)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
 | week               | Unary      | Timestamp         | Int64         | :struct:`WeekOptions`      | \(5)  |
 +--------------------+------------+-------------------+---------------+----------------------------+-------+
@@ -1588,7 +1596,7 @@ This function returns the indices at which array elements are non-null and non-z
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 | Function name         | Arity | Input types                       | Output type    | Options class                   | Notes |
 +=======================+=======+===================================+================+=================================+=======+
-| indices_nonzero       | Unary | Boolean, Null, Numeric            | UInt64         |                                 |       |
+| indices_nonzero       | Unary | Boolean, Null, Numeric, Decimal   | UInt64         |                                 |       |
 +-----------------------+-------+-----------------------------------+----------------+---------------------------------+-------+
 
 Sorts and partitions
@@ -1649,7 +1657,9 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_parent_indices | Unary      | List-like                           | Int64            |                              | \(3)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
-| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(4)   |
+| map_lookup          | Unary      | Map                                 | Computed         | :struct:`MapLookupOptions`   | \(4)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
+| struct_field        | Unary      | Struct or Union                     | Computed         | :struct:`StructFieldOptions` | \(5)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 
 * \(1) Output is an array of the same length as the input list array. The
@@ -1663,7 +1673,12 @@ Structural transforms
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
 
-* \(4) Extract a child value based on a sequence of indices passed in
+* \(4) Extract either the ``FIRST``, ``LAST`` or ``ALL`` items from a
+  map whose key match the given query key passed via options.
+  The output type is an Array of items for the ``FIRST``/``LAST`` options
+  and an Array of List of items for the ``ALL`` option.
+
+* \(5) Extract a child value based on a sequence of indices passed in
   the options. The validity bitmap of the result will be the
   intersection of all intermediate validity bitmaps. For example, for
   an array with type ``struct<a: int32, b: struct<c: int64, d:

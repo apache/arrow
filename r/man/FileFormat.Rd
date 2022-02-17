@@ -40,7 +40,7 @@ you encounter one that \code{arrow} should support. Also, the following options 
 supported. From \link{CsvReadOptions}:
 \itemize{
 \item \code{skip_rows}
-\item \code{column_names}
+\item \code{column_names}. Note that if a \link{Schema} is specified, \code{column_names} must match those specified in the schema.
 \item \code{autogenerate_column_names}
 From \link{CsvFragmentScanOptions} (these values can be overridden at scan time):
 \item \code{convert_options}: a \link{CsvConvertOptions}

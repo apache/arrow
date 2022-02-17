@@ -125,7 +125,11 @@ static inline std::string GenericToString(const std::shared_ptr<T>& value) {
 
 static inline std::string GenericToString(const std::shared_ptr<Scalar>& value) {
   std::stringstream ss;
-  ss << value->type->ToString() << ":" << value->ToString();
+  if (value) {
+    ss << value->type->ToString() << ":" << value->ToString();
+  } else {
+    ss << "<NULLPTR>";
+  }
   return ss.str();
 }
 

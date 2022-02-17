@@ -44,6 +44,8 @@ tabular, potentially larger than memory, and multi-file datasets. This includes:
 The goal is to expand support to other file formats and data sources
 (e.g. database connections) in the future.
 
+.. _cpp-dataset-reading:
+
 Reading Datasets
 ----------------
 

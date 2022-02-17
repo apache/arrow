@@ -20,11 +20,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v8/arrow/memory"
+	"github.com/apache/arrow/go/v8/parquet"
+	"github.com/apache/arrow/go/v8/parquet/file"
+	"github.com/apache/arrow/go/v8/parquet/metadata"
+	"github.com/apache/arrow/go/v8/parquet/schema"
 )
 
 type PrimitiveTypedTest struct {
