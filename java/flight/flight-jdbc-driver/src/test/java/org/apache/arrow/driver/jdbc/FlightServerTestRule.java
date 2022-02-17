@@ -60,10 +60,10 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final Properties properties;
   private final ArrowFlightConnectionConfigImpl config;
   private final BufferAllocator allocator;
-  private FlightSqlProducer producer;
+  private final FlightSqlProducer producer;
   private final Authentication authentication;
 
-  private final MiddlewareCookie.Factory factory = new MiddlewareCookie.Factory();
+  private final MiddlewareCookie.Factory middlewareCookieFactory = new MiddlewareCookie.Factory();
 
   private FlightServerTestRule(final Properties properties,
                                final ArrowFlightConnectionConfigImpl config,
@@ -118,8 +118,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     return this.createDataSource().getConnection();
   }
 
-  public MiddlewareCookie.Factory getFactory() {
-    return factory;
+  public MiddlewareCookie.Factory getMiddlewareCookieFactory() {
+    return middlewareCookieFactory;
   }
 
   @Override
@@ -131,7 +131,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                  getStartServer(location ->
                      FlightServer.builder(allocator, location, producer)
                          .headerAuthenticator(authentication.authenticate())
-                         .middleware(FlightServerMiddleware.Key.of("KEY"), factory)
+                         .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory)
                          .build(), 3)) {
           LOGGER.info("Started " + FlightServer.class.getName() + " as " + flightServer);
           base.evaluate();
