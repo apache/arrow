@@ -427,8 +427,6 @@ Result<PyObject*> StringToTzinfo(const std::string& tz) {
 Result<std::string> TzinfoToString(PyObject* tzinfo) {
   OwnedRef module_pytz;        // import pytz
   OwnedRef module_datetime;    // import datetime
-  OwnedRef module_zoneinfo;    // import zoneinfo
-  OwnedRef module_dateutil;    // import dateutil
   OwnedRef class_timezone;     // from datetime import timezone
   OwnedRef class_fixedoffset;  // from pytz import _FixedOffset
 
