@@ -1438,10 +1438,10 @@ cdef class _StrptimeOptions(FunctionOptions):
         "ns": TimeUnit_NANO,
     }
 
-    def _set_options(self, format, unit):
+    def _set_options(self, format, unit, raise_errors):
         try:
             self.wrapped.reset(
-                new CStrptimeOptions(tobytes(format), self._unit_map[unit])
+                new CStrptimeOptions(tobytes(format), self._unit_map[unit], raise_errors)
             )
         except KeyError:
             _raise_invalid_function_option(unit, "time unit")
@@ -1458,10 +1458,12 @@ class StrptimeOptions(_StrptimeOptions):
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
+    raise_errors: boolean
+        Raise on parsing errors.
     """
 
-    def __init__(self, format, unit):
-        self._set_options(format, unit)
+    def __init__(self, format, unit, raise_errors):
+        self._set_options(format, unit, raise_errors)
 
 
 cdef class _StrftimeOptions(FunctionOptions):

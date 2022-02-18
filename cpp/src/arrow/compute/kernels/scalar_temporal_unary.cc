@@ -25,6 +25,7 @@
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/time.h"
+#include "arrow/util/value_parsing.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
@@ -1144,6 +1145,107 @@ struct Strftime {
 #endif
 
 // ----------------------------------------------------------------------
+// Convert string representations of timestamps in arbitrary format to timestamps
+
+using StrptimeState = OptionsWrapper<StrptimeOptions>;
+
+template <typename Duration, typename InType>
+struct Strptime {
+  std::shared_ptr<TimestampParser> parser;
+  const StrptimeOptions& options;
+
+  static Result<Strptime> Make(KernelContext* ctx, const DataType& type) {
+    const StrptimeOptions& options = StrptimeState::Get(ctx);
+    return Strptime{TimestampParser::MakeStrptime(options.format), options};
+  }
+
+  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+
+    if (in.is_valid) {
+      auto s = internal::UnboxScalar<InType>::Unbox(in);
+      int64_t result;
+      if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
+        if (self.options.raise_errors) {
+          return Status::Invalid("Failed to parse string: '", s.data(),
+                                 "' as a scalar of type ",
+                                 TimestampType(self.options.unit).ToString());
+        }
+      }
+
+      *checked_cast<TimestampScalar*>(out) =
+          TimestampScalar(result, timestamp(self.options.unit));
+    } else {
+      out->is_valid = false;
+    }
+    return Status::OK();
+  }
+
+  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
+    ARROW_ASSIGN_OR_RAISE(auto self, Make(ctx, *in.type));
+
+    std::unique_ptr<ArrayBuilder> array_builder;
+    RETURN_NOT_OK(
+        MakeBuilder(ctx->memory_pool(), timestamp(self.options.unit), &array_builder));
+    TimestampBuilder* builder = checked_cast<TimestampBuilder*>(array_builder.get());
+    RETURN_NOT_OK(builder->Reserve(in.length));
+
+    if (self.options.raise_errors) {
+      auto visit_null = [&]() { return builder->AppendNull(); };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
+          return Status::Invalid("Failed to parse string: '", s.data(),
+                                 "' as a scalar of type ",
+                                 TimestampType(self.options.unit).ToString());
+        }
+        return builder->Append(result);
+      };
+      RETURN_NOT_OK(VisitArrayDataInline<InType>(in, visit_value, visit_null));
+    } else {
+      auto visit_null = [&]() { builder->UnsafeAppendNull(); };
+      auto visit_value = [&](util::string_view s) {
+        int64_t result;
+        if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
+          builder->UnsafeAppendNull();
+        } else {
+          builder->UnsafeAppend(result);
+        }
+      };
+      VisitArrayDataInline<InType>(in, visit_value, visit_null);
+    }
+
+    std::shared_ptr<Array> out_array;
+    RETURN_NOT_OK(builder->Finish(&out_array));
+    *out = *std::move(out_array->data());
+
+    return Status::OK();
+  }
+};
+
+Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
+                                         const std::vector<ValueDescr>&) {
+  if (!ctx->state()) {
+    return Status::Invalid("strptime does not provide default StrptimeOptions");
+  }
+  const StrptimeOptions& options = StrptimeState::Get(ctx);
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  std::string zone = "";
+  while (cur < options.format.size() - 1) {
+    if (options.format[cur] == '%') {
+      if (options.format[cur + 1] == 'z') {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    }
+    cur++;
+  }
+  return ::arrow::timestamp(options.unit, zone);
+}
+
+// ----------------------------------------------------------------------
 // Convert timestamps from local timestamp without a timezone to timestamps with a
 // timezone, interpreting the local timestamp as being in the specified timezone
 
@@ -1590,7 +1692,13 @@ const FunctionDoc strftime_doc{
      "does not exist on this system."),
     {"timestamps"},
     "StrftimeOptions"};
-
+const FunctionDoc strptime_doc(
+    "Parse timestamps",
+    ("For each string in `strings`, parse it as a timestamp.\n"
+     "The timestamp unit and the expected string pattern must be given\n"
+     "in StrptimeOptions.  Null inputs emit null.  If a non-null string\n"
+     "fails parsing, an error is returned by default."),
+    {"strings"}, "StrptimeOptions", /*options_required=*/true);
 const FunctionDoc assume_timezone_doc{
     "Convert naive timestamp to timezone-aware timestamp",
     ("Input timestamps are assumed to be relative to the timezone given in the\n"
@@ -1779,6 +1887,11 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
           "strftime", utf8(), &strftime_doc, &default_strftime_options,
           StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
+
+  auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
+      "strptime", OutputType::Resolver(ResolveStrptimeOutput), &strptime_doc, nullptr,
+      StrptimeState::Init);
+  DCHECK_OK(registry->AddFunction(std::move(strptime)));
 
   auto assume_timezone =
       UnaryTemporalFactory<AssumeTimezone, AssumeTimezoneExtractor, TimestampType>::Make<

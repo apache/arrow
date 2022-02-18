@@ -377,7 +377,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::StrptimeOptions;
     return std::make_shared<Options>(
         cpp11::as_cpp<std::string>(options["format"]),
-        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]),
+        cpp11::as_cpp<bool>(options["raise_errors"]));
   }
 
   if (func_name == "strftime") {

@@ -162,7 +162,7 @@ def test_option_class_equality():
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
-        pc.StrptimeOptions("%Y", "s"),
+        pc.StrptimeOptions("%Y", "s", True),
         pc.StructFieldOptions(indices=[]),
         pc.TakeOptions(),
         pc.TDigestOptions(),

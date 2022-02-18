@@ -1842,7 +1842,7 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
-  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
 
   input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
@@ -1859,7 +1859,7 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
   std::string output1 =
       R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
-  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO);
+  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO, true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
                    &options);
 }

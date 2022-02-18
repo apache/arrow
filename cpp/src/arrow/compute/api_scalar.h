@@ -267,12 +267,17 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit,
+                           bool raise_errors = true);
   StrptimeOptions();
   static constexpr char const kTypeName[] = "StrptimeOptions";
 
+  /// The desired format string.
   std::string format;
+  /// The desired time resolution
   TimeUnit::type unit;
+  /// Raise on parsing errors
+  bool raise_errors;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {

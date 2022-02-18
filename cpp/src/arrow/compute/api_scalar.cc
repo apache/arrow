@@ -353,7 +353,8 @@ static auto kStrftimeOptionsType = GetFunctionOptionsType<StrftimeOptions>(
     DataMember("format", &StrftimeOptions::format));
 static auto kStrptimeOptionsType = GetFunctionOptionsType<StrptimeOptions>(
     DataMember("format", &StrptimeOptions::format),
-    DataMember("unit", &StrptimeOptions::unit));
+    DataMember("unit", &StrptimeOptions::unit),
+    DataMember("raise_errors", &StrptimeOptions::raise_errors));
 static auto kStructFieldOptionsType = GetFunctionOptionsType<StructFieldOptions>(
     DataMember("indices", &StructFieldOptions::indices));
 static auto kTrimOptionsType = GetFunctionOptionsType<TrimOptions>(
@@ -544,11 +545,13 @@ StrftimeOptions::StrftimeOptions() : StrftimeOptions(kDefaultFormat) {}
 constexpr char StrftimeOptions::kTypeName[];
 constexpr const char* StrftimeOptions::kDefaultFormat;
 
-StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit)
+StrptimeOptions::StrptimeOptions(std::string format, TimeUnit::type unit,
+                                 bool raise_errors)
     : FunctionOptions(internal::kStrptimeOptionsType),
       format(std::move(format)),
-      unit(unit) {}
-StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::SECOND) {}
+      unit(unit),
+      raise_errors(raise_errors) {}
+StrptimeOptions::StrptimeOptions() : StrptimeOptions("", TimeUnit::MICRO, true) {}
 constexpr char StrptimeOptions::kTypeName[];
 
 StructFieldOptions::StructFieldOptions(std::vector<int> indices)
