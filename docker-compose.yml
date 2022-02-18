@@ -1156,6 +1156,7 @@ services:
         gcc_version: ${GCC_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
+        r_duckdb_dev: ${R_DUCKDB_DEV:-}
     shm_size: *shm-size
     environment:
       <<: *ccache
@@ -1173,6 +1174,9 @@ services:
   ubuntu-r-only-r:
     environment:
       ARROW_DEPENDENCY_SOURCE: ''
+      ARROW_SOURCE_HOME: '/arrow'
+      FORCE_BUNDLED_BUILD: 'true'
+      LIBARROW_BUILD: 'true'
     extends: ubuntu-r
     command: >
       /bin/bash -c "

@@ -701,6 +701,7 @@ Status TransferColumnData(RecordReader* reader, std::shared_ptr<DataType> value_
       TRANSFER_INT32(DATE32, ::arrow::Date32Type);
       TRANSFER_INT32(TIME32, ::arrow::Time32Type);
       TRANSFER_INT64(TIME64, ::arrow::Time64Type);
+      TRANSFER_INT64(DURATION, ::arrow::DurationType);
     case ::arrow::Type::DATE64:
       RETURN_NOT_OK(TransferDate64(reader, pool, value_type, &result));
       break;

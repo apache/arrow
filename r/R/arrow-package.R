@@ -327,9 +327,6 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
-    },
-    invalidate = function() {
-      assign(".:xp:.", NULL, envir = self)
     }
   )
 )

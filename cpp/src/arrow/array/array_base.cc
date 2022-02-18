@@ -282,6 +282,8 @@ std::string Array::ToString() const {
   return ss.str();
 }
 
+void PrintTo(const Array& x, std::ostream* os) { *os << x.ToString(); }
+
 Result<std::shared_ptr<Array>> Array::View(
     const std::shared_ptr<DataType>& out_type) const {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> result,

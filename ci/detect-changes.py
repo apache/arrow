@@ -135,7 +135,7 @@ def list_github_actions_affected_files():
     """
     # GitHub Actions checkout `refs/remotes/pull/$PR/merge` where `HEAD` points
     # to the merge commit while `HEAD^` points to the commit before. Hence,
-    # `..HEAD^` points to all commit between master and the PR.
+    # `..HEAD^` points to all commit between the default branch and the PR.
     return list_affected_files("HEAD^..")
 
 
@@ -228,9 +228,9 @@ def run_from_travis():
     perr("Environment variables (excerpt):")
     dump_env_vars('TRAVIS_', '(BRANCH|COMMIT|PULL)')
     if (os.environ['TRAVIS_REPO_SLUG'] == 'apache/arrow' and
-            os.environ['TRAVIS_BRANCH'] == 'master' and
+            os.environ['TRAVIS_BRANCH'] in ['master', 'main'] and
             os.environ['TRAVIS_EVENT_TYPE'] != 'pull_request'):
-        # Never skip anything on master builds in the official repository
+        # Never skip anything on default-branch builds in the official repo
         affected = dict.fromkeys(ALL_TOPICS, True)
     else:
         desc = get_travis_commit_description()

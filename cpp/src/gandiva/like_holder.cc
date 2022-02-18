@@ -32,7 +32,8 @@ std::string& RemovePatternEscapeChars(const FunctionNode& node, std::string& pat
     pattern.erase(std::remove(pattern.begin(), pattern.end(),
                               arrow::util::get<std::string>(escape_char->holder()).at(0)),
                   pattern.end());  // remove escape chars
-    return pattern;
+  } else {
+    pattern.erase(std::remove(pattern.begin(), pattern.end(), '\\'), pattern.end());
   }
   return pattern;
 }

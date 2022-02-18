@@ -45,6 +45,12 @@ using ipc::internal::json::ChunkedArrayFromJSON;
 using ipc::internal::json::ScalarFromJSON;
 
 namespace gdb {
+
+// Add a nested `arrow` namespace to exercise type lookup from GDB (ARROW-15652)
+namespace arrow {
+void DummyFunction() {}
+}  // namespace arrow
+
 namespace {
 
 class CustomStatusDetail : public StatusDetail {
@@ -108,6 +114,8 @@ void TestSession() {
   _Pragma("GCC diagnostic ignored \"-Wunused-variable\"");
 #endif
 
+  arrow::DummyFunction();
+
   // Status & Result
   auto ok_status = Status::OK();
   auto error_status = Status::IOError("This is an error");
@@ -152,20 +160,20 @@ void TestSession() {
       {"key_text", "key_binary"}, {"some value", std::string("z") + '\x00' + "\x1f\xff"});
 
   // Decimals
-  arrow::Decimal128 decimal128_zero{};
-  arrow::Decimal128 decimal128_pos{"98765432109876543210987654321098765432"};
-  arrow::Decimal128 decimal128_neg{"-98765432109876543210987654321098765432"};
-  arrow::BasicDecimal128 basic_decimal128_zero{};
-  arrow::BasicDecimal128 basic_decimal128_pos{decimal128_pos.native_endian_array()};
-  arrow::BasicDecimal128 basic_decimal128_neg{decimal128_neg.native_endian_array()};
-  arrow::Decimal256 decimal256_zero{};
-  arrow::Decimal256 decimal256_pos{
+  Decimal128 decimal128_zero{};
+  Decimal128 decimal128_pos{"98765432109876543210987654321098765432"};
+  Decimal128 decimal128_neg{"-98765432109876543210987654321098765432"};
+  BasicDecimal128 basic_decimal128_zero{};
+  BasicDecimal128 basic_decimal128_pos{decimal128_pos.native_endian_array()};
+  BasicDecimal128 basic_decimal128_neg{decimal128_neg.native_endian_array()};
+  Decimal256 decimal256_zero{};
+  Decimal256 decimal256_pos{
       "9876543210987654321098765432109876543210987654321098765432109876543210987654"};
-  arrow::Decimal256 decimal256_neg{
+  Decimal256 decimal256_neg{
       "-9876543210987654321098765432109876543210987654321098765432109876543210987654"};
-  arrow::BasicDecimal256 basic_decimal256_zero{};
-  arrow::BasicDecimal256 basic_decimal256_pos{decimal256_pos.native_endian_array()};
-  arrow::BasicDecimal256 basic_decimal256_neg{decimal256_neg.native_endian_array()};
+  BasicDecimal256 basic_decimal256_zero{};
+  BasicDecimal256 basic_decimal256_pos{decimal256_pos.native_endian_array()};
+  BasicDecimal256 basic_decimal256_neg{decimal256_neg.native_endian_array()};
 
   // Data types
   NullType null_type;
@@ -528,7 +536,7 @@ void TestSession() {
 #endif
 
   // Hook into debugger
-  arrow::internal::DebugTrap();
+  ::arrow::internal::DebugTrap();
 }
 
 }  // namespace gdb

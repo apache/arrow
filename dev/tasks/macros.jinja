@@ -192,3 +192,32 @@ on:
       "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
 {% endmacro %}
+
+{%- macro configure_homebrew_arrow(formula) -%}
+  - name: Configure Homebrew formula for testing
+    env:
+      ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
+    run: |
+      brew update
+      brew --version
+      brew unlink python@2 || true
+      brew config
+      brew doctor || true
+
+      ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
+      echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
+      for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
+        if [ ! -f ${formula} ]; then
+          continue
+        fi
+        # Pin the current commit in the formula to test so that
+        # we're not always pulling from master
+        sed -i '' -E \
+          -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+          ${formula}
+        # Sometimes crossbow gives a remote URL with .git and sometimes not.
+        # Make sure there's only one
+        sed -i '' -E -e 's@.git.git@.git@' ${formula}
+        cp ${formula} $(brew --repository homebrew/core)/Formula/
+      done
+{% endmacro %}

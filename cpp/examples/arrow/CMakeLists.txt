@@ -21,6 +21,10 @@ if(ARROW_COMPUTE)
   add_arrow_example(compute_register_example)
 endif()
 
+if(ARROW_ENGINE)
+  add_arrow_example(engine_substrait_consumption EXTRA_LINK_LIBS arrow_engine_shared)
+endif()
+
 if(ARROW_COMPUTE AND ARROW_CSV)
   add_arrow_example(compute_and_write_csv_example)
 endif()

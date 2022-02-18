@@ -216,6 +216,49 @@ Array$create <- function(x, type = NULL) {
 #' @include arrowExports.R
 Array$import_from_c <- ImportArray
 
+
+#' Concatenate zero or more Arrays
+#'
+#' Concatenates zero or more [Array] objects into a single
+#' array. This operation will make a copy of its input; if you need
+#' the behavior of a single Array but don't need a
+#' single object, use [ChunkedArray]. Note that a [c()]
+#' method is provided for convenience but that it may
+#' produce surprising results when used with other
+#' classes of objects.
+#'
+#' @param ... zero or more [Array] objects to concatenate
+#' @param type An optional `type` describing the desired
+#'   type for the final Array.
+#'
+#' @return A single [Array]
+#' @export
+#'
+#' @examplesIf arrow_available()
+#' concat_arrays(Array$create(1:3), Array$create(4:5))
+#'
+concat_arrays <- function(..., type = NULL) {
+  dots <- lapply(list2(...), Array$create, type = type)
+
+  if (length(dots) == 0 && is.null(type)) {
+    return(Array$create(logical(), type = null()))
+  } else if (length(dots) == 0) {
+    return(Array$create(logical(), type = null())$cast(type))
+  }
+
+  if (!is.null(type)) {
+    dots <- lapply(dots, function(array) array$cast(type))
+  }
+
+  arrow__Concatenate(dots)
+}
+
+#' @rdname concat_arrays
+#' @export
+c.Array <- function(...) {
+  concat_arrays(...)
+}
+
 #' @rdname array
 #' @usage NULL
 #' @format NULL

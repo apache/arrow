@@ -31,8 +31,11 @@ test_that("to_duckdb", {
       to_duckdb() %>%
       collect() %>%
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-      select(!fct),
-    select(example_data, !fct)
+      select(!fct) %>%
+      arrange(int),
+      example_data %>%
+        select(!fct) %>%
+        arrange(int)
   )
 
   expect_identical(
@@ -41,7 +44,8 @@ test_that("to_duckdb", {
       to_duckdb() %>%
       group_by(lgl) %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -56,7 +60,8 @@ test_that("to_duckdb", {
       group_by(lgl) %>%
       to_duckdb() %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -90,11 +95,14 @@ test_that("to_duckdb then to_arrow", {
     filter(int > 5)
 
   expect_identical(
-    collect(ds_rt),
+    ds_rt %>%
+      collect() %>%
+      arrange(int),
     ds %>%
       select(-fct) %>%
       filter(int > 5) %>%
-      collect()
+      collect() %>%
+      arrange(int)
   )
 
   # Now check errors

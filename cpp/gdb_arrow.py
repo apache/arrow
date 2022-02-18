@@ -118,12 +118,20 @@ def for_evaluation(val, ty=None):
     """
     if ty is None:
         ty = get_basic_type(val.type)
+    typename = str(ty)  # `ty.name` is sometimes None...
+    if '::' in typename and not typename.startswith('::'):
+        # ARROW-15652: expressions evaluated by GDB are evaluated in the
+        # scope of the C++ namespace of the currently selected frame.
+        # When inside a Parquet frame, `arrow::<some type>` would be looked
+        # up as `parquet::arrow::<some type>` and fail.
+        # Therefore, force the lookup to happen in the global namespace scope.
+        typename = f"::{typename}"
     if ty.code == gdb.TYPE_CODE_PTR:
         # It's already a pointer, can represent it directly
-        return f"(({ty}) ({val}))"
+        return f"(({typename}) ({val}))"
     if val.address is None:
         raise ValueError(f"Cannot further evaluate rvalue: {val}")
-    return f"(* ({ty}*) ({val.address}))"
+    return f"(* ({typename}*) ({val.address}))"
 
 
 def is_char_star(ty):
