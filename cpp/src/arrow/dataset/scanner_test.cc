@@ -246,6 +246,37 @@ TEST_P(TestScanner, ProjectedScan) {
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
+TEST_P(TestScanner, ProjectionDefaults) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto just_i32 = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch,
+                                                 schema({field("i32", int32())}));
+  // If we don't specify anything we should scan everything
+  {
+    ARROW_SCOPED_TRACE("User does not specify projection or projected_schema");
+    options_->projection = literal(true);
+    options_->projected_schema = nullptr;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), batch_in);
+  }
+  // If we only specify a projection expression then infer the projected schema
+  // from the projection expression
+  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  {
+    ARROW_SCOPED_TRACE("User only specifies projection");
+    options_->projection = projection_desc->expression;
+    options_->projected_schema = nullptr;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), just_i32);
+  }
+  // If we only specify a projected schema then infer the projection expression
+  // from the schema
+  {
+    ARROW_SCOPED_TRACE("User only specifies projected_schema");
+    options_->projection = literal(true);
+    options_->projected_schema = projection_desc->schema;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch_in), just_i32);
+  }
+}
+
 TEST_P(TestScanner, ProjectedScanNested) {
   SetSchema({
       field("struct", struct_({field("i32", int32()), field("f64", float64())})),
