@@ -2381,23 +2381,20 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     else:
         raise TypeError(f"func_doc must be a dictionary")
 
+cdef object py_function = None
 
-global function_map 
-
-function_map = {}
-
-def static_py_udf(arrow_array):
+def py_function(arrow_array):
     p_new_array = call_function("add", [arrow_array, 1])
     return p_new_array
 
-cdef CStatus udf(CKernelContext* ctx, const CExecBatch& batch, CDatum* out) nogil:
+cdef CStatus udf(self, CKernelContext* ctx, const CExecBatch& batch, CDatum* out) nogil:
     cdef CDatum datum = batch.values[0]
     cdef shared_ptr[CArrayData] array_data = datum.array()
     cdef shared_ptr[CArray] c_array = MakeArray(array_data)
     cdef shared_ptr[CArray] new_array
     with gil:
         p_array = pyarrow_wrap_array(c_array)
-        new_array = pyarrow_unwrap_array(static_py_udf(p_array))
+        new_array = pyarrow_unwrap_array(py_function(p_array))
     cdef CDatum new_datum = CDatum(new_array)
     out[0] = new_datum
     return CStatus_OK()
@@ -2430,11 +2427,9 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
                 c_in_types.push_back(in_tmp)
 
         c_type = pyarrow_unwrap_data_type(out_type)
-
         c_callback = <ExecFunc>udf
         cdef COutputType* c_out_type = new COutputType(c_type)
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
-        function_map[func_name] = callback
         c_udf_syn.MakeFunction()
 
