@@ -598,11 +598,11 @@ test_and_install_cpp() {
 
   # TODO: ARROW-5036: plasma-serialization_tests broken
   # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
-  # LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
-  #   --exclude-regex "plasma-serialization_tests" \
-  #   -j$NPROC \
-  #   --output-on-failure \
-  #   -L unittest
+  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
+    --exclude-regex "plasma-serialization_tests" \
+    -j$NPROC \
+    --output-on-failure \
+    -L unittest
 
   popd
 }
@@ -806,7 +806,7 @@ test_integration() {
   pip install -e dev/archery
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
-  CPP_BUILD_DIR=$ARROW_TMPDIR/build
+  CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
 
   files=( $JAVA_DIR/tools/target/arrow-tools-*-jar-with-dependencies.jar )
   export ARROW_JAVA_INTEGRATION_JAR=${files[0]}
