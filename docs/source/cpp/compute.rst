@@ -456,6 +456,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+----------------------------+----------------------------+-------+
 | subtract_checked | Binary | Numeric/Temporal           | Numeric/Temporal           | \(1)  |
 +------------------+--------+----------------------------+----------------------------+-------+
+| sqrt             | Unary  | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
+| sqrt_checked     | Unary  | Numeric                    | Numeric                    |       |
++------------------+--------+----------------------------+----------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
