@@ -57,8 +57,9 @@
 #' If this setting is set too low you may end up fragmenting your data
 #' into many small files. The default is 900 which also allows some # of files to be
 #' open by the scanner before hitting the default Linux limit of 1024.
-#' @param max_rows_per_file maximum number of rows to be placed in
-#' any single file. Default is 0L.
+#' @param max_rows_per_file maximum number of rows per file.
+#' If greater than 0 then this will limit how many rows are placed in any single file.
+#' Default is 0L.
 #' @param min_rows_per_group write the row groups to the disk when this number of
 #' rows have accumulated. Default is 0L.
 #' @param max_rows_per_group maximum rows allowed in a single
@@ -127,7 +128,7 @@ write_dataset <- function(dataset,
                           existing_data_behavior = c("overwrite", "error", "delete_matching"),
                           max_partitions = 1024L,
                           max_open_files = 900L,
-                          max_rows_per_file = NA,
+                          max_rows_per_file = 0L,
                           min_rows_per_group = 0L,
                           max_rows_per_group = bitwShiftL(1, 20),
                           ...) {
