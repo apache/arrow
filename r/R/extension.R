@@ -17,6 +17,11 @@
 
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
+  public = list(
+    storage = function() {
+      ExtensionArray__storage(self)
+    }
+  ),
   active = list(
     type = function() {
       # C++ call
@@ -47,6 +52,11 @@ ExtensionType <- R6Class("ExtensionType",
 
     Serialize = function() {
       ExtensionType__Serialize(self)
+    },
+
+    MakeArray = function(data) {
+      assert_is(data, "ArrayData")
+      ExtensionType__MakeArray(self, data)
     },
 
     .Deserialize = function(storage_type, extension_name, extension_metadata) {

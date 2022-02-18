@@ -4231,6 +4231,69 @@ extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
 }
 #endif
 
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ExtensionType__MakeArray(const std::shared_ptr<arrow::ExtensionType>& type, const std::shared_ptr<arrow::ArrayData>& data);
+extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::ArrayData>&>::type data(data_sexp);
+	return cpp11::as_sexp(ExtensionType__MakeArray(type, data));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
+	Rf_error("Cannot call ExtensionType__MakeArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arrow::ExtensionArray>& array);
+extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionArray>&>::type array(array_sexp);
+	return cpp11::as_sexp(ExtensionArray__storage(array));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionArray__storage(SEXP array_sexp){
+	Rf_error("Cannot call ExtensionArray__storage(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type);
+extern "C" SEXP _arrow_RegisterRExtensionType(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	RegisterRExtensionType(type);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RegisterRExtensionType(SEXP type_sexp){
+	Rf_error("Cannot call RegisterRExtensionType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void UnregisterRExtensionType(std::string type_name);
+extern "C" SEXP _arrow_UnregisterRExtensionType(SEXP type_name_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type type_name(type_name_sexp);
+	UnregisterRExtensionType(type_name);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_UnregisterRExtensionType(SEXP type_name_sexp){
+	Rf_error("Cannot call UnregisterRExtensionType(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Table>& table, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
@@ -8079,6 +8142,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExtensionType__extension_name", (DL_FUNC) &_arrow_ExtensionType__extension_name, 1}, 
 		{ "_arrow_ExtensionType__Serialize", (DL_FUNC) &_arrow_ExtensionType__Serialize, 1}, 
 		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
+		{ "_arrow_ExtensionType__MakeArray", (DL_FUNC) &_arrow_ExtensionType__MakeArray, 2}, 
+		{ "_arrow_ExtensionArray__storage", (DL_FUNC) &_arrow_ExtensionArray__storage, 1}, 
+		{ "_arrow_RegisterRExtensionType", (DL_FUNC) &_arrow_RegisterRExtensionType, 1}, 
+		{ "_arrow_UnregisterRExtensionType", (DL_FUNC) &_arrow_UnregisterRExtensionType, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 

@@ -12,6 +12,14 @@ test_that("extension types can be created", {
   expect_identical(type$storage_id(), int32()$id)
   expect_identical(type$Serialize(), charToRaw("some custom metadata"))
   expect_identical(type$ToString(), "ExtensionType <some custom metadata>")
+
+  storage <- Array$create(1:10)
+  array <- type$MakeArray(storage$data())
+  expect_r6_class(array, "ExtensionArray")
+  expect_r6_class(array$type, "ExtensionType")
+
+  expect_true(array$type == type)
+  expect_true(array$storage() == storage)
 })
 
 test_that("extension type subclasses work", {
@@ -31,6 +39,10 @@ test_that("extension type subclasses work", {
     )
   )
 
+  SomeExtensionArraySubclass <- R6Class(
+    "SomeExtensionArraySubclass", inherit = ExtensionArray
+  )
+
   type <- MakeExtensionType(
     int32(),
     "some_extension_subclass",
@@ -40,4 +52,13 @@ test_that("extension type subclasses work", {
 
   expect_r6_class(type, "SomeExtensionTypeSubclass")
   expect_identical(type$some_custom_method(), charToRaw("some "))
+
+
+
 })
+
+test_that("extension types can be registered", {
+
+})
+
+

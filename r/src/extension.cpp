@@ -71,15 +71,15 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType &other) const {
     return false;
   }
 
-  auto other_r = dynamic_cast<const RExtensionType*>(&other);
-  if (other_r == nullptr) {
+  if (other.Serialize() != Serialize()) {
     return false;
   }
 
-  return other_r->extension_metadata_ == extension_metadata_;
+  return true;
 }
 
 std::shared_ptr<arrow::Array> RExtensionType::MakeArray(std::shared_ptr<arrow::ArrayData> data) const {
+  data->type = Clone();
   return std::make_shared<RExtensionArray>(data, Clone());
 }
 
@@ -152,6 +152,28 @@ cpp11::raws ExtensionType__Serialize(const std::shared_ptr<arrow::ExtensionType>
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> ExtensionType__storage_type(const std::shared_ptr<arrow::ExtensionType>& type) {
   return type->storage_type();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> ExtensionType__MakeArray(const std::shared_ptr<arrow::ExtensionType>& type,
+                                                       const std::shared_ptr<arrow::ArrayData>& data) {
+  return type->MakeArray(data);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arrow::ExtensionArray>& array) {
+  return array->storage();
+}
+
+// [[arrow::export]]
+void RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type) {
+  auto ext_type = std::dynamic_pointer_cast<arrow::ExtensionType>(type);
+  StopIfNotOk(arrow::RegisterExtensionType(ext_type));
+}
+
+// [[arrow::export]]
+void UnregisterRExtensionType(std::string type_name) {
+  StopIfNotOk(arrow::UnregisterExtensionType(type_name));
 }
 
 #endif

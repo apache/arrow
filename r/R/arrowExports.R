@@ -1084,6 +1084,22 @@ ExtensionType__storage_type <- function(type) {
   .Call(`_arrow_ExtensionType__storage_type`, type)
 }
 
+ExtensionType__MakeArray <- function(type, data) {
+  .Call(`_arrow_ExtensionType__MakeArray`, type, data)
+}
+
+ExtensionArray__storage <- function(array) {
+  .Call(`_arrow_ExtensionArray__storage`, array)
+}
+
+RegisterRExtensionType <- function(type) {
+  invisible(.Call(`_arrow_RegisterRExtensionType`, type))
+}
+
+UnregisterRExtensionType <- function(type_name) {
+  invisible(.Call(`_arrow_UnregisterRExtensionType`, type_name))
+}
+
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {
   invisible(.Call(`_arrow_ipc___WriteFeather__Table`, stream, table, version, chunk_size, compression, compression_level))
 }
