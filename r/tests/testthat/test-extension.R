@@ -40,14 +40,20 @@ test_that("extension type subclasses work", {
   )
 
   SomeExtensionArraySubclass <- R6Class(
-    "SomeExtensionArraySubclass", inherit = ExtensionArray
+    "SomeExtensionArraySubclass", inherit = ExtensionArray,
+    public = list(
+      some_custom_method = function() {
+        self$type$some_custom_method()
+      }
+    )
   )
 
   type <- MakeExtensionType(
     int32(),
     "some_extension_subclass",
     charToRaw("some custom metadata"),
-    type_class = SomeExtensionTypeSubclass
+    type_class = SomeExtensionTypeSubclass,
+    array_class = SomeExtensionArraySubclass
   )
 
   expect_r6_class(type, "SomeExtensionTypeSubclass")
@@ -62,6 +68,10 @@ test_that("extension type subclasses work", {
 
   expect_identical(type2$extension_name(), "some_extension_subclass")
   expect_identical(type2$some_custom_method(), type$some_custom_method())
+
+  array <- type$WrapArray(Array$create(1:10))
+  expect_r6_class(array, "SomeExtensionArraySubclass")
+  expect_identical(array$some_custom_method(), type$some_custom_method())
 
   expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
 })

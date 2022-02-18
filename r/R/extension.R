@@ -18,19 +18,45 @@
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
   public = list(
-    initialize = function(xp) {
-      super$initialize(xp)
-    },
-
     storage = function() {
       ExtensionArray__storage(self)
     }
   )
 )
 
+ExtensionArray$.default_new <- ExtensionArray$new
+ExtensionArray$new <- function(xp) {
+  superclass <- ExtensionArray$.default_new(xp)
+  registered_type <- extension_type_registry[[superclass$type$extension_name()]]
+  if (is.null(registered_type)) {
+    return(superclass)
+  }
+
+  class <- registered_type$.__enclos_env__$private$array_class
+  if (inherits(superclass, class$classname)) {
+    return(superclass)
+  }
+
+  class$new(xp)
+}
+
 ExtensionType <- R6Class("ExtensionType",
   inherit = DataType,
   public = list(
+    initialize = function(xp) {
+      super$initialize(xp)
+      self$.Deserialize(
+        self$storage_type(),
+        self$extension_name(),
+        self$Serialize()
+      )
+    },
+
+    .set_r6_constructors = function(type_class, array_class) {
+      private$type_class <- type_class
+      private$array_class <- array_class
+    },
+
     storage_type = function() {
       ExtensionType__storage_type(self)
     },
@@ -52,6 +78,11 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__MakeArray(self, data)
     },
 
+    WrapArray = function(array) {
+      assert_is(array, "Array")
+      self$MakeArray(array$data())
+    },
+
     ToString = function() {
       metadata_utf8 <- rawToChar(self$Serialize())
       Encoding(metadata_utf8) <- "UTF-8"
@@ -62,6 +93,11 @@ ExtensionType <- R6Class("ExtensionType",
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     }
+  ),
+
+  private = list(
+    type_class = NULL,
+    array_class = NULL
   )
 )
 
@@ -73,9 +109,7 @@ ExtensionType$new <- function(xp) {
     return(superclass)
   }
 
-  type <- registered_type$clone()
-  type[[".:xp:."]] <- xp
-  type
+  registered_type$.__enclos_env__$private$type_class$new(xp)
 }
 
 
@@ -96,6 +130,7 @@ MakeExtensionType <- function(storage_type,
     array_class
   )
 
+  type$.set_r6_constructors(type_class, array_class)
   type$.Deserialize(storage_type, extension_name, extension_metadata)
   type
 }
