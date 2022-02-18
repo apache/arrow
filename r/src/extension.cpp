@@ -53,19 +53,6 @@ private:
   cpp11::environment r6_array_generator_;
 };
 
-class RExtensionArray: public arrow::ExtensionArray {
-public:
-
-  RExtensionArray(const std::shared_ptr<arrow::ArrayData> &data,
-                  const std::shared_ptr<RExtensionType> &type)
-    : arrow::ExtensionArray(data),
-      r_extension_type_(type) {}
-
-private:
-  const std::shared_ptr<RExtensionType> r_extension_type_;
-};
-
-
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType &other) const {
   if (other.extension_name() != extension_name()) {
     return false;
@@ -79,8 +66,9 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType &other) const {
 }
 
 std::shared_ptr<arrow::Array> RExtensionType::MakeArray(std::shared_ptr<arrow::ArrayData> data) const {
-  data->type = Clone();
-  return std::make_shared<RExtensionArray>(data, Clone());
+  std::shared_ptr<arrow::ArrayData> new_data = data->Copy();
+  new_data->type = Clone();
+  return std::make_shared<arrow::ExtensionArray>(new_data);
 }
 
 arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
@@ -166,13 +154,13 @@ std::shared_ptr<arrow::Array> ExtensionArray__storage(const std::shared_ptr<arro
 }
 
 // [[arrow::export]]
-void RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type) {
+void arrow__RegisterRExtensionType(const std::shared_ptr<arrow::DataType>& type) {
   auto ext_type = std::dynamic_pointer_cast<arrow::ExtensionType>(type);
   StopIfNotOk(arrow::RegisterExtensionType(ext_type));
 }
 
 // [[arrow::export]]
-void UnregisterRExtensionType(std::string type_name) {
+void arrow__UnregisterRExtensionType(std::string type_name) {
   StopIfNotOk(arrow::UnregisterExtensionType(type_name));
 }
 

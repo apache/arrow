@@ -19,7 +19,7 @@ test_that("extension types can be created", {
   expect_r6_class(array$type, "ExtensionType")
 
   expect_true(array$type == type)
-  expect_true(array$storage() == storage)
+  expect_true(all(array$storage() == storage))
 })
 
 test_that("extension type subclasses work", {
@@ -53,12 +53,15 @@ test_that("extension type subclasses work", {
   expect_r6_class(type, "SomeExtensionTypeSubclass")
   expect_identical(type$some_custom_method(), charToRaw("some "))
 
+  RegisterExtensionType(type)
 
+  ptr_type <- allocate_arrow_schema()
+  type$export_to_c(ptr_type)
+  type2 <- DataType$import_from_c(ptr_type)
+  delete_arrow_schema(ptr_type)
 
+  expect_identical(type2$extension_name(), "some_extension_subclass")
+  expect_identical(type2$some_custom_method(), type$some_custom_method())
+
+  expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
 })
-
-test_that("extension types can be registered", {
-
-})
-
-

@@ -1092,12 +1092,12 @@ ExtensionArray__storage <- function(array) {
   .Call(`_arrow_ExtensionArray__storage`, array)
 }
 
-RegisterRExtensionType <- function(type) {
-  invisible(.Call(`_arrow_RegisterRExtensionType`, type))
+arrow__RegisterRExtensionType <- function(type) {
+  invisible(.Call(`_arrow_arrow__RegisterRExtensionType`, type))
 }
 
-UnregisterRExtensionType <- function(type_name) {
-  invisible(.Call(`_arrow_UnregisterRExtensionType`, type_name))
+arrow__UnregisterRExtensionType <- function(type_name) {
+  invisible(.Call(`_arrow_arrow__UnregisterRExtensionType`, type_name))
 }
 
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {

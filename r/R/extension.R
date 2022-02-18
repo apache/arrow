@@ -18,13 +18,12 @@
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
   public = list(
+    initialize = function(xp) {
+      super$initialize(xp)
+    },
+
     storage = function() {
       ExtensionArray__storage(self)
-    }
-  ),
-  active = list(
-    type = function() {
-      # C++ call
     }
   )
 )
@@ -44,12 +43,6 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__extension_name(self)
     },
 
-    ToString = function() {
-      metadata_utf8 <- rawToChar(self$Serialize())
-      Encoding(metadata_utf8) <- "UTF-8"
-      paste0(class(self)[1], " <", metadata_utf8, ">")
-    },
-
     Serialize = function() {
       ExtensionType__Serialize(self)
     },
@@ -59,12 +52,31 @@ ExtensionType <- R6Class("ExtensionType",
       ExtensionType__MakeArray(self, data)
     },
 
+    ToString = function() {
+      metadata_utf8 <- rawToChar(self$Serialize())
+      Encoding(metadata_utf8) <- "UTF-8"
+      paste0(class(self)[1], " <", metadata_utf8, ">")
+    },
+
     .Deserialize = function(storage_type, extension_name, extension_metadata) {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
     }
   )
 )
+
+ExtensionType$.default_new <- ExtensionType$new
+ExtensionType$new <- function(xp) {
+  superclass <- ExtensionType$.default_new(xp)
+  registered_type <- extension_type_registry[[superclass$extension_name()]]
+  if (is.null(registered_type)) {
+    return(superclass)
+  }
+
+  type <- registered_type$clone()
+  type[[".:xp:."]] <- xp
+  type
+}
 
 
 MakeExtensionType <- function(storage_type,
@@ -87,3 +99,21 @@ MakeExtensionType <- function(storage_type,
   type$.Deserialize(storage_type, extension_name, extension_metadata)
   type
 }
+
+RegisterExtensionType <- function(type) {
+  assert_is(type, "ExtensionType")
+  arrow__RegisterRExtensionType(type)
+  extension_type_registry[[type$extension_name()]] <- type
+  invisible(type)
+}
+
+UnregisterExtensionType <- function(extension_name) {
+  arrow__UnregisterRExtensionType(extension_name)
+  result <- extension_type_registry[[extension_name]]
+  if (!is.null(result)) {
+    rm(list = extension_name, envir = extension_type_registry)
+  }
+  invisible(result)
+}
+
+extension_type_registry <- new.env(parent = emptyenv())
