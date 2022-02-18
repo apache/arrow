@@ -282,10 +282,9 @@ install_nodejs() {
   fi
 
   required_node_major_version=16
-  node_major_version=$(node --version 2>&1 | \grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
+  node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
 
-  if [ -n "${node_major_version}" -a \
-      "${node_major_version}" -ge ${required_node_major_version} ]; then
+  if [ -n "${node_major_version}" ] && [ "${node_major_version}" -ge ${required_node_major_version} ]; then
     show_info "Found NodeJS installation with major version ${node_major_version}"
   else
     export NVM_DIR="`pwd`/.nvm"
@@ -771,9 +770,11 @@ test_js() {
   setup_nodejs
   setup_conda nodejs=17
 
-  npm install -g yarn
-
   pushd js
+
+  npm install yarn
+  export PATH=$PWD/node_modules/yarn/bin:$PATH
+
   yarn --frozen-lockfile
   yarn clean:all
   yarn lint
