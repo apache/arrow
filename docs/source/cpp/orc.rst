@@ -70,29 +70,28 @@ file.
 
 .. code-block:: cpp
 
-   #include <arrow/adapters/orc/adapter.h>
+    #include <arrow/adapters/orc/adapter.h>
 
-   {
-      // ...
-      arrow::Status st;
-      arrow::MemoryPool* pool = default_memory_pool();
-      std::shared_ptr<arrow::io::RandomAccessFile> input = ...;
+    {
+        // ...
+        arrow::Status st;
+        arrow::MemoryPool* pool = default_memory_pool();
+        std::shared_ptr<arrow::io::RandomAccessFile> input = ...;
 
-      // Open ORC file reader
-      auto maybe_reader = arrow::adapters::orc::ORCFileReader::Open(input, pool);
-      if (!maybe_reader.ok()) {
-        // Handle error instantiating file reader...
-      }
-      std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader = maybe_reader.ValueOrDie();
+        // Open ORC file reader
+        auto maybe_reader = arrow::adapters::orc::ORCFileReader::Open(input, pool);
+        if (!maybe_reader.ok()) {
+            // Handle error instantiating file reader...
+        }
+        std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader = maybe_reader.ValueOrDie();
 
-      // Read entire file as a single Arrow table
-      auto maybe_table = reader->Read();
-      if (!maybe_table.ok()) {
-        // Handle error reading ORC data...
-      }
-      std::shared_ptr<arrow::Table> table = maybe_table.ValueOrDie();
-   }
-
+        // Read entire file as a single Arrow table
+        auto maybe_table = reader->Read();
+        if (!maybe_table.ok()) {
+            // Handle error reading ORC data...
+        }
+        std::shared_ptr<arrow::Table> table = maybe_table.ValueOrDie();
+    }
 
 
 Writing ORC Files
@@ -105,19 +104,23 @@ An ORC file is written to a :class:`~arrow::io::OutputStream`.
 
 .. code-block:: cpp
 
-   #include <arrow/adapters/orc/adapter.h>
-   {
-       // Oneshot write
-       // ...
-       std::shared_ptr<arrow::io::OutputStream> output = ...;
-       auto writer_options = WriterOptions();
-       ARROW_ASSIGN_OR_RAISE(auto writer, ORCFileWriter::Open(output.get(), writer_options));
-       if (!(writer->Write(*input_table)).ok()) {
-           // Handle write error...
-       }
-       if (!(writer->Close()).ok()) {
-           // Handle close error...
-       }
-   }
+    #include <arrow/adapters/orc/adapter.h>
+    {
+        // Oneshot write
+        // ...
+        std::shared_ptr<arrow::io::OutputStream> output = ...;
+        auto writer_options = WriterOptions();
+        auto maybe_writer = arrow::adapters::orc::ORCFileWriter::Open(output.get(), writer_options);
+        if (!maybe_writer.ok()) {
+           // Handle error instantiating file writer...
+        }
+        std::unique_ptr<arrow::adapters::orc::ORCFileWriter> writer = maybe_writer.ValueOrDie();
+        if (!(writer->Write(*input_table)).ok()) {
+            // Handle write error...
+        }
+        if (!(writer->Close()).ok()) {
+            // Handle close error...
+        }
+    }
 
 .. note:: The writer does not yet support all Arrow types.
