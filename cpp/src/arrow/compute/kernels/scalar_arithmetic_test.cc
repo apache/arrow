@@ -150,7 +150,7 @@ class TestBaseUnaryArithmetic : public ::testing::Test {
 
   // (CScalar, CScalar)
   void AssertUnaryOpRaises(UnaryFunction func, CType argument,
-		           const std::string& expected_msg) {
+                           const std::string& expected_msg) {
     auto arg = MakeScalar(argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
@@ -1555,13 +1555,15 @@ TEST_F(TestUnaryArithmeticDecimal, SquareRoot) {
   for (const auto& func : funcs) {
     for (const auto& ty : PositiveScaleTypes()) {
       CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
-      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["4.00", "16.00", "36.00", null])")});
+      CheckDecimalToFloat(
+          func, {DecimalArrayFromJSON(ty, R"(["4.00", "16.00", "36.00", null])")});
       CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-2.00"])")},
                   "square root of negative number");
     }
     for (const auto& ty : NegativeScaleTypes()) {
       CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"([])")});
-      CheckDecimalToFloat(func, {DecimalArrayFromJSON(ty, R"(["400", "1600", "3600", null])")});
+      CheckDecimalToFloat(func,
+                          {DecimalArrayFromJSON(ty, R"(["400", "1600", "3600", null])")});
       CheckRaises("sqrt_checked", {DecimalArrayFromJSON(ty, R"(["-400"])")},
                   "square root of negative number");
     }
@@ -3329,10 +3331,8 @@ TYPED_TEST(TestUnaryArithmeticFloating, Sqrt) {
     this->SetOverflowCheck(check_overflow);
     this->AssertUnaryOp(Sqrt, "[1, 2, null, NaN, Inf]",
                         "[1, 1.414213562, null, NaN, Inf]");
-    this->AssertUnaryOp(Sqrt, min_val,
-                        static_cast<CType>(std::sqrt(min_val)));
-    this->AssertUnaryOp(Sqrt, max_val,
-                        static_cast<CType>(std::sqrt(max_val)));
+    this->AssertUnaryOp(Sqrt, min_val, static_cast<CType>(std::sqrt(min_val)));
+    this->AssertUnaryOp(Sqrt, max_val, static_cast<CType>(std::sqrt(max_val)));
   }
   this->AssertUnaryOpRaises(Sqrt, "[-1]", "square root of negative number");
   this->AssertUnaryOpRaises(Sqrt, "[-Inf]", "square root of negative number");

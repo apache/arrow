@@ -2616,14 +2616,12 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto sqrt =
-      MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", &sqrt_doc);
+  auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", &sqrt_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt)));
 
   // ----------------------------------------------------------------------
-  auto sqrt_checked =
-      MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
-          "sqrt_checked", &sqrt_checked_doc);
+  auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
+      "sqrt_checked", &sqrt_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
 
   // ----------------------------------------------------------------------
