@@ -4167,6 +4167,70 @@ extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 }
 #endif
 
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_type_generator, cpp11::environment r6_array_generator);
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp, SEXP r6_array_generator_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type storage_type(storage_type_sexp);
+	arrow::r::Input<std::string>::type extension_name(extension_name_sexp);
+	arrow::r::Input<cpp11::raws>::type extension_metadata(extension_metadata_sexp);
+	arrow::r::Input<cpp11::environment>::type r6_type_generator(r6_type_generator_sexp);
+	arrow::r::Input<cpp11::environment>::type r6_array_generator(r6_array_generator_sexp);
+	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_type_generator, r6_array_generator));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp, SEXP r6_array_generator_sexp){
+	Rf_error("Cannot call ExtensionType__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string ExtensionType__extension_name(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__extension_name(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__extension_name(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__extension_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::raws ExtensionType__Serialize(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__Serialize(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__Serialize(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__Serialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::DataType> ExtensionType__storage_type(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__storage_type(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__storage_type(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__storage_type(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // feather.cpp
 #if defined(ARROW_R_WITH_ARROW)
 void ipc___WriteFeather__Table(const std::shared_ptr<arrow::io::OutputStream>& stream, const std::shared_ptr<arrow::Table>& table, int version, int chunk_size, arrow::Compression::type compression, int compression_level);
@@ -8011,6 +8075,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
 		{ "_arrow_compute___expr__type", (DL_FUNC) &_arrow_compute___expr__type, 2}, 
 		{ "_arrow_compute___expr__type_id", (DL_FUNC) &_arrow_compute___expr__type_id, 2}, 
+		{ "_arrow_ExtensionType__initialize", (DL_FUNC) &_arrow_ExtensionType__initialize, 5}, 
+		{ "_arrow_ExtensionType__extension_name", (DL_FUNC) &_arrow_ExtensionType__extension_name, 1}, 
+		{ "_arrow_ExtensionType__Serialize", (DL_FUNC) &_arrow_ExtensionType__Serialize, 1}, 
+		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 

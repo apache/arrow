@@ -1068,6 +1068,22 @@ compute___expr__type_id <- function(x, schema) {
   .Call(`_arrow_compute___expr__type_id`, x, schema)
 }
 
+ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_type_generator, r6_array_generator) {
+  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_type_generator, r6_array_generator)
+}
+
+ExtensionType__extension_name <- function(type) {
+  .Call(`_arrow_ExtensionType__extension_name`, type)
+}
+
+ExtensionType__Serialize <- function(type) {
+  .Call(`_arrow_ExtensionType__Serialize`, type)
+}
+
+ExtensionType__storage_type <- function(type) {
+  .Call(`_arrow_ExtensionType__storage_type`, type)
+}
+
 ipc___WriteFeather__Table <- function(stream, table, version, chunk_size, compression, compression_level) {
   invisible(.Call(`_arrow_ipc___WriteFeather__Table`, stream, table, version, chunk_size, compression, compression_level))
 }
