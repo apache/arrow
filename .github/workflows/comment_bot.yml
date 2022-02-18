@@ -57,16 +57,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: r-lib/actions/pr-fetch@master
+      - uses: r-lib/actions/pr-fetch@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: See what is different
         run: |
           set -ex
+          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
           git remote add upstream https://github.com/apache/arrow
           git fetch upstream
           changed() {
-            git diff --name-only HEAD..upstream/master | grep -e "$1" >/dev/null 2>&1
+            git diff --name-only HEAD..upstream/$DEFAULT_BRANCH | grep -e "$1" >/dev/null 2>&1
           }
           if changed '^r/.*\.R$'; then
             echo "R_DOCS=true" >> $GITHUB_ENV
@@ -115,7 +116,7 @@ jobs:
               --clang_format_binary=clang-format-${CLANG_TOOLS} \
               --exclude_glob=cpp/build-support/lint_exclusions.txt \
               --source_dir=r/src --quiet --fix
-      - uses: r-lib/actions/setup-r@v1
+      - uses: r-lib/actions/setup-r@v2
         if: env.R_DOCS == 'true' || env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
       - name: Update R docs
         if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
@@ -131,7 +132,7 @@ jobs:
         if: env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
-          changed_files <- system("git diff --name-only HEAD..upstream/master 2>&1", intern = TRUE)
+          changed_files <- system("git diff --name-only HEAD..upstream/${{ github.event.repository.default_branch }} 2>&1", intern = TRUE)
           # only grab the .R files under r/
           changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
           # remove latin1 which is unstylable due to encoding and codegen.R which is unique
@@ -145,7 +146,7 @@ jobs:
           git config user.name "$(git log -1 --pretty=format:%an)"
           git config user.email "$(git log -1 --pretty=format:%ae)"
           git commit -a -m 'Autoformat/render all the things [automated commit]' || echo "No changes to commit"
-      - uses: r-lib/actions/pr-push@master
+      - uses: r-lib/actions/pr-push@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -155,18 +156,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: r-lib/actions/pr-fetch@master
+      - uses: r-lib/actions/pr-fetch@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Rebase on ${{ github.repository }} master
+      - name: Rebase on ${{ github.repository }} default branch
         run: |
           set -ex
           git config user.name "$(git log -1 --pretty=format:%an)"
           git config user.email "$(git log -1 --pretty=format:%ae)"
           git remote add upstream https://github.com/${{ github.repository }}
-          git fetch --unshallow upstream master
-          git rebase upstream/master
-      - uses: r-lib/actions/pr-push@master
+          git fetch --unshallow upstream ${{ github.event.repository.default_branch }}
+          git rebase upstream/${{ github.event.repository.default_branch }}
+      - uses: r-lib/actions/pr-push@v2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           args: "--force"

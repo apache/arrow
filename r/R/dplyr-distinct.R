@@ -43,4 +43,4 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   out
 }
 
-distinct.Dataset <- distinct.ArrowTabular <- distinct.arrow_dplyr_query
+distinct.Dataset <- distinct.ArrowTabular <- distinct.RecordBatchReader <- distinct.arrow_dplyr_query

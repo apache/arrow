@@ -48,7 +48,6 @@ using arrow_vendored::date::Monday;
 using arrow_vendored::date::months;
 using arrow_vendored::date::round;
 using arrow_vendored::date::Sunday;
-using arrow_vendored::date::sys_days;
 using arrow_vendored::date::sys_time;
 using arrow_vendored::date::trunc;
 using arrow_vendored::date::weekday;
@@ -135,6 +134,26 @@ struct AssumeTimezoneExtractor
 
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
+struct DaylightSavingsExtractor
+    : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
+  using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
+
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& timezone = GetInputTimezone(batch.values[0]);
+    if (timezone.empty()) {
+      return Status::Invalid("Timestamps have no timezone. Cannot determine DST.");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone));
+    using ExecTemplate = Op<Duration>;
+    auto op = ExecTemplate(nullptr, tz);
+    applicator::ScalarUnaryNotNullStateful<OutType, TimestampType, ExecTemplate> kernel{
+        op};
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <template <typename...> class Op, typename Duration, typename InType,
+          typename OutType>
 struct TemporalComponentExtractWeek
     : public TemporalComponentExtractBase<Op, Duration, InType, OutType> {
   using Base = TemporalComponentExtractBase<Op, Duration, InType, OutType>;
@@ -173,6 +192,25 @@ struct Year {
     return static_cast<T>(static_cast<const int32_t>(
         year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
             .year()));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
+// Extract is leap year from temporal types
+
+template <typename Duration, typename Localizer>
+struct IsLeapYear {
+  IsLeapYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    int32_t y = static_cast<const int32_t>(
+        year_month_day(floor<days>(localizer_.template ConvertTimePoint<Duration>(arg)))
+            .year());
+    return y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
   }
 
   Localizer localizer_;
@@ -411,6 +449,32 @@ struct ISOYear {
 };
 
 // ----------------------------------------------------------------------
+// Extract US epidemiological year values from temporal types
+//
+// First week of US epidemiological year has the majority (4 or more) of it's
+// days in January. Last week of US epidemiological year has the year's last
+// Wednesday in it. US epidemiological week starts on Sunday.
+
+template <typename Duration, typename Localizer>
+struct USYear {
+  explicit USYear(const FunctionOptions* options, Localizer&& localizer)
+      : localizer_(std::move(localizer)) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    const auto t = floor<days>(localizer_.template ConvertTimePoint<Duration>(arg));
+    auto y = year_month_day{t + days{3}}.year();
+    auto start = localizer_.ConvertDays((y - years{1}) / dec / wed[last]) + (mon - thu);
+    if (t < start) {
+      --y;
+    }
+    return static_cast<T>(static_cast<int32_t>(y));
+  }
+
+  Localizer localizer_;
+};
+
+// ----------------------------------------------------------------------
 // Extract week from temporal types
 //
 // First week of an ISO year has the majority (4 or more) of its days in January.
@@ -601,6 +665,22 @@ struct Nanosecond {
     return static_cast<T>(
         ((t - floor<std::chrono::seconds>(t)) / std::chrono::nanoseconds(1)) % 1000);
   }
+};
+
+// ----------------------------------------------------------------------
+// Extract if currently observing daylight savings
+
+template <typename Duration>
+struct IsDaylightSavings {
+  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+      : tz_(tz) {}
+
+  template <typename T, typename Arg0>
+  T Call(KernelContext*, Arg0 arg, Status*) const {
+    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+  }
+
+  const time_zone* tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1265,6 +1345,13 @@ const FunctionDoc year_doc{
      "cannot be found in the timezone database."),
     {"values"}};
 
+const FunctionDoc is_leap_year_doc{
+    "Extract if year is a leap year",
+    ("Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
 const FunctionDoc month_doc{
     "Extract month number",
     ("Month is encoded as January=1, December=12.\n"
@@ -1311,6 +1398,16 @@ const FunctionDoc day_of_year_doc{
 const FunctionDoc iso_year_doc{
     "Extract ISO year number",
     ("First week of an ISO year has the majority (4 or more) of its days in January.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values have a defined timezone but it\n"
+     "cannot be found in the timezone database."),
+    {"values"}};
+
+const FunctionDoc us_year_doc{
+    "Extract US epidemiological year number",
+    ("First week of US epidemiological year has the majority (4 or more) of\n"
+     "it's days in January. Last week of US epidemiological year has the\n"
+     "year's last Wednesday in it. US epidemiological week starts on Sunday.\n"
      "Null values emit null.\n"
      "An error is returned if the values have a defined timezone but it\n"
      "cannot be found in the timezone database."),
@@ -1444,6 +1541,14 @@ const FunctionDoc assume_timezone_doc{
     "AssumeTimezoneOptions",
     /*options_required=*/true};
 
+const FunctionDoc is_dst_doc{
+    "Extracts if currently observing daylight savings",
+    ("IsDaylightSavings returns true if a timestamp has a daylight saving\n"
+     "offset in the given timezone.\n"
+     "Null values emit null.\n"
+     "An error is returned if the values do not have a defined timezone."),
+    {"values"}};
+
 const FunctionDoc floor_temporal_doc{
     "Round temporal values down to nearest multiple of specified time unit",
     ("Null values emit null.\n"
@@ -1475,6 +1580,11 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                            Int64Type>::Make<WithDates, WithTimestamps>("year", int64(),
                                                                        &year_doc);
   DCHECK_OK(registry->AddFunction(std::move(year)));
+
+  auto is_leap_year =
+      UnaryTemporalFactory<IsLeapYear, TemporalComponentExtract, BooleanType>::Make<
+          WithDates, WithTimestamps>("is_leap_year", boolean(), &is_leap_year_doc);
+  DCHECK_OK(registry->AddFunction(std::move(is_leap_year)));
 
   auto month =
       UnaryTemporalFactory<Month, TemporalComponentExtract,
@@ -1513,6 +1623,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                                                                        int64(),
                                                                        &iso_year_doc);
   DCHECK_OK(registry->AddFunction(std::move(iso_year)));
+
+  auto us_year =
+      UnaryTemporalFactory<USYear, TemporalComponentExtract,
+                           Int64Type>::Make<WithDates, WithTimestamps>("us_year", int64(),
+                                                                       &us_year_doc);
+  DCHECK_OK(registry->AddFunction(std::move(us_year)));
 
   static const auto default_iso_week_options = WeekOptions::ISODefaults();
   auto iso_week =
@@ -1606,6 +1722,12 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
                           OutputType::Resolver(ResolveAssumeTimezoneOutput),
                           &assume_timezone_doc, nullptr, AssumeTimezoneState::Init);
   DCHECK_OK(registry->AddFunction(std::move(assume_timezone)));
+
+  auto is_dst =
+      UnaryTemporalFactory<IsDaylightSavings, DaylightSavingsExtractor,
+                           BooleanType>::Make<WithTimestamps>("is_dst", boolean(),
+                                                              &is_dst_doc);
+  DCHECK_OK(registry->AddFunction(std::move(is_dst)));
 
   // Temporal rounding functions
   static const auto default_round_temporal_options = RoundTemporalOptions::Defaults();

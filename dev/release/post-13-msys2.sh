@@ -70,6 +70,21 @@ sed \
 rm ${pkgbuild}.bak
 git add ${pkgbuild}
 git commit -m "arrow: Update to ${version}"
+
+reverse_dependencies=(groonga)
+for reverse_dependency in "${reverse_dependencies[@]}"; do
+  pkgbuild=mingw-w64-${reverse_dependency}/PKGBUILD
+  echo "Incrementing ${reverse_dependency}'s pkgrel: ${pkgbuild}"
+  pkgrel=$(grep -o '^pkgrel=.*' ${pkgbuild} | cut -d= -f2)
+  sed \
+    -i.bak \
+    -e "s/^pkgrel=.*\$/pkgrel=$((${pkgrel} + 1))/" \
+    ${pkgbuild}
+  rm ${pkgbuild}.bak
+  git add ${pkgbuild}
+  git commit -m "${reverse_dependency}: Rebuild for arrow"
+done
+
 git push origin ${branch}
 
 

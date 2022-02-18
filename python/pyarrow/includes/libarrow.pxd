@@ -19,6 +19,7 @@
 
 from pyarrow.includes.common cimport *
 
+
 cdef extern from "arrow/util/key_value_metadata.h" namespace "arrow" nogil:
     cdef cppclass CKeyValueMetadata" arrow::KeyValueMetadata":
         CKeyValueMetadata()
@@ -798,6 +799,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CTable] Make(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CChunkedArray]]& columns)
+
+        @staticmethod
+        shared_ptr[CTable] MakeWithRows "Make"(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CChunkedArray]]& columns,
+            int64_t num_rows)
 
         @staticmethod
         shared_ptr[CTable] MakeFromArrays" Make"(

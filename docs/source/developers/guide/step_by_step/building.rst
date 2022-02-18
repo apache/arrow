@@ -155,6 +155,24 @@ Building other Arrow libraries
      `R developer docs <https://arrow.apache.org/docs/r/articles/developing.html>`_.
 
 
+     **Reinstalling R package and running 'make clean'**
+
+     If you make changes to the Arrow C++ part of the code, also
+     called libarrow, you will need to:
+
+     #. reinstall libarrow,
+     #. run ``make clean``,
+     #. reinstall the R package.
+
+     The ``make clean`` function is defined in ``r/Makefile`` and will
+     remove any cached object code in the ``r/src/`` directory, ensuring
+     you have a clean reinstall. The ``Makefile`` also includes functions
+     like ``make test``, ``make doc``, etc. and was added to help with
+     common tasks from the command line.
+
+     See more in the `Troubleshooting <https://arrow.apache.org/docs/dev/r/articles/developers/setup.html#troubleshooting>`_
+     section of the R Developer environment setup article.
+
 **Building from source vs. using binaries**
 
 Using binaries is a fast and simple way of working with the last release

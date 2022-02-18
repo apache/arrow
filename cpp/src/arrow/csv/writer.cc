@@ -30,6 +30,10 @@
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+#include <xsimd/xsimd.hpp>
+#endif
+
 namespace arrow {
 
 using internal::checked_pointer_cast;
@@ -76,7 +80,7 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
 }
 
 // Counts the number of quotes in s.
-int64_t CountQuotes(util::string_view s) {
+int64_t CountQuotes(arrow::util::string_view s) {
   return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
@@ -114,7 +118,7 @@ class ColumnPopulator {
   }
 
   // Places string data onto each row in output and updates the corresponding row
-  // row pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // pointers in preparation for calls to other (preceding) ColumnPopulators.
   // Implementations may apply certain checks e.g. for illegal values, which in case of
   // failure causes this function to return an error Status.
   // Args:
@@ -160,6 +164,12 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         reject_values_with_quotes_(reject_values_with_quotes) {}
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
+    if (reject_values_with_quotes_) {
+      // When working on values that, after casting, could produce quotes,
+      // we need to return an error in accord with RFC4180.
+      RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars(*casted_array_));
+    }
+
     for (int x = 0; x < casted_array_->length(); x++) {
       row_lengths[x] += casted_array_->IsNull(x)
                             ? static_cast<int32_t>(null_string_->size())
@@ -194,34 +204,49 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return Status::OK();
     };
 
-    if (reject_values_with_quotes_) {
-      // When using this UnquotedColumnPopulator on values that, after casting, could
-      // produce quotes, we need to return an error in accord with RFC4180. We need to
-      // precede valid_func with a check.
-      return VisitArrayDataInline<StringType>(
-          *casted_array_->data(),
-          [&](arrow::util::string_view s) {
-            RETURN_NOT_OK(CheckStringHasNoStructuralChars(s));
-            return valid_function(s);
-          },
-          null_function);
-    } else {
-      // Populate without checking and rejecting values with quotes.
-      return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
-                                              null_function);
-    }
+    return VisitArrayDataInline<StringType>(*casted_array_->data(), valid_function,
+                                            null_function);
   }
 
  private:
-  // Returns an error status if s has any structural characters.
-  static Status CheckStringHasNoStructuralChars(const util::string_view& s) {
-    if (std::any_of(s.begin(), s.end(), [](const char& c) {
-          return c == '\n' || c == '\r' || c == ',' || c == '"';
-        })) {
-      return Status::Invalid(
-          "CSV values may not contain structural characters if quoting style is "
-          "\"None\". See RFC4180. Invalid value: ",
-          s);
+  // Returns an error status if string array has any structural characters.
+  static Status CheckStringArrayHasNoStructuralChars(const StringArray& array) {
+    // scan the underlying string array buffer as a single big string
+    const uint8_t* const data = array.raw_data() + array.value_offset(0);
+    const int64_t buffer_size = array.total_values_length();
+    int64_t offset = 0;
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+#if defined(ARROW_HAVE_SSE4_2)
+    // _mm_cmpistrc gives slightly better performance than the naive approach,
+    // probably doesn't deserve the effort
+    using simd_batch = xsimd::batch<uint8_t, xsimd::sse4_2>;
+#else
+    using simd_batch = xsimd::batch<uint8_t, xsimd::neon64>;
+#endif
+    while ((offset + 16) <= buffer_size) {
+      const auto v = simd_batch::load_unaligned(data + offset);
+      if (xsimd::any((v == '\n') | (v == '\r') | (v == ',') | (v == '"'))) {
+        break;
+      }
+      offset += 16;
+    }
+#endif
+    while (offset < buffer_size) {
+      // error happened or remaining bytes to check
+      const char c = static_cast<char>(data[offset]);
+      if (c == '\n' || c == '\r' || c == ',' || c == '"') {
+        // extract the offending string from array per offset
+        const auto* offsets = array.raw_value_offsets();
+        const auto index =
+            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) -
+            offsets;
+        DCHECK_GT(index, 0);
+        return Status::Invalid(
+            "CSV values may not contain structural characters if quoting style is "
+            "\"None\". See RFC4180. Invalid value: ",
+            array.GetView(index - 1));
+      }
+      ++offset;
     }
     return Status::OK();
   }
@@ -233,7 +258,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 // Strings need special handling to ensure they are escaped properly.
 // This class handles escaping assuming that all strings will be quoted
 // and that the only character within the string that needs to escaped is
-// a quote character (") and escaping is done my adding another quote.
+// a quote character (") and escaping is done by adding another quote.
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,

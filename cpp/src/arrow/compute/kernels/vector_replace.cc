@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
@@ -32,7 +33,7 @@ Status ReplacementArrayTooShort(int64_t expected, int64_t actual) {
 
 // Helper to implement replace_with kernel with scalar mask for fixed-width types,
 // using callbacks to handle both bool and byte-sized types
-template <typename Functor>
+template <typename Type>
 Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
                              const BooleanScalar& mask, const Datum& replacements,
                              ArrayData* output) {
@@ -52,8 +53,8 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
     if (in_data.length < array.length) {
       return ReplacementArrayTooShort(array.length, in_data.length);
     }
-    Functor::CopyData(*array.type, out_values, out_offset, in_data, /*in_offset=*/0,
-                      array.length);
+    CopyDataUtils<Type>::CopyData(*array.type, in_data, /*in_offset=*/0, out_values,
+                                  out_offset, array.length);
     if (in_data.MayHaveNulls()) {
       arrow::internal::CopyBitmap(in_data.buffers[0]->data(), in_data.offset,
                                   array.length, out_bitmap, out_offset);
@@ -62,8 +63,8 @@ Status ReplaceWithScalarMask(KernelContext* ctx, const ArrayData& array,
     }
   } else {
     const Scalar& in_data = *source.scalar();
-    Functor::CopyData(*array.type, out_values, out_offset, in_data, /*in_offset=*/0,
-                      array.length);
+    CopyDataUtils<Type>::CopyData(*array.type, in_data, /*in_offset=*/0, out_values,
+                                  out_offset, array.length);
     bit_util::SetBitsTo(out_bitmap, out_offset, array.length, in_data.is_valid);
   }
   return Status::OK();
@@ -102,14 +103,14 @@ struct CopyScalarBitmap {
 // Helper to implement replace_with kernel with array mask for fixed-width types,
 // using callbacks to handle both bool and byte-sized types and to handle
 // scalar and array replacements
-template <typename Functor, typename Data, typename CopyBitmap>
+template <typename Type, typename Data, typename CopyBitmap>
 void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
                               const Data& replacements, bool replacements_bitmap,
                               const CopyBitmap& copy_bitmap, const uint8_t* mask_bitmap,
                               const uint8_t* mask_values, uint8_t* out_bitmap,
                               uint8_t* out_values, const int64_t out_offset) {
-  Functor::CopyData(*array.type, out_values, /*out_offset=*/0, array, /*in_offset=*/0,
-                    array.length);
+  CopyDataUtils<Type>::CopyData(*array.type, array, /*in_offset=*/0, out_values,
+                                /*out_offset=*/0, array.length);
   arrow::internal::OptionalBinaryBitBlockCounter counter(
       mask_values, mask.offset, mask_bitmap, mask.offset, mask.length);
   int64_t write_offset = 0;
@@ -118,8 +119,9 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
     BitBlockCount block = counter.NextAndBlock();
     if (block.AllSet()) {
       // Copy from replacement array
-      Functor::CopyData(*array.type, out_values, out_offset + write_offset, replacements,
-                        replacements_offset, block.length);
+      CopyDataUtils<Type>::CopyData(*array.type, replacements, replacements_offset,
+                                    out_values, out_offset + write_offset, block.length);
+
       if (replacements_bitmap) {
         copy_bitmap.CopyBitmap(out_bitmap, out_offset + write_offset, replacements_offset,
                                block.length);
@@ -132,8 +134,9 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
         if (bit_util::GetBit(mask_values, write_offset + mask.offset + i) &&
             (!mask_bitmap ||
              bit_util::GetBit(mask_bitmap, write_offset + mask.offset + i))) {
-          Functor::CopyData(*array.type, out_values, out_offset + write_offset + i,
-                            replacements, replacements_offset, /*length=*/1);
+          CopyDataUtils<Type>::CopyData(*array.type, replacements, replacements_offset,
+                                        out_values, out_offset + write_offset + i,
+                                        /*length=*/1);
           copy_bitmap.SetBit(out_bitmap, out_offset + write_offset + i,
 
                              replacements_offset);
@@ -145,7 +148,7 @@ void ReplaceWithArrayMaskImpl(const ArrayData& array, const ArrayData& mask,
   }
 }
 
-template <typename Functor>
+template <typename Type>
 Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
                             const ArrayData& mask, const Datum& replacements,
                             ArrayData* output) {
@@ -186,16 +189,16 @@ Status ReplaceWithArrayMask(KernelContext* ctx, const ArrayData& array,
 
   if (replacements.is_array()) {
     const ArrayData& array_repl = *replacements.array();
-    ReplaceWithArrayMaskImpl<Functor>(
+    ReplaceWithArrayMaskImpl<Type>(
         array, mask, array_repl, replacements_bitmap,
         CopyArrayBitmap{(replacements_bitmap) ? array_repl.buffers[0]->data() : nullptr,
                         array_repl.offset},
         mask_bitmap, mask_values, out_bitmap, out_values, out_offset);
   } else {
     const Scalar& scalar_repl = *replacements.scalar();
-    ReplaceWithArrayMaskImpl<Functor>(array, mask, scalar_repl, replacements_bitmap,
-                                      CopyScalarBitmap{scalar_repl.is_valid}, mask_bitmap,
-                                      mask_values, out_bitmap, out_values, out_offset);
+    ReplaceWithArrayMaskImpl<Type>(array, mask, scalar_repl, replacements_bitmap,
+                                   CopyScalarBitmap{scalar_repl.is_valid}, mask_bitmap,
+                                   mask_values, out_bitmap, out_values, out_offset);
   }
 
   if (mask.MayHaveNulls()) {
@@ -212,103 +215,45 @@ template <typename Type>
 struct ReplaceWithMask<Type,
                        enable_if_t<is_number_type<Type>::value ||
                                    std::is_same<Type, MonthDayNanoIntervalType>::value>> {
-  using T = typename TypeTraits<Type>::CType;
-
-  static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
-                       const ArrayData& in, const int64_t in_offset,
-                       const int64_t length) {
-    const auto in_arr = in.GetValues<uint8_t>(1, (in_offset + in.offset) * sizeof(T));
-    std::memcpy(out + (out_offset * sizeof(T)), in_arr, length * sizeof(T));
-  }
-
-  static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
-                       const Scalar& in, const int64_t in_offset, const int64_t length) {
-    T* begin = reinterpret_cast<T*>(out + (out_offset * sizeof(T)));
-    T* end = begin + length;
-    std::fill(begin, end, UnboxScalar<Type>::Unbox(in));
-  }
-
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+    return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
   }
 
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
-    return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                       output);
+    return ReplaceWithArrayMask<Type>(ctx, array, mask, replacements, output);
   }
 };
 
 template <typename Type>
 struct ReplaceWithMask<Type, enable_if_boolean<Type>> {
-  static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
-                       const ArrayData& in, const int64_t in_offset,
-                       const int64_t length) {
-    const auto in_arr = in.GetValues<uint8_t>(1, /*absolute_offset=*/0);
-    arrow::internal::CopyBitmap(in_arr, in_offset + in.offset, length, out, out_offset);
-  }
-  static void CopyData(const DataType&, uint8_t* out, const int64_t out_offset,
-                       const Scalar& in, const int64_t in_offset, const int64_t length) {
-    bit_util::SetBitsTo(
-        out, out_offset, length,
-        in.is_valid ? checked_cast<const BooleanScalar&>(in).value : false);
-  }
-
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+    return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
   }
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
-    return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                       output);
+    return ReplaceWithArrayMask<Type>(ctx, array, mask, replacements, output);
   }
 };
 
 template <typename Type>
 struct ReplaceWithMask<Type, enable_if_fixed_size_binary<Type>> {
-  static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
-                       const ArrayData& in, const int64_t in_offset,
-                       const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
-    uint8_t* begin = out + (out_offset * width);
-    const auto in_arr = in.GetValues<uint8_t>(1, (in_offset + in.offset) * width);
-    std::memcpy(begin, in_arr, length * width);
-  }
-  static void CopyData(const DataType& ty, uint8_t* out, const int64_t out_offset,
-                       const Scalar& in, const int64_t in_offset, const int64_t length) {
-    const int32_t width = checked_cast<const FixedSizeBinaryType&>(ty).byte_width();
-    uint8_t* begin = out + (out_offset * width);
-    const auto& scalar = checked_cast<const arrow::internal::PrimitiveScalarBase&>(in);
-    // Null scalar may have null value buffer
-    if (!scalar.is_valid) return;
-    const util::string_view buffer = scalar.view();
-    DCHECK_GE(buffer.size(), static_cast<size_t>(width));
-    for (int i = 0; i < length; i++) {
-      std::memcpy(begin, buffer.data(), width);
-      begin += width;
-    }
-  }
-
   static Status ExecScalarMask(KernelContext* ctx, const ArrayData& array,
                                const BooleanScalar& mask, const Datum& replacements,
                                ArrayData* output) {
-    return ReplaceWithScalarMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                        output);
+    return ReplaceWithScalarMask<Type>(ctx, array, mask, replacements, output);
   }
 
   static Status ExecArrayMask(KernelContext* ctx, const ArrayData& array,
                               const ArrayData& mask, const Datum& replacements,
                               ArrayData* output) {
-    return ReplaceWithArrayMask<ReplaceWithMask<Type>>(ctx, array, mask, replacements,
-                                                       output);
+    return ReplaceWithArrayMask<Type>(ctx, array, mask, replacements, output);
   }
 };
 
@@ -460,9 +405,9 @@ void FillNullInDirectionImpl(const ArrayData& current_chunk, const uint8_t* null
   uint8_t* out_values = output->buffers[1]->mutable_data();
   arrow::internal::CopyBitmap(current_chunk.buffers[0]->data(), current_chunk.offset,
                               current_chunk.length, out_bitmap, output->offset);
-  ReplaceWithMask<Type>::CopyData(*current_chunk.type, out_values,
-                                  /*out_offset=*/output->offset, current_chunk,
-                                  /*in_offset=*/0, current_chunk.length);
+  CopyDataUtils<Type>::CopyData(*current_chunk.type, current_chunk, /*in_offset=*/0,
+                                out_values, /*out_offset=*/output->offset,
+                                current_chunk.length);
 
   bool has_fill_value = *last_valid_value_offset != -1;
   int64_t write_offset = direction == 1 ? 0 : current_chunk.length - 1;
@@ -486,10 +431,10 @@ void FillNullInDirectionImpl(const ArrayData& current_chunk, const uint8_t* null
           auto current_bit = bit_util::GetBit(null_bitmap, bitmap_offset + i);
           if (!current_bit) {
             if (has_fill_value) {
-              ReplaceWithMask<Type>::CopyData(
-                  *current_chunk.type, out_values, write_value_offset,
+              CopyDataUtils<Type>::CopyData(
+                  *current_chunk.type,
                   use_current_chunk ? current_chunk : last_valid_value_chunk,
-                  *last_valid_value_offset,
+                  *last_valid_value_offset, out_values, write_value_offset,
                   /*length=*/1);
               bit_util::SetBitTo(out_bitmap, write_value_offset, true);
             }
@@ -502,10 +447,10 @@ void FillNullInDirectionImpl(const ArrayData& current_chunk, const uint8_t* null
       } else {
         for (int64_t i = 0; i < block.length; i++, write_value_offset += direction) {
           if (has_fill_value) {
-            ReplaceWithMask<Type>::CopyData(
-                *current_chunk.type, out_values, write_value_offset,
+            CopyDataUtils<Type>::CopyData(
+                *current_chunk.type,
                 use_current_chunk ? current_chunk : last_valid_value_chunk,
-                *last_valid_value_offset,
+                *last_valid_value_offset, out_values, write_value_offset,
                 /*length=*/1);
             bit_util::SetBitTo(out_bitmap, write_value_offset, true);
           }

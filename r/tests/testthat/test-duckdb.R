@@ -31,8 +31,11 @@ test_that("to_duckdb", {
       to_duckdb() %>%
       collect() %>%
       # factors don't roundtrip https://github.com/duckdb/duckdb/issues/1879
-      select(!fct),
-    select(example_data, !fct)
+      select(!fct) %>%
+      arrange(int),
+      example_data %>%
+        select(!fct) %>%
+        arrange(int)
   )
 
   expect_identical(
@@ -41,7 +44,8 @@ test_that("to_duckdb", {
       to_duckdb() %>%
       group_by(lgl) %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -56,7 +60,8 @@ test_that("to_duckdb", {
       group_by(lgl) %>%
       to_duckdb() %>%
       summarise(mean_int = mean(int, na.rm = TRUE), mean_dbl = mean(dbl, na.rm = TRUE)) %>%
-      collect(),
+      collect() %>%
+      arrange(mean_int),
     tibble::tibble(
       lgl = c(TRUE, NA, FALSE),
       mean_int = c(3, 6.25, 8.5),
@@ -66,7 +71,6 @@ test_that("to_duckdb", {
 })
 
 test_that("to_duckdb then to_arrow", {
-  skip("Flaky, unskip when ARROW-14745 is merged")
   ds <- InMemoryDataset$create(example_data)
 
   ds_rt <- ds %>%
@@ -91,11 +95,14 @@ test_that("to_duckdb then to_arrow", {
     filter(int > 5)
 
   expect_identical(
-    collect(ds_rt),
+    ds_rt %>%
+      collect() %>%
+      arrange(int),
     ds %>%
       select(-fct) %>%
       filter(int > 5) %>%
-      collect()
+      collect() %>%
+      arrange(int)
   )
 
   # Now check errors
@@ -111,6 +118,64 @@ test_that("to_duckdb then to_arrow", {
     to_arrow(ds_rt),
     "to_arrow\\(\\) currently only supports Arrow tables, Arrow datasets,"
   )
+})
+
+test_that("to_arrow roundtrip, with dataset", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  ds <- open_dataset(tf)
+
+  expect_identical(
+    ds %>%
+      to_duckdb() %>%
+      select(-fct) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      to_arrow() %>%
+      filter(int > 5 & part > 1) %>%
+      collect() %>%
+      arrange(part, int) %>%
+      as.data.frame(),
+    ds %>%
+      select(-fct) %>%
+      filter(int > 5 & part > 1) %>%
+      mutate(dbl_plus = dbl + 1) %>%
+      collect() %>%
+      arrange(part, int)
+  )
+})
+
+test_that("to_arrow roundtrip, with dataset (without wrapping", {
+  # these will continue to error until 0.3.2 is released
+  # https://github.com/duckdb/duckdb/pull/2957
+  skip_if_not_installed("duckdb", minimum_version = "0.3.2")
+  # With a multi-part dataset
+  tf <- tempfile()
+  new_ds <- rbind(
+    cbind(example_data, part = 1),
+    cbind(example_data, part = 2),
+    cbind(mutate(example_data, dbl = dbl * 3, dbl2 = dbl2 * 3), part = 3),
+    cbind(mutate(example_data, dbl = dbl * 4, dbl2 = dbl2 * 4), part = 4)
+  )
+  write_dataset(new_ds, tf, partitioning = "part")
+
+  out <- ds %>%
+    to_duckdb() %>%
+    select(-fct) %>%
+    mutate(dbl_plus = dbl + 1) %>%
+    to_arrow(as_arrow_query = FALSE)
+
+  expect_r6_class(out, "RecordBatchReader")
 })
 
 # The next set of tests use an already-extant connection to test features of
