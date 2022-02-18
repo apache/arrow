@@ -373,10 +373,10 @@ equivalents above and reflects how they are implemented internally.
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(5) The function is biased towards non-null values. That is, if there is
-  at least one non-null value in a certain group, that value is returned,
-  and only if all the values are ``null`` for the group,
-  will the aggregate(``hash_one``) value be ``null``. 
+* \(5) ``hash_one`` returns one arbitrary value from the input for each
+  group. The function is biased towards non-null values: if there is at least
+  one non-null value for a certain group, that value is returned, and only if
+  all the values are ``null`` for the group will the function return ``null``. 
 
 * \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
