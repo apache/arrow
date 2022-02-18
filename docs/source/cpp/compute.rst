@@ -342,15 +342,17 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 | hash_min_max            | Unary | Non-nested types                   | Struct                 | :struct:`ScalarAggregateOptions` | \(4)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
+| hash_one                | Unary | Any                                | Input type             |                                  | \(5)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
+| hash_product            | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(5)  |
+| hash_stddev             | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(7)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(7)  |
+| hash_sum                | Unary | Numeric                            | Numeric                | :struct:`ScalarAggregateOptions` | \(6)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
-| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(6)  |
+| hash_tdigest            | Unary | Numeric                            | FixedSizeList[Float64] | :struct:`TDigestOptions`         | \(8)  |
++-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
+| hash_variance           | Unary | Numeric                            | Float64                | :struct:`VarianceOptions`        | \(7)  |
 +-------------------------+-------+------------------------------------+------------------------+----------------------------------+-------+
 
 * \(1) If null values are taken into account, by setting the
@@ -371,12 +373,17 @@ equivalents above and reflects how they are implemented internally.
   Of the interval types, only the month interval is supported, as the day-time
   and month-day-nano types are not sortable.
 
-* \(5) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
+* \(5) ``hash_one`` returns one arbitrary value from the input for each
+  group. The function is biased towards non-null values: if there is at least
+  one non-null value for a certain group, that value is returned, and only if
+  all the values are ``null`` for the group will the function return ``null``. 
+
+* \(6) Output is Int64, UInt64, Float64, or Decimal128/256, depending on the
   input type.
 
-* \(6) Decimal arguments are cast to Float64 first.
+* \(7) Decimal arguments are cast to Float64 first.
 
-* \(7) T-digest computes approximate quantiles, and so only needs a
+* \(8) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
 
