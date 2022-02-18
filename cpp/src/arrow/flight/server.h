@@ -184,6 +184,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// domain socket).
   int port() const;
 
+  /// \brief Get the address that the Flight server is listening on.
+  /// This method must only be called after Init().
+  Location location() const;
+
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.
   /// This method must be called before Serve().

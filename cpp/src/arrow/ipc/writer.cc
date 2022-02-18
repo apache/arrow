@@ -1371,9 +1371,10 @@ namespace internal {
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
     const IpcWriteOptions& options) {
-  // XXX should we call Start()?
-  return ::arrow::internal::make_unique<internal::IpcFormatWriter>(
+  auto writer = ::arrow::internal::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
+  RETURN_NOT_OK(writer->Start());
+  return std::move(writer);
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(

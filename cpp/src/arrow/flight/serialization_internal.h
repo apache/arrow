@@ -23,6 +23,7 @@
 #include <memory>
 
 #include "arrow/flight/internal.h"
+#include "arrow/flight/transport_impl.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/message.h"
 #include "arrow/result.h"
@@ -33,25 +34,6 @@ class Buffer;
 
 namespace flight {
 namespace internal {
-
-/// Internal, not user-visible type used for memory-efficient reads from gRPC
-/// stream
-struct FlightData {
-  /// Used only for puts, may be null
-  std::unique_ptr<FlightDescriptor> descriptor;
-
-  /// Non-length-prefixed Message header as described in format/Message.fbs
-  std::shared_ptr<Buffer> metadata;
-
-  /// Application-defined metadata
-  std::shared_ptr<Buffer> app_metadata;
-
-  /// Message body
-  std::shared_ptr<Buffer> body;
-
-  /// Open IPC message from the metadata and body
-  ::arrow::Result<std::unique_ptr<ipc::Message>> OpenMessage();
-};
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 // Returns Invalid if the payload is ill-formed
@@ -87,10 +69,9 @@ bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader
 // The Flight reader can then peek at the message to determine whether
 // it has application metadata or not, and pass the message to
 // RecordBatchStreamReader as appropriate.
-template <typename ReaderPtr>
 class PeekableFlightDataReader {
  public:
-  explicit PeekableFlightDataReader(ReaderPtr stream)
+  explicit PeekableFlightDataReader(TransportDataStream* stream)
       : stream_(stream), peek_(), finished_(false), valid_(false) {}
 
   void Peek(internal::FlightData** out) {
@@ -132,7 +113,7 @@ class PeekableFlightDataReader {
       return valid_;
     }
 
-    if (!internal::ReadPayload(&*stream_, &peek_)) {
+    if (!stream_->ReadData(&peek_)) {
       finished_ = true;
       valid_ = false;
     } else {
@@ -141,7 +122,7 @@ class PeekableFlightDataReader {
     return valid_;
   }
 
-  ReaderPtr stream_;
+  internal::TransportDataStream* stream_;
   internal::FlightData peek_;
   bool finished_;
   bool valid_;
