@@ -93,7 +93,7 @@ jobs:
         run: ci/scripts/js_test.sh $(pwd)
 
   windows:
-    name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
+    name: AMD64 Windows NodeJS ${{ matrix.node }}
     runs-on: windows-latest
     if: github.event_name == 'push'
     strategy:

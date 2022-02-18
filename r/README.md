@@ -14,7 +14,7 @@ and interprocess communication.
 **The `arrow` package exposes an interface to the Arrow C++ library,
 enabling access to many of its features in R.** It provides low-level
 access to the Arrow C++ library API and higher-level access through a
-`dplyr` backend and familiar R functions.
+`{dplyr}` backend and familiar R functions.
 
 ## What can the `arrow` package do?
 

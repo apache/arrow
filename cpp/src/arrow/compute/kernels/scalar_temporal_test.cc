@@ -1081,6 +1081,17 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDuration) {
     auto milliseconds_3k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([3000, null])");
     CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
   }
+
+  for (auto unit : TimeUnit::values()) {
+    auto duration_ty = duration(unit);
+    auto arr1 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
+
+    CheckScalarBinary("add", arr1, arr2, arr3);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("add_checked", {arr1, arr2}));
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalSubtractDateAndDuration) {
@@ -1415,6 +1426,32 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractTimeAndDuration) {
         CallFunction(op,
                      {ArrayFromJSON(time64(TimeUnit::MICRO), R"([86400000000, null])"),
                       ArrayFromJSON(duration(TimeUnit::NANO), R"([-1000, null])")}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalSubtractDuration) {
+  for (auto op : {"subtract", "subtract_checked"}) {
+    for (auto u : TimeUnit::values()) {
+      auto unit = duration(u);
+      CheckScalarBinary(op, ArrayFromJSON(unit, times_s2), ArrayFromJSON(unit, times_s),
+                        ArrayFromJSON(unit, seconds_between_time));
+    }
+
+    auto seconds_3 = ArrayFromJSON(duration(TimeUnit::SECOND), R"([3, null])");
+    auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
+    auto milliseconds_1k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([1000, null])");
+    CheckScalarBinary(op, seconds_3, milliseconds_2k, milliseconds_1k);
+  }
+
+  for (auto unit : TimeUnit::values()) {
+    auto duration_ty = duration(unit);
+    auto arr1 = ArrayFromJSON(duration_ty, R"([-9223372036854775808, null])");
+    auto arr2 = ArrayFromJSON(duration_ty, R"([1, null])");
+    auto arr3 = ArrayFromJSON(duration_ty, R"([9223372036854775807, null])");
+
+    CheckScalarBinary("subtract", arr1, arr2, arr3);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("overflow"),
+                                    CallFunction("subtract_checked", {arr1, arr2}));
   }
 }
 

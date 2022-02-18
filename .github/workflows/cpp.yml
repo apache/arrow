@@ -186,9 +186,9 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - windows-latest
+          - windows-2019
         include:
-          - os: windows-latest
+          - os: windows-2019
             name: Windows 2019
             generator: Visual Studio 16 2019
     env:
@@ -248,7 +248,7 @@ jobs:
 
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:

@@ -192,53 +192,74 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] row_number the rows number to seek
   Status Seek(int64_t row_number);
 
-  /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as a fine grain
-  ///         alternative to ReadStripe which may cause OOM issue by loading
-  ///         the whole stripes into memory.
+  /// \brief Get a stripe level record batch iterator.
   ///
-  /// \param[in] batch_size the number of rows each record batch contains in
-  ///            record batch iteration.
+  /// Each record batch will have up to `batch_size` rows.
+  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// which may cause OOM issues by loading the whole stripe into memory.
+  ///
+  /// Note this will only read rows for the current stripe, not the entire
+  /// file.
+  ///
+  /// \param[in] batch_size the maximum number of rows in each record batch
   /// \param[out] out the returned stripe reader
   ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
   Status NextStripeReader(int64_t batch_size, std::shared_ptr<RecordBatchReader>* out);
 
-  /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as a fine grain
-  ///         alternative to ReadStripe which may cause OOM issue by loading
-  ///         the whole stripes into memory.
+  /// \brief Get a stripe level record batch iterator.
   ///
-  /// \param[in] batch_size the number of rows each record batch contains in
-  ///            record batch iteration.
+  /// Each record batch will have up to `batch_size` rows.
+  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// which may cause OOM issues by loading the whole stripe into memory.
+  ///
+  /// Note this will only read rows for the current stripe, not the entire
+  /// file.
+  ///
+  /// \param[in] batch_size the maximum number of rows in each record batch
   /// \return the returned stripe reader
   Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(int64_t batch_size);
 
-  /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as a fine grain
-  ///         alternative to ReadStripe which may cause OOM issue by loading
-  ///         the whole stripes into memory.
+  /// \brief Get a stripe level record batch iterator.
   ///
-  /// \param[in] batch_size Get a stripe level record batch iterator with specified row
-  /// count in each record batch.
+  /// Each record batch will have up to `batch_size` rows.
+  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// which may cause OOM issues by loading the whole stripe into memory.
   ///
+  /// Note this will only read rows for the current stripe, not the entire
+  /// file.
+  ///
+  /// \param[in] batch_size the maximum number of rows in each record batch
   /// \param[in] include_indices the selected field indices to read
   /// \param[out] out the returned stripe reader
   ARROW_DEPRECATED("Deprecated in 6.0.0. Use Result-returning overload instead.")
   Status NextStripeReader(int64_t batch_size, const std::vector<int>& include_indices,
                           std::shared_ptr<RecordBatchReader>* out);
 
-  /// \brief Get a stripe level record batch iterator with specified row count
-  ///         in each record batch. NextStripeReader serves as a fine grain
-  ///         alternative to ReadStripe which may cause OOM issue by loading
-  ///         the whole stripes into memory.
+  /// \brief Get a stripe level record batch iterator.
   ///
-  /// \param[in] batch_size Get a stripe level record batch iterator with specified row
-  /// count in each record batch.
+  /// Each record batch will have up to `batch_size` rows.
+  /// NextStripeReader serves as a fine grained alternative to ReadStripe
+  /// which may cause OOM issues by loading the whole stripe into memory.
   ///
+  /// Note this will only read rows for the current stripe, not the entire
+  /// file.
+  ///
+  /// \param[in] batch_size the maximum number of rows in each record batch
   /// \param[in] include_indices the selected field indices to read
-  /// \return the returned stripe reader
+  /// \return the stripe reader
   Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(
       int64_t batch_size, const std::vector<int>& include_indices);
+
+  /// \brief Get a record batch iterator for the entire file.
+  ///
+  /// Each record batch will have up to `batch_size` rows.
+  ///
+  /// \param[in] batch_size the maximum number of rows in each record batch
+  /// \param[in] include_names the selected field names to read, if not empty
+  /// (otherwise all fields are read)
+  /// \return the record batch iterator
+  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+      int64_t batch_size, const std::vector<std::string>& include_names);
 
   /// \brief The number of stripes in the file
   int64_t NumberOfStripes();
