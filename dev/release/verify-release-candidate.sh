@@ -770,11 +770,11 @@ test_js() {
   setup_nodejs
   setup_conda nodejs=17
 
+  if ! command -v yarn &> /dev/null; then
+    npm install -g yarn
+  fi
+
   pushd js
-
-  npm install yarn
-  export PATH=$PWD/node_modules/yarn/bin:$PATH
-
   yarn --frozen-lockfile
   yarn clean:all
   yarn lint
