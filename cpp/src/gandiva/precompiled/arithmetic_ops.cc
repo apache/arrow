@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include "./epoch_time_point.h"
 #include "arrow/util/basic_decimal.h"
 
 extern "C" {
@@ -386,6 +387,28 @@ NUMERIC_FUNCTION_FOR_REAL(NEGATIVE)
 
 NEGATIVE_INTEGER(int32, 32)
 NEGATIVE_INTEGER(int64, 64)
+NEGATIVE_INTEGER(month_interval, 32)
+
+gdv_int64 negative_daytimeinterval_int64(gdv_int64 context, gdv_day_time_interval interval) {
+
+  if (interval < 0)
+  {
+    return interval;
+  }
+
+  // The interval is a 64-bit integer where the lower half of the bytes represents the
+  // number of the days and the other half represents the number of milliseconds.
+  int64_t qty_days = (interval & 0xFFFFFFFF00000000) >> 32;
+  int64_t qty_millis = (interval & 0x00000000FFFFFFFF);
+
+  qty_days = -1 * qty_days;
+  qty_millis = -1 * qty_millis;
+
+  gdv_int64 out = (qty_days & 0x00000000FFFFFFFF) << 32;
+  out |= (qty_millis & 0x00000000FFFFFFFF);
+
+  return out;
+}
 
 #undef NEGATIVE
 #undef NEGATIVE_INTEGER

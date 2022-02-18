@@ -179,6 +179,24 @@ TEST(TestArithmeticOps, TestPositiveNegative) {
   ctx.Reset();
 }
 
+TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
+
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  gdv_int64 result = negative_daytimeinterval_int64(ctx_ptr, 8589934594);
+  EXPECT_EQ(result, -4294967298);
+
+  result = negative_daytimeinterval_int64(ctx_ptr, -4294967298);
+  EXPECT_EQ(result, -4294967298);
+
+  //Input: 44023418384000;      Mean:  10250 days &  3600000 time
+  //Response: -44019123416704;  Mean: -10250 days & -3600000 time
+  result = negative_daytimeinterval_int64(ctx_ptr, 44023418384000);
+  EXPECT_EQ(result, -44019123416704);
+
+}
+
 TEST(TestArithmeticOps, TestDivide) {
   gandiva::ExecutionContext context;
   EXPECT_EQ(divide_int64_int64(reinterpret_cast<gdv_int64>(&context), 10, 0), 0);
