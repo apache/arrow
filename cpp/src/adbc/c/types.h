@@ -29,12 +29,12 @@ extern "C" {
 /// \file ADBC: Arrow DataBase connectivity (client API)
 ///
 /// Implemented by libadbc.so (provided by Arrow/C++), which in turn
-/// dynamically loads the appropriate driver.
+/// dynamically loads the appropriate database driver.
 ///
 /// EXPERIMENTAL. Interface subject to change.
 
 /// \page object-model Object Model
-/// (describe void* private_data)
+/// (TODO: describe void* private_data, thread-safety guarantees)
 
 /// \defgroup adbc-error-handling Error handling primitives.
 /// ADBC uses integer error codes to signal errors. To provide more
@@ -43,6 +43,9 @@ extern "C" {
 /// messages. This is intended to separate error messages from
 /// different contexts. The caller should free or delete the error
 /// string after retrieving it.
+///
+/// TODO: we need to provide a function to free errors in the API (we
+/// should not assume we use the same malloc/free as the user)
 ///
 /// If there is concurrent usage of an object and errors occur,
 /// then there is no guarantee on the ordering of error messages.
@@ -76,6 +79,8 @@ struct AdbcStatement;
 /// \brief A set of connection options.
 struct AdbcConnectionOptions {
   /// \brief A driver-specific connection string.
+  ///
+  /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
   const char* target;
 };
 
@@ -133,14 +138,16 @@ struct AdbcConnection {
   ///@}
 
   /// \name Partitioned Results
-  /// Some backends may internally partition the results. These
+  /// Some databases may internally partition the results. These
   /// partitions are exposed to clients who may wish to integrate them
   /// with a threaded or distributed execution model, where partitions
-  /// can be divided among threads or machines.
+  /// can be divided among threads or machines for processing.
   ///@{
 
   /// \brief Construct a statement for a partition of a query. The
   ///   statement can then be read independently.
+  ///
+  /// A partition can be retrieved from AdbcStatement::get_partition_desc.
   enum AdbcStatusCode (*deserialize_partition_desc)(struct AdbcConnection* connection,
                                                     const uint8_t* serialized_partition,
                                                     size_t serialized_length,
@@ -169,7 +176,8 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
 // originally had separate functions for each handle type); is there
 // any benefit to doing this for us? what was the motivation?
 
-/// \brief A statement that can be consumed to produce a result.
+/// \brief The result of executing a database query. Can be consumed
+///   to produce a result.
 struct AdbcStatement {
   /// \name Common Functions
   /// Standard functions for memory management and error handling of
@@ -214,7 +222,7 @@ struct AdbcStatement {
                                         size_t* partitions);
 
   /// \brief Get the length of the serialized descriptor for a partition in this
-  /// statement.
+  ///   statement.
   enum AdbcStatusCode (*get_partition_desc_size)(struct AdbcStatement* statement,
                                                  size_t index, size_t* length);
 
@@ -243,7 +251,7 @@ struct AdbcStatement {
 /// }@
 
 /// \page typical-usage Typical Usage Patterns
-/// (describe request sequences)
+/// (TODO: describe request sequences)
 
 /// \page decoder-ring Decoder Ring
 ///

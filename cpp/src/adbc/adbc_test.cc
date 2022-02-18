@@ -80,6 +80,7 @@ TEST(Adbc, Errors) {
 }
 
 TEST(AdbcSqlite, SqlExecute) {
+  // Execute a query with the SQLite example driver.
   AdbcConnection connection;
 
   AdbcConnectionOptions options;
@@ -129,6 +130,7 @@ TEST(AdbcSqlite, SqlExecute) {
 // TODO: these should be split into separate compilation units
 
 TEST(AdbcFlightSql, SqlExecute) {
+  // Execute a query with the Flight SQL example driver.
   AdbcConnection connection;
 
   AdbcConnectionOptions options;
@@ -159,6 +161,10 @@ TEST(AdbcFlightSql, SqlExecute) {
     statement.release(&statement);
   }
 
+  // Serialize the query result handle into a partition so it can be
+  // retrieved separately. (With multiple partitions we could
+  // distribute them across multiple machines or fetch data in
+  // parallel.)
   {
     auto query = "SELECT 42";
     AdbcStatement statement;
