@@ -40,22 +40,29 @@ ExtensionType <- R6Class("ExtensionType",
     },
 
     ToString = function() {
-      self$extension_name()
+      metadata_utf8 <- rawToChar(self$Serialize())
+      Encoding(metadata_utf8) <- "UTF-8"
+      paste0(class(self)[1], " <", metadata_utf8, ">")
     },
 
     Serialize = function() {
       ExtensionType__Serialize(self)
     },
 
-    .initialize = function(storage_type, extension_name, extension_metadata) {
-      abort("Not implemented")
+    .Deserialize = function(storage_type, extension_name, extension_metadata) {
+      # Do nothing by default but allow other classes to override this method
+      # to populate R6 class members.
     }
   )
 )
 
+
 MakeExtensionType <- function(storage_type,
                               extension_name, extension_metadata,
-                              type_class, array_class = ExtensionArray) {
+                              type_class = ExtensionType,
+                              array_class = ExtensionArray) {
+  assert_that(is.string(extension_name), is.raw(extension_metadata))
+  assert_is(storage_type, "DataType")
   assert_is(type_class, "R6ClassGenerator")
   assert_is(array_class, "R6ClassGenerator")
 
@@ -67,36 +74,6 @@ MakeExtensionType <- function(storage_type,
     array_class
   )
 
-  type$.initialize(storage_type, extension_name, extension_metadata)
+  type$.Deserialize(storage_type, extension_name, extension_metadata)
   type
-}
-
-
-SimpleExtensionType <- R6Class("SimpleExtensionType",
-  inherit = ExtensionType,
-  public = list(
-    ToString = function() {
-      paste0(self$extension_name(), " <'", self.metadata(), "'>")
-    },
-
-    metadata = function() {
-      metadata_chr
-    },
-
-    .initialize = function(storage_type, extension_name, extension_metadata) {
-      private$metadata_chr <- rawToChar(extension_metadata)
-    }
-  ),
-  private = list(
-    metadata_chr = NULL
-  )
-)
-
-SimpleExtensionType$create <- function(storage_type, metadata = "") {
-  MakeExtensionType(
-    storage_type,
-    "arrow_r.simple_extension",
-    charToRaw(metadata),
-    type_class = SimpleExtensionType
-  )
 }
