@@ -166,8 +166,9 @@ verify_dir_artifact_signatures() {
   done
 }
 
-test_binaries() {
+test_binary() {
   show_header "Testing binary artifacts"
+  setup_conda
 
   local download_dir=binaries
   mkdir -p ${download_dir}

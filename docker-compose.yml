@@ -1722,10 +1722,12 @@ services:
       CMAKE_GENERATOR: Ninja
       DEBIAN_FRONTEND: "noninteractive"
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
       USE_CONDA: 1
     command: >
       /bin/bash -c "
-        apt update -y && apt install -y curl git tzdata wget &&
+        apt update -y && apt install -y curl git gnupg tzdata wget &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   almalinux-verify-rc:
@@ -1741,6 +1743,8 @@ services:
     shm_size: '1gb'
     environment:
       <<: *ccache
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-rhel-rebuilds.sh &&
@@ -1760,6 +1764,8 @@ services:
     environment:
       <<: *ccache
       DEBIAN_FRONTEND: "noninteractive"
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
     command: >
       /bin/bash -c "
         /arrow/dev/release/setup-ubuntu.sh &&
