@@ -243,6 +243,9 @@ struct AdbcStatement {
 
   ///@}
 
+  // TODO: how would we want to handle long-running queries? Do we
+  // want a way to provide progress feedback?
+
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
