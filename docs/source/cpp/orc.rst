@@ -24,14 +24,82 @@
 Reading and Writing ORC files
 =============================
 
-Arrow provides a fast ORC reader and a fast ORC writer allowing ingestion of external data
-as Arrow tables.
+The `ORC format <https://orc.apache.org/docs/>`__
+is a space-efficient columnar storage format for complex data. 
+Arrow provides a fast ORC reader and a fast ORC writer allowing
+ingestion of external data as Arrow tables.
 
 .. seealso::
    :ref:`ORC reader/writer API reference <cpp-api-orc>`.
 
-Basic usage
-===========
+Supported ORC features
+==========================
+
+The ORC format has many features, and we support a subset of them.
+
+Compression
+-----------
+
++-------------------+---------+
+| Compression codec | Notes   |
++===================+=========+
+| SNAPPY            |         |
++-------------------+---------+
+| GZIP/ZLIB         |         |
++-------------------+---------+
+| LZ4               |         |
++-------------------+---------+
+| ZSTD              |         |
++-------------------+---------+
+
+*Unsupported compression codec:* LZO.
+
+
+Reading ORC Files
+=================
+
+The :class:`ORCFileReader` class reads data for an entire
+file or stripe into an :class:`::arrow::Table`.
+
+ORCFileReader
+-------------
+
+The :class:`ORCFileReader` class requires a
+:class:`::arrow::io::RandomAccessFile` instance representing the input
+file.
+
+.. code-block:: cpp
+
+   #include <arrow/adapters/orc/adapter.h>
+
+   {
+      // ...
+      arrow::Status st;
+      arrow::MemoryPool* pool = default_memory_pool();
+      std::shared_ptr<arrow::io::RandomAccessFile> input = ...;
+
+      // Open ORC file reader
+      auto maybe_reader = arrow::adapters::orc::ORCFileReader::Open(input, pool);
+      if (!maybe_reader.ok()) {
+        // Handle error instantiating file reader...
+      }
+      std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader = maybe_reader.ValueOrDie();
+
+      // Read entire file as a single Arrow table
+      auto maybe_table = reader->Read();
+      if (!maybe_table.ok()) {
+        // Handle error reading ORC data...
+      }
+      std::shared_ptr<arrow::Table> table = maybe_table.ValueOrDie();
+   }
+
+
+
+Writing ORC Files
+=================
+
+ORCFileWriter
+-------------
 
 An ORC file is written to a :class:`~arrow::io::OutputStream`.
 

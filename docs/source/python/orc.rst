@@ -180,8 +180,8 @@ Compression
 ---------------------------------------------
 
 The data pages within a column in a row group can be compressed after the
-encoding passes (dictionary, RLE encoding). In PyArrow we use uncompressed
-compression by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported:
+encoding passes (dictionary, RLE encoding). In PyArrow we don't use compression
+by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported:
 
 .. code-block:: python
 
