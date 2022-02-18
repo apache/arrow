@@ -13,3 +13,31 @@ test_that("extension types can be created", {
   expect_identical(type$Serialize(), charToRaw("some custom metadata"))
   expect_identical(type$ToString(), "ExtensionType <some custom metadata>")
 })
+
+test_that("extension type subclasses work", {
+  SomeExtensionTypeSubclass <- R6Class(
+    "SomeExtensionTypeSubclass", inherit = ExtensionType,
+    public = list(
+      some_custom_method = function() {
+        private$some_custom_field
+      },
+
+      .Deserialize = function(storage_type, extension_name, extension_metadata) {
+        private$some_custom_field <- head(extension_metadata, 5)
+      }
+    ),
+    private = list(
+      some_custom_field = NULL
+    )
+  )
+
+  type <- MakeExtensionType(
+    int32(),
+    "some_extension_subclass",
+    charToRaw("some custom metadata"),
+    type_class = SomeExtensionTypeSubclass
+  )
+
+  expect_r6_class(type, "SomeExtensionTypeSubclass")
+  expect_identical(type$some_custom_method(), charToRaw("some "))
+})
