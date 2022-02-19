@@ -190,7 +190,7 @@ direct questions, such as:
 
 * Do you think $PROPOSED_APPROACH is the right one?
 * In which file(s) should I be looking to make changes?
-* Is there anything related to the codebase I can look at to learn?
+* Is there anything related in the codebase that I can look at to learn?
 
 If you ask these questions and do not get an answer, it is OK to ask again.
 
