@@ -33,6 +33,8 @@ set INSTALL_DIR=%_VERIFICATION_DIR%\install
 
 set VERSION=%1
 set RC_NUMBER=%2
+set TARBALL_NAME=apache-arrow-%VERSION%.tar.gz
+set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
 
 if "%VERSION%"=="" (
     set ARROW_SOURCE=%~dp0..\..\
@@ -45,8 +47,6 @@ if "%VERSION%"=="" (
     ) else (
         @rem verify a release candidate tarball
         @rem Requires GNU Wget for Windows
-        set TARBALL_NAME=apache-arrow-%VERSION%.tar.gz
-        set TARBALL_URL=https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-%VERSION%-rc%RC_NUMBER%/%TARBALL_NAME%
         wget --no-check-certificate -O %TARBALL_NAME% %TARBALL_URL% || exit /B 1
         tar xf %TARBALL_NAME% -C %_VERIFICATION_DIR_UNIX%
     )
