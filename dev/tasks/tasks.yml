@@ -873,16 +873,8 @@ tasks:
 
   ######################## Linux verification #################################
 
-{% for target in ["cpp", "integration", "python"] %}
-  verify-rc-source-{{ target }}-linux-conda-amd64:
-    ci: github
-    template: verify-rc/github.linux.amd64.docker.yml
-    params:
-      target: {{ target }}
-      distro: conda
-{% endfor %}
-
-{% for distribution, version in [("almalinux", "8"),
+{% for distribution, version in [("conda", "latest"),
+                                 ("almalinux", "8"),
                                  ("ubuntu", "18.04"),
                                  ("ubuntu", "20.04")] %}
   {% for target in ["cpp",
@@ -901,23 +893,28 @@ tasks:
       distro: {{ distribution }}
   {% endfor %}
 
+  {% for target in ["jars", "wheels"] %}
+  verify-rc-binaries-{{ target }}-linux-{{ distribution }}-{{ version }}-amd64:
+    ci: github
+    template: verify-rc/github.linux.amd64.docker.yml
+    params:
+      target: {{ target }}
+      distro: {{ distribution }}
+  {% endfor %}
+
 {% endfor %}
 
-  {% for target in ["binary", "yum", "apt", "jars", "wheels"] %}
+  # Separated these tasks from the loop above due to:
+  # - 'binary' verification is not platform dependent
+  # - 'yum' and 'apt' requires docker so we need to run the verification script
+  #   directly on the host
+  {% for target in ["binary", "yum", "apt"] %}
   verify-rc-binaries-{{ target }}-linux-amd64:
     ci: github
     template: verify-rc/github.linux.amd64.yml
     params:
       target: {{ target }}
   {% endfor %}
-
-  verify-rc-binaries-wheels-linux-amd64-conda:
-    ci: github
-    template: verify-rc/github.linux.amd64.yml
-    params:
-      env:
-        USE_CONDA: 1
-      target: wheels
 
   ######################## macOS verification ################################
 

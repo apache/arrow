@@ -168,7 +168,7 @@ verify_dir_artifact_signatures() {
 
 test_binary() {
   show_header "Testing binary artifacts"
-  setup_conda
+  setup_conda || exit 1
 
   local download_dir=binaries
   mkdir -p ${download_dir}
@@ -450,7 +450,7 @@ setup_conda() {
   elif [ ! -z ${CONDA_PREFIX} ]; then
     echo "Conda environment is active despite that USE_CONDA is set to 0."
     echo "Deactivate the environment using `conda deactive` before running the verification script."
-    exit 1
+    return 1
   fi
 }
 
@@ -463,12 +463,12 @@ setup_virtualenv() {
   local skip_missing_python=${SKIP_MISSING_PYTHON:-0}
 
   if [ "${USE_CONDA}" -eq 0 ]; then
-    show_info "Configuring Python virtualenv..."
+    show_info "Configuring Python ${pyver} virtualenv..."
 
     if [ ! -z ${CONDA_PREFIX} ]; then
       echo "Conda environment is active despite that USE_CONDA is set to 0."
       echo "Deactivate the environment before running the verification script."
-      exit 1
+      return 1
     fi
     # Deactivate previous env
     if command -v deactivate &> /dev/null; then
@@ -478,11 +478,7 @@ setup_virtualenv() {
     if ! command -v "${python}" &> /dev/null; then
       echo "Couldn't locate python interpreter with version ${pyver}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
-      if [ $skip_missing_python -gt 0 ]; then
-        continue
-      else
-        exit 1
-      fi
+      return 1
     fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
@@ -519,7 +515,7 @@ test_package_java() {
   show_header "Build and test Java libraries"
 
   # Build and test Java (Requires newer Maven -- I used 3.3.9)
-  setup_conda maven
+  setup_conda maven || exit 1
 
   pushd java
   mvn test
@@ -531,7 +527,7 @@ test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
   # Build and test C++
-  setup_virtualenv numpy
+  setup_virtualenv numpy || exit 1
   setup_conda \
     --file ci/conda_env_unix.txt \
     --file ci/conda_env_cpp.txt \
@@ -539,7 +535,7 @@ test_and_install_cpp() {
     ncurses \
     numpy \
     sqlite \
-    compilers
+    compilers || exit 1
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     DEFAULT_DEPENDENCY_SOURCE="CONDA"
@@ -611,8 +607,8 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  setup_virtualenv cython numpy setuptools_scm setuptools
-  setup_conda --file ci/conda_env_python.txt
+  setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
+  setup_conda --file ci/conda_env_python.txt || exit 1
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -677,8 +673,8 @@ test_glib() {
   show_header "Build and test C Glib libraries"
 
   # Build and test C GLib
-  setup_conda glib gobject-introspection meson ninja ruby
-  setup_virtualenv meson
+  setup_conda glib gobject-introspection meson ninja ruby || exit 1
+  setup_virtualenv meson || exit 1
 
   # Install bundler if doesn't exist
   if ! bundle --version; then
@@ -712,8 +708,8 @@ test_ruby() {
   show_header "Build and test Ruby libraries"
 
   # required dependencies are installed by test_glib
-  setup_conda
-  setup_virtualenv
+  setup_conda || exit 1
+  setup_virtualenv || exit 1
 
   which ruby
   which bundle
@@ -768,8 +764,8 @@ test_csharp() {
 test_js() {
   show_header "Build and test JavaScript libraries"
 
-  setup_nodejs
-  setup_conda nodejs=17
+  setup_nodejs || exit 1
+  setup_conda nodejs=17 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install -g yarn
@@ -788,8 +784,8 @@ test_js() {
 test_go() {
   show_header "Build and test Go libraries"
 
-  setup_go
-  setup_conda compilers go=1.17
+  setup_go || exit 1
+  setup_conda compilers go=1.17 || exit 1
 
   pushd go/arrow
   go get -v ./...
@@ -802,8 +798,8 @@ test_go() {
 test_integration() {
   show_header "Build and execute integration tests"
 
-  setup_conda
-  setup_virtualenv
+  setup_conda || exit 1
+  setup_virtualenv || exit 1
 
   pip install -e dev/archery
 
@@ -947,20 +943,16 @@ test_linux_wheels() {
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
   for pyver in ${python_versions}; do
-    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
-    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_virtualenv
-
     for platform in ${platform_tags}; do
-      # check the mandatory and optional imports
-      # TODO(kszucs): may need to define --target $(python -c 'import site; print(site.getsitepackages()[0])') --only-binary=:all:
-      pip install --force-reinstall --platform ${platform} --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
+      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
-  local python_versions="3.7m 3.8 3.9 3.10"
   local macos_version=$(sw_vers -productVersion)
   local macos_short_version=${macos_version:0:5}
 
@@ -971,22 +963,27 @@ test_macos_wheels() {
   if [ $(echo "${macos_short_version}\n10.14" | sort | head -n1) == "${macos_short_version}" ]; then
     local check_s3=OFF
   fi
+
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local python_versions="3.8 3.9 3.10"
+    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
     local check_flight=OFF
+  else
+    local python_versions="3.7m 3.8 3.9 3.10"
+    local platform_tags="macosx_11_0_arm64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
   for pyver in ${python_versions}; do
-    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} setup_conda
-    ENV=wheel-${pyver} PYTHON_VERSION=${pyver} SKIP_MISSING_PYTHON=1 setup_virtualenv
+    for platform in ${platform_tags}; do
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
 
-    # check the mandatory and optional imports
-    # TODO(kszucs): may need to define --target $(python -c 'import site; print(site.getsitepackages()[0])') --only-binary=:all:
-    pip install --force-reinstall --find-links python-rc/${VERSION}-rc${RC_NUMBER} pyarrow==${VERSION}
-    INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
-      ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${platform}.whl
+      INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+        ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
+    done
   done
 
   # verify arm64 and universal2 wheels using an universal2 python binary
@@ -998,14 +995,9 @@ test_macos_wheels() {
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-${arch} PYTHON=${python} SKIP_MISSING_PYTHON=1 setup_virtualenv
+        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} setup_virtualenv || continue
         # install pyarrow's universal2 wheel
-        pip install \
-            --find-links python-rc/${VERSION}-rc${RC_NUMBER} \
-            --target $(python -c 'import site; print(site.getsitepackages()[0])') \
-            --platform macosx_11_0_universal2 \
-            --only-binary=:all: \
-            pyarrow==${VERSION}
+        pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
         INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
           arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
@@ -1017,7 +1009,7 @@ test_macos_wheels() {
 test_wheels() {
   show_header "Testing Python wheels"
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   if [ "$(uname)" == "Darwin" ]; then
@@ -1033,7 +1025,7 @@ test_wheels() {
 
   verify_dir_artifact_signatures ${download_dir}
 
-  pushd ${download_dir}
+  pushd ${download_dir}/python-rc/${VERSION}-rc${RC_NUMBER}
 
   if [ "$(uname)" == "Darwin" ]; then
     test_macos_wheels
