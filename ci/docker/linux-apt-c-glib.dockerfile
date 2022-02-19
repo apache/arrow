@@ -24,6 +24,7 @@ RUN apt-get update -y -q && \
         python3-pip \
         gtk-doc-tools \
         libgirepository1.0-dev \
+        valac \
         libglib2.0-doc \
         lsb-release \
         luarocks \
