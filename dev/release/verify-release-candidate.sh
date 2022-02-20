@@ -967,11 +967,11 @@ test_macos_wheels() {
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
     local python_versions="3.8 3.9 3.10"
-    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
+    local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
     local python_versions="3.7m 3.8 3.9 3.10"
-    local platform_tags="macosx_11_0_arm64"
+    local platform_tags="macosx_10_9_x86_64 macosx_10_13_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1008,6 +1008,7 @@ test_macos_wheels() {
 
 test_wheels() {
   show_header "Testing Python wheels"
+  setup_conda python || exit 1
 
   local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
@@ -1038,6 +1039,7 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
+  setup_conda maven python || exit 1
 
   local download_dir=jars
   mkdir -p ${download_dir}
