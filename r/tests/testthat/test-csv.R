@@ -511,5 +511,6 @@ test_that("read_csv_arrow() can read sub-second timestamps with col_types T sett
   write.csv(tbl, tf, row.names = FALSE)
 
   df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
-  expect_equal(as.POSIXct(tbl$time), df$time)
+  expected <- as.POSIXct(tbl$time, tz = "UTC")
+  expect_equal(df$time, expected, ignore_attr = "tzone")
 })
