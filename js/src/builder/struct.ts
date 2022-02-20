@@ -25,12 +25,13 @@ import { Struct, TypeMap } from '../type.js';
 export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder<Struct<T>, TNull> {
     public setValue(index: number, value: Struct<T>['TValue']) {
         const children = this.children;
-            switch (Array.isArray(value) || value.constructor) {
-                case true: return this.type.children.forEach((_, i) => children[i].set(index, value[i]));
-                case Map: return this.type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
-                default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
-            }
+        switch (Array.isArray(value) || value.constructor) {
+            case true: return this.type.children.forEach((_, i) => children[i].set(index, value[i]));
+            case Map: return this.type.children.forEach((f, i) => children[i].set(index, value.get(f.name)));
+            default: return this.type.children.forEach((f, i) => children[i].set(index, value[f.name]));
+        }
     }
+
     /** @inheritdoc */
     public setValid(index: number, valid: boolean) {
         if (!super.setValid(index, valid)) {
@@ -38,6 +39,7 @@ export class StructBuilder<T extends TypeMap = any, TNull = any> extends Builder
         }
         return valid;
     }
+
     public addChild(child: Builder, name = `${this.numChildren}`) {
         const childIndex = this.children.push(child);
         this.type = new Struct([...this.type.children, new Field(name, child.type, true)]);
