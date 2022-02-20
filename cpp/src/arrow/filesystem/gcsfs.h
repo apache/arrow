@@ -35,7 +35,7 @@ struct ARROW_EXPORT GcsOptions {
 
   std::string endpoint_override;
   std::string scheme;
-  // Location to use or creating buckets.
+  // \brief Location to use for creating buckets.
   std::string default_bucket_location = "";
 
   /// \brief Default metadata for OpenOutputStream.
