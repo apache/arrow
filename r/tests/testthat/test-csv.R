@@ -503,3 +503,13 @@ test_that("read_csv_arrow() deals with BOMs (byte-order-marks) correctly", {
     tibble(a = 1, b = 2)
   )
 })
+
+test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
+  tbl <- tibble::tibble(time = c("2018-10-07 19:04:05.000", "2018-10-07 19:04:05.001"))
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
+  expect_equal(as.POSIXct(tbl$time), df$time)
+})
