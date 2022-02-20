@@ -68,6 +68,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    power
    power_checked
    sign
+   sqrt
+   sqrt_checked
    subtract
    subtract_checked
 
