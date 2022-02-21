@@ -1687,22 +1687,12 @@ macro(build_substrait)
 
   add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
 
-  add_arrow_lib(arrow_substrait
-                SOURCES
-                ${SUBSTRAIT_SOURCES}
-                DEPENDENCIES
-                substrait_gen
-                SHARED_LINK_LIBS
-                ${ARROW_PROTOBUF_LIBPROTOBUF}
-                STATIC_LINK_LIBS
-                ${ARROW_PROTOBUF_LIBPROTOBUF}
-                PRIVATE_INCLUDES
-                ${SUBSTRAIT_CPP_DIR})
-
-  set(SUBSTRAIT_DEPENDENCIES substrait_gen)
-  set(SUBSTRAIT_SHARED arrow_substrait_shared)
-  set(SUBSTRAIT_STATIC arrow_substrait_static)
-  set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR})
+  add_library(substrait OBJECT ${SUBSTRAIT_SOURCES})
+  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(substrait PUBLIC ${SUBSTRAIT_CPP_DIR}
+                                              ${PROTOBUF_INCLUDE_DIR})
+  add_dependencies(substrait substrait_gen)
+  get_target_property(SUBSTRAIT_INCLUDES substrait INCLUDE_DIRECTORIES)
 endmacro()
 
 if(ARROW_WITH_SUBSTRAIT)
