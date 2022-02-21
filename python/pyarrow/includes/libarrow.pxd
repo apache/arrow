@@ -2710,5 +2710,5 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
         CUDFSynthesizer(c_string func_name, CArity arity, CFunctionDoc func_doc,
             vector[CInputType] in_types, COutputType out_type)
         CStatus MakeFunction()
-        CStatus MakePyFunction(PyObject* function, PyObject* args)
+        CStatus MakePyFunction(PyObject* function)
 
