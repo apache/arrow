@@ -115,23 +115,6 @@ register_bindings_datetime <- function() {
       return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
     }
 
-    if (call_binding("is.integer", x)) {
-      if (inherits(x, "Expression")) {
-        call_binding(
-          "if_else",
-          call_binding_agg("all", call_binding("between", x, 1, 12))$data,
-          x,
-          abort("bla: Values are not in 1:12")
-        )
-      } else {
-        if (all(1 <= x & x <= 12)) {
-          return(x)
-        } else {
-          abort("bla2: Values are not in 1:12")
-        }
-      }
-    }
-
     Expression$create("month", x)
   })
 

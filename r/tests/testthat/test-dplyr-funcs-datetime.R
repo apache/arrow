@@ -764,16 +764,16 @@ test_that("semester works with temporal types and integers", {
       collect(),
      test_df
   )
-  # semester extraction from months as integers
-  compare_dplyr_binding(
-    .input %>%
+  # semester extraction from months as integers is not supported yet
+  # it will be once https://issues.apache.org/jira/browse/ARROW-15701 is done
+  # TODO change from expect_error to compare_dplyr_bindings
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
       mutate(sem_month_as_int = semester(month_as_int)) %>%
       collect(),
-    test_df
-  )
-
-  expect_error(
-    call_binding("semester", Expression$scalar(1:13))
+    regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[int32])",
+    fixed = TRUE
   )
 
   expect_error(
