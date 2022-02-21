@@ -33,6 +33,7 @@ namespace internal {
 std::vector<std::string> SplitAbstractPath(const std::string& path) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
+
   // Strip trailing slash
   if (v.length() > 0 && v.back() == kSep) {
     v = v.substr(0, v.length() - 1);
@@ -52,6 +53,40 @@ std::vector<std::string> SplitAbstractPath(const std::string& path) {
   size_t start = 0;
   while (true) {
     size_t end = v.find_first_of(kSep, start);
+    append_part(start, end);
+    if (end == std::string::npos) {
+      break;
+    }
+    start = end + 1;
+  }
+  return parts;
+}
+
+std::vector<std::string> SplitFilename(const std::string& path) {
+  std::vector<std::string> parts;
+  auto v = util::string_view(path);
+
+  // Strip non-prefix segment
+  auto non_prefix_index = v.rfind(kFilenameSep);
+  if (v.length() > 0 && non_prefix_index!=std::string::npos){
+    v = v.substr(non_prefix_index);
+  }
+
+  // Strip leading slash
+  if (v.length() > 0 && v.front() == kSep) {
+    v = v.substr(1);
+  }
+  if (v.length() == 0) {
+    return parts;
+  }
+
+  auto append_part = [&parts, &v](size_t start, size_t end) {
+    parts.push_back(std::string(v.substr(start, end - start)));
+  };
+
+  size_t start = 0;
+  while (true) {
+    size_t end = v.find_first_of(kFilenameSep, start);
     append_part(start, end);
     if (end == std::string::npos) {
       break;
@@ -104,6 +139,14 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
     return stem;
   }
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+}
+
+std::string ConcatAbstractPath(const std::string& base, const std::string& prefix, const std::string& stem) {
+  DCHECK(!stem.empty());
+  if (base.empty()) {
+    return stem;
+  }
+  return EnsureTrailingSlash(base) + prefix + std::string(RemoveLeadingSlash(stem));
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {

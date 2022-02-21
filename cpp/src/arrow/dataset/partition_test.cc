@@ -61,12 +61,12 @@ class TestPartitioning : public ::testing::Test {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
-    ASSERT_EQ(formatted, expected);
+    ASSERT_EQ(formatted.first, expected);
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
     ASSERT_OK_AND_ASSIGN(compute::Expression roundtripped,
-                         partitioning_->Parse(formatted));
+                         partitioning_->Parse(formatted.first));
 
     ASSERT_OK_AND_ASSIGN(roundtripped, roundtripped.Bind(*written_schema_));
     ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(roundtripped, expr));
@@ -843,7 +843,7 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::string> Format(const compute::Expression&) const override { return ""; }
+  Result<std::pair<std::string,std::string>> Format(const compute::Expression&) const override { return std::make_pair("",""); }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();

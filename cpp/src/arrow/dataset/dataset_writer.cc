@@ -241,10 +241,11 @@ struct WriteTask {
 
 class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
-  DatasetWriterDirectoryQueue(std::string directory, std::shared_ptr<Schema> schema,
+  DatasetWriterDirectoryQueue(std::string directory, std::string prefix, std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
                               DatasetWriterState* writer_state)
       : directory_(std::move(directory)),
+        prefix_(std::move(prefix)),
         schema_(std::move(schema)),
         write_options_(write_options),
         writer_state_(writer_state) {}
@@ -285,7 +286,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
       return Status::Invalid("string interpolation of basename template failed");
     }
 
-    return fs::internal::ConcatAbstractPath(directory_, *basename);
+    return fs::internal::ConcatAbstractPath(directory_, prefix_, *basename);
   }
 
   Status FinishCurrentFile() {
@@ -342,9 +343,9 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
   Make(util::AsyncTaskGroup* task_group,
        const FileSystemDatasetWriteOptions& write_options,
        DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
-       std::string dir) {
+       std::string dir, std::string prefixname) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(dir), std::move(schema), write_options, writer_state);
+        std::move(dir), std::move(prefixname), std::move(schema), write_options, writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
@@ -360,6 +361,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  private:
   util::AsyncTaskGroup task_group_;
   std::string directory_;
+  std::string prefix_;
   std::shared_ptr<Schema> schema_;
   const FileSystemDatasetWriteOptions& write_options_;
   DatasetWriterState* writer_state_;
@@ -439,7 +441,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
                       CalculateMaxRowsStaged(max_rows_queued)) {}
 
   Future<> WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                            const std::string& directory) {
+                            const std::string& directory, const std::string& prefix) {
     RETURN_NOT_OK(CheckError());
     if (batch->num_rows() == 0) {
       return Future<>::MakeFinished();
@@ -447,9 +449,13 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     if (!directory.empty()) {
       auto full_path =
           fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
-      return DoWriteRecordBatch(std::move(batch), full_path);
-    } else {
-      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir);
+      return DoWriteRecordBatch(std::move(batch), full_path, prefix);
+    }
+    else if(!prefix.empty()){
+      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
+    }
+     else {
+      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
     }
   }
 
@@ -468,13 +474,13 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
   }
 
   Future<> DoWriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                              const std::string& directory) {
+                              const std::string& directory, const std::string& prefix) {
     ARROW_ASSIGN_OR_RAISE(
         auto dir_queue_itr,
         ::arrow::internal::GetOrInsertGenerated(
-            &directory_queues_, directory, [this, &batch](const std::string& dir) {
+            &directory_queues_, directory, [this, &batch, &prefix](const std::string& dir) {
               return DatasetWriterDirectoryQueue::Make(
-                  &task_group_, write_options_, &writer_state_, batch->schema(), dir);
+                  &task_group_, write_options_, &writer_state_, batch->schema(), dir, prefix);
             }));
     std::shared_ptr<DatasetWriterDirectoryQueue> dir_queue = dir_queue_itr->second;
     Future<> backpressure;
@@ -506,7 +512,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
     if (batch) {
       return backpressure.Then(
-          [this, batch, directory] { return DoWriteRecordBatch(batch, directory); });
+          [this, batch, directory, prefix] { return DoWriteRecordBatch(batch, directory, prefix); });
     }
     return Future<>::MakeFinished();
   }
@@ -551,8 +557,8 @@ Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
 DatasetWriter::~DatasetWriter() = default;
 
 Future<> DatasetWriter::WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                                         const std::string& directory) {
-  return impl_->WriteRecordBatch(std::move(batch), directory);
+                                         const std::string& directory, const std::string& prefix) {
+  return impl_->WriteRecordBatch(std::move(batch), directory, prefix);
 }
 
 Future<> DatasetWriter::Finish() {

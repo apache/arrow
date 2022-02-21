@@ -30,6 +30,7 @@ namespace fs {
 namespace internal {
 
 constexpr char kSep = '/';
+constexpr char kFilenameSep = '_';
 
 // Computations on abstract paths (not local paths with system-dependent behaviour).
 // Abstract paths are typically used in URIs.
@@ -37,6 +38,10 @@ constexpr char kSep = '/';
 // Split an abstract path into its individual components.
 ARROW_EXPORT
 std::vector<std::string> SplitAbstractPath(const std::string& s);
+
+// Split a filename into its individual partitions.
+ARROW_EXPORT
+std::vector<std::string> SplitFilename(const std::string& s);
 
 // Return the extension of the file
 ARROW_EXPORT
@@ -54,6 +59,10 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 // Append a non-empty stem to an abstract path.
 ARROW_EXPORT
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
+
+// Append a non-empty stem to an abstract path with a filename prefix.
+ARROW_EXPORT
+std::string ConcatAbstractPath(const std::string& base, const std::string& prefix, const std::string& stem);
 
 // Make path relative to base, if it starts with base.  Otherwise error out.
 ARROW_EXPORT
@@ -111,6 +120,26 @@ std::string JoinAbstractPath(StringIt it, StringIt end) {
 template <class StringRange>
 std::string JoinAbstractPath(const StringRange& range) {
   return JoinAbstractPath(range.begin(), range.end());
+}
+
+// Join the components of filename partitions
+template <class StringIt>
+std::string JoinFilenamePartitions(StringIt it, StringIt end) {
+  std::string path;
+  for (; it != end; ++it) {
+    if (it->empty()) continue;
+
+    if (!path.empty()) {
+      path += kFilenameSep;
+    }
+    path += *it;
+  }
+  return path;
+}
+
+template <class StringRange>
+std::string JoinFilenamePartitions(const StringRange& range) {
+  return JoinFilenamePartitions(range.begin(), range.end());
 }
 
 /// Convert slashes to backslashes, on all platforms.  Mostly useful for testing.

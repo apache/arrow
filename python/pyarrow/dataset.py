@@ -26,6 +26,7 @@ from pyarrow._dataset import (  # noqa
     Dataset,
     DatasetFactory,
     DirectoryPartitioning,
+    FilenamePartitioning,
     FileFormat,
     FileFragment,
     FileSystemDataset,
@@ -209,6 +210,26 @@ def partitioning(schema=None, field_names=None, flavor=None,
         else:
             raise ValueError(
                 "For the default directory flavor, need to specify "
+                "a Schema or a list of field names")
+    if flavor == "filename":
+        # default flavor
+        if schema is not None:
+            if field_names is not None:
+                raise ValueError(
+                    "Cannot specify both 'schema' and 'field_names'")
+            if dictionaries == 'infer':
+                return FilenamePartitioning.discover(schema=schema)
+            return FilenamePartitioning(schema, dictionaries)
+        elif field_names is not None:
+            if isinstance(field_names, list):
+                return FilenamePartitioning.discover(field_names)
+            else:
+                raise ValueError(
+                    "Expected list of field names, got {}".format(
+                        type(field_names)))
+        else:
+            raise ValueError(
+                "For the default filename flavor, need to specify "
                 "a Schema or a list of field names")
     elif flavor == 'hive':
         if field_names is not None:
