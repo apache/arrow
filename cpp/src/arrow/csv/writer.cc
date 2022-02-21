@@ -157,8 +157,7 @@ char* EscapeReverse(arrow::util::string_view s, char* out_end) {
 class UnquotedColumnPopulator : public ColumnPopulator {
  public:
   explicit UnquotedColumnPopulator(MemoryPool* memory_pool, std::string end_chars,
-                                   std::string delimiter,
-                                   std::shared_ptr<Buffer> null_string_,
+                                   char delimiter, std::shared_ptr<Buffer> null_string_,
                                    bool reject_values_with_quotes)
       : ColumnPopulator(memory_pool, std::move(end_chars), std::move(null_string_)),
         delimiter_(delimiter),
@@ -212,7 +211,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
  private:
   // Returns an error status if string array has any structural characters.
   static Status CheckStringArrayHasNoStructuralChars(const StringArray& array,
-                                                     const std::string delimiter) {
+                                                     const char delimiter) {
     // scan the underlying string array buffer as a single big string
     const uint8_t* const data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
@@ -236,7 +235,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     while (offset < buffer_size) {
       // error happened or remaining bytes to check
       const char c = static_cast<char>(data[offset]);
-      if (c == '\n' || c == '\r' || c == ',' || c == '"') {
+      if (c == '\n' || c == '\r' || c == ',' || c == '"' || c == delimiter) {
         // extract the offending string from array per offset
         const auto* offsets = array.raw_value_offsets();
         const auto index =
@@ -254,7 +253,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
   }
 
   // Whether to reject values with quotes when populating.
-  const std::string delimiter_;
+  const char delimiter_;
   const bool reject_values_with_quotes_;
 };
 
@@ -399,7 +398,7 @@ struct PopulatorFactory {
   }
 
   const std::string end_chars;
-  const std::string delimiter;
+  const char delimiter;
   std::shared_ptr<Buffer> null_string;
   const QuotingStyle quoting_style;
   MemoryPool* pool;
@@ -407,7 +406,7 @@ struct PopulatorFactory {
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
-    const Field& field, std::string end_chars, std::string delimiter,
+    const Field& field, std::string end_chars, char delimiter,
     std::shared_ptr<Buffer> null_string, QuotingStyle quoting_style, MemoryPool* pool) {
   PopulatorFactory factory{std::move(end_chars), delimiter, std::move(null_string),
                            quoting_style,        pool,      nullptr};
@@ -433,9 +432,10 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
            options.null_string.length());
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
+    std::string delimiter(1, options.delimiter);
     for (int col = 0; col < schema->num_fields(); col++) {
       const std::string& end_chars =
-          col < schema->num_fields() - 1 ? options.delimiter : options.eol;
+          col < schema->num_fields() - 1 ? delimiter : options.eol;
       ASSIGN_OR_RAISE(
           populators[col],
           MakePopulator(*schema->field(col), end_chars, options.delimiter, null_string,

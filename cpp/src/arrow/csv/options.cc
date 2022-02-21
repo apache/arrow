@@ -73,8 +73,8 @@ Status ReadOptions::Validate() const {
 WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
 
 Status WriteOptions::Validate() const {
-  if (ARROW_PREDICT_FALSE(delimiter.compare("\n") == 0 || delimiter.compare("\r") == 0 ||
-                          delimiter.compare("\"") == 0 || delimiter.compare(eol) == 0)) {
+  if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r' || delimiter == '"' ||
+                          std::string(1, delimiter) == eol)) {
     return Status::Invalid("WriteOptions: delimiter cannot be \\r or \\n or \" or EOL");
   }
   if (ARROW_PREDICT_FALSE(batch_size < 1)) {

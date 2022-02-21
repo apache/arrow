@@ -1070,11 +1070,11 @@ cdef class WriteOptions(_Weakrefable):
         """
         The character delimiting individual cells in the CSV data.
         """
-        return deref(self.options).delimiter.decode()
+        return chr(deref(self.options).delimiter)
 
     @delimiter.setter
     def delimiter(self, value):
-        deref(self.options).delimiter = tobytes(value)
+        deref(self.options).delimiter = _single_char(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):
