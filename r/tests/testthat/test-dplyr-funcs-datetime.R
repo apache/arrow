@@ -824,6 +824,12 @@ test_that("date works in arrow", {
     call_binding("date", Array$create(as.POSIXct("2022-02-21"))),
     Array$create(as.POSIXct("2022-02-21"), type = date32())
   )
+
+  # date() supports R objects
+  expect_equal(
+    call_binding("date", as.POSIXct("2022-02-21")),
+    Array$create(as.POSIXct("2022-02-21"), type = date32())
+  )
 })
 
 test_that("date() errors with unsupported inputs", {
