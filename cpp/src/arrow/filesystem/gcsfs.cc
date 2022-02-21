@@ -627,14 +627,18 @@ GcsOptions GcsOptions::Defaults() {
   return GcsOptions{
       std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials()),
       {},
-      "https"};
+      "https",
+      /*default_bucket_location=*/{},
+      /*default_metadata=*/nullptr};
 }
 
 GcsOptions GcsOptions::Anonymous() {
   return GcsOptions{
       std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials()),
       {},
-      "http"};
+      "http",
+      /*default_bucket_location=*/{},
+      /*default_metadata=*/nullptr};
 }
 
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
@@ -643,7 +647,9 @@ GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
       std::make_shared<GcsCredentials>(
           google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
       {},
-      "https"};
+      "https",
+      /*default_bucket_location=*/{},
+      /*default_metadata=*/nullptr};
 }
 
 GcsOptions GcsOptions::FromImpersonatedServiceAccount(
@@ -652,14 +658,18 @@ GcsOptions GcsOptions::FromImpersonatedServiceAccount(
                         google::cloud::MakeImpersonateServiceAccountCredentials(
                             base_credentials.credentials, target_service_account)),
                     {},
-                    "https"};
+                    "https",
+                    /*default_bucket_location=*/{},
+                    /*default_metadata=*/nullptr};
 }
 
 GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
   return GcsOptions{std::make_shared<GcsCredentials>(
                         google::cloud::MakeServiceAccountCredentials(json_object)),
                     {},
-                    "https"};
+                    "https",
+                    /*default_bucket_location=*/{},
+                    /*default_metadata=*/nullptr};
 }
 
 Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
