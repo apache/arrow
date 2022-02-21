@@ -50,39 +50,35 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
       R"([[], [], [], [], [], ["length"], ["length"], ["length"], [], [], [], [], [], ["length"], [], [], []])");
   auto nullable =
       ArrayFromJSON(int32(), R"([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])");
-  auto case_sensitive =
-      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto serachable =
+  //Reference for creating a boolean() array only with zero.
+  auto zero_bool_array =
+    ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+  const auto& case_sensitive = zero_bool_array;
+  auto searchable =
       ArrayFromJSON(int32(), R"([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])");
-  auto unsigned_attribute =
-      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto fixed_prec_scale =
-      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto auto_unique_value =
-      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+  const auto& unsigned_attribute = zero_bool_array;
+  const auto& fixed_prec_scale = zero_bool_array;
+  const auto& auto_unique_value = zero_bool_array;
   auto local_type_name =
       ArrayFromJSON(utf8(), R"(["bit", "tinyint", "bigint", "longvarbinary",
                           "varbinary", "text", "longvarchar", "char",
                           "integer", "smallint", "float", "double",
                           "numeric", "varchar", "date", "time",
                           "timestamp"])");
-  auto minimal_scale =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto maximum_scale =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto sql_data_type =
-      ArrayFromJSON(int32(), R"([-7,-6,-5,-4,-3,-1,-1,1,4,5,6,8,8,12,91,92,93])");
-  auto sql_datetime_sub =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto num_prec_radix =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
-  auto interval_precision =
-      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+  //Reference for creating an int32() array only with zero.
+  auto zero_int_array =
+  ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");;
+  const auto& minimal_scale = zero_int_array;
+  const auto& maximum_scale = zero_int_array;
+  const auto& sql_data_type = data_type;
+  const auto& sql_datetime_sub = zero_int_array;
+  const auto& num_prec_radix = zero_int_array;
+  const auto& interval_precision = zero_int_array;
 
   return RecordBatch::Make(
       SqlSchema::GetTypeInfoSchema(), 17,
       {type_name_array, data_type, column_size, literal_prefix, literal_suffix,
-       create_params, nullable, case_sensitive, serachable, unsigned_attribute,
+       create_params, nullable, case_sensitive, searchable, unsigned_attribute,
        fixed_prec_scale, auto_unique_value, local_type_name, minimal_scale, maximum_scale,
        sql_data_type, sql_datetime_sub, num_prec_radix, interval_precision});
 }
