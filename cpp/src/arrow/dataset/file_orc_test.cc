@@ -69,9 +69,7 @@ TEST_F(TestOrcFileFormat, CountRows) { TestCountRows(); }
 class TestOrcFileFormatScan : public FileFormatScanMixin<OrcFormatHelper> {};
 
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
-TEST_P(TestOrcFileFormatScan, ScanBatchSize) {
-  // TODO(ARROW-14153): TestScanBatchSize();
-}
+TEST_P(TestOrcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
   TestScanProjectedNested();

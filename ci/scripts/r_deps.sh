@@ -23,6 +23,9 @@ set -ex
 : ${R_PRUNE_DEPS:=FALSE}
 R_PRUNE_DEPS=`echo $R_PRUNE_DEPS | tr '[:upper:]' '[:lower:]'`
 
+: ${R_DUCKDB_DEV:=FALSE}
+R_DUCKDB_DEV=`echo $R_DUCKDB_DEV | tr '[:upper:]' '[:lower:]'`
+
 source_dir=${1}/r
 
 pushd ${source_dir}
@@ -42,12 +45,9 @@ fi
 # options(warn=2) turns warnings into errors
 ${R_BIN} -e "options(warn=2); install.packages('remotes'); remotes::install_cran(c('glue', 'rcmdcheck', 'sys')); remotes::install_deps(INSTALL_opts = '"${INSTALL_ARGS}"')"
 
-# (Temporarily) install DuckDB from source to avoid their Unity builds
-# (though only if we haven't filtered it out of the deps above,
-# and if we can't get a binary from RSPM)
-# Remove when there is a DuckDB release > 0.3.1-1
-if [ ${R_PRUNE_DEPS} != "true" ]; then
-  ${R_BIN} -e "if (all(!grepl('packagemanager.rstudio', options('repos')))) { remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg', build = FALSE) }"
+# Install DuckDB from github when requested
+if [ ${R_DUCKDB_DEV} == "true" ]; then
+  ${R_BIN} -e "remotes::install_github('duckdb/duckdb', subdir = '/tools/rpkg', build = FALSE)"
 fi
 
 # Separately install the optional/test dependencies but don't error on them,

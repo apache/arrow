@@ -1256,6 +1256,28 @@ TEST_F(TestUInt32ParquetIO, Parquet_2_0_Compatibility) {
   ASSERT_NO_FATAL_FAILURE(this->ReadAndCheckSingleColumnTable(values));
 }
 
+using TestDurationParquetIO = TestParquetIO<::arrow::DurationType>;
+
+TEST_F(TestDurationParquetIO, Roundtrip) {
+  std::vector<bool> is_valid = {true, true, false, true};
+  std::vector<int64_t> values = {1, 2, 3, 4};
+
+  std::shared_ptr<Array> int_array, duration_arr;
+  ::arrow::ArrayFromVector<::arrow::Int64Type, int64_t>(::arrow::int64(), is_valid,
+                                                        values, &int_array);
+  ::arrow::ArrayFromVector<::arrow::DurationType, int64_t>(
+      ::arrow::duration(TimeUnit::NANO), is_valid, values, &duration_arr);
+
+  // When the original Arrow schema isn't stored, a Duration array comes
+  // back as int64 (how it is stored in Parquet)
+  this->RoundTripSingleColumn(duration_arr, int_array, default_arrow_writer_properties());
+
+  // When the original Arrow schema is stored, the Duration array type is preserved
+  const auto arrow_properties =
+      ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
+  this->RoundTripSingleColumn(duration_arr, duration_arr, arrow_properties);
+}
+
 TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
   // This also tests max_definition_level = 1
   std::shared_ptr<Array> arr;

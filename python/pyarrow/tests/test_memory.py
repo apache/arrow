@@ -17,17 +17,26 @@
 
 import contextlib
 import os
+import signal
 import subprocess
 import sys
 import weakref
 
 import pyarrow as pa
 
+import pytest
+
 
 possible_backends = ["system", "jemalloc", "mimalloc"]
 
 should_have_jemalloc = sys.platform == "linux"
 should_have_mimalloc = sys.platform == "win32"
+
+
+def supported_factories():
+    yield pa.default_memory_pool
+    for backend in pa.supported_memory_backends():
+        yield getattr(pa, f"{backend}_memory_pool")
 
 
 @contextlib.contextmanager
@@ -169,3 +178,63 @@ def test_supported_memory_backends():
         assert "jemalloc" in backends
     if should_have_mimalloc:
         assert "mimalloc" in backends
+
+
+def run_debug_memory_pool(pool_factory, env_value):
+    """
+    Run a piece of code making an invalid memory write with the
+    ARROW_DEBUG_MEMORY_POOL environment variable set to a specific value.
+    """
+    code = f"""if 1:
+        import ctypes
+        import pyarrow as pa
+
+        pool = pa.{pool_factory}()
+        buf = pa.allocate_buffer(64, memory_pool=pool)
+
+        # Write memory out of bounds
+        ptr = ctypes.cast(buf.address, ctypes.POINTER(ctypes.c_ubyte))
+        ptr[64] = 0
+
+        del buf
+        """
+    env = dict(os.environ)
+    env['ARROW_DEBUG_MEMORY_POOL'] = env_value
+    res = subprocess.run([sys.executable, "-c", code], env=env,
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    print(res.stderr, file=sys.stderr)
+    return res
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_abort(pool_factory):
+    res = run_debug_memory_pool(pool_factory.__name__, "abort")
+    if os.name == "posix":
+        assert res.returncode == -signal.SIGABRT
+    else:
+        assert res.returncode != 0
+    assert "Wrong size on deallocation" in res.stderr
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_trap(pool_factory):
+    res = run_debug_memory_pool(pool_factory.__name__, "trap")
+    if os.name == "posix":
+        assert res.returncode == -signal.SIGTRAP
+    else:
+        assert res.returncode != 0
+    assert "Wrong size on deallocation" in res.stderr
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_warn(pool_factory):
+    res = run_debug_memory_pool(pool_factory.__name__, "warn")
+    res.check_returncode()
+    assert "Wrong size on deallocation" in res.stderr
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_disabled(pool_factory):
+    res = run_debug_memory_pool(pool_factory.__name__, "")
+    res.check_returncode()
+    assert res.stderr == ""

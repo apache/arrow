@@ -20,7 +20,11 @@
 
 namespace gandiva {
 
+#ifdef GANDIVA_ENABLE_OBJECT_CODE_CACHE
 static const size_t DEFAULT_CACHE_SIZE = 500000;
+#else
+static const size_t DEFAULT_CACHE_SIZE = 500;
+#endif
 
 int GetCapacity() {
   size_t capacity;

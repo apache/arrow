@@ -23,7 +23,7 @@
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
 #' @importFrom rlang is_bare_character quo_get_expr quo_get_env quo_set_expr .data seq2 is_interactive
 #' @importFrom rlang expr caller_env is_character quo_name is_quosure enexpr enexprs as_quosure
-#' @importFrom rlang is_list call2
+#' @importFrom rlang is_list call2 is_empty
 #' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
@@ -41,7 +41,7 @@
       "semi_join", "anti_join", "count", "tally"
     )
   )
-  for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "ArrowTabular", "RecordBatchReader", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }
@@ -327,9 +327,6 @@ ArrowObject <- R6Class("ArrowObject",
         cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
-    },
-    invalidate = function() {
-      assign(".:xp:.", NULL, envir = self)
     }
   )
 )

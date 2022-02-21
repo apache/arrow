@@ -309,7 +309,8 @@ endif()
 
 if(ARROW_ORC
    OR ARROW_FLIGHT
-   OR ARROW_GANDIVA)
+   OR ARROW_GANDIVA
+   OR ARROW_ENGINE)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -1427,6 +1428,11 @@ macro(build_protobuf)
   set(PROTOBUF_VENDORED TRUE)
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+  # This flag is based on what the user initially requested but if
+  # we've fallen back to building protobuf we always build it statically
+  # so we need to reset the flag so that we can link against it correctly
+  # later.
+  set(Protobuf_USE_STATIC_LIBS ON)
   # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
   set(PROTOBUF_STATIC_LIB
       "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -1524,6 +1530,9 @@ if(ARROW_WITH_PROTOBUF)
     # google::protobuf::MessageLite::ByteSize() is deprecated since
     # Protobuf 3.4.0.
     set(ARROW_PROTOBUF_REQUIRED_VERSION "3.4.0")
+  elseif(ARROW_ENGINE)
+    # Substrait protobuf files use proto3 syntax
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.0.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
@@ -1533,7 +1542,7 @@ if(ARROW_WITH_PROTOBUF)
                      PC_PACKAGE_NAMES
                      protobuf)
 
-  if(ARROW_PROTOBUF_USE_SHARED AND MSVC_TOOLCHAIN)
+  if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
 
@@ -1636,6 +1645,10 @@ if(ARROW_JEMALLOC)
        # See https://github.com/jemalloc/jemalloc/issues/1237
        "--disable-initial-exec-tls"
        ${EP_LOG_OPTIONS})
+  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+    # Enable jemalloc debug checks when Arrow itself has debugging enabled
+    list(APPEND JEMALLOC_CONFIGURE_COMMAND "--enable-debug")
+  endif()
   set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")

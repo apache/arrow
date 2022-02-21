@@ -204,6 +204,7 @@ set(ARROW_SRCS
     util/compression.cc
     util/counting_semaphore.cc
     util/cpu_info.cc
+    util/debug.cc
     util/decimal.cc
     util/delimiting.cc
     util/formatting.cc
@@ -722,6 +723,10 @@ endif()
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
+endif()
+
+if(ARROW_ENGINE)
+  add_subdirectory(engine)
 endif()
 
 if(ARROW_CUDA)

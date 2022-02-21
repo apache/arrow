@@ -4094,6 +4094,54 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
                                         dtype='object')
 
 
+def test_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    if Version(pd.__version__) < Version("1.0.0"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    data = pa.array([1, 2, 3], pa.int64())
+
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == pd.Int64Dtype()
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+
+@pytest.mark.pandas
+def test_chunked_array_to_pandas_types_mapper():
+    # https://issues.apache.org/jira/browse/ARROW-9664
+    if Version(pd.__version__) < Version("1.0.0"):
+        pytest.skip("ExtensionDtype to_pandas method missing")
+
+    data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
+    assert isinstance(data, pa.ChunkedArray)
+
+    # Test with mapper function
+    types_mapper = {pa.int64(): pd.Int64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == pd.Int64Dtype()
+
+    # Test mapper function returning None
+    types_mapper = {pa.int64(): None}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+    # Test mapper function not containing the dtype
+    types_mapper = {pa.float64(): pd.Float64Dtype()}.get
+    result = data.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("int64")
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 

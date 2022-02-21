@@ -98,8 +98,9 @@ class GANDIVA_EXPORT LLVMGenerator {
    public:
     Visitor(LLVMGenerator* generator, llvm::Function* function,
             llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-            llvm::Value* arg_local_bitmaps, std::vector<llvm::Value*> slice_offsets,
-            llvm::Value* arg_context_ptr, llvm::Value* loop_var);
+            llvm::Value* arg_local_bitmaps, llvm::Value* arg_holder_ptrs,
+            std::vector<llvm::Value*> slice_offsets, llvm::Value* arg_context_ptr,
+            llvm::Value* loop_var);
 
     void Visit(const VectorReadValidityDex& dex) override;
     void Visit(const VectorReadFixedLenValueDex& dex) override;
@@ -141,7 +142,7 @@ class GANDIVA_EXPORT LLVMGenerator {
     LValuePtr BuildValueAndValidity(const ValueValidityPair& pair);
 
     // Generate code to build the params.
-    std::vector<llvm::Value*> BuildParams(FunctionHolder* holder,
+    std::vector<llvm::Value*> BuildParams(int holder_idx,
                                           const ValueValidityPairVector& args,
                                           bool with_validity, bool with_context);
 
@@ -172,6 +173,7 @@ class GANDIVA_EXPORT LLVMGenerator {
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
     llvm::Value* arg_local_bitmaps_;
+    llvm::Value* arg_holder_ptrs_;
     std::vector<llvm::Value*> slice_offsets_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;

@@ -19,6 +19,12 @@ jobs:
     pool:
       vmImage: ubuntu-latest
     timeoutInMinutes: 360
+    {% if env is defined %}
+    variables:
+    {% for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {% endfor %}
+    {% endif %}
     steps:
       - script: |
           set -ex

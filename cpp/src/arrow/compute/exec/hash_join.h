@@ -59,8 +59,8 @@ class ARROW_EXPORT HashJoinSchema {
 
   Result<Expression> BindFilter(Expression filter, const Schema& left_schema,
                                 const Schema& right_schema);
-  std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_prefix,
-                                           const std::string& right_field_name_prefix);
+  std::shared_ptr<Schema> MakeOutputSchema(const std::string& left_field_name_suffix,
+                                           const std::string& right_field_name_suffix);
 
   bool LeftPayloadIsEmpty() { return PayloadIsEmpty(0); }
 

@@ -724,21 +724,28 @@ test_that("extract tz", {
     df
   )
 
+  # test a few types directly from R objects
   expect_error(
-    call_binding("tz", Expression$scalar("2020-10-01")),
+    call_binding("tz", "2020-10-01"),
     "timezone extraction for objects of class `string` not supported in Arrow"
   )
   expect_error(
-    call_binding("tz", Expression$scalar(as.Date("2020-10-01"))),
+    call_binding("tz", as.Date("2020-10-01")),
     "timezone extraction for objects of class `date32[day]` not supported in Arrow",
     fixed = TRUE
   )
   expect_error(
-    call_binding("tz", Expression$scalar(1L)),
+    call_binding("tz", 1L),
     "timezone extraction for objects of class `int32` not supported in Arrow"
   )
    expect_error(
-    call_binding("tz", Expression$scalar(1.1)),
+    call_binding("tz", 1.1),
     "timezone extraction for objects of class `double` not supported in Arrow"
+  )
+
+  # Test one expression
+  expect_error(
+    call_binding("tz", Expression$scalar("2020-10-01")),
+    "timezone extraction for objects of class `string` not supported in Arrow"
   )
 })

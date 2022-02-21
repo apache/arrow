@@ -1838,6 +1838,7 @@ def _check_datetime_components(timestamps, timezone=None):
         fields=iso_calendar_fields)
 
     assert pc.year(tsa).equals(pa.array(ts.dt.year))
+    assert pc.is_leap_year(tsa).equals(pa.array(ts.dt.is_leap_year))
     assert pc.month(tsa).equals(pa.array(ts.dt.month))
     assert pc.day(tsa).equals(pa.array(ts.dt.day))
     assert pc.day_of_week(tsa).equals(pa.array(ts.dt.dayofweek))
@@ -1853,6 +1854,10 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.microsecond(tsa).equals(pa.array(ts.dt.microsecond % 10 ** 3))
     assert pc.nanosecond(tsa).equals(pa.array(ts.dt.nanosecond))
     assert pc.subsecond(tsa).equals(pa.array(subseconds))
+
+    if ts.dt.tz:
+        is_dst = ts.apply(lambda x: x.dst().seconds > 0)
+        assert pc.is_dst(tsa).equals(pa.array(is_dst))
 
     day_of_week_options = pc.DayOfWeekOptions(
         count_from_zero=False, week_start=1)

@@ -31,6 +31,7 @@ cpp/src/generated/parquet_constants.cpp
 cpp/src/generated/parquet_constants.h
 cpp/src/generated/parquet_types.cpp
 cpp/src/generated/parquet_types.h
+cpp/src/generated/substrait/*
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
 cpp/src/plasma/thirdparty/ae/ae_epoll.c
@@ -123,11 +124,10 @@ dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt
-go/arrow/flight/Flight_grpc.pb.go
 go/go.sum
 go/arrow/Gopkg.lock
-go/arrow/flight/Flight.pb.go
-go/arrow/flight/Flight_grpc.pb.go
+go/arrow/flight/internal/flight/Flight.pb.go
+go/arrow/flight/internal/flight/Flight_grpc.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
