@@ -421,6 +421,7 @@ install_conda() {
 
   # Creating a separate conda environment
   . $prefix/etc/profile.d/conda.sh
+  conda activate base
 }
 
 setup_conda() {
@@ -939,30 +940,23 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="3.7 3.8 3.9 3.10"
+  local python_versions="3.7m 3.8 3.9 3.10"
   local platform_tags="manylinux_2_12_${arch}.manylinux2010_${arch} manylinux_2_17_${arch}.manylinux2014_${arch}"
 
-  for pyver in ${python_versions}; do
+  for python in ${python_versions}; do
+    local pyver=${python/m}
     for platform in ${platform_tags}; do
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${platform}.whl
+      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
   done
 }
 
 test_macos_wheels() {
-  local macos_version=$(sw_vers -productVersion)
-  local macos_short_version=${macos_version:0:5}
-
   local check_s3=ON
   local check_flight=ON
-
-  # macOS version <= 10.13
-  if [ $(echo "${macos_short_version}\n10.14" | sort | head -n1) == "${macos_short_version}" ]; then
-    local check_s3=OFF
-  fi
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
@@ -975,12 +969,17 @@ test_macos_wheels() {
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
-  for pyver in ${python_versions}; do
+  for python in ${python_versions}; do
+    local pyver=${python/m}
     for platform in ${platform_tags}; do
+      if [[ "$platform" == *"10_9"* ]]; then
+        check_s3=OFF
+      fi
+
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
 
-      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-${platform}.whl
+      pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
         ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
@@ -999,7 +998,7 @@ test_macos_wheels() {
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
-        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
+        INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} \
           arch -${arch} ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
       done
     done
