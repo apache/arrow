@@ -818,4 +818,32 @@ test_that("date works in arrow", {
       collect(),
     test_df
   )
+
+  # a timestamp is cast correctly to date
+  expect_equal(
+    call_binding("date", Array$create(as.POSIXct("2022-02-21"))),
+    Array$create(as.POSIXct("2022-02-21"), type = date32())
+  )
+})
+
+test_that("date() errors with unsupported inputs", {
+  expect_error(
+    call_binding("date", Scalar$create("a string")),
+    "NotImplemented: Unsupported cast from string to date32 using function cast_date32"
+  )
+
+  expect_error(
+    call_binding("date", Scalar$create(32L)),
+    "NotImplemented: Unsupported cast from integer to date32 using function cast_date32"
+  )
+
+  expect_error(
+    call_binding("date", Scalar$create(32.2)),
+    "NotImplemented: Unsupported cast from double to date32 using function cast_date32"
+  )
+
+  expect_error(
+    call_binding("date", Scalar$create(TRUE)),
+    "NotImplemented: Unsupported cast from bool to date32 using function cast_date32"
+  )
 })
