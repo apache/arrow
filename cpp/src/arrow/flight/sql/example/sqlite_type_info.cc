@@ -50,9 +50,9 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
       R"([[], [], [], [], [], ["length"], ["length"], ["length"], [], [], [], [], [], ["length"], [], [], []])");
   auto nullable =
       ArrayFromJSON(int32(), R"([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])");
-  //Reference for creating a boolean() array only with zero.
+  // Reference for creating a boolean() array only with zero.
   auto zero_bool_array =
-    ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
+      ArrayFromJSON(boolean(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
   const auto& case_sensitive = zero_bool_array;
   auto searchable =
       ArrayFromJSON(int32(), R"([3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3])");
@@ -65,9 +65,9 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
                           "integer", "smallint", "float", "double",
                           "numeric", "varchar", "date", "time",
                           "timestamp"])");
-  //Reference for creating an int32() array only with zero.
+  // Reference for creating an int32() array only with zero.
   auto zero_int_array =
-  ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");;
+      ArrayFromJSON(int32(), R"([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])");
   const auto& minimal_scale = zero_int_array;
   const auto& maximum_scale = zero_int_array;
   const auto& sql_data_type = data_type;
@@ -87,12 +87,12 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult(int data_type_filter) {
   auto record_batch = DoGetTypeInfoResult();
 
   std::vector<int> data_type_vector{-7, -6, -5, -4, -3, -1, -1, 1, 4,
-                                        5,  6,  8,  8,  12, 91, 92, 93};
+                                    5,  6,  8,  8,  12, 91, 92, 93};
 
   // Checking if the data_type is in the vector with the sqlite3 data types
   // and returning a slice from the vector containing the filtered values.
-  auto pair = std::equal_range(data_type_vector.begin(),
-                               data_type_vector.end(), data_type_filter);
+  auto pair = std::equal_range(data_type_vector.begin(), data_type_vector.end(),
+                               data_type_filter);
 
   return record_batch->Slice(pair.first - data_type_vector.begin(),
                              pair.second - pair.first);
