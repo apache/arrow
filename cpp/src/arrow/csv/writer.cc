@@ -216,13 +216,9 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     const int64_t buffer_size = array.total_values_length();
     int64_t offset = 0;
 #if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-#if defined(ARROW_HAVE_SSE4_2)
     // _mm_cmpistrc gives slightly better performance than the naive approach,
     // probably doesn't deserve the effort
-    using simd_batch = xsimd::batch<uint8_t, xsimd::sse4_2>;
-#else
-    using simd_batch = xsimd::batch<uint8_t, xsimd::neon64>;
-#endif
+    using simd_batch = xsimd::make_sized_batch_t<uint8_t, 16>;
     while ((offset + 16) <= buffer_size) {
       const auto v = simd_batch::load_unaligned(data + offset);
       if (xsimd::any((v == '\n') | (v == '\r') | (v == ',') | (v == '"'))) {
