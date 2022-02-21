@@ -4,8 +4,6 @@
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
-<a href="https://arrow.apache.org/docs/r/"><img src="man/figures/logo.png" align="right" width="20%" /></a>
-
 **[Apache Arrow](https://arrow.apache.org/) is a cross-language
 development platform for in-memory data.** It specifies a standardized
 language-independent columnar memory format for flat and hierarchical
