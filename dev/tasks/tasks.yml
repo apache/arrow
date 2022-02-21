@@ -784,6 +784,7 @@ tasks:
       - arrow-dataset-{no_rc_version}-tests.jar
       - arrow-dataset-{no_rc_version}.jar
       - arrow-dataset-{no_rc_version}.pom
+      - arrow-flight-{no_rc_version}.pom
       - arrow-format-{no_rc_version}-javadoc.jar
       - arrow-format-{no_rc_version}-sources.jar
       - arrow-format-{no_rc_version}-tests.jar
