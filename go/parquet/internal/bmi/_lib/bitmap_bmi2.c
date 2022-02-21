@@ -15,10 +15,20 @@
 // limitations under the License.
 
 #include <stdint.h>
-#include <x86intrin.h>
 
 uint64_t extract_bits(uint64_t bitmap, uint64_t select_bitmap) {
+#if defined(__BMI2__)
+#include <x86intrin.h>
    return (uint64_t)(_pext_u64(bitmap, select_bitmap));
+#else
+  uint64_t res = 0;
+  for (uint64_t bp = 1; select_bitmap; bp += bp) {
+    if (bitmap & select_bitmap & -select_bitmap)
+      res |= bp;
+    select_bitmap &= select_bitmap - 1;
+  }
+  return res;
+#endif
 }
 
 uint64_t levels_to_bitmap(const int16_t* levels, const int num_levels, const int16_t rhs) {
