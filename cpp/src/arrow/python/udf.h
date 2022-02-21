@@ -15,6 +15,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 
 #include <iostream>
@@ -139,41 +140,45 @@ class ARROW_PYTHON_EXPORT UDFSynthesizer {
     return Status::OK();
   }
 
-  Status MakePyFunction(PyObject* function, PyObject* args) {
+  Status MakePyFunction(PyObject* function) {
     Status st;
     auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
     Py_XINCREF(function);
-    Py_XINCREF(args);
     //double result = PyFloat_AsDouble(args);
     //std::cout << "Make Function Args : " << result << std::endl;
-    auto call_back_lambda = [function, args](cp::KernelContext* ctx, const cp::ExecBatch& batch,
+    auto call_back_lambda = [function](cp::KernelContext* ctx, const cp::ExecBatch& batch,
                                Datum* out) {
       PyGILState_STATE state = PyGILState_Ensure();
-      // PyObject* obj = Py_BuildValue("s", "hello");
-      //Py_XINCREF(function);
-      //Py_XINCREF(args);
+      std::shared_ptr<arrow::Array> c_res_array;
       if (function == NULL) {
         PyGILState_Release(state);
         return Status::ExecutionError("python function cannot be null");
       }
 
       int res = PyCallable_Check(function);
-
       if (res == 1) {
         std::cout << "This is a PyCallback" << std::endl;
-        PyObject *result = PyObject_CallObject(function, args);
+        auto c_array = batch[0].make_array();
+        PyObject* py_array = wrap_array(c_array);
+        PyObject* arg_tuple = PyTuple_Pack(1, py_array);
+        PyObject *result = PyObject_CallObject(function, arg_tuple);
         Py_DECREF(function);
         if (result == NULL) {
           PyGILState_Release(state);
           return Status::ExecutionError("Error occured in computation");
         }
+        auto res = unwrap_array(result);
+        if(!res.status().ok()) {
+          PyGILState_Release(state);
+          return res.status();
+        }
+        c_res_array = res.ValueOrDie();
       } else {
-        std::cout << "This is not a callable" << std::endl;
         PyErr_Print();
+        return Status::ExecutionError("Error occured in computation");
       }
-      // Python Way Ends
-      auto res_func = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
-      *out->mutable_array() = *res_func.ValueOrDie().array();
+      auto datum = new Datum(c_res_array);
+      *out->mutable_array() = *datum->array();
       PyGILState_Release(state);
       return Status::OK();
     };

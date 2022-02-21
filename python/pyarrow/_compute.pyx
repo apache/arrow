@@ -2433,7 +2433,7 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
             c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
         c_udf_syn.MakeFunction()
 
-def register_pyfunction(func_name, arity, function_doc, in_types, out_type, callback, args):
+def register_pyfunction(func_name, arity, function_doc, in_types, out_type, callback):
         cdef:
             c_string c_func_name
             CArity c_arity
@@ -2441,7 +2441,6 @@ def register_pyfunction(func_name, arity, function_doc, in_types, out_type, call
             CInputType in_tmp
             vector[CInputType] c_in_types
             PyObject* c_callback
-            PyObject* c_args
             shared_ptr[CDataType] c_type
             object obj
         
@@ -2464,17 +2463,8 @@ def register_pyfunction(func_name, arity, function_doc, in_types, out_type, call
 
         c_type = pyarrow_unwrap_data_type(out_type)
         c_callback = <PyObject*>callback
-        # TODO: make sure to add a validation about args being a tuple
-        # the PyObject_CallObject(...) expects args to be a tuple
-        c_args = <PyObject*>args
         #c_callback = <ExecFunc>udf
         cdef COutputType* c_out_type = new COutputType(c_type)
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type))
-        c_udf_syn.MakePyFunction(c_callback, c_args)
-        obj = <object> c_callback
-        pargs = <object> c_args
-        obj(pargs)
-
-cdef public void py_caller(py_function):
-    py_function()
+        c_udf_syn.MakePyFunction(c_callback)
