@@ -106,6 +106,23 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
+    if (call_binding("is.integer", x)) {
+      if (inherits(x, "Expression")) {
+        x <- call_binding(
+          "if_else",
+          call_binding_agg("all", call_binding("between", x, 1, 12)),
+          x,
+          abort("bla1: Values are not in 1:12")
+        )
+      } else {
+        if (all(1 <= x & x <= 12)) {
+          x <- x
+        } else {
+          abort("bla2: Values are not in 1:12")
+        }
+      }
+    }
+
     if (label) {
       if (abbr) {
         format <- "%b"

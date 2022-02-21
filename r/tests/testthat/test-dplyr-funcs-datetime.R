@@ -769,6 +769,7 @@ test_that("extract tz", {
 })
 
 test_that("semester works with temporal types and integers", {
+test_that("month() supports integer input",{
   test_df <- tibble(
     month_as_int = c(1:12, NA),
     month_as_char_pad = sprintf("%02i", month_as_int),
@@ -817,6 +818,29 @@ test_that("dst extracts daylight savings time correctly", {
       mutate(dst = dst(dates)) %>%
       collect(),
     test_df
+  test_df %>%
+    arrow_table() %>%
+    mutate(month_int_input = month(month_as_int)) %>%
+    collect()
+
+  # we need to support both integer and integer + label, similar to below
+  lubridate::month(1)
+  lubridate::month(1.1)
+  lubridate::month(4L)
+  lubridate::month(4L, label = TRUE)
+
+
+  expect_error(
+    call_binding("month", "not a month")
+  )
+  expect_error(
+    call_binding("month", 22L)
+  )
+  expect_error(
+    call_binding("month", -4)
+  )
+  expect_error(
+    call_binding("month", NA)
   )
 })
 
