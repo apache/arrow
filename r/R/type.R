@@ -78,7 +78,7 @@ type.default <- function(x) Array__infer_type(x)
 type.ArrowDatum <- function(x) x$type
 
 #' @export
-type.Expression <- function(x) x$type
+type.Expression <- function(x) x$type()
 
 #----- metadata
 
