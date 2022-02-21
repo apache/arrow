@@ -61,7 +61,7 @@ WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
                                 const std::string& eol = "\n",
-                                const char delimiter = ',') {
+                                const std::string& delimiter = ",") {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
@@ -173,6 +173,10 @@ std::vector<WriterTestParams> GenerateTestCases() {
         "style is \"None\". See RFC4180. Invalid value: ",
         value);
   };
+  auto expected_status_custom_delimiter = [](const char* value) {
+    return Status::Invalid(value, " Delimiter is not valid with the provided data. ");
+  };
+
   auto reject_structural_params = [&](std::vector<const char*> rows,
                                       const char* error_val) -> WriterTestParams {
     std::string json_rows = "[";
@@ -196,6 +200,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
   auto batch_custom_delimiter = R"([{"a": 42, "b": -12}])";
   auto expected_output_delimiter_tabs = "42\t-12\n";
   auto expected_output_delimiter_pipe = "42|-12\n";
+  auto expected_output_delimiter_comma = "42,-12\n";
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(), ""},
@@ -245,12 +250,20 @@ std::vector<WriterTestParams> GenerateTestCases() {
       // exercise custom delimiter
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "\n", /*delimiter=*/'\t'),
+                          QuotingStyle::Needed, "\n", /*delimiter=*/"\t"),
        expected_output_delimiter_tabs},
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "\n", /*delimiter=*/'|'),
-       expected_output_delimiter_pipe}};
+                          QuotingStyle::Needed, "\n", /*delimiter=*/"|"),
+       expected_output_delimiter_pipe},
+      {schema_custom_delimiter, batch_custom_delimiter,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, "\n"),
+       expected_output_delimiter_pipe, expected_status_custom_delimiter("|")},
+      {schema_custom_delimiter, batch_custom_delimiter,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, "\n", /*delimiter=*/"|"),
+       expected_output_delimiter_comma, expected_status_custom_delimiter(",")}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
