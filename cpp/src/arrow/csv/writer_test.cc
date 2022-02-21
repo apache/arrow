@@ -173,8 +173,11 @@ std::vector<WriterTestParams> GenerateTestCases() {
         "style is \"None\". See RFC4180. Invalid value: ",
         value);
   };
-  auto expected_status_custom_delimiter = [](const char value) {
-    return Status::Invalid(value, " Delimiter is not valid with the provided data. ");
+
+  auto expected_status_illegal_delimiter = [](const char value) {
+    return Status::Invalid(
+        "WriteOptions: delimiter cannot be \\r or \\n or \" or EOL. Invalid value: ",
+        value);
   };
 
   auto reject_structural_params = [&](std::vector<const char*> rows,
@@ -200,7 +203,6 @@ std::vector<WriterTestParams> GenerateTestCases() {
   auto batch_custom_delimiter = R"([{"a": 42, "b": -12}])";
   auto expected_output_delimiter_tabs = "42\t-12\n";
   auto expected_output_delimiter_pipe = "42|-12\n";
-  auto expected_output_delimiter_comma = "42,-12\n";
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(), ""},
@@ -258,12 +260,20 @@ std::vector<WriterTestParams> GenerateTestCases() {
        expected_output_delimiter_pipe},
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "\n"),
-       expected_output_delimiter_pipe, expected_status_custom_delimiter('|')},
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/'\r'),
+       /*expected_output*/ "", expected_status_illegal_delimiter('\r')},
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "\n", /*delimiter=*/'|'),
-       expected_output_delimiter_comma, expected_status_custom_delimiter(',')}};
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/'\n'),
+       /*expected_output*/ "", expected_status_illegal_delimiter('\n')},
+      {schema_custom_delimiter, batch_custom_delimiter,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/'"'),
+       /*expected_output*/ "", expected_status_illegal_delimiter('"')},
+      {schema_custom_delimiter, batch_custom_delimiter,
+       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                          QuotingStyle::Needed, /*eol=*/";", /*delimiter=*/';'),
+       /*expected_output*/ "", expected_status_illegal_delimiter(';')}};
 }
 
 class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
