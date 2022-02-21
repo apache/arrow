@@ -180,7 +180,6 @@ TEST(TestArithmeticOps, TestPositiveNegative) {
 }
 
 TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
-
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
@@ -190,11 +189,21 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
   result = negative_daytimeinterval_int64(ctx_ptr, -4294967298);
   EXPECT_EQ(result, -4294967298);
 
-  //Input: 44023418384000;      Mean:  10250 days &  3600000 time
-  //Response: -44019123416704;  Mean: -10250 days & -3600000 time
+  // Input: 44023418384000;      Mean:  10250 days &  3600000 time
+  // Response: -44019123416704;  Mean: -10250 days & -3600000 time
   result = negative_daytimeinterval_int64(ctx_ptr, 44023418384000);
   EXPECT_EQ(result, -44019123416704);
 
+  // Input: 9223372034707292159;      Mean:  2147483647 days &  2147483647 time
+  // Response: -9223372030412324863;  Mean: -2147483647 days & -2147483647 time
+  const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
+  result = negative_daytimeinterval_int64(ctx_ptr, INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME);
+  EXPECT_EQ(result, -9223372030412324863);
+
+  result = negative_daytimeinterval_int64(ctx_ptr, INT64_MAX);
+  EXPECT_EQ(ctx.has_error(), true);
+  EXPECT_EQ(ctx.get_error(), "Interval is more than max allowed in negative execution");
+  ctx.Reset();
 }
 
 TEST(TestArithmeticOps, TestDivide) {

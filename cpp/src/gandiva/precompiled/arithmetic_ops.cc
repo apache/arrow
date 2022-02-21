@@ -389,11 +389,18 @@ NEGATIVE_INTEGER(int32, 32)
 NEGATIVE_INTEGER(int64, 64)
 NEGATIVE_INTEGER(month_interval, 32)
 
-gdv_int64 negative_daytimeinterval_int64(gdv_int64 context, gdv_day_time_interval interval) {
+const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
 
-  if (interval < 0)
-  {
+gdv_int64 negative_daytimeinterval_int64(gdv_int64 context,
+                                         gdv_day_time_interval interval) {
+  if (interval < 0) {
     return interval;
+  }
+
+  if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME) {
+    gdv_fn_context_set_error_msg(
+        context, "Interval is more than max allowed in negative execution");
+    return 0;
   }
 
   // The interval is a 64-bit integer where the lower half of the bytes represents the
