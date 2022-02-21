@@ -154,7 +154,7 @@ std::unique_ptr<cp::FunctionOptions> ExampleFunctionOptionsType::Copy(
 
 PyObject* SimpleFunction() {
   PyObject* out = Py_BuildValue("s", "hello");
-  std::cout << "HELLO" << std::endl;
+  std::cout << "HELLO FROM PYTHON FUNCTION IN C++" << std::endl;
   return std::move(out);
 }
 
@@ -366,34 +366,34 @@ arrow::Status Execute() {
   return future.status();
 }
 
-arrow::Status ExecuteSynth() {
+// arrow::Status ExecuteSynth() {
+//   std::string func_name = "simple_func";
+//   cp::Arity arity = cp::Arity::Unary();
+//   const cp::FunctionDoc func_doc3{
+//       "Example function to demonstrate registering an out-of-tree function",
+//       "",
+//       {"x"},
+//       "ExampleFunctionOptions3"};
+//   std::vector<cp::InputType> in_types = {cp::InputType::Array(arrow::int64())};
+//   cp::OutputType out_type = arrow::int64();
+//   PyObject* (*py_callback)();
+//   py_callback = &SimpleFunction;
+//   arrow::py::UDFSynthesizer udf_sync(func_name, arity, func_doc3, in_types, out_type,
+//                                      py_callback);
+//   ABORT_ON_FAILURE(udf_sync.MakePyFunction());
 
-  std::string func_name = "simple_func";
-  cp::Arity arity = cp::Arity::Unary();
-  const cp::FunctionDoc func_doc3{
-    "Example function to demonstrate registering an out-of-tree function",
-    "",
-    {"x"},
-    "ExampleFunctionOptions3"};  
-  std::vector<cp::InputType> in_types = {cp::InputType::Array(arrow::int64())};
-  cp::OutputType out_type = arrow::int64();
+//   arrow::Int64Builder builder(arrow::default_memory_pool());
+//   std::shared_ptr<arrow::Array> arr1, arr2;
+//   ABORT_ON_FAILURE(builder.Append(42));
+//   ABORT_ON_FAILURE(builder.Finish(&arr1));
+//   auto options = std::make_shared<ExampleFunctionOptions>();
+//   auto maybe_result = cp::CallFunction(func_name, {arr1}, options.get());
+//   ABORT_ON_FAILURE(maybe_result.status());
 
-  arrow::py::UDFSynthesizer udf_sync(func_name, arity, func_doc3, in_types, out_type, ExampleFunctionImpl);
-  ABORT_ON_FAILURE(udf_sync.MakeFunction());
+//   std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
 
-  arrow::Int64Builder builder(arrow::default_memory_pool());
-  std::shared_ptr<arrow::Array> arr1, arr2;
-  ABORT_ON_FAILURE(builder.Append(42));
-  ABORT_ON_FAILURE(builder.Finish(&arr1));
-  auto options = std::make_shared<ExampleFunctionOptions>();
-  auto maybe_result = cp::CallFunction(func_name, {arr1}, options.get());
-  ABORT_ON_FAILURE(maybe_result.status());
-
-  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
-
-
-  return arrow::Status::OK();
-}
+//   return arrow::Status::OK();
+// }
 
 arrow::Status ExecutePy() {
   cp::ExecContext exec_context(arrow::default_memory_pool(),

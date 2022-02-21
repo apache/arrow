@@ -17,6 +17,8 @@
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
 
+#include <iostream>
+
 namespace cp = arrow::compute;
 
 namespace arrow {
@@ -85,8 +87,7 @@ class ARROW_PYTHON_EXPORT UDFScalarFunction
   /// kernel's signature does not match the function's arity.
   Status AddKernel(UDFScalarKernel kernel) {
     ARROW_RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
-    if (arity_.is_varargs &&
-        !kernel.signature->is_varargs()) {
+    if (arity_.is_varargs && !kernel.signature->is_varargs()) {
       return Status::Invalid("Function accepts varargs but kernel signature does not");
     }
     kernels_.emplace_back(std::move(kernel));
@@ -98,43 +99,109 @@ class ARROW_PYTHON_EXPORT UDFScalarFunction
   Status Hello2();
 };
 
-using KernelExec = std::function<Status(cp::KernelContext*, const cp::ExecBatch&, Datum*)>;
+using KernelExec =
+    std::function<Status(cp::KernelContext*, const cp::ExecBatch&, Datum*)>;
 
 class ARROW_PYTHON_EXPORT UDFSynthesizer {
-  public:
+ public:
+  UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
+                 std::vector<cp::InputType> in_types, cp::OutputType out_type,
+                 Status (*callback)(cp::KernelContext*, const cp::ExecBatch&, Datum*))
+      : func_name_(func_name),
+        arity_(arity),
+        func_doc_(func_doc),
+        in_types_(in_types),
+        out_type_(out_type),
+        callback_(callback) {}
 
-    UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
-     std::vector<cp::InputType> in_types, cp::OutputType out_type, 
-     Status(*callback)(cp::KernelContext*, const cp::ExecBatch&, Datum*)) 
-     : func_name_(func_name), arity_(arity), func_doc_(func_doc),
-     in_types_(in_types), out_type_(out_type), callback_(callback) {}
+  UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
+                 std::vector<cp::InputType> in_types, cp::OutputType out_type)
+      : func_name_(func_name),
+        arity_(arity),
+        func_doc_(func_doc),
+        in_types_(in_types),
+        out_type_(out_type) {}
 
-    Status MakeFunction() {
-      Status st;
-      auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
-      cp::ScalarKernel kernel(in_types_, out_type_, callback_);
-      kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
-      st = func->AddKernel(std::move(kernel));
-      if (!st.ok()) {
-        return Status::ExecutionError("Kernel couldn't be added to the udf");
-      }
-      auto registry = cp::GetFunctionRegistry();
-      st = registry->AddFunction(std::move(func));
-      if (!st.ok()) {
-        return Status::ExecutionError("udf registration failed");
-      }
-      return Status::OK();
+  Status MakeFunction() {
+    Status st;
+    auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
+    cp::ScalarKernel kernel(in_types_, out_type_, callback_);
+    kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+    st = func->AddKernel(std::move(kernel));
+    if (!st.ok()) {
+      return Status::ExecutionError("Kernel couldn't be added to the udf");
     }
+    auto registry = cp::GetFunctionRegistry();
+    st = registry->AddFunction(std::move(func));
+    if (!st.ok()) {
+      return Status::ExecutionError("udf registration failed");
+    }
+    return Status::OK();
+  }
 
-    private:
-    
-      std::string func_name_;
-      cp::Arity arity_;
-      cp::FunctionDoc func_doc_;
-      std::vector<cp::InputType> in_types_;
-      cp::OutputType out_type_;
-      //KernelExec kernel_exec_;
-      Status(*callback_)(cp::KernelContext*, const cp::ExecBatch&, Datum*);
+  Status MakePyFunction(PyObject* function, PyObject* args) {
+    Status st;
+    auto func = std::make_shared<cp::ScalarFunction>(func_name_, arity_, &func_doc_);
+    Py_XINCREF(function);
+    Py_XINCREF(args);
+    //double result = PyFloat_AsDouble(args);
+    //std::cout << "Make Function Args : " << result << std::endl;
+    auto call_back_lambda = [function, args](cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                               Datum* out) {
+      PyGILState_STATE state = PyGILState_Ensure();
+      // PyObject* obj = Py_BuildValue("s", "hello");
+      //Py_XINCREF(function);
+      //Py_XINCREF(args);
+      if (function == NULL) {
+        PyGILState_Release(state);
+        return Status::ExecutionError("python function cannot be null");
+      }
+
+      int res = PyCallable_Check(function);
+
+      if (res == 1) {
+        std::cout << "This is a PyCallback" << std::endl;
+        PyObject *result = PyObject_CallObject(function, args);
+        Py_DECREF(function);
+        if (result == NULL) {
+          PyGILState_Release(state);
+          return Status::ExecutionError("Error occured in computation");
+        }
+      } else {
+        std::cout << "This is not a callable" << std::endl;
+        PyErr_Print();
+      }
+      // Python Way Ends
+      auto res_func = cp::CallFunction("add", {batch[0].array(), batch[0].array()});
+      *out->mutable_array() = *res_func.ValueOrDie().array();
+      PyGILState_Release(state);
+      return Status::OK();
+    };
+    cp::ScalarKernel kernel(in_types_, out_type_, call_back_lambda);
+    kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+    st = func->AddKernel(std::move(kernel));
+    if (!st.ok()) {
+      return Status::ExecutionError("Kernel couldn't be added to the udf");
+    }
+    auto registry = cp::GetFunctionRegistry();
+    st = registry->AddFunction(std::move(func));
+    if (!st.ok()) {
+      return Status::ExecutionError("udf registration failed");
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::string func_name_;
+  cp::Arity arity_;
+  cp::FunctionDoc func_doc_;
+  std::vector<cp::InputType> in_types_;
+  cp::OutputType out_type_;
+  // KernelExec kernel_exec_;
+  Status (*callback_)(cp::KernelContext*, const cp::ExecBatch&, Datum*);
+  // C++ way
+  //PyObject* (*py_call_back_)();
+  // Python way
 };
 
 }  // namespace py

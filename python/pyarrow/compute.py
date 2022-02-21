@@ -79,6 +79,7 @@ from pyarrow._compute import (  # noqa
     list_functions,
     _group_by,
     register_function,
+    register_pyfunction,
     # Expressions
     Expression
 )
