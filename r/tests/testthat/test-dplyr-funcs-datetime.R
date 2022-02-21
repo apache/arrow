@@ -356,6 +356,11 @@ test_that("extract month from timestamp", {
     test_df
   )
 
+  test_df %>%
+    arrow_table() %>%
+    mutate(x = month(datetime, label = TRUE)) %>%
+    collect()
+
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
@@ -770,7 +775,7 @@ test_that("extract tz", {
 
 test_that("semester works with temporal types and integers", {
 test_that("month() supports integer input",{
-  test_df <- tibble(
+  test_df_month <- tibble(
     month_as_int = c(1:12, NA),
     month_as_char_pad = sprintf("%02i", month_as_int),
     dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
@@ -819,9 +824,15 @@ test_that("dst extracts daylight savings time correctly", {
       collect(),
     test_df
   test_df %>%
+  test_df_month %>%
     arrow_table() %>%
     mutate(month_int_input = month(month_as_int)) %>%
     collect()
+
+  at <- arrow_table(example_with_times)
+  at$posixlt$as_vector()
+  at$posixlt$as_vector()$mon
+
 
   # we need to support both integer and integer + label, similar to below
   lubridate::month(1)
