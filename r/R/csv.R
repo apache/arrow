@@ -708,7 +708,9 @@ write_csv_arrow <- function(x,
     x <- Table$create(x)
   }
 
-  assert_that(is_writable_table(x) || inherits(x, c("Dataset", "arrow_dplyr_query")))
+  if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
+    x <- Scanner$create(x)$ToRecordBatchReader()
+  }
 
   if (!inherits(sink, "OutputStream")) {
     sink <- make_output_stream(sink)
@@ -719,9 +721,19 @@ write_csv_arrow <- function(x,
     csv___WriteCSV__RecordBatch(x, write_options, sink)
   } else if (inherits(x, "Table")) {
     csv___WriteCSV__Table(x, write_options, sink)
-  } else if (inherits(x, c("Dataset", "arrow_dplyr_query"))) {
-    rb_reader <- Scanner$create(x)$ToRecordBatchReader()
-    csv___WriteCSV__RecordBatchReader(rb_reader, write_options, sink)
+  } else if (inherits(x, c("RecordBatchReader"))) {
+    csv___WriteCSV__RecordBatchReader(x, write_options, sink)
+  } else {
+    abort(
+      c(
+        paste0(
+          paste(
+            "x must be an object of class 'data.frame', 'RecordBatch',",
+            "'Dataset', 'Table', or 'RecordBatchReader' not '"
+          ), class(x)[[1]], "'."
+        )
+      )
+    )
   }
 
   invisible(x_out)

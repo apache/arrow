@@ -389,7 +389,7 @@ test_that("Write a CSV file with invalid input type", {
   bad_input <- Array$create(1:5)
   expect_error(
     write_csv_arrow(bad_input, csv_file),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+    regexp = "x must be an object of class 'data.frame', 'RecordBatch', 'Dataset', 'Table', or 'RecordBatchReader' not 'Array'."
   )
 })
 
@@ -535,6 +535,24 @@ test_that("write_csv_arrow can write from arrow_dplyr_query objects", {
 
   csv_file <- tempfile()
   tbl_out <- write_csv_arrow(query_obj, csv_file)
+  expect_true(file.exists(csv_file))
+
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
+  expect_equal(nrow(tbl_in), 3)
+})
+
+test_that("write_csv_arrow can write from RecordBatchReader objects", {
+  skip_if_not_available("dataset")
+  library(dplyr, warn.conflicts = FALSE)
+
+  query_obj <- arrow_table(tbl_no_dates) %>%
+    filter(lgl == TRUE)
+
+  rb_reader <- Scanner$create(query_obj)$ToRecordBatchReader()
+
+  csv_file <- tempfile()
+  tbl_out <- write_csv_arrow(rb_reader, csv_file)
   expect_true(file.exists(csv_file))
 
   tbl_in <- read_csv_arrow(csv_file)
