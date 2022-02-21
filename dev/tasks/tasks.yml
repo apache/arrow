@@ -974,7 +974,7 @@ tasks:
 
   verify-rc-binaries-wheels-macos-10.15-amd64-conda:
     ci: github
-    template: verify-rc/github.linux.amd64.yml
+    template: verify-rc/github.macos.amd64.yml
     params:
       env:
         USE_CONDA: 1
