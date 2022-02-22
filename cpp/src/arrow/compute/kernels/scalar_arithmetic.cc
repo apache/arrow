@@ -465,6 +465,7 @@ struct DivideChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
                                          Status* st) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
       if (right == 0) {
@@ -2805,9 +2806,12 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    auto exec1 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
     DCHECK_OK(
-        multiply->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+        multiply->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec1)));
+    auto exec2 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(
+        multiply->AddKernel({int64(), duration(unit)}, duration(unit), std::move(exec2)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
@@ -2819,10 +2823,14 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec =
+    auto exec1 =
         ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
     DCHECK_OK(multiply_checked->AddKernel({duration(unit), int64()}, duration(unit),
-                                          std::move(exec)));
+                                          std::move(exec1)));
+    auto exec2 =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    DCHECK_OK(multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit),
+                                          std::move(exec2)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
@@ -2846,9 +2854,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add divide_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<DurationType, DurationType, Int64Type, DivideChecked>::Exec;
-    DCHECK_OK(
-        divide_checked->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+    auto exec =
+        ScalarBinaryNotNull<DurationType, DurationType, Int64Type, DivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                        std::move(exec)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
