@@ -38,9 +38,10 @@ announce_file="${release_dir}/${version}.md"
 versions_yml="${ARROW_SITE_DIR}/_data/versions.yml"
 
 pushd "${ARROW_SITE_DIR}"
+DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
 git fetch --all --prune --tags --force -j$(nproc)
-git checkout master
-git rebase apache/master
+git checkout ${DEFAULT_BRANCH}
+git rebase apache/${DEFAULT_BRANCH}
 git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
 popd
