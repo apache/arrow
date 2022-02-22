@@ -2762,7 +2762,7 @@ struct GroupedOneFactory {
 // List implementation
 
 template <typename Type, typename Enable = void>
-struct GroupedListImpl : public GroupedAggregator {
+struct GroupedListImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
 
@@ -2848,6 +2848,160 @@ struct GroupedListImpl : public GroupedAggregator {
   std::shared_ptr<DataType> out_type_;
 };
 
+template <typename Type>
+struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
+                                         std::is_same<Type, FixedSizeBinaryType>::value>>
+    final : public GroupedAggregator {
+  using Allocator = arrow::stl::allocator<char>;
+  using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
+  using GetSet = GroupedValueTraits<Type>;
+
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    allocator_ = Allocator(ctx->memory_pool());
+    // out_type_ initialized by GroupedListInit
+    groups_ = TypedBufferBuilder<uint32_t>(ctx_->memory_pool());
+    values_bitmap_ = TypedBufferBuilder<bool>(ctx_->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    return VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t group, util::string_view val) -> Status {
+          values_.emplace_back(val);
+          RETURN_NOT_OK(groups_.Append(group));
+          RETURN_NOT_OK(values_bitmap_.Append(true));
+          ++num_args_;
+          return Status::OK();
+        },
+        [&](uint32_t group) -> Status {
+          values_.emplace_back(util::string_view{});
+          RETURN_NOT_OK(groups_.Append(group));
+          RETURN_NOT_OK(values_bitmap_.Append(false));
+          ++num_args_;
+          return Status::OK();
+        });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedListImpl*>(&raw_other);
+    uint32_t* other_raw_groups = other->groups_.mutable_data();
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other->num_args_;
+         ++other_g) {
+      if (bit_util::GetBit(other->values_bitmap_.data(), other_g)) {
+        values_.emplace_back(other->values_[other_g]);
+        RETURN_NOT_OK(values_bitmap_.Append(true));
+      } else {
+        values_.emplace_back(util::string_view{});
+        RETURN_NOT_OK(values_bitmap_.Append(false));
+      }
+      RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
+      ++num_args_;
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap_buffer, values_bitmap_.Finish());
+
+    auto groups = UInt32Array(num_args_, std::move(groups_buffer));
+    ARROW_ASSIGN_OR_RAISE(
+        auto groupings,
+        Grouper::MakeGroupings(groups, static_cast<uint32_t>(num_groups_), ctx_));
+
+    auto values_array_data =
+        ArrayData::Make(out_type_, num_args_, {std::move(null_bitmap_buffer), nullptr});
+    RETURN_NOT_OK(MakeOffsetsValues(values_array_data.get(), values_));
+    auto values = MakeArray(values_array_data);
+    return Grouper::ApplyGroupings(*groupings, *values);
+  }
+
+  template <typename T = Type>
+  enable_if_base_binary<T, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    using offset_type = typename T::offset_type;
+    ARROW_ASSIGN_OR_RAISE(
+        auto raw_offsets,
+        AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
+    auto* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    offsets[0] = 0;
+    offsets++;
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    offset_type total_length = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        if (value->size() >
+                static_cast<size_t>(std::numeric_limits<offset_type>::max()) ||
+            arrow::internal::AddWithOverflow(
+                total_length, static_cast<offset_type>(value->size()), &total_length)) {
+          return Status::Invalid("Result is too large to fit in ", *array->type,
+                                 " cast to large_ variant of type");
+        }
+      }
+      offsets[i] = total_length;
+    }
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), value->size());
+        offset += value->size();
+      }
+    }
+    array->buffers[1] = std::move(raw_offsets);
+    array->buffers.push_back(std::move(data));
+    return Status::OK();
+  }
+
+  template <typename T = Type>
+  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
+      ArrayData* array, const std::vector<util::optional<StringType>>& values) {
+    const uint8_t* null_bitmap = array->buffers[0]->data();
+    const int32_t slot_width =
+        checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
+    int64_t total_length = values.size() * slot_width;
+    ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(total_length, ctx_->memory_pool()));
+    int64_t offset = 0;
+    for (size_t i = 0; i < values.size(); i++) {
+      if (bit_util::GetBit(null_bitmap, i)) {
+        const util::optional<StringType>& value = values[i];
+        DCHECK(value.has_value());
+        std::memcpy(data->mutable_data() + offset, value->data(), slot_width);
+      } else {
+        std::memset(data->mutable_data() + offset, 0x00, slot_width);
+      }
+      offset += slot_width;
+    }
+    array->buffers[1] = std::move(data);
+    return Status::OK();
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
+
+  ExecContext* ctx_;
+  Allocator allocator_;
+  int64_t num_groups_, num_args_ = 0;
+  std::vector<util::optional<StringType>> values_;
+  TypedBufferBuilder<uint32_t> groups_;
+  TypedBufferBuilder<bool> values_bitmap_;
+  std::shared_ptr<DataType> out_type_;
+};
+
 template <typename T>
 Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
                                                      const KernelInitArgs& args) {
@@ -2877,17 +3031,17 @@ struct GroupedListFactory {
     return Status::OK();
   }
 
-  //  template <typename T>
-  //  enable_if_base_binary<T, Status> Visit(const T&) {
-  //    kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
-  //    return Status::OK();
-  //  }
-  //
-  //  Status Visit(const FixedSizeBinaryType&) {
-  //    kernel = MakeKernel(std::move(argument_type),
-  //    GroupedListInit<FixedSizeBinaryType>); return Status::OK();
-  //  }
-  //
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeBinaryType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<FixedSizeBinaryType>);
+    return Status::OK();
+  }
+
   Status Visit(const BooleanType&) {
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
     return Status::OK();
@@ -3490,11 +3644,11 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
                                                         &hash_list_doc);
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
-    //    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(),
-    //    GroupedListFactory::Make, func.get())); DCHECK_OK(AddHashAggKernels({null(),
-    //    boolean(), decimal128(1, 1), decimal256(1, 1),
-    //                                 month_interval(), fixed_size_binary(1)},
-    //                                GroupedListFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
+    DCHECK_OK(
+        AddHashAggKernels({/*null(),*/ boolean(), decimal128(1, 1), decimal256(1, 1),
+                           month_interval(), fixed_size_binary(1)},
+                          GroupedListFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
