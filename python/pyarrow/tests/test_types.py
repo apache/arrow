@@ -304,6 +304,7 @@ def test_tzinfo_to_string(tz, expected):
 
 
 def test_dateutil_tzinfo_to_string():
+    pytest.importorskip("dateutil")
     import dateutil.tz
 
     tz = dateutil.tz.UTC
