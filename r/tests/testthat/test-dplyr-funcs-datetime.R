@@ -839,11 +839,6 @@ test_that("date() errors with unsupported inputs", {
   )
 
   expect_error(
-    call_binding("date", Scalar$create(32L)),
-    "NotImplemented: Unsupported cast from integer to date32 using function cast_date32"
-  )
-
-  expect_error(
     call_binding("date", Scalar$create(32.2)),
     "NotImplemented: Unsupported cast from double to date32 using function cast_date32"
   )
@@ -851,5 +846,14 @@ test_that("date() errors with unsupported inputs", {
   expect_error(
     call_binding("date", Scalar$create(TRUE)),
     "NotImplemented: Unsupported cast from bool to date32 using function cast_date32"
+  )
+
+  # if we are aiming for equivalent behaviour to lubridate this should fail, but
+  # it doesn't as it is supported in arrow, where integer casting to date returns
+  # the date x days away from epoch
+  skip("supported in arrow, but not in lubridate")
+  expect_error(
+    call_binding("date", Scalar$create(32L)),
+    "NotImplemented: Unsupported cast from integer to date32 using function cast_date32"
   )
 })
