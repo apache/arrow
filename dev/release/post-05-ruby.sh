@@ -32,6 +32,8 @@ version=$1
 archive_name=apache-arrow-${version}
 tar_gz=${archive_name}.tar.gz
 
+DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+
 echo "NOTE: We should release RubyGems after Homebrew and MSYS2 packages are updated!!!"
 
 echo "Checking Homebrew package..."
@@ -39,7 +41,7 @@ homebrew_version=$(
   curl \
     --fail \
     --no-progress-meter \
-    https://raw.githubusercontent.com/Homebrew/homebrew-core/master/Formula/apache-arrow-glib.rb | \
+    https://raw.githubusercontent.com/Homebrew/homebrew-core/${DEFAULT_BRANCH}/Formula/apache-arrow-glib.rb | \
     grep url | \
     grep -o "[0-9]*\.[0-9]*\.[0-9]*" | \
     head -n 1)
