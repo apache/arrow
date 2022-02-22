@@ -297,14 +297,6 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
     endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
-    # We need to specify $<TARGET_OBJECTS:XXX> explicitly to SHARED
-    # library and STATIC library because $<TARGET_OBJECTS:XXX> in
-    # OBJECT isn't propagated to SHARED library and STATIC library.
-    foreach(ARG_SOURCE ${ARG_SOURCES})
-      if(ARG_SOURCE MATCHES "^\\$<TARGET_OBJECTS:")
-        list(APPEND LIB_DEPS ${ARG_SOURCE})
-      endif()
-    endforeach()
     set(LIB_INCLUDES)
     set(EXTRA_DEPS)
 

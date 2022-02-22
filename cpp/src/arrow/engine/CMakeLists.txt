@@ -39,7 +39,6 @@ add_arrow_lib(arrow_engine
               substrait
               SOURCES
               ${ARROW_ENGINE_SRCS}
-              $<TARGET_OBJECTS:substrait>
               PRECOMPILED_HEADERS
               "$<$<COMPILE_LANGUAGE:CXX>:arrow/engine/pch.h>"
               SHARED_LINK_FLAGS
@@ -47,11 +46,11 @@ add_arrow_lib(arrow_engine
               SHARED_LINK_LIBS
               arrow_shared
               arrow_dataset_shared
-              ${ARROW_PROTOBUF_LIBPROTOBUF}
+              substrait
               STATIC_LINK_LIBS
               arrow_static
               arrow_dataset_static
-              ${ARROW_PROTOBUF_LIBPROTOBUF}
+              substrait
               PRIVATE_INCLUDES
               ${SUBSTRAIT_INCLUDES})
 
