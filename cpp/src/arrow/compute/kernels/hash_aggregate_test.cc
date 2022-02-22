@@ -2318,6 +2318,82 @@ TEST(GroupBy, CountDistinct) {
   }
 }
 
+TEST(GroupBy, ListNumeric) {
+  for (auto type : NumericTypes()) {
+    for (auto use_threads : {true, false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      auto table =
+          TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
+    [99,  1],
+    [99,  1]
+])",
+                                                                                   R"([
+    [88,  2],
+    [null,   3],
+    [null,   3]
+])",
+                                                                                   R"([
+    [null,   4],
+    [null,   4]
+])",
+                                                                                   R"([
+    [77,  null],
+    [99,  3]
+])",
+                                                                                   R"([
+    [88,  2],
+    [66, 2]
+])",
+                                                                                   R"([
+    [55, null],
+    [44,  3]
+  ])",
+                                                                                   R"([
+    [33,    null],
+    [22,    null]
+  ])"});
+
+      ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                           internal::GroupBy(
+                               {
+                                   table->GetColumnByName("argument"),
+                               },
+                               {
+                                   table->GetColumnByName("key"),
+                               },
+                               {
+                                   {"hash_list", nullptr},
+                               },
+                               use_threads));
+      ValidateOutput(aggregated_and_grouped);
+      SortBy({"key_0"}, &aggregated_and_grouped);
+
+      // Order of sub-arrays is not stable
+      auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+        EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+        EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+        return sorted.make_array();
+      };
+
+      auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+
+      auto all_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+      AssertDatumsEqual(ArrayFromJSON(type, R"([99, 99])"),
+                        sort(*all_arr->value_slice(0)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type, R"([66, 88, 88])"),
+                        sort(*all_arr->value_slice(1)), /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type, R"([44, 99, null, null])"),
+                        sort(*all_arr->value_slice(2)), /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type, R"([null, null])"),
+                        sort(*all_arr->value_slice(3)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type, R"([22, 33, 55, 77])"),
+                        sort(*all_arr->value_slice(4)), /*verbose=*/true);
+    }
+  }
+}
+
 TEST(GroupBy, Distinct) {
   CountOptions all(CountOptions::ALL);
   CountOptions only_valid(CountOptions::ONLY_VALID);

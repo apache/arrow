@@ -2758,6 +2758,164 @@ struct GroupedOneFactory {
   InputType argument_type;
 };
 
+// ----------------------------------------------------------------------
+// List implementation
+
+template <typename Type, typename Enable = void>
+struct GroupedListImpl : public GroupedAggregator {
+  using CType = typename TypeTraits<Type>::CType;
+  using GetSet = GroupedValueTraits<Type>;
+
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    // out_type_ initialized by GroupedListInit
+    values_ = TypedBufferBuilder<CType>(ctx_->memory_pool());
+    groups_ = TypedBufferBuilder<uint32_t>(ctx_->memory_pool());
+    values_bitmap_ = TypedBufferBuilder<bool>(ctx_->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    num_groups_ = new_num_groups;
+    return Status::OK();
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    return VisitGroupedValues<Type>(
+        batch,
+        [&](uint32_t group, CType val) -> Status {
+          RETURN_NOT_OK(values_.Append(val));
+          RETURN_NOT_OK(groups_.Append(group));
+          RETURN_NOT_OK(values_bitmap_.Append(true));
+          ++num_args_;
+          return Status::OK();
+        },
+        [&](uint32_t group) -> Status {
+          RETURN_NOT_OK(values_.Append(static_cast<CType>(0)));
+          RETURN_NOT_OK(groups_.Append(group));
+          RETURN_NOT_OK(values_bitmap_.Append(false));
+          ++num_args_;
+          return Status::OK();
+        });
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedListImpl*>(&raw_other);
+    auto other_raw_values = other->values_.mutable_data();
+    uint32_t* other_raw_groups = other->groups_.mutable_data();
+    auto g = group_id_mapping.GetValues<uint32_t>(1);
+
+    for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other->num_args_;
+         ++other_g) {
+      if (bit_util::GetBit(other->values_bitmap_.data(), other_g)) {
+        RETURN_NOT_OK(values_.Append(GetSet::Get(other_raw_values, other_g)));
+        RETURN_NOT_OK(values_bitmap_.Append(true));
+      } else {
+        RETURN_NOT_OK(values_.Append(static_cast<CType>(0)));
+        RETURN_NOT_OK(values_bitmap_.Append(false));
+      }
+      RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
+      ++num_args_;
+    }
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto values_buffer, values_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups_.Finish());
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap_buffer, values_bitmap_.Finish());
+
+    auto groups = UInt32Array(num_args_, std::move(groups_buffer));
+    ARROW_ASSIGN_OR_RAISE(
+        auto groupings,
+        Grouper::MakeGroupings(groups, static_cast<uint32_t>(num_groups_), ctx_));
+
+    auto values_array_data = ArrayData::Make(
+        out_type_, num_args_, {std::move(null_bitmap_buffer), std::move(values_buffer)});
+    auto values = MakeArray(values_array_data);
+    return Grouper::ApplyGroupings(*groupings, *values);
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return list(out_type_); }
+
+  ExecContext* ctx_;
+  int64_t num_groups_, num_args_ = 0;
+  TypedBufferBuilder<CType> values_;
+  TypedBufferBuilder<uint32_t> groups_;
+  TypedBufferBuilder<bool> values_bitmap_;
+  std::shared_ptr<DataType> out_type_;
+};
+
+template <typename T>
+Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
+                                                     const KernelInitArgs& args) {
+  ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
+  auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
+  instance->out_type_ = args.inputs[0].type;
+  return std::move(impl);
+}
+
+struct GroupedListFactory {
+  template <typename T>
+  enable_if_physical_integer<T, Status> Visit(const T&) {
+    using PhysicalType = typename T::PhysicalType;
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<PhysicalType>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_floating_point<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_decimal<T, Status> Visit(const T&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
+    return Status::OK();
+  }
+
+  //  template <typename T>
+  //  enable_if_base_binary<T, Status> Visit(const T&) {
+  //    kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
+  //    return Status::OK();
+  //  }
+  //
+  //  Status Visit(const FixedSizeBinaryType&) {
+  //    kernel = MakeKernel(std::move(argument_type),
+  //    GroupedListInit<FixedSizeBinaryType>); return Status::OK();
+  //  }
+  //
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
+    return Status::OK();
+  }
+  //
+  //  Status Visit(const NullType&) {
+  //    kernel = MakeKernel(std::move(argument_type),
+  //    HashAggregateInit<GroupedNullListImpl>); return Status::OK();
+  //  }
+
+  Status Visit(const HalfFloatType& type) {
+    return Status::NotImplemented("Outputting one of data of type ", type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Outputting one of data of type ", type);
+  }
+
+  static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
+    GroupedListFactory factory;
+    factory.argument_type = InputType::Array(type->id());
+    RETURN_NOT_OK(VisitTypeInline(*type, &factory));
+    return std::move(factory.kernel);
+  }
+
+  HashAggregateKernel kernel;
+  InputType argument_type;
+};
 }  // namespace
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -3129,6 +3287,9 @@ const FunctionDoc hash_one_doc{"Get one value from each group",
                                ("Null values are also returned."),
                                {"array", "group_id_array"}};
 
+const FunctionDoc hash_list_doc{"List array of all groups",
+                                ("Null values are also returned."),
+                                {"array", "group_id_array"}};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -3321,6 +3482,19 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
                                  month_interval(), fixed_size_binary(1)},
                                 GroupedOneFactory::Make, func.get()));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func = std::make_shared<HashAggregateFunction>("hash_list", Arity::Binary(),
+                                                        &hash_list_doc);
+    DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
+    //    DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(),
+    //    GroupedListFactory::Make, func.get())); DCHECK_OK(AddHashAggKernels({null(),
+    //    boolean(), decimal128(1, 1), decimal256(1, 1),
+    //                                 month_interval(), fixed_size_binary(1)},
+    //                                GroupedListFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
