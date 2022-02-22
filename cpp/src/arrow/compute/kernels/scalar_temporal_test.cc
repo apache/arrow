@@ -280,6 +280,26 @@ class ScalarTemporalTest : public ::testing::Test {
       "[[0, 0], [0, 0], [0, 9082000], [0, -5618000], [0, 64800000], [0, -420000], "
       "[0, -10800000], [0, 1200000], [0, 0], [0, -18000000], [0, 57624000], "
       "[0, -33000], [0, 0], [0, 0], [0, 0], [0, 0], null]";
+  std::shared_ptr<arrow::DataType> dayhours_between_type =
+      struct_({field("days", int32()), field("hours", int32())});
+  std::shared_ptr<arrow::Array> dayhours_between =
+      ArrayFromJSON(dayhours_between_type,
+                    R"([{"days": 365, "hours": 0},
+                      {"days": -366, "hours": -1},
+                      {"days": 31, "hours": 0},
+                      {"days": -30, "hours": 0},
+                      {"days": 1, "hours": 0},
+                      {"days": -2, "hours": 0},
+                      {"days": 0, "hours": 1},
+                      {"days": 0, "hours": -1},
+                      {"days": 0, "hours": 0},
+                      {"days": 0, "hours": 0},
+                      {"days": 0, "hours": 0},
+                      {"days": 0, "hours": 0},
+                      {"days": 0, "hours": 0},
+                      {"days": -1, "hours": 23},
+                      {"days": -305, "hours": 0},
+                      {"days": 60, "hours": -1}, null])");
   std::string weeks_between =
       "[52, -53, 5, -4, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, -44, 9, null]";
   std::string weeks_between_tz =
@@ -926,6 +946,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
     CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
     CheckScalarBinary("nanoseconds_between", arr1, arr2,
                       ArrayFromJSON(int64(), nanoseconds_between));
+//    CheckScalarBinary("dayhours_between", arr1, arr2, dayhours_between);
   }
 
   for (auto date_case : {std::make_tuple(date32(), date32s, date32s2),
@@ -975,6 +996,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
     CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
     CheckScalarBinary("nanoseconds_between", arr1, arr2,
                       ArrayFromJSON(int64(), nanoseconds_between_date));
+    CheckScalarBinary("dayhours_between", arr1, arr2, dayhours_between);
   }
 
   struct TimeCase {
@@ -1036,6 +1058,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDifference) {
     CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
     CheckScalarBinary("nanoseconds_between", arr1, arr2,
                       ArrayFromJSON(int64(), time_case.nanoseconds_between));
+    //    CheckScalarBinary("dayhours_between", arr1, arr2, dayhours_between);
   }
 }
 
@@ -1898,6 +1921,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceZoned) {
     CheckScalarBinary("nanoseconds_between", arr1, arr1, ArrayFromJSON(int64(), zeros));
     CheckScalarBinary("nanoseconds_between", arr1, arr2,
                       ArrayFromJSON(int64(), nanoseconds_between));
+    //    CheckScalarBinary("dayhours_between", arr1, arr2, dayhours_between);
   }
 }
 
