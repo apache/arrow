@@ -35,8 +35,6 @@ add_arrow_lib(arrow_engine
               arrow-engine
               OUTPUTS
               ARROW_ENGINE_LIBRARIES
-              DEPENDENCIES
-              substrait
               SOURCES
               ${ARROW_ENGINE_SRCS}
               PRECOMPILED_HEADERS

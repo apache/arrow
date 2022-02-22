@@ -375,6 +375,14 @@ function(ADD_ARROW_LIB LIB_NAME)
                           LINK_PRIVATE
                           ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
+    if(USE_OBJLIB)
+      foreach(ARG_SHARED_LINK_LIB ${ARG_SHARED_LINK_LIBS})
+        if(TARGET ${ARG_SHARED_LINK_LIB})
+          add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_LINK_LIB})
+        endif()
+      endforeach()
+    endif()
+
     if(ARROW_RPATH_ORIGIN)
       if(APPLE)
         set(_lib_install_rpath "@loader_path")
@@ -449,6 +457,13 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_STATIC_LINK_LIBS)
       target_link_libraries(${LIB_NAME}_static LINK_PRIVATE
                             "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
+      if(USE_OBJLIB)
+        foreach(ARG_STATIC_LINK_LIB ${ARG_STATIC_LINK_LIBS})
+          if(TARGET ${ARG_STATIC_LINK_LIB})
+            add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_LINK_LIB})
+          endif()
+        endforeach()
+      endif()
     endif()
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
