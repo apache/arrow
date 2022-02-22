@@ -32,7 +32,7 @@ version=$1
 archive_name=apache-arrow-${version}
 tar_gz=${archive_name}.tar.gz
 
-DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+source "git-vars.sh"
 
 echo "NOTE: We should release RubyGems after Homebrew and MSYS2 packages are updated!!!"
 

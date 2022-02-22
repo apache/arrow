@@ -40,7 +40,7 @@ fi
 echo "Updating working copy"
 git fetch --all --prune --tags --force -j$(nproc)
 
-DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+source "git-vars.sh"
 branch=apache-arrow-${version}
 echo "Creating branch: ${branch}"
 git branch -D ${branch} || :

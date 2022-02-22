@@ -20,7 +20,7 @@
 set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+source "git-vars.sh"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <next_version>"

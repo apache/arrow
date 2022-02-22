@@ -54,7 +54,7 @@ fi
 if [ ${PREPARE_BRANCH} -gt 0 ]; then
   if [[ $(git branch -l "${release_candidate_branch}") ]]; then
     next_rc_number=$(($rc_number+1))
-    DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
+    source "git-vars.sh"
     echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
     echo "1. Checkout the default branch for major releases and maint-<version> for patch releases."
     echo "2. Execute the script again with bumped RC number."

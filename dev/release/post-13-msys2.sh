@@ -45,8 +45,9 @@ if ! git remote | grep -q '^upstream$'; then
   exit 1
 fi
 
+source "git-vars.sh"
+
 echo "Updating repository: ${repository}"
-DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
 git fetch --all --prune --tags --force -j$(nproc)
 git checkout ${DEFAULT_BRANCH}
 git rebase upstream/${DEFAULT_BRANCH}
