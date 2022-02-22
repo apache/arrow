@@ -166,7 +166,7 @@ class IntegrationRunner(object):
                         case_runner: Callable[[datagen.File], Outcome],
                         test_cases: List[datagen.File]) -> None:
         """
-        Populates self.failures with the outcomes of the
+        Populate self.failures with the outcomes of the
         ``case_runner`` ran against ``test_cases``
         """
         def case_wrapper(test_case):
@@ -257,7 +257,7 @@ class IntegrationRunner(object):
                          test_case: datagen.File
                          ) -> None:
         """
-        Given a producer and a consumer, runs different combination of
+        Given a producer and a consumer, run different combination of
         tests for the ``test_case``
         * read and write are consistent
         * stream to file is consistent
@@ -296,11 +296,10 @@ class IntegrationRunner(object):
         * a ``.stream``
         associated to the json integration file at ``test_case.path``
 
-        it verifies that the consumer can read both and agrees with
-        what the json file contains
-
-        It also runs ``stream_to_file`` and and verifies that the
-        consumer produces an equivalent file from the IPC stream
+        verify that the consumer can read both and agrees with
+        what the json file contains; also run ``stream_to_file`` and
+        verify that the consumer produces an equivalent file from the
+        IPC stream.
         """
         json_path = test_case.path
 

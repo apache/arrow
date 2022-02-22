@@ -50,27 +50,27 @@ class Tester(object):
 
     def json_to_file(self, json_path, arrow_path):
         """
-        Runs the conversion of an Arrow JSON integration file
+        Run the conversion of an Arrow JSON integration file
         to an Arrow IPC file
         """
         raise NotImplementedError
 
     def stream_to_file(self, stream_path, file_path):
         """
-        Runs the conversion of an Arrow IPC stream to an
+        Run the conversion of an Arrow IPC stream to an
         Arrow IPC file
         """
         raise NotImplementedError
 
     def file_to_stream(self, file_path, stream_path):
         """
-        Runs the conversion of an Arrow IPC file to an Arrow IPC stream
+        Run the conversion of an Arrow IPC file to an Arrow IPC stream
         """
         raise NotImplementedError
 
     def validate(self, json_path, arrow_path, quirks=None):
         """
-        Validates that the Arrow IPC file is equal to the corresponding
+        Validate that the Arrow IPC file is equal to the corresponding
         Arrow JSON integration file
         """
         raise NotImplementedError
