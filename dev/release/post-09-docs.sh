@@ -34,9 +34,10 @@ release_tag="apache-arrow-${version}"
 branch_name=release-docs-${version}
 
 pushd "${ARROW_SITE_DIR}"
+DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
 git fetch --all --prune --tags --force -j$(nproc)
 git checkout .
-git checkout master
+git checkout ${DEFAULT_BRANCH}
 git clean -d -f -x
 git branch -D asf-site || :
 git checkout -b asf-site origin/asf-site
