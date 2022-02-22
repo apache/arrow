@@ -182,6 +182,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::DICTIONARY:
+    case Type::INTERVAL_MONTH_DAY_NANO:
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
