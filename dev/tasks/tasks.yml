@@ -857,6 +857,16 @@ tasks:
       - flight-grpc-{no_rc_version}-tests.jar
       - flight-grpc-{no_rc_version}.jar
       - flight-grpc-{no_rc_version}.pom
+      - flight-integration-tests-{no_rc_version}-javadoc.jar
+      - flight-integration-tests-{no_rc_version}-sources.jar
+      - flight-integration-tests-{no_rc_version}-tests.jar
+      - flight-integration-tests-{no_rc_version}.jar
+      - flight-integration-tests-{no_rc_version}.pom
+      - flight-sql-{no_rc_version}-javadoc.jar
+      - flight-sql-{no_rc_version}-sources.jar
+      - flight-sql-{no_rc_version}-tests.jar
+      - flight-sql-{no_rc_version}.jar
+      - flight-sql-{no_rc_version}.pom
 
   ############################## NuGet packages ###############################
 
