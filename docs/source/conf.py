@@ -65,6 +65,7 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
+    'sphinx_panels',
     'sphinx_tabs.tabs',
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
@@ -277,7 +278,8 @@ html_favicon = "_static/favicon.ico"
 html_static_path = ['_static']
 
 # Custom fixes to the RTD theme
-html_css_files = ['theme_overrides.css']
+html_css_files = ['theme_overrides.css',
+                  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
