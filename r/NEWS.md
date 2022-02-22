@@ -20,6 +20,8 @@
 # arrow 7.0.0.9000
 
 * `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
+* `lubridate`: 
+  * `tz()` to extract/get timezone
 
 # arrow 7.0.0
 

@@ -22,7 +22,7 @@
 .. using git.
 
 
-.. _pr_and_github:
+.. _pr_lifecycle:
 
 ***************************
 Lifecycle of a pull request
@@ -42,8 +42,8 @@ have successfully built Arrow and have a JIRA issue to work on.
 **Before making changes to the code, you should create a new
 branch in Git.**
 
-1. Update/sync the code from your ``upstream``
-   in the master branch. Run it in the shell from the ``arrow`` directory.
+1. Update your fork’s master branch with ``upstream/master``.
+   Run this in the shell from the ``arrow`` directory.
 
    .. code:: console
 
@@ -209,7 +209,7 @@ When a pull request is open in the repository you and other developers
 can comment on the proposed solution.
 
 To create a general comment navigate to the **Conversation** tab of
-you pull request and start writing in the comment box at the bottom of
+your pull request and start writing in the comment box at the bottom of
 the page.
 
 You can also comment on a section of the file to point out something

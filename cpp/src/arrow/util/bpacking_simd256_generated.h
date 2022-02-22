@@ -36,8 +36,7 @@ using ::arrow::util::SafeLoad;
 template <DispatchLevel level>
 struct UnpackBits256 {
 
-using simd_arch = xsimd::avx2;
-using simd_batch = xsimd::batch<uint32_t, simd_arch>;
+using simd_batch = xsimd::make_sized_batch_t<uint32_t, 8>;
 
 inline static const uint32_t* unpack0_32(const uint32_t* in, uint32_t* out) {
   memset(out, 0x0, 32 * sizeof(*out));
