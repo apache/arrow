@@ -1694,6 +1694,8 @@ macro(build_substrait)
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
   target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
 endmacro()
 
 if(ARROW_WITH_SUBSTRAIT)
