@@ -60,8 +60,7 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
-                                const std::string& eol = "\n",
-                                const char& delimiter = ',') {
+                                const std::string& eol = "\n", char delimiter = ',') {
   WriteOptions options;
   options.batch_size = 5;
   options.include_header = include_header;
@@ -174,12 +173,6 @@ std::vector<WriterTestParams> GenerateTestCases() {
         value);
   };
 
-  auto expected_status_illegal_delimiter = [](const char value) {
-    return Status::Invalid(
-        "WriteOptions: delimiter cannot be \\r or \\n or \" or EOL. Invalid value: ",
-        value);
-  };
-
   auto reject_structural_params = [&](std::vector<const char*> rows,
                                       const char* error_val) -> WriterTestParams {
     std::string json_rows = "[";
@@ -202,7 +195,11 @@ std::vector<WriterTestParams> GenerateTestCases() {
   auto schema_custom_delimiter = schema({field("a", int64()), field("b", int64())});
   auto batch_custom_delimiter = R"([{"a": 42, "b": -12}])";
   auto expected_output_delimiter_tabs = "42\t-12\n";
-  auto expected_output_delimiter_pipe = "42|-12\n";
+  auto expected_status_illegal_delimiter = [](const char value) {
+    return Status::Invalid(
+        "WriteOptions: delimiter cannot be \\r or \\n or \" or EOL. Invalid value: ",
+        value);
+  };
 
   return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(), ""},
@@ -254,10 +251,6 @@ std::vector<WriterTestParams> GenerateTestCases() {
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, "\n", /*delimiter=*/'\t'),
        expected_output_delimiter_tabs},
-      {schema_custom_delimiter, batch_custom_delimiter,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::Needed, "\n", /*delimiter=*/'|'),
-       expected_output_delimiter_pipe},
       {schema_custom_delimiter, batch_custom_delimiter,
        DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
                           QuotingStyle::Needed, /*eol=*/"\n", /*delimiter=*/'\r'),
