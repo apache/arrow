@@ -235,7 +235,10 @@ test_that("type() gets the right type for Expression", {
   y <- Expression$scalar(10)
   add_xy <- Expression$create("add", x, y)
 
-  expect_equal(x$type, type(x))
-  expect_equal(y$type, type(y))
-  expect_equal(add_xy$type, type(add_xy))
+  expect_equal(x$type(), type(x))
+  expect_equal(type(x), int32())
+  expect_equal(y$type(), type(y))
+  expect_equal(type(y), float64())
+  expect_equal(add_xy$type(), type(add_xy))
+  expect_equal(type(add_xy), float64())
 })
