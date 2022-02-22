@@ -28,7 +28,7 @@ withr::local_timezone("UTC")
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 if (tolower(Sys.info()[["sysname"]]) == "windows") {
-  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "")
+  test_date <- as.POSIXct("2017-01-01 00:00:11.3456789")#, tz = "")
 } else {
   test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 }
@@ -500,7 +500,7 @@ test_that("extract minute from timestamp", {
 })
 
 test_that("extract second from timestamp", {
-  skip_on_os("windows")      # TODO remove after https://issues.apache.org/jira/browse/ARROW-13168
+  # skip_on_os("windows")      # TODO remove after https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
       mutate(x = second(datetime)) %>%
