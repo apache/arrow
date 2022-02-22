@@ -46,9 +46,10 @@ if ! git remote | grep -q '^upstream$'; then
 fi
 
 echo "Updating repository: ${repository}"
+DEFAULT_BRANCH="$(git rev-parse --abbrev-ref origin/HEAD | sed s@origin/@@)"
 git fetch --all --prune --tags --force -j$(nproc)
-git checkout master
-git rebase upstream/master
+git checkout ${DEFAULT_BRANCH}
+git rebase upstream/${DEFAULT_BRANCH}
 
 branch="arrow-${version}"
 echo "Creating branch: ${branch}"
