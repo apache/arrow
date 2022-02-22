@@ -744,11 +744,12 @@ test_that("extract tz", {
   )
 
   # Test one expression
-  expect_error(
-    call_binding("tz", Expression$scalar("2020-10-01")),
-    "timezone extraction for objects of class `string` not supported in Arrow"
-test_that("semester", {
-test_that("semester works with temporal types", {
+   expect_error(
+     call_binding("tz", Expression$scalar("2020-10-01")),
+     "timezone extraction for objects of class `string` not supported in Arrow"
+   )
+})
+
 test_that("semester works with temporal types and integers", {
   test_df <- tibble(
     month_as_int = c(1:12, NA),

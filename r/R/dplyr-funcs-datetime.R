@@ -153,6 +153,7 @@ register_bindings_datetime <- function() {
     }
 
     x$type()$timezone()
+  })
   register_binding("semester", function(x, with_year = FALSE) {
     month <- call_binding("month", x)
     semester <- call_binding("if_else", month <= 6, 1L, 2L)
