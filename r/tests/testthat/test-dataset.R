@@ -829,6 +829,10 @@ test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   expect_scan_result(ds, schm)
 })
 
+# By default, snappy encoding will be used, and
+# Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
+skip_on_linux_devel()
+
 # see https://issues.apache.org/jira/browse/ARROW-11328
 test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
   tmp <- tempfile()
@@ -838,7 +842,6 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
     c(32, 0)
   )
 })
-
 
 test_that("dataset RecordBatchReader to C-interface to arrow_dplyr_query", {
   ds <- open_dataset(hive_dir)

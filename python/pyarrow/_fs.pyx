@@ -579,7 +579,7 @@ cdef class FileSystem(_Weakrefable):
 
         Returns
         -------
-        stram : NativeFile
+        stream : NativeFile
         """
         cdef:
             c_string pathstr = _path_as_bytes(path)

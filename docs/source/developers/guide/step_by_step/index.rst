@@ -29,4 +29,4 @@ Steps in making your first PR
    finding_issues
    arrow_codebase
    testing
-   pr_and_github
+   pr_lifecycle

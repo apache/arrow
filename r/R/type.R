@@ -77,6 +77,9 @@ type.default <- function(x) Array__infer_type(x)
 #' @export
 type.ArrowDatum <- function(x) x$type
 
+#' @export
+type.Expression <- function(x) x$type
+
 #----- metadata
 
 #' @title class arrow::FixedWidthType

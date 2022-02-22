@@ -387,6 +387,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
             LogicalType::Time(/*is_adjusted_to_utc=*/true, LogicalType::TimeUnit::MICROS);
       }
     } break;
+    case ArrowTypeId::DURATION:
+      type = ParquetType::INT64;
+      break;
     case ArrowTypeId::STRUCT: {
       auto struct_type = std::static_pointer_cast<::arrow::StructType>(field->type());
       return StructToNode(struct_type, name, field->nullable(), properties,
@@ -913,6 +916,13 @@ Result<bool> ApplyOriginalStorageMetadata(const Field& origin_field,
         inferred->field = inferred->field->WithType(ts_type_new);
       }
     }
+    modified = true;
+  }
+
+  if (origin_type->id() == ::arrow::Type::DURATION &&
+      inferred_type->id() == ::arrow::Type::INT64) {
+    // Read back int64 arrays as duration.
+    inferred->field = inferred->field->WithType(origin_type);
     modified = true;
   }
 

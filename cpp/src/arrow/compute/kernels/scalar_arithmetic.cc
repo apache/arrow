@@ -713,6 +713,29 @@ struct PowerChecked {
   }
 };
 
+struct SquareRoot {
+  template <typename T, typename Arg>
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg < 0.0) {
+      return std::numeric_limits<T>::quiet_NaN();
+    }
+    return std::sqrt(arg);
+  }
+};
+
+struct SquareRootChecked {
+  template <typename T, typename Arg>
+  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    static_assert(std::is_same<T, Arg>::value, "");
+    if (arg < 0.0) {
+      *st = Status::Invalid("square root of negative number");
+      return arg;
+    }
+    return std::sqrt(arg);
+  }
+};
+
 struct Sign {
   template <typename T, typename Arg>
   static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
@@ -2480,6 +2503,18 @@ const FunctionDoc pow_checked_doc{
      "or integer overflow is encountered."),
     {"base", "exponent"}};
 
+const FunctionDoc sqrt_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns a NaN.  For a variant that returns an\n"
+     "error, use function \"sqrt_checked\"."),
+    {"x"}};
+
+const FunctionDoc sqrt_checked_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns an error.  For a variant that returns a\n"
+     "NaN, use function \"sqrt\"."),
+    {"x"}};
+
 const FunctionDoc sign_doc{
     "Get the signedness of the arguments element-wise",
     ("Output is any of (-1,1) for nonzero inputs and 0 for zero input.\n"
@@ -2750,7 +2785,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
     DCHECK_OK(
         add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
@@ -2778,6 +2813,13 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     auto exec = ScalarBinary<TimestampType, DurationType, TimestampType, Subtract>::Exec;
     DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
                                   std::move(exec)));
+  }
+
+  // Add subtract(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   // Add subtract(time32, time32) -> duration
@@ -2832,6 +2874,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
         ScalarBinary<TimestampType, DurationType, TimestampType, SubtractChecked>::Exec;
     DCHECK_OK(subtract_checked->AddKernel({in_type, duration(unit)},
                                           OutputType(FirstType), std::move(exec)));
+  }
+
+  // Add subtract_checked(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
   // Add subtract_checked(date32, date32) -> duration(TimeUnit::SECOND)
@@ -2934,6 +2985,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
                                     ArithmeticDecimalToFloatingPointFunction>(
           "power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", &sqrt_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt)));
+
+  // ----------------------------------------------------------------------
+  auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
+      "sqrt_checked", &sqrt_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
 
   // ----------------------------------------------------------------------
   auto sign =

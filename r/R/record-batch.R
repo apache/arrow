@@ -121,10 +121,6 @@ RecordBatch <- R6Class("RecordBatch",
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       RecordBatch__cast(self, target_schema, options)
     },
-    invalidate = function() {
-      .Call(`_arrow_RecordBatch__Reset`, self)
-      super$invalidate()
-    },
     export_to_c = function(array_ptr, schema_ptr) {
       ExportRecordBatch(self, array_ptr, schema_ptr)
     }

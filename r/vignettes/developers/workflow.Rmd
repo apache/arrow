@@ -12,9 +12,9 @@ You can load the R package via `devtools::load_all()`.
 
 ## Rebuilding the documentation
 
-The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.2.
+The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `{roxygen2}` version 7.1.2.
 
-```{r, run=FALSE}
+```r
 remotes::install_github("r-lib/roxygen2")
 ```
 
@@ -34,9 +34,9 @@ pkgdown::build_site(preview=TRUE)
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run
+To run the linter locally, install the `{lintr}` package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file [`ci/docker/linux-apt-lint.dockerfile`](https://github.com/apache/arrow/blob/master/ci/docker/linux-apt-lint.dockerfile) for the current status) and then run
 
-```{r}
+```r
 lintr::lint_package("arrow/r")
 ```
 
@@ -53,7 +53,7 @@ make style-all # (for all files)
 
 or in R:
 
-```{r}
+```r
 # note the two excluded files which should not be styled
 styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))
 ```
@@ -115,7 +115,9 @@ Tests can be run either using `devtools::test()` or the Makefile alternative.
 ```r
 # Run the test suite, optionally filtering file names
 devtools::test(filter="^regexp$")
+```
 
+```bash
 # or the Makefile alternative from the arrow/r directory in a shell:
 make test file=regexp
 ```
@@ -159,7 +161,7 @@ covr::package_coverage()
 
 For full package validation, you can run the following commands from a terminal.
 
-```
+```bash
 R CMD build .
 R CMD check arrow_*.tar.gz --as-cran
 ```

@@ -16,8 +16,10 @@ gflags:
 - '2.2'
 glog:
 - '0.5'
+google_cloud_cpp:
+- '1.35'
 grpc_cpp:
-- '1.42'
+- '1.43'
 libprotobuf:
 - '3.19'
 lz4_c:
@@ -39,7 +41,7 @@ pin_run_as_build:
 python:
 - 3.10.* *_cpython
 re2:
-- 2021.11.01
+- 2022.02.01
 snappy:
 - '1'
 target_platform:

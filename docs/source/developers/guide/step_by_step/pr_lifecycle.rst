@@ -22,7 +22,7 @@
 .. using git.
 
 
-.. _pr_and_github:
+.. _pr_lifecycle:
 
 ***************************
 Lifecycle of a pull request
@@ -42,8 +42,8 @@ have successfully built Arrow and have a JIRA issue to work on.
 **Before making changes to the code, you should create a new
 branch in Git.**
 
-1. Update/sync the code from your ``upstream``
-   in the master branch. Run it in the shell from the ``arrow`` directory.
+1. Update your fork’s master branch with ``upstream/master``.
+   Run this in the shell from the ``arrow`` directory.
 
    .. code:: console
 
@@ -127,6 +127,56 @@ If all is set, you can make the pull request!
       and other additional information :ref:`pull_request_and_review`
       section.
 
+Continuous Integration (CI)
+---------------------------
+
+Continuous integration (CI) is an automated way to run tests and
+builds on different environments with the changed code made by a
+specific pull request. It serves as a stability check before it
+gets merged or integrated into the main repository of the project.
+
+Once the pull request is created, the CI will trigger checks on the
+code. Depending on what part of the code was changed (documentation,
+C++ or other languages for example) the CI is configured to run
+the relevant checks.
+
+You will see checks running at the bottom of the pull request page
+on GitHub. In case of an error, click on the details and research the cause
+of the failing build.
+
+.. figure:: ci_process_docs.jpeg
+   :scale: 60 %
+   :alt: CI window showing the status of the code checks
+         in case of changes made to the documentation.
+
+   CI checks for changes made to the documentation.
+
+.. figure:: ci_process_python.jpeg
+   :scale: 58 %
+   :alt: CI window showing the status of the code checks
+         in case of changes made to the python files
+
+   CI checks for changes made to the python files.
+
+.. figure:: ci_process_r.jpeg
+   :scale: 58 %
+   :alt: CI window showing the status of the code checks
+         in case of changes made to the R files.
+
+   CI checks for changes made to the R files.
+
+Besides the CI jobs that check the changes in GitHub repository
+(opening or merging of a pull request) we also use CI for nightly
+builds and releases of the Apache Arrow library.
+
+Also, on-demand triggering jobs can be used in your pull request for
+example adding a comment with ``@github-actions crossbow submit python``
+will run PyArrow tests via GitHub actions. These are mostly used to run
+tests on environments that are less common and are normally
+not needed in first time contributions.
+
+To read more about this topic visit :ref:`continuous-integration`.
+
 Reviews and merge of the pull request
 =====================================
 
@@ -159,7 +209,7 @@ When a pull request is open in the repository you and other developers
 can comment on the proposed solution.
 
 To create a general comment navigate to the **Conversation** tab of
-you pull request and start writing in the comment box at the bottom of
+your pull request and start writing in the comment box at the bottom of
 the page.
 
 You can also comment on a section of the file to point out something

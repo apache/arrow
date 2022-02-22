@@ -168,6 +168,10 @@ Array__ReferencedBufferSize <- function(x) {
   .Call(`_arrow_Array__ReferencedBufferSize`, x)
 }
 
+arrow__Concatenate <- function(dots) {
+  .Call(`_arrow_arrow__Concatenate`, dots)
+}
+
 Array__as_vector <- function(array) {
   .Call(`_arrow_Array__as_vector`, array)
 }

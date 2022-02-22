@@ -24,6 +24,9 @@ ENV TZ=${tz}
 ARG r_prune_deps=FALSE
 ENV R_PRUNE_DEPS=${r_prune_deps}
 
+ARG r_duckdb_dev=FALSE
+ENV R_DUCKDB_DEV=${r_duckdb_dev}
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran

@@ -277,8 +277,8 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return result
 
-    def _to_pandas(self, options, **kwargs):
-        return _array_like_to_pandas(self, options)
+    def _to_pandas(self, options, types_mapper=None, **kwargs):
+        return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
     def to_numpy(self):
         """

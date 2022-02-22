@@ -739,6 +739,18 @@ Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ArithmeticOptions options = ArithmeticOptions(),
                    ExecContext* ctx = NULLPTR);
 
+/// \brief Get the square-root of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the square-root for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise square-root
+ARROW_EXPORT
+Result<Datum> Sqrt(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
 /// \brief Round to the nearest integer less than or equal in magnitude to the
 /// argument.
 ///

@@ -438,3 +438,12 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     filename = tempdir / 'not_written.parquet'
     with pytest.raises(ValueError):
         pq.write_table(tb, filename, coerce_timestamps='ms', version='2.6')
+
+
+def test_duration_type():
+    # ARROW-6780
+    arrays = [pa.array([0, 1, 2, 3], type=pa.duration(unit))
+              for unit in ["s", "ms", "us", "ns"]]
+    table = pa.Table.from_arrays(arrays, ["d[s]", "d[ms]", "d[us]", "d[ns]"])
+
+    _check_roundtrip(table)
