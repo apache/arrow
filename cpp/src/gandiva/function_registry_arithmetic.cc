@@ -180,12 +180,12 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
                      kResultNullIfNull, "negative_decimal",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("negative", {}, DataTypeVector{month_interval()}, month_interval(), kResultNullIfNull,
-                     "negative_monthinterval",
+      NativeFunction("negative", {}, DataTypeVector{month_interval()}, month_interval(),
+                     kResultNullIfNull, "negative_month_interval",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("negative", {}, DataTypeVector{day_time_interval()}, day_time_interval(), kResultNullIfNull,
-                     "negative_daytimeinterval",
+      NativeFunction("negative", {}, DataTypeVector{day_time_interval()},
+                     day_time_interval(), kResultNullIfNull, "negative_daytimeinterval",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // compare functions

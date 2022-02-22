@@ -216,8 +216,7 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
   EXPECT_EQ(ctx.get_error(), "Interval is more than max allowed in negative execution");
   ctx.Reset();
 
-
-  //Month interval
+  // Month interval
   gdv_month_interval result2 = negative_month_interval(ctx_ptr, 2);
   EXPECT_EQ(result2, -2);
 
@@ -229,7 +228,6 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
 
   result2 = negative_month_interval(ctx_ptr, INT32_MAX);
   EXPECT_EQ(result2, -INT32_MAX);
-
 }
 
 TEST(TestArithmeticOps, TestDivide) {
