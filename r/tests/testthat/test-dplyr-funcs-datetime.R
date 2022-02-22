@@ -278,7 +278,7 @@ test_that("is.* functions from lubridate", {
       mutate(x = is.POSIXct(datetime), y = is.POSIXct(integer)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -287,7 +287,7 @@ test_that("is.* functions from lubridate", {
       mutate(x = is.Date(date), y = is.Date(integer)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -300,7 +300,7 @@ test_that("is.* functions from lubridate", {
       ) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -410,7 +410,7 @@ test_that("extract day from timestamp", {
       mutate(x = day(datetime)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -421,7 +421,7 @@ test_that("extract wday from timestamp", {
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -430,7 +430,7 @@ test_that("extract wday from timestamp", {
       mutate(x = wday(date, week_start = 1)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -519,7 +519,7 @@ test_that("extract year from date", {
       mutate(x = year(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -530,7 +530,7 @@ test_that("extract isoyear from date", {
       mutate(x = isoyear(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -541,7 +541,7 @@ test_that("extract quarter from date", {
       mutate(x = quarter(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -552,7 +552,7 @@ test_that("extract month from date", {
       mutate(x = month(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -563,7 +563,7 @@ test_that("extract isoweek from date", {
       mutate(x = isoweek(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -574,7 +574,7 @@ test_that("extract epiweek from date", {
       mutate(x = epiweek(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -585,7 +585,7 @@ test_that("extract week from date", {
       mutate(x = week(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -596,7 +596,7 @@ test_that("extract month from date", {
       mutate(x = month(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -627,7 +627,7 @@ test_that("extract day from date", {
       mutate(x = day(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -638,7 +638,7 @@ test_that("extract wday from date", {
       mutate(x = wday(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -647,7 +647,7 @@ test_that("extract wday from date", {
       mutate(x = wday(date, week_start = 3)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -656,7 +656,7 @@ test_that("extract wday from date", {
       mutate(x = wday(date, week_start = 1)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 
@@ -685,7 +685,7 @@ test_that("extract mday from date", {
       mutate(x = mday(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
@@ -697,7 +697,7 @@ test_that("extract yday from date", {
       mutate(x = yday(date)) %>%
       collect(),
     test_df,
-    # the ignore step could be removed after https://issues.apache.org/jira/browse/ARROW-13168
+    # TODO remove the ignore step after https://issues.apache.org/jira/browse/ARROW-13168
     ignore_attr = on_windows()
   )
 })
