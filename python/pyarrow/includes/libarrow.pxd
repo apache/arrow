@@ -1651,7 +1651,7 @@ cdef extern from "arrow/python/csv.h" namespace "arrow::py::csv":
 cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
     cdef cppclass CCSVParseOptions" arrow::csv::ParseOptions":
-        char delimiter
+        unsigned char delimiter
         c_bool quoting
         unsigned char quote_char
         c_bool double_quote
@@ -1713,7 +1713,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
-        char delimiter
+        unsigned char delimiter
         CIOContext io_context
 
         CCSVWriteOptions()

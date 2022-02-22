@@ -235,7 +235,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     while (offset < buffer_size) {
       // error happened or remaining bytes to check
       const char c = static_cast<char>(data[offset]);
-      if (c == '\n' || c == '\r' || c == ',' || c == '"' || c == delimiter) {
+      if (c == '\n' || c == '\r' || c == '"' || c == delimiter) {
         // extract the offending string from array per offset
         const auto* offsets = array.raw_value_offsets();
         const auto index =

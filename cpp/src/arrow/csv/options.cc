@@ -74,7 +74,7 @@ WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
 
 Status WriteOptions::Validate() const {
   if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r' || delimiter == '"' ||
-                          std::string(1, delimiter) == eol)) {
+                          eol.find(delimiter) != std::string::npos)) {
     return Status::Invalid(
         "WriteOptions: delimiter cannot be \\r or \\n or \" or EOL. Invalid value: ",
         delimiter);
