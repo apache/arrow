@@ -857,6 +857,7 @@ tasks:
       - flight-grpc-{no_rc_version}-tests.jar
       - flight-grpc-{no_rc_version}.jar
       - flight-grpc-{no_rc_version}.pom
+      - flight-integration-tests-{no_rc_version}-jar-with-dependencies.jar
       - flight-integration-tests-{no_rc_version}-javadoc.jar
       - flight-integration-tests-{no_rc_version}-sources.jar
       - flight-integration-tests-{no_rc_version}-tests.jar
