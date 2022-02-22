@@ -34,21 +34,16 @@ extern "C" {
 /// EXPERIMENTAL. Interface subject to change.
 
 /// \page object-model Object Model
-/// (TODO: describe void* private_data, thread-safety guarantees)
+///
+/// Except where noted, objects are not thread-safe and clients should
+/// take care to serialize accesses to methods.
 
 /// \defgroup adbc-error-handling Error handling primitives.
 /// ADBC uses integer error codes to signal errors. To provide more
-/// detail about errors, each ADBC object provides a `get_error`
-/// method, which can be called repeatedly to get a log of error
-/// messages. This is intended to separate error messages from
-/// different contexts. The caller should free or delete the error
-/// string after retrieving it.
-///
-/// TODO: we need to provide a function to free errors in the API (we
-/// should not assume we use the same malloc/free as the user)
-///
-/// If there is concurrent usage of an object and errors occur,
-/// then there is no guarantee on the ordering of error messages.
+/// detail about errors, functions may also return an AdbcError via an
+/// optional out parameter, which can be inspected. If provided, it is
+/// the responsibility of the caller to zero-initialize the AdbcError
+/// value.
 ///
 /// @{
 
@@ -67,6 +62,14 @@ enum AdbcStatusCode {
   /// An I/O error occurred.
   ADBC_STATUS_IO = 5,
   // TODO: more codes as appropriate
+};
+
+/// \brief A detailed error message for an operation.
+struct AdbcError {
+  /// \brief The error message.
+  char* message;
+  /// \brief Destroy this error message.
+  void (*release)(struct AdbcError* error);
 };
 
 /// }@
@@ -92,27 +95,27 @@ struct AdbcConnectionOptions {
 /// Provides methods for query execution, managing prepared
 /// statements, using transactions, and so on.
 ///
-/// TODO: thread safety guarantees? Send+Sync?
+/// Connections are not thread-safe and clients should take care to
+/// serialize accesses to a connection.
 struct AdbcConnection {
   /// \name Common Functions
-  /// Standard functions for memory management and error handling of
-  /// ADBC types.
+  /// Standard functions for memory management of ADBC types.
   ///@{
 
   /// \brief Destroy this connection.
-  void (*release)(struct AdbcConnection* connection);
-
-  /// \brief Clean up this connection. Errors in closing can be
-  ///   retrieved from get_error before calling release.
-  enum AdbcStatusCode (*close)(struct AdbcConnection* connection);
-
-  /// \brief Page through error details associated with this object.
-  char* (*get_error)(struct AdbcConnection* connection);
+  /// \param[in] connection The connection to release.
+  /// \param[out] error An optional location to return an error
+  ///   message if necessary.
+  enum AdbcStatusCode (*release)(struct AdbcConnection* connection,
+                                 struct AdbcError* error);
 
   ///@}
 
   /// \name SQL Semantics
-  /// TODO DESCRIPTION GOES HERE
+  /// Functions for executing SQL queries, or querying SQL-related
+  /// metadata. Drivers are not required to support both SQL and
+  /// Substrait semantics. If they do, it may be via converting
+  /// between representations internally.
   ///@{
 
   /// \brief Execute a one-shot query.
@@ -120,19 +123,24 @@ struct AdbcConnection {
   /// For queries expected to be executed repeatedly, create a
   /// prepared statement.
   enum AdbcStatusCode (*sql_execute)(struct AdbcConnection* connection, const char* query,
-                                     struct AdbcStatement* statement);
+                                     struct AdbcStatement* statement,
+                                     struct AdbcError* error);
 
   /// \brief Prepare a query to be executed multiple times.
   ///
   /// TODO: this should return AdbcPreparedStatement to disaggregate
   /// preparation and execution
   enum AdbcStatusCode (*sql_prepare)(struct AdbcConnection* connection, const char* query,
-                                     struct AdbcStatement* statement);
+                                     struct AdbcStatement* statement,
+                                     struct AdbcError* error);
 
   ///@}
 
   /// \name Substrait Semantics
-  /// TODO DESCRIPTION GOES HERE
+  /// Functions for executing Substrait plans, or querying
+  /// Substrait-related metadata.  Drivers are not required to support
+  /// both SQL and Substrait semantics. If they do, it may be via
+  /// converting between representations internally.
   ///@{
 
   ///@}
@@ -142,6 +150,9 @@ struct AdbcConnection {
   /// partitions are exposed to clients who may wish to integrate them
   /// with a threaded or distributed execution model, where partitions
   /// can be divided among threads or machines for processing.
+  ///
+  /// Drivers are not required to support partitioning.
+  ///
   ///@{
 
   /// \brief Construct a statement for a partition of a query. The
@@ -151,7 +162,8 @@ struct AdbcConnection {
   enum AdbcStatusCode (*deserialize_partition_desc)(struct AdbcConnection* connection,
                                                     const uint8_t* serialized_partition,
                                                     size_t serialized_length,
-                                                    struct AdbcStatement* statement);
+                                                    struct AdbcStatement* statement,
+                                                    struct AdbcError* error);
 
   ///@}
 
@@ -161,11 +173,9 @@ struct AdbcConnection {
 };
 
 /// \brief Create a new connection to a database.
-///
-/// On failure, *out may have valid values for `get_error` and
-/// `release`, so error messages can be retrieved.
 enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* options,
-                                       struct AdbcConnection* out);
+                                       struct AdbcConnection* out,
+                                       struct AdbcError* error);
 
 /// }@
 
@@ -178,21 +188,20 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
 
 /// \brief The result of executing a database query. Can be consumed
 ///   to produce a result.
+///
+/// Statements are not thread-safe and clients should take care to
+/// serialize access.
 struct AdbcStatement {
   /// \name Common Functions
-  /// Standard functions for memory management and error handling of
-  /// ADBC types.
+  /// Standard functions for memory management of ADBC types.
   ///@{
 
-  /// \brief Destroy this statement.
-  void (*release)(struct AdbcStatement* statement);
-
-  /// \brief Clean up this statement. Errors in closing can be
-  ///   retrieved from get_error before calling release.
-  enum AdbcStatusCode (*close)(struct AdbcStatement* connection);
-
-  /// \brief Page through error details associated with this object.
-  char* (*get_error)(struct AdbcStatement* statement);
+  /// \brief Destroy this connection.
+  /// \param[in] connection The connection to release.
+  /// \param[out] error An optional location to return an error
+  ///   message if necessary.
+  enum AdbcStatusCode (*release)(struct AdbcStatement* connection,
+                                 struct AdbcError* error);
 
   ///@}
 
@@ -203,13 +212,19 @@ struct AdbcStatement {
   /// \return out A stream of Arrow data. The stream itself must be
   ///   released before the statement is released.
   enum AdbcStatusCode (*get_results)(struct AdbcStatement* statement,
-                                     struct ArrowArrayStream* out);
+                                     struct ArrowArrayStream* out,
+                                     struct AdbcError* error);
 
   /// \name Partitioned Results
   /// Some backends may internally partition the results. These
   /// partitions are exposed to clients who may wish to integrate them
   /// with a threaded or distributed execution model, where partitions
   /// can be divided among threads or machines.
+  ///
+  /// Drivers are not required to support partitioning. In this case,
+  /// num_partitions will return 0. They are required to support
+  /// get_results.
+  ///
   ///@{
 
   /// \brief Get the number of partitions in this statement.
@@ -219,12 +234,13 @@ struct AdbcStatement {
   ///   distributed. (For example, in the case of an in-memory
   ///   database.)
   enum AdbcStatusCode (*num_partitions)(struct AdbcStatement* statement,
-                                        size_t* partitions);
+                                        size_t* partitions, struct AdbcError* error);
 
   /// \brief Get the length of the serialized descriptor for a partition in this
   ///   statement.
   enum AdbcStatusCode (*get_partition_desc_size)(struct AdbcStatement* statement,
-                                                 size_t index, size_t* length);
+                                                 size_t index, size_t* length,
+                                                 struct AdbcError* error);
 
   /// \brief Get a serialized descriptor for a partition in this statement.
   ///
@@ -239,7 +255,7 @@ struct AdbcStatement {
   ///   serialized partition will be written. The length to allocate
   ///   can be queried with get_partition_desc_size.
   enum AdbcStatusCode (*get_partition_desc)(struct AdbcStatement* statement, size_t index,
-                                            uint8_t* partition);
+                                            uint8_t* partition, struct AdbcError* error);
 
   ///@}
 

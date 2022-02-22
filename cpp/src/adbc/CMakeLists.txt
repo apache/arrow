@@ -17,8 +17,8 @@
 
 add_custom_target(adbc)
 
-set(ARROW_SKYHOOK_LINK_STATIC arrow_static)
-set(ARROW_SKYHOOK_LINK_SHARED arrow_shared)
+set(ADBC_LINK_SHARED arrow_shared)
+set(ADBC_LINK_STATIC arrow_static)
 
 # TODO: should util.cc live in a separate 'driver utils' lib?
 set(ADBC_SOURCES adbc.cc util.cc)

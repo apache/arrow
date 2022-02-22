@@ -15,14 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Basic C++ bindings for the ADBC API.
+
 #pragma once
 
-#include <stdint.h>
+#include <string>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "adbc/c/types.h"
+#include "arrow/result.h"
 
-#ifdef __cplusplus
+namespace adbc {
+arrow::Result<struct AdbcConnection> ConnectRaw(
+    const std::string& driver, const struct AdbcConnectionOptions& options);
 }
-#endif
