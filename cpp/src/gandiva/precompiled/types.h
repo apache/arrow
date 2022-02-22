@@ -215,6 +215,11 @@ gdv_int64 negative_daytimeinterval_int64(gdv_int64 context, gdv_day_time_interva
 gdv_int64 negative_daytimeinterval_int64(gdv_int64 context,
                                          gdv_day_time_interval interval);
 
+gdv_month_interval negative_month_interval(gdv_int64 context,
+                                  gdv_month_interval interval);
+gdv_int64 negative_daytimeinterval(gdv_int64 context,
+                                   gdv_day_time_interval interval);
+
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 
 gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);

@@ -19,10 +19,13 @@
 #include <cstdint>
 #include "./epoch_time_point.h"
 #include "arrow/util/basic_decimal.h"
+//#include "../../arrow/type.h"
 
 extern "C" {
 
 #include "./types.h"
+
+//using arrow::DayTimeIntervalType;
 
 // Expand inner macro for all numeric types.
 #define NUMERIC_TYPES(INNER, NAME, OP) \
@@ -391,11 +394,8 @@ NEGATIVE_INTEGER(month_interval, 32)
 
 const int64_t INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME = 9223372034707292159;
 
-gdv_int64 negative_daytimeinterval_int64(gdv_int64 context,
-                                         gdv_day_time_interval interval) {
-  if (interval < 0) {
-    return interval;
-  }
+gdv_int64 negative_daytimeinterval(gdv_int64 context,
+                                   gdv_day_time_interval interval) {
 
   if (interval > INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME) {
     gdv_fn_context_set_error_msg(
@@ -403,10 +403,18 @@ gdv_int64 negative_daytimeinterval_int64(gdv_int64 context,
     return 0;
   }
 
-  // The interval is a 64-bit integer where the lower half of the bytes represents the
-  // number of the days and the other half represents the number of milliseconds.
-  int64_t qty_days = (interval & 0xFFFFFFFF00000000) >> 32;
-  int64_t qty_millis = (interval & 0x00000000FFFFFFFF);
+  int64_t qty_days;
+  int64_t qty_millis;
+  if (interval < 0) {
+    qty_days = interval >> 32;
+    qty_millis = (interval << 32) >> 32;
+  }
+  else {
+    // The interval is a 64-bit integer where the lower half of the bytes represents the
+    // number of the days and the other half represents the number of milliseconds.
+    qty_days = (interval & 0xFFFFFFFF00000000) >> 32;
+    qty_millis = (interval & 0x00000000FFFFFFFF);
+  }
 
   qty_days = -1 * qty_days;
   qty_millis = -1 * qty_millis;
