@@ -521,7 +521,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
                                          data_buffer_->size() - options_.eol.size());
     for (int col = schema_->num_fields() - 1; col >= 0; col--) {
-      *next-- = ',';
+      *next-- = options_.delimiter;
       *next-- = '"';
       next = EscapeReverse(schema_->field(col)->name(), next);
       *next-- = '"';
