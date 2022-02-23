@@ -1887,8 +1887,8 @@ def test_write_read_round_trip():
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             writer.write_table(t)
         buf.seek(0)
-        assert t == read_csv(buf, read_options=read_options)
-
+        assert t == read_csv(buf, read_options=read_options,
+                             parse_options=parse_options)
         buf = io.BytesIO()
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             for batch in t.to_batches(max_chunksize=1):
