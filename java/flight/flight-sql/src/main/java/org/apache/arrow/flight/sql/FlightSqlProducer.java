@@ -25,7 +25,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReferenc
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTypeInfo;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
 import static org.apache.arrow.vector.complex.MapVector.DATA_VECTOR_NAME;
 import static org.apache.arrow.vector.complex.MapVector.KEY_NAME;
 import static org.apache.arrow.vector.complex.MapVector.VALUE_NAME;
@@ -125,9 +125,9 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
     } else if (command.is(CommandGetCrossReference.class)) {
       return getFlightInfoCrossReference(
           FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, descriptor);
-    } else if (command.is(CommandGetTypeInfo.class)) {
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
       return getFlightInfoTypeInfo(
-          FlightSqlUtils.unpackOrThrow(command, CommandGetTypeInfo.class), context, descriptor);
+          FlightSqlUtils.unpackOrThrow(command, CommandGetXdbcTypeInfo.class), context, descriptor);
     }
 
     throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
@@ -157,7 +157,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       return new SchemaResult(Schemas.GET_TABLE_TYPES_SCHEMA);
     } else if (command.is(CommandGetSqlInfo.class)) {
       return new SchemaResult(Schemas.GET_SQL_INFO_SCHEMA);
-    } else if (command.is(CommandGetTypeInfo.class)) {
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
       return new SchemaResult(Schemas.GET_TYPE_INFO_SCHEMA);
     } else if (command.is(CommandGetPrimaryKeys.class)) {
       return new SchemaResult(Schemas.GET_PRIMARY_KEYS_SCHEMA);
@@ -216,8 +216,8 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       getStreamImportedKeys(FlightSqlUtils.unpackOrThrow(command, CommandGetImportedKeys.class), context, listener);
     } else if (command.is(CommandGetCrossReference.class)) {
       getStreamCrossReference(FlightSqlUtils.unpackOrThrow(command, CommandGetCrossReference.class), context, listener);
-    } else if (command.is(CommandGetTypeInfo.class)) {
-      getStreamTypeInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetTypeInfo.class), context, listener);
+    } else if (command.is(CommandGetXdbcTypeInfo.class)) {
+      getStreamTypeInfo(FlightSqlUtils.unpackOrThrow(command, CommandGetXdbcTypeInfo.class), context, listener);
     } else {
       throw CallStatus.INVALID_ARGUMENT.withDescription("The defined request is invalid.").toRuntimeException();
     }
@@ -434,7 +434,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param descriptor  The descriptor identifying the data stream.
    * @return  Metadata about the stream.
    */
-  FlightInfo getFlightInfoTypeInfo(CommandGetTypeInfo request, CallContext context,
+  FlightInfo getFlightInfoTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
                                    FlightDescriptor descriptor);
 
   /**
@@ -443,7 +443,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
    * @param context  Per-call context.
    * @param listener An interface for sending data back to the client.
    */
-  void getStreamTypeInfo(CommandGetTypeInfo request, CallContext context, ServerStreamListener listener);
+  void getStreamTypeInfo(CommandGetXdbcTypeInfo request, CallContext context, ServerStreamListener listener);
 
   /**
    * Returns the available catalogs by returning a stream of

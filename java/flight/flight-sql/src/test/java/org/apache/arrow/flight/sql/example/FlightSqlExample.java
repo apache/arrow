@@ -28,11 +28,11 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrow.sqlToArrowVectorIterator;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.jdbcToArrowSchema;
+import static org.apache.arrow.flight.sql.impl.FlightSql.*;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetCrossReference;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetDbSchemas;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetExportedKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetImportedKeys;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTypeInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.DoPutUpdateResult;
 import static org.apache.arrow.flight.sql.impl.FlightSql.TicketStatementQuery;
 import static org.apache.arrow.util.Preconditions.checkState;
@@ -483,7 +483,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return new VectorSchemaRoot(singletonList(dataVector));
   }
 
-  private static VectorSchemaRoot getTypeInfoRoot(CommandGetTypeInfo request, ResultSet typeInfo,
+  private static VectorSchemaRoot getTypeInfoRoot(CommandGetXdbcTypeInfo request, ResultSet typeInfo,
                                                   final BufferAllocator allocator)
       throws SQLException {
     Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
@@ -1399,13 +1399,13 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   @Override
-  public FlightInfo getFlightInfoTypeInfo(CommandGetTypeInfo request, CallContext context,
+  public FlightInfo getFlightInfoTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
                                           FlightDescriptor descriptor) {
     return getFlightInfoForSchema(request, descriptor, Schemas.GET_TYPE_INFO_SCHEMA);
   }
 
   @Override
-  public void getStreamTypeInfo(CommandGetTypeInfo request, CallContext context,
+  public void getStreamTypeInfo(CommandGetXdbcTypeInfo request, CallContext context,
                                 ServerStreamListener listener) {
     try (final Connection connection = dataSource.getConnection();
          final ResultSet typeInfo = connection.getMetaData().getTypeInfo();

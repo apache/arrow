@@ -28,7 +28,7 @@ import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetPrimaryKeys;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetSqlInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTableTypes;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTables;
-import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetTypeInfo;
+import static org.apache.arrow.flight.sql.impl.FlightSql.CommandGetXdbcTypeInfo;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementUpdate;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementQuery;
 import static org.apache.arrow.flight.sql.impl.FlightSql.CommandStatementUpdate;
@@ -240,8 +240,8 @@ public class FlightSqlClient implements AutoCloseable {
    * @param options   RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTypeInfo(final int dataType, final CallOption... options) {
-    final CommandGetTypeInfo.Builder builder = CommandGetTypeInfo.newBuilder();
+  public FlightInfo getXdbcTypeInfo(final int dataType, final CallOption... options) {
+    final CommandGetXdbcTypeInfo.Builder builder = CommandGetXdbcTypeInfo.newBuilder();
 
     builder.setDataType(dataType);
 
@@ -255,8 +255,8 @@ public class FlightSqlClient implements AutoCloseable {
    * @param options   RPC-layer hints for this call.
    * @return a FlightInfo object representing the stream(s) to fetch.
    */
-  public FlightInfo getTypeInfo(final CallOption... options) {
-    final CommandGetTypeInfo.Builder builder = CommandGetTypeInfo.newBuilder();
+  public FlightInfo getXdbcTypeInfo(final CallOption... options) {
+    final CommandGetXdbcTypeInfo.Builder builder = CommandGetXdbcTypeInfo.newBuilder();
 
     final FlightDescriptor descriptor = FlightDescriptor.command(Any.pack(builder.build()).toByteArray());
     return client.getInfo(descriptor, options);

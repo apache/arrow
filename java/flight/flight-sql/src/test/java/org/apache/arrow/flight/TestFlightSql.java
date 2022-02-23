@@ -567,7 +567,7 @@ public class TestFlightSql {
 
   @Test
   public void testGetTypeInfo() {
-    FlightInfo flightInfo = sqlClient.getTypeInfo();
+    FlightInfo flightInfo = sqlClient.getXdbcTypeInfo();
 
     FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
@@ -645,7 +645,7 @@ public class TestFlightSql {
 
   @Test
   public void testGetTypeInfoWithFiltering() {
-    FlightInfo flightInfo = sqlClient.getTypeInfo(-5);
+    FlightInfo flightInfo = sqlClient.getXdbcTypeInfo(-5);
 
     FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket());
 
