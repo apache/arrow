@@ -27,4 +27,3 @@ clang_format.sh
 STYLE.md
 ^.lintr
 ^.styler_excludes.R
-^man/figures/card.png$
