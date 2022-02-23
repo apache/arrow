@@ -24,6 +24,9 @@
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
+#ifdef ARROW_GCS
+#include "arrow/filesystem/gcsfs.h"
+#endif
 #ifdef ARROW_S3
 #include "arrow/filesystem/s3fs.h"
 #endif
@@ -686,6 +689,16 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     }
     return std::make_shared<LocalFileSystem>(options, io_context);
   }
+  if (scheme == "gs" || scheme == "gcs") {
+#ifdef ARROW_GCS
+    ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
+    ARROW_ASSIGN_OR_RAISE(auto gcsfs, GcsFileSystem::Make(options, io_context));
+    return gcsfs;
+#else
+    return Status::NotImplemented("Got GCS URI but Arrow compiled without GCS support");
+#endif
+  }
+
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
