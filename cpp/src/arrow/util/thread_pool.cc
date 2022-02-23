@@ -29,7 +29,6 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/tracing_internal.h"
 
 #include "arrow/util/tracing_internal.h"
 
@@ -37,6 +36,11 @@ namespace arrow {
 namespace internal {
 
 Executor::~Executor() = default;
+
+// By default we do nothing here.  Subclasses that expect to be allocated
+// with static storage duration should override this and ensure any threads respect the
+// lifetime of these resources.
+void Executor::KeepAlive(std::shared_ptr<Resource> resource) {}
 
 namespace {
 
@@ -201,19 +205,14 @@ struct ThreadPool::State {
   // Are we shutting down?
   bool please_shutdown_ = false;
   bool quick_shutdown_ = false;
+
+  std::vector<std::shared_ptr<Resource>> kept_alive_resources_;
 };
 
 // The worker loop is an independent function so that it can keep running
 // after the ThreadPool is destroyed.
 static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
                        std::list<std::thread>::iterator it) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  // The main thread may exit and start shutting down static state before
-  // this thread ends.  This means that any calls to OpenTelemetry's static
-  // state will potentially access freed memory.  By grabbing a handle we
-  // keep OpenTelemetry's static state alive until this thread ends.
-  internal::tracing::OtHandle handle = internal::tracing::Attach();
-#endif
   std::unique_lock<std::mutex> lock(state->mutex_);
 
   // Since we hold the lock, `it` now points to the correct thread object
@@ -454,6 +453,12 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
   }
   state_->cv_.notify_one();
   return Status::OK();
+}
+
+void ThreadPool::KeepAlive(std::shared_ptr<Executor::Resource> resource) {
+  // Seems unlikely but we might as well guard against concurrent calls to KeepAlive
+  std::lock_guard<std::mutex> lk(state_->mutex_);
+  state_->kept_alive_resources_.push_back(std::move(resource));
 }
 
 Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {

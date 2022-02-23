@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
 namespace arrow {
@@ -29,20 +30,12 @@ namespace tracing {
 #ifdef ARROW_WITH_OPENTELEMETRY
 
 TEST(Tracing, Attach) {
-  std::thread task([] {
-    // If this next line is commented out then the test will emit tsan
-    // errors because, when the main thread exits, the OT infrastructure
-    // will be torn down.  By grabbing a handle we tie the lifetime of OT
-    // to the thread so that OT will not shutdown until after the thread.
-    auto handle = ::arrow::internal::tracing::Attach();
+  ASSERT_OK(::arrow::internal::GetCpuThreadPool()->Spawn([] {
+    // This thread will outlive the main test thread.
     Span span;
     START_SPAN(span, "Test");
     SleepFor(0.1);
-  });
-  // We don't detach our threads in Arrow but we don't control their
-  // lifetime since they are tied to static thread pools.  So detaching
-  // here allows us to simulate that.
-  task.detach();
+  }));
 }
 
 #endif
