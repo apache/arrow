@@ -118,16 +118,15 @@ jobs:
               --source_dir=r/src --quiet --fix
       - uses: r-lib/actions/setup-r@v2
         if: env.R_DOCS == 'true' || env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
-      - name: Install R dependencies
-        shell: Rscript {0}
-        run: |
-          source("ci/etc/rprofile")
-          install.packages("remotes")
-          remotes::install_deps("r", dependencies = c("hard", "Config/Needs/dev", "Config/Needs/website"))
       - name: Update R docs
         if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
         shell: Rscript {0}
         run: |
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "roxygen2"))
+          # We currently need dev roxygen2 (> 7.1.1) until they release
+          remotes::install_github("r-lib/roxygen2")
+          remotes::install_deps("r")
           roxygen2::roxygenize("r")
       - name: Style R code
         if: env.R_CODE == 'true' || endsWith(github.event.comment.body, 'everything')
@@ -138,6 +137,9 @@ jobs:
           changed_files <- grep('^r/.*\\.R$', changed_files, value = TRUE)
           # remove latin1 which is unstylable due to encoding and codegen.R which is unique
           changed_files <- changed_files[!changed_files %in% file.path("r", source("r/.styler_excludes.R")$value)]
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "styler"))
+          remotes::install_deps("r")
           styler::style_file(changed_files)
       - name: Commit results
         run: |
