@@ -689,7 +689,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     }
     return std::make_shared<LocalFileSystem>(options, io_context);
   }
-  if (scheme == "gs") {
+  if (scheme == "gs" || scheme == "gcs") {
 #ifdef ARROW_GCS
     ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
     ARROW_ASSIGN_OR_RAISE(auto gcsfs, GcsFileSystem::Make(options, io_context));

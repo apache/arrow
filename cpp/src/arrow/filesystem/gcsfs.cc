@@ -624,42 +624,46 @@ bool GcsOptions::Equals(const GcsOptions& other) const {
 }
 
 GcsOptions GcsOptions::Defaults() {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials()),
-      {},
-      "https"};
+  GcsOptions options{};
+  options.credentials =
+      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials());
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::Anonymous() {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials()),
-      {},
-      "http"};
+  GcsOptions options{};
+  options.credentials =
+      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials());
+  options.scheme = "http";
+  return options;
 }
 
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
                                        std::chrono::system_clock::time_point expiration) {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(
-          google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
-      {},
-      "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeAccessTokenCredentials(access_token, expiration));
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::FromImpersonatedServiceAccount(
     const GcsCredentials& base_credentials, const std::string& target_service_account) {
-  return GcsOptions{std::make_shared<GcsCredentials>(
-                        google::cloud::MakeImpersonateServiceAccountCredentials(
-                            base_credentials.credentials, target_service_account)),
-                    {},
-                    "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeImpersonateServiceAccountCredentials(
+          base_credentials.credentials, target_service_account));
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
-  return GcsOptions{std::make_shared<GcsCredentials>(
-                        google::cloud::MakeServiceAccountCredentials(json_object)),
-                    {},
-                    "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeServiceAccountCredentials(json_object));
+  options.scheme = "https";
+  return options;
 }
 
 Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
