@@ -25,7 +25,7 @@ template:
     ganalytics: UA-107500873-1
   opengraph:
     image:
-      src: man/figures/card.png
+      src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
       alt: "Apache Arrow logo, displaying the triple chevron image adjacent to the text"
     twitter:
       creator: "@apachearrow"
