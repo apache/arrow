@@ -91,7 +91,7 @@ RUN echo "MAKEFLAGS=-j$(R -s -e 'cat(parallel::detectCores())')" >> $(R RHOME)/e
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
-     R -e "install.packages('pkgdown')"
+    R -e "install.packages('pkgdown')"
 
 ENV ARROW_FLIGHT=ON \
     ARROW_PYTHON=ON \
