@@ -1040,7 +1040,7 @@ enum Searchable {
  * >
  * The returned data should be ordered by data_type and then by type_name.
  */
-message CommandGetTypeInfo {
+message CommandGetXdbcTypeInfo {
   option (experimental) = true;
 
   /*
