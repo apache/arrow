@@ -81,7 +81,15 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
 
 // Counts the number of quotes in s.
 int64_t CountQuotes(arrow::util::string_view s) {
-  return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
+  // std::count uses 64 bit counter, not necessary for StringType
+  // 32 bit counter performs much better
+  // https://quick-bench.com/q/TjqdU15vwv3qHykXegAJmSwCyxI
+  DCHECK_LT(s.size(), 1ULL << 32);
+  uint32_t count = 0;
+  for (const char c : s) {
+    count += c == '"';
+  }
+  return count;
 }
 
 // Matching quote pair character length.
@@ -170,11 +178,17 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars(*casted_array_, delimiter_));
     }
 
-    for (int x = 0; x < casted_array_->length(); x++) {
-      row_lengths[x] += casted_array_->IsNull(x)
-                            ? static_cast<int32_t>(null_string_->size())
-                            : casted_array_->value_length(x);
-    }
+    int64_t row_number = 0;
+    VisitArrayDataInline<StringType>(
+        *casted_array_->data(),
+        [&](arrow::util::string_view s) {
+          row_lengths[row_number] += static_cast<int32_t>(s.length());
+          row_number++;
+        },
+        [&]() {
+          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+          row_number++;
+        });
     return Status::OK();
   }
 
@@ -265,24 +279,41 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
-    int row_number = 0;
-    row_needs_escaping_.resize(casted_array_->length());
-    VisitArrayDataInline<StringType>(
-        *input.data(),
-        [&](arrow::util::string_view s) {
-          // Each quote in the value string needs to be escaped.
-          int64_t escaped_count = CountQuotes(s);
-          // TODO: Maybe use 64 bit row lengths or safe cast?
-          row_needs_escaping_[row_number] = escaped_count > 0;
-          row_lengths[row_number] += static_cast<int32_t>(s.length()) +
-                                     static_cast<int32_t>(escaped_count + kQuoteCount);
-          row_number++;
-        },
-        [&]() {
-          row_needs_escaping_[row_number] = false;
-          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
-          row_number++;
-        });
+
+    row_needs_escaping_.resize(casted_array_->length(), false);
+
+    if (NoQuoteInArray(input)) {
+      // fast path if no quote
+      int row_number = 0;
+      VisitArrayDataInline<StringType>(
+          *input.data(),
+          [&](arrow::util::string_view s) {
+            row_lengths[row_number] +=
+                static_cast<int32_t>(s.length()) + static_cast<int32_t>(kQuoteCount);
+            row_number++;
+          },
+          [&]() {
+            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_number++;
+          });
+    } else {
+      int row_number = 0;
+      VisitArrayDataInline<StringType>(
+          *input.data(),
+          [&](arrow::util::string_view s) {
+            // Each quote in the value string needs to be escaped.
+            int64_t escaped_count = CountQuotes(s);
+            // TODO: Maybe use 64 bit row lengths or safe cast?
+            row_needs_escaping_[row_number] = escaped_count > 0;
+            row_lengths[row_number] += static_cast<int32_t>(s.length()) +
+                                       static_cast<int32_t>(escaped_count + kQuoteCount);
+            row_number++;
+          },
+          [&]() {
+            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_number++;
+          });
+    }
     return Status::OK();
   }
 
@@ -328,6 +359,31 @@ class QuotedColumnPopulator : public ColumnPopulator {
   }
 
  private:
+  // Returns true if there's no quote in the string array
+  // similar to std::find, but with much better performance
+  static bool NoQuoteInArray(const StringArray& array) {
+    const uint8_t* const data = array.raw_data() + array.value_offset(0);
+    const int64_t buffer_size = array.total_values_length();
+    int64_t offset = 0;
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+    using simd_batch = xsimd::make_sized_batch_t<uint8_t, 16>;
+    while ((offset + 16) <= buffer_size) {
+      const auto v = simd_batch::load_unaligned(data + offset);
+      if (xsimd::any(v == '"')) {
+        return false;
+      }
+      offset += 16;
+    }
+#endif
+    while (offset < buffer_size) {
+      if (data[offset] == '"') {
+        return false;
+      }
+      ++offset;
+    }
+    return true;
+  }
+
   // Older version of GCC don't support custom allocators
   // at some point we should change this to use memory_pool
   // backed allocator.
