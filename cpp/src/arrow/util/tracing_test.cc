@@ -29,7 +29,15 @@ namespace tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 
-TEST(Tracing, Attach) {
+// This test is a regression for ARROW-15604.  OT has some static state that
+// can be initialized after the CPU and I/O thread pools.  We need to make
+// sure OT's state persists for the lifetime of any threads in those thread
+// pools.
+//
+// This test checks this by spawning a thread task that will outlive the unit
+// test's lifetime and so teardown of static state should begin before this
+// thread finishes.
+TEST(Tracing, OtLifetime) {
   ASSERT_OK(::arrow::internal::GetCpuThreadPool()->Spawn([] {
     // This thread will outlive the main test thread.
     Span span;
