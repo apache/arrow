@@ -58,7 +58,7 @@ to_duckdb <- function(.data,
                       auto_disconnect = TRUE) {
   .data <- as_adq(.data)
   if (!requireNamespace("duckdb", quietly = TRUE)) {
-    abort("Please install the `duckdb` package.")
+    abort("Please install the `duckdb` package to pass data with `to_duckdb()`.")
   }
 
   duckdb::duckdb_register_arrow(con, table_name, .data)
