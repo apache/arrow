@@ -126,5 +126,3 @@ Collate:
     'reexports-tidyselect.R'
     'schema.R'
     'util.R'
-Config/Needs/website: pkgdown
-Config/Needs/dev: roxygen2, jonkeane/lintr@arrow-branch, styler
