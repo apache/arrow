@@ -202,6 +202,8 @@ TEST(TestDispatchBest, CommonTemporalResolution) {
   ASSERT_EQ(TimeUnit::MILLI, CommonTemporalResolution(args.data(), args.size()));
   args = {time64(TimeUnit::MICRO), duration(TimeUnit::NANO)};
   ASSERT_EQ(TimeUnit::NANO, CommonTemporalResolution(args.data(), args.size()));
+  args = {duration(TimeUnit::SECOND), int64()};
+  ASSERT_EQ(TimeUnit::SECOND, CommonTemporalResolution(args.data(), args.size()));
 }
 
 TEST(TestDispatchBest, ReplaceTemporalTypes) {
@@ -268,6 +270,11 @@ TEST(TestDispatchBest, ReplaceTemporalTypes) {
   ReplaceTemporalTypes(ty, &args);
   AssertTypeEqual(args[0].type, time64(TimeUnit::NANO));
   AssertTypeEqual(args[1].type, duration(TimeUnit::NANO));
+
+  args = {duration(TimeUnit::SECOND), int64()};
+  ReplaceTemporalTypes(CommonTemporalResolution(args.data(), args.size()), &args);
+  AssertTypeEqual(args[0].type, duration(TimeUnit::SECOND));
+  AssertTypeEqual(args[1].type, int64());
 }
 
 }  // namespace internal

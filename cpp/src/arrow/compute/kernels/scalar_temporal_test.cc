@@ -1455,6 +1455,50 @@ TEST_F(ScalarTemporalTest, TestTemporalSubtractDuration) {
   }
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
+  std::shared_ptr<Array> max_array;
+  auto max = std::numeric_limits<int64_t>::max();
+  ArrayFromVector<Int64Type, int64_t>({max, max, max, max, max}, &max_array);
+
+  for (auto u : TimeUnit::values()) {
+    auto unit = duration(u);
+    auto durations = ArrayFromJSON(unit, R"([0, -1, 2, 6, null])");
+    auto multipliers = ArrayFromJSON(int64(), R"([0, 3, 2, 7, null])");
+    auto durations_multiplied = ArrayFromJSON(unit, R"([0, -3, 4, 42, null])");
+
+    CheckScalarBinary("multiply", durations, multipliers, durations_multiplied);
+    CheckScalarBinary("multiply", multipliers, durations, durations_multiplied);
+    CheckScalarBinary("multiply_checked", durations, multipliers, durations_multiplied);
+    CheckScalarBinary("multiply_checked", multipliers, durations, durations_multiplied);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid: overflow"),
+        CallFunction("multiply_checked", {durations, max_array}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Invalid: overflow"),
+        CallFunction("multiply_checked", {max_array, durations}));
+  }
+}
+
+TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
+  for (auto u : TimeUnit::values()) {
+    auto unit = duration(u);
+    auto divided_durations = ArrayFromJSON(unit, R"([0, -1, -2, 6, null])");
+    auto divisors = ArrayFromJSON(int64(), R"([3, 3, -2, 7, null])");
+    auto durations = ArrayFromJSON(unit, R"([1, -3, 4, 42, null])");
+    auto zeros = ArrayFromJSON(int64(), R"([0, 0, 0, 0, null])");
+    CheckScalarBinary("divide", durations, divisors, divided_durations);
+    CheckScalarBinary("divide_checked", durations, divisors, divided_durations);
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("Invalid: divide by zero"),
+                                    CallFunction("divide", {durations, zeros}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    ::testing::HasSubstr("Invalid: divide by zero"),
+                                    CallFunction("divide_checked", {durations, zeros}));
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
   auto raw_days = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([
     "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",

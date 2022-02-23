@@ -44,6 +44,7 @@ namespace internal {
 
 using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
+using applicator::ScalarBinaryNotNull;
 using applicator::ScalarBinaryNotNullEqualTypes;
 using applicator::ScalarUnary;
 using applicator::ScalarUnaryNotNull;
@@ -1647,8 +1648,8 @@ ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
     case Type::UINT32:
       return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
-    case Type::DURATION:
     case Type::INT64:
+    case Type::DURATION:
     case Type::TIMESTAMP:
       return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
     case Type::UINT64:
@@ -2802,23 +2803,63 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // ----------------------------------------------------------------------
   auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
   AddDecimalBinaryKernels<Multiply>("multiply", multiply.get());
+
+  // Add multiply(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec1 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(
+        multiply->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec1)));
+    auto exec2 = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(
+        multiply->AddKernel({int64(), duration(unit)}, duration(unit), std::move(exec2)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
   auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
       "multiply_checked", &mul_checked_doc);
   AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", multiply_checked.get());
+
+  // Add multiply_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec1 =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    DCHECK_OK(multiply_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                          std::move(exec1)));
+    auto exec2 =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    DCHECK_OK(multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit),
+                                          std::move(exec2)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
   auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
   AddDecimalBinaryKernels<Divide>("divide", divide.get());
+
+  // Add divide(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DurationType, DurationType, Int64Type, Divide>::Exec;
+    DCHECK_OK(
+        divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
   AddDecimalBinaryKernels<DivideChecked>("divide_checked", divide_checked.get());
+
+  // Add divide_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<DurationType, DurationType, Int64Type, DivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                        std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
