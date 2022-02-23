@@ -48,7 +48,7 @@ set(SUBSTRAIT_PROTOS
     type_expressions)
 
 externalproject_add(substrait_ep
-                    URL "${ARROW_SUBSTRAIT_REPO}/archive/${ARROW_SUBSTRAIT_TAG}.tar.gz"
+                    URL "https://github.com/${ARROW_SUBSTRAIT_REPO}/archive/${ARROW_SUBSTRAIT_TAG}.tar.gz"
                     SOURCE_DIR "${SUBSTRAIT_LOCAL_DIR}"
                     CONFIGURE_COMMAND ""
                     BUILD_COMMAND ""

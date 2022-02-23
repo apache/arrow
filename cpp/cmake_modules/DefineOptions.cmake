@@ -478,10 +478,11 @@ advised that if this is enabled 'install' will fail silently on components;\
 that have not been built"
                 OFF)
 
-  set(ARROW_SUBSTRAIT_REPO_DEFAULT "https://github.com/substrait-io/substrait")
+  set(ARROW_SUBSTRAIT_REPO_DEFAULT "substrait-io/substrait")
   define_option_string(ARROW_SUBSTRAIT_REPO
-                       "Custom git repository URL for downloading Substrait sources.;\
-See also ARROW_SUBSTRAIT_TAG" "${ARROW_SUBSTRAIT_REPO_DEFAULT}")
+                       "Custom GitHub user/repository pair for downloading Substrait sources.;\
+See also ARROW_SUBSTRAIT_TAG"
+                       "${ARROW_SUBSTRAIT_REPO_DEFAULT}")
 
   set(ARROW_SUBSTRAIT_TAG_DEFAULT "e1b4c04a1b518912f4c4065b16a1b2c0ac8e14cf")
   define_option_string(ARROW_SUBSTRAIT_TAG
