@@ -15,10 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_installed("duckdb", minimum_version = "0.3.1")
-skip_if_not_installed("dbplyr")
 skip_if_not_available("dataset")
 skip_on_cran()
+
+# this test needs to be the first one since all other test blocks are skipped
+# if duckdb is not installed
+test_that("meaningful error message when duckdb is not installed", {
+  # skipping if duckdb is installed since we're testing the to_duckdb function's
+  # complaint when a user tries to call it, but duckdb isn't available
+  skip_if(requireNamespace("duckdb", quietly = TRUE))
+  ds <- InMemoryDataset$create(example_data)
+  expect_error(
+    to_duckdb(ds),
+    regexp ="Please install the `duckdb` package to pass data with `to_duckdb()`.",
+    fixed = TRUE
+  )
+})
+
+skip_if_not_installed("duckdb", minimum_version = "0.3.1")
+skip_if_not_installed("dbplyr")
 
 library(duckdb, quietly = TRUE)
 library(dplyr, warn.conflicts = FALSE)
