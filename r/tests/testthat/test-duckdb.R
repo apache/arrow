@@ -16,16 +16,17 @@
 # under the License.
 
 test_that("meaningful error message when duckdb is not installed", {
-  new_lib <- tempfile()
-  dir.create(new_lib)
-  withr::with_libpaths(new_lib, {
+  skip_if(requireNamespace("duckdb", quietly = TRUE))
+  # new_lib <- tempfile()
+  # dir.create(new_lib)
+  # withr::with_libpaths(new_lib, {
     ds <- InMemoryDataset$create(example_data)
     expect_error(
       to_duckdb(ds),
       "Please install the `duckdb` package."
     )
-  })
-  unlink(new_lib, recursive = TRUE)
+  # })
+  # unlink(new_lib, recursive = TRUE)
 })
 
 skip_if_not_installed("duckdb", minimum_version = "0.3.1")
