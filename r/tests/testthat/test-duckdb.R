@@ -25,9 +25,10 @@ test_that("meaningful error message when duckdb is not installed", {
   # complaint when a user tries to call it, but duckdb isn't available
   skip_if(requireNamespace("duckdb", quietly = TRUE))
   ds <- InMemoryDataset$create(example_data)
-  expect_snapshot(
+  expect_error(
     to_duckdb(ds),
-    error = TRUE
+    regexp ="Please install the `duckdb` package to pass data with `to_duckdb()`.",
+    fixed = TRUE
   )
 })
 
