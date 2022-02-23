@@ -1113,7 +1113,7 @@ TEST_F(TestProjector, TestNegativeIntervalTypeDayTime) {
                          arrow::DayTimeIntervalType::DayMilliseconds>(
       arrow::day_time_interval(), {true, true, true, true, true, true},
       {{-2, -2},
-       {-2, -2},
+       {2, 2},
        {-10250, -3600000},
        {-2147483647, -2147483647},
        {-4, -1500},
