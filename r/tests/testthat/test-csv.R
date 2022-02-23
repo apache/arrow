@@ -549,10 +549,9 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   query_obj <- arrow_table(tbl_no_dates) %>%
     filter(lgl == TRUE)
 
-  rb_reader <- Scanner$create(query_obj)$ToRecordBatchReader()
-
   csv_file <- tempfile()
-  tbl_out <- write_csv_arrow(rb_reader, csv_file)
+  on.exit(unlink(csv_file)
+  tbl_out <- write_csv_arrow(query_obj, csv_file)
   expect_true(file.exists(csv_file))
 
   tbl_in <- read_csv_arrow(csv_file)
