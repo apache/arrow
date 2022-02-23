@@ -187,13 +187,13 @@ TEST_F(TestFlightSqlClient, TestGetTableTypes) {
 }
 
 TEST_F(TestFlightSqlClient, TestGetTypeInfo) {
-  pb::sql::CommandGetTypeInfo command;
+  pb::sql::CommandGetXdbcTypeInfo command;
   FlightDescriptor descriptor = getDescriptor(command);
 
   ON_CALL(sql_client_, GetFlightInfo).WillByDefault(ReturnEmptyFlightInfo);
   EXPECT_CALL(sql_client_, GetFlightInfo(Ref(call_options_), descriptor));
 
-  ASSERT_OK(sql_client_.GetTypeInfo(call_options_));
+  ASSERT_OK(sql_client_.GetXdbcTypeInfo(call_options_));
 }
 
 TEST_F(TestFlightSqlClient, TestGetExported) {

@@ -489,13 +489,13 @@ class SQLiteFlightSqlServer::Impl {
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
-      const ServerCallContext& context, const GetTypeInfo& command,
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
       const FlightDescriptor& descriptor) {
-    return GetFlightInfoForCommand(descriptor, SqlSchema::GetTypeInfoSchema());
+    return GetFlightInfoForCommand(descriptor, SqlSchema::GetXdbcTypeInfoSchema());
   }
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
-      const ServerCallContext& context, const GetTypeInfo& command) {
+      const ServerCallContext& context, const GetXdbcTypeInfo& command) {
     const std::shared_ptr<RecordBatch>& type_info_result =
         command.data_type.has_value() ? DoGetTypeInfoResult(command.data_type.value())
                                       : DoGetTypeInfoResult();
@@ -775,14 +775,16 @@ arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTab
   return impl_->DoGetTableTypes(context);
 }
 
-arrow::Result<std::unique_ptr<FlightInfo>> SQLiteFlightSqlServer::GetFlightInfoTypeInfo(
-    const ServerCallContext& context, const arrow::flight::sql::GetTypeInfo& command,
+arrow::Result<std::unique_ptr<FlightInfo>>
+SQLiteFlightSqlServer::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const arrow::flight::sql::GetXdbcTypeInfo& command,
     const FlightDescriptor& descriptor) {
   return impl_->GetFlightInfoTypeInfo(context, command, descriptor);
 }
 
-arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetTypeInfo(
-    const ServerCallContext& context, const arrow::flight::sql::GetTypeInfo& command) {
+arrow::Result<std::unique_ptr<FlightDataStream>> SQLiteFlightSqlServer::DoGetXdbcTypeInfo(
+    const ServerCallContext& context,
+    const arrow::flight::sql::GetXdbcTypeInfo& command) {
   return impl_->DoGetTypeInfo(context, command);
 }
 

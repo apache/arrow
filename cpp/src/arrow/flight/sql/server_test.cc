@@ -383,7 +383,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTablesWithIncludedSchemas) {
 }
 
 TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTypeInfo({}));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));
@@ -399,7 +399,7 @@ TEST_F(TestFlightSqlServer, TestCommandGetTypeInfo) {
 
 TEST_F(TestFlightSqlServer, TestCommandGetTypeInfoWithFiltering) {
   int data_type = -4;
-  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetTypeInfo({}, data_type));
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetXdbcTypeInfo({}, data_type));
 
   ASSERT_OK_AND_ASSIGN(auto stream,
                        sql_client->DoGet({}, flight_info->endpoints()[0].ticket));

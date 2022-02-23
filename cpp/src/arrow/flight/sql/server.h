@@ -70,7 +70,7 @@ struct GetTables {
   bool include_schema;
 };
 
-struct GetTypeInfo {
+struct GetXdbcTypeInfo {
   util::optional<int> data_type;
 };
 
@@ -198,18 +198,18 @@ class ARROW_EXPORT FlightSqlServerBase : public FlightServerBase {
   /// \param[in] command      An optional filter for on the data type.
   /// \param[in] descriptor   The descriptor identifying the data stream.
   /// \return                 Status.
-  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
-      const ServerCallContext& context, const GetTypeInfo& command,
+  virtual arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoXdbcTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command,
       const FlightDescriptor& descriptor);
 
   /// \brief Gets a FlightDataStream containing information about the data types
   ///        supported.
   /// \param[in] context  Per-call context.
-  /// \param[in] command  The GetTypeInfo object which may contain filter for
+  /// \param[in] command  The GetXdbcTypeInfo object which may contain filter for
   ///                     the date type to be search for.
   /// \return             Status.
-  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
-      const ServerCallContext& context, const GetTypeInfo& command);
+  virtual arrow::Result<std::unique_ptr<FlightDataStream>> DoGetXdbcTypeInfo(
+      const ServerCallContext& context, const GetXdbcTypeInfo& command);
 
   /// \brief Get a FlightInfo for retrieving other information (See SqlInfo).
   /// \param[in] context      Per-call context.
@@ -456,9 +456,9 @@ class ARROW_EXPORT SqlSchema {
   /// \return The default schema template.
   static std::shared_ptr<Schema> GetCrossReferenceSchema();
 
-  /// \brief Get the Schema used on GetTypeInfo response.
+  /// \brief Get the Schema used on GetXdbcTypeInfo response.
   /// \return The default schema template.
-  static std::shared_ptr<Schema> GetTypeInfoSchema();
+  static std::shared_ptr<Schema> GetXdbcTypeInfoSchema();
 
   /// \brief Get the Schema used on GetSqlInfo response.
   /// \return The default schema template.

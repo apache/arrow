@@ -329,15 +329,15 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
     return DoGetForTestCase(sql::SqlSchema::GetCatalogsSchema());
   }
 
-  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTypeInfo(
-      const ServerCallContext& context, const sql::GetTypeInfo& command,
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoXdbcTypeInfo(
+      const ServerCallContext& context, const sql::GetXdbcTypeInfo& command,
       const FlightDescriptor& descriptor) override {
-    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetTypeInfoSchema());
+    return GetFlightInfoForCommand(descriptor, sql::SqlSchema::GetXdbcTypeInfoSchema());
   }
 
-  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTypeInfo(
-      const ServerCallContext& context, const sql::GetTypeInfo& command) override {
-    return DoGetForTestCase(sql::SqlSchema::GetTypeInfoSchema());
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetXdbcTypeInfo(
+      const ServerCallContext& context, const sql::GetXdbcTypeInfo& command) override {
+    return DoGetForTestCase(sql::SqlSchema::GetXdbcTypeInfoSchema());
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoSqlInfo(
@@ -621,8 +621,8 @@ class FlightSqlScenario : public Scenario {
     ARROW_RETURN_NOT_OK(Validate(
         sql::SqlSchema::GetCrossReferenceSchema(),
         sql_client->GetCrossReference(options, pk_table_ref, fk_table_ref), sql_client));
-    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetTypeInfoSchema(),
-                                 sql_client->GetTypeInfo(options), sql_client));
+    ARROW_RETURN_NOT_OK(Validate(sql::SqlSchema::GetXdbcTypeInfoSchema(),
+                                 sql_client->GetXdbcTypeInfo(options), sql_client));
     ARROW_RETURN_NOT_OK(Validate(
         sql::SqlSchema::GetSqlInfoSchema(),
         sql_client->GetSqlInfo(

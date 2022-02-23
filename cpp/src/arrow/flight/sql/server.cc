@@ -154,13 +154,14 @@ arrow::Result<StatementQuery> ParseCommandStatementQuery(
   return result;
 }
 
-arrow::Result<GetTypeInfo> ParseCommandGetTypeInfo(const google::protobuf::Any& any) {
-  pb::sql::CommandGetTypeInfo command;
+arrow::Result<GetXdbcTypeInfo> ParseCommandGetXdbcTypeInfo(
+    const google::protobuf::Any& any) {
+  pb::sql::CommandGetXdbcTypeInfo command;
   if (!any.UnpackTo(&command)) {
-    return Status::Invalid("Unable to unpack CommandGetTypeInfo.");
+    return Status::Invalid("Unable to unpack CommandGetXdbcTypeInfo.");
   }
 
-  GetTypeInfo result;
+  GetXdbcTypeInfo result;
   result.data_type = PROPERTY_TO_OPTIONAL(command, data_type);
   return result;
 }
@@ -299,10 +300,11 @@ Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*info, GetFlightInfoTableTypes(context, request));
     return Status::OK();
-  } else if (any.Is<pb::sql::CommandGetTypeInfo>()) {
-    ARROW_ASSIGN_OR_RAISE(GetTypeInfo internal_command, ParseCommandGetTypeInfo(any));
+  } else if (any.Is<pb::sql::CommandGetXdbcTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetXdbcTypeInfo internal_command,
+                          ParseCommandGetXdbcTypeInfo(any));
     ARROW_ASSIGN_OR_RAISE(*info,
-                          GetFlightInfoTypeInfo(context, internal_command, request))
+                          GetFlightInfoXdbcTypeInfo(context, internal_command, request))
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
@@ -371,9 +373,9 @@ Status FlightSqlServerBase::DoGet(const ServerCallContext& context, const Ticket
   } else if (any.Is<pb::sql::CommandGetTableTypes>()) {
     ARROW_ASSIGN_OR_RAISE(*stream, DoGetTableTypes(context));
     return Status::OK();
-  } else if (any.Is<pb::sql::CommandGetTypeInfo>()) {
-    ARROW_ASSIGN_OR_RAISE(GetTypeInfo command, ParseCommandGetTypeInfo(any));
-    ARROW_ASSIGN_OR_RAISE(*stream, DoGetTypeInfo(context, command))
+  } else if (any.Is<pb::sql::CommandGetXdbcTypeInfo>()) {
+    ARROW_ASSIGN_OR_RAISE(GetXdbcTypeInfo command, ParseCommandGetXdbcTypeInfo(any));
+    ARROW_ASSIGN_OR_RAISE(*stream, DoGetXdbcTypeInfo(context, command))
     return Status::OK();
   } else if (any.Is<pb::sql::CommandGetSqlInfo>()) {
     ARROW_ASSIGN_OR_RAISE(GetSqlInfo internal_command,
@@ -558,15 +560,15 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoSql
   return std::unique_ptr<FlightInfo>(new FlightInfo(result));
 }
 
-arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoTypeInfo(
-    const ServerCallContext& context, const GetTypeInfo& command,
+arrow::Result<std::unique_ptr<FlightInfo>> FlightSqlServerBase::GetFlightInfoXdbcTypeInfo(
+    const ServerCallContext& context, const GetXdbcTypeInfo& command,
     const FlightDescriptor& descriptor) {
-  return Status::NotImplemented("GetFlightInfoTypeInfo not implemented");
+  return Status::NotImplemented("GetFlightInfoXdbcTypeInfo not implemented");
 }
 
-arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetTypeInfo(
-    const ServerCallContext& context, const GetTypeInfo& command) {
-  return Status::NotImplemented("DoGetTypeInfo not implemented");
+arrow::Result<std::unique_ptr<FlightDataStream>> FlightSqlServerBase::DoGetXdbcTypeInfo(
+    const ServerCallContext& context, const GetXdbcTypeInfo& command) {
+  return Status::NotImplemented("DoGetXdbcTypeInfo not implemented");
 }
 
 void FlightSqlServerBase::RegisterSqlInfo(int32_t id, const SqlInfoResult& result) {
@@ -788,7 +790,7 @@ std::shared_ptr<Schema> SqlSchema::GetSqlInfoSchema() {
                               false)});
 }
 
-std::shared_ptr<Schema> SqlSchema::GetTypeInfoSchema() {
+std::shared_ptr<Schema> SqlSchema::GetXdbcTypeInfoSchema() {
   return arrow::schema({
       field("type_name", utf8(), false),
       field("data_type", int32(), false),

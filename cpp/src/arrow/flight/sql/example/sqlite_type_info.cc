@@ -76,7 +76,7 @@ std::shared_ptr<RecordBatch> DoGetTypeInfoResult() {
   const auto& interval_precision = zero_int_array;
 
   return RecordBatch::Make(
-      SqlSchema::GetTypeInfoSchema(), 17,
+      SqlSchema::GetXdbcTypeInfoSchema(), 17,
       {type_name_array, data_type, column_size, literal_prefix, literal_suffix,
        create_params, nullable, case_sensitive, searchable, unsigned_attribute,
        fixed_prec_scale, auto_unique_value, local_type_name, minimal_scale, maximum_scale,
