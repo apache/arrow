@@ -324,6 +324,10 @@ bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
   return ticket == other.ticket && locations == other.locations;
 }
 
+bool ActionType::Equals(const ActionType& other) const {
+  return type == other.type && description == other.description;
+}
+
 Status MetadataRecordBatchReader::ReadAll(
     std::vector<std::shared_ptr<RecordBatch>>* batches) {
   FlightStreamChunk chunk;

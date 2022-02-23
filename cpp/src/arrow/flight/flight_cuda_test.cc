@@ -70,16 +70,16 @@ class CudaTestServer : public FlightServerBase {
 
   Status DoGet(const ServerCallContext&, const Ticket&,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
-    auto batch_reader = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches));
     *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader));
     return Status::OK();
   }
 
   Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(reader->ReadAll(&batches));
     for (const auto& batch : batches) {
       for (const auto& column : batch->columns()) {
@@ -161,7 +161,7 @@ TEST_F(TestCuda, DoGet) {
 TEST_F(TestCuda, DoPut) {
   // Check that we can send a record batch containing references to
   // GPU buffers.
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
 
   std::unique_ptr<FlightStreamWriter> writer;
@@ -190,7 +190,7 @@ TEST_F(TestCuda, DoExchange) {
   FlightCallOptions options;
   options.memory_manager = device_->default_memory_manager();
 
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
 
   std::unique_ptr<FlightStreamWriter> writer;

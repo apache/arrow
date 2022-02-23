@@ -39,14 +39,11 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
-#include "arrow/util/string.h"
 
 #ifdef GRPCPP_GRPCPP_H
 #error "gRPC headers should not be in public API"
 #endif
 
-#include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
@@ -64,120 +61,6 @@ const char kBearerToken[] = "bearertoken";
 const char kBasicPrefix[] = "Basic ";
 const char kBearerPrefix[] = "Bearer ";
 const char kAuthHeader[] = "authorization";
-
-void AssertEqual(const ActionType& expected, const ActionType& actual) {
-  ASSERT_EQ(expected.type, actual.type);
-  ASSERT_EQ(expected.description, actual.description);
-}
-
-void AssertEqual(const FlightDescriptor& expected, const FlightDescriptor& actual) {
-  ASSERT_TRUE(expected.Equals(actual));
-}
-
-void AssertEqual(const Ticket& expected, const Ticket& actual) {
-  ASSERT_EQ(expected.ticket, actual.ticket);
-}
-
-void AssertEqual(const Location& expected, const Location& actual) {
-  ASSERT_EQ(expected, actual);
-}
-
-void AssertEqual(const std::vector<FlightEndpoint>& expected,
-                 const std::vector<FlightEndpoint>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertEqual(expected[i].ticket, actual[i].ticket);
-
-    ASSERT_EQ(expected[i].locations.size(), actual[i].locations.size());
-    for (size_t j = 0; j < expected[i].locations.size(); ++j) {
-      AssertEqual(expected[i].locations[j], actual[i].locations[j]);
-    }
-  }
-}
-
-template <typename T>
-void AssertEqual(const std::vector<T>& expected, const std::vector<T>& actual) {
-  ASSERT_EQ(expected.size(), actual.size());
-  for (size_t i = 0; i < expected.size(); ++i) {
-    AssertEqual(expected[i], actual[i]);
-  }
-}
-
-void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
-  std::shared_ptr<Schema> ex_schema, actual_schema;
-  ipc::DictionaryMemo expected_memo;
-  ipc::DictionaryMemo actual_memo;
-  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
-  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
-
-  AssertSchemaEqual(*ex_schema, *actual_schema);
-  ASSERT_EQ(expected.total_records(), actual.total_records());
-  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
-
-  AssertEqual(expected.descriptor(), actual.descriptor());
-  AssertEqual(expected.endpoints(), actual.endpoints());
-}
-
-TEST(TestFlightDescriptor, Basics) {
-  auto a = FlightDescriptor::Command("select * from table");
-  auto b = FlightDescriptor::Command("select * from table");
-  auto c = FlightDescriptor::Command("select foo from table");
-  auto d = FlightDescriptor::Path({"foo", "bar"});
-  auto e = FlightDescriptor::Path({"foo", "baz"});
-  auto f = FlightDescriptor::Path({"foo", "baz"});
-
-  ASSERT_EQ(a.ToString(), "FlightDescriptor<cmd = 'select * from table'>");
-  ASSERT_EQ(d.ToString(), "FlightDescriptor<path = 'foo/bar'>");
-  ASSERT_TRUE(a.Equals(b));
-  ASSERT_FALSE(a.Equals(c));
-  ASSERT_FALSE(a.Equals(d));
-  ASSERT_FALSE(d.Equals(e));
-  ASSERT_TRUE(e.Equals(f));
-}
-
-// This tests the internal protobuf types which don't get exported in the Flight DLL.
-#ifndef _WIN32
-TEST(TestFlightDescriptor, ToFromProto) {
-  FlightDescriptor descr_test;
-  pb::FlightDescriptor pb_descr;
-
-  FlightDescriptor descr1{FlightDescriptor::PATH, "", {"foo", "bar"}};
-  ASSERT_OK(internal::ToProto(descr1, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  AssertEqual(descr1, descr_test);
-
-  FlightDescriptor descr2{FlightDescriptor::CMD, "command", {}};
-  ASSERT_OK(internal::ToProto(descr2, &pb_descr));
-  ASSERT_OK(internal::FromProto(pb_descr, &descr_test));
-  AssertEqual(descr2, descr_test);
-}
-#endif
-
-TEST(TestFlight, DISABLED_StartStopTestServer) {
-  TestServer server("flight-test-server");
-  server.Start();
-  ASSERT_TRUE(server.IsRunning());
-
-  std::this_thread::sleep_for(std::chrono::duration<double>(0.2));
-
-  ASSERT_TRUE(server.IsRunning());
-  int exit_code = server.Stop();
-#ifdef _WIN32
-  // We do a hard kill on Windows
-  ASSERT_EQ(259, exit_code);
-#else
-  ASSERT_EQ(0, exit_code);
-#endif
-  ASSERT_FALSE(server.IsRunning());
-}
-
-// ARROW-6017: we should be able to construct locations for unknown
-// schemes
-TEST(TestFlight, UnknownLocationScheme) {
-  Location location;
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_OK(Location::Parse("https://example.com/foo", &location));
-}
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
@@ -220,98 +103,6 @@ TEST(TestFlight, ConnectUriUnix) {
   ASSERT_OK(client->Close());
 }
 #endif
-
-TEST(TestFlight, RoundTripTypes) {
-  Ticket ticket{"foo"};
-  ASSERT_OK_AND_ASSIGN(std::string ticket_serialized, ticket.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(Ticket ticket_deserialized,
-                       Ticket::Deserialize(ticket_serialized));
-  ASSERT_EQ(ticket.ticket, ticket_deserialized.ticket);
-
-  FlightDescriptor desc = FlightDescriptor::Command("select * from foo;");
-  ASSERT_OK_AND_ASSIGN(std::string desc_serialized, desc.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(FlightDescriptor desc_deserialized,
-                       FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
-
-  desc = FlightDescriptor::Path({"a", "b", "test.arrow"});
-  ASSERT_OK_AND_ASSIGN(desc_serialized, desc.SerializeToString());
-  ASSERT_OK_AND_ASSIGN(desc_deserialized, FlightDescriptor::Deserialize(desc_serialized));
-  ASSERT_TRUE(desc.Equals(desc_deserialized));
-
-  FlightInfo::Data data;
-  std::shared_ptr<Schema> schema =
-      arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
-                     field("d", int64())});
-  Location location1, location2, location3;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 10010, &location1));
-  ASSERT_OK(Location::ForGrpcTls("localhost", 10010, &location2));
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location3));
-  std::vector<FlightEndpoint> endpoints{FlightEndpoint{ticket, {location1, location2}},
-                                        FlightEndpoint{ticket, {location3}}};
-  ASSERT_OK(MakeFlightInfo(*schema, desc, endpoints, -1, -1, &data));
-  std::unique_ptr<FlightInfo> info = std::unique_ptr<FlightInfo>(new FlightInfo(data));
-  ASSERT_OK_AND_ASSIGN(std::string info_serialized, info->SerializeToString());
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<FlightInfo> info_deserialized,
-                       FlightInfo::Deserialize(info_serialized));
-  ASSERT_TRUE(info->descriptor().Equals(info_deserialized->descriptor()));
-  ASSERT_EQ(info->endpoints(), info_deserialized->endpoints());
-  ASSERT_EQ(info->total_records(), info_deserialized->total_records());
-  ASSERT_EQ(info->total_bytes(), info_deserialized->total_bytes());
-}
-
-TEST(TestFlight, RoundtripStatus) {
-  // Make sure status codes round trip through our conversions
-
-  std::shared_ptr<FlightStatusDetail> detail;
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Internal, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Internal, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::TimedOut, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::TimedOut, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Cancelled, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Cancelled, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unauthenticated, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unauthenticated, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unauthorized, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unauthorized, detail->code());
-
-  detail = FlightStatusDetail::UnwrapStatus(
-      MakeFlightError(FlightStatusCode::Unavailable, "Test message"));
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Unavailable, detail->code());
-
-  Status status = internal::FromGrpcStatus(
-      internal::ToGrpcStatus(Status::NotImplemented("Sentinel")));
-  ASSERT_TRUE(status.IsNotImplemented());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::Invalid("Sentinel")));
-  ASSERT_TRUE(status.IsInvalid());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status = internal::FromGrpcStatus(internal::ToGrpcStatus(Status::KeyError("Sentinel")));
-  ASSERT_TRUE(status.IsKeyError());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-
-  status =
-      internal::FromGrpcStatus(internal::ToGrpcStatus(Status::AlreadyExists("Sentinel")));
-  ASSERT_TRUE(status.IsAlreadyExists());
-  ASSERT_THAT(status.message(), ::testing::HasSubstr("Sentinel"));
-}
 
 TEST(TestFlight, GetPort) {
   Location location;
@@ -418,7 +209,8 @@ class TestFlightClient : public ::testing::Test {
   }
 
   template <typename EndpointCheckFunc>
-  void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
+  void CheckDoGet(const FlightDescriptor& descr,
+                  const RecordBatchVector& expected_batches,
                   EndpointCheckFunc&& check_endpoints) {
     auto expected_schema = expected_batches[0]->schema();
 
@@ -436,7 +228,7 @@ class TestFlightClient : public ::testing::Test {
     CheckDoGet(ticket, expected_batches);
   }
 
-  void CheckDoGet(const Ticket& ticket, const BatchVector& expected_batches) {
+  void CheckDoGet(const Ticket& ticket, const RecordBatchVector& expected_batches) {
     auto num_batches = static_cast<int>(expected_batches.size());
     ASSERT_GE(num_batches, 2);
 
@@ -515,7 +307,7 @@ class DoPutTestServer : public FlightServerBase {
 
  protected:
   FlightDescriptor descriptor_;
-  BatchVector batches_;
+  RecordBatchVector batches_;
 
   friend class TestDoPut;
 };
@@ -523,7 +315,7 @@ class DoPutTestServer : public FlightServerBase {
 class MetadataTestServer : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     if (request.ticket == "dicts") {
       RETURN_NOT_OK(ExampleDictBatches(&batches));
     } else if (request.ticket == "floats") {
@@ -531,9 +323,7 @@ class MetadataTestServer : public FlightServerBase {
     } else {
       RETURN_NOT_OK(ExampleIntBatches(&batches));
     }
-    std::shared_ptr<RecordBatchReader> batch_reader =
-        std::make_shared<BatchIterator>(batches[0]->schema(), batches);
-
+    ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchReader::Make(batches));
     *data_stream = std::unique_ptr<FlightDataStream>(new NumberingStream(
         std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader))));
     return Status::OK();
@@ -566,9 +356,9 @@ class MetadataTestServer : public FlightServerBase {
 class OptionsTestServer : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
                std::unique_ptr<FlightDataStream>* data_stream) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleNestedBatches(&batches));
-    auto reader = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchReader::Make(batches));
     *data_stream = std::unique_ptr<FlightDataStream>(new RecordBatchStream(reader));
     return Status::OK();
   }
@@ -724,7 +514,7 @@ class TestDoPut : public ::testing::Test {
   }
 
   void CheckBatches(FlightDescriptor expected_descriptor,
-                    const BatchVector& expected_batches) {
+                    const RecordBatchVector& expected_batches) {
     ASSERT_TRUE(do_put_server_->descriptor_.Equals(expected_descriptor));
     ASSERT_EQ(do_put_server_->batches_.size(), expected_batches.size());
     for (size_t i = 0; i < expected_batches.size(); ++i) {
@@ -733,7 +523,7 @@ class TestDoPut : public ::testing::Test {
   }
 
   void CheckDoPut(FlightDescriptor descr, const std::shared_ptr<Schema>& schema,
-                  const BatchVector& batches) {
+                  const RecordBatchVector& batches) {
     std::unique_ptr<FlightStreamWriter> stream;
     std::unique_ptr<FlightMetadataReader> reader;
     ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
@@ -1264,139 +1054,6 @@ class TestBasicHeaderAuthMiddleware : public ::testing::Test {
   std::shared_ptr<BearerAuthServerMiddlewareFactory> bearer_middleware_;
 };
 
-// This test keeps an internal cookie cache and compares that with the middleware.
-class TestCookieMiddleware : public ::testing::Test {
- public:
-  // Setup function creates middleware factory and starts it up.
-  void SetUp() {
-    factory_ = GetCookieFactory();
-    CallInfo callInfo;
-    factory_->StartCall(callInfo, &middleware_);
-  }
-
-  // Function to add incoming cookies to middleware and validate them.
-  void AddAndValidate(const std::string& incoming_cookie) {
-    // Add cookie
-    CallHeaders call_headers;
-    call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                       arrow::util::string_view(incoming_cookie)));
-    middleware_->ReceivedHeaders(call_headers);
-    expected_cookie_cache_.UpdateCachedCookies(call_headers);
-
-    // Get cookie from middleware.
-    TestCallHeaders add_call_headers;
-    middleware_->SendingHeaders(&add_call_headers);
-    const std::string actual_cookies = add_call_headers.GetCookies();
-
-    // Validate cookie
-    const std::string expected_cookies = expected_cookie_cache_.GetValidCookiesAsString();
-    const std::vector<std::string> split_expected_cookies =
-        SplitCookies(expected_cookies);
-    const std::vector<std::string> split_actual_cookies = SplitCookies(actual_cookies);
-    EXPECT_EQ(split_expected_cookies, split_actual_cookies);
-  }
-
-  // Function to take a list of cookies and split them into a vector of individual
-  // cookies. This is done because the cookie cache is a map so ordering is not
-  // necessarily consistent.
-  static std::vector<std::string> SplitCookies(const std::string& cookies) {
-    std::vector<std::string> split_cookies;
-    std::string::size_type pos1 = 0;
-    std::string::size_type pos2 = 0;
-    while ((pos2 = cookies.find(';', pos1)) != std::string::npos) {
-      split_cookies.push_back(
-          arrow::internal::TrimString(cookies.substr(pos1, pos2 - pos1)));
-      pos1 = pos2 + 1;
-    }
-    if (pos1 < cookies.size()) {
-      split_cookies.push_back(arrow::internal::TrimString(cookies.substr(pos1)));
-    }
-    std::sort(split_cookies.begin(), split_cookies.end());
-    return split_cookies;
-  }
-
- protected:
-  // Class to allow testing of the call headers.
-  class TestCallHeaders : public AddCallHeaders {
-   public:
-    TestCallHeaders() {}
-    ~TestCallHeaders() {}
-
-    // Function to add cookie header.
-    void AddHeader(const std::string& key, const std::string& value) {
-      ASSERT_EQ(key, "cookie");
-      outbound_cookie_ = value;
-    }
-
-    // Function to get outgoing cookie.
-    std::string GetCookies() { return outbound_cookie_; }
-
-   private:
-    std::string outbound_cookie_;
-  };
-
-  internal::CookieCache expected_cookie_cache_;
-  std::unique_ptr<ClientMiddleware> middleware_;
-  std::shared_ptr<ClientMiddlewareFactory> factory_;
-};
-
-// This test is used to test the parsing capabilities of the cookie framework.
-class TestCookieParsing : public ::testing::Test {
- public:
-  void VerifyParseCookie(const std::string& cookie_str, bool expired) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
-    EXPECT_EQ(expired, cookie.IsExpired());
-  }
-
-  void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
-    EXPECT_EQ(name, cookie.GetName());
-  }
-
-  void VerifyCookieString(const std::string& cookie_str,
-                          const std::string& cookie_as_string) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
-    EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
-  }
-
-  void VerifyCookieDateConverson(std::string date, const std::string& converted_date) {
-    internal::Cookie::ConvertCookieDate(&date);
-    EXPECT_EQ(converted_date, date);
-  }
-
-  void VerifyCookieAttributeParsing(
-      const std::string cookie_str, std::string::size_type start_pos,
-      const util::optional<std::pair<std::string, std::string>> cookie_attribute,
-      const std::string::size_type start_pos_after) {
-    util::optional<std::pair<std::string, std::string>> attr =
-        internal::Cookie::ParseCookieAttribute(cookie_str, &start_pos);
-
-    if (cookie_attribute == util::nullopt) {
-      EXPECT_EQ(cookie_attribute, attr);
-    } else {
-      EXPECT_EQ(cookie_attribute.value(), attr.value());
-    }
-    EXPECT_EQ(start_pos_after, start_pos);
-  }
-
-  void AddCookieVerifyCache(const std::vector<std::string>& cookies,
-                            const std::string& expected_cookies) {
-    internal::CookieCache cookie_cache;
-    for (auto& cookie : cookies) {
-      // Add cookie
-      CallHeaders call_headers;
-      call_headers.insert(std::make_pair(arrow::util::string_view("set-cookie"),
-                                         arrow::util::string_view(cookie)));
-      cookie_cache.UpdateCachedCookies(call_headers);
-    }
-    const std::string actual_cookies = cookie_cache.GetValidCookiesAsString();
-    const std::vector<std::string> actual_split_cookies =
-        TestCookieMiddleware::SplitCookies(actual_cookies);
-    const std::vector<std::string> expected_split_cookies =
-        TestCookieMiddleware::SplitCookies(expected_cookies);
-  }
-};
-
 TEST_F(TestErrorMiddleware, TestMetadata) {
   Action action;
   std::unique_ptr<ResultStream> stream;
@@ -1474,13 +1131,13 @@ TEST_F(TestFlightClient, GetFlightInfoNotFound) {
 
 TEST_F(TestFlightClient, DoGetInts) {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
   auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
     // Two endpoints in the example FlightInfo
     ASSERT_EQ(2, endpoints.size());
-    AssertEqual(Ticket{"ticket-ints-1"}, endpoints[0].ticket);
+    ASSERT_EQ(Ticket{"ticket-ints-1"}, endpoints[0].ticket);
   };
 
   CheckDoGet(descr, expected_batches, check_endpoints);
@@ -1488,13 +1145,13 @@ TEST_F(TestFlightClient, DoGetInts) {
 
 TEST_F(TestFlightClient, DoGetFloats) {
   auto descr = FlightDescriptor::Path({"examples", "floats"});
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleFloatBatches(&expected_batches));
 
   auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
     // One endpoint in the example FlightInfo
     ASSERT_EQ(1, endpoints.size());
-    AssertEqual(Ticket{"ticket-floats-1"}, endpoints[0].ticket);
+    ASSERT_EQ(Ticket{"ticket-floats-1"}, endpoints[0].ticket);
   };
 
   CheckDoGet(descr, expected_batches, check_endpoints);
@@ -1502,13 +1159,13 @@ TEST_F(TestFlightClient, DoGetFloats) {
 
 TEST_F(TestFlightClient, DoGetDicts) {
   auto descr = FlightDescriptor::Path({"examples", "dicts"});
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
 
   auto check_endpoints = [](const std::vector<FlightEndpoint>& endpoints) {
     // One endpoint in the example FlightInfo
     ASSERT_EQ(1, endpoints.size());
-    AssertEqual(Ticket{"ticket-dicts-1"}, endpoints[0].ticket);
+    ASSERT_EQ(Ticket{"ticket-dicts-1"}, endpoints[0].ticket);
   };
 
   CheckDoGet(descr, expected_batches, check_endpoints);
@@ -1517,7 +1174,7 @@ TEST_F(TestFlightClient, DoGetDicts) {
 // Ensure the gRPC client is configured to allow large messages
 // Tests a 32 MiB batch
 TEST_F(TestFlightClient, DoGetLargeBatch) {
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleLargeBatches(&expected_batches));
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
@@ -1542,7 +1199,7 @@ TEST_F(TestFlightClient, FlightDataOverflowServerBatch) {
     std::unique_ptr<FlightStreamReader> reader;
     std::unique_ptr<FlightStreamWriter> writer;
     ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-    BatchVector batches;
+    RecordBatchVector batches;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         reader->ReadAll(&batches));
@@ -1578,7 +1235,7 @@ TEST_F(TestFlightClient, FlightDataOverflowClientBatch) {
 
 TEST_F(TestFlightClient, DoExchange) {
   auto descr = FlightDescriptor::Command("counter");
-  BatchVector batches;
+  RecordBatchVector batches;
   auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
   auto schema = arrow::schema({field("f1", a1->type())});
   batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
@@ -1647,7 +1304,7 @@ TEST_F(TestFlightClient, DoExchangeGet) {
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
   ASSERT_OK_AND_ASSIGN(auto server_schema, reader->GetSchema());
   AssertSchemaEqual(*ExampleIntSchema(), *server_schema);
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
   FlightStreamChunk chunk;
   for (const auto& batch : batches) {
@@ -1668,7 +1325,7 @@ TEST_F(TestFlightClient, DoExchangePut) {
   std::unique_ptr<FlightStreamWriter> writer;
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
   ASSERT_OK(writer->Begin(ExampleIntSchema()));
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleIntBatches(&batches));
   for (const auto& batch : batches) {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
@@ -1691,7 +1348,7 @@ TEST_F(TestFlightClient, DoExchangeEcho) {
   std::unique_ptr<FlightStreamWriter> writer;
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
   ASSERT_OK(writer->Begin(ExampleIntSchema()));
-  BatchVector batches;
+  RecordBatchVector batches;
   FlightStreamChunk chunk;
   ASSERT_OK(ExampleIntBatches(&batches));
   for (const auto& batch : batches) {
@@ -1813,7 +1470,7 @@ TEST_F(TestFlightClient, ListActions) {
   ASSERT_OK(client_->ListActions(&actions));
 
   std::vector<ActionType> expected = ExampleActionTypes();
-  AssertEqual(expected, actions);
+  EXPECT_THAT(actions, ::testing::ContainerEq(expected));
 }
 
 TEST_F(TestFlightClient, DoAction) {
@@ -1938,7 +1595,7 @@ TEST_F(TestFlightClient, Close) {
 
 TEST_F(TestDoPut, DoPutInts) {
   auto descr = FlightDescriptor::Path({"ints"});
-  BatchVector batches;
+  RecordBatchVector batches;
   auto a0 = ArrayFromJSON(int8(), "[0, 1, 127, -128, null]");
   auto a1 = ArrayFromJSON(uint8(), "[0, 1, 127, 255, null]");
   auto a2 = ArrayFromJSON(int16(), "[0, 258, 32767, -32768, null]");
@@ -1961,7 +1618,7 @@ TEST_F(TestDoPut, DoPutInts) {
 
 TEST_F(TestDoPut, DoPutFloats) {
   auto descr = FlightDescriptor::Path({"floats"});
-  BatchVector batches;
+  RecordBatchVector batches;
   auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
   auto a1 = ArrayFromJSON(float64(), "[0, 1.2, -3.4, 5.6, null]");
   auto schema = arrow::schema({field("f0", a0->type()), field("f1", a1->type())});
@@ -1973,7 +1630,7 @@ TEST_F(TestDoPut, DoPutFloats) {
 TEST_F(TestDoPut, DoPutEmptyBatch) {
   // Sending and receiving a 0-sized batch shouldn't fail
   auto descr = FlightDescriptor::Path({"ints"});
-  BatchVector batches;
+  RecordBatchVector batches;
   auto a1 = ArrayFromJSON(int32(), "[]");
   auto schema = arrow::schema({field("f1", a1->type())});
   batches.push_back(RecordBatch::Make(schema, a1->length(), {a1}));
@@ -1983,7 +1640,7 @@ TEST_F(TestDoPut, DoPutEmptyBatch) {
 
 TEST_F(TestDoPut, DoPutDicts) {
   auto descr = FlightDescriptor::Path({"dicts"});
-  BatchVector batches;
+  RecordBatchVector batches;
   auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
   auto ty = dictionary(int8(), dict_values->type());
   auto schema = arrow::schema({field("f1", ty)});
@@ -2002,7 +1659,7 @@ TEST_F(TestDoPut, DoPutDicts) {
 TEST_F(TestDoPut, DoPutLargeBatch) {
   auto descr = FlightDescriptor::Path({"large-batches"});
   auto schema = ExampleLargeSchema();
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleLargeBatches(&batches));
   CheckDoPut(descr, schema, batches);
 }
@@ -2020,7 +1677,7 @@ TEST_F(TestDoPut, DoPutSizeLimit) {
   // Batch is too large to fit in one message
   auto schema = arrow::schema({field("f1", arrow::int64())});
   auto batch = arrow::ConstantArrayGenerator::Zeroes(768, schema);
-  BatchVector batches;
+  RecordBatchVector batches;
   batches.push_back(batch->Slice(0, 384));
   batches.push_back(batch->Slice(384));
 
@@ -2343,7 +2000,7 @@ TEST_F(TestMetadata, DoGet) {
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
 
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
   FlightStreamChunk chunk;
@@ -2368,7 +2025,7 @@ TEST_F(TestMetadata, DoGetDictionaries) {
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
 
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
 
   FlightStreamChunk chunk;
@@ -2390,7 +2047,7 @@ TEST_F(TestMetadata, DoPut) {
   std::shared_ptr<Schema> schema = ExampleIntSchema();
   ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
 
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
   std::shared_ptr<RecordBatch> chunk;
@@ -2411,7 +2068,7 @@ TEST_F(TestMetadata, DoPut) {
 TEST_F(TestMetadata, DoPutDictionaries) {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
   // ARROW-8749: don't get the schema via ExampleDictSchema because
   // DictionaryMemo uses field addresses to determine whether it's
@@ -2437,7 +2094,7 @@ TEST_F(TestMetadata, DoPutReadMetadata) {
   std::shared_ptr<Schema> schema = ExampleIntSchema();
   ASSERT_OK(client_->DoPut(FlightDescriptor{}, schema, &writer, &reader));
 
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
 
   std::shared_ptr<RecordBatch> chunk;
@@ -2470,7 +2127,7 @@ TEST_F(TestOptions, DoPutWriteOptions) {
   // Call DoPut, but with a very low write nesting depth set to fail the call.
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
-  BatchVector expected_batches;
+  RecordBatchVector expected_batches;
   ASSERT_OK(ExampleNestedBatches(&expected_batches));
 
   auto options = FlightCallOptions();
@@ -2491,7 +2148,7 @@ TEST_F(TestOptions, DoExchangeClientWriteOptions) {
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
   ASSERT_OK(client_->DoExchange(options, descr, &writer, &reader));
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   ASSERT_OK(writer->Begin(batches[0]->schema()));
   for (const auto& batch : batches) {
@@ -2509,7 +2166,7 @@ TEST_F(TestOptions, DoExchangeClientWriteOptionsBegin) {
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   auto options = ipc::IpcWriteOptions::Defaults();
   options.max_recursion_depth = 1;
@@ -2528,7 +2185,7 @@ TEST_F(TestOptions, DoExchangeServerWriteOptions) {
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
   ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
-  BatchVector batches;
+  RecordBatchVector batches;
   ASSERT_OK(ExampleNestedBatches(&batches));
   ASSERT_OK(writer->Begin(batches[0]->schema()));
   FlightStreamChunk chunk;
@@ -2647,140 +2304,6 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
 TEST_F(TestBasicHeaderAuthMiddleware, ValidCredentials) { RunValidClientAuth(); }
 
 TEST_F(TestBasicHeaderAuthMiddleware, InvalidCredentials) { RunInvalidClientAuth(); }
-
-TEST_F(TestCookieMiddleware, BasicParsing) {
-  AddAndValidate("id1=1; foo=bar;");
-  AddAndValidate("id1=1; foo=bar");
-  AddAndValidate("id2=2;");
-  AddAndValidate("id4=\"4\"");
-  AddAndValidate("id5=5; foo=bar; baz=buz;");
-}
-
-TEST_F(TestCookieMiddleware, Overwrite) {
-  AddAndValidate("id0=0");
-  AddAndValidate("id0=1");
-  AddAndValidate("id1=0");
-  AddAndValidate("id1=1");
-  AddAndValidate("id1=1");
-  AddAndValidate("id1=10");
-  AddAndValidate("id=3");
-  AddAndValidate("id=0");
-  AddAndValidate("id=0");
-}
-
-TEST_F(TestCookieMiddleware, MaxAge) {
-  AddAndValidate("id0=0; max-age=0;");
-  AddAndValidate("id1=0; max-age=-1;");
-  AddAndValidate("id2=0; max-age=0");
-  AddAndValidate("id3=0; max-age=-1");
-  AddAndValidate("id4=0; max-age=1");
-  AddAndValidate("id5=0; max-age=1");
-  AddAndValidate("id4=0; max-age=0");
-  AddAndValidate("id5=0; max-age=0");
-}
-
-TEST_F(TestCookieMiddleware, Expires) {
-  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT;");
-  AddAndValidate("id0=0; expires=0, 0 0 0 0:0:0 GMT");
-  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
-  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
-  AddAndValidate("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;");
-  AddAndValidate("id1=0; expires=Fri, 01 Jan 2038 22:15:36 GMT");
-  AddAndValidate("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;");
-  AddAndValidate("id1=0; expires=Fri, 22 Dec 2017 22:15:36 GMT");
-}
-
-TEST_F(TestCookieParsing, Expired) {
-  VerifyParseCookie("id0=0; expires=Fri, 22 Dec 2017 22:15:36 GMT;", true);
-  VerifyParseCookie("id1=0; max-age=-1;", true);
-  VerifyParseCookie("id0=0; max-age=0;", true);
-}
-
-TEST_F(TestCookieParsing, Invalid) {
-  VerifyParseCookie("id1=0; expires=0, 0 0 0 0:0:0 GMT;", true);
-  VerifyParseCookie("id1=0; expires=Fri, 01 FOO 2038 22:15:36 GMT", true);
-  VerifyParseCookie("id1=0; expires=foo", true);
-  VerifyParseCookie("id1=0; expires=", true);
-  VerifyParseCookie("id1=0; max-age=FOO", true);
-  VerifyParseCookie("id1=0; max-age=", true);
-}
-
-TEST_F(TestCookieParsing, NoExpiry) {
-  VerifyParseCookie("id1=0;", false);
-  VerifyParseCookie("id1=0; noexpiry=Fri, 01 Jan 2038 22:15:36 GMT", false);
-  VerifyParseCookie("id1=0; noexpiry=\"Fri, 01 Jan 2038 22:15:36 GMT\"", false);
-  VerifyParseCookie("id1=0; nomax-age=-1", false);
-  VerifyParseCookie("id1=0; nomax-age=\"-1\"", false);
-  VerifyParseCookie("id1=0; randomattr=foo", false);
-}
-
-TEST_F(TestCookieParsing, NotExpired) {
-  VerifyParseCookie("id5=0; max-age=1", false);
-  VerifyParseCookie("id0=0; expires=Fri, 01 Jan 2038 22:15:36 GMT;", false);
-}
-
-TEST_F(TestCookieParsing, GetName) {
-  VerifyCookieName("id1=1; foo=bar;", "id1");
-  VerifyCookieName("id1=1; foo=bar", "id1");
-  VerifyCookieName("id2=2;", "id2");
-  VerifyCookieName("id4=\"4\"", "id4");
-  VerifyCookieName("id5=5; foo=bar; baz=buz;", "id5");
-}
-
-TEST_F(TestCookieParsing, ToString) {
-  VerifyCookieString("id1=1; foo=bar;", "id1=1");
-  VerifyCookieString("id1=1; foo=bar", "id1=1");
-  VerifyCookieString("id2=2;", "id2=2");
-  VerifyCookieString("id4=\"4\"", "id4=4");
-  VerifyCookieString("id5=5; foo=bar; baz=buz;", "id5=5");
-}
-
-TEST_F(TestCookieParsing, DateConversion) {
-  VerifyCookieDateConverson("Mon, 01 jan 2038 22:15:36 GMT;", "01 01 2038 22:15:36");
-  VerifyCookieDateConverson("TUE, 10 Feb 2038 22:15:36 GMT", "10 02 2038 22:15:36");
-  VerifyCookieDateConverson("WED, 20 MAr 2038 22:15:36 GMT;", "20 03 2038 22:15:36");
-  VerifyCookieDateConverson("thu, 15 APR 2038 22:15:36 GMT", "15 04 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 30 mAY 2038 22:15:36 GMT;", "30 05 2038 22:15:36");
-  VerifyCookieDateConverson("Sat, 03 juN 2038 22:15:36 GMT", "03 06 2038 22:15:36");
-  VerifyCookieDateConverson("Sun, 01 JuL 2038 22:15:36 GMT;", "01 07 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 06 aUg 2038 22:15:36 GMT", "06 08 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 SEP 2038 22:15:36 GMT;", "01 09 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 OCT 2038 22:15:36 GMT", "01 10 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 Nov 2038 22:15:36 GMT;", "01 11 2038 22:15:36");
-  VerifyCookieDateConverson("Fri, 01 deC 2038 22:15:36 GMT", "01 12 2038 22:15:36");
-  VerifyCookieDateConverson("", "");
-  VerifyCookieDateConverson("Fri, 01 INVALID 2038 22:15:36 GMT;",
-                            "01 INVALID 2038 22:15:36");
-}
-
-TEST_F(TestCookieParsing, ParseCookieAttribute) {
-  VerifyCookieAttributeParsing("", 0, util::nullopt, std::string::npos);
-
-  std::string cookie_string = "attr0=0; attr1=1; attr2=2; attr3=3";
-  auto attr_length = std::string("attr0=0;").length();
-  std::string::size_type start_pos = 0;
-  VerifyCookieAttributeParsing(cookie_string, start_pos, std::make_pair("attr0", "0"),
-                               cookie_string.find("attr0=0;") + attr_length);
-  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
-                               std::make_pair("attr1", "1"),
-                               cookie_string.find("attr1=1;") + attr_length);
-  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
-                               std::make_pair("attr2", "2"),
-                               cookie_string.find("attr2=2;") + attr_length);
-  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length + 1)),
-                               std::make_pair("attr3", "3"), std::string::npos);
-  VerifyCookieAttributeParsing(cookie_string, (start_pos += (attr_length - 1)),
-                               util::nullopt, std::string::npos);
-  VerifyCookieAttributeParsing(cookie_string, std::string::npos, util::nullopt,
-                               std::string::npos);
-}
-
-TEST_F(TestCookieParsing, CookieCache) {
-  AddCookieVerifyCache({"id0=0;"}, "");
-  AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
-  AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
-  AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
-}
 
 class ForeverFlightListing : public FlightListing {
   Status Next(std::unique_ptr<FlightInfo>* info) override {
