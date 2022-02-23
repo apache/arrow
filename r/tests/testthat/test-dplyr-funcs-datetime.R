@@ -797,6 +797,8 @@ test_that("dst extracts daylight savings time correctly", {
   compare_dplyr_binding(
     .input %>%
       mutate(dst = dst(dates)) %>%
+      collect(),
+    test_df
   )
 })
 
