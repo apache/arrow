@@ -890,7 +890,8 @@ class TableSorter {
 
   TableSorter(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
               const Table& table, const SortOptions& options)
-      : ctx_(ctx),
+      : status_(),
+        ctx_(ctx),
         table_(table),
         batches_(MakeBatches(table, &status_)),
         options_(options),
@@ -1131,6 +1132,7 @@ class TableSorter {
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }
 
+  Status status_;
   ExecContext* ctx_;
   const Table& table_;
   const RecordBatchVector batches_;
@@ -1141,7 +1143,6 @@ class TableSorter {
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
   Comparator comparator_;
-  Status status_;
 };
 
 // ----------------------------------------------------------------------
