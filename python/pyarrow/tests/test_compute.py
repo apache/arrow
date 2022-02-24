@@ -2032,10 +2032,35 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
+        # Check RoundTemporalOptions partial defaults
+        if unit == "day":
+            result = pc.ceil_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.ceil(frequency)
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.floor_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.floor(frequency)
+            np.testing.assert_array_equal(result, expected)
+
+            result = pc.round_temporal(ta, multiple=value).to_pandas()
+            expected = ts.dt.round(frequency)
+            np.testing.assert_array_equal(result, expected)
+
     # Check RoundTemporalOptions defaults
-    result = pc.round_temporal(ta).to_pandas()
-    expected = ts.dt.round("1D")
-    np.testing.assert_array_equal(result, expected)
+    if unit == "day":
+        frequency = "1D"
+
+        result = pc.ceil_temporal(ta).to_pandas()
+        expected = ts.dt.ceil(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.floor_temporal(ta).to_pandas()
+        expected = ts.dt.floor(frequency)
+        np.testing.assert_array_equal(result, expected)
+
+        result = pc.round_temporal(ta).to_pandas()
+        expected = ts.dt.round(frequency)
+        np.testing.assert_array_equal(result, expected)
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
