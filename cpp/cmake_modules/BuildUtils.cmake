@@ -376,6 +376,8 @@ function(ADD_ARROW_LIB LIB_NAME)
                           ${ARG_SHARED_PRIVATE_LINK_LIBS})
 
     if(USE_OBJLIB)
+      # Ensure that dependencies are built before compilation of objects in
+      # object library, rather than only before the final link step
       foreach(ARG_SHARED_LINK_LIB ${ARG_SHARED_LINK_LIBS})
         if(TARGET ${ARG_SHARED_LINK_LIB})
           add_dependencies(${LIB_NAME}_objlib ${ARG_SHARED_LINK_LIB})
@@ -458,6 +460,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_link_libraries(${LIB_NAME}_static LINK_PRIVATE
                             "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
       if(USE_OBJLIB)
+        # Ensure that dependencies are built before compilation of objects in
+        # object library, rather than only before the final link step
         foreach(ARG_STATIC_LINK_LIB ${ARG_STATIC_LINK_LIBS})
           if(TARGET ${ARG_STATIC_LINK_LIB})
             add_dependencies(${LIB_NAME}_objlib ${ARG_STATIC_LINK_LIB})
