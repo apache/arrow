@@ -882,14 +882,14 @@ class RoundTemporalOptions(_RoundTemporalOptions):
     ----------
     multiple : int, default 1
         Number of units to round to.
-    unit : str, default "second"
+    unit : str, default "day"
         The unit in which `multiple` is expressed.
         Accepted values are "year", "quarter", "month", "week", "day",
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
     """
 
-    def __init__(self, multiple=1, unit="second"):
+    def __init__(self, multiple=1, unit="day"):
         self._set_options(multiple, unit)
 
 

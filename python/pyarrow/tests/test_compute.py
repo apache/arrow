@@ -2032,6 +2032,11 @@ def _check_temporal_rounding(ts, values, unit):
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
 
+    # Check RoundTemporalOptions defaults
+    result = pc.round_temporal(ta).to_pandas()
+    expected = ts.dt.round("1D")
+    np.testing.assert_array_equal(result, expected)
+
 
 # TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.skipif(sys.platform == 'win32',
