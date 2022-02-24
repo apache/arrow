@@ -20,7 +20,7 @@
 set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "git-vars.sh"
+source "${SOURCE_DIR}/git-vars.sh"
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <next_version>"

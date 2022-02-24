@@ -45,7 +45,8 @@ if ! git remote | grep -q '^upstream$'; then
   exit 1
 fi
 
-source "git-vars.sh"
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+source "${SOURCE_DIR}/git-vars.sh"
 
 echo "Updating repository: ${repository}"
 git fetch --all --prune --tags --force -j$(nproc)
