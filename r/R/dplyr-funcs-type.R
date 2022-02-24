@@ -80,8 +80,8 @@ register_bindings_type_cast <- function() {
     # base::as.Date() first converts to UTC and then extracts the date, which is
     # why we need to go through timestamp() first - see unit tests for the real
     # life impact of the difference between lubridate::date() and base::as.Date()
-    y <- build_expr("cast", x, options = list(to_type = timestamp()))
-    build_expr("cast", y, options = list(to_type = date32()))
+    y <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
+    build_expr("cast", y, options = cast_options(to_type = date32()))
   })
 
   register_binding("is", function(object, class2) {
