@@ -121,6 +121,9 @@ register_bindings_type_cast <- function() {
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
+  register_binding("as.difftime", function(x) {
+    build_expr("cast", x, options = cast_options(to_type = duration()))
+  })
 
   register_binding("is", function(object, class2) {
     if (is.string(class2)) {
