@@ -55,7 +55,7 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()> generator;
 };
 
-/// \brief An extended Source node which accepts a table 
+/// \brief An extended Source node which accepts a table
 class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
   TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t batch_size)
