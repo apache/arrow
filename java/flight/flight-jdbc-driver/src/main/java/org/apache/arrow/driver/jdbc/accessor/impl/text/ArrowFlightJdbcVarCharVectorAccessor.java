@@ -23,6 +23,7 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Calendar;
@@ -156,38 +157,50 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public Date getDate(Calendar calendar) {
-    Date date = Date.valueOf(getString());
-    if (calendar == null) {
-      return date;
-    }
+  public Date getDate(Calendar calendar) throws SQLException {
+    try {
+      Date date = Date.valueOf(getString());
+      if (calendar == null) {
+        return date;
+      }
 
-    // Use Calendar to apply time zone's offset
-    long milliseconds = date.getTime();
-    return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+      // Use Calendar to apply time zone's offset
+      long milliseconds = date.getTime();
+      return new Date(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public Time getTime(Calendar calendar) {
-    Time time = Time.valueOf(getString());
-    if (calendar == null) {
-      return time;
-    }
+  public Time getTime(Calendar calendar) throws SQLException {
+    try {
+      Time time = Time.valueOf(getString());
+      if (calendar == null) {
+        return time;
+      }
 
-    // Use Calendar to apply time zone's offset
-    long milliseconds = time.getTime();
-    return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+      // Use Calendar to apply time zone's offset
+      long milliseconds = time.getTime();
+      return new Time(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public Timestamp getTimestamp(Calendar calendar) {
-    Timestamp timestamp = Timestamp.valueOf(getString());
-    if (calendar == null) {
-      return timestamp;
-    }
+  public Timestamp getTimestamp(Calendar calendar) throws SQLException {
+    try {
+      Timestamp timestamp = Timestamp.valueOf(getString());
+      if (calendar == null) {
+        return timestamp;
+      }
 
-    // Use Calendar to apply time zone's offset
-    long milliseconds = timestamp.getTime();
-    return new Timestamp(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+      // Use Calendar to apply time zone's offset
+      long milliseconds = timestamp.getTime();
+      return new Timestamp(DateTimeUtils.applyCalendarOffset(milliseconds, calendar));
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 }

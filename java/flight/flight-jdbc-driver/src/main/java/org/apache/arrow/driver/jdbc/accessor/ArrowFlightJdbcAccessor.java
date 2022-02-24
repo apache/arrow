@@ -30,6 +30,7 @@ import java.sql.Clob;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.Ref;
+import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Struct;
 import java.sql.Time;
@@ -182,17 +183,17 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public Date getDate(final Calendar calendar) {
+  public Date getDate(final Calendar calendar) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Time getTime(final Calendar calendar) {
+  public Time getTime(final Calendar calendar) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Timestamp getTimestamp(final Calendar calendar) {
+  public Timestamp getTimestamp(final Calendar calendar) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 

@@ -27,6 +27,7 @@ import java.sql.Clob;
 import java.sql.Date;
 import java.sql.NClob;
 import java.sql.Ref;
+import java.sql.SQLException;
 import java.sql.SQLXML;
 import java.sql.Struct;
 import java.sql.Time;
@@ -57,8 +58,7 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
       new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
       });
 
-  protected AbstractArrowFlightJdbcUnionVectorAccessor(
-      IntSupplier currentRowSupplier,
+  protected AbstractArrowFlightJdbcUnionVectorAccessor(IntSupplier currentRowSupplier,
       ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
   }
@@ -213,17 +213,17 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public Date getDate(Calendar calendar) {
+  public Date getDate(Calendar calendar) throws SQLException {
     return getAccessor().getDate(calendar);
   }
 
   @Override
-  public Time getTime(Calendar calendar) {
+  public Time getTime(Calendar calendar) throws SQLException {
     return getAccessor().getTime(calendar);
   }
 
   @Override
-  public Timestamp getTimestamp(Calendar calendar) {
+  public Timestamp getTimestamp(Calendar calendar) throws SQLException {
     return getAccessor().getTimestamp(calendar);
   }
 

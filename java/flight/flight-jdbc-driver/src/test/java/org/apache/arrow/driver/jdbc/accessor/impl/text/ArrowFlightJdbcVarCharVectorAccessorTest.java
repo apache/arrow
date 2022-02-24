@@ -473,7 +473,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for date.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getDate(null);
   }
 
@@ -513,7 +513,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for time.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getTime(null);
   }
 
@@ -549,7 +549,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for timestamp.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getTimestamp(null);
   }
 
