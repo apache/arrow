@@ -165,9 +165,6 @@ register_bindings_datetime <- function() {
     }
   })
   register_binding("date", function(x) {
-    if (inherits(x, "POSIXct")) {
-      x <- vec_to_Array(x, date32())
-    }
-    x$cast(date32())
+    build_expr("cast", x, options = list(to_type = date32()))
   })
 }

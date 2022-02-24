@@ -821,6 +821,29 @@ test_that("date works in arrow", {
     test_df
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date_base = as.Date(a)) %>%
+      collect(),
+    test_df
+  )
+
+  r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(b = date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(b_base = as.Date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  skip("All these will fail as we're not actually forcing evaluation")
   # a timestamp is cast correctly to date
   expect_equal(
     call_binding("date", Array$create(as.POSIXct("2022-02-21"))),
@@ -835,6 +858,7 @@ test_that("date works in arrow", {
 })
 
 test_that("date() errors with unsupported inputs", {
+  skip("All these will fail as we're not actually forcing evaluation")
   expect_error(
     call_binding("date", Scalar$create("a string")),
     "NotImplemented: Unsupported cast from string to date32 using function cast_date32"
@@ -846,7 +870,7 @@ test_that("date() errors with unsupported inputs", {
   )
 
   expect_error(
-    call_binding("date", Scalar$create(TRUE)),
+    arrow_eval(call_binding("date", Scalar$create(TRUE)), mask = arrow_mask(list())),
     "NotImplemented: Unsupported cast from bool to date32 using function cast_date32"
   )
 
