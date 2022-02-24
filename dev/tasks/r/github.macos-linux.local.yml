@@ -70,16 +70,16 @@ jobs:
           ARROW_R_DEV: TRUE
         run: |
           cd arrow/r
-          export CC="$(brew --prefix llvm)/bin/clang"
-          export CXX="$(brew --prefix llvm)/bin/clang++"
-          echo "CC: ${CC}"
-          echo "CC: ${CXX}"
+          export CC="$(which gcc-11)"
+          export CXX="$(which g++-11)"
+          export CXX11="$(which g++-11)"
           ${CC} --version
           ${CXX} --version
+          ${CXX11} --version
           mkdir -p ~/.R/
-          echo "CC=$(brew --prefix llvm)/bin/clang" >> ~/.R/Makevars
-          echo "CXX=$(brew --prefix llvm)/bin/clang++" >> ~/.R/Makevars
-          echo "CXX11=$(brew --prefix llvm)/bin/clang++" >> ~/.R/Makevars
+          echo "CC=$(which gcc-11)" >> ~/.R/Makevars
+          echo "CXX=$(which g++-11)" >> ~/.R/Makevars
+          echo "CXX11=$(which g++-11)" >> ~/.R/Makevars
           R CMD config CC
           R CMD config CXX11
           R CMD INSTALL . --install-tests
