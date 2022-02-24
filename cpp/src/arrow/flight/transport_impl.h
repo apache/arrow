@@ -40,8 +40,7 @@ class Message;
 namespace flight {
 namespace internal {
 
-/// Internal, not user-visible type used for memory-efficient reads from gRPC
-/// stream
+/// Internal, not user-visible type used for memory-efficient reads
 struct FlightData {
   /// Used only for puts, may be null
   std::unique_ptr<FlightDescriptor> descriptor;

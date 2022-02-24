@@ -667,10 +667,9 @@ class ClientMetadataReader : public FlightMetadataReader {
 /// payload when writing a Flight payload.
 class ClientPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
-  explicit ClientPutPayloadWriter(std::shared_ptr<internal::ClientDataStream> stream,
-                                  FlightDescriptor descriptor,
-                                  int64_t write_size_limit_bytes,
-                                  std::shared_ptr<Buffer>* app_metadata)
+  ClientPutPayloadWriter(std::shared_ptr<internal::ClientDataStream> stream,
+                         FlightDescriptor descriptor, int64_t write_size_limit_bytes,
+                         std::shared_ptr<Buffer>* app_metadata)
       : descriptor_(std::move(descriptor)),
         write_size_limit_bytes_(write_size_limit_bytes),
         stream_(std::move(stream)),

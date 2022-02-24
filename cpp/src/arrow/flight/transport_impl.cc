@@ -153,9 +153,8 @@ Status TransportImplRegistry::RegisterServer(const std::string& scheme,
 }
 
 TransportImplRegistry* GetDefaultTransportImplRegistry() {
-  static std::unique_ptr<TransportImplRegistry> kRegistry =
-      arrow::internal::make_unique<TransportImplRegistry>();
-  return kRegistry.get();
+  static TransportImplRegistry kRegistry;
+  return &kRegistry;
 }
 
 }  // namespace internal

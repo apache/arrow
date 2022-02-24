@@ -114,13 +114,9 @@ Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* s
   RETURN_NOT_OK(make_server_options(&server_options));
   RETURN_NOT_OK((*server)->Init(server_options));
   Location real_location;
-  if ((*server)->port() > 0) {
-    std::string uri =
-        location.scheme() + "://localhost:" + std::to_string((*server)->port());
-    RETURN_NOT_OK(Location::Parse(uri, &real_location));
-  } else {
-    real_location = (*server)->location();
-  }
+  std::string uri =
+      location.scheme() + "://localhost:" + std::to_string((*server)->port());
+  RETURN_NOT_OK(Location::Parse(uri, &real_location));
   FlightClientOptions client_options = FlightClientOptions::Defaults();
   RETURN_NOT_OK(make_client_options(&client_options));
   return FlightClient::Connect(real_location, client_options, client);

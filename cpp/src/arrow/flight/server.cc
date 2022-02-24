@@ -250,7 +250,7 @@ class ExchangeDataStream final : public internal::TransportDataStream {
 // gRPC service definition, so the latter is not exposed in the public API
 class FlightGrpcServiceImpl : public FlightService::Service {
  public:
-  explicit FlightGrpcServiceImpl(
+  FlightGrpcServiceImpl(
       std::shared_ptr<ServerAuthHandler> auth_handler,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,

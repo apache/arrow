@@ -34,7 +34,7 @@ namespace internal {
 namespace {
 class TransportIpcMessageReader : public ipc::MessageReader {
  public:
-  explicit TransportIpcMessageReader(
+  TransportIpcMessageReader(
       std::shared_ptr<internal::PeekableFlightDataReader> peekable_reader,
       std::shared_ptr<MemoryManager> memory_manager,
       std::shared_ptr<Buffer>* app_metadata)
@@ -43,17 +43,11 @@ class TransportIpcMessageReader : public ipc::MessageReader {
         app_metadata_(app_metadata) {}
 
   ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
-    if (stream_finished_) {
-      return nullptr;
-    }
+    if (stream_finished_) return nullptr;
     internal::FlightData* data;
     peekable_reader_->Next(&data);
     if (!data) {
       stream_finished_ = true;
-      if (first_message_) {
-        return Status::Invalid(
-            "Client provided malformed message or did not provide message");
-      }
       return nullptr;
     }
     if (data->body &&
@@ -73,7 +67,6 @@ class TransportIpcMessageReader : public ipc::MessageReader {
   // batch. Updating it here ensures the reader is always updated with
   // the last metadata message read.
   std::shared_ptr<Buffer>* app_metadata_;
-  bool first_message_ = true;
   bool stream_finished_ = false;
 };
 
@@ -81,8 +74,8 @@ class TransportIpcMessageReader : public ipc::MessageReader {
 ///   interface for DoPut.
 class TransportMessageReader final : public FlightMessageReader {
  public:
-  explicit TransportMessageReader(TransportDataStream* stream,
-                                  std::shared_ptr<MemoryManager> memory_manager)
+  TransportMessageReader(TransportDataStream* stream,
+                         std::shared_ptr<MemoryManager> memory_manager)
       : peekable_reader_(new internal::PeekableFlightDataReader(stream)),
         memory_manager_(std::move(memory_manager)) {}
 
@@ -302,10 +295,10 @@ Status FlightServiceImpl::DoGet(const ServerCallContext& context, const Ticket& 
 
 Status FlightServiceImpl::DoPut(const ServerCallContext& context,
                                 TransportDataStream* stream) {
-  std::unique_ptr<FlightMessageReader> reader(
+  std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMetadataWriter> writer(new TransportMetadataWriter(stream));
-  RETURN_NOT_OK(reinterpret_cast<TransportMessageReader*>(reader.get())->Init());
+  RETURN_NOT_OK(reader->Init());
   RETURN_NOT_OK(service_->DoPut(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
@@ -313,10 +306,10 @@ Status FlightServiceImpl::DoPut(const ServerCallContext& context,
 
 Status FlightServiceImpl::DoExchange(const ServerCallContext& context,
                                      TransportDataStream* stream) {
-  std::unique_ptr<FlightMessageReader> reader(
+  std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMessageWriter> writer(new TransportMessageWriter(stream));
-  RETURN_NOT_OK(reinterpret_cast<TransportMessageReader*>(reader.get())->Init());
+  RETURN_NOT_OK(reader->Init());
   RETURN_NOT_OK(service_->DoExchange(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
