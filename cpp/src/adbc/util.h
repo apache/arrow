@@ -19,11 +19,12 @@
 #include <unordered_map>
 
 #include "arrow/result.h"
+#include "arrow/util/string_view.h"
 
 namespace adbc {
 
 /// \brief
 arrow::Result<std::unordered_map<std::string, std::string>> ParseConnectionString(
-    const char* target);
+    arrow::util::string_view target);
 
 }  // namespace adbc

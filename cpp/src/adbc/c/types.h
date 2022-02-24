@@ -85,6 +85,7 @@ struct AdbcConnectionOptions {
   ///
   /// Should be in ODBC-style format ("Key1=Value1;Key2=Value2").
   const char* target;
+  size_t target_length;
 };
 
 // TODO: Do we prefer an API like this, which mimics Arrow C ABI/OOP
@@ -122,8 +123,14 @@ struct AdbcConnection {
   ///
   /// For queries expected to be executed repeatedly, create a
   /// prepared statement.
+  ///
+  /// \param[in] connection The database connection.
+  /// \param[in] query The query to execute.
+  /// \param[in] query_length The length of the query string.
+  /// \param[out] statement The result set.
+  /// \param[out] error Error details, if an error occurs.
   enum AdbcStatusCode (*sql_execute)(struct AdbcConnection* connection, const char* query,
-                                     struct AdbcStatement* statement,
+                                     size_t query_length, struct AdbcStatement* statement,
                                      struct AdbcError* error);
 
   /// \brief Prepare a query to be executed multiple times.
@@ -131,7 +138,7 @@ struct AdbcConnection {
   /// TODO: this should return AdbcPreparedStatement to disaggregate
   /// preparation and execution
   enum AdbcStatusCode (*sql_prepare)(struct AdbcConnection* connection, const char* query,
-                                     struct AdbcStatement* statement,
+                                     size_t query_length, struct AdbcStatement* statement,
                                      struct AdbcError* error);
 
   ///@}

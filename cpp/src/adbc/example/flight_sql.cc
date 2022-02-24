@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/string_builder.h"
+#include "arrow/util/string_view.h"
 
 namespace flight = arrow::flight;
 namespace flightsql = arrow::flight::sql;
@@ -239,11 +240,12 @@ class AdbcFlightSqlImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  enum AdbcStatusCode SqlExecute(const char* query, struct AdbcStatement* out,
-                                 struct AdbcError* error) {
+  enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
+                                 struct AdbcStatement* out, struct AdbcError* error) {
     flight::FlightCallOptions call_options;
     std::unique_ptr<flight::FlightInfo> flight_info;
-    auto status = client_->Execute(call_options, std::string(query)).Value(&flight_info);
+    auto status = client_->Execute(call_options, std::string(query, query_length))
+                      .Value(&flight_info);
     if (!status.ok()) {
       SetError(status, error);
       return ADBC_STATUS_IO;
@@ -261,13 +263,13 @@ class AdbcFlightSqlImpl {
   }
 
   static enum AdbcStatusCode SqlExecuteMethod(struct AdbcConnection* connection,
-                                              const char* query,
+                                              const char* query, size_t query_length,
                                               struct AdbcStatement* out,
                                               struct AdbcError* error) {
     if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
     auto* ptr =
         reinterpret_cast<std::shared_ptr<AdbcFlightSqlImpl>*>(connection->private_data);
-    return (*ptr)->SqlExecute(query, out, error);
+    return (*ptr)->SqlExecute(query, query_length, out, error);
   }
 
   //----------------------------------------------------------
@@ -324,7 +326,9 @@ enum AdbcStatusCode AdbcConnectionInit(const struct AdbcConnectionOptions* optio
                                        struct AdbcConnection* out,
                                        struct AdbcError* error) {
   std::unordered_map<std::string, std::string> option_pairs;
-  auto status = adbc::ParseConnectionString(options->target).Value(&option_pairs);
+  auto status = adbc::ParseConnectionString(
+                    arrow::util::string_view(options->target, options->target_length))
+                    .Value(&option_pairs);
   if (!status.ok()) {
     SetError(status, error);
     return ADBC_STATUS_INVALID_ARGUMENT;

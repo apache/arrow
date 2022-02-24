@@ -58,9 +58,10 @@ TEST(AdbcSqlite, SqlExecute) {
   ASSERT_OK_AND_ASSIGN(connection, adbc::ConnectRaw("libadbc_driver_sqlite.so", options));
 
   {
-    auto query = "SELECT 1";
+    std::string query = "SELECT 1";
     AdbcStatement statement;
-    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement, &error));
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
+                                          &statement, &error));
 
     ArrowArrayStream stream;
     ADBC_ASSERT_OK(statement.get_results(&statement, &stream, &error));
@@ -79,9 +80,10 @@ TEST(AdbcSqlite, SqlExecute) {
   }
 
   {
-    auto query = "INVALID";
+    std::string query = "INVALID";
     AdbcStatement statement;
-    ASSERT_NE(connection.sql_execute(&connection, query, &statement, &error),
+    ASSERT_NE(connection.sql_execute(&connection, query.c_str(), query.size(), &statement,
+                                     &error),
               ADBC_STATUS_OK);
 
     ASSERT_NE(error.message, nullptr);
@@ -104,13 +106,15 @@ TEST(AdbcFlightSql, SqlExecute) {
   AdbcConnectionOptions options;
   std::string target = "Location=grpc://localhost:31337";
   options.target = target.c_str();
+  options.target_length = target.size();
   ASSERT_OK_AND_ASSIGN(connection,
                        adbc::ConnectRaw("libadbc_driver_flight_sql.so", options));
 
   {
-    auto query = "SELECT 1";
+    std::string query = "SELECT 1";
     AdbcStatement statement;
-    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement, &error));
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
+                                          &statement, &error));
 
     ArrowArrayStream stream;
     ADBC_ASSERT_OK(statement.get_results(&statement, &stream, &error));
@@ -133,9 +137,10 @@ TEST(AdbcFlightSql, SqlExecute) {
   // distribute them across multiple machines or fetch data in
   // parallel.)
   {
-    auto query = "SELECT 42";
+    std::string query = "SELECT 42";
     AdbcStatement statement;
-    ADBC_ASSERT_OK(connection.sql_execute(&connection, query, &statement, &error));
+    ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
+                                          &statement, &error));
 
     size_t num_partitions = 0;
     size_t desc_size = 0;
@@ -169,9 +174,10 @@ TEST(AdbcFlightSql, SqlExecute) {
   }
 
   {
-    auto query = "INVALID";
+    std::string query = "INVALID";
     AdbcStatement statement;
-    ASSERT_NE(connection.sql_execute(&connection, query, &statement, &error),
+    ASSERT_NE(connection.sql_execute(&connection, query.c_str(), query.size(), &statement,
+                                     &error),
               ADBC_STATUS_OK);
 
     ARROW_LOG(WARNING) << "Got error message: " << error.message;

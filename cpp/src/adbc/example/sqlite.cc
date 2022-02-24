@@ -236,11 +236,11 @@ class AdbcSqliteImpl {
   // SQL Semantics
   //----------------------------------------------------------
 
-  enum AdbcStatusCode SqlExecute(const char* query, struct AdbcStatement* out,
-                                 struct AdbcError* error) {
+  enum AdbcStatusCode SqlExecute(const char* query, size_t query_length,
+                                 struct AdbcStatement* out, struct AdbcError* error) {
     // TODO: This needs to get RAII-guarded to clean up error handling
     sqlite3_stmt* stmt = nullptr;
-    auto rc = sqlite3_prepare_v2(db_, query, /*nByte*/ -1, &stmt, /*pzTail=*/nullptr);
+    auto rc = sqlite3_prepare_v2(db_, query, query_length, &stmt, /*pzTail=*/nullptr);
     if (rc != SQLITE_OK) {
       if (stmt) {
         rc = sqlite3_finalize(stmt);
@@ -275,13 +275,13 @@ class AdbcSqliteImpl {
   }
 
   static enum AdbcStatusCode SqlExecuteMethod(struct AdbcConnection* connection,
-                                              const char* query,
+                                              const char* query, size_t query_length,
                                               struct AdbcStatement* out,
                                               struct AdbcError* error) {
     if (!connection->private_data) return ADBC_STATUS_UNINITIALIZED;
     auto* ptr =
         reinterpret_cast<std::shared_ptr<AdbcSqliteImpl>*>(connection->private_data);
-    return (*ptr)->SqlExecute(query, out, error);
+    return (*ptr)->SqlExecute(query, query_length, out, error);
   }
 
  private:

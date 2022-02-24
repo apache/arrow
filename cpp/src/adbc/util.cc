@@ -21,10 +21,11 @@
 
 namespace adbc {
 
+using arrow::util::string_view;
+
 arrow::Result<std::unordered_map<std::string, std::string>> ParseConnectionString(
-    const char* target) {
+    string_view target) {
   // TODO: this does not properly implement the ODBC connection string format.
-  using arrow::util::string_view;
   std::unordered_map<std::string, std::string> option_pairs;
   string_view cur(target);
 
