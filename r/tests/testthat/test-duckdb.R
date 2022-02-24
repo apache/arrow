@@ -27,7 +27,7 @@ test_that("meaningful error message when duckdb is not installed", {
   ds <- InMemoryDataset$create(example_data)
   expect_error(
     to_duckdb(ds),
-    regexp ="Please install the `duckdb` package to pass data with `to_duckdb()`.",
+    regexp = "Please install the `duckdb` package to pass data with `to_duckdb()`.",
     fixed = TRUE
   )
 })
