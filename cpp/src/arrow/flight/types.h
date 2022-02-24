@@ -321,6 +321,10 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[out] location The resulting location
   static Status ForGrpcUnix(const std::string& path, Location* location);
 
+  /// \brief Initialize a location based on a URI scheme
+  static arrow::Result<Location> ForScheme(const std::string& scheme,
+                                           const std::string& host, const int port);
+
   /// \brief Get a representation of this URI as a string.
   std::string ToString() const;
 

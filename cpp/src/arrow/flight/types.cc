@@ -306,6 +306,15 @@ Status Location::ForGrpcUnix(const std::string& path, Location* location) {
   return Location::Parse(uri_string.str(), location);
 }
 
+arrow::Result<Location> Location::ForScheme(const std::string& scheme,
+                                            const std::string& host, const int port) {
+  Location location;
+  std::stringstream uri_string;
+  uri_string << scheme << "://" << host << ':' << port;
+  RETURN_NOT_OK(Location::Parse(uri_string.str(), &location));
+  return location;
+}
+
 std::string Location::ToString() const { return uri_->ToString(); }
 std::string Location::scheme() const {
   std::string scheme = uri_->scheme();
