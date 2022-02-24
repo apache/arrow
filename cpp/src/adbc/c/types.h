@@ -174,6 +174,114 @@ struct AdbcConnection {
 
   ///@}
 
+  /// \name Metadata
+  /// Functions for retrieving metadata about the database.
+  ///
+  /// Generally, these functions return an AdbcStatement that can be
+  /// evaluated to get the metadata as Arrow data. The returned
+  /// metadata has an expected schema given in the function
+  /// docstring. Schema fields are nullable unless otherwise marked.
+  ///
+  /// Some functions accept a "search pattern" argument, which is a
+  /// string that can contain the special character "%" to match zero
+  /// or more characters, or "_" to match exactly one character. (See
+  /// the documentation of DatabaseMetaData in JDBC or "Pattern Value
+  /// Arguments" in the ODBC documentation.)
+  ///
+  /// TODO: escaping in search patterns?
+  ///
+  ///@{
+
+  /// \brief Get a list of catalogs in the database.
+  ///
+  /// The result is an Arrow dataset with the following schema:
+  ///
+  /// Field Name     | Field Type
+  /// ---------------|--------------
+  /// catalog_name   | utf8 not null
+  ///
+  /// \param[in] connection The database connection.
+  /// \param[out] statement The result set.
+  /// \param[out] error Error details, if an error occurs.
+  enum AdbcStatusCode (*get_catalogs)(struct AdbcConnection* connection,
+                                      struct AdbcStatement* statement,
+                                      struct AdbcError* error);
+
+  /// \brief Get a list of schemas in the database.
+  ///
+  /// The result is an Arrow dataset with the following schema:
+  ///
+  /// Field Name     | Field Type
+  /// ---------------|--------------
+  /// catalog_name   | utf8
+  /// db_schema_name | utf8 not null
+  ///
+  /// \param[in] connection The database connection.
+  /// \param[out] statement The result set.
+  /// \param[out] error Error details, if an error occurs.
+  enum AdbcStatusCode (*get_db_schemas)(struct AdbcConnection* connection,
+                                        struct AdbcStatement* statement,
+                                        struct AdbcError* error);
+
+  /// \brief Get a list of table types in the database.
+  ///
+  /// The result is an Arrow dataset with the following schema:
+  ///
+  /// Field Name     | Field Type
+  /// ---------------|--------------
+  /// table_type     | utf8 not null
+  ///
+  /// \param[in] connection The database connection.
+  /// \param[out] statement The result set.
+  /// \param[out] error Error details, if an error occurs.
+  enum AdbcStatusCode (*get_table_types)(struct AdbcConnection* connection,
+                                         struct AdbcStatement* statement,
+                                         struct AdbcError* error);
+
+  /// \brief Get a list of tables matching the given criteria.
+  ///
+  /// The result is an Arrow dataset with the following schema:
+  ///
+  /// Field Name     | Field Type
+  /// ---------------|--------------
+  /// catalog_name   | utf8
+  /// db_schema_name | utf8
+  /// table_name     | utf8 not null
+  /// table_type     | utf8 not null
+  ///
+  /// \param[in] connection The database connection.
+  /// \param[in] catalog Only show tables in the given catalog. If
+  ///   NULL, do not filter by catalog. If an empty string, only show
+  ///   tables without a catalog.
+  /// \param[in] catalog_length The length of the catalog parameter
+  ///   (ignored if catalog is NULL).
+  /// \param[in] db_schema Only show tables in the given database
+  ///   schema. If NULL, do not filter by database schema. If an empty
+  ///   string, only show tables without a database schema. May be a
+  ///   search pattern (see section documentation).
+  /// \param[in] db_schema_length The length of the db_schema
+  ///   parameter (ignored if db_schema is NULL).
+  /// \param[in] table_name Only show tables with the given name. If
+  ///   NULL, do not filter by name. May be a search pattern (see
+  ///   section documentation).
+  /// \param[in] table_name_length The length of the table_name
+  ///   parameter (ignored if table_name is NULL).
+  /// \param[in] table_types Only show tables matching one of the
+  ///   given table types. If NULL, show tables of any type. Valid
+  ///   table types can be fetched from get_table_types.
+  /// \param[in] table_types_length The size of the table_types array
+  ///   (ignored if table_types is NULL).
+  /// \param[out] statement The result set.
+  /// \param[out] error Error details, if an error occurs.
+  enum AdbcStatusCode (*get_tables)(struct AdbcConnection* connection,
+                                    const char* catalog, size_t catalog_length,
+                                    const char* db_schema, size_t db_schema_length,
+                                    const char* table_name, size_t table_name_length,
+                                    const char** table_types, size_t table_types_length,
+                                    struct AdbcStatement* statement,
+                                    struct AdbcError* error);
+  ///@}
+
   /// \brief Opaque implementation-defined state.
   /// This field is NULLPTR iff the connection is unintialized/freed.
   void* private_data;
