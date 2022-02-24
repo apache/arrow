@@ -310,12 +310,9 @@ Other applications of `arrow` are described in the following vignettes:
 -   `vignette("arrow", package = "arrow")`: access and manipulate Arrow
     objects through low-level bindings to the C++ library
 
-## Getting help
+The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/master/r/cheatsheet/arrow.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
 
-There is a 
-[Cheat Sheet](https://github.com/apache/arrow/blob/master/r/cheatsheet/arrow.pdf)
-to get started with the basics. From it, you can jump to the 
-[Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html).
+## Getting help
 
 If you encounter a bug, please file an issue with a minimal reproducible
 example on the [Apache Jira issue
@@ -332,13 +329,6 @@ We welcome questions, discussion, and contributions from users of the
 `arrow` package. For information about mailing lists and other venues
 for engaging with the Arrow developer and user communities, please see
 the [Apache Arrow Community](https://arrow.apache.org/community/) page.
-
-### arrow-cheatsheet
-
-* The `arrow-cheatsheet.pptx` file was built in and exported from Google Slides
-* The arrow cheatsheet leverages some design elements from the official [RStudio cheatsheet template](https://github.com/rstudio/cheatsheets) ([CC-BY-4.0](https://github.com/rstudio/cheatsheets/blob/main/LICENSE))
-* The official Apache Arrow hex sticker is sourced from <https://arrow.apache.org/visual_identity/>
-* To suggest changes or update the cheatsheet, please download and edit the arrow-cheatsheet.pptx file, and provide the revised`.pptx` and rendered PDF via a Pull Request to the repository (see [Pull request and review](https://arrow.apache.org/docs/developers/contributing.html))
 
 ------------------------------------------------------------------------
 
