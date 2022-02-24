@@ -55,6 +55,20 @@ class ARROW_EXPORT SourceNodeOptions : public ExecNodeOptions {
   std::function<Future<util::optional<ExecBatch>>()> generator;
 };
 
+/// \brief An extended Source node which accepts a table
+class ARROW_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
+ public:
+  TableSourceNodeOptions(std::shared_ptr<Table> table, int64_t batch_size)
+      : table(table), batch_size(batch_size) {}
+
+  // arrow table which acts as the data source
+  std::shared_ptr<Table> table;
+  // Size of batches to emit from this node
+  // If the table is larger the node will emit multiple batches from the
+  // the table to be processed in parallel.
+  int64_t batch_size;
+};
+
 /// \brief Make a node which excludes some rows from batches passed through it
 ///
 /// filter_expression will be evaluated against each batch which is pushed to
