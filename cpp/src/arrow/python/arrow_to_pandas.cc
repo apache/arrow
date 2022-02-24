@@ -657,7 +657,7 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
     for (int32_t i = 0; i < num_fields; i++) {
       auto field = arr->field(static_cast<int>(i));
       // In case the field is an extension array, use .storage() to convert to Pandas
-      if (field->type()->id() == Type::EXTENSION){
+      if (field->type()->id() == Type::EXTENSION) {
         const ExtensionArray& arr_ext = checked_cast<const ExtensionArray&>(*field);
         field = arr_ext.storage();
       }
