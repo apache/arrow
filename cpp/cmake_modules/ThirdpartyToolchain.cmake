@@ -1674,13 +1674,13 @@ macro(build_substrait)
                                              "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
                                              GENERATED TRUE
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
-      add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.${EXT}"
-                         COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
-                                 "--cpp_out=${SUBSTRAIT_CPP_DIR}"
-                                 "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
-                         DEPENDS ${PROTO_DEPENDS} substrait_ep)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
+                       DEPENDS ${PROTO_DEPENDS} substrait_ep)
 
     list(APPEND SUBSTRAIT_SOURCES "${SUBSTRAIT_PROTO_GEN}.cc")
   endforeach()
