@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -332,19 +333,19 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetDate() {
+  public void testShouldFailToGetDate() throws SQLException {
     when(accessor.getDate(null)).thenCallRealMethod();
     accessor.getDate(null);
   }
 
   @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetTime() {
+  public void testShouldFailToGetTime() throws SQLException {
     when(accessor.getTime(null)).thenCallRealMethod();
     accessor.getTime(null);
   }
 
   @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetTimestamp() {
+  public void testShouldFailToGetTimestamp() throws SQLException {
     when(accessor.getTimestamp(null)).thenCallRealMethod();
     accessor.getTimestamp(null);
   }

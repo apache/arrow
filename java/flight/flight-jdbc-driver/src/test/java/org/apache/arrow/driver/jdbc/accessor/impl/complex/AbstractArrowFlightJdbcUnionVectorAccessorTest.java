@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Map;
 
@@ -230,21 +231,21 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetTimestampUsesSpecificAccessor() {
+  public void testGetTimestampUsesSpecificAccessor() throws SQLException {
     Calendar calendar = Calendar.getInstance();
     accessor.getTimestamp(calendar);
     verify(innerAccessor).getTimestamp(calendar);
   }
 
   @Test
-  public void testGetTimeUsesSpecificAccessor() {
+  public void testGetTimeUsesSpecificAccessor() throws SQLException {
     Calendar calendar = Calendar.getInstance();
     accessor.getTime(calendar);
     verify(innerAccessor).getTime(calendar);
   }
 
   @Test
-  public void testGetDateUsesSpecificAccessor() {
+  public void testGetDateUsesSpecificAccessor() throws SQLException {
     Calendar calendar = Calendar.getInstance();
     accessor.getDate(calendar);
     verify(innerAccessor).getDate(calendar);
