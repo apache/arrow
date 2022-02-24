@@ -242,8 +242,7 @@ std::vector<WriterTestParams> GenerateTestCases() {
       reject_structural_params({"a", "b", nullptr, "c,d", nullptr, nullptr}, "c,d"),
       // exercise simd code with strings total length >= 16
       {abc_schema, populated_batch,
-       DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
-                          QuotingStyle::AllValid, /*eol=*/"\n", /*delimiter=*/',',
+       DefaultTestOptions(/*include_header=*/false, "", QuotingStyle::AllValid, "\n", ',',
                           /*batch_size=*/100),
        expected_quoting_style_all_valid},
       reject_structural_params({nullptr, "0123456789\\nabcdef"}, "0123456789\nabcdef"),
