@@ -566,12 +566,17 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
-	if data.Offset() != 0 {
+	offsetBytesNeeded := arrow.Int32Traits.BytesRequired(data.Len() + 1)
+
+	if data.Offset() != 0 || offsetBytesNeeded < voffsets.Len() {
 		// if we have a non-zero offset, then the value offsets do not start at
 		// zero. we must a) create a new offsets array with shifted offsets and
 		// b) slice the values array accordingly
+		//
+		// or if there are more value offsets than values (the array has been sliced)
+		// we need to trim off the trailing offsets
 		shiftedOffsets := memory.NewResizableBuffer(w.mem)
-		shiftedOffsets.Resize(arrow.Int32Traits.BytesRequired(data.Len() + 1))
+		shiftedOffsets.Resize(offsetBytesNeeded)
 
 		dest := arrow.Int32Traits.CastFromBytes(shiftedOffsets.Bytes())
 		offsets := arrow.Int32Traits.CastFromBytes(voffsets.Bytes())[data.Offset() : data.Offset()+data.Len()+1]
