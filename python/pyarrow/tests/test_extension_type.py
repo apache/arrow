@@ -360,6 +360,64 @@ def test_ext_array_conversion_to_pandas():
     pd.testing.assert_series_equal(result, expected)
 
 
+def test_struct_w_ext_array_to_numpy():
+    # ARROW-15291
+    # Check that we don't segfault when trying to build
+    # a numpy array from a StructArray with a field being
+    # an ExtensionArray
+
+    storage1 = pa.array([1, 2, 3], type=pa.int64())
+    storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
+    ty1 = IntegerType()
+    ty2 = ParamExtType(3)
+
+    arr1 = pa.ExtensionArray.from_storage(ty1, storage1)
+    arr2 = pa.ExtensionArray.from_storage(ty2, storage2)
+
+    sarr1 = pa.StructArray.from_arrays([arr1], ["f0"])
+    sarr2 = pa.StructArray.from_arrays([arr2], ["f1"])
+
+    result = sarr1.to_numpy(zero_copy_only=False)
+    expected = np.array([{'f0': 1}, {'f0': 2},
+                         {'f0': 3}], dtype=object)
+    np.testing.assert_array_equal(result, expected)
+
+    result = sarr2.to_numpy(zero_copy_only=False)
+    expected = np.array([{'f1': b'123'}, {'f1': b'456'},
+                         {'f1': b'789'}], dtype=object)
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.pandas
+def test_struct_w_ext_array_to_pandas():
+    # ARROW-15291
+    # Check that we don't segfault when trying to build
+    # a Pandas dataframe from a StructArray with a field
+    # being an ExtensionArray
+    import pandas as pd
+
+    storage1 = pa.array([1, 2, 3], type=pa.int64())
+    storage2 = pa.array([b"123", b"456", b"789"], type=pa.binary(3))
+    ty1 = IntegerType()
+    ty2 = ParamExtType(3)
+
+    arr1 = pa.ExtensionArray.from_storage(ty1, storage1)
+    arr2 = pa.ExtensionArray.from_storage(ty2, storage2)
+
+    sarr1 = pa.StructArray.from_arrays([arr1], ["f0"])
+    sarr2 = pa.StructArray.from_arrays([arr2], ["f1"])
+
+    result = sarr1.to_pandas()
+    expected = pd.Series([{'f0': 1}, {'f0': 2},
+                         {'f0': 3}], dtype=object)
+    pd.testing.assert_series_equal(result, expected)
+
+    result = sarr2.to_pandas()
+    expected = pd.Series([{'f1': b'123'}, {'f1': b'456'},
+                         {'f1': b'789'}], dtype=object)
+    pd.testing.assert_series_equal(result, expected)
+
+
 def test_cast_kernel_on_extension_arrays():
     # test array casting
     storage = pa.array([1, 2, 3, 4], pa.int64())

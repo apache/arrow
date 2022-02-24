@@ -656,8 +656,19 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       const auto field = arr->field(static_cast<int>(i));
-      RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr,
-                                         fields_data[i + fields_data_offset].ref()));
+      // In case the field is an extension array, use .storage() to convert to Pandas
+      if (field->type()->id() == Type::EXTENSION){
+        // Save the field object as an Extension Array
+        const ExtensionArray& arr_ext = checked_cast<const ExtensionArray&>(*field);
+        // Save the storage Array and use it to convert to Pandas
+        const std::shared_ptr<Array> field_ext = arr_ext.storage();
+        RETURN_NOT_OK(ConvertArrayToPandas(options, field_ext, nullptr,
+                                           fields_data[i + fields_data_offset].ref()));
+      }
+      else{
+        RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr,
+                                           fields_data[i + fields_data_offset].ref()));
+      }
       DCHECK(PyArray_Check(fields_data[i + fields_data_offset].obj()));
     }
 
