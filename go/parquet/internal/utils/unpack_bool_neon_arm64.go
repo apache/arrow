@@ -14,17 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "arch.h"
-#include <stdbool.h>
-#include <stdint.h>
+// +build !noasm
 
-void FULL_NAME(bytes_to_bools)(const uint8_t bytes[], const int len, bool out[], const int outlen) {
-  for (int i = 0; i < len; i++) {
-    for (int j = 0; j < 8; j++) {
-      int idx = 8*i+j;
-      if (idx >= outlen) { break; }
-      out[idx] = (bytes[i] & (1 << j)) != 0;
-    }
-  }
+package utils
+
+import "unsafe"
+
+//go:noescape
+func _bytes_to_bools_neon(in unsafe.Pointer, len int, out unsafe.Pointer, outlen int)
+
+// use SSE4 to SIMD accelerate the conversion of bitmap to boolean slice
+func bytesToBoolsNEON(in []byte, out []bool) {
+	_bytes_to_bools_neon(unsafe.Pointer(&in[0]), len(in), unsafe.Pointer(&out[0]), len(out))
 }
-
