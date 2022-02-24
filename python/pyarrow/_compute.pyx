@@ -2468,3 +2468,10 @@ def register_pyfunction(func_name, arity, function_doc, in_types, out_type, call
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type))
         c_udf_syn.MakePyFunction(c_callback)
+
+def register_pyfunction2(func_name, func_doc, callable):
+    import inspect
+    signature = inspect.signature(callable)
+    return_annot = signature.return_annotation
+    parameter_vals = signature.parameters.values()
+    input_arrow_types = [val.annotation for val in parameter_vals]

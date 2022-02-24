@@ -10,7 +10,10 @@ func_doc["options_class"] = "SomeOptions"
 func_doc["options_required"] = False
 arity = Arity.unary()
 func_name = "python_udf"
+# TODO: evaluate this properly, the input type can be a record_batch, array or a table
+# Caveat, a recordbatch or a table does not have type information. 
 in_types = [InputType.array(pa.int64())]
+# TODO: evaluate this properly, whether the output type can support table, array or recordbatch
 out_type = pa.int64()
 
 def py_function(arrow_array):
