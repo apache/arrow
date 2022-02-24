@@ -1713,6 +1713,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+        unsigned char delimiter
         CIOContext io_context
 
         CCSVWriteOptions()
