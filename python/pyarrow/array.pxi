@@ -1038,7 +1038,7 @@ cdef class Array(_PandasConvertible):
         return '{0}\n{1}'.format(type_format, str(self))
 
     def to_string(self, *, int indent=2, int top_level_indent=0, int window=10,
-                  c_bool skip_new_lines=False):
+                  int container_window=2, c_bool skip_new_lines=False):
         """
         Render a "pretty-printed" string representation of the Array.
 
@@ -1051,9 +1051,13 @@ cdef class Array(_PandasConvertible):
             How much to indent right the entire content of the array,
             by default ``0``.
         window : int
-            How many items to preview at the begin and end
-            of the array when the arrays is bigger than the window.
-            The other elements will be ellipsed.
+            How many primitive items to preview at the begin and end
+            of the array when the array is bigger than the window.
+            The other items will be ellipsed.
+        container_window : int
+            How many container items (such as a list in a list array)
+            to preview at the begin and end of the array when the array
+            is bigger than the window.
         skip_new_lines : bool
             If the array should be rendered as a single line of text
             or if each element should be on its own line.

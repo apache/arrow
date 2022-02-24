@@ -496,6 +496,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int indent
         int indent_size
         int window
+        int container_window
         c_string null_rep
         c_bool skip_new_lines
         c_bool truncate_metadata
