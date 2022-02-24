@@ -144,3 +144,29 @@ All participation in the Apache Arrow project is governed by the ASF's
       :type: ref
       :text: Bugs and Features
       :classes: btn-block btn-secondary stretched-link
+
+Language specific
+=================
+
+Connection to the specific language development pages:
+
+.. tabs::
+
+   .. tab:: C++
+
+      * :ref:`cpp-development`
+      * :ref:`building-arrow-cpp`
+      * :ref:`C++ Development Guidelines <development-cpp>`
+
+   .. tab:: Python
+
+      * :ref:`python-development`
+
+   .. tab:: R
+
+      * `Arrow R Package: Developer environment setup <https://arrow.apache.org/docs/dev/r/articles/developers/setup.html>`_
+      * `Arrow R Package: Common developer workflow tasks <https://arrow.apache.org/docs/dev/r/articles/developers/workflow.html>`_
+
+   .. tab:: Ruby
+
+      * `Red Arrow - Apache Arrow Ruby <https://github.com/apache/arrow/tree/master/ruby/red-arrow#development>`_
