@@ -33,16 +33,16 @@
 namespace arrow {
 namespace flight {
 
-class FlightTest : public testing::TestWithParam<std::string> {
+class ARROW_FLIGHT_EXPORT FlightTest : public testing::TestWithParam<std::string> {
  protected:
   std::string transport() const { return GetParam(); }
 };
 
 /// Common tests of startup/shutdown
-class ConnectivityTest : public FlightTest {};
+class ARROW_FLIGHT_EXPORT ConnectivityTest : public FlightTest {};
 
 /// Common tests of data plane methods
-class DataTest : public FlightTest {
+class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
  public:
   ~DataTest();
 
@@ -60,7 +60,7 @@ class DataTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
-class DoPutTest : public FlightTest {
+class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
  public:
   void SetUp();
   void TearDown();
@@ -76,7 +76,7 @@ class DoPutTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
-class AppMetadataTestServer : public FlightServerBase {
+class ARROW_FLIGHT_EXPORT AppMetadataTestServer : public FlightServerBase {
  public:
   virtual ~AppMetadataTestServer() = default;
 
@@ -88,7 +88,7 @@ class AppMetadataTestServer : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override;
 };
 
-class AppMetadataTest : public FlightTest {
+class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
  public:
   void SetUp();
 
@@ -99,7 +99,7 @@ class AppMetadataTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
-class IpcOptionsTest : public FlightTest {
+class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
  public:
   void SetUp();
 
