@@ -109,7 +109,97 @@ the issue has been identified, and they won't know when it has been fixed.
 Try to anticipate the questions you might be asked by someone working to
 understand the issue and provide those supporting details up front.
 
+Good reproducible examples or minimal bug reports can be found in next tabs:
+
+.. tabs::
+
+   .. tab:: Python
+
+      The ``print`` method of a timestamp with timezone errors:
+
+      .. code-block:: python
+
+         import pyarrow as pa
+
+         a = pa.array([0], pa.timestamp('s', tz='+02:00'))
+
+         print(a) # representation not correct?
+         # <pyarrow.lib.TimestampArray object at 0x7f834c7cb9a8>
+         # [
+         #  1970-01-01 00:00:00
+         # ]
+
+         print(a[0])
+         #Traceback (most recent call last):
+         #  File "<stdin>", line 1, in <module>
+         #  File "pyarrow/scalar.pxi", line 80, in pyarrow.lib.Scalar.__repr__
+         #  File "pyarrow/scalar.pxi", line 463, in pyarrow.lib.TimestampScalar.as_py
+         #  File "pyarrow/scalar.pxi", line 393, in pyarrow.lib._datetime_from_int
+         #ValueError: fromutc: dt.tzinfo is not self
+
+   .. tab:: R
+
+      Error when reading a CSV file with ``col_types`` option ``"T"`` or ``"t"``:
+
+      .. code-block:: R
+
+         library(arrow)
+         #>
+         #> Attaching package: 'arrow'
+         #> The following object is masked from 'package:utils':
+         #>
+         #>     timestamp
+         tf <- tempfile()
+         write.csv(data.frame(x = '2018-10-07 19:04:05.005'), tf, row.names = FALSE)
+
+         # successfully read in file
+         read_csv_arrow(tf, as_data_frame = TRUE)
+         #> # A tibble: 1 × 1
+         #>   x
+         #>   <dttm>
+         #> 1 2018-10-07 20:04:05
+
+         # the unit here is seconds - doesn't work
+         read_csv_arrow(
+           tf,
+           col_names = "x",
+           col_types = "T",
+           skip = 1
+         )
+         #> Error in `handle_csv_read_error()`:
+         #> ! Invalid: In CSV column #0: CSV conversion error to timestamp[s]: invalid value '2018-10-07 19:04:05.005'
+         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:550  decoder_.Decode(data, size, quoted, &value)
+         #> /home/nic2/arrow/cpp/src/arrow/csv/parser.h:123  status
+         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:554  parser.VisitColumn(col_index, visit)
+
+         # the unit here is ms - doesn't work
+         read_csv_arrow(
+           tf,
+           col_names = "x",
+           col_types = "t",
+           skip = 1
+         )
+         #> Error in `handle_csv_read_error()`:
+         #> ! Invalid: In CSV column #0: CSV conversion error to time32[ms]: invalid value '2018-10-07 19:04:05.005'
+         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:550  decoder_.Decode(data, size, quoted, &value)
+         #> /home/nic2/arrow/cpp/src/arrow/csv/parser.h:123  status
+         #> /home/nic2/arrow/cpp/src/arrow/csv/converter.cc:554  parser.VisitColumn(col_index, visit)
+
+         # the unit here is inferred as ns - does work!
+         read_csv_arrow(
+           tf,
+           col_names = "x",
+           col_types = "?",
+           skip = 1,
+           as_data_frame = FALSE
+         )
+         #> Table
+         #> 1 rows x 1 columns
+         #> $x <timestamp[ns]>
+
+
 Other resources:
 
+* `Python: Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
+* `R: Tidyverse's Reprex do's and don'ts <https://reprex.tidyverse.org/articles/reprex-dos-and-donts.html>`_
 * `Mozilla's bug-reporting guidelines <https://developer.mozilla.org/en-US/docs/Mozilla/QA/Bug_writing_guidelines>`_
-* `Reprex do's and don'ts <https://reprex.tidyverse.org/articles/reprex-dos-and-donts.html>`_
