@@ -68,6 +68,7 @@ jobs:
           FORCE_BUNDLED_BUILD: true
           LIBARROW_MINIMAL: false
           ARROW_R_DEV: TRUE
+          ARROW_DEPENDENCY_SOURCE: BUNDLED
         run: |
           cd arrow/r
           export CC="$(which gcc-11)"
