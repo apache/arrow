@@ -55,7 +55,7 @@ First thing you need to do is to make an account on the ASF JIRA following
 You will be asked to select a language and choose an avatar if you wish. If
 the registration is successful you will see:
 
-.. figure:: jira_new_account.jpeg
+.. figure:: /developers/images/jira_new_account.jpeg
    :scale: 70 %
    :alt: creating an ASF JIRA account
 
@@ -70,7 +70,7 @@ How to create a JIRA issue
 After creating an account you can click **Create an issue** and select
 **Apache Arrow project** and **Type** of the issue (Bug, Feature, …).
 
-.. figure:: jira_create_issue.jpeg
+.. figure:: /developers/images/jira_create_issue.jpeg
    :scale: 70 %
    :alt: creating JIRA issue
 
@@ -111,7 +111,7 @@ is not easy at all - this can happen as the problem could be harder than the
 person who triaged the ticket expected it to be. Don't hesitate to write that
 in the comments.
 
-.. figure:: jira_good_first_issue.jpeg
+.. figure:: /developers/images/jira_good_first_issue.jpeg
    :scale: 45 %
    :alt: finding good first JIRA issue
 
@@ -151,4 +151,4 @@ If you ask these questions and do not get an answer, it is OK to ask again.
 
    **Do not forget to create a new branch once you have created or chosen an
    issue you will be working on!** Follow the instructions in the
-   :ref:`pr_and_github` section or follow the next section: :ref:`arrow-codebase`.
+   :ref:`pr_lifecycle` section or follow the next section: :ref:`arrow-codebase`.

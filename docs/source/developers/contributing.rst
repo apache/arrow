@@ -45,7 +45,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :column: col-lg-6 col-md-6 col-sm-6 col-xs-12 d-flex
 
    ---
-   :img-top: users-solid.svg
+   :img-top: /developers/images/users-solid.svg
 
    Community
    ^^^^^^^^^
@@ -60,7 +60,7 @@ All participation in the Apache Arrow project is governed by the ASF's
       :classes: btn-block btn-secondary stretched-link
 
    ---
-   :img-top: book-open-solid.svg
+   :img-top: /developers/images/book-open-solid.svg
 
    New Contributors
    ^^^^^^^^^^^^^^^^
@@ -112,7 +112,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :column: col-lg-6 col-md-6 col-sm-6 col-xs-12 d-flex
 
    ---
-   :img-top: code-solid.svg
+   :img-top: /developers/images/code-solid.svg
 
    Advanced
    ^^^^^^^^
@@ -129,7 +129,7 @@ All participation in the Apache Arrow project is governed by the ASF's
       :classes: btn-block btn-secondary stretched-link
 
    ---
-   :img-top: bug-solid.svg
+   :img-top: /developers/images/bug-solid.svg
 
    Bug reports
    ^^^^^^^^^^^
