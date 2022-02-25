@@ -87,6 +87,7 @@ target environment.**
    :caption: Development
 
    developers/contributing
+   developers/bug_reports
    developers/guide/index
    developers/reviewing
    developers/cpp/index
