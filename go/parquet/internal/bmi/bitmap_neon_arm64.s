@@ -1,6 +1,7 @@
 //+build !noasm !appengine
 
 // (C2GOASM doesn't work correctly for Arm64)
+// func _extract_bits_neon(bitmap, selectBitmap uint64) (res uint64)
 TEXT ·_extract_bits_neon(SB), $0-24
 
     MOVD bitmap+0(FP), R0
@@ -8,7 +9,7 @@ TEXT ·_extract_bits_neon(SB), $0-24
 
     WORD $0xa9bf7bfd // stp    x29, x30, [sp, #-16]!
     WORD $0x910003fd // mov    x29, sp
-    WORD $0xb4000001 // cbz    x1, LBB0_4
+    CBZ R1, LBB0_4
     WORD $0xaa0003e8 // mov    x8, x0
     WORD $0xaa1f03e0 // mov    x0, xzr
     WORD $0x52800029 // mov    w9, #1
@@ -23,16 +24,14 @@ LBB0_2:
     WORD $0xd37ff929 // lsl    x9, x9, #1
     BNE LBB0_2
     WORD $0xa8c17bfd // ldp    x29, x30, [sp], #16
+    MOVD R0, res+16(FP)
     RET
 LBB0_4:
     WORD $0xaa1f03e0 // mov    x0, xzr
     WORD $0xa8c17bfd // ldp    x29, x30, [sp], #16
     RET
 
-DATA lcDataArray<>+0x000(SB)/8, $0x0000000000000000
-DATA lcDataArray<>+0x008(SB)/8, $0x0000000000000001
-GLOBL lcDataArray<>(SB), 8, $16 // 8: RODATA
-
+// func _levels_to_bitmap_neon(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)
 TEXT ·_levels_to_bitmap_neon(SB), $0-32
 
     MOVD levels+0(FP), R0
@@ -54,7 +53,7 @@ LBB1_3:
     WORD $0xaa1f03e8 // mov    x8, xzr
     JMP LBB1_8
 LBB1_4:
-    VMOVQ $0x0000000000000001, $0x0000000000000000, V1
+    VMOVQ $0x0000000000000000, $0x0000000000000001, V1 // adrp	x11, .LCPI1_0; ldr q1, [x11, :lo12:.LCPI1_0]
     WORD $0x5280004b // mov    w11, #2
     WORD $0x0e040c43 // dup    v3.2s, w2
     WORD $0x4e080d62 // dup    v2.2d, x11
@@ -109,7 +108,7 @@ LBB1_7:
     WORD $0xaa080168 // orr    x8, x11, x8
     BNE LBB1_7
 LBB1_8:
-    WORD $0xaa0803e0 // mov    x0, x8
     WORD $0xa8c17bfd // ldp    x29, x30, [sp], #16
+    MOVD R8, res+24(FP)
     RET
 
