@@ -81,15 +81,7 @@ RecordBatchIterator RecordBatchSliceIterator(const RecordBatch& batch,
 
 // Counts the number of quotes in s.
 int64_t CountQuotes(arrow::util::string_view s) {
-  // std::count uses 64 bit counter, not necessary for StringType
-  // 32 bit counter performs much better
-  // https://quick-bench.com/q/TjqdU15vwv3qHykXegAJmSwCyxI
-  DCHECK_LT(s.size(), 1ULL << 32);
-  uint32_t count = 0;
-  for (const char c : s) {
-    count += c == '"';
-  }
-  return count;
+  return static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
 }
 
 // Matching quote pair character length.
@@ -362,26 +354,21 @@ class QuotedColumnPopulator : public ColumnPopulator {
   // Returns true if there's no quote in the string array
   // similar to std::find, but with much better performance
   static bool NoQuoteInArray(const StringArray& array) {
-    const uint8_t* const data = array.raw_data() + array.value_offset(0);
+    const uint8_t* data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
-    int64_t offset = 0;
-#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-    using simd_batch = xsimd::make_sized_batch_t<uint8_t, 16>;
-    while ((offset + 16) <= buffer_size) {
-      const auto v = simd_batch::load_unaligned(data + offset);
-      if (xsimd::any(v == '"')) {
+    const uint8_t* const data_end = data + buffer_size;
+
+    for (int64_t i = 0; i < buffer_size / 16; ++i) {
+      bool r = false;
+      for (int i = 0; i < 16; ++i) {
+        r |= data[i] == '"';
+      }
+      if (r) {
         return false;
       }
-      offset += 16;
+      data += 16;
     }
-#endif
-    while (offset < buffer_size) {
-      if (data[offset] == '"') {
-        return false;
-      }
-      ++offset;
-    }
-    return true;
+    return std::count(data, data_end, '"') == 0;
   }
 
   // Older version of GCC don't support custom allocators
