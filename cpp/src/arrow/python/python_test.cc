@@ -658,31 +658,6 @@ TEST(UDF, Initialization) {
       "ExampleFunctionOptions"};
   arrow::Status st;
   const std::string name = "x+x";
-  auto func2 =
-      std::make_shared<arrow::py::UDFScalarFunction>(name, cp::Arity::Unary(), &func_doc);
-  arrow::py::UDFScalarKernel kernel2({cp::InputType::Array(arrow::int32())},
-                                     arrow::int32(), ExamplePyFunctionImpl);
-
-  kernel2.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
-
-  st = func2->AddKernel(std::move(kernel2));
-
-  auto registry = cp::GetFunctionRegistry();
-  st = registry->AddFunction(std::move(func2));
-
-  arrow::Int32Builder builder(arrow::default_memory_pool());
-  std::shared_ptr<arrow::Array> arr;
-
-  st = builder.Append(42);
-  st = builder.Finish(&arr);
-  auto options = std::make_shared<ExampleFunctionOptions>();
-
-  // auto func = registry->GetFunction("x+x").ValueOrDie();
-
-  auto maybe_result = cp::CallFunction(name, {arr}, options.get());
-  st = maybe_result.status();
-
-  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
 }
 
 }  // namespace py

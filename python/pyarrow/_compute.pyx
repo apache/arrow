@@ -2381,59 +2381,7 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     else:
         raise TypeError(f"func_doc must be a dictionary")
 
-cdef object py_function = None
-
-def py_function(arrow_array):
-    p_new_array = call_function("add", [arrow_array, 1])
-    return p_new_array
-
-cdef CStatus udf(self, CKernelContext* ctx, const CExecBatch& batch, CDatum* out) nogil:
-    cdef CDatum datum = batch.values[0]
-    cdef shared_ptr[CArrayData] array_data = datum.array()
-    cdef shared_ptr[CArray] c_array = MakeArray(array_data)
-    cdef shared_ptr[CArray] new_array
-    with gil:
-        p_array = pyarrow_wrap_array(c_array)
-        new_array = pyarrow_unwrap_array(py_function(p_array))
-    cdef CDatum new_datum = CDatum(new_array)
-    out[0] = new_datum
-    return CStatus_OK()
-
 def register_function(func_name, arity, function_doc, in_types, out_type, callback):
-        cdef:
-            c_string c_func_name
-            CArity c_arity
-            CFunctionDoc c_func_doc
-            CInputType in_tmp
-            vector[CInputType] c_in_types
-            ExecFunc c_callback
-            shared_ptr[CDataType] c_type
-        
-        if func_name and isinstance(func_name, str):
-            c_func_name = func_name.encode()
-        else:
-            raise ValueError("func_name should be str")
-        
-        if arity and isinstance(arity, Arity):
-            c_arity = (<Arity> arity).arity
-        else:
-            raise ValueError("arity must be an instance of Arity")
-        
-        c_func_doc = _make_function_doc(function_doc)
-
-        if in_types and isinstance(in_types, list):
-            for in_type in in_types:
-                in_tmp = (<InputType> in_type).input_type
-                c_in_types.push_back(in_tmp)
-
-        c_type = pyarrow_unwrap_data_type(out_type)
-        c_callback = <ExecFunc>udf
-        cdef COutputType* c_out_type = new COutputType(c_type)
-        cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
-            c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
-        c_udf_syn.MakeFunction()
-
-def register_pyfunction(func_name, arity, function_doc, in_types, out_type, callback):
         cdef:
             c_string c_func_name
             CArity c_arity
@@ -2463,7 +2411,7 @@ def register_pyfunction(func_name, arity, function_doc, in_types, out_type, call
 
         c_type = pyarrow_unwrap_data_type(out_type)
         c_callback = <PyObject*>callback
-        #c_callback = <ExecFunc>udf
+
         cdef COutputType* c_out_type = new COutputType(c_type)
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type))

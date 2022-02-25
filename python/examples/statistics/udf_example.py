@@ -1,6 +1,6 @@
 import pyarrow as pa
 from pyarrow import compute as pc
-from pyarrow.compute import call_function, register_pyfunction
+from pyarrow.compute import call_function, register_function
 from pyarrow.compute import Arity, InputType
 func_doc = {}
 func_doc["summary"] = "summary"
@@ -36,7 +36,7 @@ print("=" * 80)
 print("Example 1")
 print("=" * 80)
 callback = simple_function
-register_pyfunction(func_name, arity, func_doc, in_types, out_type, callback) 
+register_function(func_name, arity, func_doc, in_types, out_type, callback) 
 
 func1 = pc.get_function(func_name)
 
@@ -50,7 +50,7 @@ print("Example 2")
 print("=" * 80)
 callback = add_constant
 func_name = "py_add_func"
-register_pyfunction(func_name, arity, func_doc, in_types, out_type, callback) 
+register_function(func_name, arity, func_doc, in_types, out_type, callback) 
 
 func2 = pc.get_function(func_name)
 
