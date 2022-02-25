@@ -332,7 +332,7 @@ jobs:
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
-          options(pkgType="win.binary")
+          # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
       - name: Check
