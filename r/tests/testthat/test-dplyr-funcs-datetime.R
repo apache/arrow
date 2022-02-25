@@ -809,6 +809,7 @@ test_that("date works in arrow", {
   # since as.Date returns the UTC date and date() doesn't
   test_df <- tibble(
     a = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"))
+  r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
 
   # we can't (for now) use namespacing, so we need to make sure lubridate::date()
   # and not base::date() is being used
@@ -828,7 +829,6 @@ test_that("date works in arrow", {
     test_df
   )
 
-  r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
   compare_dplyr_binding(
     .input %>%
       mutate(b = date(r_date_object)) %>%
@@ -842,44 +842,53 @@ test_that("date works in arrow", {
       collect(),
     test_df
   )
-
-  skip("All these will fail as we're not actually forcing evaluation")
-  # a timestamp is cast correctly to date
-  expect_equal(
-    call_binding("date", Array$create(as.POSIXct("2022-02-21"))),
-    Array$create(as.POSIXct("2022-02-21"), type = date32())
-  )
-
-  # date() supports R objects
-  expect_equal(
-    call_binding("date", as.POSIXct("2022-02-21")),
-    Array$create(as.POSIXct("2022-02-21"), type = date32())
-  )
 })
 
 test_that("date() errors with unsupported inputs", {
-  skip("All these will fail as we're not actually forcing evaluation")
-  expect_error(
-    call_binding("date", Scalar$create("a string")),
-    "NotImplemented: Unsupported cast from string to date32 using function cast_date32"
+  test_df <- tibble::tibble(
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    date_var = as.Date("2022-02-25"),
+    character_ymd_var = "2022-02-25 00:00:01",
+    character_ydm_var = "2022/25/02 00:00:01",
+    integer_var = 32L,
+    double_var = 34.56,
+    boolean_var = TRUE
+  )
+
+  # date from integer supported in arrow (similar to base::as.Date()), but in
+  # Arrow it assumes a fixed origin "1970-01-01"
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      select(integer_var) %>%
+      mutate(date_int = date(integer_var)) %>%
+      collect(),
+    tibble(integer_var = 32L,
+           date_int = as.Date("1970-02-02"))
   )
 
   expect_error(
-    call_binding("date", Scalar$create(32.2)),
-    "NotImplemented: Unsupported cast from double to date32 using function cast_date32"
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char = date(character_ymd_var)) %>%
+      collect(),
+    regexp = "Unsupported cast from string to date32 using function cast_date32"
   )
 
   expect_error(
-    arrow_eval(call_binding("date", Scalar$create(TRUE)), mask = arrow_mask(list())),
-    "NotImplemented: Unsupported cast from bool to date32 using function cast_date32"
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_bool = date(boolean_var)) %>%
+      collect(),
+    regexp = "Unsupported cast from bool to date32 using function cast_date32"
   )
 
-  # if we are aiming for equivalent behaviour to lubridate this should fail, but
-  # it doesn't as it is supported in arrow, where integer casting to date returns
-  # the date x days away from epoch
-  skip("supported in arrow, but not in lubridate")
   expect_error(
-    call_binding("date", Scalar$create(32L)),
-    "NotImplemented: Unsupported cast from integer to date32 using function cast_date32"
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = date(double_var)) %>%
+      collect(),
+    regexp = "Unsupported cast from double to date32 using function cast_date32"
   )
+
 })
