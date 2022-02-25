@@ -14,11 +14,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noasm
+#undef FULL_NAME
 
-package bmi
-
-func init() {
-	funclist.extractBits = extractBitsGo
-	funclist.gtbitmap = greaterThanBitmapGo
-}
+#if defined(__BMI2__)
+    #include <x86intrin.h>
+    #define FULL_NAME(x) x##_bmi2
+#elif defined(__ARM_NEON) || defined(__ARM_NEON__)
+    #define FULL_NAME(x) x##_neon
+#else
+    #define FULL_NAME(x) x##_x86
+#endif
