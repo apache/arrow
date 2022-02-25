@@ -74,7 +74,8 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
       return compute::literal(true);
     }
 
-    Result<std::pair<std::string,std::string>> Format(const compute::Expression& expr) const override {
+    Result<std::pair<std::string, std::string>> Format(
+        const compute::Expression& expr) const override {
       return Status::NotImplemented("formatting paths from ", type_name(),
                                     " Partitioning");
     }
@@ -251,7 +252,8 @@ Result<compute::Expression> KeyValuePartitioning::Parse(const std::string& path)
   return and_(std::move(expressions));
 }
 
-Result<std::pair<std::string,std::string>> KeyValuePartitioning::Format(const compute::Expression& expr) const {
+Result<std::pair<std::string, std::string>> KeyValuePartitioning::Format(
+    const compute::Expression& expr) const {
   ScalarVector values{static_cast<size_t>(schema_->num_fields()), nullptr};
 
   ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
@@ -330,8 +332,8 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
 }
 
 FilenamePartitioning::FilenamePartitioning(std::shared_ptr<Schema> schema,
-                                             ArrayVector dictionaries,
-                                             KeyValuePartitioningOptions options)
+                                           ArrayVector dictionaries,
+                                           KeyValuePartitioningOptions options)
     : KeyValuePartitioning(std::move(schema), std::move(dictionaries), options) {
   util::InitializeUTF8();
 }
@@ -377,7 +379,7 @@ inline util::optional<int> NextValid(const ScalarVector& values, int first_null)
   return static_cast<int>(it - values.begin());
 }
 
-Result<std::pair<std::string,std::string>> DirectoryPartitioning::FormatValues(
+Result<std::pair<std::string, std::string>> DirectoryPartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -398,10 +400,10 @@ Result<std::pair<std::string,std::string>> DirectoryPartitioning::FormatValues(
     break;
   }
 
-  return make_pair(fs::internal::JoinAbstractPath(std::move(segments)),"");
+  return make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
 }
 
-Result<std::pair<std::string,std::string>> FilenamePartitioning::FormatValues(
+Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
@@ -422,7 +424,7 @@ Result<std::pair<std::string,std::string>> FilenamePartitioning::FormatValues(
     break;
   }
 
-  return make_pair("",fs::internal::JoinFilenamePartitions(std::move(segments)));
+  return std::make_pair("", fs::internal::JoinFilenamePartitions(std::move(segments)));
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
@@ -625,7 +627,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
 class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
  public:
   FilenamePartitioningFactory(std::vector<std::string> field_names,
-                               PartitioningFactoryOptions options)
+                              PartitioningFactoryOptions options)
       : KeyValuePartitioningFactory(options), field_names_(std::move(field_names)) {
     Reset();
     util::InitializeUTF8();
@@ -674,7 +676,7 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
     auto out_schema = SchemaFromColumnNames(schema, field_names_);
 
     return std::make_shared<FilenamePartitioning>(std::move(out_schema), dictionaries_,
-                                                   options_.AsPartitioningOptions());
+                                                  options_.AsPartitioningOptions());
   }
 
  private:
@@ -757,7 +759,8 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
   return keys;
 }
 
-Result<std::pair<std::string,std::string>> HivePartitioning::FormatValues(const ScalarVector& values) const {
+Result<std::pair<std::string, std::string>> HivePartitioning::FormatValues(
+    const ScalarVector& values) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
@@ -774,7 +777,7 @@ Result<std::pair<std::string,std::string>> HivePartitioning::FormatValues(const 
     }
   }
 
-  return make_pair(fs::internal::JoinAbstractPath(std::move(segments)),"");
+  return std::make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
 }
 
 class HivePartitioningFactory : public KeyValuePartitioningFactory {

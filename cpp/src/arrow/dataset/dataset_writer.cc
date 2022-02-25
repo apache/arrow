@@ -241,7 +241,8 @@ struct WriteTask {
 
 class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
-  DatasetWriterDirectoryQueue(std::string directory, std::string prefix, std::shared_ptr<Schema> schema,
+  DatasetWriterDirectoryQueue(std::string directory, std::string prefix,
+                              std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
                               DatasetWriterState* writer_state)
       : directory_(std::move(directory)),
@@ -342,10 +343,11 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
                                 util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
   Make(util::AsyncTaskGroup* task_group,
        const FileSystemDatasetWriteOptions& write_options,
-       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
-       std::string dir, std::string prefixname) {
+       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema, std::string dir,
+       std::string prefixname) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(dir), std::move(prefixname), std::move(schema), write_options, writer_state);
+        std::move(dir), std::move(prefixname), std::move(schema), write_options,
+        writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
     dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
@@ -450,11 +452,9 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       auto full_path =
           fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
       return DoWriteRecordBatch(std::move(batch), full_path, prefix);
-    }
-    else if(!prefix.empty()){
+    } else if (!prefix.empty()) {
       return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
-    }
-     else {
+    } else {
       return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
     }
   }
@@ -475,13 +475,14 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
 
   Future<> DoWriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                               const std::string& directory, const std::string& prefix) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto dir_queue_itr,
-        ::arrow::internal::GetOrInsertGenerated(
-            &directory_queues_, directory, [this, &batch, &prefix](const std::string& dir) {
-              return DatasetWriterDirectoryQueue::Make(
-                  &task_group_, write_options_, &writer_state_, batch->schema(), dir, prefix);
-            }));
+    ARROW_ASSIGN_OR_RAISE(auto dir_queue_itr,
+                          ::arrow::internal::GetOrInsertGenerated(
+                              &directory_queues_, directory,
+                              [this, &batch, &prefix](const std::string& dir) {
+                                return DatasetWriterDirectoryQueue::Make(
+                                    &task_group_, write_options_, &writer_state_,
+                                    batch->schema(), dir, prefix);
+                              }));
     std::shared_ptr<DatasetWriterDirectoryQueue> dir_queue = dir_queue_itr->second;
     Future<> backpressure;
     while (batch) {
@@ -511,8 +512,9 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
     }
 
     if (batch) {
-      return backpressure.Then(
-          [this, batch, directory, prefix] { return DoWriteRecordBatch(batch, directory, prefix); });
+      return backpressure.Then([this, batch, directory, prefix] {
+        return DoWriteRecordBatch(batch, directory, prefix);
+      });
     }
     return Future<>::MakeFinished();
   }
@@ -557,7 +559,8 @@ Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
 DatasetWriter::~DatasetWriter() = default;
 
 Future<> DatasetWriter::WriteRecordBatch(std::shared_ptr<RecordBatch> batch,
-                                         const std::string& directory, const std::string& prefix) {
+                                         const std::string& directory,
+                                         const std::string& prefix) {
   return impl_->WriteRecordBatch(std::move(batch), directory, prefix);
 }
 

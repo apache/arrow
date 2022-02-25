@@ -843,7 +843,10 @@ class RangePartitioning : public Partitioning {
     return Status::OK();
   }
 
-  Result<std::pair<std::string,std::string>> Format(const compute::Expression&) const override { return std::make_pair("",""); }
+  Result<std::pair<std::string, std::string>> Format(
+      const compute::Expression&) const override {
+    return std::make_pair("", "");
+  }
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>&) const override {
     return Status::OK();

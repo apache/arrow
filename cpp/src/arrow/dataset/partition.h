@@ -76,7 +76,8 @@ class ARROW_DS_EXPORT Partitioning {
   /// \brief Parse a path into a partition expression
   virtual Result<compute::Expression> Parse(const std::string& path) const = 0;
 
-  virtual Result<std::pair<std::string,std::string>> Format(const compute::Expression& expr) const = 0;
+  virtual Result<std::pair<std::string, std::string>> Format(
+      const compute::Expression& expr) const = 0;
 
   /// \brief A default Partitioning which always yields scalar(true)
   static std::shared_ptr<Partitioning> Default();
@@ -170,7 +171,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   Result<compute::Expression> Parse(const std::string& path) const override;
 
-  Result<std::pair<std::string,std::string>> Format(const compute::Expression& expr) const override;
+  Result<std::pair<std::string, std::string>> Format(
+      const compute::Expression& expr) const override;
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
 
@@ -187,7 +189,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
 
   virtual Result<std::vector<Key>> ParseKeys(const std::string& path) const = 0;
 
-  virtual Result<std::pair<std::string,std::string>> FormatValues(const ScalarVector& values) const = 0;
+  virtual Result<std::pair<std::string, std::string>> FormatValues(
+      const ScalarVector& values) const = 0;
 
   /// Convert a Key to a full expression.
   Result<compute::Expression> ConvertKey(const Key& key) const;
@@ -222,7 +225,8 @@ class ARROW_DS_EXPORT DirectoryPartitioning : public KeyValuePartitioning {
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
-  Result<std::pair<std::string,std::string>> FormatValues(const ScalarVector& values) const override;
+  Result<std::pair<std::string, std::string>> FormatValues(
+      const ScalarVector& values) const override;
 };
 
 /// \brief The default fallback used for null values in a Hive-style partitioning.
@@ -279,7 +283,8 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   const HivePartitioningOptions hive_options_;
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
-  Result<std::pair<std::string,std::string>> FormatValues(const ScalarVector& values) const override;
+  Result<std::pair<std::string, std::string>> FormatValues(
+      const ScalarVector& values) const override;
 };
 
 /// \brief Implementation provided by lambda or other callable
@@ -287,7 +292,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
  public:
   using ParseImpl = std::function<Result<compute::Expression>(const std::string&)>;
 
-  using FormatImpl = std::function<Result<std::pair<std::string,std::string>>(const compute::Expression&)>;
+  using FormatImpl = std::function<Result<std::pair<std::string, std::string>>(
+      const compute::Expression&)>;
 
   FunctionPartitioning(std::shared_ptr<Schema> schema, ParseImpl parse_impl,
                        FormatImpl format_impl = NULLPTR, std::string name = "function")
@@ -302,7 +308,8 @@ class ARROW_DS_EXPORT FunctionPartitioning : public Partitioning {
     return parse_impl_(path);
   }
 
-  Result<std::pair<std::string,std::string>> Format(const compute::Expression& expr) const override {
+  Result<std::pair<std::string, std::string>> Format(
+      const compute::Expression& expr) const override {
     if (format_impl_) {
       return format_impl_(expr);
     }
@@ -326,8 +333,8 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
   /// If a field in schema is of dictionary type, the corresponding element of
   /// dictionaries must be contain the dictionary of values for that field.
   explicit FilenamePartitioning(std::shared_ptr<Schema> schema,
-                                 ArrayVector dictionaries = {},
-                                 KeyValuePartitioningOptions options = {});
+                                ArrayVector dictionaries = {},
+                                KeyValuePartitioningOptions options = {});
 
   std::string type_name() const override { return "filename"; }
 
@@ -341,9 +348,9 @@ class ARROW_DS_EXPORT FilenamePartitioning : public KeyValuePartitioning {
  private:
   Result<std::vector<Key>> ParseKeys(const std::string& path) const override;
 
-  Result<std::pair<std::string,std::string>> FormatValues(const ScalarVector& values) const override;
+  Result<std::pair<std::string, std::string>> FormatValues(
+      const ScalarVector& values) const override;
 };
-
 
 /// \brief Remove a prefix and the filename of a path.
 ///
