@@ -17,119 +17,68 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
-
+import org.apache.arrow.driver.jdbc.adhoc.MockFlightSqlProducer;
+import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
-import org.apache.arrow.driver.jdbc.utils.FlightTestUtils;
-import org.apache.arrow.driver.jdbc.utils.PropertiesSample;
-import org.apache.arrow.driver.jdbc.utils.UrlSample;
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
-import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
-import org.apache.arrow.flight.auth2.GeneratedBearerTokenAuthenticator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.UnregisteredDriver;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
-
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * Tests for {@link ArrowFlightJdbcDriver}.
- * TODO Update to use {@link FlightServerTestRule} instead of {@link FlightTestUtils}
  */
 public class ArrowFlightJdbcFactoryTest {
 
+  @ClassRule
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
+
+  static {
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
+            .build();
+
+    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder().host("localhost").randomPort()
+        .authentication(authentication).producer(PRODUCER).build();
+  }
+
   private BufferAllocator allocator;
-  private FlightServer server;
-  FlightTestUtils testUtils;
+  private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
   @Before
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-
-    final UrlSample url = UrlSample.CONFORMING;
-
-    final Properties propertiesConforming = PropertiesSample.CONFORMING
-        .getProperties();
-
-    final Properties propertiesUnsupported = PropertiesSample.UNSUPPORTED
-        .getProperties();
-
-    testUtils = new FlightTestUtils(url.getHost(),
-        propertiesConforming.getProperty("user"),
-        propertiesConforming.getProperty("password"),
-        propertiesUnsupported.getProperty("user"),
-        propertiesUnsupported.getProperty("password"));
-
-    final FlightProducer flightProducer = testUtils
-        .getFlightProducer(allocator);
-
-    server = testUtils.getStartedServer(
-        location -> FlightServer.builder(allocator, location, flightProducer)
-            .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
-                new BasicCallHeaderAuthenticator(this::validate)))
-            .build());
+    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
   }
 
   @After
   public void tearDown() throws Exception {
-    AutoCloseables.close(server, allocator);
+    AutoCloseables.close(dataSource, allocator);
   }
 
   @Test
-  public void testShouldBeAbleToEstablishAConnectionSuccessfully()
-      throws Exception {
+  public void testShouldBeAbleToEstablishAConnectionSuccessfully() throws Exception {
     UnregisteredDriver driver = new ArrowFlightJdbcDriver();
-    Constructor<ArrowFlightJdbcFactory> constructor =
-        ArrowFlightJdbcFactory.class
-            .getConstructor();
+    Constructor<ArrowFlightJdbcFactory> constructor = ArrowFlightJdbcFactory.class.getConstructor();
     constructor.setAccessible(true);
     ArrowFlightJdbcFactory factory = constructor.newInstance();
 
     final Properties properties = new Properties();
-    properties.putAll(ImmutableMap.of(
-        ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
+    properties.putAll(ImmutableMap.of(ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
         ArrowFlightConnectionProperty.PORT.camelName(), 32010));
 
-    try (Connection connection = factory.newConnection(driver,
-        constructor.newInstance(),
-        "jdbc:arrow-flight://localhost:32010",
-        properties)) {
+    try (Connection connection = factory.newConnection(driver, constructor.newInstance(),
+        "jdbc:arrow-flight://localhost:32010", properties)) {
       assert connection.isValid(300);
     }
-  }
-
-  /**
-   * Validate the user's credential on a FlightServer.
-   *
-   * @param username flight server username.
-   * @param password flight server password.
-   * @return the result of validation.
-   */
-  private CallHeaderAuthenticator.AuthResult validate(final String username,
-                                                      final String password) {
-    if (Strings.isNullOrEmpty(username)) {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Credentials not supplied.").toRuntimeException();
-    }
-    final String identity;
-    if (testUtils.getUsername1().equals(username) &&
-        testUtils.getPassword1().equals(password)) {
-      identity = testUtils.getUsername1();
-    } else {
-      throw CallStatus.UNAUTHENTICATED
-          .withDescription("Username or password is invalid.")
-          .toRuntimeException();
-    }
-    return () -> identity;
   }
 }
