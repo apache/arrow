@@ -445,6 +445,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   writer.varChar().writeVarChar(0, bytes.length, buf);
                 });
           }
+          buf.close();
           writer.endList();
         } else {
           throw CallStatus.INVALID_ARGUMENT.withDescription("Provided vector not supported").toRuntimeException();
