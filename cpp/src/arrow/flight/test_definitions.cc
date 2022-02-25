@@ -31,9 +31,7 @@ namespace flight {
 //------------------------------------------------------------
 // Tests of initialization/shutdown
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ConnectivityTest);
-
-TEST_P(ConnectivityTest, GetPort) {
+void ConnectivityTest::TestGetPort() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
@@ -41,8 +39,7 @@ TEST_P(ConnectivityTest, GetPort) {
   ASSERT_OK(server->Init(options));
   ASSERT_GT(server->port(), 0);
 }
-
-TEST_P(ConnectivityTest, BuilderHook) {
+void ConnectivityTest::TestBuilderHook() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
@@ -57,8 +54,7 @@ TEST_P(ConnectivityTest, BuilderHook) {
   ASSERT_GT(server->port(), 0);
   ASSERT_OK(server->Shutdown());
 }
-
-TEST_P(ConnectivityTest, ServeShutdown) {
+void ConnectivityTest::TestShutdown() {
   // Regression test for ARROW-15181
   constexpr int kIterations = 10;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
@@ -74,8 +70,7 @@ TEST_P(ConnectivityTest, ServeShutdown) {
     t.join();
   }
 }
-
-TEST_P(ConnectivityTest, ServeShutdownWithDeadline) {
+void ConnectivityTest::TestShutdownWithDeadline() {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
@@ -92,9 +87,6 @@ TEST_P(ConnectivityTest, ServeShutdownWithDeadline) {
 //------------------------------------------------------------
 // Tests of data plane methods
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DataTest);
-
-DataTest::~DataTest() = default;
 void DataTest::SetUp() {
   server_ = ExampleTestServer();
 
@@ -175,7 +167,7 @@ void DataTest::CheckDoGet(const Ticket& ticket,
   ASSERT_EQ(nullptr, batch);
 }
 
-TEST_P(DataTest, DoGetInts) {
+void DataTest::TestDoGetInts() {
   auto descr = FlightDescriptor::Path({"examples", "ints"});
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleIntBatches(&expected_batches));
@@ -188,8 +180,7 @@ TEST_P(DataTest, DoGetInts) {
 
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
-
-TEST_P(DataTest, DoGetFloats) {
+void DataTest::TestDoGetFloats() {
   auto descr = FlightDescriptor::Path({"examples", "floats"});
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleFloatBatches(&expected_batches));
@@ -202,8 +193,7 @@ TEST_P(DataTest, DoGetFloats) {
 
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
-
-TEST_P(DataTest, DoGetDicts) {
+void DataTest::TestDoGetDicts() {
   auto descr = FlightDescriptor::Path({"examples", "dicts"});
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleDictBatches(&expected_batches));
@@ -216,17 +206,15 @@ TEST_P(DataTest, DoGetDicts) {
 
   CheckDoGet(descr, expected_batches, check_endpoints);
 }
-
 // Ensure clients are configured to allow large messages by default
 // Tests a 32 MiB batch
-TEST_P(DataTest, DoGetLargeBatch) {
+void DataTest::TestDoGetLargeBatch() {
   RecordBatchVector expected_batches;
   ASSERT_OK(ExampleLargeBatches(&expected_batches));
   Ticket ticket{"ticket-large-batch-1"};
   CheckDoGet(ticket, expected_batches);
 }
-
-TEST_P(DataTest, FlightDataOverflowServerBatch) {
+void DataTest::TestOverflowServerBatch() {
   // Regression test for ARROW-13253
   // N.B. this is rather a slow and memory-hungry test
   {
@@ -251,8 +239,7 @@ TEST_P(DataTest, FlightDataOverflowServerBatch) {
         reader->ReadAll(&batches));
   }
 }
-
-TEST_P(DataTest, FlightDataOverflowClientBatch) {
+void DataTest::TestOverflowClientBatch() {
   ASSERT_OK_AND_ASSIGN(auto batch, VeryLargeBatch());
   {
     // DoPut: check for overflow on large batch
@@ -278,8 +265,7 @@ TEST_P(DataTest, FlightDataOverflowClientBatch) {
     ASSERT_OK(writer->Close());
   }
 }
-
-TEST_P(DataTest, DoExchange) {
+void DataTest::TestDoExchange() {
   auto descr = FlightDescriptor::Command("counter");
   RecordBatchVector batches;
   auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
@@ -306,10 +292,9 @@ TEST_P(DataTest, DoExchange) {
   }
   ASSERT_OK(writer->Close());
 }
-
 // Test pure-metadata DoExchange to ensure nothing blocks waiting for
 // schema messages
-TEST_P(DataTest, DoExchangeNoData) {
+void DataTest::TestDoExchangeNoData() {
   auto descr = FlightDescriptor::Command("counter");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -322,10 +307,9 @@ TEST_P(DataTest, DoExchangeNoData) {
   ASSERT_EQ("0", chunk.app_metadata->ToString());
   ASSERT_OK(writer->Close());
 }
-
 // Test sending a schema without any data, as this hits an edge case
 // in the client-side writer.
-TEST_P(DataTest, DoExchangeWriteOnlySchema) {
+void DataTest::TestDoExchangeWriteOnlySchema() {
   auto descr = FlightDescriptor::Command("counter");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -341,9 +325,8 @@ TEST_P(DataTest, DoExchangeWriteOnlySchema) {
   ASSERT_EQ("0", chunk.app_metadata->ToString());
   ASSERT_OK(writer->Close());
 }
-
 // Emulate DoGet
-TEST_P(DataTest, DoExchangeGet) {
+void DataTest::TestDoExchangeGet() {
   auto descr = FlightDescriptor::Command("get");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -363,9 +346,8 @@ TEST_P(DataTest, DoExchangeGet) {
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
 }
-
 // Emulate DoPut
-TEST_P(DataTest, DoExchangePut) {
+void DataTest::TestDoExchangePut() {
   auto descr = FlightDescriptor::Command("put");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -386,9 +368,8 @@ TEST_P(DataTest, DoExchangePut) {
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
 }
-
 // Test the echo server
-TEST_P(DataTest, DoExchangeEcho) {
+void DataTest::TestDoExchangeEcho() {
   auto descr = FlightDescriptor::Command("echo");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -429,9 +410,8 @@ TEST_P(DataTest, DoExchangeEcho) {
   ASSERT_EQ(nullptr, chunk.app_metadata);
   ASSERT_OK(writer->Close());
 }
-
 // Test interleaved reading/writing
-TEST_P(DataTest, DoExchangeTotal) {
+void DataTest::TestDoExchangeTotal() {
   auto descr = FlightDescriptor::Command("total");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -481,9 +461,8 @@ TEST_P(DataTest, DoExchangeTotal) {
     ASSERT_OK(writer->Close());
   }
 }
-
 // Ensure server errors get propagated no matter what we try
-TEST_P(DataTest, DoExchangeError) {
+void DataTest::TestDoExchangeError() {
   auto descr = FlightDescriptor::Command("error");
   std::unique_ptr<FlightStreamReader> reader;
   std::unique_ptr<FlightStreamWriter> writer;
@@ -510,8 +489,7 @@ TEST_P(DataTest, DoExchangeError) {
   // writes - a write won't immediately fail even when the server
   // immediately fails.
 }
-
-TEST_P(DataTest, Issue5095) {
+void DataTest::TestIssue5095() {
   // Make sure the server-side error message is reflected to the
   // client
   Ticket ticket1{"ARROW-5095-fail"};
@@ -528,8 +506,6 @@ TEST_P(DataTest, Issue5095) {
 
 //------------------------------------------------------------
 // Specific tests for DoPut
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(DoPutTest);
 
 class DoPutTestServer : public FlightServerBase {
  public:
@@ -552,12 +528,10 @@ void DoPutTest::SetUp() {
       &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-
 void DoPutTest::TearDown() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
-
 void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
                              const RecordBatchVector& expected_batches) {
   auto* do_put_server = (DoPutTestServer*)server_.get();
@@ -567,7 +541,6 @@ void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
     ASSERT_BATCHES_EQUAL(*do_put_server->batches_[i], *expected_batches[i]);
   }
 }
-
 void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
                            const std::shared_ptr<Schema>& schema,
                            const RecordBatchVector& batches) {
@@ -583,7 +556,7 @@ void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
   CheckBatches(descr, batches);
 }
 
-TEST_P(DoPutTest, Ints) {
+void DoPutTest::TestInts() {
   auto descr = FlightDescriptor::Path({"ints"});
   RecordBatchVector batches;
   auto a0 = ArrayFromJSON(int8(), "[0, 1, 127, -128, null]");
@@ -606,7 +579,7 @@ TEST_P(DoPutTest, Ints) {
   CheckDoPut(descr, schema, batches);
 }
 
-TEST_P(DoPutTest, DoPutFloats) {
+void DoPutTest::TestDoPutFloats() {
   auto descr = FlightDescriptor::Path({"floats"});
   RecordBatchVector batches;
   auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
@@ -617,7 +590,7 @@ TEST_P(DoPutTest, DoPutFloats) {
   CheckDoPut(descr, schema, batches);
 }
 
-TEST_P(DoPutTest, DoPutEmptyBatch) {
+void DoPutTest::TestDoPutEmptyBatch() {
   // Sending and receiving a 0-sized batch shouldn't fail
   auto descr = FlightDescriptor::Path({"ints"});
   RecordBatchVector batches;
@@ -628,7 +601,7 @@ TEST_P(DoPutTest, DoPutEmptyBatch) {
   CheckDoPut(descr, schema, batches);
 }
 
-TEST_P(DoPutTest, DoPutDicts) {
+void DoPutTest::TestDoPutDicts() {
   auto descr = FlightDescriptor::Path({"dicts"});
   RecordBatchVector batches;
   auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
@@ -646,7 +619,7 @@ TEST_P(DoPutTest, DoPutDicts) {
 
 // Ensure the server is configured to allow large messages by default
 // Tests a 32 MiB batch
-TEST_P(DoPutTest, DoPutLargeBatch) {
+void DoPutTest::TestDoPutLargeBatch() {
   // For gRPC: This test randomly takes 10 seconds because gRPC has problems
   // joining its internal threads. It's because it's waiting on a thread
   // calling epoll...with a timeout of 10 seconds.
@@ -659,7 +632,7 @@ TEST_P(DoPutTest, DoPutLargeBatch) {
   CheckDoPut(descr, schema, batches);
 }
 
-TEST_P(DoPutTest, DoPutSizeLimit) {
+void DoPutTest::TestDoPutSizeLimit() {
   const int64_t size_limit = 4096;
   Location location;
   ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
@@ -702,8 +675,6 @@ TEST_P(DoPutTest, DoPutSizeLimit) {
 //------------------------------------------------------------
 // Test app_metadata in data plane methods
 
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(AppMetadataTest);
-
 Status AppMetadataTestServer::DoGet(const ServerCallContext& context,
                                     const Ticket& request,
                                     std::unique_ptr<FlightDataStream>* data_stream) {
@@ -720,7 +691,6 @@ Status AppMetadataTestServer::DoGet(const ServerCallContext& context,
       std::unique_ptr<FlightDataStream>(new RecordBatchStream(batch_reader))));
   return Status::OK();
 }
-
 Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
                                     std::unique_ptr<FlightMessageReader> reader,
                                     std::unique_ptr<FlightMetadataWriter> writer) {
@@ -748,13 +718,11 @@ void AppMetadataTest::SetUp() {
       &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-
 void AppMetadataTest::TearDown() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
-
-TEST_P(AppMetadataTest, DoGet) {
+void AppMetadataTest::TestDoGet() {
   Ticket ticket{""};
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
@@ -774,12 +742,11 @@ TEST_P(AppMetadataTest, DoGet) {
   ASSERT_OK(stream->Next(&chunk));
   ASSERT_EQ(nullptr, chunk.data);
 }
-
 // Test dictionaries. This tests a corner case in the reader:
 // dictionary batches come in between the schema and the first record
 // batch, so the server must take care to read application metadata
 // from the record batch, and not one of the dictionary batches.
-TEST_P(AppMetadataTest, DoGetDictionaries) {
+void AppMetadataTest::TestDoGetDictionaries() {
   Ticket ticket{"dicts"};
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
@@ -799,8 +766,7 @@ TEST_P(AppMetadataTest, DoGetDictionaries) {
   ASSERT_OK(stream->Next(&chunk));
   ASSERT_EQ(nullptr, chunk.data);
 }
-
-TEST_P(AppMetadataTest, DoPut) {
+void AppMetadataTest::TestDoPut() {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = ExampleIntSchema();
@@ -821,10 +787,9 @@ TEST_P(AppMetadataTest, DoPut) {
   // around this doesn't hang (because it drains any unread messages)
   ASSERT_OK(writer->Close());
 }
-
 // Test DoPut() with dictionaries. This tests a corner case in the
 // server-side reader; see DoGetDictionaries above.
-TEST_P(AppMetadataTest, DoPutDictionaries) {
+void AppMetadataTest::TestDoPutDictionaries() {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
   RecordBatchVector expected_batches;
@@ -846,8 +811,7 @@ TEST_P(AppMetadataTest, DoPutDictionaries) {
   }
   ASSERT_OK(writer->Close());
 }
-
-TEST_P(AppMetadataTest, DoPutReadMetadata) {
+void AppMetadataTest::TestDoPutReadMetadata() {
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
   std::shared_ptr<Schema> schema = ExampleIntSchema();
@@ -873,8 +837,6 @@ TEST_P(AppMetadataTest, DoPutReadMetadata) {
 
 //------------------------------------------------------------
 // Test IPC options in data plane methods
-
-GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IpcOptionsTest);
 
 class IpcOptionsTestServer : public FlightServerBase {
   Status DoGet(const ServerCallContext& context, const Ticket& request,
@@ -937,13 +899,11 @@ void IpcOptionsTest::SetUp() {
       &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
-
 void IpcOptionsTest::TearDown() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
 }
-
-TEST_P(IpcOptionsTest, DoGetReadOptions) {
+void IpcOptionsTest::TestDoGetReadOptions() {
   // Call DoGet, but with a very low read nesting depth set to fail the call.
   Ticket ticket{""};
   auto options = FlightCallOptions();
@@ -953,8 +913,7 @@ TEST_P(IpcOptionsTest, DoGetReadOptions) {
   FlightStreamChunk chunk;
   ASSERT_RAISES(Invalid, stream->Next(&chunk));
 }
-
-TEST_P(IpcOptionsTest, DoPutWriteOptions) {
+void IpcOptionsTest::TestDoPutWriteOptions() {
   // Call DoPut, but with a very low write nesting depth set to fail the call.
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
@@ -969,8 +928,7 @@ TEST_P(IpcOptionsTest, DoPutWriteOptions) {
     ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*batch));
   }
 }
-
-TEST_P(IpcOptionsTest, DoExchangeClientWriteOptions) {
+void IpcOptionsTest::TestDoExchangeClientWriteOptions() {
   // Call DoExchange and write nested data, but with a very low nesting depth set to
   // fail the call.
   auto options = FlightCallOptions();
@@ -988,8 +946,7 @@ TEST_P(IpcOptionsTest, DoExchangeClientWriteOptions) {
   ASSERT_OK(writer->DoneWriting());
   ASSERT_OK(writer->Close());
 }
-
-TEST_P(IpcOptionsTest, DoExchangeClientWriteOptionsBegin) {
+void IpcOptionsTest::TestDoExchangeClientWriteOptionsBegin() {
   // Call DoExchange and write nested data, but with a very low nesting depth set to
   // fail the call. Here the options are set explicitly when we write data and not in the
   // call options.
@@ -1008,8 +965,7 @@ TEST_P(IpcOptionsTest, DoExchangeClientWriteOptionsBegin) {
   ASSERT_OK(writer->DoneWriting());
   ASSERT_OK(writer->Close());
 }
-
-TEST_P(IpcOptionsTest, DoExchangeServerWriteOptions) {
+void IpcOptionsTest::TestDoExchangeServerWriteOptions() {
   // Call DoExchange and write nested data, but with a very low nesting depth set to fail
   // the call. (The low nesting depth is set on the server side.)
   auto descr = FlightDescriptor::Command("");

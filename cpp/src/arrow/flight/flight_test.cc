@@ -63,11 +63,79 @@ const char kBasicPrefix[] = "Basic ";
 const char kBearerPrefix[] = "Bearer ";
 const char kAuthHeader[] = "authorization";
 
-INSTANTIATE_TEST_SUITE_P(GrpcConnectivity, ConnectivityTest, testing::Values("grpc"));
-INSTANTIATE_TEST_SUITE_P(GrpcData, DataTest, testing::Values("grpc"));
-INSTANTIATE_TEST_SUITE_P(GrpcDoPut, DoPutTest, testing::Values("grpc"));
-INSTANTIATE_TEST_SUITE_P(GrpcAppMetadata, AppMetadataTest, testing::Values("grpc"));
-INSTANTIATE_TEST_SUITE_P(GrpcIpcOptions, IpcOptionsTest, testing::Values("grpc"));
+//------------------------------------------------------------
+// Common transport tests
+
+class GrpcConnectivityTest : public ConnectivityTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+TEST_F(GrpcConnectivityTest, GetPort) { TestGetPort(); }
+TEST_F(GrpcConnectivityTest, BuilderHook) { TestBuilderHook(); }
+TEST_F(GrpcConnectivityTest, Shutdown) { TestShutdown(); }
+TEST_F(GrpcConnectivityTest, ShutdownWithDeadline) { TestShutdownWithDeadline(); }
+
+class GrpcDataTest : public DataTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+TEST_F(GrpcDataTest, TestDoGetInts) { TestDoGetInts(); }
+TEST_F(GrpcDataTest, TestDoGetFloats) { TestDoGetFloats(); }
+TEST_F(GrpcDataTest, TestDoGetDicts) { TestDoGetDicts(); }
+TEST_F(GrpcDataTest, TestDoGetLargeBatch) { TestDoGetLargeBatch(); }
+TEST_F(GrpcDataTest, TestOverflowServerBatch) { TestOverflowServerBatch(); }
+TEST_F(GrpcDataTest, TestOverflowClientBatch) { TestOverflowClientBatch(); }
+TEST_F(GrpcDataTest, TestDoExchange) { TestDoExchange(); }
+TEST_F(GrpcDataTest, TestDoExchangeNoData) { TestDoExchangeNoData(); }
+TEST_F(GrpcDataTest, TestDoExchangeWriteOnlySchema) { TestDoExchangeWriteOnlySchema(); }
+TEST_F(GrpcDataTest, TestDoExchangeGet) { TestDoExchangeGet(); }
+TEST_F(GrpcDataTest, TestDoExchangePut) { TestDoExchangePut(); }
+TEST_F(GrpcDataTest, TestDoExchangeEcho) { TestDoExchangeEcho(); }
+TEST_F(GrpcDataTest, TestDoExchangeTotal) { TestDoExchangeTotal(); }
+TEST_F(GrpcDataTest, TestDoExchangeError) { TestDoExchangeError(); }
+TEST_F(GrpcDataTest, TestIssue5095) { TestIssue5095(); }
+
+class GrpcDoPutTest : public DoPutTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+TEST_F(GrpcDoPutTest, TestInts) { TestInts(); }
+TEST_F(GrpcDoPutTest, TestDoPutFloats) { TestDoPutFloats(); }
+TEST_F(GrpcDoPutTest, TestDoPutEmptyBatch) { TestDoPutEmptyBatch(); }
+TEST_F(GrpcDoPutTest, TestDoPutDicts) { TestDoPutDicts(); }
+TEST_F(GrpcDoPutTest, TestDoPutLargeBatch) { TestDoPutLargeBatch(); }
+TEST_F(GrpcDoPutTest, TestDoPutSizeLimit) { TestDoPutSizeLimit(); }
+
+class GrpcAppMetadataTest : public AppMetadataTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+
+TEST_F(GrpcAppMetadataTest, TestDoGet) { TestDoGet(); }
+TEST_F(GrpcAppMetadataTest, TestDoGetDictionaries) { TestDoGetDictionaries(); }
+TEST_F(GrpcAppMetadataTest, TestDoPut) { TestDoPut(); }
+TEST_F(GrpcAppMetadataTest, TestDoPutDictionaries) { TestDoPutDictionaries(); }
+TEST_F(GrpcAppMetadataTest, TestDoPutReadMetadata) { TestDoPutReadMetadata(); }
+
+class GrpcIpcOptionsTest : public IpcOptionsTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+
+TEST_F(GrpcIpcOptionsTest, TestDoGetReadOptions) { TestDoGetReadOptions(); }
+TEST_F(GrpcIpcOptionsTest, TestDoPutWriteOptions) { TestDoPutWriteOptions(); }
+TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptions) {
+  TestDoExchangeClientWriteOptions();
+}
+TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptionsBegin) {
+  TestDoExchangeClientWriteOptionsBegin();
+}
+TEST_F(GrpcIpcOptionsTest, TestDoExchangeServerWriteOptions) {
+  TestDoExchangeServerWriteOptions();
+}
+
+//------------------------------------------------------------
+// Ad-hoc gRPC-specific tests
 
 TEST(TestFlight, ConnectUri) {
   TestServer server("flight-test-server");
