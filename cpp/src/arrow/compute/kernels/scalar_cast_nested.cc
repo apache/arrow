@@ -84,6 +84,13 @@ struct CastList {
                                                       options, ctx->exec_context()));
 
         out_scalar->is_valid = true;
+
+        if (is_fixed_size_list_type<DestType>::value) {
+          auto fsl_scalar = checked_cast<FixedSizeListScalar*>(out_scalar);
+          const auto& list_type = checked_cast<const BaseListType&>(*fsl_scalar->type);
+          fsl_scalar->type = std::make_shared<FixedSizeListType>(
+              list_type.value_type(), fsl_scalar->value->length());
+        }
       }
       return Status::OK();
     }
@@ -250,7 +257,9 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_fsl =
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
-  AddListCast<FixedSizeListType, FixedSizeListType>(cast_large_list.get());
+  AddListCast<ListType, FixedSizeListType>(cast_fsl.get());
+  AddListCast<LargeListType, FixedSizeListType>(cast_fsl.get());
+  AddListCast<FixedSizeListType, FixedSizeListType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
