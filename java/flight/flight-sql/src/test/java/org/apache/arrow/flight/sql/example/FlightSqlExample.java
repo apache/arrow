@@ -113,6 +113,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -437,6 +438,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             range(0, split.length)
                 .forEach(i -> {
                   byte[] bytes = split[i].getBytes(UTF_8);
+                  Preconditions.checkState(bytes.length < 1024,
+                      "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);
                   buf.writerIndex(1);
                   writer.varChar().writeVarChar(0, bytes.length, buf);
@@ -486,7 +489,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static VectorSchemaRoot getTypeInfoRoot(CommandGetXdbcTypeInfo request, ResultSet typeInfo,
                                                   final BufferAllocator allocator)
       throws SQLException {
-    Objects.requireNonNull(allocator, "BufferAllocator cannot be null.");
+    Preconditions.checkNotNull(allocator, "BufferAllocator cannot be null.");
 
     VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator);
 
