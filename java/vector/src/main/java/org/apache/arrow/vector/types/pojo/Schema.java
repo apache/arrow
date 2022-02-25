@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.types.pojo.Field.convertField;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -75,6 +76,7 @@ public class Schema {
   private static final ObjectMapper mapper = new ObjectMapper();
   private static final ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
   private static final ObjectReader reader = mapper.readerFor(Schema.class);
+  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   public static Schema fromJSON(String json) throws IOException {
     return reader.readValue(Preconditions.checkNotNull(json));
@@ -207,6 +209,7 @@ public class Schema {
     int fieldsOffset = org.apache.arrow.flatbuf.Schema.createFieldsVector(builder, fieldOffsets);
     int metadataOffset = FBSerializables.writeKeyValues(builder, metadata);
     org.apache.arrow.flatbuf.Schema.startSchema(builder);
+    org.apache.arrow.flatbuf.Schema.addEndianness(builder, (short) (LITTLE_ENDIAN ? 0 : 1));
     org.apache.arrow.flatbuf.Schema.addFields(builder, fieldsOffset);
     org.apache.arrow.flatbuf.Schema.addCustomMetadata(builder, metadataOffset);
     return org.apache.arrow.flatbuf.Schema.endSchema(builder);
