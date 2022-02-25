@@ -441,7 +441,6 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   Preconditions.checkState(bytes.length < 1024,
                       "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);
-                  buf.writerIndex(1);
                   writer.varChar().writeVarChar(0, bytes.length, buf);
                 });
           }
