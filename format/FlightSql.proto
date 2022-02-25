@@ -869,9 +869,9 @@ enum SqlSupportsConvert {
 
 /**
  * It is an attribute that identifies the type of any object. It's
- * used by JDBC and ODBC to expose the values defined by the DBMC.
+ * used by JDBC and ODBC to expose the values defined by the DBMS.
  */
-enum XDBCDataType {
+enum XdbcDataType {
   XDBC_UNKNOWN_TYPE = 0;
   XDBC_CHAR = 1;
   XDBC_NUMERIC = 2;
@@ -899,10 +899,10 @@ enum XDBCDataType {
 }
 
 /**
- * When the values returned by the XDBCDataType is XDBC_TYPE_DATETIME or XDBC_TYPE_INTERVAL,
+ * When the values returned by the XdbcDataType is XDBC_TYPE_DATETIME or XDBC_TYPE_INTERVAL,
  * more information about this column can be obtain through the values in this enum.
  */
-enum XDBCDatetimeSubcode {
+enum XdbcDatetimeSubcode {
   option allow_alias = true;
   XDBC_SUBCODE_UNKNOWN = 0;
   XDBC_SUBCODE_YEAR = 1;
@@ -1026,10 +1026,10 @@ enum Searchable {
  *                                as date_type value. Except for interval and datetime, which
  *                                uses generic values. More info about those types can be
  *                                obtained through datetime_subcode. The possible values can be seen
- *                                in the XDBCDataType enum.),
+ *                                in the XdbcDataType enum.),
  *   datetime_subcode: int (Only used when the SQL DATA TYPE is interval or datetime. It contains
  *                          its sub types. For type different from interval and datetime, this value
- *                          is NULL. The possible values can be seen in the XDBCDatetimeSubcode enum.),
+ *                          is NULL. The possible values can be seen in the XdbcDatetimeSubcode enum.),
  *   num_prec_radix: int (If the data type is an approximate numeric type, this column contains
  *                        the value 2 to indicate that COLUMN_SIZE specifies a number of bits. For
  *                        exact numeric types, this column contains the value 10 to indicate that
