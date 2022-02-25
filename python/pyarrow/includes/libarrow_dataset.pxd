@@ -331,7 +331,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CFilenamePartitioning \
             "arrow::dataset::FilenamePartitioning"(CPartitioning):
         CFilenamePartitioning(shared_ptr[CSchema] schema,
-                               vector[shared_ptr[CArray]] dictionaries)
+                              vector[shared_ptr[CArray]] dictionaries)
 
         @staticmethod
         shared_ptr[CPartitioningFactory] MakeFactory(

@@ -1255,7 +1255,7 @@ cdef class Partitioning(_Weakrefable):
         classes = {
             'directory': DirectoryPartitioning,
             'hive': HivePartitioning,
-            'filename': HivePartitioning,
+            'filename': FilenamePartitioning,
         }
 
         class_ = classes.get(type_name, None)
@@ -1621,9 +1621,9 @@ cdef class FilenamePartitioning(Partitioning):
     A Partitioning based on a specified Schema.
 
     The FilenamePartitioning expects one segment in the file name for each
-    field in the schema (all fields are required to be present) separated by '_'
-    For example given schema<year:int16, month:int8> the name "2009_11" would
-    be parsed to ("year"_ == 2009 and "month"_ == 11).
+    field in the schema (all fields are required to be present) separated
+    by '_'. For example given schema<year:int16, month:int8> the name
+    "2009_11" would be parsed to ("year"_ == 2009 and "month"_ == 11).
 
     Parameters
     ----------
