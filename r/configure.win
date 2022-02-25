@@ -86,6 +86,8 @@ function configure_dev() {
   RWINLIB=$(cygpath $ARROW_HOME)
 
   export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$MSYSTEM_PREFIX/lib
+  echo $PKG_CONFIG_PATH
+  ls $(cygpath $ARROW_HOME)/lib/pkgconfig
   PKG_CONFIG_LIBS="arrow"
 
   PKG_CFLAGS="-DARROW_R_WITH_ARROW"

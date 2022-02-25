@@ -217,6 +217,9 @@ jobs:
           RTOOLS_VERSION: ${{ matrix.config.rtools }}
           MINGW_ARCH: ${{ matrix.config.arch }}
         run: ci/scripts/r_windows_build.sh
+      - name: Show ccache statistics
+        shell: bash
+        run: ccache --show-stats
       - name: Rename libarrow.zip
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
@@ -230,12 +233,6 @@ jobs:
         run: |
           Write-Output "${Env:windir}\System32" | `
             Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Show ccache statistics
-        shell: bash
-        run: ccache --show-stats
-        env:
-          RTOOLS_VERSION: ${{ matrix.config.rtools }}
-          MINGW_ARCH: ${{ matrix.config.arch }}s
 
   windows-r:
     needs: [windows-cpp]
