@@ -80,12 +80,10 @@ register_bindings_type_cast <- function() {
                                        format = NULL,
                                        origin = "1970-01-01",
                                        tz = "UTC") {
-    # base::as.Date() first converts to UTC and then extracts the date, which is
-    # why we need to go through timestamp() first - see unit tests for the real
-    # life impact of the difference between lubridate::date() and base::as.Date()
-    # browser()
+
     if (call_binding("is.Date", x)) {
-      # arrow_date <- build_expr("cast", x, options = cast_options(to_type = date32()))
+      # base::as.Date() first converts to the desired timestamp and then extracts
+      # the date, which is why we need to go through timestamp() first
       return(x)
     } else if (call_binding("is.POSIXct", x)) {
       if (tz == "UTC") {
