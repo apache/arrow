@@ -366,8 +366,91 @@ arrow::Status Execute() {
   return future.status();
 }
 
+arrow::Status ExecuteVar() {
+  const std::string name = "x+x";
+  auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
+  auto exec_func = [](cp::KernelContext* ctx, const cp::ExecBatch& batch,
+                      arrow::Datum* out) -> arrow::Status {
+    auto tb = batch[0].table();
+    std::cout << "Batch as Table " << std::endl;
+    std::cout << tb->num_columns() << std::endl;
+    *out->mutable_array() = *batch[0].array();
+    return arrow::Status::OK();
+  };
+  cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
+                          exec_func);
+
+  kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;
+
+  ABORT_ON_FAILURE(func->AddKernel(std::move(kernel)));
+
+  auto registry = cp::GetFunctionRegistry();
+  ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
+
+  arrow::Int64Builder builder(arrow::default_memory_pool());
+  std::shared_ptr<arrow::Array> arr1, arr2;
+  ABORT_ON_FAILURE(builder.Append(42));
+  ABORT_ON_FAILURE(builder.Finish(&arr1));
+  ABORT_ON_FAILURE(builder.Append(58));
+  ABORT_ON_FAILURE(builder.Finish(&arr2));
+  auto options = std::make_shared<ExampleFunctionOptions>();
+  auto maybe_result = cp::CallFunction(name, {arr1}, options.get());
+  ABORT_ON_FAILURE(maybe_result.status());
+
+  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
+
+  // Expression serialization will raise NotImplemented if an expression includes
+  // FunctionOptions for which serialization is not supported.
+  // auto expr = cp::call(name, {}, options);
+  // auto maybe_serialized = cp::Serialize(expr);
+  // std::cerr << maybe_serialized.status().ToString() << std::endl;
+
+  auto exec_registry = cp::default_exec_factory_registry();
+  ABORT_ON_FAILURE(
+      exec_registry->AddFactory("compute_register_example", ExampleExecNodeFactory));
+
+  auto maybe_plan = cp::ExecPlan::Make();
+  ABORT_ON_FAILURE(maybe_plan.status());
+  auto plan = maybe_plan.ValueOrDie();
+  cp::ExecContext exec_context(arrow::default_memory_pool(),
+                               ::arrow::internal::GetCpuThreadPool());
+  arrow::AsyncGenerator<arrow::util::optional<cp::ExecBatch>> source_gen, sink_gen;
+  ARROW_ASSIGN_OR_RAISE(auto basic_data, MakeBasicBatches());
+
+  cp::Expression a_times_10 = cp::call("multiply", {cp::field_ref("a"), cp::literal(10)});
+  cp::Expression custom_exp = cp::call(name, {cp::field_ref("a")}, options);
+
+  auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  auto project_node_options = cp::ProjectNodeOptions{{
+      cp::field_ref("a"),
+      custom_exp,
+      cp::field_ref("b"),
+  }};
+  auto output_schema = arrow::schema({arrow::field("a", arrow::int64()),
+                                      arrow::field("a + a", arrow::int64()),
+                                      arrow::field("b", arrow::boolean())});
+  std::shared_ptr<arrow::Table> out;
+  ABORT_ON_FAILURE(cp::Declaration::Sequence(
+                       {
+                           {"source", source_node_options},
+                           {"project", project_node_options},
+                           {"table_sink", cp::TableSinkNodeOptions{&out, output_schema}},
+                       })
+                       .AddToPlan(plan.get())
+                       .status());
+
+  ARROW_RETURN_NOT_OK(plan->StartProducing());
+
+  std::cout << "Output Table Data : " << std::endl;
+  std::cout << out->ToString() << std::endl;
+
+  auto future = plan->finished();
+
+  return future.status();
+}
+
 int main(int argc, char** argv) {
-  auto status = Execute();
+  auto status = ExecuteVar();
   if (!status.ok()) {
     std::cerr << "Error occurred : " << status.message() << std::endl;
     return EXIT_FAILURE;
