@@ -85,7 +85,7 @@ function configure_dev() {
   echo "*** Using locally built Arrow at $ARROW_HOME"
   RWINLIB=$(cygpath $ARROW_HOME)
 
-  export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$MSYSTEM_PREFIX/lib
+  export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$(cygpath $MSYSTEM_PREFIX)/lib
   echo $PKG_CONFIG_PATH
   ls $(cygpath $ARROW_HOME)/lib/pkgconfig
   PKG_CONFIG_LIBS="arrow"
