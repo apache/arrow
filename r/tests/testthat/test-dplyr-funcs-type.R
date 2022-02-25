@@ -19,6 +19,7 @@ skip_if_not_available("dataset")
 
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
+suppressPackageStartupMessages(library(lubridate))
 
 
 tbl <- example_data
@@ -766,5 +767,93 @@ test_that("nested structs can be created from scalars and existing data frames",
       ) %>%
       collect(),
     tibble(a = 1:2)
+  )
+})
+
+test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
+  test_df <- tibble::tibble(
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    date_var = as.Date("2022-02-25"),
+    character_ymd_var = "2022-02-25 00:00:01",
+    character_ydm_var = "2022/25/02 00:00:01",
+    integer_var = 32L,
+    double_var = 34.56
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_pv = as.Date(posixct_var),
+        date_dv = as.Date(date_var),
+        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int = as.Date(integer_var, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # the way we go about it is a bit different, but the result is the same =>
+  # testing without compare_dplyr_binding()
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var)) %>%
+      collect(),
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect()
+  )
+
+  expect_equal(
+    test_df %>%
+      record_batch() %>%
+      mutate(date_double = as.Date(double_var)) %>%
+      collect(),
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect()
+  )
+
+  # actual and expected differ due to doubles are accounted for (floored in
+  # arrow and rouded to the next decimal in R)
+  expect_error(
+    compare_dplyr_binding(
+      .input %>%
+        mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+        collect(),
+      test_df
+    )
+  )
+
+  # currently we do not support an origin different to "1970-01-01"
+  expect_warning(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
+      collect(),
+    regexp = "`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow",
+    fixed = TRUE
+
+  )
+
+  expect_warning(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_pv = as.Date(posixct_var, tz = "Pacific/Marquesas")) %>%
+      collect(),
+    regexp = "`as.Date()` with a timezone different to 'UTC' is not supported in Arrow",
+    fixed = TRUE
+  )
+
+  expect_warning(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
+      collect(),
+    regexp = "`as.Date()` without `format` is not supported in Arrow",
+    fixed = TRUE
   )
 })

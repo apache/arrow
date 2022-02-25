@@ -76,12 +76,52 @@ register_bindings_type_cast <- function() {
   register_binding("as.numeric", function(x) {
     Expression$create("cast", x, options = cast_options(to_type = float64()))
   })
-  register_binding("as.Date", function(x) {
+  register_binding("as.Date", function(x,
+                                       format = NULL,
+                                       origin = "1970-01-01",
+                                       tz = "UTC") {
     # base::as.Date() first converts to UTC and then extracts the date, which is
     # why we need to go through timestamp() first - see unit tests for the real
     # life impact of the difference between lubridate::date() and base::as.Date()
-    y <- build_expr("cast", x, options = cast_options(to_type = timestamp()))
-    build_expr("cast", y, options = cast_options(to_type = date32()))
+    # browser()
+    if (call_binding("is.Date", x)) {
+      # arrow_date <- build_expr("cast", x, options = cast_options(to_type = date32()))
+      return(x)
+    } else if (call_binding("is.POSIXct", x)) {
+      if (tz == "UTC") {
+        arrow_timestamp <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+        return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
+      } else {
+        abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
+      }
+    } else if (call_binding("is.character", x)) {
+      # this could be improved with tryFormats once strptime returns NA and we
+      # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
+      # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
+      if (!is.null(format)) {
+        arrow_timestamp <- call_binding("strptime", x, format, unit = "s")
+        return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
+      } else {
+        abort("`as.Date()` without `format` is not supported in Arrow")
+      }
+
+    } else if (call_binding("is.numeric", x)) {
+      # the origin argument will be better supported once we implement temporal
+      # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+      # TODO revisit once the above has been sorted
+      if (!call_binding("is.integer", x)) {
+        # Arrow does not support direct casting from double to date so we have
+        # to convert to integers first - casting to int32() would error so we
+        # need to use round before casting
+        x <- call_binding("floor", x)
+        x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
+      }
+      if (origin == "1970-01-01") {
+        return(build_expr("cast", x, options = cast_options(to_type = date32())))
+      } else {
+        abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+      }
+    }
   })
 
   register_binding("is", function(object, class2) {
