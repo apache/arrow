@@ -209,7 +209,6 @@ cmake \
   -DARROW_DATASET=ON \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_MIMALLOC=ON \
   -DARROW_JSON=OFF \
   -DARROW_PARQUET=ON \
@@ -226,8 +225,10 @@ cmake \
 
 
 ```{bash, save=run & !sys_install, hide=TRUE}
-# For testing purposes
+# For testing purposes, try build with only static and only dynamic
+ARROW_BUILD_SHARED=$([ $ARROW_BUILD_STATIC = "ON" ] && echo "OFF" || echo "ON")
 cmake \
+  -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED} \
   -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
   ..
 ```

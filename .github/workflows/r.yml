@@ -233,6 +233,9 @@ jobs:
       - name: Show ccache statistics
         shell: bash
         run: ccache --show-stats
+        env:
+          RTOOLS_VERSION: ${{ matrix.config.rtools }}
+          MINGW_ARCH: ${{ matrix.config.arch }}s
 
   windows-r:
     needs: [windows-cpp]

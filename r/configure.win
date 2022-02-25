@@ -92,12 +92,12 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-    PKG_CONFIG_LIBS="$PKG_LIBS parquet"
+    PKG_CONFIG_LIBS="$PKG_CONFIG_LIBS parquet"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-    PKG_LIBS="$PKG_LIBS arrow_dataset"
+    PKG_CONFIG_LIBS="$PKG_CONFIG_LIBS arrow-dataset"
   fi
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
