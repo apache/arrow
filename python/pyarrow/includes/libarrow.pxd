@@ -2700,15 +2700,10 @@ cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
     int64_t TotalBufferSize(const CRecordBatch& record_batch)
     int64_t TotalBufferSize(const CTable& table)
 
-ctypedef CStatus(*ExecFunc)(CKernelContext*, const CExecBatch&, CDatum*)
-
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     # TODO: determine a better name. This may be confused for a cudf util
     cdef cppclass CUDFSynthesizer "arrow::py::UDFSynthesizer":
         CUDFSynthesizer(c_string func_name, CArity arity, CFunctionDoc func_doc,
-            vector[CInputType] in_types, COutputType out_type, ExecFunc)
-        CUDFSynthesizer(c_string func_name, CArity arity, CFunctionDoc func_doc,
             vector[CInputType] in_types, COutputType out_type)
-        CStatus MakeFunction()
-        CStatus MakePyFunction(PyObject* function)
+        CStatus MakeFunction(PyObject* function)
 

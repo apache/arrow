@@ -2415,4 +2415,4 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
         cdef COutputType* c_out_type = new COutputType(c_type)
         cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
             c_arity, c_func_doc, c_in_types, deref(c_out_type))
-        c_udf_syn.MakePyFunction(c_callback)
+        c_udf_syn.MakeFunction(c_callback)
