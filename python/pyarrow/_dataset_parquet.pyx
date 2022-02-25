@@ -314,7 +314,8 @@ cdef class ParquetFileFragment(FileFragment):
         Ensure that all metadata (statistics, physical schema, ...) have
         been read and cached in this fragment.
         """
-        check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
+        with nogil:
+            check_status(self.parquet_file_fragment.EnsureCompleteMetadata())
 
     @property
     def row_groups(self):
