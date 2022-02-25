@@ -365,7 +365,7 @@ public class JdbcToArrowUtils {
           readRowCount++;
         }
       } else {
-        while (rs.next() && readRowCount < config.getTargetBatchSize()) {
+        while (readRowCount < config.getTargetBatchSize() && rs.next()) {
           compositeConsumer.consume(rs);
           readRowCount++;
         }
