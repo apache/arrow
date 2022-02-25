@@ -4005,7 +4005,7 @@ endif()
 # OpenTelemetry C++
 
 macro(build_opentelemetry)
-  message("Building OpenTelemetry from source")
+  message(STATUS "Building OpenTelemetry from source")
 
   build_nlohmann_json_once()
   find_curl()
