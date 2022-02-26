@@ -87,7 +87,7 @@ jobs:
       - name: Run the tests
         run: |
           cd arrow/r
-          R -s -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", reporter=MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))))'
+          R -s -e 'library(testthat); setwd(file.path(.libPaths()[1], "arrow", "tests")); system.time(test_check("arrow", filter="parquet", reporter=MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))))'
       - name: Dump test logs
         run: cat arrow-tests/testthat.Rout*
         if: always()

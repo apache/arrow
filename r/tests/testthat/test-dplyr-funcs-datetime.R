@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip("For compiler testing only. DELETE ME")
 skip_if_not_available("dataset")
 
 library(lubridate, warn.conflicts = FALSE)
