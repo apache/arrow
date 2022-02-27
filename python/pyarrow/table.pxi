@@ -290,7 +290,6 @@ cdef class ChunkedArray(_PandasConvertible):
         if isinstance(key, slice):
             return _normalize_slice(self, key)
 
-        # return self.getitem(_normalize_index(key, self.chunked_array.length()))
         c_scalar = GetResultValue(self.chunked_array.GetScalar(_normalize_index(key, self.chunked_array.length())))
         return Scalar.wrap(<shared_ptr[CScalar]> c_scalar)
 

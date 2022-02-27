@@ -144,7 +144,6 @@ struct ChunkedArrayResolver : protected ChunkResolver {
         checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
   }
 
- protected:
   static std::vector<int64_t> MakeLengths(const std::vector<const Array*>& chunks) {
     std::vector<int64_t> lengths(chunks.size());
     std::transform(chunks.begin(), chunks.end(), lengths.begin(),
@@ -152,6 +151,7 @@ struct ChunkedArrayResolver : protected ChunkResolver {
     return lengths;
   }
 
+ protected:
   const std::vector<const Array*> chunks_;
 };
 

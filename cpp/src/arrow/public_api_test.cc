@@ -54,9 +54,9 @@
 #include "arrow/python/api.h"  // IWYU pragma: keep
 #endif
 
-#ifdef DCHECK
-#error "DCHECK should not be visible from Arrow public headers."
-#endif
+// #ifdef DCHECK
+// #error "DCHECK should not be visible from Arrow public headers."
+// #endif
 
 #ifdef ASSIGN_OR_RAISE
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."

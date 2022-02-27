@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <cstdlib>
-#include <iterator>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -38,51 +37,13 @@ namespace arrow {
 
 using internal::checked_cast;
 
-namespace internal {
-
-Result<std::shared_ptr<Scalar>> chunked_array_binary_search(
-    const ArrayVector& chunks, const std::vector<int64_t>& inds, int64_t index) {
-  auto bound_iter = std::upper_bound(inds.begin(), inds.end(), index);
-  if (bound_iter == inds.end()) {
-    return Status::Invalid("index out of bounds");
-  }
-  auto chunk_idx = std::distance(inds.begin(), bound_iter);
-  auto chunk = chunks[chunk_idx];
-  auto rel_index = index - (chunk_idx ? inds[chunk_idx - 1] : 0);
-  return chunk->GetScalar(rel_index);
-}
-
-Result<std::shared_ptr<Scalar>> chunked_array_binary_search2(
-    const ArrayVector& chunks, const std::vector<int64_t>& inds, int64_t index) {
-  auto bound_iter = std::upper_bound(inds.begin(), inds.end(), index);
-  if (bound_iter == inds.begin() || bound_iter == inds.end()) {
-    return Status::Invalid("index out of bounds");
-  }
-  auto chunk_idx = std::distance(std::next(inds.begin()), bound_iter);
-  auto rel_index = index - inds[chunk_idx];
-  return chunks[chunk_idx]->GetScalar(rel_index);
-}
-
-Result<std::shared_ptr<Scalar>> chunked_array_linear_search(const ArrayVector& chunks,
-                                                            int64_t index) {
-  for (const auto& chunk : chunks) {
-    if (index < chunk->length()) {
-      return chunk->GetScalar(index);
-    }
-    index -= chunk->length();
-  }
-  return Status::Invalid("index out of bounds");
-}
-
-}  // namespace internal
-
 class MemoryPool;
 
 // ----------------------------------------------------------------------
 // ChunkedArray methods
 
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)), type_(std::move(type)) {
+    : chunks_(std::move(chunks)), type_(std::move(type)), resolver_(compute::internal::ChunkedArrayResolver::MakeLengths(compute::internal::GetArrayPointers(chunks_))) {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";
@@ -91,10 +52,8 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
 
   length_ = 0;
   null_count_ = 0;
-  inds_.push_back(length_);
   for (const auto& chunk : chunks_) {
     length_ += chunk->length();
-    inds_.push_back(length_);
     null_count_ += chunk->null_count();
   }
 }
@@ -188,9 +147,8 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  // return internal::chunked_array_linear_search(chunks_, index);
-  // return internal::chunked_array_binary_search(chunks_, inds_, index);
-  return internal::chunked_array_binary_search2(chunks_, inds_, index);
+  auto chunk_location = resolver_.Resolve(index);
+  return chunks_[chunk_location.chunk_index]->GetScalar(chunk_location.index_in_chunk);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
