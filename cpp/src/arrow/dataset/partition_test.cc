@@ -369,8 +369,6 @@ TEST_F(TestPartitioning, HivePartitioning) {
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
-
-
 TEST_F(TestPartitioning, HivePartitioningFormat) {
   partitioning_ = std::make_shared<HivePartitioning>(
       schema({field("alpha", int32()), field("beta", float32())}), ArrayVector(), "xyz");
@@ -577,7 +575,7 @@ TEST_F(TestPartitioning, ExistingSchemaFilename) {
   factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
 
   // Now we don't fail since our type is large enough
-  AssertInspect({"3760212050_1"}, options.schema->fields());
+  AssertInspect({"3760212050_1_"}, options.schema->fields());
   // If there are still too many digits, fail
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
                                   factory_->Inspect({"1038581385102940193760212050_1_"}));
@@ -585,7 +583,6 @@ TEST_F(TestPartitioning, ExistingSchemaFilename) {
 
   AssertInspect({"0_1_", "2_"}, options.schema->fields());
 }
-
 
 TEST_F(TestPartitioning, UrlEncodedDirectory) {
   PartitioningFactoryOptions options;
