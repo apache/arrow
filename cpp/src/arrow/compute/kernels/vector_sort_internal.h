@@ -23,8 +23,8 @@
 #include <functional>
 
 #include "arrow/array.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/chunked_array_internal.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"

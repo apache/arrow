@@ -19,12 +19,12 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/record_batch.h"
-#include "arrow/type.h"
 
 namespace arrow {
 namespace compute {

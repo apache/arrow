@@ -23,8 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/chunk_resolver.h"
 #include "arrow/compare.h"
-#include "arrow/chunked_array_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
