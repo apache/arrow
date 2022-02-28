@@ -780,51 +780,14 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     double_var = 34.56
   )
 
-  # compare_dplyr_binding(
-  #   .input %>%
-  #     mutate(
-  #       date_pv = as.Date(posixct_var),
-  #       date_dv = as.Date(date_var),
-  #       date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
-  #       date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
-  #       date_int = as.Date(integer_var, origin = "1970-01-01")
-  #     ) %>%
-  #     collect(),
-  #   test_df
-  # )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_pv = as.Date(posixct_var)) %>%
-      collect(),
-    test_df
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(date_dv = as.Date(date_var)) %>%
-      collect(),
-    test_df
-  )
+  # casting from POSIXct treated separately so we can skip on Windows
+  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
   compare_dplyr_binding(
     .input %>%
       mutate(
-        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S")
-      ) %>%
-      collect(),
-    test_df
-  )
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S")
-      ) %>%
-      collect(),
-    test_df
-  )
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
+        date_dv = as.Date(date_var),
+        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
         date_int = as.Date(integer_var, origin = "1970-01-01")
       ) %>%
       collect(),
@@ -903,5 +866,13 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
       collect(),
     regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
     fixed = TRUE
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_pv = as.Date(posixct_var)) %>%
+      collect(),
+    test_df
   )
 })

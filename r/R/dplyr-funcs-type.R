@@ -86,13 +86,16 @@ register_bindings_type_cast <- function() {
       # base::as.Date() first converts to the desired timezone and then extracts
       # the date, which is why we need to go through timestamp() first
       return(x)
+
+    # cast from POSIXct
     } else if (call_binding("is.POSIXct", x)) {
       if (tz == "UTC") {
-        arrow_timestamp <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-        return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
+        interim_x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
       } else {
         abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
       }
+
+    # cast from character
     } else if (call_binding("is.character", x)) {
       # this could be improved with tryFormats once strptime returns NA and we
       # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
@@ -108,9 +111,9 @@ register_bindings_type_cast <- function() {
       if (!inherits(x, "Expression")) {
         x <- build_expr("cast", x, options = cast_options(to_type = type(x)))
       }
-      arrow_timestamp <- call_binding("strptime", x, format, unit = "s")
-      return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
+      interim_x <- call_binding("strptime", x, format, unit = "s")
 
+    # cast from numeric
     } else if (call_binding("is.numeric", x)) {
       # the origin argument will be better supported once we implement temporal
       # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
@@ -119,15 +122,17 @@ register_bindings_type_cast <- function() {
         # Arrow does not support direct casting from double to date so we have
         # to convert to integers first - casting to int32() would error so we
         # need to use round before casting
+        # TODO revisit if arrow decides to support double -> date casting
         x <- call_binding("floor", x)
-        x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
-      }
-      if (origin == "1970-01-01") {
-        return(build_expr("cast", x, options = cast_options(to_type = date32())))
+        interim_x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
       } else {
+        interim_x <- x
+      }
+      if (origin != "1970-01-01") {
         abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
       }
     }
+    build_expr("cast", interim_x, options = cast_options(to_type = date32()))
   })
 
   register_binding("is", function(object, class2) {
