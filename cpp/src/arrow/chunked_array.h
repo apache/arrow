@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/compare.h"
-#include "arrow/compute/kernels/chunked_internal.h"
+#include "arrow/chunked_array_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -68,8 +68,8 @@ class MemoryPool;
 /// inputs should not expect the chunk layout to be the same in each input.
 class ARROW_EXPORT ChunkedArray {
  public:
-  // ChunkedArray(ChunkedArray&&) = default;
-  // ChunkedArray& operator=(ChunkedArray&&) = default;
+  ChunkedArray(ChunkedArray&&) = default;
+  ChunkedArray& operator=(ChunkedArray&&) = default;
 
   /// \brief Construct a chunked array from a single Array
   explicit ChunkedArray(std::shared_ptr<Array> chunk)
@@ -183,7 +183,6 @@ class ARROW_EXPORT ChunkedArray {
   std::shared_ptr<DataType> type_;
 
  private:
-  std::vector<int64_t> lengths_;
   compute::internal::ChunkResolver resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };

@@ -43,7 +43,7 @@ class MemoryPool;
 // ChunkedArray methods
 
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)), type_(std::move(type)), resolver_(compute::internal::ChunkedArrayResolver::MakeLengths(compute::internal::GetArrayPointers(chunks_))) {
+    : chunks_(std::move(chunks)), type_(std::move(type)), resolver_{compute::internal::ChunkResolver::FromChunks(chunks_)} {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";
@@ -147,8 +147,8 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  auto chunk_location = resolver_.Resolve(index);
-  return chunks_[chunk_location.chunk_index]->GetScalar(chunk_location.index_in_chunk);
+  const auto loc = resolver_.Resolve(index);
+  return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }
 
 std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length) const {
