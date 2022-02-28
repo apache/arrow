@@ -80,8 +80,8 @@ Ops.ArrowDatum <- function(e1, e2) {
 
   switch(
     .Generic,
-    "+" =, "-" =, "*" =, "/" =, "^" =, "%%" =, "%/%" =,
-    "==" =, "!=" =, "<" =, "<=" =, ">=" =, ">" =, "&" =, "|" = {
+    "+" = , "-" = , "*" = , "/" = , "^" = , "%%" = , "%/%" = ,
+    "==" = , "!=" = , "<" = , "<=" = , ">=" = , ">" = , "&" = , "|" = {
       eval_array_expression(.Generic, e1, e2)
     },
     stop(paste0("Unsupported operation on `", class(e1)[1L], "` : "), .Generic, call. = FALSE)
