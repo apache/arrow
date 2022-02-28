@@ -186,10 +186,10 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
 
 int64_t gdv_fn_convert_timezone(int64_t ptr, const char* src_tz, int src_tz_len,
                                 const char* dst_tz, int dst_tz_len, int64_t src_millis,
-                                bool validity) {
-  //  if (!validity) {
-  //    return 0;
-  //  }
+                                bool in_validity) {
+  if (!in_validity) {
+    return 0;
+  }
   gandiva::ConvertTimezoneHolder* holder =
       reinterpret_cast<gandiva::ConvertTimezoneHolder*>(ptr);
 
