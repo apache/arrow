@@ -468,6 +468,10 @@ runtime_info <- function() {
   .Call(`_arrow_runtime_info`)
 }
 
+set_timezone_database <- function(path) {
+  invisible(.Call(`_arrow_set_timezone_database`, path))
+}
+
 csv___WriteOptions__initialize <- function(options) {
   .Call(`_arrow_csv___WriteOptions__initialize`, options)
 }

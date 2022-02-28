@@ -21,6 +21,7 @@
 
 #include "arrow/util/config.h"
 #include "arrow/util/cpu_info.h"
+#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 
@@ -74,6 +75,24 @@ RuntimeInfo GetRuntimeInfo() {
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
   return info;
+}
+
+Status Initialize(const ArrowGlobalOptions& options) {
+  if (options.tz_db_path != nullptr) {
+    #if !USE_OS_TZDB
+    try {
+      arrow_vendored::date::set_install(*options.tz_db_path);
+      arrow_vendored::date::reload_tzdb();
+    } catch(const std::runtime_error& e) {
+      return Status::ExecutionError(e.msg);
+    } catch(const std::system_error& e) {
+      return Status::ExecutionError(e.msg);
+    }
+    #else
+      return Status::Invalid("Arrow was set to use OS timezone database at compile time, so it cannot be set at runtime.");
+    #endif  // !USE_OS_TZDB
+  }
+  return Status::OK();
 }
 
 }  // namespace arrow

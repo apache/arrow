@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/util/config.h"  // IWYU pragma: export
+#include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -76,5 +77,14 @@ const BuildInfo& GetBuildInfo();
 ///
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
+
+struct ArrowGlobalOptions {
+  /// Path to text timezone database. This is only configurable on Windows,
+  /// which does not have a compatible OS timezone database.
+  std::string* tz_db_path;
+};
+
+ARROW_EXPORT
+Status Initialize(const ArrowGlobalOptions& options);
 
 }  // namespace arrow

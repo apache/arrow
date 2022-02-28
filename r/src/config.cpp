@@ -34,4 +34,11 @@ std::vector<std::string> runtime_info() {
   return {info.simd_level, info.detected_simd_level};
 }
 
+// [[arrow::export]]
+void set_timezone_database(std::string& path) {
+  ArrowGlobalOptions options;
+  options.tz_db_path = &path;
+  StopIfNotOk(arrow::Initialize(options))
+}
+
 #endif
