@@ -480,6 +480,8 @@ setup_virtualenv() {
       echo "Couldn't locate python interpreter with version ${pyver}"
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       return 1
+    else
+      show_info "Found interpreter $(which $python)"
     fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
@@ -490,6 +492,8 @@ setup_virtualenv() {
     fi
     # Activate the environment
     source "${virtualenv}/bin/activate"
+    # Explicitly set PYTHONPATH so the C++ python tests can load numpy
+    export PYTHONPATH=$(python -c "import site; print(site.getsitepackages())"
     # Install dependencies
     if [ $# -gt 0 ]; then
       show_info "Installed pip packages $@..."
