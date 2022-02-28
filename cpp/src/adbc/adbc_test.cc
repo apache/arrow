@@ -20,17 +20,14 @@
 
 #include "adbc/adbc.h"
 #include "adbc/c/types.h"
+#include "adbc/test_util.h"
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
 
-#define ADBC_ASSERT_OK(expr)          \
-  do {                                \
-    auto code_ = (expr);              \
-    ASSERT_EQ(code_, ADBC_STATUS_OK); \
-  } while (false)
+namespace adbc {
 
 using arrow::PointeesEqual;
 
@@ -50,23 +47,6 @@ TEST(Adbc, Basics) {
 TEST(Adbc, Errors) {
   AdbcConnectionOptions options;
   ASSERT_RAISES(Invalid, adbc::ConnectRaw("libadbc_driver_fake.so", options));
-}
-
-void ReadStatement(AdbcStatement* statement, std::shared_ptr<arrow::Schema>* schema,
-                   arrow::RecordBatchVector* batches) {
-  AdbcError error = {};
-  ArrowArrayStream stream;
-  ADBC_ASSERT_OK(statement->get_results(statement, &stream, &error));
-  ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
-
-  *schema = reader->schema();
-
-  while (true) {
-    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-    if (!batch) break;
-    batches->push_back(std::move(batch));
-  }
-  ADBC_ASSERT_OK(statement->release(statement, &error));
 }
 
 TEST(AdbcSqlite, SqlExecute) {
@@ -228,3 +208,5 @@ TEST(AdbcFlightSql, SqlExecute) {
 
   ADBC_ASSERT_OK(connection.release(&connection, &error));
 }
+
+}  // namespace adbc
