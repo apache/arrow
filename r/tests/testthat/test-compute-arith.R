@@ -137,7 +137,7 @@ test_that("Dates casting", {
 test_that("Math group generics work on Array objects", {
   expect_equal(abs(Array$create(c(-1L, 1L))), Array$create(c(1L, 1L)))
   expect_equal(
-    sign(Array$create(c(-1L, 1L))),
+    sign(Array$create(c(-5L, 2L))),
     Array$create(c(-1L, 1L))$cast(int8())
   )
   expect_equal(floor(Array$create(c(1.3, 2.1))), Array$create(c(1, 2)))
