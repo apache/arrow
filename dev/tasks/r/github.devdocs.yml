@@ -21,13 +21,12 @@
 
 jobs:
   devdocs:
-    name: 'R devdocs {{ "${{ matrix.os }}" }} BUILD_STATIC={{ "${{ matrix.build_static }}" }}'
+    name: 'R devdocs {{ "${{ matrix.os }}" }}'
     runs-on: {{ "${{ matrix.os }}" }}
     strategy:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-20.04, windows-latest]
-        build_static: [OFF, ON]
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -63,7 +62,6 @@ jobs:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
           DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
-          ARROW_BUILD_STATIC: {{ "${{matrix.build_static}}" }}
         run: |
           if [ $DEVDOCS_WINDOWS == "true" ]; then
             # Part of Path, including the path to R's bin, needs to be reformatted

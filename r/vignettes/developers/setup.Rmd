@@ -223,16 +223,6 @@ cmake \
 
 **For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
 
-
-```{bash, save=run & !sys_install, hide=TRUE}
-# For testing purposes, try build with only static and only dynamic
-ARROW_BUILD_SHARED=$([ $ARROW_BUILD_STATIC = "ON" ] && echo "OFF" || echo "ON")
-cmake \
-  -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED} \
-  -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
-  ..
-```
-
 #### Enabling more Arrow features
 
 To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags to your call to `cmake` (the trailing `\` makes them easier to paste into a bash shell on a new line):
