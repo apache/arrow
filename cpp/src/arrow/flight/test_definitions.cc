@@ -620,11 +620,6 @@ void DoPutTest::TestDoPutDicts() {
 // Ensure the server is configured to allow large messages by default
 // Tests a 32 MiB batch
 void DoPutTest::TestDoPutLargeBatch() {
-  // For gRPC: This test randomly takes 10 seconds because gRPC has problems
-  // joining its internal threads. It's because it's waiting on a thread
-  // calling epoll...with a timeout of 10 seconds.
-  // https://groups.google.com/g/grpc-io/c/j7xmW0F3eu0
-  // "Grpc Client-side C++ Channel Destructor taking 10 seconds"
   auto descr = FlightDescriptor::Path({"large-batches"});
   auto schema = ExampleLargeSchema();
   RecordBatchVector batches;
