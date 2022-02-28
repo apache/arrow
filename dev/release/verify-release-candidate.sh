@@ -492,8 +492,6 @@ setup_virtualenv() {
     fi
     # Activate the environment
     source "${virtualenv}/bin/activate"
-    # Explicitly set site-package directory so the C++ python tests can load numpy
-    export PYTHONPATH=$(python -c "import site; print(site.getsitepackages()[0])")
     # Install dependencies
     if [ $# -gt 0 ]; then
       show_info "Installed pip packages $@..."
@@ -597,9 +595,13 @@ test_and_install_cpp() {
     ${ARROW_SOURCE_DIR}/cpp
   cmake --build . --target install
 
+  # Explicitly set site-package directory, otherwise the C++ tests are unable
+  # to load numpy in a python virtualenv
+  local pythonpath=$(python -c "import site; print(site.getsitepackages()[0])")
+
   # TODO: ARROW-5036: plasma-serialization_tests broken
   # TODO: ARROW-5054: libgtest.so link failure in flight-server-test
-  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH ctest \
+  LD_LIBRARY_PATH=$PWD/release:$LD_LIBRARY_PATH PYTHONPATH=$pythonpath ctest \
     --exclude-regex "plasma-serialization_tests" \
     -j$NPROC \
     --output-on-failure \
@@ -621,7 +623,6 @@ test_python() {
   export PYARROW_WITH_ORC=1
   export PYARROW_WITH_PARQUET=1
   export PYARROW_WITH_PARQUET_ENCRYPTION=1
-  export PYARROW_WITH_PLASMA=1
   if [ "${ARROW_CUDA}" = "ON" ]; then
     export PYARROW_WITH_CUDA=1
   fi
@@ -630,6 +631,9 @@ test_python() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     export PYARROW_WITH_GANDIVA=1
+  fi
+  if [ "${ARROW_PLASMA}" = "ON" ]; then
+    export PYARROW_WITH_PLASMA=1
   fi
   if [ "${ARROW_S3}" = "ON" ]; then
     export PYARROW_WITH_S3=1
@@ -721,7 +725,7 @@ test_ruby() {
 
   pushd ruby
 
-  local modules="red-arrow red-arrow-dataset red-plasma red-parquet"
+  local modules="red-arrow red-arrow-dataset red-parquet"
   if [ "${ARROW_CUDA}" = "ON" ]; then
     modules="${modules} red-arrow-cuda"
   fi
@@ -730,6 +734,9 @@ test_ruby() {
   fi
   if [ "${ARROW_GANDIVA}" = "ON" ]; then
     modules="${modules} red-gandiva"
+  fi
+  if [ "${ARROW_PLASMA}" = "ON" ]; then
+    modules="${modules} red-plasma"
   fi
 
   for module in ${modules}; do
@@ -950,6 +957,7 @@ test_linux_wheels() {
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
+      show_header "Testing Python ${pyver} wheel for platform ${platform}"
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
       ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
@@ -976,6 +984,7 @@ test_macos_wheels() {
   for python in ${python_versions}; do
     local pyver=${python/m}
     for platform in ${platform_tags}; do
+      show_header "Testing Python ${pyver} wheel for platform ${platform}"
       if [[ "$platform" == *"10_9"* ]]; then
         check_s3=OFF
       fi
@@ -1010,7 +1019,7 @@ test_macos_wheels() {
 }
 
 test_wheels() {
-  show_header "Testing Python wheels"
+  show_header "Downloading Python wheels"
   setup_conda python || exit 1
 
   local download_dir=${ARROW_TMPDIR}/binaries
