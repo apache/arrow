@@ -111,7 +111,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     cosh =, sinh =, tanh =,
     acosh =, asinh =, atanh =,
     lgamma =, gamma =, digamma =, trigamma =,
-    cumsum =, cumprod =, cummax =, cumin =,
+    cumsum =, cumprod =, cummax =, cummin =,
     stop(paste0("Unsupported operation on `", class(x)[1L], "` : "), .Generic, call. = FALSE)
   )
 }
