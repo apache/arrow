@@ -60,7 +60,7 @@ test_that("Print method", {
       filter(int < 5) %>%
       select(int, chr) %>%
       print(),
-    'InMemoryDataset (query)
+    'RecordBatch (query)
 int: int32
 chr: string
 

@@ -26,8 +26,8 @@ arrow_dplyr_query <- function(.data) {
   # An arrow_dplyr_query can contain another arrow_dplyr_query in .data
   gv <- dplyr::group_vars(.data) %||% character()
 
-  if (!inherits(.data, c("Dataset", "arrow_dplyr_query", "RecordBatchReader"))) {
-    .data <- InMemoryDataset$create(.data)
+  if (inherits(.data, "data.frame")) {
+    .data <- Table$create(.data)
   }
   # Evaluating expressions on a dataset with duplicated fieldnames will error
   dupes <- duplicated(names(.data))
@@ -237,7 +237,7 @@ abandon_ship <- function(call, .data, msg) {
   eval.parent(call, 2)
 }
 
-query_on_dataset <- function(x) !inherits(source_data(x), "InMemoryDataset")
+query_on_dataset <- function(x) inherits(source_data(x), c("Dataset", "RecordBatchReader"))
 
 source_data <- function(x) {
   if (is_collapsed(x)) {

@@ -432,7 +432,7 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 twice: double (multiply_checked(int, 2))
 

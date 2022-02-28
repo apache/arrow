@@ -161,7 +161,7 @@ test_that("Properties of collapsed query", {
 
   expect_output(
     print(q),
-    "InMemoryDataset (query)
+    "Table (query)
 lgl: bool
 total: int32
 extra: double (multiply_checked(total, 5))
@@ -171,7 +171,7 @@ See $.data for the source Arrow object",
   )
   expect_output(
     print(q$.data),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 lgl: bool
 

@@ -440,6 +440,10 @@ ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
   .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
 }
 
+ExecNode_TableSourceNode <- function(plan, table) {
+  .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
