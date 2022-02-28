@@ -452,8 +452,6 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
       auto full_path =
           fs::internal::ConcatAbstractPath(write_options_.base_dir, directory);
       return DoWriteRecordBatch(std::move(batch), full_path, prefix);
-    } else if (!prefix.empty()) {
-      return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
     } else {
       return DoWriteRecordBatch(std::move(batch), write_options_.base_dir, prefix);
     }
