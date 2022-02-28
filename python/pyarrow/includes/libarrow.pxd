@@ -1947,9 +1947,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
-        CRoundTemporalOptions(int multiple, CCalendarUnit unit)
+        CRoundTemporalOptions(int multiple, CCalendarUnit unit,
+                              c_bool week_starts_monday)
         int multiple
         CCalendarUnit unit
+        c_bool week_starts_monday
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):
