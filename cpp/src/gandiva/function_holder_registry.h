@@ -62,15 +62,16 @@ class FunctionHolderRegistry {
 
  private:
   static map_type& makers() {
-    static map_type maker_map = {{"like", LAMBDA_MAKER(LikeHolder)},
-                                 {"ilike", LAMBDA_MAKER(LikeHolder)},
-                                 {"to_date", LAMBDA_MAKER(ToDateHolder)},
-                                 {"convert_timezone", LAMBDA_MAKER(ConvertTimezoneHolder)},
+    static map_type maker_map = {
+        {"like", LAMBDA_MAKER(LikeHolder)},
+        {"ilike", LAMBDA_MAKER(LikeHolder)},
+        {"to_date", LAMBDA_MAKER(ToDateHolder)},
+        {"convert_timezone", LAMBDA_MAKER(ConvertTimezoneHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
-                                 {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
-                                 {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
-                                 {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
-                                 {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
+        {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
+        {"castintervalday", LAMBDA_MAKER(IntervalDaysHolder)},
+        {"castintervalyear", LAMBDA_MAKER(IntervalYearsHolder)}};
     return maker_map;
   }
 };

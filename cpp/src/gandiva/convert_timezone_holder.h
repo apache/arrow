@@ -46,7 +46,7 @@ class OffsetZone {
   auto to_local(arrow_vendored::date::sys_time<Duration> tp) const {
     using std::common_type_t;
     using std::chrono::seconds;
-    using LT = local_time<std::common_type_t<Duration, seconds>>;
+    using LT = local_time<common_type_t<Duration, seconds>>;
     return LT((tp + offset_).time_since_epoch());
   }
 
@@ -101,7 +101,7 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
   }
 
   // Tracks if the timezones given could be found in IANA Timezone DB.
-  bool ok = true;
+  bool status = true;
 
  private:
   explicit ConvertTimezoneHolder(const std::string& srcTz, const std::string& destTz) {
@@ -125,17 +125,15 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
       if (destTz_abbrv_offset != abbrv_tz.end()) {
         auto secs = convert_offset_to_seconds(destTz_abbrv_offset->second);
         dest_offset_tz = std::make_shared<OffsetZone>(secs);
+      } else if (is_timezone_shift(destTz) ||
+                 is_timezone_offset(const_cast<std::string&>(destTz))) {
+        auto secs = convert_offset_to_seconds(destTz);
+        dest_offset_tz = std::make_shared<OffsetZone>(secs);
       } else {
-        if (is_timezone_shift(destTz) ||
-            is_timezone_offset(const_cast<std::string&>(destTz))) {
-          auto secs = convert_offset_to_seconds(destTz);
-          dest_offset_tz = std::make_shared<OffsetZone>(secs);
-        } else {
-          dest_timezone = locate_zone(destTz);
-        }
+        dest_timezone = locate_zone(destTz);
       }
     } catch (...) {
-      ok = false;
+      status = false;
     }
   }
 
@@ -233,12 +231,12 @@ class GANDIVA_EXPORT ConvertTimezoneHolder : public FunctionHolder {
     if (hours > 0) {
       if (minutes < 0 || seconds < 0) {
         throw "Zone offset minutes and seconds must be positive because hours is "
-              "positive";
+                "positive";
       }
     } else if (hours < 0) {
       if (minutes > 0 || seconds > 0) {
         throw "Zone offset minutes and seconds must be negative because hours is "
-              "negative";
+                "negative";
       }
     } else if ((minutes > 0 && seconds < 0) || (minutes < 0 && seconds > 0)) {
       throw "Zone offset minutes and seconds must have the same sign";

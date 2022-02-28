@@ -82,6 +82,28 @@ TEST_F(TestConvertTimezone, TestConvertTimezoneAbbreviations) {
   // saving time periods.
 }
 
+TEST_F(TestConvertTimezone, TestUnknownTimezones) {
+  std::shared_ptr<ConvertTimezoneHolder> convert_holder;
+
+  auto status = ConvertTimezoneHolder::Make("PSF", "LKT", &convert_holder);
+
+  EXPECT_FALSE(status.ok());
+  EXPECT_STREQ(status.message().c_str(),
+               "Couldn't find one of the timezones given or it's invalid.");
+
+  status = ConvertTimezoneHolder::Make("-02:00", "-25:00", &convert_holder);
+
+  EXPECT_FALSE(status.ok());
+  EXPECT_STREQ(status.message().c_str(),
+               "Couldn't find one of the timezones given or it's invalid.");
+
+  status = ConvertTimezoneHolder::Make("UT-25", "UTC+2", &convert_holder);
+
+  EXPECT_FALSE(status.ok());
+  EXPECT_STREQ(status.message().c_str(),
+               "Couldn't find one of the timezones given or it's invalid.");
+}
+
 TEST_F(TestConvertTimezone, TestConvertTimezoneOffset) {
   std::shared_ptr<ConvertTimezoneHolder> convert_holder;
 

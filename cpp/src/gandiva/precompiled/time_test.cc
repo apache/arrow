@@ -1019,16 +1019,4 @@ TEST(TestTime, TestCastNullableInterval) {
   context.Reset();
 }
 
-TEST(TestTime, TestConvertTimezone){
-  ExecutionContext context;
-  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
-  gdv_timestamp ts = StringToTimestamp("2016-01-30 23:59:00");
-  EXPECT_EQ(convertTimezone(context_ptr,
-                            "Canada/Pacific", 14, "Asia/Kolkata", 12, ts),
-            StringToTimestamp("2016-02-01 12:29:00"));
-  EXPECT_EQ(convertTimezone(context_ptr,
-                            "+02:00", 6, "+01:00", 6, ts),
-            StringToTimestamp("2016-01-30 22:59:00"));
-}
-
 }  // namespace gandiva
