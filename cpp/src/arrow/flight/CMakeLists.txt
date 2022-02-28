@@ -197,7 +197,9 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static
-              ${ARROW_FLIGHT_LINK_LIBS})
+              ${ARROW_FLIGHT_LINK_LIBS}
+              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS_REAL}
+              arrow_static)
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)

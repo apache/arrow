@@ -240,7 +240,9 @@ function(ADD_ARROW_LIB LIB_NAME)
       DEPENDENCIES
       SHARED_INSTALL_INTERFACE_LIBS
       STATIC_INSTALL_INTERFACE_LIBS
-      OUTPUT_PATH)
+      OUTPUT_PATH
+      SHARED_INSTALL_EXTRA_TARGETS
+      STATIC_INSTALL_EXTRA_TARGETS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -406,7 +408,8 @@ function(ADD_ARROW_LIB LIB_NAME)
                                                                    "${_lib_install_name}")
     endif()
 
-    install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
+    install(TARGETS ${LIB_NAME}_shared ${ARG_SHARED_INSTALL_EXTRA_TARGETS}
+                    ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -470,7 +473,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       endif()
     endif()
 
-    install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
+    install(TARGETS ${LIB_NAME}_static ${ARG_STATIC_INSTALL_EXTRA_TARGETS}
+                    ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
