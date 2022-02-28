@@ -86,10 +86,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  SOURCES
                  client_test.cc
                  server_test.cc
-                 ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS}
                  STATIC_LINK_LIBS
                  ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
-                 ${SQLite3_LIBRARIES}
                  LABELS
                  "arrow_flight_sql")
 

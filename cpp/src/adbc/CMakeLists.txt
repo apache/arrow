@@ -68,6 +68,24 @@ if(ARROW_BUILD_TESTS)
                   ${ADBC_LINK_SHARED}
                   arrow_flight_shared
                   arrow_flight_sql_shared)
-    add_dependencies(adbc-adbc-test adbc_driver_flight_sql_shared)
+
+    if(ARROW_TEST_LINKAGE STREQUAL "static")
+      set(ADBC_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_static arrow_flight_sql_static
+                                         arrow_flight_sql_sqlite_static)
+    else()
+      set(ADBC_FLIGHT_SQL_TEST_LINK_LIBS arrow_flight_shared arrow_flight_sql_shared
+                                         arrow_flight_sql_sqlite_shared)
+    endif()
+
+    add_arrow_test(adbc_flight_sql_test
+                   SOURCES
+                   example/flight_sql_test.cc
+                   EXTRA_LINK_LIBS
+                   ${ADBC_TEST_LINK_LIBS}
+                   ${ADBC_FLIGHT_SQL_TEST_LINK_LIBS}
+                   PREFIX
+                   "adbc")
+
+    add_dependencies(adbc-adbc-flight-sql-test adbc_driver_flight_sql_shared)
   endif()
 endif()
