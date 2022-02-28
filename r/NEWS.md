@@ -24,7 +24,8 @@
   * `tz()` to extract/get timezone
   * `semester()` to extract/get semester
   * `dst()` to get daylight savings time indicator.
-* Additional `lubridate` features: `date()`
+  * `date()` to extract date
+* `as.Date()` to convert to date
 
 # arrow 7.0.0
 
