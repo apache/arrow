@@ -493,7 +493,7 @@ setup_virtualenv() {
     # Activate the environment
     source "${virtualenv}/bin/activate"
     # Explicitly set PYTHONPATH so the C++ python tests can load numpy
-    export PYTHONPATH=$(python -c "import site; print(site.getsitepackages())"
+    export PYTHONPATH=$(python -c "import site; print(site.getsitepackages())")
     # Install dependencies
     if [ $# -gt 0 ]; then
       show_info "Installed pip packages $@..."
