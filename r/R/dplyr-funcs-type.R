@@ -101,7 +101,7 @@ register_bindings_type_cast <- function() {
         if (length(tryFormats) == 1) {
           format <- tryFormats[1]
         } else {
-          abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+          abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
         }
       }
       # if x is not an expression (e.g. passed as filter), convert it to one
