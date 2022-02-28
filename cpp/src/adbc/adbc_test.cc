@@ -23,6 +23,7 @@
 #include "arrow/c/bridge.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/logging.h"
 
 #define ADBC_ASSERT_OK(expr)          \
@@ -30,6 +31,8 @@
     auto code_ = (expr);              \
     ASSERT_EQ(code_, ADBC_STATUS_OK); \
   } while (false)
+
+using arrow::PointeesEqual;
 
 TEST(Adbc, Basics) {
   AdbcConnection connection;
@@ -49,6 +52,23 @@ TEST(Adbc, Errors) {
   ASSERT_RAISES(Invalid, adbc::ConnectRaw("libadbc_driver_fake.so", options));
 }
 
+void ReadStatement(AdbcStatement* statement, std::shared_ptr<arrow::Schema>* schema,
+                   arrow::RecordBatchVector* batches) {
+  AdbcError error = {};
+  ArrowArrayStream stream;
+  ADBC_ASSERT_OK(statement->get_results(statement, &stream, &error));
+  ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
+
+  *schema = reader->schema();
+
+  while (true) {
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    if (!batch) break;
+    batches->push_back(std::move(batch));
+  }
+  ADBC_ASSERT_OK(statement->release(statement, &error));
+}
+
 TEST(AdbcSqlite, SqlExecute) {
   // Execute a query with the SQLite example driver.
   AdbcConnection connection;
@@ -63,20 +83,16 @@ TEST(AdbcSqlite, SqlExecute) {
     ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
                                           &statement, &error));
 
-    ArrowArrayStream stream;
-    ADBC_ASSERT_OK(statement.get_results(&statement, &stream, &error));
-    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
-
-    auto schema = arrow::schema({arrow::field("1", arrow::int64())});
-    arrow::AssertSchemaEqual(*reader->schema(), *schema);
-
-    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[1]]"), *batch);
-
-    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
-    ASSERT_EQ(batch, nullptr);
-
-    ADBC_ASSERT_OK(statement.release(&statement, &error));
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ReadStatement(&statement, &schema, &batches);
+    arrow::AssertSchemaEqual(*schema,
+                             *arrow::schema({arrow::field("1", arrow::int64())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(), {
+                                         arrow::RecordBatchFromJSON(schema, "[[1]]"),
+                                     }));
   }
 
   {
@@ -98,6 +114,39 @@ TEST(AdbcSqlite, SqlExecute) {
 
 // TODO: these should be split into separate compilation units
 
+// TODO: this could benefit from a fixture
+// TODO: we should spin up the server in-process
+TEST(AdbcFlightSql, Metadata) {
+  AdbcConnection connection;
+  AdbcError error = {};
+
+  AdbcConnectionOptions options;
+  std::string target = "Location=grpc://localhost:31337";
+  options.target = target.c_str();
+  options.target_length = target.size();
+  ASSERT_OK_AND_ASSIGN(connection,
+                       adbc::ConnectRaw("libadbc_driver_flight_sql.so", options));
+
+  {
+    AdbcStatement statement;
+    ADBC_ASSERT_OK(connection.get_table_types(&connection, &statement, &error));
+
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ReadStatement(&statement, &schema, &batches);
+    arrow::AssertSchemaEqual(
+        *schema,
+        *arrow::schema({arrow::field("table_type", arrow::utf8(), /*nullable=*/false)}));
+    EXPECT_THAT(batches, ::testing::UnorderedPointwise(
+                             PointeesEqual(),
+                             {
+                                 arrow::RecordBatchFromJSON(schema, R"([["table"]])"),
+                             }));
+  }
+
+  ADBC_ASSERT_OK(connection.release(&connection, &error));
+}
+
 TEST(AdbcFlightSql, SqlExecute) {
   // Execute a query with the Flight SQL example driver.
   AdbcConnection connection;
@@ -116,20 +165,16 @@ TEST(AdbcFlightSql, SqlExecute) {
     ADBC_ASSERT_OK(connection.sql_execute(&connection, query.c_str(), query.size(),
                                           &statement, &error));
 
-    ArrowArrayStream stream;
-    ADBC_ASSERT_OK(statement.get_results(&statement, &stream, &error));
-    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
-
-    auto schema = arrow::schema({arrow::field("1", arrow::int64())});
-    arrow::AssertSchemaEqual(*reader->schema(), *schema);
-
-    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[1]]"), *batch);
-
-    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
-    ASSERT_EQ(batch, nullptr);
-
-    ADBC_ASSERT_OK(statement.release(&statement, &error));
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ReadStatement(&statement, &schema, &batches);
+    arrow::AssertSchemaEqual(*schema,
+                             *arrow::schema({arrow::field("1", arrow::int64())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(), {
+                                         arrow::RecordBatchFromJSON(schema, "[[1]]"),
+                                     }));
   }
 
   // Serialize the query result handle into a partition so it can be
@@ -157,20 +202,16 @@ TEST(AdbcFlightSql, SqlExecute) {
     ADBC_ASSERT_OK(connection.deserialize_partition_desc(
         &connection, desc.data(), desc.size(), &statement, &error));
 
-    ArrowArrayStream stream;
-    ADBC_ASSERT_OK(statement.get_results(&statement, &stream, &error));
-    ASSERT_OK_AND_ASSIGN(auto reader, arrow::ImportRecordBatchReader(&stream));
-
-    auto schema = arrow::schema({arrow::field("42", arrow::int64())});
-    arrow::AssertSchemaEqual(*reader->schema(), *schema);
-
-    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
-    arrow::AssertBatchesEqual(*arrow::RecordBatchFromJSON(schema, "[[42]]"), *batch);
-
-    ASSERT_OK_AND_ASSIGN(batch, reader->Next());
-    ASSERT_EQ(batch, nullptr);
-
-    ADBC_ASSERT_OK(statement.release(&statement, &error));
+    std::shared_ptr<arrow::Schema> schema;
+    arrow::RecordBatchVector batches;
+    ReadStatement(&statement, &schema, &batches);
+    arrow::AssertSchemaEqual(*schema,
+                             *arrow::schema({arrow::field("42", arrow::int64())}));
+    EXPECT_THAT(batches,
+                ::testing::UnorderedPointwise(
+                    PointeesEqual(), {
+                                         arrow::RecordBatchFromJSON(schema, "[[42]]"),
+                                     }));
   }
 
   {
