@@ -92,10 +92,10 @@ Ops.ArrowDatum <- function(e1, e2) {
 Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
   switch(
     .Generic,
-    abs =, sign =,
-    floor =, ceiling =, trunc =,
-    acos =, asin =, atan =,
-    cos =, sin =, tan = {
+    abs = , sign = ,
+    floor = , ceiling = , trunc = ,
+    acos = , asin = , atan = ,
+    cos = , sin = , tan = {
       eval_array_expression(.Generic, x)
     },
     log = eval_array_expression("logb_checked", x, base),
@@ -107,12 +107,12 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     ),
     sqrt = eval_array_expression("power_checked", x, 0.5),
     exp = eval_array_expression("power_checked", exp(1), x),
-    signif =, expm1 =, log1p =,
-    cospi =, sinpi =, tanpi =,
-    cosh =, sinh =, tanh =,
-    acosh =, asinh =, atanh =,
-    lgamma =, gamma =, digamma =, trigamma =,
-    cumsum =, cumprod =, cummax =, cummin =,
+    signif = , expm1 = , log1p = ,
+    cospi = , sinpi = , tanpi = ,
+    cosh = , sinh = , tanh = ,
+    acosh = , asinh = , atanh = ,
+    lgamma = , gamma = , digamma = , trigamma = ,
+    cumsum = , cumprod = , cummax = , cummin = ,
     stop(paste0("Unsupported operation on `", class(x)[1L], "` : "), .Generic, call. = FALSE)
   )
 }
