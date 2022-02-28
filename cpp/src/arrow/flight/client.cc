@@ -1017,7 +1017,13 @@ class GrpcClientImpl : public internal::ClientTransportImpl {
     return Status::OK();
   }
 
-  Status Close() override { return Status::OK(); }
+  Status Close() override {
+    // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
+    // gRPC does not offer a real Close(). We could reset() the gRPC
+    // client but that can cause gRPC to hang in shutdown
+    // (ARROW-15793).
+    return Status::OK();
+  }
 
   Status Authenticate(const FlightCallOptions& options,
                       std::unique_ptr<ClientAuthHandler> auth_handler) override {
@@ -1224,7 +1230,7 @@ class GrpcClientImpl : public internal::ClientTransportImpl {
 #endif
 };
 
-FlightClient::FlightClient() {}
+FlightClient::FlightClient() : closed_(false), write_size_limit_bytes_(0) {}
 
 FlightClient::~FlightClient() {
   auto st = Close();
@@ -1353,14 +1359,15 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
 }
 
 Status FlightClient::Close() {
-  // gRPC doesn't offer an explicit shutdown
-  impl_.reset(nullptr);
-  // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
+  if (!closed_) {
+    closed_ = true;
+    RETURN_NOT_OK(impl_->Close());
+  }
   return Status::OK();
 }
 
 Status FlightClient::CheckOpen() const {
-  if (!impl_) {
+  if (closed_) {
     return Status::Invalid("FlightClient is closed");
   }
   return Status::OK();

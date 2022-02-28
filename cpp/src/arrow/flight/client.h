@@ -342,6 +342,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   FlightClient();
   Status CheckOpen() const;
   std::unique_ptr<internal::ClientTransportImpl> impl_;
+  bool closed_;
   int64_t write_size_limit_bytes_;
 };
 
