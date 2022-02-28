@@ -106,14 +106,14 @@ RecordBatchReader <- R6Class("RecordBatchReader",
 
 #' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
-  assert_that(n >= 0) # For now
+  # Negative n requires knowing nrow(x), which requires consuming the whole RBR
+  assert_that(n >= 0)
   RecordBatchReader__Head(x, n)
 }
 
 #' @export
 tail.RecordBatchReader <- function(x, n = 6L, ...) {
-  # TODO: implement without Scanner so that ARROW_DATASET is not required
-  tail(Scanner$create(x), n)
+  tail_from_batches(x$batches(), n)
 }
 
 #' @rdname RecordBatchReader
