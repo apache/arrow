@@ -163,8 +163,15 @@ test_that("Math group generics work on Array objects", {
     Array$create(c(0.6, 2.2))
   )
 
+  expect_equal(sqrt(Array$create(c(2L, 1L))), Array$create(sqrt(c(2L, 1L))))
+  # this operation only roundtrips to 10 decimal places
+  expect_equal(
+    round(exp(Array$create(c(2L, 1L))), digits = 10),
+    Array$create(round(exp(c(2L, 1L)), 10))
+  )
+
   expect_error(
-    sqrt(Array$create(c(4L, 1L))),
+    cumsum(Array$create(c(4L, 1L))),
     "Unsupported operation on `Array`"
   )
 })
