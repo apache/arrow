@@ -45,7 +45,7 @@ jobs:
             {{ image }} \
             {{ command|default("") }}
 
-    {% if '-r' in image %}
+    {% if '-r-' in image %}
       - name: Dump R install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         continue-on-error: true
