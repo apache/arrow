@@ -78,11 +78,12 @@ register_bindings_type_cast <- function() {
   })
   register_binding("as.Date", function(x,
                                        format = NULL,
+                                       tryFormats = "%Y-%m-%d",
                                        origin = "1970-01-01",
                                        tz = "UTC") {
 
     if (call_binding("is.Date", x)) {
-      # base::as.Date() first converts to the desired timestamp and then extracts
+      # base::as.Date() first converts to the desired timezone and then extracts
       # the date, which is why we need to go through timestamp() first
       return(x)
     } else if (call_binding("is.POSIXct", x)) {
@@ -96,12 +97,19 @@ register_bindings_type_cast <- function() {
       # this could be improved with tryFormats once strptime returns NA and we
       # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
       # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-      if (!is.null(format)) {
-        arrow_timestamp <- call_binding("strptime", x, format, unit = "s")
-        return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
-      } else {
-        abort("`as.Date()` without `format` is not supported in Arrow")
+      if (is.null(format)) {
+        if (length(tryFormats) == 1) {
+          format <- tryFormats[1]
+        } else {
+          abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
+        }
       }
+      # if x is not an expression (e.g. passed as filter), convert it to one
+      if (!inherits(x, "Expression")) {
+        x <- build_expr("cast", x, options = cast_options(to_type = type(x)))
+      }
+      arrow_timestamp <- call_binding("strptime", x, format, unit = "s")
+      return(build_expr("cast", arrow_timestamp, options = cast_options(to_type = date32())))
 
     } else if (call_binding("is.numeric", x)) {
       # the origin argument will be better supported once we implement temporal

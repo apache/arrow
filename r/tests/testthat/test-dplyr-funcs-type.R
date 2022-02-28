@@ -851,9 +851,19 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   expect_warning(
     test_df %>%
       arrow_table() %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var,
+                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
+      collect(),
+    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow",
+    fixed = TRUE
+  )
+
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
       mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
       collect(),
-    regexp = "`as.Date()` without `format` is not supported in Arrow",
+    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
     fixed = TRUE
   )
 })
