@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
@@ -215,6 +215,8 @@ test_that("query_on_dataset handles collapse()", {
       collapse() %>%
       select(int)
   ))
+
+  skip_if_not_available("dataset")
 
   ds_dir <- tempfile()
   dir.create(ds_dir)

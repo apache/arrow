@@ -77,6 +77,8 @@ Scanner$create <- function(dataset,
                            batch_size = NULL,
                            fragment_scan_options = NULL,
                            ...) {
+  stop_if_no_datasets()
+
   if (!is.null(use_async)) {
     .Deprecated(msg = paste(
       "The parameter 'use_async' is deprecated",

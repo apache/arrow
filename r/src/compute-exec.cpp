@@ -266,7 +266,7 @@ std::shared_ptr<compute::ExecNode> ExecNode_Join(
 }
 
 // [[arrow::export]]
-std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(
+std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::RecordBatchReader>& reader) {
   arrow::compute::SourceNodeOptions options{

@@ -1717,17 +1717,17 @@ extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP type_sexp, SEXP right
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<compute::ExecNode> ExecNode_ReadFromRecordBatchReader(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
-extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
+std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(const std::shared_ptr<compute::ExecPlan>& plan, const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ExecNode_ReadFromRecordBatchReader(plan, reader));
+	return cpp11::as_sexp(ExecNode_SourceNode(plan, reader));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP reader_sexp){
-	Rf_error("Cannot call ExecNode_ReadFromRecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_ExecNode_SourceNode(SEXP plan_sexp, SEXP reader_sexp){
+	Rf_error("Cannot call ExecNode_SourceNode(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6519,6 +6519,22 @@ extern "C" SEXP _arrow_Table__from_RecordBatchReader(SEXP reader_sexp){
 
 // recordbatchreader.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> RecordBatchReader__Head(const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows);
+extern "C" SEXP _arrow_RecordBatchReader__Head(SEXP reader_sexp, SEXP num_rows_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<int64_t>::type num_rows(num_rows_sexp);
+	return cpp11::as_sexp(RecordBatchReader__Head(reader, num_rows));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_RecordBatchReader__Head(SEXP reader_sexp, SEXP num_rows_sexp){
+	Rf_error("Cannot call RecordBatchReader__Head(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// recordbatchreader.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -7699,7 +7715,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
-		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
+		{ "_arrow_ExecNode_SourceNode", (DL_FUNC) &_arrow_ExecNode_SourceNode, 2}, 
 		{ "_arrow_ExecNode_TableSourceNode", (DL_FUNC) &_arrow_ExecNode_TableSourceNode, 2}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
@@ -8004,6 +8020,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__ReadNext", (DL_FUNC) &_arrow_RecordBatchReader__ReadNext, 1}, 
 		{ "_arrow_RecordBatchReader__batches", (DL_FUNC) &_arrow_RecordBatchReader__batches, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
+		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 

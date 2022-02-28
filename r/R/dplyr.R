@@ -151,8 +151,14 @@ dim.arrow_dplyr_query <- function(x) {
     rows <- NA_integer_
   } else if (isTRUE(x$filtered_rows)) {
     rows <- x$.data$num_rows
-  } else {
+  } else if (query_on_dataset(x)) {
+    # TODO: do this with an ExecPlan instead of Scanner?
     rows <- Scanner$create(x)$CountRows()
+  } else {
+    # Query on in-memory Table, so evaluate the filter
+    # Don't need any columns
+    x <- select.arrow_dplyr_query(x, NULL)
+    rows <- nrow(compute.arrow_dplyr_query(x))
   }
   c(rows, cols)
 }

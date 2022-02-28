@@ -64,7 +64,7 @@ ExecPlan <- R6Class("ExecPlan",
       # Handle arrow_dplyr_query
       if (inherits(dataset, "arrow_dplyr_query")) {
         if (inherits(dataset$.data, "RecordBatchReader")) {
-          return(ExecNode_ReadFromRecordBatchReader(self, dataset$.data))
+          return(ExecNode_SourceNode(self, dataset$.data))
         } else if (inherits(dataset$.data, "ArrowTabular")) {
           if (inherits(dataset$.data, "RecordBatch")) {
             dataset$.data <- Table$create(dataset$.data)

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
@@ -721,7 +721,6 @@ test_that("Expressions on aggregations", {
       "Aggregate within aggregate expression",
       "any\\(any\\(!lgl\\)\\) not supported in Arrow"
     )
-
   )
   expect_warning(
     record_batch(tbl) %>% summarise(!any(any(lgl))),
@@ -954,7 +953,7 @@ test_that("summarise() can handle scalars and literal values", {
   )
 
   compare_dplyr_binding(
-    .input %>% summarise(y = !! some_scalar_value) %>% collect(),
+    .input %>% summarise(y = !!some_scalar_value) %>% collect(),
     tbl
   )
 
@@ -979,7 +978,7 @@ test_that("summarise() can handle scalars and literal values", {
   )
 
   expect_identical(
-    record_batch(tbl) %>% summarise(y = !! some_scalar_value) %>% collect(),
+    record_batch(tbl) %>% summarise(y = !!some_scalar_value) %>% collect(),
     tibble(y = 2L)
   )
 })

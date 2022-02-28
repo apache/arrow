@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 
@@ -257,6 +257,7 @@ test_that("arrow dplyr query can join with tibble", {
   # By default, snappy encoding will be used, and
   # Snappy has a UBSan issue: https://github.com/google/snappy/pull/148
   skip_on_linux_devel()
+  skip_if_not_available("dataset")
 
   dir_out <- tempdir()
   write_dataset(iris, file.path(dir_out, "iris"))
