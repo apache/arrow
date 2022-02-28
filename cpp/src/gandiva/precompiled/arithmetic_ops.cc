@@ -234,9 +234,13 @@ NUMERIC_TYPES(VALIDITY_OP, isnumeric, +)
 
 #undef VALIDITY_OP
 
-#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP) \
-  FORCE_INLINE                                \
-  gdv_##TYPE NAME##_boolean(gdv_##TYPE in) { return OP in; }
+#define IS_TRUE_OR_FALSE_BOOL(NAME, TYPE, OP)                      \
+  gdv_##TYPE NAME##_boolean(gdv_##TYPE in, gdv_boolean is_valid) { \
+    if (!is_valid) {                                               \
+      return is_valid;                                             \
+    }                                                              \
+    return OP in;                                                  \
+  }
 
 IS_TRUE_OR_FALSE_BOOL(istrue, boolean, +)
 IS_TRUE_OR_FALSE_BOOL(isfalse, boolean, !)
