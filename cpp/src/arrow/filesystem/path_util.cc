@@ -68,9 +68,9 @@ std::vector<std::string> SplitFilename(const std::string& path) {
 
   // Strip non-prefix segment
   auto non_prefix_index = v.rfind(kFilenameSep);
-  if (v.length() > 0 && non_prefix_index!=std::string::npos){
-    v = v.substr(0,non_prefix_index);
-  }
+  if (v.length() > 0 && non_prefix_index != std::string::npos) {
+    v = v.substr(0, non_prefix_index);
+   }
 
   // Strip leading slash
   if (v.length() > 0 && v.front() == kSep) {
@@ -133,20 +133,13 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
-std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
+std::string ConcatAbstractPath(const std::string& base, const std::string& prefix,
+                               const std::string& stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
     return stem;
   }
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
-}
-
-std::string ConcatAbstractPath(const std::string& base, const std::string& prefix, const std::string& stem) {
-  DCHECK(!stem.empty());
-  if (base.empty()) {
-    return stem;
-  }
-  return EnsureTrailingSlash(base) + prefix + std::string(RemoveLeadingSlash(stem));
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {

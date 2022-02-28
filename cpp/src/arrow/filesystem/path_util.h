@@ -62,7 +62,8 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
 
 // Append a non-empty stem to an abstract path with a filename prefix.
 ARROW_EXPORT
-std::string ConcatAbstractPath(const std::string& base, const std::string& prefix, const std::string& stem);
+std::string ConcatAbstractPath(const std::string& base, const std::string& prefix,
+                               const std::string& stem);
 
 // Make path relative to base, if it starts with base.  Otherwise error out.
 ARROW_EXPORT

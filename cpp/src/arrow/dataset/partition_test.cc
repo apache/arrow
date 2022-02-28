@@ -272,7 +272,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
   }
 }
 
-TEST_F(TestPartitioning, DiscoverSchema) {
+TEST_F(TestPartitioning, DiscoverSchemaDirectory) {
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"});
 
   // type is int32 if possible
@@ -289,6 +289,25 @@ TEST_F(TestPartitioning, DiscoverSchema) {
 
   // missing segment for beta doesn't cause an error or fallback
   AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
+}
+
+TEST_F(TestPartitioning, DiscoverSchemaFilename) {
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"});
+
+  // type is int32 if possible
+  AssertInspect({"0_1_"}, {Int("alpha"), Int("beta")});
+
+  // extra segments are ignored
+  AssertInspect({"0_1_what"}, {Int("alpha"), Int("beta")});
+
+  // fall back to string if any segment for field alpha is not parseable as int
+  AssertInspect({"0_1_", "hello_1_"}, {Str("alpha"), Int("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
+
+  // missing segment for beta doesn't cause an error or fallback
+  AssertInspect({"0_1", "hello"}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryInference) {
