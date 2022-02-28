@@ -36,9 +36,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * timestamp (microsecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class TimeStampMicroTZVector extends TimeStampVector {
+public final class TimeStampMicroTZVector extends TimeStampTZVector {
   private final FieldReader reader;
-  private final String timeZone;
 
   /**
    * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
@@ -61,8 +60,6 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    */
   public TimeStampMicroTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
-    timeZone = arrowType.getTimezone();
     reader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 
@@ -75,8 +72,6 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    */
   public TimeStampMicroTZVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
-    timeZone = arrowType.getTimezone();
     reader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 

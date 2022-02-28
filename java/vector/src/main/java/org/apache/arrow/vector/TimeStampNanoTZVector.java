@@ -36,9 +36,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * timestamp (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class TimeStampNanoTZVector extends TimeStampVector {
+public final class TimeStampNanoTZVector extends TimeStampTZVector {
   private final FieldReader reader;
-  private final String timeZone;
 
   /**
    * Instantiate a TimeStampNanoTZVector. This doesn't allocate any memory for
@@ -61,8 +60,6 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
    */
   public TimeStampNanoTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
-    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
-    timeZone = arrowType.getTimezone();
     reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
@@ -75,8 +72,6 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
    */
   public TimeStampNanoTZVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
-    timeZone = arrowType.getTimezone();
     reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
