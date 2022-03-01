@@ -170,11 +170,17 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       RETURN_NOT_OK(CheckStringArrayHasNoStructuralChars(*casted_array_, delimiter_));
     }
 
-    for (int x = 0; x < casted_array_->length(); x++) {
-      row_lengths[x] += casted_array_->IsNull(x)
-                            ? static_cast<int32_t>(null_string_->size())
-                            : casted_array_->value_length(x);
-    }
+    int64_t row_number = 0;
+    VisitArrayDataInline<StringType>(
+        *casted_array_->data(),
+        [&](arrow::util::string_view s) {
+          row_lengths[row_number] += static_cast<int32_t>(s.length());
+          row_number++;
+        },
+        [&]() {
+          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+          row_number++;
+        });
     return Status::OK();
   }
 
@@ -265,24 +271,41 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
   Status UpdateRowLengths(int32_t* row_lengths) override {
     const StringArray& input = *casted_array_;
-    int row_number = 0;
-    row_needs_escaping_.resize(casted_array_->length());
-    VisitArrayDataInline<StringType>(
-        *input.data(),
-        [&](arrow::util::string_view s) {
-          // Each quote in the value string needs to be escaped.
-          int64_t escaped_count = CountQuotes(s);
-          // TODO: Maybe use 64 bit row lengths or safe cast?
-          row_needs_escaping_[row_number] = escaped_count > 0;
-          row_lengths[row_number] += static_cast<int32_t>(s.length()) +
-                                     static_cast<int32_t>(escaped_count + kQuoteCount);
-          row_number++;
-        },
-        [&]() {
-          row_needs_escaping_[row_number] = false;
-          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
-          row_number++;
-        });
+
+    row_needs_escaping_.resize(casted_array_->length(), false);
+
+    if (NoQuoteInArray(input)) {
+      // fast path if no quote
+      int row_number = 0;
+      VisitArrayDataInline<StringType>(
+          *input.data(),
+          [&](arrow::util::string_view s) {
+            row_lengths[row_number] +=
+                static_cast<int32_t>(s.length()) + static_cast<int32_t>(kQuoteCount);
+            row_number++;
+          },
+          [&]() {
+            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_number++;
+          });
+    } else {
+      int row_number = 0;
+      VisitArrayDataInline<StringType>(
+          *input.data(),
+          [&](arrow::util::string_view s) {
+            // Each quote in the value string needs to be escaped.
+            int64_t escaped_count = CountQuotes(s);
+            // TODO: Maybe use 64 bit row lengths or safe cast?
+            row_needs_escaping_[row_number] = escaped_count > 0;
+            row_lengths[row_number] += static_cast<int32_t>(s.length()) +
+                                       static_cast<int32_t>(escaped_count + kQuoteCount);
+            row_number++;
+          },
+          [&]() {
+            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_number++;
+          });
+    }
     return Status::OK();
   }
 
@@ -328,6 +351,13 @@ class QuotedColumnPopulator : public ColumnPopulator {
   }
 
  private:
+  // Returns true if there's no quote in the string array
+  static bool NoQuoteInArray(const StringArray& array) {
+    const uint8_t* data = array.raw_data() + array.value_offset(0);
+    const int64_t buffer_size = array.total_values_length();
+    return std::memchr(data, '"', buffer_size) == nullptr;
+  }
+
   // Older version of GCC don't support custom allocators
   // at some point we should change this to use memory_pool
   // backed allocator.
