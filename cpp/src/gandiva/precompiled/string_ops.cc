@@ -2914,6 +2914,7 @@ const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int32 ur
       *out_len = static_cast<int32_t>(protocol_sub - url);
     } else {
       *out_len = 0;
+      return "";
     }
   }
   auto user_string = protocol_sub + strlen(protocol_end);
@@ -3035,24 +3036,29 @@ const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int32 ur
   }
 
   if (memcmp(part_to_extract, ref_key, part_len) == 0) {
-    auto ref_sub = file_sub + strlen(ref_start);
-    if (ref_sub) {
-      *out_len = static_cast<int32_t>(strlen(ref_sub));
-    } else {
-      *out_len = 0;
-    }
-    // try to allocate memory for the response
-    char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
-
-    if (ret == nullptr) {
-      gdv_fn_context_set_error_msg(context,
-                                   "Could not allocate memory for output string");
+    if(!file_sub) {
       *out_len = 0;
       return "";
-    }
+    }else {
+      auto ref_sub = file_sub + strlen(ref_start);
+      if (ref_sub) {
+        *out_len = static_cast<int32_t>(strlen(ref_sub));
+      } else {
+        *out_len = 0;
+      }
+      // try to allocate memory for the response
+      char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
 
-    memcpy(ret, file_sub + strlen(ref_start), *out_len);
-    return ret;
+      if (ret == nullptr) {
+        gdv_fn_context_set_error_msg(context,
+                                     "Could not allocate memory for output string");
+        *out_len = 0;
+        return "";
+      }
+
+      memcpy(ret, file_sub + strlen(ref_start), *out_len);
+      return ret;
+    }
   }
 
   // try to allocate memory for the response
