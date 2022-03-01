@@ -800,8 +800,19 @@ const Duration FloorTimePoint(const int64_t arg, const RoundTemporalOptions& opt
     const Unit unit = Unit{options.multiple};
     const Unit m =
         (d.count() >= 0) ? d / unit * unit : (d - unit + Unit{1}) / unit * unit;
-    return localizer_.template ConvertLocalToSys<Duration>(duration_cast<Duration>(m),
-                                                           st);
+    f = duration_cast<Duration>(m);
+  }
+
+  if (return_in_utc) return f;
+
+  auto floored_earliest = localizer_.template ConvertLocalToSys<Duration>(
+      f, st, AMBIGUOUS_EARLIEST, NONEXISTENT_EARLIEST);
+
+  if (Duration{arg} - floored_earliest <= Unit{multiple}) {
+    return floored_earliest;
+  } else {
+    auto new_option = AMBIGUOUS_LATEST;
+    return localizer_.template ConvertLocalToSys<Duration>(f, st, new_option);
   }
 }
 
@@ -1374,40 +1385,11 @@ struct AssumeTimezone {
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status* st) const {
-    try {
-      return get_local_time<T, Arg0>(arg, tz_);
-    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
-      switch (options.nonexistent) {
-        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE: {
-          *st = Status::Invalid("Timestamp doesn't exist in timezone '", options.timezone,
-                                "': ", e.what());
-          return arg;
-        }
-        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_) -
-                 1;
-        }
-        case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
-        }
-      }
-    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
-      switch (options.ambiguous) {
-        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE: {
-          *st = Status::Invalid("Timestamp is ambiguous in timezone '", options.timezone,
-                                "': ", e.what());
-          return arg;
-        }
-        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::earliest,
-                                         tz_);
-        }
-        case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
-        }
-      }
-    }
-    return 0;
+    return static_cast<T>(ZonedLocalizer{tz_}
+                              .template ConvertLocalToSys(Duration{arg}, st,
+                                                          options.ambiguous,
+                                                          options.nonexistent)
+                              .count());
   }
   AssumeTimezoneOptions options;
   const time_zone* tz_;

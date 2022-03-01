@@ -1918,12 +1918,9 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneAmbiguous) {
                                  "2018-10-28 01:36:00",
                                  "2018-10-28 02:46:00"])";
 
-  auto options_earliest =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_EARLIEST);
-  auto options_latest =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_LATEST);
-  auto options_raise =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE);
+  auto options_earliest = AssumeTimezoneOptions(timezone, AMBIGUOUS_EARLIEST);
+  auto options_latest = AssumeTimezoneOptions(timezone, AMBIGUOUS_LATEST);
+  auto options_raise = AssumeTimezoneOptions(timezone, AMBIGUOUS_RAISE);
 
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u);
@@ -1949,14 +1946,11 @@ TEST_F(ScalarTemporalTest, TestAssumeTimezoneNonexistent) {
       R"(["2015-03-29 00:59:59.999999999", "2015-03-29 01:30:00"])";
 
   auto options_raise =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
-                            AssumeTimezoneOptions::NONEXISTENT_RAISE);
+      AssumeTimezoneOptions(timezone, AMBIGUOUS_RAISE, NONEXISTENT_RAISE);
   auto options_latest =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
-                            AssumeTimezoneOptions::NONEXISTENT_LATEST);
+      AssumeTimezoneOptions(timezone, AMBIGUOUS_RAISE, NONEXISTENT_LATEST);
   auto options_earliest =
-      AssumeTimezoneOptions(timezone, AssumeTimezoneOptions::AMBIGUOUS_RAISE,
-                            AssumeTimezoneOptions::NONEXISTENT_EARLIEST);
+      AssumeTimezoneOptions(timezone, AMBIGUOUS_RAISE, NONEXISTENT_EARLIEST);
 
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u);
@@ -3381,6 +3375,85 @@ TEST_F(ScalarTemporalTest, TestRoundTemporal) {
   CheckScalarUnary(op, unit, times, unit, round_15_months, &round_to_15_months);
   CheckScalarUnary(op, unit, times, unit, round_15_quarters, &round_to_15_quarters);
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
+}
+
+TEST_F(ScalarTemporalTest, TestCeilTemporalAmbiguous) {
+  std::string timezone = "Asia/Tehran";
+  const char* times = R"([
+    "2022-03-21 19:30:00",
+    "2022-03-21 20:00:00",
+    "2022-03-21 20:30:00",
+    "2022-09-21 18:30:00",
+    "2022-09-21 19:00:00",
+    "2022-09-21 19:30:00",
+    "2022-09-21 20:00:00",
+    "2022-09-21 20:30:00",
+    "2022-09-21 21:00:00",
+    "2022-09-21 21:30:00"
+  ])";
+
+  const char* times_latest = R"([
+    "2022-03-21 19:30:00",
+    "2022-03-21 20:30:00",
+    "2022-03-21 20:30:00",
+    "2022-09-21 19:30:00",
+    "2022-09-21 20:30:00",
+    "2022-09-21 19:30:00",
+    "2022-09-21 20:30:00",
+    "2022-09-21 20:30:00",
+    "2022-09-21 21:30:00",
+    "2022-09-21 21:30:00"
+  ])";
+
+  auto unit = timestamp(TimeUnit::MILLI, timezone);
+
+  auto options_latest = RoundTemporalOptions(1, CalendarUnit::HOUR, true);
+  CheckScalarUnary("ceil_temporal", unit, times, unit, times_latest, &options_latest);
+}
+
+TEST_F(ScalarTemporalTest, TestFloorTemporalAmbiguous) {
+  std::string timezone = "CET";
+  const char* times = R"(["2018-10-28 01:20:00"])";
+  const char* times_latest = R"(["2018-10-28 01:15:00"])";
+
+  auto unit = timestamp(TimeUnit::NANO, timezone);
+
+  auto options_latest = RoundTemporalOptions(15, CalendarUnit::MINUTE, true);
+
+  CheckScalarUnary("floor_temporal", unit, times, unit, times_latest, &options_latest);
+}
+
+TEST_F(ScalarTemporalTest, TestRoundTemporalAmbiguous) {
+  std::string timezone = "CET";
+  const char* times = R"(["2018-10-28 01:20:00"])";
+  const char* times_latest = R"(["2018-10-28 01:15:00"])";
+
+  auto unit = timestamp(TimeUnit::NANO, timezone);
+
+  auto options_latest = RoundTemporalOptions(15, CalendarUnit::MINUTE, true);
+
+  CheckScalarUnary("round_temporal", unit, times, unit, times_latest, &options_latest);
+}
+
+TEST_F(ScalarTemporalTest, TestFloorTemporalNonexistent) {
+  std::string timezone = "Europe/Brussels";
+  const char* times = R"(["2015-03-29 01:00:00"])";
+  const char* times_expect = R"(["2015-03-29 00:59:59"])";
+  auto unit = timestamp(TimeUnit::SECOND, timezone);
+
+  auto options = RoundTemporalOptions(16, CalendarUnit::MINUTE, true);
+  CheckScalarUnary("floor_temporal", unit, times, unit, times_expect, &options);
+}
+
+TEST_F(ScalarTemporalTest, TestRoundTemporalNonexistent) {
+  std::string timezone = "Europe/Brussels";
+  const char* times = R"(["2015-03-29 01:00:00"])";
+  const char* times_expect = R"(["2015-03-29 00:59:59"])";
+
+  auto unit = timestamp(TimeUnit::SECOND, timezone);
+
+  auto options = RoundTemporalOptions(16, CalendarUnit::MINUTE, true);
+  CheckScalarUnary("round_temporal", unit, times, unit, times_expect, &options);
 }
 
 TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalBrussels) {

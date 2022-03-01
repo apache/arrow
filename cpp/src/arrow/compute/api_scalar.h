@@ -114,6 +114,21 @@ enum class CalendarUnit : int8_t {
   YEAR
 };
 
+/// \brief How to interpret ambiguous local times that can be interpreted as
+/// multiple instants (normally two) due to DST shifts.
+///
+/// AMBIGUOUS_EARLIEST emits the earliest instant amongst possible interpretations.
+/// AMBIGUOUS_LATEST emits the latest instant amongst possible interpretations.
+enum AmbiguousTime { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
+
+/// \brief How to handle local times that do not exist due to DST shifts.
+///
+/// NONEXISTENT_EARLIEST emits the instant "just before" the DST shift instant
+/// in the given timestamp precision (for example, for a nanoseconds precision
+/// timestamp, this is one nanosecond before the DST shift instant).
+/// NONEXISTENT_LATEST emits the DST shift instant.
+enum NonexistentTime { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
+
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
@@ -465,24 +480,9 @@ struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
 /// times.
 struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
  public:
-  /// \brief How to interpret ambiguous local times that can be interpreted as
-  /// multiple instants (normally two) due to DST shifts.
-  ///
-  /// AMBIGUOUS_EARLIEST emits the earliest instant amongst possible interpretations.
-  /// AMBIGUOUS_LATEST emits the latest instant amongst possible interpretations.
-  enum Ambiguous { AMBIGUOUS_RAISE, AMBIGUOUS_EARLIEST, AMBIGUOUS_LATEST };
-
-  /// \brief How to handle local times that do not exist due to DST shifts.
-  ///
-  /// NONEXISTENT_EARLIEST emits the instant "just before" the DST shift instant
-  /// in the given timestamp precision (for example, for a nanoseconds precision
-  /// timestamp, this is one nanosecond before the DST shift instant).
-  /// NONEXISTENT_LATEST emits the DST shift instant.
-  enum Nonexistent { NONEXISTENT_RAISE, NONEXISTENT_EARLIEST, NONEXISTENT_LATEST };
-
   explicit AssumeTimezoneOptions(std::string timezone,
-                                 Ambiguous ambiguous = AMBIGUOUS_RAISE,
-                                 Nonexistent nonexistent = NONEXISTENT_RAISE);
+                                 AmbiguousTime ambiguous = AMBIGUOUS_RAISE,
+                                 NonexistentTime nonexistent = NONEXISTENT_RAISE);
   AssumeTimezoneOptions();
   static constexpr char const kTypeName[] = "AssumeTimezoneOptions";
 
@@ -490,9 +490,9 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
   std::string timezone;
 
   /// How to interpret ambiguous local times (due to DST shifts)
-  Ambiguous ambiguous;
-  /// How to interpret nonexistent local times (due to DST shifts)
-  Nonexistent nonexistent;
+  AmbiguousTime ambiguous;
+  /// How to interpret non-existent local times (due to DST shifts)
+  NonexistentTime nonexistent;
 };
 
 struct ARROW_EXPORT WeekOptions : public FunctionOptions {

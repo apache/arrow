@@ -101,19 +101,18 @@ struct EnumTraits<compute::CompareOperator>
   }
 };
 template <>
-struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
-    : BasicEnumTraits<compute::AssumeTimezoneOptions::Ambiguous,
-                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
-                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST,
-                      compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST> {
-  static std::string name() { return "AssumeTimezoneOptions::Ambiguous"; }
-  static std::string value_name(compute::AssumeTimezoneOptions::Ambiguous value) {
+struct EnumTraits<compute::AmbiguousTime>
+    : BasicEnumTraits<compute::AmbiguousTime, compute::AmbiguousTime::AMBIGUOUS_RAISE,
+                      compute::AmbiguousTime::AMBIGUOUS_EARLIEST,
+                      compute::AmbiguousTime::AMBIGUOUS_LATEST> {
+  static std::string name() { return "AmbiguousTime"; }
+  static std::string value_name(compute::AmbiguousTime value) {
     switch (value) {
-      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE:
+      case compute::AmbiguousTime::AMBIGUOUS_RAISE:
         return "AMBIGUOUS_RAISE";
-      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST:
+      case compute::AmbiguousTime::AMBIGUOUS_EARLIEST:
         return "AMBIGUOUS_EARLIEST";
-      case compute::AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST:
+      case compute::AmbiguousTime::AMBIGUOUS_LATEST:
         return "AMBIGUOUS_LATEST";
     }
     return "<INVALID>";
@@ -121,19 +120,19 @@ struct EnumTraits<compute::AssumeTimezoneOptions::Ambiguous>
 };
 
 template <>
-struct EnumTraits<compute::AssumeTimezoneOptions::Nonexistent>
-    : BasicEnumTraits<compute::AssumeTimezoneOptions::Nonexistent,
-                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE,
-                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST,
-                      compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST> {
-  static std::string name() { return "AssumeTimezoneOptions::Nonexistent"; }
-  static std::string value_name(compute::AssumeTimezoneOptions::Nonexistent value) {
+struct EnumTraits<compute::NonexistentTime>
+    : BasicEnumTraits<compute::NonexistentTime,
+                      compute::NonexistentTime::NONEXISTENT_RAISE,
+                      compute::NonexistentTime::NONEXISTENT_EARLIEST,
+                      compute::NonexistentTime::NONEXISTENT_LATEST> {
+  static std::string name() { return "NonexistentTime"; }
+  static std::string value_name(compute::NonexistentTime value) {
     switch (value) {
-      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE:
+      case compute::NonexistentTime::NONEXISTENT_RAISE:
         return "NONEXISTENT_RAISE";
-      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST:
+      case compute::NonexistentTime::NONEXISTENT_EARLIEST:
         return "NONEXISTENT_EARLIEST";
-      case compute::AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST:
+      case compute::NonexistentTime::NONEXISTENT_LATEST:
         return "NONEXISTENT_LATEST";
     }
     return "<INVALID>";
@@ -412,8 +411,9 @@ ArithmeticOptions::ArithmeticOptions(bool check_overflow)
     : FunctionOptions(internal::kArithmeticOptionsType), check_overflow(check_overflow) {}
 constexpr char ArithmeticOptions::kTypeName[];
 
-AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone, Ambiguous ambiguous,
-                                             Nonexistent nonexistent)
+AssumeTimezoneOptions::AssumeTimezoneOptions(std::string timezone,
+                                             AmbiguousTime ambiguous,
+                                             NonexistentTime nonexistent)
     : FunctionOptions(internal::kAssumeTimezoneOptionsType),
       timezone(std::move(timezone)),
       ambiguous(ambiguous),

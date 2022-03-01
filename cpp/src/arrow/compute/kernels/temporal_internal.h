@@ -89,7 +89,10 @@ struct NonZonedLocalizer {
   }
 
   template <typename Duration>
-  Duration ConvertLocalToSys(Duration t, Status* st) const {
+  Duration ConvertLocalToSys(
+      Duration t, Status* st,
+      const AmbiguousTime ambiguous = AmbiguousTime::AMBIGUOUS_RAISE,
+      const NonexistentTime nonexistent_time = NonexistentTime::NONEXISTENT_RAISE) const {
     return t;
   }
 
@@ -108,18 +111,59 @@ struct ZonedLocalizer {
   }
 
   template <typename Duration>
-  Duration ConvertLocalToSys(Duration t, Status* st) const {
+  Duration get_local_time(Duration arg) const {
+    return zoned_time<Duration>(tz, local_time<Duration>(arg))
+        .get_sys_time()
+        .time_since_epoch();
+  }
+
+  template <typename Duration>
+  Duration get_local_time(Duration arg, const arrow_vendored::date::choose choose) const {
+    return zoned_time<Duration>(tz, local_time<Duration>(arg), choose)
+        .get_sys_time()
+        .time_since_epoch();
+  }
+
+  template <typename Duration>
+  Duration ConvertLocalToSys(
+      Duration t, Status* st,
+      const AmbiguousTime ambiguous = AmbiguousTime::AMBIGUOUS_RAISE,
+      const NonexistentTime nonexistent_time = NonexistentTime::NONEXISTENT_RAISE) const {
     try {
       return zoned_time<Duration>{tz, local_time<Duration>(t)}
           .get_sys_time()
           .time_since_epoch();
     } catch (const arrow_vendored::date::nonexistent_local_time& e) {
-      *st = Status::Invalid("Local time does not exist: ", e.what());
-      return Duration{0};
+      switch (nonexistent_time) {
+        case NonexistentTime::NONEXISTENT_RAISE: {
+          *st = Status::Invalid("Timestamp doesn't exist in timezone '", tz,
+                                "': ", e.what());
+          return t;
+        }
+        case NonexistentTime::NONEXISTENT_EARLIEST: {
+          return get_local_time<Duration>(t, arrow_vendored::date::choose::latest) -
+                 Duration{1};
+        }
+        case NonexistentTime::NONEXISTENT_LATEST: {
+          return get_local_time<Duration>(t, arrow_vendored::date::choose::latest);
+        }
+      }
     } catch (const arrow_vendored::date::ambiguous_local_time& e) {
-      *st = Status::Invalid("Local time is ambiguous: ", e.what());
-      return Duration{0};
+      switch (ambiguous) {
+        case AmbiguousTime::AMBIGUOUS_RAISE: {
+          *st = Status::Invalid("Timestamp is ambiguous in timezone '", tz,
+                                "': ", e.what());
+          return t;
+        }
+        case AmbiguousTime::AMBIGUOUS_EARLIEST: {
+          return get_local_time<Duration>(t, arrow_vendored::date::choose::earliest);
+        }
+        case AmbiguousTime::AMBIGUOUS_LATEST: {
+          return get_local_time<Duration>(t, arrow_vendored::date::choose::latest);
+        }
+      }
     }
+    return Duration{0};
   }
 
   local_days ConvertDays(sys_days d) const { return local_days(year_month_day(d)); }
