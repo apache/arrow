@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client using gRPC. API should be
-// considered experimental for now
+/// \brief Implementation of Flight RPC client. API should be
+/// considered experimental for now
 
 #pragma once
 

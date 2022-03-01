@@ -15,10 +15,43 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Internal (but not private) interface for implementing alternate
-// transports in Flight.
-//
-// EXPERIMENTAL. Subject to change.
+/// \file
+/// Internal (but not private) interface for implementing
+/// alternate network transports in Flight.
+///
+/// \warning EXPERIMENTAL. Subject to change.
+///
+/// To implement a transport, implement ServerTransportImpl and
+/// ClientTransportImpl, and register the desired URI schemes with
+/// TransportImplRegistry. Flight takes care of most of the per-RPC
+/// details; transports only handle connections and providing a I/O
+/// stream implementation (TransportDataStream).
+///
+/// On the server side:
+///
+/// 1. Applications subclass FlightServerBase and override RPC handlers.
+/// 2. FlightServerBase::Init will look up and create a ServerTransportImpl
+///    based on the scheme of the Location given to it.
+/// 3. The ServerTransportImpl will start the actual server. (For instance,
+///    for gRPC, it creates a gRPC server and registers a gRPC service.)
+///    That server will handle connections.
+/// 4. Incoming calls to the underlying server get forwarded to
+///    FlightServiceImpl, which implements the actual RPC handler using the
+///    interfaces here. Transports implement TransportDataStream to handle
+///    any I/O the RPC handler needs to do.
+/// 5. FlightServiceImpl calls FlightServerBase for the actual application
+///    logic.
+///
+/// On the client side:
+///
+/// 1. Applications create a FlightClient with a Location.
+/// 2. FlightClient will look up and create a ClientTransportImpl based on
+///    the scheme of the Location given to it.
+/// 3. When calling a method on FlightClient, FlightClient will delegate to
+///    the ClientTransportImpl. There is some indirection, e.g. for DoGet,
+///    FlightClient only requests that the ClientTransportImpl start the
+///    call and provide it with an I/O stream. The "Flight implementation"
+///    itself still lives in FlightClient.
 
 #pragma once
 
@@ -58,25 +91,21 @@ struct FlightData {
   ::arrow::Result<std::unique_ptr<ipc::Message>> OpenMessage();
 };
 
-/// \brief An transport-specific interface for reading/writing Arrow data.
+/// \brief A transport-specific interface for reading/writing Arrow data.
 ///
 /// New transports will implement this to read/write IPC payloads to
 /// the underlying stream.
 class ARROW_FLIGHT_EXPORT TransportDataStream {
  public:
   virtual ~TransportDataStream() = default;
-  /// \brief Attemnpt to read the next FlightData message.
+  /// \brief Attempt to read the next FlightData message.
   ///
   /// \return success true if data was populated, false if there was
-  ///   an error. For clients, the error can be retrieved from Finish.
+  ///   an error. For clients, the error can be retrieved from
+  ///   Finish(Status).
   virtual bool ReadData(FlightData* data);
   /// \brief Attempt to write a FlightPayload.
   virtual Status WriteData(const FlightPayload& payload);
-  /// \brief Attempt to write a non-data message.
-  ///
-  /// Only implemented for DoPut; mutually exclusive with Write(const
-  /// FlightPayload&).
-  virtual Status WritePutMetadata(const Buffer& payload);
   /// \brief Indicate that there are no more writes on this stream.
   ///
   /// This is only a hint for the underlying transport and may not
@@ -85,24 +114,50 @@ class ARROW_FLIGHT_EXPORT TransportDataStream {
 };
 
 /// \brief A transport-specific interface for reading/writing Arrow
+///   data for a server.
+class ARROW_FLIGHT_EXPORT ServerDataStream : public TransportDataStream {
+ public:
+  /// \brief Attempt to write a non-data message.
+  ///
+  /// Only implemented for DoPut; mutually exclusive with
+  /// WriteData(const FlightPayload&).
+  virtual Status WritePutMetadata(const Buffer& payload);
+};
+
+/// \brief A transport-specific interface for reading/writing Arrow
 ///   data for a client.
 class ARROW_FLIGHT_EXPORT ClientDataStream : public TransportDataStream {
  public:
   /// \brief Attempt to read a non-data message.
   ///
-  /// Only implemented for DoPut; mutually exclusive with Read(FlightData*).
+  /// Only implemented for DoPut; mutually exclusive with
+  /// ReadData(FlightData*).
   virtual bool ReadPutMetadata(std::shared_ptr<Buffer>* out);
-  /// \brief Finish the call, returning the final server status.
-  ///
-  /// Implies WritesDone().
-  virtual Status Finish() = 0;
   /// \brief Attempt to cancel the call.
   ///
   /// This is only a hint and may not take effect immediately. The
   /// client should still finish the call with Finish() as usual.
   virtual void TryCancel() {}
-  /// \brief Finish the call, combining client-side status with server status.
+  /// \brief Finish the call, reporting the server-sent status and/or
+  ///   any client-side errors as appropriate.
+  ///
+  /// Implies WritesDone().
+  ///
+  /// \param[in] st A client-side status to combine with the
+  ///   server-side error. That is, if an error occurs on the
+  ///   client-side, call Finish(Status) to finish the server-side
+  ///   call, get the server-side status, and merge the statuses
+  ///   together so context is not lost.
   Status Finish(Status st);
+
+ protected:
+  /// \brief Finish the call, returning the final server status.
+  ///
+  /// For implementors: should imply WritesDone() (even if it does not
+  /// directly call it).
+  ///
+  /// Implies WritesDone().
+  virtual Status Finish() = 0;
 };
 
 /// An implementation of a Flight client for a particular transport.
@@ -144,9 +199,13 @@ class ARROW_FLIGHT_EXPORT ClientTransportImpl {
                             std::unique_ptr<ClientDataStream>* stream);
 };
 
-/// The implementation of the Flight service, which implements RPC
-/// method handlers that work in terms of the generic interfaces
-/// here.
+/// The implementation of the Flight service.
+///
+/// Transports implement the server and handle connections. Calls are
+/// forwarded to this server, which implements method handlers that
+/// work in terms of the generic interfaces above. This server
+/// forwards calls to the underlying FlightServerBase instance which
+/// contains the application RPC method handlers.
 ///
 /// Transport implementations should implement the necessary
 /// interfaces and call methods of this service.
@@ -154,19 +213,39 @@ class ARROW_FLIGHT_EXPORT FlightServiceImpl {
  public:
   explicit FlightServiceImpl(FlightServerBase* base,
                              std::shared_ptr<MemoryManager> memory_manager)
-      : service_(base), memory_manager_(std::move(memory_manager)) {}
+      : base_(base), memory_manager_(std::move(memory_manager)) {}
+  /// \brief Implement DoGet in terms of a transport-level stream.
+  ///
+  /// \param[in] context The server context.
+  /// \param[in] request The request payload.
+  /// \param[in] stream The transport-specific data stream
+  ///   implementation. Must implement WriteData(const
+  ///   FlightPayload&).
   Status DoGet(const ServerCallContext& context, const Ticket& request,
-               TransportDataStream* stream);
-  Status DoPut(const ServerCallContext& context, TransportDataStream* stream);
-  Status DoExchange(const ServerCallContext& context, TransportDataStream* stream);
-  FlightServerBase* base() const { return service_; }
+               ServerDataStream* stream);
+  /// \brief Implement DoPut in terms of a transport-level stream.
+  ///
+  /// \param[in] context The server context.
+  /// \param[in] stream The transport-specific data stream
+  ///   implementation. Must implement ReadData(FlightData*)
+  ///   and WritePutMetadata(const Buffer&).
+  Status DoPut(const ServerCallContext& context, ServerDataStream* stream);
+  /// \brief Implement DoExchange in terms of a transport-level stream.
+  ///
+  /// \param[in] context The server context.
+  /// \param[in] stream The transport-specific data stream
+  ///   implementation. Must implement ReadData(FlightData*)
+  ///   and WriteData(const FlightPayload&).
+  Status DoExchange(const ServerCallContext& context, ServerDataStream* stream);
+  FlightServerBase* base() const { return base_; }
 
  private:
-  FlightServerBase* service_;
+  FlightServerBase* base_;
   std::shared_ptr<MemoryManager> memory_manager_;
 };
 
-/// An implementation of a Flight server for a particular transport.
+/// \brief An implementation of a Flight server for a particular
+/// transport.
 ///
 /// Used by FlightServerBase to manage the server lifecycle.
 class ARROW_FLIGHT_EXPORT ServerTransportImpl {

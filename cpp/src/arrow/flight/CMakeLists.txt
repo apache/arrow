@@ -177,6 +177,8 @@ set(ARROW_FLIGHT_SRCS
     server_auth.cc
     transport_impl.cc
     transport_server_impl.cc
+    # Bundle the gRPC impl with libarrow_flight
+    transport/grpc/grpc_server.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

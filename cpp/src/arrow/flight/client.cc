@@ -459,6 +459,9 @@ class FinishableDataStream : public internal::ClientDataStream {
                                        : CPUDevice::Instance()->default_memory_manager()),
         finished_(false) {}
 
+  void TryCancel() override { rpc_->context.TryCancel(); }
+
+ protected:
   Status Finish() override {
     if (finished_) {
       return server_status_;
@@ -485,7 +488,6 @@ class FinishableDataStream : public internal::ClientDataStream {
 
     return server_status_;
   }
-  void TryCancel() override { rpc_->context.TryCancel(); }
 
   std::shared_ptr<ClientRpc> rpc_;
   std::shared_ptr<Stream> stream_;
@@ -523,6 +525,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
     return Status::OK();
   }
 
+ protected:
   Status Finish() override {
     // This may be used concurrently by reader/writer side of a
     // stream, so it needs to be protected.

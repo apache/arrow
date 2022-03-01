@@ -74,7 +74,7 @@ class TransportIpcMessageReader : public ipc::MessageReader {
 ///   interface for DoPut.
 class TransportMessageReader final : public FlightMessageReader {
  public:
-  TransportMessageReader(TransportDataStream* stream,
+  TransportMessageReader(ServerDataStream* stream,
                          std::shared_ptr<MemoryManager> memory_manager)
       : peekable_reader_(new internal::PeekableFlightDataReader(stream)),
         memory_manager_(std::move(memory_manager)) {}
@@ -159,7 +159,7 @@ class TransportMessageReader final : public FlightMessageReader {
 // TODO(ARROW-10787): this should use the same writer/ipc trick as client
 class TransportMessageWriter final : public FlightMessageWriter {
  public:
-  explicit TransportMessageWriter(TransportDataStream* stream)
+  explicit TransportMessageWriter(ServerDataStream* stream)
       : stream_(stream), ipc_options_(::arrow::ipc::IpcWriteOptions::Defaults()) {}
 
   Status Begin(const std::shared_ptr<Schema>& schema,
@@ -239,7 +239,7 @@ class TransportMessageWriter final : public FlightMessageWriter {
     return Status::OK();
   }
 
-  TransportDataStream* stream_;
+  ServerDataStream* stream_;
   ::arrow::ipc::IpcWriteOptions ipc_options_;
   ipc::DictionaryFieldMapper mapper_;
   ipc::WriteStats stats_;
@@ -251,21 +251,21 @@ class TransportMessageWriter final : public FlightMessageWriter {
 ///   interface for DoPut.
 class TransportMetadataWriter final : public FlightMetadataWriter {
  public:
-  explicit TransportMetadataWriter(TransportDataStream* stream) : stream_(stream) {}
+  explicit TransportMetadataWriter(ServerDataStream* stream) : stream_(stream) {}
 
   Status WriteMetadata(const Buffer& buffer) override {
     return stream_->WritePutMetadata(buffer);
   }
 
  private:
-  TransportDataStream* stream_;
+  ServerDataStream* stream_;
 };
 }  // namespace
 
 Status FlightServiceImpl::DoGet(const ServerCallContext& context, const Ticket& ticket,
-                                TransportDataStream* stream) {
+                                ServerDataStream* stream) {
   std::unique_ptr<FlightDataStream> data_stream;
-  RETURN_NOT_OK(service_->DoGet(context, ticket, &data_stream));
+  RETURN_NOT_OK(base_->DoGet(context, ticket, &data_stream));
 
   if (!data_stream) return Status::KeyError("No data in this flight");
 
@@ -294,23 +294,23 @@ Status FlightServiceImpl::DoGet(const ServerCallContext& context, const Ticket& 
 }
 
 Status FlightServiceImpl::DoPut(const ServerCallContext& context,
-                                TransportDataStream* stream) {
+                                ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMetadataWriter> writer(new TransportMetadataWriter(stream));
   RETURN_NOT_OK(reader->Init());
-  RETURN_NOT_OK(service_->DoPut(context, std::move(reader), std::move(writer)));
+  RETURN_NOT_OK(base_->DoPut(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
 }
 
 Status FlightServiceImpl::DoExchange(const ServerCallContext& context,
-                                     TransportDataStream* stream) {
+                                     ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMessageWriter> writer(new TransportMessageWriter(stream));
   RETURN_NOT_OK(reader->Init());
-  RETURN_NOT_OK(service_->DoExchange(context, std::move(reader), std::move(writer)));
+  RETURN_NOT_OK(base_->DoExchange(context, std::move(reader), std::move(writer)));
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();
 }

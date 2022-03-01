@@ -32,10 +32,10 @@ bool TransportDataStream::ReadData(internal::FlightData*) { return false; }
 Status TransportDataStream::WriteData(const FlightPayload&) {
   return Status::NotImplemented("Writing data for this stream");
 }
-Status TransportDataStream::WritePutMetadata(const Buffer&) {
+Status TransportDataStream::WritesDone() { return Status::OK(); }
+Status ServerDataStream::WritePutMetadata(const Buffer&) {
   return Status::NotImplemented("Writing put metadata for this stream");
 }
-Status TransportDataStream::WritesDone() { return Status::OK(); }
 bool ClientDataStream::ReadPutMetadata(std::shared_ptr<Buffer>*) { return false; }
 Status ClientDataStream::Finish(Status st) {
   auto server_status = Finish();
