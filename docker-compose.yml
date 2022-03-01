@@ -1753,7 +1753,9 @@ services:
       <<: *ccache
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
-    command: /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}
+    command: >
+      /bin/bash -c "
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   ubuntu-verify-rc:
     # Usage:
@@ -1778,4 +1780,6 @@ services:
       <<: *ccache
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
-    command: /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}
+    command: >
+      /bin/bash -c "
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
