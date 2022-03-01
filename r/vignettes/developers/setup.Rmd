@@ -110,7 +110,7 @@ The package can be built on Windows using [RTools 4](https://cran.r-project.org/
 
 Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
 
-Install CMake, CCache, and Ninja with:
+Install CMake, ccache, and Ninja with:
 
 ```{bash, save=run & windows}
 pacman --sync --refresh --noconfirm \
