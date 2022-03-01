@@ -89,6 +89,7 @@ target environment.**
    developers/guide/index
    developers/reviewing
    developers/cpp/index
+   developers/java/index
    developers/python
    developers/continuous_integration/index
    developers/benchmarks
