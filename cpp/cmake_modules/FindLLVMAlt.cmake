@@ -19,26 +19,28 @@
 #
 #  find_package(LLVMAlt)
 
-set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-if(LLVM_BREW_PREFIX)
-  list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+if(DEFINED LLVM_ROOT)
+  # if llvm source is set to conda then prefer conda llvm over system llvm even
+  # if the system one is newer
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    find_package(LLVM
+                ${ARROW_LLVM_VERSION}
+                CONFIG
+                NO_DEFAULT_PATH
+                HINTS
+                ${LLVM_ROOT})
+    if(LLVM_FOUND)
+      break()
+    endif()
+  endforeach()
 endif()
 
-# if llvm source is set to conda then prefer conda llvm over system llvm even
-# if the system one is newer
-foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(LLVM
-               ${ARROW_LLVM_VERSION}
-               CONFIG
-               NO_DEFAULT_PATH
-               HINTS
-               ${LLVM_ROOT})
-  if(LLVM_FOUND)
-    break()
-  endif()
-endforeach()
-
 if(NOT LLVM_FOUND)
+  set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
+  if(LLVM_BREW_PREFIX)
+    list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+  endif()
+
   foreach(HINT ${LLVM_HINTS})
     foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
       find_package(LLVM

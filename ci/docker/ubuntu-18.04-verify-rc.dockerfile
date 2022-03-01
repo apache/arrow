@@ -19,7 +19,18 @@ ARG arch=amd64
 FROM ${arch}/ubuntu:18.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+ARG llvm=12
 RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+       apt-transport-https \
+       ca-certificates \
+       gnupg \
+       wget && \
+    wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
+    echo "deb https://apt.llvm.org/bionic/ llvm-toolchain-bionic-${llvm} main" > \
+       /etc/apt/sources.list.d/llvm.list && \
+    apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         build-essential \
         clang \
@@ -31,7 +42,7 @@ RUN apt-get update -y -q && \
         libglib2.0-dev \
         libsqlite3-dev \
         libssl-dev \
-        llvm-dev \
+        llvm-${llvm}-dev \
         maven \
         ninja-build \
         openjdk-11-jdk \
