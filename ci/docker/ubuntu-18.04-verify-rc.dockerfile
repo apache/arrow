@@ -50,7 +50,8 @@ RUN apt-get update -y -q && \
         python3-pip \
         python3.7-dev \
         ruby-dev \
-        wget && \
+        wget \
+        tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
