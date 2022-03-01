@@ -350,8 +350,9 @@ Now, build pyarrow:
 If you did build one of the optional components (in C++), you need to set the
 corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
 
-If you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you need to set the
-corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment variable to 1.
+Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
+need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
+variable to 1.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
 folder and run ``git clean -Xfd .``.

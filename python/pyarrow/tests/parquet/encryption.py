@@ -57,4 +57,4 @@ def verify_file_encrypted(path):
     with open(path, "rb") as file:
         magic_str = file.read(4)
         # Verify magic string for parquet with encrypted footer is PARE
-        assert(magic_str == b'PARE')
+        assert magic_str == b'PARE'

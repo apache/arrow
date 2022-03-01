@@ -640,6 +640,7 @@ endif()
 
 if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
+  target_link_libraries(_parquet_encryption PRIVATE ${PARQUET_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_PLASMA)

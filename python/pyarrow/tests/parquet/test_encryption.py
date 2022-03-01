@@ -21,11 +21,13 @@ import pyarrow as pa
 try:
     import pyarrow.parquet as pq
     import pyarrow.parquet_encryption as pe
-    from common_parquet_encryption import InMemoryKmsClient
-    from common_parquet_encryption import verify_file_encrypted
 except ImportError:
     pq = None
     pe = None
+else:
+    from pyarrow.tests.parquet.encryption import (
+        InMemoryKmsClient, verify_file_encrypted)
+
 
 PARQUET_NAME = 'encrypted_table.in_mem.parquet'
 FOOTER_KEY = b"0123456789112345"
@@ -37,6 +39,7 @@ COL_KEY_NAME = "col_key"
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not parquet_encryption'
 pytestmark = pytest.mark.parquet_encryption
+
 
 @pytest.fixture(scope='module')
 def data_table():
