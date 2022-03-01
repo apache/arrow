@@ -276,6 +276,16 @@ module ValuesBasicArraysTests
     target = build(Arrow::Decimal256Array.new(data_type, values))
     assert_equal(values, target.values)
   end
+
+  def test_month_interval
+    values = [
+      1,
+      nil,
+      12,
+    ]
+    target = build(Arrow::MonthIntervalArray.new(values))
+    assert_equal(values, target.values)
+  end
 end
 
 class ValuesArrayBasicArraysTest < Test::Unit::TestCase

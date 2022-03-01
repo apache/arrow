@@ -341,6 +341,16 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_interval
+    values = [
+      {"field" => 1},
+      nil,
+      {"field" => nil},
+    ]
+    target = build(:month_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"field" => [true, nil, false]},

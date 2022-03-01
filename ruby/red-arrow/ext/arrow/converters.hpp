@@ -202,6 +202,13 @@ namespace red_arrow {
     //                      const int64_t i) {
     // };
 
+
+    inline VALUE convert(const arrow::MonthIntervalArray& array,
+                         const int64_t i) {
+      return INT2NUM(array.Value(i));
+    }
+
+
     VALUE convert(const arrow::ListArray& array,
                   const int64_t i);
 
@@ -300,6 +307,7 @@ namespace red_arrow {
     VISIT(Timestamp)
     // TODO
     // VISIT(Interval)
+    VISIT(MonthInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -406,6 +414,7 @@ namespace red_arrow {
     VISIT(Timestamp)
     // TODO
     // VISIT(Interval)
+    VISIT(MonthInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -508,6 +517,7 @@ namespace red_arrow {
     VISIT(Timestamp)
     // TODO
     // VISIT(Interval)
+    VISIT(MonthInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -611,6 +621,7 @@ namespace red_arrow {
     VISIT(Timestamp)
     // TODO
     // VISIT(Interval)
+    VISIT(MonthInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)

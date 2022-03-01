@@ -302,6 +302,15 @@ module ValuesMapArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_interval
+    values = [
+      {"key1" => 1, "key2" => nil},
+      nil,
+    ]
+    target = build(:month_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"key1" => [true, nil, false], "key2" => nil},
