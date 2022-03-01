@@ -2450,11 +2450,11 @@ TEST(TestStringOps, TestInstr) {
 }
 TEST(TestStringOps, TestParseURL) {
   gandiva::ExecutionContext ctx;
-  gdv_int64 ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
-  gdv_int32 out_len = 0;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int64 out_len = 0;
 
   const char* url = "http://userinfo@github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1";
-  gdv_int32 url_len = strlen(url);
+  size_t url_len = strlen(url);
   const int32_t ALL_BYTES_MATCH = 0;
 
   // Optimal cases.
