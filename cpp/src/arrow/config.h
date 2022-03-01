@@ -85,6 +85,6 @@ struct ArrowGlobalOptions {
 };
 
 ARROW_EXPORT
-Status Initialize(const ArrowGlobalOptions& options);
+Status Initialize(const ArrowGlobalOptions& options) noexcept;
 
 }  // namespace arrow

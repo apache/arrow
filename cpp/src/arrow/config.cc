@@ -77,16 +77,14 @@ RuntimeInfo GetRuntimeInfo() {
   return info;
 }
 
-Status Initialize(const ArrowGlobalOptions& options) {
+Status Initialize(const ArrowGlobalOptions& options) noexcept {
   if (options.tz_db_path != nullptr) {
     #if !USE_OS_TZDB
     try {
       arrow_vendored::date::set_install(*options.tz_db_path);
       arrow_vendored::date::reload_tzdb();
     } catch(const std::runtime_error& e) {
-      return Status::ExecutionError(e.msg);
-    } catch(const std::system_error& e) {
-      return Status::ExecutionError(e.msg);
+      return Status::ExecutionError(e.what());
     }
     #else
       return Status::Invalid("Arrow was set to use OS timezone database at compile time, so it cannot be set at runtime.");

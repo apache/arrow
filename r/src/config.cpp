@@ -35,10 +35,15 @@ std::vector<std::string> runtime_info() {
 }
 
 // [[arrow::export]]
-void set_timezone_database(std::string& path) {
-  ArrowGlobalOptions options;
-  options.tz_db_path = &path;
-  StopIfNotOk(arrow::Initialize(options))
+void set_timezone_database(cpp11::strings path) {
+  auto paths = cpp11::as_cpp<std::vector<std::string>>(path);
+  if (path.size() != 1) {
+    cpp11::stop("Must provide a single path to the timezone database.");
+  }
+  
+  arrow::ArrowGlobalOptions options;
+  options.tz_db_path = &paths[0];
+  arrow::StopIfNotOk(arrow::Initialize(options));
 }
 
 #endif

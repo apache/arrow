@@ -69,7 +69,7 @@
     # Try to set timezone database
     if ("tzdb" %in% rownames(installed.packages())) {
       tzdb::tzdb_initialize()
-      set_timezone_database(tzdb::tzdb_path())
+      set_timezone_database(tzdb::tzdb_path("text"))
     } else {
       warning("tzdb not installed. Timezones will not be available.")
     }

@@ -1842,10 +1842,10 @@ extern "C" SEXP _arrow_runtime_info(){
 
 // config.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void set_timezone_database(std::string& path);
+void set_timezone_database(cpp11::strings path);
 extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
 BEGIN_CPP11
-	arrow::r::Input<std::string&>::type path(path_sexp);
+	arrow::r::Input<cpp11::strings>::type path(path_sexp);
 	set_timezone_database(path);
 	return R_NilValue;
 END_CPP11
@@ -7635,11 +7635,11 @@ return Rf_ScalarLogical(
 );
 }
 static const R_CallMethodDef CallEntries[] = {
-{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
-{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
-{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
-{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-{ "_json_available", (DL_FUNC)& _json_available, 0 },
+		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
+		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
+		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
+		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
+		{ "_json_available", (DL_FUNC)& _json_available, 0 },
 		{ "_arrow_test_SET_STRING_ELT", (DL_FUNC) &_arrow_test_SET_STRING_ELT, 1}, 
 		{ "_arrow_is_arrow_altrep", (DL_FUNC) &_arrow_is_arrow_altrep, 1}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
