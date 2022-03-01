@@ -296,6 +296,16 @@ class FinishableDataStream : public internal::ClientDataStream {
           server_status_.code(), server_status_.detail(), server_status_.message(),
           ". gRPC client debug context: ", rpc_->context.debug_error_string());
     }
+    if (!transport_status_.ok()) {
+      if (server_status_.ok()) {
+        server_status_ = transport_status_;
+      } else {
+        server_status_ = Status::FromDetailAndArgs(
+            server_status_.code(), server_status_.detail(), server_status_.message(),
+            ". gRPC client debug context: ", rpc_->context.debug_error_string(),
+            ". Additional context: ", transport_status_.ToString());
+      }
+    }
     finished_ = true;
 
     return server_status_;
@@ -306,6 +316,8 @@ class FinishableDataStream : public internal::ClientDataStream {
   std::shared_ptr<MemoryManager> memory_manager_;
   bool finished_;
   Status server_status_;
+  // A transport-side error that needs to get combined with the server status
+  Status transport_status_;
 };
 
 /// \brief A ClientDataStream implementation for gRPC that manages a
@@ -381,11 +393,10 @@ class GrpcClientGetStream
   bool ReadData(internal::FlightData* data) override {
     bool success = internal::ReadPayload(stream_.get(), data);
     if (ARROW_PREDICT_FALSE(!success)) return false;
-    if (data->body &&
-        ARROW_PREDICT_FALSE(!data->body->device()->Equals(*memory_manager_->device()))) {
+    if (data->body) {
       auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
       if (!status.ok()) {
-        server_status_ = std::move(status);
+        transport_status_ = std::move(status);
         return false;
       }
     }
@@ -440,11 +451,10 @@ class GrpcClientExchangeStream
     std::lock_guard<std::mutex> guard(read_mutex_);
     bool success = internal::ReadPayload(stream_.get(), data);
     if (ARROW_PREDICT_FALSE(!success)) return false;
-    if (data->body &&
-        ARROW_PREDICT_FALSE(!data->body->device()->Equals(*memory_manager_->device()))) {
+    if (data->body) {
       auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
       if (!status.ok()) {
-        server_status_ = std::move(status);
+        transport_status_ = std::move(status);
         return false;
       }
     }
