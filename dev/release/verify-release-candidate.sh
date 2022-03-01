@@ -481,17 +481,21 @@ setup_virtualenv() {
       echo "Call the script with USE_CONDA=1 to test all of the python versions."
       return 1
     else
-      show_info "Found interpreter $(which $python)"
+      show_info "Found interpreter $($python --version): $(which $python)"
     fi
     # Create environment
     if [ ! -d "${virtualenv}" ]; then
       show_info "Creating python virtualenv at ${virtualenv}..."
       $python -m venv ${virtualenv}
+      # Activate the environment
+      source "${virtualenv}/bin/activate"
+      # Upgrade pip
+      pip install -U pip
     else
       show_info "Using already created virtualenv at ${virtualenv}"
+      # Activate the environment
+      source "${virtualenv}/bin/activate"
     fi
-    # Activate the environment
-    source "${virtualenv}/bin/activate"
     # Install dependencies
     if [ $# -gt 0 ]; then
       show_info "Installed pip packages $@..."

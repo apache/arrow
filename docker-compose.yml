@@ -1751,6 +1751,7 @@ services:
     shm_size: '1gb'
     environment:
       <<: *ccache
+      CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
     command: >
@@ -1778,6 +1779,7 @@ services:
     shm_size: '1gb'
     environment:
       <<: *ccache
+      CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
     command: >

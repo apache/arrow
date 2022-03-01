@@ -48,13 +48,13 @@ RUN apt-get update -y -q && \
         openjdk-11-jdk \
         pkg-config \
         python3-pip \
-        python3.7-dev \
-        python3.7-venv \
+        python3.8-dev \
+        python3.8-venv \
         ruby-dev \
         wget \
         tzdata && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
-RUN python3.7 -m pip install -U pip && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 1
+RUN python3.8 -m pip install -U pip && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
