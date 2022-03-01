@@ -335,7 +335,7 @@ struct NullGeneralization {
     if (dtype_id == Type::NA) {
       return ALL_NULL;
     }
-    if (!internal::HasValidityBitmap(dtype_id)) {
+    if (!arrow::internal::HasValidityBitmap(dtype_id)) {
       return ALL_VALID;
     }
     if (datum.is_scalar()) {
