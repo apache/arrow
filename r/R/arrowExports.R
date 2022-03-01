@@ -516,6 +516,10 @@ csv___WriteCSV__RecordBatch <- function(record_batch, write_options, stream) {
   invisible(.Call(`_arrow_csv___WriteCSV__RecordBatch`, record_batch, write_options, stream))
 }
 
+csv___WriteCSV__RecordBatchReader <- function(reader, write_options, stream) {
+  invisible(.Call(`_arrow_csv___WriteCSV__RecordBatchReader`, reader, write_options, stream))
+}
+
 dataset___Dataset__NewScan <- function(ds) {
   .Call(`_arrow_dataset___Dataset__NewScan`, ds)
 }
