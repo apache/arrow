@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "chunk_resolver.h"
+#include "arrow/chunk_resolver.h"
 
 #include <algorithm>
 #include <cstdint>
