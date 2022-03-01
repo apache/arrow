@@ -86,18 +86,18 @@ function configure_dev() {
   RWINLIB=$(cygpath $ARROW_HOME)
 
   export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$(cygpath $MSYSTEM_PREFIX)/lib
-  PKG_CONFIG_LIBS="arrow"
+  PKG_CONFIG_PACKAGES="arrow"
 
   PKG_CFLAGS="-DARROW_R_WITH_ARROW"
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-    PKG_CONFIG_LIBS="$PKG_CONFIG_LIBS parquet"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-    PKG_CONFIG_LIBS="$PKG_CONFIG_LIBS arrow-dataset"
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-dataset"
   fi
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
@@ -108,8 +108,8 @@ function configure_dev() {
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi
 
-  PKG_CFLAGS="$(pkg-config --cflags $PKG_CONFIG_LIBS) $PKG_CFLAGS"
-  PKG_LIBS=$(pkg-config --libs $PKG_CONFIG_LIBS)
+  PKG_CFLAGS="$(pkg-config --cflags $PKG_CONFIG_PACKAGES) $PKG_CFLAGS"
+  PKG_LIBS=$(pkg-config --libs $PKG_CONFIG_PACKAGES)
 }
 
 

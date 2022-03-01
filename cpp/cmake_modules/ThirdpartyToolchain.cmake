@@ -1719,7 +1719,7 @@ if(ARROW_MIMALLOC)
   if(WIN32)
     set_property(TARGET mimalloc::mimalloc
                  APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi")
+                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
   endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
@@ -2285,10 +2285,12 @@ if(ARROW_WITH_RE2)
   # source not uses C++ 11.
   resolve_dependency(re2 HAVE_ALT TRUE)
   if(${re2_SOURCE} STREQUAL "SYSTEM")
-    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
-    if(${RE2_LIB} STREQUAL "RE2_LIB-NOTFOUND")
-      # Sometimes this is set instead
+    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+    if(NOT RE2_LIB)
       get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
+    endif()
+    if(NOT RE2_LIB)
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
     endif()
 
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
