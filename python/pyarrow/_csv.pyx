@@ -152,6 +152,11 @@ cdef class ReadOptions(_Weakrefable):
     def use_threads(self):
         """
         Whether to use multiple threads to accelerate reading.
+
+        Examples:
+        ---------
+        >>> pyarrow.csv.read_csv(input_file,
+        ...                      read_options=csv.ReadOptions(use_threads=False))
         """
         return deref(self.options).use_threads
 
@@ -178,6 +183,29 @@ cdef class ReadOptions(_Weakrefable):
         The number of rows to skip before the column names (if any)
         and the CSV data.
         See `skip_rows_after_names` for interaction description
+
+        Examples:
+        ---------
+        >>> from pyarrow import csv
+
+        >>> read_options = csv.ReadOptions(skip_rows=1)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        Flamingo: string
+        2: int64
+        ----
+        Flamingo: [["Horse","Brittle stars","Centipede"]]
+        2: [[4,5,100]]
+
+        >>> read_options = csv.ReadOptions(column_names=["a", "n"],
+        ...                                skip_rows=1)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        a: string
+        n: int64
+        ----
+        a: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        n: [[2,4,5,100]]
         """
         return deref(self.options).skip_rows
 
@@ -190,6 +218,19 @@ cdef class ReadOptions(_Weakrefable):
         """
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
+
+        Examples:
+        ---------
+        >>> from pyarrow import csv
+
+        >>> read_options = csv.ReadOptions(column_names=["a", "n"])
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        a: string
+        n: string
+        ----
+        a: [["animals","Flamingo","Horse","Brittle stars","Centipede"]]
+        n: [["n_legs","2","4","5","100"]]
         """
         return [frombytes(s) for s in deref(self.options).column_names]
 
@@ -206,6 +247,28 @@ cdef class ReadOptions(_Weakrefable):
         If true, column names will be of the form "f0", "f1"...
         If false, column names will be read from the first CSV row
         after `skip_rows`.
+
+        Examples:
+        ---------
+        >>> from pyarrow import csv
+
+        >>> read_options = csv.ReadOptions(autogenerate_column_names=True)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        f0: string
+        f1: string
+        ----
+        f0: [["animals","Flamingo","Horse","Brittle stars","Centipede"]]
+        f1: [["n_legs","2","4","5","100"]]
+
+        >>> read_options = csv.ReadOptions(autogenerate_column_names=False)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        animals: string
+        n_legs: int64
+        ----
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        n_legs: [[2,4,5,100]]
         """
         return deref(self.options).autogenerate_column_names
 
@@ -223,6 +286,29 @@ cdef class ReadOptions(_Weakrefable):
         - `skip_rows` is applied (if non-zero);
         - column names aread (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
+
+        Examples:
+        ---------
+
+        >>> from pyarrow import csv
+
+        >>> read_options = csv.ReadOptions(skip_rows_after_names=1)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        animals: string
+        n_legs: int64
+        ----
+        animals: [["Horse","Brittle stars","Centipede"]]
+        n_legs: [[4,5,100]]
+
+        >>> read_options = csv.ReadOptions(column_names=["a", "n"], skip_rows_after_names=1)
+        >>> csv.read_csv("animals.csv", read_options=read_options)
+        pyarrow.Table
+        a: string
+        n: int64
+        ----
+        a: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        n: [[2,4,5,100]]
         """
         return deref(self.options).skip_rows_after_names
 
@@ -938,6 +1024,21 @@ def read_csv(input_file, read_options=None, parse_options=None,
     -------
     :class:`pyarrow.Table`
         Contents of the CSV file as a in-memory table.
+
+    Examples
+    --------
+
+    Reading from the example of pyarrow.csv.write_csv:
+
+    >>> from pyarrow import csv
+    >>> csv.read_csv("animals.csv")
+    pyarrow.Table
+    animals: string
+    n_legs: int64
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
+
     """
     cdef:
         shared_ptr[CInputStream] stream
@@ -1108,6 +1209,18 @@ def write_csv(data, output_file, write_options=None,
         Options to configure writing the CSV data.
     memory_pool : MemoryPool, optional
         Pool for temporary allocations.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> from pyarrow import csv
+    >>>
+    >>> legs = pa.array([2, 4, 5, 100])
+    >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+    >>> table = pa.table([animals, legs], names=["animals", "n_legs"])
+    >>>
+    >>> csv.write_csv(table, "animals.csv")
+
     """
     cdef:
         shared_ptr[COutputStream] stream
