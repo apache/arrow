@@ -400,7 +400,7 @@ Result<std::pair<std::string, std::string>> DirectoryPartitioning::FormatValues(
     break;
   }
 
-  return make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
+  return std::make_pair(fs::internal::JoinAbstractPath(std::move(segments)), "");
 }
 
 Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(

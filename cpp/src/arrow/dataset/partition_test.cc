@@ -298,7 +298,7 @@ TEST_F(TestPartitioning, DiscoverSchemaFilename) {
   AssertInspect({"0_1_"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
-  AssertInspect({"0_1_what"}, {Int("alpha"), Int("beta")});
+  AssertInspect({"0_1_what_"}, {Int("alpha"), Int("beta")});
 
   // fall back to string if any segment for field alpha is not parseable as int
   AssertInspect({"0_1_", "hello_1_"}, {Str("alpha"), Int("beta")});
@@ -307,10 +307,10 @@ TEST_F(TestPartitioning, DiscoverSchemaFilename) {
   AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
 
   // missing segment for beta doesn't cause an error or fallback
-  AssertInspect({"0_1", "hello"}, {Str("alpha"), Int("beta")});
+  AssertInspect({"0_1_", "hello_"}, {Str("alpha"), Int("beta")});
 }
 
-TEST_F(TestPartitioning, DictionaryInference) {
+TEST_F(TestPartitioning, DirectoryDictionaryInference) {
   PartitioningFactoryOptions options;
   options.infer_dictionary = true;
   factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
@@ -328,6 +328,25 @@ TEST_F(TestPartitioning, DictionaryInference) {
   AssertInspect({"/0/a", "/1"}, {DictInt("alpha"), DictStr("beta")});
   AssertInspect({"/a/0", "/b/0", "/a/1", "/b/1"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"/a/-", "/b/-", "/a/_", "/b/_"}, {DictStr("alpha"), DictStr("beta")});
+}
+
+TEST_F(TestPartitioning, FilenameDictionaryInference) {
+  PartitioningFactoryOptions options;
+  options.infer_dictionary = true;
+  factory_ = FilenamePartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // type is still int32 if possible
+  AssertInspect({"0_1_"}, {DictInt("alpha"), DictInt("beta")});
+
+  // If there are too many digits fall back to string
+  AssertInspect({"3760212050_1_"}, {DictStr("alpha"), DictInt("beta")});
+
+  // successful dictionary inference
+  AssertInspect({"a_0_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "a_1_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"a_0_", "a_"}, {DictStr("alpha"), DictInt("beta")});
+  AssertInspect({"0_a_", "1_"}, {DictInt("alpha"), DictStr("beta")});
+  AssertInspect({"a_0_", "b_0_", "a_1_", "b_1_"}, {DictStr("alpha"), DictInt("beta")});
 }
 
 TEST_F(TestPartitioning, DictionaryHasUniqueValues) {

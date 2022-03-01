@@ -133,13 +133,21 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts) {
   return Status::OK();
 }
 
+std::string ConcatAbstractPath(const std::string& base, const std::string& stem) {
+  DCHECK(!stem.empty());
+  if (base.empty()) {
+    return stem;
+  }
+  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+}
+
 std::string ConcatAbstractPath(const std::string& base, const std::string& prefix,
                                const std::string& stem) {
   DCHECK(!stem.empty());
   if (base.empty()) {
     return stem;
   }
-  return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
+  return EnsureTrailingSlash(base) + prefix + std::string(RemoveLeadingSlash(stem));
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {

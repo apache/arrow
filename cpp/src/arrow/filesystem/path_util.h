@@ -135,6 +135,7 @@ std::string JoinFilenamePartitions(StringIt it, StringIt end) {
     }
     path += *it;
   }
+  path += kFilenameSep;
   return path;
 }
 
