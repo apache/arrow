@@ -3036,10 +3036,10 @@ const char* parse_url_utf8_utf8(gdv_int64 context, const char* url, gdv_int32 ur
   }
 
   if (memcmp(part_to_extract, ref_key, part_len) == 0) {
-    if(!file_sub) {
+    if (!file_sub) {
       *out_len = 0;
       return "";
-    }else {
+    } else {
       auto ref_sub = file_sub + strlen(ref_start);
       if (ref_sub) {
         *out_len = static_cast<int32_t>(strlen(ref_sub));
