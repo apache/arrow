@@ -2600,7 +2600,8 @@ cdef class Table(_PandasConvertible):
 
         return table
 
-    def join(self, keys, right_table, right_keys, join_type="left outer"):
+    def join(self, keys, right_table, right_keys=None, join_type="left outer",
+             left_suffix=None, right_suffix=None, use_threads=True):
         """
         Perform a join between this table and another one.
 
@@ -2615,19 +2616,32 @@ cdef class Table(_PandasConvertible):
         right_table : Table
             The table to join to the current one, acting as the right table
             in the join operation.
-        right_keys : str or list[str]
+        right_keys : str or list[str], default None
             The columns from the right_table that should be used as keys
-            on the join operation right side.
+            on the join operation right side. 
+            When ``None`` use the same key names as the left table.
         join_type : str, default "left outer"
             The kind of join that should be performed, one of
             ("left semi", "right semi", "left anti", "right anti",
             "inner", "left outer", "right outer", "full outer")
+        left_suffix : str, default None
+            Which suffix to add to right column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        right_suffix : str, default None
+            Which suffic to add to the left column names. This prevents confusion
+            when the columns in left and right tables have colliding names.
+        use_threads : bool, default True
+            Whenever to use multithreading or not.
 
         Returns
         -------
         Table
         """
-        return _pc().tables_join(join_type, self, keys, right_table, right_keys)
+        if right_keys is None:
+            right_keys = keys
+        return _pc().tables_join(join_type, self, keys, right_table, right_keys,
+                                 left_suffix=left_suffix, right_suffix=right_suffix,
+                                 use_threads=use_threads)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.

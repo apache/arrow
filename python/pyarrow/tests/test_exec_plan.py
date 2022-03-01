@@ -62,17 +62,14 @@ def test_joins_corner_cases():
     ("inner", {
         "colA": [1, 2],
         "col2": ["a", "b"],
-        "colB": [1, 2],
         "col3": ["A", "B"]
     }),
     ("left outer", {
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
-        "colB": [1, 2, None],
         "col3": ["A", "B", None]
     }),
     ("right outer", {
-        "colA": [1, 2, None],
         "col2": ["a", "b", None],
         "colB": [1, 2, 99],
         "col3": ["A", "B", "Z"]
@@ -84,7 +81,8 @@ def test_joins_corner_cases():
         "col3": ["A", "B", None, "Z"]
     })
 ])
-def test_joins(jointype, expected):
+@pytest.mark.parametrize("use_threads", [True, False])
+def test_joins(jointype, expected, use_threads):
     # Allocate table here instead of using parametrize
     # this prevents having arrow allocated memory forever around.
     expected = pa.table(expected)
@@ -99,5 +97,6 @@ def test_joins(jointype, expected):
         "col3": ["Z", "B", "A"]
     })
 
-    r = pc.tables_join(jointype, t1, "colA", t2, "colB")
+    r = pc.tables_join(jointype, t1, "colA", t2, "colB",
+                       use_threads=use_threads)
     assert r == expected

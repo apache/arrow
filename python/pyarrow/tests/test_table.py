@@ -2060,7 +2060,6 @@ def test_table_join():
     assert result == pa.table({
         "colA": [1, 2, 6],
         "col2": ["a", "b", "f"],
-        "colB": [1, 2, None],
         "col3": ["A", "B", None]
     })
 
@@ -2069,5 +2068,32 @@ def test_table_join():
         "colA": [1, 2, 6, None],
         "col2": ["a", "b", "f", None],
         "colB": [1, 2, None, 99],
+        "col3": ["A", "B", None, "Z"]
+    })
+
+
+def test_table_join_unique_key():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"]
+    })
+
+    t2 = pa.table({
+        "colA": [99, 2, 1],
+        "col3": ["Z", "B", "A"]
+    })
+
+    result = t1.join("colA", t2)
+    assert result == pa.table({
+        "colA": [1, 2, 6],
+        "col2": ["a", "b", "f"],
+        "col3": ["A", "B", None]
+    })
+
+    result = t1.join("colA", t2, join_type="full outer", right_suffix="_r")
+    assert result == pa.table({
+        "colA": [1, 2, 6, None],
+        "col2": ["a", "b", "f", None],
+        "colA_r": [1, 2, None, 99],
         "col3": ["A", "B", None, "Z"]
     })

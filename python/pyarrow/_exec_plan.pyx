@@ -30,26 +30,29 @@ from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
 from pyarrow.lib import tobytes
 
 
-cdef execplan(inputs, output_type, vector[CDeclaration] plan):
+cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
     """
-    Internal Function to create and ExecPlan and run it.
+    Internal Function to create an ExecPlan and run it.
 
     Parameters
     ----------
     inputs : list of Table or Dataset
-             The sources from which the ExecPlan should fetch data.
-             In most cases this is only one, unless the first node of the
-             plan is able to get data from multiple different sources.
+        The sources from which the ExecPlan should fetch data.
+        In most cases this is only one, unless the first node of the
+        plan is able to get data from multiple different sources.
     output_type : Table or Dataset
-             In which format the output should be provided.
+        In which format the output should be provided.
     plan : vector[CDeclaration]
-             The nodes of the plan that should be applied to the sources
-             to produce the output.
+        The nodes of the plan that should be applied to the sources
+        to produce the output.
+    use_threads : bool, default True
+        Whenever to use multithreading or not.
     """
     cdef:
-        CExecContext c_exec_context = CExecContext(c_default_memory_pool(),
-                                                   GetCpuThreadPool())
-        shared_ptr[CExecPlan] c_exec_plan = GetResultValue(CExecPlan.Make(&c_exec_context))
+        CExecutor *c_executor
+        shared_ptr[CThreadPool] c_executor_sptr
+        shared_ptr[CExecContext] c_exec_context
+        shared_ptr[CExecPlan] c_exec_plan
         vector[CDeclaration] c_decls
         vector[CExecNode*] _empty
         vector[CExecNode*] c_final_node_vec
@@ -62,6 +65,16 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
         shared_ptr[CRecordBatchReader] c_recordbatchreader
         vector[CDeclaration].iterator plan_iter
 
+    if use_threads:
+        c_executor = GetCpuThreadPool()
+    else:
+        c_executor_sptr = GetResultValue(CThreadPool.Make(1))
+        c_executor = c_executor_sptr.get()
+
+    c_exec_context = make_shared[CExecContext](
+        c_default_memory_pool(), c_executor)
+    c_exec_plan = GetResultValue(CExecPlan.Make(c_exec_context.get()))
+
     plan_iter = plan.begin()
 
     # Create source nodes for each input
@@ -69,9 +82,9 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
         if isinstance(ipt, Table):
             c_in_table = pyarrow_unwrap_table(ipt).get()
             c_sourceopts = GetResultValue(
-                CSourceNodeOptions.FromTable(deref(c_in_table), c_exec_context.executor()))
+                CSourceNodeOptions.FromTable(deref(c_in_table), deref(c_exec_context).executor()))
         else:
-            raise TypeError("Unsupproted type")
+            raise TypeError("Unsupported type")
 
         if plan_iter != plan.end():
             # Flag the source as the input of the first plan node.
@@ -106,7 +119,7 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
     # Convert the asyncgenerator to a sync batch reader
     c_recordbatchreader = MakeGeneratorReader(c_node.output_schema(),
                                               deref(c_asyncexecbatchgen),
-                                              c_exec_context.memory_pool())
+                                              deref(c_exec_context).memory_pool())
 
     # Start execution of the ExecPlan
     deref(c_exec_plan).Validate()
@@ -125,7 +138,15 @@ cdef execplan(inputs, output_type, vector[CDeclaration] plan):
     return output
 
 
-def tables_join(join_type, left_table, left_keys, right_table, right_keys):
+# Default filter for the JOIN operation, means to pick every row.
+cdef CExpression _true = CMakeScalarExpression(
+    <shared_ptr[CScalar]> make_shared[CBooleanScalar](True)
+)
+
+
+def tables_join(join_type, left_table not None, left_keys,
+                right_table not None, right_keys,
+                left_suffix=None, right_suffix=None, use_threads=True):
     """
     Perform join of two tables.
 
@@ -136,13 +157,21 @@ def tables_join(join_type, left_table, left_keys, right_table, right_keys):
     join_type : str
         One of supported join types.
     left_table : Table
-        The left table for the join operation
+        The left table for the join operation.
     left_keys : str or list[str]
-        The left table key (or keys) on which the join operation should be performed
+        The left table key (or keys) on which the join operation should be performed.
     right_table : Table
-        The right table for the join operation
+        The right table for the join operation.
     right_keys : str or list[str]
-        The right table key (or keys) on which the join operation should be performed
+        The right table key (or keys) on which the join operation should be performed.
+    left_suffix : str, default None
+        Which suffix to add to right column names. This prevents confusion
+        when the columns in left and right tables have colliding names.
+    right_suffix : str, default None
+        Which suffic to add to the left column names. This prevents confusion
+        when the columns in left and right tables have colliding names.
+    use_threads : bool, default True
+        Whenever to use multithreading or not.
 
     Returns
     -------
@@ -151,6 +180,8 @@ def tables_join(join_type, left_table, left_keys, right_table, right_keys):
     cdef:
         vector[CFieldRef] c_left_keys
         vector[CFieldRef] c_right_keys
+        vector[CFieldRef] c_left_columns
+        vector[CFieldRef] c_right_columns
         vector[CDeclaration] c_decl_plan
         CJoinType c_join_type
 
@@ -165,30 +196,51 @@ def tables_join(join_type, left_table, left_keys, right_table, right_keys):
     for key in right_keys:
         c_right_keys.push_back(CFieldRef(<c_string>tobytes(key)))
 
+    # By default expose all columns on both left and right table
+    left_columns = left_table.column_names
+    right_columns = right_table.column_names
+
     # Pick the join type
     if join_type == "left semi":
         c_join_type = CJoinType_LEFT_SEMI
+        right_columns = []
     elif join_type == "right semi":
         c_join_type = CJoinType_RIGHT_SEMI
+        left_columns = []
     elif join_type == "left anti":
         c_join_type = CJoinType_LEFT_ANTI
+        right_columns = []
     elif join_type == "right anti":
         c_join_type = CJoinType_RIGHT_ANTI
+        left_columns = []
     elif join_type == "inner":
         c_join_type = CJoinType_INNER
+        right_columns = set(right_columns) - set(right_keys)
     elif join_type == "left outer":
         c_join_type = CJoinType_LEFT_OUTER
+        right_columns = set(right_columns) - set(right_keys)
     elif join_type == "right outer":
         c_join_type = CJoinType_RIGHT_OUTER
+        left_columns = set(left_columns) - set(left_keys)
     elif join_type == "full outer":
         c_join_type = CJoinType_FULL_OUTER
     else:
-        raise ValueError("Unsupporter join type")
+        raise ValueError("Unsupported join type")
+
+    # Turn the columns to vectors of FieldRefs
+    for colname in left_columns:
+        c_left_columns.push_back(CFieldRef(<c_string>tobytes(colname)))
+    for colname in right_columns:
+        c_right_columns.push_back(CFieldRef(<c_string>tobytes(colname)))
 
     # Add the join node to the execplan
     c_decl_plan.push_back(
         CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
-            c_join_type, c_left_keys, c_right_keys
+            c_join_type, c_left_keys, c_right_keys,
+            c_left_columns, c_right_columns,
+            _true,
+            <c_string>tobytes(left_suffix or ""),
+            <c_string>tobytes(right_suffix or "")
         ))
     )
 

@@ -1797,7 +1797,8 @@ cdef extern from "arrow/util/thread_pool.h" namespace "arrow::internal" nogil:
         pass
 
     cdef cppclass CThreadPool "arrow::internal::ThreadPool"(CExecutor):
-        pass
+        @staticmethod
+        CResult[shared_ptr[CThreadPool]] Make(int threads)
 
     CThreadPool* GetCpuThreadPool()
 
@@ -2480,8 +2481,16 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
                              vector[CFieldRef] in_right_keys,
                              CExpression filter,
-                             c_string output_prefix_for_left,
-                             c_string output_prefix_for_right)
+                             c_string output_suffix_for_left,
+                             c_string output_suffix_for_right)
+        CHashJoinNodeOptions(CJoinType join_type,
+                             vector[CFieldRef] left_keys,
+                             vector[CFieldRef] right_keys,
+                             vector[CFieldRef] left_output,
+                             vector[CFieldRef] right_output,
+                             CExpression filter,
+                             c_string output_suffix_for_left,
+                             c_string output_suffix_for_right)
 
 
 cdef extern from "arrow/compute/exec/exec_plan.h" namespace "arrow::compute" nogil:
