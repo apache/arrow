@@ -116,8 +116,8 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups);
 
   /// \brief Return a FileReader on the given source.
-  Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
-      const FileSource& source, ScanOptions* = NULLPTR) const;
+  Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
 
   Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
@@ -212,16 +212,9 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// ScanOptions.
   std::shared_ptr<parquet::ReaderProperties> reader_properties;
   /// Arrow reader properties. Not all properties are respected: batch_size comes from
-  /// ScanOptions, and use_threads will be overridden based on
-  /// enable_parallel_column_conversion. Additionally, dictionary columns come from
+  /// ScanOptions. Additionally, dictionary columns come from
   /// ParquetFileFormat::ReaderOptions::dict_columns.
   std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
-  /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
-  /// scan is already parallelized across input files to avoid thread contention. This
-  /// option will be removed after support is added for simultaneous parallelization
-  /// across files and columns. Only affects the threaded reader; the async reader
-  /// will parallelize across columns if use_threads is enabled.
-  bool enable_parallel_column_conversion = false;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
