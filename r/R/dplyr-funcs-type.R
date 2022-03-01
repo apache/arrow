@@ -90,7 +90,7 @@ register_bindings_type_cast <- function() {
     # cast from POSIXct
     } else if (call_binding("is.POSIXct", x)) {
       if (tz == "UTC") {
-        interim_x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
+        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
       } else {
         abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
       }
@@ -111,7 +111,7 @@ register_bindings_type_cast <- function() {
       if (!inherits(x, "Expression")) {
         x <- build_expr("cast", x, options = cast_options(to_type = type(x)))
       }
-      interim_x <- call_binding("strptime", x, format, unit = "s")
+      x <- call_binding("strptime", x, format, unit = "s")
 
     # cast from numeric
     } else if (call_binding("is.numeric", x)) {
@@ -124,15 +124,13 @@ register_bindings_type_cast <- function() {
         # need to use round before casting
         # TODO revisit if arrow decides to support double -> date casting
         x <- call_binding("floor", x)
-        interim_x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
-      } else {
-        interim_x <- x
+        x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
       }
       if (origin != "1970-01-01") {
         abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
       }
     }
-    build_expr("cast", interim_x, options = cast_options(to_type = date32()))
+    build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 
   register_binding("is", function(object, class2) {
