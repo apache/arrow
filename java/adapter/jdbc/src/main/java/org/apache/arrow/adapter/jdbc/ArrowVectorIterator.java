@@ -26,6 +26,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -90,9 +91,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       iterator = new ArrowVectorIterator(resultSet, config);
       iterator.initialize();
     } catch (Throwable e) {
-      if (iterator != null) {
-        iterator.close();
-      }
+      AutoCloseables.close(e, iterator);
       throw new RuntimeException("Error occurred while creating iterator.", e);
     }
     return iterator;

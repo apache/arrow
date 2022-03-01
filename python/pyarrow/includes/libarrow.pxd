@@ -496,6 +496,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int indent
         int indent_size
         int window
+        int container_window
         c_string null_rep
         c_bool skip_new_lines
         c_bool truncate_metadata
@@ -1713,6 +1714,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+        unsigned char delimiter
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -1945,9 +1947,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CRoundTemporalOptions \
             "arrow::compute::RoundTemporalOptions"(CFunctionOptions):
-        CRoundTemporalOptions(int multiple, CCalendarUnit unit)
+        CRoundTemporalOptions(int multiple, CCalendarUnit unit,
+                              c_bool week_starts_monday)
         int multiple
         CCalendarUnit unit
+        c_bool week_starts_monday
 
     cdef cppclass CRoundToMultipleOptions \
             "arrow::compute::RoundToMultipleOptions"(CFunctionOptions):

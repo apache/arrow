@@ -25,8 +25,10 @@ import os
 import sys
 import tempfile
 import traceback
+from typing import Callable, List
 
 from .scenario import Scenario
+from .tester import Tester
 from .tester_cpp import CPPTester
 from .tester_go import GoTester
 from .tester_rust import RustTester
@@ -52,7 +54,9 @@ class Outcome:
 
 class IntegrationRunner(object):
 
-    def __init__(self, json_files, flight_scenarios, testers, tempdir=None,
+    def __init__(self, json_files,
+                 flight_scenarios: List[Scenario],
+                 testers: List[Tester], tempdir=None,
                  debug=False, stop_on_error=True, gold_dirs=None,
                  serial=False, match=None, **unused_kwargs):
         self.json_files = json_files
@@ -63,7 +67,7 @@ class IntegrationRunner(object):
         self.stop_on_error = stop_on_error
         self.serial = serial
         self.gold_dirs = gold_dirs
-        self.failures = []
+        self.failures: List[Outcome] = []
         self.match = match
 
         if self.match is not None:
@@ -92,9 +96,8 @@ class IntegrationRunner(object):
                 log('Tests against golden files in {}'.format(gold_dir))
                 log('******************************************************')
 
-                def run_gold(producer, consumer, outcome, test_case):
-                    self._run_gold(gold_dir, producer, consumer, outcome,
-                                   test_case)
+                def run_gold(_, consumer, test_case: datagen.File):
+                    return self._run_gold(gold_dir, consumer, test_case)
                 self._compare_implementations(
                     consumer, consumer, run_gold,
                     self._gold_tests(gold_dir))
@@ -159,8 +162,13 @@ class IntegrationRunner(object):
             yield datagen.File(name, None, None, skip=skip, path=out_path,
                                quirks=quirks)
 
-    def _run_test_cases(self, producer, consumer, case_runner,
-                        test_cases):
+    def _run_test_cases(self,
+                        case_runner: Callable[[datagen.File], Outcome],
+                        test_cases: List[datagen.File]) -> None:
+        """
+        Populate self.failures with the outcomes of the
+        ``case_runner`` ran against ``test_cases``
+        """
         def case_wrapper(test_case):
             with printer.cork():
                 return case_runner(test_case)
@@ -184,7 +192,12 @@ class IntegrationRunner(object):
                             break
 
     def _compare_implementations(
-            self, producer, consumer, run_binaries, test_cases):
+        self,
+        producer: Tester,
+        consumer: Tester,
+        run_binaries: Callable[[Tester, Tester, datagen.File], None],
+        test_cases: List[datagen.File]
+    ):
         """
         Compare Arrow IPC for two implementations (one producer, one consumer).
         """
@@ -195,9 +208,15 @@ class IntegrationRunner(object):
 
         case_runner = partial(self._run_ipc_test_case,
                               producer, consumer, run_binaries)
-        self._run_test_cases(producer, consumer, case_runner, test_cases)
+        self._run_test_cases(case_runner, test_cases)
 
-    def _run_ipc_test_case(self, producer, consumer, run_binaries, test_case):
+    def _run_ipc_test_case(
+        self,
+        producer: Tester,
+        consumer: Tester,
+        run_binaries: Callable[[Tester, Tester, datagen.File], None],
+        test_case: datagen.File,
+    ) -> Outcome:
         """
         Run one IPC test case.
         """
@@ -224,7 +243,7 @@ class IntegrationRunner(object):
 
         else:
             try:
-                run_binaries(producer, consumer, outcome, test_case)
+                run_binaries(producer, consumer, test_case)
             except Exception:
                 traceback.print_exc(file=printer.stdout)
                 outcome.failure = Failure(test_case, producer, consumer,
@@ -232,7 +251,17 @@ class IntegrationRunner(object):
 
         return outcome
 
-    def _produce_consume(self, producer, consumer, outcome, test_case):
+    def _produce_consume(self,
+                         producer: Tester,
+                         consumer: Tester,
+                         test_case: datagen.File
+                         ) -> None:
+        """
+        Given a producer and a consumer, run different combination of
+        tests for the ``test_case``
+        * read and write are consistent
+        * stream to file is consistent
+        """
         # Make the random access file
         json_path = test_case.path
         file_id = guid()[:8]
@@ -257,7 +286,21 @@ class IntegrationRunner(object):
         consumer.stream_to_file(producer_stream_path, consumer_file_path)
         consumer.validate(json_path, consumer_file_path)
 
-    def _run_gold(self, gold_dir, producer, consumer, outcome, test_case):
+    def _run_gold(self,
+                  gold_dir: str,
+                  consumer: Tester,
+                  test_case: datagen.File) -> None:
+        """
+        Given a directory with:
+        * an ``.arrow_file``
+        * a ``.stream``
+        associated to the json integration file at ``test_case.path``
+
+        verify that the consumer can read both and agrees with
+        what the json file contains; also run ``stream_to_file`` and
+        verify that the consumer produces an equivalent file from the
+        IPC stream.
+        """
         json_path = test_case.path
 
         # Validate the file
@@ -280,17 +323,24 @@ class IntegrationRunner(object):
         consumer.validate(json_path, consumer_file_path,
                           quirks=test_case.quirks)
 
-    def _compare_flight_implementations(self, producer, consumer):
+    def _compare_flight_implementations(
+        self,
+        producer: Tester,
+        consumer: Tester
+    ):
         log('##########################################################')
         log('Flight: {0} serving, {1} requesting'
             .format(producer.name, consumer.name))
         log('##########################################################')
 
         case_runner = partial(self._run_flight_test_case, producer, consumer)
-        self._run_test_cases(producer, consumer, case_runner,
-                             self.json_files + self.flight_scenarios)
+        self._run_test_cases(
+            case_runner, self.json_files + self.flight_scenarios)
 
-    def _run_flight_test_case(self, producer, consumer, test_case):
+    def _run_flight_test_case(self,
+                              producer: Tester,
+                              consumer: Tester,
+                              test_case: datagen.File) -> Outcome:
         """
         Run one Flight test case.
         """
@@ -350,7 +400,7 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   run_flight=False, tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
-    testers = []
+    testers: List[Tester] = []
 
     if with_cpp:
         testers.append(CPPTester(**kwargs))

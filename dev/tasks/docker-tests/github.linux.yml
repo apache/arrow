@@ -50,6 +50,15 @@ jobs:
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         continue-on-error: true
         if: always()
+      - name: Dump R test logs
+        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the R test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
     {% endif %}
 
     {% if arrow.branch == 'master' %}

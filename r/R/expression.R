@@ -62,6 +62,7 @@
 
   # date and time functions
   "day" = "day",
+  "dst" = "is_dst",
   "hour" = "hour",
   "isoweek" = "iso_week",
   "epiweek" = "us_week",

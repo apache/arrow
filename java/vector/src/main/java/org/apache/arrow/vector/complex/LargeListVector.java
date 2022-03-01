@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -133,14 +134,12 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    if (children.size() != 1) {
-      throw new IllegalArgumentException("Lists have only one child. Found: " + children);
-    }
+    checkArgument(children.size() == 1,
+            "Lists have one child Field. Found: %s", children.isEmpty() ? "none" : children);
+
     Field field = children.get(0);
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
-    if (!addOrGetVector.isCreated()) {
-      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
-    }
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
   }

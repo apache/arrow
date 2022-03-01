@@ -151,24 +151,24 @@ const std::string& TestServer::unix_sock() const { return unix_sock_; }
 
 Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
   if (ticket.ticket == "ticket-ints-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-floats-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleFloatBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-dicts-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleDictBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else if (ticket.ticket == "ticket-large-batch-1") {
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleLargeBatches(&batches));
-    *out = std::make_shared<BatchIterator>(batches[0]->schema(), batches);
+    ARROW_ASSIGN_OR_RAISE(*out, RecordBatchReader::Make(batches));
     return Status::OK();
   } else {
     return Status::NotImplemented("no stream implemented for ticket: " + ticket.ticket);
@@ -233,7 +233,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status DoPut(const ServerCallContext&, std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
-    BatchVector batches;
+    RecordBatchVector batches;
     return reader->ReadAll(&batches);
   }
 
@@ -270,7 +270,7 @@ class FlightTestServer : public FlightServerBase {
   Status RunExchangeGet(std::unique_ptr<FlightMessageReader> reader,
                         std::unique_ptr<FlightMessageWriter> writer) {
     RETURN_NOT_OK(writer->Begin(ExampleIntSchema()));
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     for (const auto& batch : batches) {
       RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
@@ -285,7 +285,7 @@ class FlightTestServer : public FlightServerBase {
     if (!schema->Equals(ExampleIntSchema(), false)) {
       return Status::Invalid("Schema is not as expected");
     }
-    BatchVector batches;
+    RecordBatchVector batches;
     RETURN_NOT_OK(ExampleIntBatches(&batches));
     FlightStreamChunk chunk;
     for (const auto& batch : batches) {
@@ -590,7 +590,7 @@ std::vector<FlightInfo> ExampleFlightInfo() {
           FlightInfo(flight4)};
 }
 
-Status ExampleIntBatches(BatchVector* out) {
+Status ExampleIntBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 5; ++i) {
     // Make all different sizes, use different random seed
@@ -600,7 +600,7 @@ Status ExampleIntBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleFloatBatches(BatchVector* out) {
+Status ExampleFloatBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 5; ++i) {
     // Make all different sizes, use different random seed
@@ -610,7 +610,7 @@ Status ExampleFloatBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleDictBatches(BatchVector* out) {
+Status ExampleDictBatches(RecordBatchVector* out) {
   // Just the same batch, repeated a few times
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 3; ++i) {
@@ -620,7 +620,7 @@ Status ExampleDictBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleNestedBatches(BatchVector* out) {
+Status ExampleNestedBatches(RecordBatchVector* out) {
   std::shared_ptr<RecordBatch> batch;
   for (int i = 0; i < 3; ++i) {
     RETURN_NOT_OK(ipc::test::MakeListRecordBatch(&batch));
@@ -629,7 +629,7 @@ Status ExampleNestedBatches(BatchVector* out) {
   return Status::OK();
 }
 
-Status ExampleLargeBatches(BatchVector* out) {
+Status ExampleLargeBatches(RecordBatchVector* out) {
   const auto array_length = 32768;
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<arrow::Array>> arrays;

@@ -2320,7 +2320,7 @@ def test_interval_array_from_dateoffset():
         pa.MonthDayNano([0, 0, 0])]
     expected = pa.array(expected_list)
     assert arr.equals(expected)
-    assert arr.to_pandas().tolist() == [
+    expected_from_pandas = [
         None, DateOffset(months=13, days=8,
                          microseconds=(
                              datetime.timedelta(seconds=1, microseconds=1,
@@ -2328,6 +2328,13 @@ def test_interval_array_from_dateoffset():
                              datetime.timedelta(microseconds=1)),
                          nanoseconds=1),
         DateOffset(months=0, days=0, microseconds=0, nanoseconds=0)]
+
+    assert arr.to_pandas().tolist() == expected_from_pandas
+
+    # nested list<interval> array conversion
+    actual_list = pa.array([data]).to_pandas().tolist()
+    assert len(actual_list) == 1
+    assert list(actual_list[0]) == expected_from_pandas
 
 
 def test_array_from_numpy_unicode():

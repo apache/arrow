@@ -18,8 +18,47 @@
 
 package utils
 
-// BytesToBools when built with the noasm tag will direct to the pure go implementation
-// for converting a bitmap to a slice of bools
+import (
+	"os"
+	"strings"
+)
+import "golang.org/x/sys/cpu"
+
+var byteToBoolFunc func([]byte, []bool)
+
+func init() {
+    // Added ability to enable extension via environment:
+	// ARM_ENABLE_EXT=NEON go test
+	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
+		exts := strings.Split(ext, ",")
+
+		for _, x := range exts {
+			switch x {
+			case "NEON":
+				cpu.ARM64.HasASIMD = true
+			case "AES":
+				cpu.ARM64.HasAES = true
+			case "PMULL":
+				cpu.ARM64.HasPMULL = true
+			default:
+				cpu.ARM64.HasASIMD = false
+				cpu.ARM64.HasAES = false
+				cpu.ARM64.HasPMULL = false
+			}
+		}
+	}
+
+	// if the cpu supports Arm64 Neon then use SIMD to accelerate the conversion
+	// of a bitmap to a slice of bools in an optimized fashion, otherwise fallback
+	// to the pure go implementation
+	if cpu.ARM64.HasASIMD {
+		byteToBoolFunc = bytesToBoolsNEON
+	} else {
+		byteToBoolFunc = bytesToBoolsGo
+	}
+}
+
+// BytesToBools efficiently populates a slice of booleans from an input bitmap
 func BytesToBools(in []byte, out []bool) {
-	bytesToBoolsGo(in, out)
+	byteToBoolFunc(in, out)
 }

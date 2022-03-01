@@ -106,7 +106,8 @@ enum class CalendarUnit : int8_t {
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY);
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
+                                bool week_starts_monday = true);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -114,6 +115,8 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   int multiple;
   /// The unit used for rounding of time
   CalendarUnit unit;
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
