@@ -34,13 +34,13 @@ class GANDIVA_EXPORT ParseUrlHolder : public FunctionHolder {
 
   static Status Make(const FunctionNode& node, std::shared_ptr<ParseUrlHolder>* holder);
 
-  static Status Make(const std::string& part_to_extract, std::shared_ptr<ParseUrlHolder>* holder);
+  static Status Make(const std::string& part_to_extract,
+                     std::shared_ptr<ParseUrlHolder>* holder);
 
-  static Status Make(const std::string& part_to_extract, const std::string& query_key, std::shared_ptr<ParseUrlHolder>* holder);
+  static Status Make(const std::string& part_to_extract, const std::string& query_key,
+                     std::shared_ptr<ParseUrlHolder>* holder);
 
-  const char* Parse(const std::string& url){
-    return url.c_str();
-  }
+  const char* Parse(const std::string& url) { return url.c_str(); }
 
  private:
   static RE2 url_regex_;

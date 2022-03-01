@@ -25,7 +25,7 @@
 
 namespace gandiva {
 class TestParseUrlHolder : public ::testing::Test {
-public:
+ public:
   FunctionNode BuildParseUrl(std::string part_to_extract) {
     auto field = std::make_shared<FieldNode>(arrow::field("parse_url", arrow::utf8()));
     auto pattern_node = std::make_shared<LiteralNode>(
@@ -40,6 +40,8 @@ TEST_F(TestParseUrlHolder, Test) {
   auto status = ParseUrlHolder::Make(node, &parse_url_holder);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  EXPECT_EQ(parse_url_holder->Parse("http://userinfo@github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1"), "userinfo@github.io");
+  EXPECT_EQ(parse_url_holder->Parse(
+                "http://userinfo@github.io/path1/path2/p.php?k1=v1&k2=v2#Ref1"),
+            "userinfo@github.io");
 }
 }  // namespace gandiva

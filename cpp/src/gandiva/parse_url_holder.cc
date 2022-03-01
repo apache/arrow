@@ -22,14 +22,16 @@ Status ParseUrlHolder::Make(const gandiva::FunctionNode& node,
       Status::Invalid(
           "'parse_url' function requires a string literal as the second parameter"));
 
-  if (node.children().size()==2){
+  if (node.children().size() == 2) {
     return Make(arrow::util::get<std::string>(literal->holder()), holder);
-  }else{
+  } else {
     auto key_literal = dynamic_cast<LiteralNode*>(node.children().at(2).get());
     ARROW_RETURN_IF(
-        !IsArrowStringLiteral(key_literal->return_type()->id()) && key_literal== nullptr,
-        Status::Invalid("'parse_url' function requires a string literal as the third parameter for the query key"));
-    return Make(arrow::util::get<std::string>(literal->holder()), arrow::util::get<std::string>(key_literal->holder()), holder);
+        !IsArrowStringLiteral(key_literal->return_type()->id()) && key_literal == nullptr,
+        Status::Invalid("'parse_url' function requires a string literal as the third "
+                        "parameter for the query key"));
+    return Make(arrow::util::get<std::string>(literal->holder()),
+                arrow::util::get<std::string>(key_literal->holder()), holder);
   }
 }
 }  // namespace gandiva
