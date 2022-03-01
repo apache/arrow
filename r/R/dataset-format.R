@@ -122,8 +122,6 @@ CsvFileFormat$create <- function(...,
                                  opts = csv_file_format_parse_options(...),
                                  convert_options = csv_file_format_convert_opts(...),
                                  read_options = csv_file_format_read_opts(...)) {
-
-
   check_csv_file_format_args(...)
   # Evaluate opts first to catch any unsupported arguments
   force(opts)
@@ -173,7 +171,7 @@ CsvFileFormat$create <- function(...,
 }
 
 # Check all arguments are valid
-check_csv_file_format_args <- function(...){
+check_csv_file_format_args <- function(...) {
   opts <- list(...)
   # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- c(names(formals(CsvConvertOptions$create)))
@@ -234,7 +232,6 @@ check_csv_file_format_args <- function(...){
       call. = FALSE
     )
   }
-
 }
 
 # Support both readr-style option names and Arrow C++ option names
@@ -254,7 +251,7 @@ csv_file_format_parse_options <- function(...) {
   is_arrow_opt <- !is.na(pmatch(opt_names, arrow_opts))
   is_readr_opt <- !is.na(pmatch(opt_names, readr_opts))
 
-   # Catch options with ambiguous partial names (such as "del") that make it
+  # Catch options with ambiguous partial names (such as "del") that make it
   # unclear whether the user is specifying Arrow C++ options ("delimiter") or
   # readr-style options ("delim")
   is_ambig_opt <- is.na(pmatch(opt_names, c(arrow_opts, readr_opts)))
@@ -414,9 +411,11 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         if (length(unsupported_passed_args) > 0) {
           err_header <- paste0(
             oxford_paste(unsupported_passed_args, quote_symbol = "`"),
-            ngettext(length(unsupported_passed_args),
-                     " is not a valid argument ",
-                     " are not valid arguments "),
+            ngettext(
+              length(unsupported_passed_args),
+              " is not a valid argument ",
+              " are not valid arguments "
+            ),
             "for your chosen `format`."
           )
           err_info <- NULL
