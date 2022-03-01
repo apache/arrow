@@ -32,8 +32,6 @@ version=$1
 archive_name=apache-arrow-${version}
 tar_gz=${archive_name}.tar.gz
 
-source "${SOURCE_DIR}/git-vars.sh"
-
 echo "NOTE: We should release RubyGems after Homebrew and MSYS2 packages are updated!!!"
 
 echo "Checking Homebrew package..."
