@@ -40,6 +40,7 @@
 #include "gandiva/interval_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
+#include "gandiva/parse_url_holder.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
@@ -83,6 +84,20 @@ bool gdv_fn_ilike_utf8_utf8(int64_t ptr, const char* data, int data_len,
                             const char* pattern, int pattern_len) {
   gandiva::LikeHolder* holder = reinterpret_cast<gandiva::LikeHolder*>(ptr);
   return (*holder)(std::string(data, data_len));
+}
+
+const char* gdv_parse_url_utf8_utf8(int64_t ptr, const char* url, int32_t url_len,
+                                    const char* part_to_extract,
+                                    int32_t part_to_extract_len, int32_t out_len) {
+  gandiva::ParseUrlHolder* holder = reinterpret_cast<gandiva::ParseUrlHolder*>(ptr);
+  return (*holder).Parse(std::string(url, url_len));
+}
+
+const char* gdv_parse_url_query_utf8_utf8_utf8(int64_t ptr, const char* url, int32_t url_len,
+                                               const char* part_to_extract,
+                                               int32_t part_to_extract_len, const char* key, int32_t key_len, int32_t out_len){
+  gandiva::ParseUrlHolder* holder = reinterpret_cast<gandiva::ParseUrlHolder*>(ptr);
+  return (*holder).Parse(std::string(url, url_len));
 }
 
 const char* gdv_fn_regexp_replace_utf8_utf8(
@@ -1298,6 +1313,33 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_regexp_replace_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_regexp_replace_utf8_utf8));
+
+
+  // gdv_parse_url_utf8_utf8
+  args = {types->i64_type(),     // int64_t ptr
+          types->i8_ptr_type(),  // const char* url
+          types->i32_type(),     // int url_len
+          types->i8_ptr_type(),  // const char* part_to_extract
+          types->i32_type()},    // int part_to_extract_len
+          types->i32_type();     // int32_t out_len
+
+  engine->AddGlobalMappingForFunc("gdv_parse_url_utf8_utf8",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_parse_url_utf8_utf8));
+
+  // gdv_parse_url_query_utf8_utf8_utf8
+  args = {types->i64_type(),     // int64_t ptr
+          types->i8_ptr_type(),  // const char* url
+          types->i32_type(),     // int32_t url_len
+          types->i8_ptr_type(),  // const char* part_to_extract
+          types->i32_type()},    // int32_t part_to_extract_len
+          types->i8_ptr_type(),  // const char* key
+          types->i32_type(),     // int32_t key_len
+          types->i32_type();     // int32_t out_len
+
+  engine->AddGlobalMappingForFunc("gdv_parse_url_query_utf8_utf8_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_parse_url_query_utf8_utf8_utf8));
 
   // gdv_fn_to_date_utf8_utf8
   args = {types->i64_type(),                   // int64_t execution_context

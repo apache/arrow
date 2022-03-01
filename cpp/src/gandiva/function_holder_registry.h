@@ -27,6 +27,7 @@
 #include "gandiva/interval_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/parse_url_holder.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
@@ -64,6 +65,7 @@ class FunctionHolderRegistry {
     static map_type maker_map = {{"like", LAMBDA_MAKER(LikeHolder)},
                                  {"ilike", LAMBDA_MAKER(LikeHolder)},
                                  {"to_date", LAMBDA_MAKER(ToDateHolder)},
+                                 {"parse_url", LAMBDA_MAKER(ParseUrlHolder)},
                                  {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
