@@ -310,7 +310,7 @@ Other applications of `arrow` are described in the following vignettes:
 -   `vignette("arrow", package = "arrow")`: access and manipulate Arrow
     objects through low-level bindings to the C++ library
 
-The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
+The Arrow for R [cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf) and [Cookbook](https://arrow.apache.org/cookbook/r/index.html) are additional resources for getting started with `arrow`.
 
 ## Getting help
 
