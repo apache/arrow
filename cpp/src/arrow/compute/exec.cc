@@ -331,8 +331,12 @@ struct NullGeneralization {
   enum type { PERHAPS_NULL, ALL_VALID, ALL_NULL };
 
   static type Get(const Datum& datum) {
-    if (datum.type()->id() == Type::NA) {
+    const auto dtype_id = datum.type()->id();
+    if (dtype_id == Type::NA) {
       return ALL_NULL;
+    }
+    if (!internal::HasValidityBitmap(dtype_id)) {
+      return ALL_VALID;
     }
     if (datum.is_scalar()) {
       return datum.scalar()->is_valid ? ALL_VALID : ALL_NULL;
