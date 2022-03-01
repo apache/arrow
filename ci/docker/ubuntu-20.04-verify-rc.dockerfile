@@ -36,6 +36,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         openjdk-11-jdk \
         pkg-config \
+        python3-dev \
         python3-pip \
         python3-venv \
         ruby-dev \
