@@ -526,22 +526,6 @@ test_that("write_csv_arrow can write from Dataset objects", {
   expect_equal(nrow(tbl_in), 10)
 })
 
-test_that("write_csv_arrow can write from arrow_dplyr_query objects", {
-  skip_if_not_available("dataset")
-  library(dplyr, warn.conflicts = FALSE)
-
-  query_obj <- arrow_table(tbl_no_dates) %>%
-    filter(lgl == TRUE)
-
-  csv_file <- tempfile()
-  tbl_out <- write_csv_arrow(query_obj, csv_file)
-  expect_true(file.exists(csv_file))
-
-  tbl_in <- read_csv_arrow(csv_file)
-  expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
-  expect_equal(nrow(tbl_in), 3)
-})
-
 test_that("write_csv_arrow can write from RecordBatchReader objects", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
@@ -550,7 +534,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
     filter(lgl == TRUE)
 
   csv_file <- tempfile()
-  on.exit(unlink(csv_file)
+  on.exit(unlink(csv_file))
   tbl_out <- write_csv_arrow(query_obj, csv_file)
   expect_true(file.exists(csv_file))
 
