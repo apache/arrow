@@ -1,4 +1,6 @@
-# Writing Bindings
+---
+title: Writing Bindings
+---
 
 ```{r, include=FALSE}
 library(arrow, warn.conflicts = FALSE)

@@ -1,4 +1,6 @@
-# Developer environment setup
+---
+title: Developer environment setup
+---
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)

@@ -1,4 +1,6 @@
-# Using docker with Arrow
+---
+title: Using docker with Arrow
+---
 
 Arrow is compatible with a huge number of combinations of OSs, OS versions, 
 compilers, R versions, and other variables.  Sometimes these combinations of 

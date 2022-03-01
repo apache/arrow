@@ -1,4 +1,6 @@
-# Debugging Arrow
+---
+title: Debugging Arrow
+---
 
 If you are a developer working with Arrow code, the package's use of tidy eval 
 and C++ necessitates a solid debugging strategy.  In this article, we recommend

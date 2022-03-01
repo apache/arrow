@@ -1,4 +1,6 @@
-# Common developer workflow tasks
+---
+title: Common developer workflow tasks
+---
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)

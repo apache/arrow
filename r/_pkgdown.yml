@@ -20,8 +20,9 @@
 url: https://arrow.apache.org/docs/r/
 title: Arrow R Package
 template:
+  # bootstrap: 5 # ARROW-15734
+  bootswatch: cosmo
   params:
-    bootswatch: cosmo
     ganalytics: UA-107500873-1
   opengraph:
     image:
@@ -40,60 +41,51 @@ navbar:
       - articles
       - news
       - project
-    right: github
+    right:
+      # - search # ARROW-15734
+      - github
   components:
     home:
       text: ❯❯❯
       href: https://arrow.apache.org/
-    reference:
-      text: Reference
-      href: reference/index.html
     project:
       text: Project docs
       menu:
         - text: Specification
           href: https://arrow.apache.org/docs/format/Columnar.html
         - text: C GLib
-          href: https://arrow.apache.org/docs/c_glib
+          href: https://arrow.apache.org/docs/c_glib/
         - text: C++
-          href: https://arrow.apache.org/docs/cpp
+          href: https://arrow.apache.org/docs/cpp/
         - text: Java
-          href: https://arrow.apache.org/docs/java
+          href: https://arrow.apache.org/docs/java/
         - text: JavaScript
-          href: https://arrow.apache.org/docs/js
+          href: https://arrow.apache.org/docs/js/
         - text: Python
-          href: https://arrow.apache.org/docs/python
+          href: https://arrow.apache.org/docs/python/
         - text: R
-          href: index.html
-    articles:
-      text: Articles
-      menu:
-        - text: Installing the Arrow Package on Linux
-          href: articles/install.html
-        - text: Working with Arrow Datasets and dplyr
-          href: articles/dataset.html
-        - text: Working with Cloud Storage (S3)
-          href: articles/fs.html
-        - text: Apache Arrow in Python and R with reticulate
-          href: articles/python.html
-        - text: Connecting to Flight RPC Servers
-          href: articles/flight.html
-        - text: Arrow R Developer Guide
-          href: articles/developing.html
-        - text: Developers
-          menu:
-          - text: Developer Environment Setup
-            href: articles/developers/setup.html
-          - text: Common Workflow Tasks
-            href: articles/developers/workflow.html
-          - text: Debugging
-            href: articles/developers/debugging.html
-          - text: Package Installation Details
-            href: articles/developers/install_details.html
-          - text: Docker
-            href: articles/developers/docker.html
-          - text: Writing Bindings
-            href: articles/developers/bindings.html
+          href: https://arrow.apache.org/docs/r/
+
+articles:
+  - title: Usage
+    navbar: ~
+    contents:
+      - install
+      - dataset
+      - fs
+      - python
+      - flight
+  - title: Developers
+    navbar: Developers
+    contents:
+      - developing
+      - developers/setup
+      - developers/workflow
+      - developers/debugging
+      - developers/install_details
+      - developers/docker
+      - developers/bindings
+
 reference:
   - title: Multi-file datasets
     contents:
@@ -205,5 +197,6 @@ reference:
 repo:
   jira_projects: [ARROW]
   url:
+    home: https://github.com/apache/arrow/
     source: https://github.com/apache/arrow/blob/master/r/
     issue: https://issues.apache.org/jira/browse/
