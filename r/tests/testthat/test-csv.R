@@ -541,7 +541,6 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   tbl_in <- read_csv_arrow(csv_file)
   expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
   expect_equal(nrow(tbl_in), 3)
-
 })
 
 test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
