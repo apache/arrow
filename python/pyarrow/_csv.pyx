@@ -414,6 +414,27 @@ cdef class ParseOptions(_Weakrefable):
     def delimiter(self):
         """
         The character delimiting individual cells in the CSV data.
+
+        Examples:
+        ---------
+
+        >>> from pyarrow import csv
+
+        >>> parse_options = csv.ParseOptions(delimiter=";")
+        >>> csv.read_csv("animals.csv", parse_options=parse_options)
+        pyarrow.Table
+        animals,"n_legs": string
+        ----
+        animals,"n_legs": [["Flamingo,2","Horse,4","Brittle stars,5","Centipede,100"]]
+
+        >>> parse_options = csv.ParseOptions(delimiter=",")
+        >>> csv.read_csv("animals.csv", parse_options=parse_options)
+        pyarrow.Table
+        animals: string
+        n_legs: int64
+        ----
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        n_legs: [[2,4,5,100]]
         """
         return chr(deref(self.options).delimiter)
 
@@ -426,6 +447,20 @@ cdef class ParseOptions(_Weakrefable):
         """
         The character used optionally for quoting CSV values
         (False if quoting is not allowed).
+
+        Examples:
+        ---------
+
+        >>> from pyarrow import csv
+
+        >>> parse_options = csv.ParseOptions(quote_char=",")
+        >>> csv.read_csv("animals.csv", parse_options=parse_options)
+        pyarrow.Table
+        "animals": string
+        "n_legs": int64
+        ----
+        "animals": [[""Flamingo"",""Horse"",""Brittle stars"",""Centipede""]]
+        "n_legs": [[2,4,5,100]]
         """
         if deref(self.options).quoting:
             return chr(deref(self.options).quote_char)
@@ -445,6 +480,11 @@ cdef class ParseOptions(_Weakrefable):
         """
         Whether two quotes in a quoted CSV value denote a single quote
         in the data.
+
+        Examples:
+        ---------
+        >>> parse_options = csv.ParseOptions(double_quote=False)
+        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).double_quote
 
@@ -457,6 +497,26 @@ cdef class ParseOptions(_Weakrefable):
         """
         The character used optionally for escaping special characters
         (False if escaping is not allowed).
+
+        Examples:
+        ---------
+        >>> from pyarrow import csv
+
+        >>> parse_options = csv.ParseOptions(escape_char=",")
+        >>> csv.read_csv("animals.csv", parse_options=parse_options)
+        pyarrow.Table
+        animals"n_legs": string
+        ----
+        animals"n_legs": [["Flamingo2","Horse4","Brittle stars5","Centipede100"]]
+
+        >>> parse_options = csv.ParseOptions(escape_char="/")
+        >>> csv.read_csv("animals.csv", parse_options=parse_options)
+        pyarrow.Table
+        animals: string
+        n_legs: int64
+        ----
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        n_legs: [[2,4,5,100]]
         """
         if deref(self.options).escaping:
             return chr(deref(self.options).escape_char)
@@ -477,6 +537,11 @@ cdef class ParseOptions(_Weakrefable):
         Whether newline characters are allowed in CSV values.
         Setting this to True reduces the performance of multi-threaded
         CSV reading.
+
+        Examples:
+        ---------
+        >>> parse_options = csv.ParseOptions(newlines_in_values=True)
+        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).newlines_in_values
 
@@ -490,6 +555,11 @@ cdef class ParseOptions(_Weakrefable):
         Whether empty lines are ignored in CSV input.
         If False, an empty line is interpreted as containing a single empty
         value (assuming a one-column CSV file).
+
+        Example:
+        --------
+        >>> parse_options = csv.ParseOptions(ignore_empty_lines=False)
+        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).ignore_empty_lines
 
