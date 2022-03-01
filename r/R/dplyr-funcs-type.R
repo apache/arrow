@@ -107,12 +107,8 @@ register_bindings_type_cast <- function() {
           abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
         }
       }
-      # if x is a character, but not an Expression (such as in some instances
-      # when passed via `filter.arrow_dplyr_query()`), convert it to one
-      if (!inherits(x, "Expression")) {
-        x <- build_expr("cast", x, options = cast_options(to_type = type(x)))
-      }
-      x <- call_binding("strptime", x, format, unit = "s")
+      unit <- make_valid_time_unit("s", c(valid_time64_units, valid_time32_units))
+      x <- build_expr("strptime", x, options = list(format = format, unit = unit))
 
     # cast from numeric
     } else if (call_binding("is.numeric", x)) {
@@ -127,7 +123,7 @@ register_bindings_type_cast <- function() {
         # negative numbers
         # TODO revisit if arrow decides to support double -> date casting
         x <- call_binding("floor", x)
-        x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
+        x <- build_expr("cast", x, options = cast_options(to_type = int32()))
       }
       if (origin != "1970-01-01") {
         abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
