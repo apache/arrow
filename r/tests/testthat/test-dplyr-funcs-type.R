@@ -819,7 +819,7 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   )
 
   # actual and expected differ due to doubles are accounted for (floored in
-  # arrow and rouded to the next decimal in R)
+  # arrow and rounded to the next decimal in R)
   expect_error(
     compare_dplyr_binding(
       .input %>%
@@ -827,6 +827,34 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
         collect(),
       test_df
     )
+  )
+
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect(),
+    test_df %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")),
+    # the absolute value for date_double is different due to arrow casting from
+    # integer and r from double => testing with a tolerance of 0.6
+    # `actual$date_double`: 34.0
+    # `expected$date_double`: 34.6
+    tolerance = 0.6
+  )
+
+  expect_equal(
+    test_df %>%
+      record_batch() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect(),
+    test_df %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")),
+    # the absolute value for date_double is different due to arrow casting from
+    # integer and r from double => testing with a tolerance of 0.6
+    # `actual$date_double`: 34.0
+    # `expected$date_double`: 34.6
+    tolerance = 0.6
   )
 
   # currently we do not support an origin different to "1970-01-01"

@@ -120,11 +120,9 @@ register_bindings_type_cast <- function() {
       # TODO revisit once the above has been sorted
       if (!call_binding("is.integer", x)) {
         # Arrow does not support direct casting from double to date so we have
-        # to convert to integers first - casting to int32() would error so we
-        # need to use round before casting
+        # to convert to integers first
         # TODO revisit if arrow decides to support double -> date casting
-        x <- call_binding("floor", x)
-        x <- build_expr("cast", x, options = (cast_options(to_type = int32())))
+        x <- build_expr("cast", x, options = (cast_options(to_type = int32(), safe = FALSE)))
       }
       if (origin != "1970-01-01") {
         abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
