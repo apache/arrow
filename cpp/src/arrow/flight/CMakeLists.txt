@@ -178,6 +178,7 @@ set(ARROW_FLIGHT_SRCS
     transport_impl.cc
     transport_server_impl.cc
     # Bundle the gRPC impl with libarrow_flight
+    transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc
     types.cc)
 
