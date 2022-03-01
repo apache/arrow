@@ -281,14 +281,11 @@ std::shared_ptr<compute::ExecNode> ExecNode_SourceNode(
 std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
     const std::shared_ptr<compute::ExecPlan>& plan,
     const std::shared_ptr<arrow::Table>& table) {
-  arrow::compute::TableSourceNodeOptions options{
-      /*table=*/table,
-      // TODO: make batch_size configurable
-      /*batch_size=*/1048576
-      };
+  arrow::compute::TableSourceNodeOptions options{/*table=*/table,
+                                                 // TODO: make batch_size configurable
+                                                 /*batch_size=*/1048576};
 
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
 }
-
 
 #endif

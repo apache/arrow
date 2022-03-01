@@ -22,14 +22,11 @@ library(dplyr, warn.conflicts = FALSE)
 left <- example_data
 left$some_grouping <- rep(c(1, 2), 5)
 
-left_tab <- Table$create(left)
-
 to_join <- tibble::tibble(
   some_grouping = c(1, 2),
   capital_letters = c("A", "B"),
   another_column = TRUE
 )
-to_join_tab <- Table$create(to_join)
 
 
 test_that("left_join", {
@@ -76,8 +73,8 @@ test_that("left_join `by` args", {
 
 test_that("join two tables", {
   expect_identical(
-    left_tab %>%
-      left_join(to_join_tab, by = "some_grouping") %>%
+    arrow_table(left) %>%
+      left_join(arrow_table(to_join), by = "some_grouping") %>%
       collect(),
     left %>%
       left_join(to_join, by = "some_grouping") %>%
@@ -87,7 +84,7 @@ test_that("join two tables", {
 
 test_that("Error handling", {
   expect_error(
-    left_tab %>%
+    arrow_table(left) %>%
       left_join(to_join, by = "not_a_col") %>%
       collect(),
     "Join columns must be present in data"
@@ -207,7 +204,8 @@ test_that("arrow dplyr query correctly mutates then joins", {
   expect_equal(
     left %>%
       rename(dos = two) %>%
-      mutate(one = toupper(one)) %>%
+      # Use the ASCII version so we don't need utf8proc for this test
+      mutate(one = arrow_ascii_upper(one)) %>%
       left_join(
         right %>%
           mutate(three = !three)
