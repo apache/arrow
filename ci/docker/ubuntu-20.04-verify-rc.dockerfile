@@ -15,27 +15,30 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# A script to install dependencies required for release
-# verification on Ubuntu 20.04
+ARG arch=amd64
+FROM ${arch}/ubuntu:20.04
 
-apt-get update
-apt-get -y install \
-  build-essential \
-  clang \
-  cmake \
-  curl \
-  git \
-  libcurl4-openssl-dev \
-  libgirepository1.0-dev \
-  libglib2.0-dev \
-  libsqlite3-dev \
-  libssl-dev \
-  llvm-dev \
-  maven \
-  ninja-build \
-  openjdk-11-jdk \
-  pkg-config \
-  python3-pip \
-  python3-venv \
-  ruby-dev \
-  wget
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        build-essential \
+        clang \
+        cmake \
+        curl \
+        git \
+        libcurl4-openssl-dev \
+        libgirepository1.0-dev \
+        libglib2.0-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        llvm-dev \
+        maven \
+        ninja-build \
+        openjdk-11-jdk \
+        pkg-config \
+        python3-pip \
+        python3-venv \
+        ruby-dev \
+        wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*

@@ -23,6 +23,12 @@ jobs:
   test:
     name: "Verify release candidate {{ distro }} source"
     runs-on: ubuntu-latest
+    {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: {{ value }}
+    {% endfor %}
+    {% endif %}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       {{ macros.github_install_archery()|indent }}
@@ -36,3 +42,10 @@ jobs:
             -e TEST_DEFAULT=0 \
             -e TEST_{{ target|upper }}=1 \
             {{ distro }}-verify-rc
+
+    {% if arrow.branch == 'master' %}
+      {{ macros.github_login_dockerhub()|indent }}
+      - name: Push Docker Image
+        shell: bash
+        run: archery docker push {{ image }}
+    {% endif %}

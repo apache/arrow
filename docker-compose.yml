@@ -1736,7 +1736,15 @@ services:
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
     # Parameters:
     #   ALMALINUX: 8
-    image: almalinux:${ALMALINUX}
+    image: ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
+    build:
+      context: .
+      dockerfile: ci/docker/almalinux-${ALMALINUX}-verify-rc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
@@ -1745,10 +1753,7 @@ services:
       <<: *ccache
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
-    command: >
-      /bin/bash -c "
-        /arrow/dev/release/setup-rhel-rebuilds.sh &&
-        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+    command: /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}
 
   ubuntu-verify-rc:
     # Usage:
@@ -1756,17 +1761,21 @@ services:
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
     # Parameters:
     #   UBUNTU: 18.04, 20.04
-    image: ubuntu:${UBUNTU}
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-verify-rc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
       <<: *ccache
-      DEBIAN_FRONTEND: "noninteractive"
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
-    command: >
-      /bin/bash -c "
-        /arrow/dev/release/setup-ubuntu.sh &&
-        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+    command: /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}

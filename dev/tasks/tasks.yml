@@ -889,6 +889,8 @@ tasks:
     ci: github
     template: verify-rc/github.linux.amd64.docker.yml
     params:
+      env:
+        {{ distribution.upper() }}: "{{ version }}"
       target: {{ target }}
       distro: {{ distribution }}
   {% endfor %}
