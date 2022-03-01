@@ -33,6 +33,13 @@ if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
     testargs="" # -race not supported on s390x
 fi
 
+# Go static check
+pushd ${source_dir}
+
+"$(go env GOPATH)"/bin/staticcheck ./...
+
+popd
+
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"

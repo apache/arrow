@@ -21,6 +21,9 @@ set -ex
 
 source_dir=${1}/go
 
+# Install `staticcheck`
+GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@latest
+
 pushd ${source_dir}/arrow
 
 if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
