@@ -70,7 +70,7 @@ std::vector<std::string> SplitFilename(const std::string& path) {
   auto non_prefix_index = v.rfind(kFilenameSep);
   if (v.length() > 0 && non_prefix_index != std::string::npos) {
     v = v.substr(0, non_prefix_index);
-   }
+  }
 
   // Strip leading slash
   if (v.length() > 0 && v.front() == kSep) {
