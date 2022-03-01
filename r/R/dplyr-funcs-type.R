@@ -107,7 +107,8 @@ register_bindings_type_cast <- function() {
           abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
         }
       }
-      # if x is not an expression (e.g. passed as filter), convert it to one
+      # if x is a character, but not an Expression (such as in some instances
+      # when passed via `filter.arrow_dplyr_query()`), convert it to one
       if (!inherits(x, "Expression")) {
         x <- build_expr("cast", x, options = cast_options(to_type = type(x)))
       }
