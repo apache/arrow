@@ -244,7 +244,7 @@ jobs:
         - { rtools: 35, rversion: "3.6" }
         - { rtools: 40, rversion: "4.1" }
         # TODO: Once R 4.2 comes out we can switch to devel + 4.2
-        - { rtools: 40, rversion: "devel-ucrt" }
+        - { rtools: 42, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
