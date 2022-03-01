@@ -352,23 +352,10 @@ class QuotedColumnPopulator : public ColumnPopulator {
 
  private:
   // Returns true if there's no quote in the string array
-  // similar to std::find, but with much better performance
   static bool NoQuoteInArray(const StringArray& array) {
     const uint8_t* data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
-    const uint8_t* const data_end = data + buffer_size;
-
-    for (int64_t i = 0; i < buffer_size / 16; ++i) {
-      bool r = false;
-      for (int i = 0; i < 16; ++i) {
-        r |= data[i] == '"';
-      }
-      if (r) {
-        return false;
-      }
-      data += 16;
-    }
-    return std::count(data, data_end, '"') == 0;
+    return std::memchr(data, '"', buffer_size) == nullptr;
   }
 
   // Older version of GCC don't support custom allocators
