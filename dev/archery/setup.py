@@ -18,7 +18,11 @@
 
 import functools
 import operator
+import sys
 from setuptools import setup, find_packages
+
+if sys.version_info < (3, 7):
+    sys.exit('Python < 3.7 is not supported')
 
 # For pathlib.Path compatibility
 jinja_req = 'jinja2>=2.11'

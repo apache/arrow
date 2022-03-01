@@ -35,7 +35,7 @@ apt-get -y install \
   ninja-build \
   openjdk-11-jdk \
   pkg-config \
-  python3-pip \
-  python3-venv \
+  python3.8-pip \
+  python3.8-venv \
   ruby-dev \
   wget
