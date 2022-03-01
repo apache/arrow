@@ -48,8 +48,8 @@ RUN apt-get update -y -q && \
         openjdk-11-jdk \
         pkg-config \
         python3-pip \
-        python3-venv \
         python3.7-dev \
+        python3.7-venv \
         ruby-dev \
         wget \
         tzdata && \
