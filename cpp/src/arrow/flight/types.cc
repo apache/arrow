@@ -306,6 +306,15 @@ Status Location::ForGrpcUnix(const std::string& path, Location* location) {
   return Location::Parse(uri_string.str(), location);
 }
 
+arrow::Result<Location> Location::ForScheme(const std::string& scheme,
+                                            const std::string& host, const int port) {
+  Location location;
+  std::stringstream uri_string;
+  uri_string << scheme << "://" << host << ':' << port;
+  RETURN_NOT_OK(Location::Parse(uri_string.str(), &location));
+  return location;
+}
+
 std::string Location::ToString() const { return uri_->ToString(); }
 std::string Location::scheme() const {
   std::string scheme = uri_->scheme();
@@ -322,6 +331,10 @@ bool Location::Equals(const Location& other) const {
 
 bool FlightEndpoint::Equals(const FlightEndpoint& other) const {
   return ticket == other.ticket && locations == other.locations;
+}
+
+bool ActionType::Equals(const ActionType& other) const {
+  return type == other.type && description == other.description;
 }
 
 Status MetadataRecordBatchReader::ReadAll(

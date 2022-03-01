@@ -139,6 +139,15 @@ struct ARROW_FLIGHT_EXPORT ActionType {
 
   /// \brief A human-readable description of the action.
   std::string description;
+
+  bool Equals(const ActionType& other) const;
+
+  friend bool operator==(const ActionType& left, const ActionType& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const ActionType& left, const ActionType& right) {
+    return !(left == right);
+  }
 };
 
 /// \brief Opaque selection criteria for ListFlights RPC
@@ -312,6 +321,10 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \param[out] location The resulting location
   static Status ForGrpcUnix(const std::string& path, Location* location);
 
+  /// \brief Initialize a location based on a URI scheme
+  static arrow::Result<Location> ForScheme(const std::string& scheme,
+                                           const std::string& host, const int port);
+
   /// \brief Get a representation of this URI as a string.
   std::string ToString() const;
 
@@ -406,9 +419,9 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
                                         const std::vector<FlightEndpoint>& endpoints,
                                         int64_t total_records, int64_t total_bytes);
 
-  /// \brief Deserialize the Arrow schema of the dataset, to be passed
-  /// to each call to DoGet. Populate any dictionary encoded fields
-  /// into a DictionaryMemo for bookkeeping
+  /// \brief Deserialize the Arrow schema of the dataset. Populate any
+  ///   dictionary encoded fields into a DictionaryMemo for
+  ///   bookkeeping
   /// \param[in,out] dictionary_memo for dictionary bookkeeping, will
   /// be modified
   /// \param[out] out the reconstructed Schema
