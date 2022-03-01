@@ -654,7 +654,6 @@ import pyarrow.fs
 import pyarrow.json
 import pyarrow.orc
 import pyarrow.parquet
-import pyarrow.plasma
 "
   if [ "${ARROW_CUDA}" == "ON" ]; then
     python -c "import pyarrow.cuda"
@@ -664,6 +663,9 @@ import pyarrow.plasma
   fi
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
+  fi
+  if [ "${ARROW_PLASMA}" == "ON" ]; then
+    python -c "import pyarrow.plasma"
   fi
   if [ "${ARROW_S3}" == "ON" ]; then
     python -c "import pyarrow._s3fs"
