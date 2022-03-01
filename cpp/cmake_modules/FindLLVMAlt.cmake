@@ -24,11 +24,11 @@ if(DEFINED LLVM_ROOT)
   # if the system one is newer
   foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
     find_package(LLVM
-                ${ARROW_LLVM_VERSION}
-                CONFIG
-                NO_DEFAULT_PATH
-                HINTS
-                ${LLVM_ROOT})
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 NO_DEFAULT_PATH
+                 HINTS
+                 ${LLVM_ROOT})
     if(LLVM_FOUND)
       break()
     endif()
