@@ -47,5 +47,5 @@ jobs:
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker Image
         shell: bash
-        run: archery docker push {{ image }}
+        run: archery docker push {{ distro }}-verify-rc
     {% endif %}
