@@ -107,8 +107,7 @@ register_bindings_type_cast <- function() {
           abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
         }
       }
-      unit <- make_valid_time_unit("s", c(valid_time64_units, valid_time32_units))
-      x <- build_expr("strptime", x, options = list(format = format, unit = unit))
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
 
     # cast from numeric
     } else if (call_binding("is.numeric", x)) {
