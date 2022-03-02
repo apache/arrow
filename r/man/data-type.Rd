@@ -206,6 +206,22 @@ bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
 time64("ns")
+
+# Use the cast method to change the type of data contained in Arrow Objects.
+# Please check the documentation of each data object class for details.
+Scalar$create(0L)$cast(int64())$cast(timestamp("ns"))
+Array$create(0L)$cast(int64())$cast(timestamp("s", timezone = "UTC"))
+chunked_array(0L, 1L)$cast(date32())
+
+# You can also use `cast()` in dplyr query.
+library(dplyr)
+data.frame(col1 = 1:10, col2 = 1:10) \%>\%
+  arrow_table() \%>\%
+  mutate(
+    col1 = cast(col1, string()),
+    col2 = cast(col2, date32())
+  ) \%>\%
+  compute()
 \dontshow{\}) # examplesIf}
 }
 \seealso{
