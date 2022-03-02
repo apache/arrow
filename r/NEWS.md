@@ -25,6 +25,7 @@
   * `semester()` to extract/get semester
   * `dst()` to get daylight savings time indicator.
   * `date()` to extract date
+  * * `epiyear()` to get epiyear
 * `as.Date()` to convert to date
 
 # arrow 7.0.0
