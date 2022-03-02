@@ -25,7 +25,6 @@
 #' @description A `Scalar` holds a single value of an Arrow type.
 #'
 #' @section Methods:
-
 #'
 #' - `$ToString()`: convert to a string
 #' - `$as_vector()`: convert to an R vector
