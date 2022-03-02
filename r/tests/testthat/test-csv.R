@@ -389,7 +389,7 @@ test_that("Write a CSV file with invalid input type", {
   bad_input <- Array$create(1:5)
   expect_error(
     write_csv_arrow(bad_input, csv_file),
-    regexp = "x must be an object of class 'data.frame', 'RecordBatch', or 'Table', not 'Array'."
+    regexp = "x must be an object of class .* not 'Array'."
   )
 })
 
@@ -461,9 +461,12 @@ test_that("Writing a CSV errors when unsupported (yet) readr args are used", {
       append = FALSE,
       quote = "all",
       escape = "double",
-      eol = "\n", ),
-    paste("The following arguments are not yet supported in Arrow: \"append\",",
-          "\"quote\", \"escape\", and \"eol\"")
+      eol = "\n"
+    ),
+    paste(
+      "The following arguments are not yet supported in Arrow: \"append\",",
+      "\"quote\", \"escape\", and \"eol\""
+    )
   )
 })
 
@@ -471,8 +474,10 @@ test_that("write_csv_arrow deals with duplication in sink/file", {
   # errors when both file and sink are supplied
   expect_error(
     write_csv_arrow(tbl, file = csv_file, sink = csv_file),
-    paste("You have supplied both \"file\" and \"sink\" arguments. Please",
-          "supply only one of them")
+    paste(
+      "You have supplied both \"file\" and \"sink\" arguments. Please",
+      "supply only one of them"
+    )
   )
 })
 
@@ -484,8 +489,10 @@ test_that("write_csv_arrow deals with duplication in include_headers/col_names",
       include_header = TRUE,
       col_names = TRUE
     ),
-    paste("You have supplied both \"col_names\" and \"include_header\"",
-          "arguments. Please supply only one of them")
+    paste(
+      "You have supplied both \"col_names\" and \"include_header\"",
+      "arguments. Please supply only one of them"
+    )
   )
 
   written_tbl <- suppressMessages(
@@ -502,4 +509,36 @@ test_that("read_csv_arrow() deals with BOMs (byte-order-marks) correctly", {
     read_csv_arrow(csv_file),
     tibble(a = 1, b = 2)
   )
+})
+
+test_that("write_csv_arrow can write from Dataset objects", {
+  skip_if_not_available("dataset")
+  data_dir <- make_temp_dir()
+  write_dataset(tbl_no_dates, data_dir, partitioning = "lgl")
+  data_in <- open_dataset(data_dir)
+
+  csv_file <- tempfile()
+  tbl_out <- write_csv_arrow(data_in, csv_file)
+  expect_true(file.exists(csv_file))
+
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_named(tbl_in, c("dbl", "false", "chr", "lgl"))
+  expect_equal(nrow(tbl_in), 10)
+})
+
+test_that("write_csv_arrow can write from RecordBatchReader objects", {
+  skip_if_not_available("dataset")
+  library(dplyr, warn.conflicts = FALSE)
+
+  query_obj <- arrow_table(tbl_no_dates) %>%
+    filter(lgl == TRUE)
+
+  csv_file <- tempfile()
+  on.exit(unlink(csv_file))
+  tbl_out <- write_csv_arrow(query_obj, csv_file)
+  expect_true(file.exists(csv_file))
+
+  tbl_in <- read_csv_arrow(csv_file)
+  expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
+  expect_equal(nrow(tbl_in), 3)
 })

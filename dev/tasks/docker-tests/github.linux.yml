@@ -45,21 +45,29 @@ jobs:
             {{ image }} \
             {{ command|default("") }}
 
-    {% if '-r' in image %}
       - name: Dump R install logs
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
-        continue-on-error: true
         if: always()
+        run: |
+          log=arrow/r/check/arrow.Rcheck/00install.out
+          if [ -f ${log} ]; then
+            cat ${log}
+          fi
       - name: Dump R test logs
-        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
         if: always()
+        run: |
+          for log in arrow/r/check/arrow.Rcheck/tests/testthat.Rout*; do
+            if [ -f ${log} ]; then
+              echo ${log}
+              cat ${log}
+            fi
+          done
       - name: Save the R test output
         if: always()
         uses: actions/upload-artifact@v2
         with:
           name: test-output
           path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
-    {% endif %}
+          if-no-files-found: ignore
 
     {% if arrow.branch == 'master' %}
       {{ macros.github_login_dockerhub()|indent }}

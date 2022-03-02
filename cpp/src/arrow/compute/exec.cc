@@ -331,26 +331,27 @@ struct NullGeneralization {
   enum type { PERHAPS_NULL, ALL_VALID, ALL_NULL };
 
   static type Get(const Datum& datum) {
-    if (datum.type()->id() == Type::NA) {
+    const auto dtype_id = datum.type()->id();
+    if (dtype_id == Type::NA) {
       return ALL_NULL;
     }
-
+    if (!arrow::internal::HasValidityBitmap(dtype_id)) {
+      return ALL_VALID;
+    }
     if (datum.is_scalar()) {
       return datum.scalar()->is_valid ? ALL_VALID : ALL_NULL;
     }
-
-    const auto& arr = *datum.array();
-
-    // Do not count the bits if they haven't been counted already
-    const int64_t known_null_count = arr.null_count.load();
-    if ((known_null_count == 0) || (arr.buffers[0] == NULLPTR)) {
-      return ALL_VALID;
+    if (datum.is_array()) {
+      const auto& arr = *datum.array();
+      // Do not count the bits if they haven't been counted already
+      const int64_t known_null_count = arr.null_count.load();
+      if ((known_null_count == 0) || (arr.buffers[0] == NULLPTR)) {
+        return ALL_VALID;
+      }
+      if (known_null_count == arr.length) {
+        return ALL_NULL;
+      }
     }
-
-    if (known_null_count == arr.length) {
-      return ALL_NULL;
-    }
-
     return PERHAPS_NULL;
   }
 };
@@ -722,7 +723,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       // kernels supporting preallocation, then we do so up front and then
       // iterate over slices of that large array. Otherwise, we preallocate prior
       // to processing each batch emitted from the ExecBatchIterator
-      RETURN_NOT_OK(SetupPreallocation(batch_iterator_->length()));
+      RETURN_NOT_OK(SetupPreallocation(batch_iterator_->length(), args));
     }
     return Status::OK();
   }
@@ -772,14 +773,26 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     return Status::OK();
   }
 
-  Status SetupPreallocation(int64_t total_length) {
+  Status SetupPreallocation(int64_t total_length, const std::vector<Datum>& args) {
     output_num_buffers_ = static_cast<int>(output_descr_.type->layout().buffers.size());
-
-    // Decide if we need to preallocate memory for this kernel
-    validity_preallocated_ =
-        (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
-         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL &&
-         output_descr_.type->id() != Type::NA);
+    auto out_type_id = output_descr_.type->id();
+    // Default to no validity pre-allocation for following cases:
+    // - Output Array is NullArray
+    // - kernel_->null_handling is COMPUTED_NO_PREALLOCATE or OUTPUT_NOT_NULL
+    validity_preallocated_ = false;
+    if (out_type_id != Type::NA) {
+      if (kernel_->null_handling == NullHandling::COMPUTED_PREALLOCATE) {
+        // Override the flag if kernel asks for pre-allocation
+        validity_preallocated_ = true;
+      } else if (kernel_->null_handling == NullHandling::INTERSECTION) {
+        bool are_all_inputs_valid = true;
+        for (const auto& arg : args) {
+          auto null_gen = NullGeneralization::Get(arg) == NullGeneralization::ALL_VALID;
+          are_all_inputs_valid = are_all_inputs_valid && null_gen;
+        }
+        validity_preallocated_ = !are_all_inputs_valid;
+      }
+    }
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
       ComputeDataPreallocate(*output_descr_.type, &data_preallocated_);
     }
@@ -791,8 +804,8 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     // kernel's attributes.
     preallocate_contiguous_ =
         (exec_context()->preallocate_contiguous() && kernel_->can_write_into_slices &&
-         validity_preallocated_ && !is_nested(output_descr_.type->id()) &&
-         !is_dictionary(output_descr_.type->id()) &&
+         validity_preallocated_ && !is_nested(out_type_id) &&
+         !is_dictionary(out_type_id) &&
          data_preallocated_.size() == static_cast<size_t>(output_num_buffers_ - 1) &&
          std::all_of(data_preallocated_.begin(), data_preallocated_.end(),
                      [](const BufferPreallocation& prealloc) {

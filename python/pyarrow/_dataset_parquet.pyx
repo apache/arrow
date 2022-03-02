@@ -592,11 +592,6 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If enabled, pre-buffer the raw Parquet data instead of issuing one
         read per column chunk. This can improve performance on high-latency
         filesystems.
-    enable_parallel_column_conversion : bool, default False
-        EXPERIMENTAL: Parallelize conversion across columns. This option is
-        ignored if a scan is already parallelized across input files to avoid
-        thread contention. This option will be removed after support is added
-        for simultaneous parallelization across files and columns.
     """
 
     cdef:
@@ -607,15 +602,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
 
     def __init__(self, bint use_buffered_stream=False,
                  buffer_size=8192,
-                 bint pre_buffer=False,
-                 bint enable_parallel_column_conversion=False):
+                 bint pre_buffer=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         self.pre_buffer = pre_buffer
-        self.enable_parallel_column_conversion = \
-            enable_parallel_column_conversion
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -656,29 +648,16 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def pre_buffer(self, bint pre_buffer):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
-    @property
-    def enable_parallel_column_conversion(self):
-        return self.parquet_options.enable_parallel_column_conversion
-
-    @enable_parallel_column_conversion.setter
-    def enable_parallel_column_conversion(
-            self, bint enable_parallel_column_conversion):
-        self.parquet_options.enable_parallel_column_conversion = \
-            enable_parallel_column_conversion
-
     def equals(self, ParquetFragmentScanOptions other):
         return (
             self.use_buffered_stream == other.use_buffered_stream and
             self.buffer_size == other.buffer_size and
-            self.pre_buffer == other.pre_buffer and
-            self.enable_parallel_column_conversion ==
-            other.enable_parallel_column_conversion
+            self.pre_buffer == other.pre_buffer
         )
 
     def __reduce__(self):
         return ParquetFragmentScanOptions, (
-            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.enable_parallel_column_conversion
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer
         )
 
 

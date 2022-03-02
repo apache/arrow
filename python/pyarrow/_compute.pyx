@@ -867,10 +867,11 @@ cdef CCalendarUnit unwrap_round_temporal_unit(unit) except *:
 
 
 cdef class _RoundTemporalOptions(FunctionOptions):
-    def _set_options(self, multiple, unit):
+    def _set_options(self, multiple, unit, week_starts_monday):
         self.wrapped.reset(
             new CRoundTemporalOptions(
-                multiple, unwrap_round_temporal_unit(unit))
+                multiple, unwrap_round_temporal_unit(unit),
+                week_starts_monday)
         )
 
 
@@ -887,10 +888,12 @@ class RoundTemporalOptions(_RoundTemporalOptions):
         Accepted values are "year", "quarter", "month", "week", "day",
         "hour", "minute", "second", "millisecond", "microsecond",
         "nanosecond".
+    week_starts_monday : bool, default True
+        If True, weeks start on Monday; if False, on Sunday.
     """
 
-    def __init__(self, multiple=1, unit="day"):
-        self._set_options(multiple, unit)
+    def __init__(self, multiple=1, unit="day", week_starts_monday=True):
+        self._set_options(multiple, unit, week_starts_monday)
 
 
 cdef class _RoundToMultipleOptions(FunctionOptions):

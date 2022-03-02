@@ -60,9 +60,10 @@ void PrintTo(const WriterTestParams& p, std::ostream* os) {
 WriteOptions DefaultTestOptions(bool include_header = false,
                                 const std::string& null_string = "",
                                 QuotingStyle quoting_style = QuotingStyle::Needed,
-                                const std::string& eol = "\n", char delimiter = ',') {
+                                const std::string& eol = "\n", char delimiter = ',',
+                                int batch_size = 5) {
   WriteOptions options;
-  options.batch_size = 5;
+  options.batch_size = batch_size;
   options.include_header = include_header;
   options.null_string = null_string;
   options.eol = eol;
@@ -240,6 +241,10 @@ std::vector<WriterTestParams> GenerateTestCases() {
       reject_structural_params({nullptr, "a", nullptr, "c,d", nullptr, ",e", "f"}, "c,d"),
       reject_structural_params({"a", "b", nullptr, "c,d", nullptr, nullptr}, "c,d"),
       // exercise simd code with strings total length >= 16
+      {abc_schema, populated_batch,
+       DefaultTestOptions(/*include_header=*/false, "", QuotingStyle::AllValid, "\n", ',',
+                          /*batch_size=*/100),
+       expected_quoting_style_all_valid},
       reject_structural_params({nullptr, "0123456789\\nabcdef"}, "0123456789\nabcdef"),
       reject_structural_params({"0123456\\r789", nullptr, "abcdef"}, "0123456\r789"),
       reject_structural_params({"0123456789", nullptr, "abcde,", nullptr}, "abcde,"),

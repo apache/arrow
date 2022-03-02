@@ -1755,11 +1755,9 @@ class _ParquetDatasetV2:
             else:
                 single_file = path_or_paths
 
-        if single_file is not None:
-            self._enable_parallel_column_conversion = True
-            read_options.update(enable_parallel_column_conversion=True)
+        parquet_format = ds.ParquetFileFormat(**read_options)
 
-            parquet_format = ds.ParquetFileFormat(**read_options)
+        if single_file is not None:
             fragment = parquet_format.make_fragment(single_file, filesystem)
 
             self._dataset = ds.FileSystemDataset(
@@ -1768,10 +1766,6 @@ class _ParquetDatasetV2:
                 filesystem=fragment.filesystem
             )
             return
-        else:
-            self._enable_parallel_column_conversion = False
-
-        parquet_format = ds.ParquetFileFormat(**read_options)
 
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
@@ -1821,12 +1815,6 @@ class _ParquetDatasetV2:
                 columns = (
                     list(columns) + list(set(index_columns) - set(columns))
                 )
-
-        if self._enable_parallel_column_conversion:
-            if use_threads:
-                # Allow per-column parallelism; would otherwise cause
-                # contention in the presence of per-file parallelism.
-                use_threads = False
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,

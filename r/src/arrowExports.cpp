@@ -2027,6 +2027,24 @@ extern "C" SEXP _arrow_csv___WriteCSV__RecordBatch(SEXP record_batch_sexp, SEXP 
 }
 #endif
 
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv___WriteCSV__RecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, const std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatchReader(SEXP reader_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv___WriteCSV__RecordBatchReader(reader, write_options, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteCSV__RecordBatchReader(SEXP reader_sexp, SEXP write_options_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv___WriteCSV__RecordBatchReader(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<ds::Dataset>& ds);
@@ -7729,6 +7747,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
 		{ "_arrow_csv___WriteCSV__Table", (DL_FUNC) &_arrow_csv___WriteCSV__Table, 3}, 
 		{ "_arrow_csv___WriteCSV__RecordBatch", (DL_FUNC) &_arrow_csv___WriteCSV__RecordBatch, 3}, 
+		{ "_arrow_csv___WriteCSV__RecordBatchReader", (DL_FUNC) &_arrow_csv___WriteCSV__RecordBatchReader, 3}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
