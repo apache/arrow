@@ -9,14 +9,18 @@ A \code{Scalar} holds a single value of an Arrow type.
 }
 \section{Methods}{
 
-\verb{$ToString()}: convert to a string
-\verb{$as_vector()}: convert to an R vector
-\verb{$as_array()}: convert to an Arrow \code{Array}
-\verb{$Equals(other)}: is this Scalar equal to \code{other}
-\verb{$ApproxEquals(other)}: is this Scalar approximately equal to \code{other}
-\verb{$is_valid}: is this Scalar valid
-\verb{$null_count}: number of invalid values - 1 or 0
-\verb{$type}: Scalar type
+\itemize{
+\item \verb{$ToString()}: convert to a string
+\item \verb{$as_vector()}: convert to an R vector
+\item \verb{$as_array()}: convert to an Arrow \code{Array}
+\item \verb{$Equals(other)}: is this Scalar equal to \code{other}
+\item \verb{$ApproxEquals(other)}: is this Scalar approximately equal to \code{other}
+\item \verb{$is_valid}: is this Scalar valid
+\item \verb{$null_count}: number of invalid values - 1 or 0
+\item \verb{$type}: Scalar type
+\item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
+data in the Scalar to change its type.
+}
 }
 
 \examples{
