@@ -73,7 +73,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>2.0.43.Final</version>
+      <version>${dep.netty-tcnative.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
