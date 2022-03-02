@@ -794,30 +794,6 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     test_df
   )
 
-  # the way we go about it is a bit different, but the result is the same =>
-  # testing without compare_dplyr_binding()
-  expect_equal(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var)) %>%
-      collect(),
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect()
-  )
-
-  expect_equal(
-    test_df %>%
-      record_batch() %>%
-      mutate(date_double = as.Date(double_var)) %>%
-      collect(),
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect()
-  )
-
   # actual and expected differ due to doubles are accounted for (floored in
   # arrow and rounded to the next decimal in R)
   expect_error(
