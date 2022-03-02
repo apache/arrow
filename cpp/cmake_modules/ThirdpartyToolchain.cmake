@@ -2384,6 +2384,8 @@ macro(build_re2)
   # Set values so that FindRE2 finds this too
   set(RE2_LIB ${RE2_STATIC_LIB})
   set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
 endmacro()
 
 if(ARROW_WITH_RE2)
@@ -3584,6 +3586,7 @@ macro(build_grpc)
   set(GRPC_GPR_ABSL_LIBRARIES
       absl::base
       absl::cord
+      absl::status
       absl::statusor
       absl::synchronization)
   add_library(gRPC::gpr STATIC IMPORTED)
@@ -3609,6 +3612,7 @@ macro(build_grpc)
       gRPC::gpr
       gRPC::upb
       gRPC::address_sorting
+      re2::re2
       c-ares::cares
       ZLIB::ZLIB
       OpenSSL::SSL
@@ -3656,14 +3660,7 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
-  list(APPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       ${GRPC_GPR_ABSL_LIBRARIES}
-       gRPC::address_sorting
-       gRPC::gpr
-       gRPC::grpc
-       gRPC::grpcpp_for_bundling
-       gRPC::upb)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
 endmacro()
 
 if(ARROW_WITH_GRPC)
