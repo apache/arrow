@@ -24,6 +24,7 @@
   * `tz()` to extract/get timezone
   * `semester()` to extract/get semester
   * `dst()` to get daylight savings time indicator.
+  * `epiyear()` to get epiyear
 
 # arrow 7.0.0
 
