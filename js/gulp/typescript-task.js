@@ -54,9 +54,9 @@ function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
         tsProject(ts.reporter.defaultReporter())
     );
     const writeSources = observableFromStreams(tsProject.src(), gulp.dest(path.join(out, 'src')));
-    const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false, sourceRoot: 'src' }), gulp.dest(out));
+    const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false, sourceRoot: './src' }), gulp.dest(out));
     const mapFile = tsProject.options.module === tsc.ModuleKind.ES2015 ? esmMapFile : cjsMapFile;
-    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: 'src' }), gulp.dest(out));
+    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: './src' }), gulp.dest(out));
     return ObservableForkJoin([writeSources, writeDTypes, writeJS]);
 }
 
