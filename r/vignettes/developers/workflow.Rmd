@@ -15,7 +15,7 @@ The Arrow R package uses several additional development tools:
 
 You can install all these additional dependencies by running:
 
-```{r, eval=FALSE}
+```r
 remotes::install_github("jonkeane/lintr@arrow-branch")
 install.packages(c("styler", "pkgdown", "roxygen2"))
 ```
