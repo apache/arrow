@@ -776,9 +776,7 @@ test_that("extract tz", {
 test_that("semester works with temporal types and integers", {
 test_that("month() supports integer input",{
   test_df_month <- tibble(
-    month_as_int = c(1:12, NA),
-    month_as_char_pad = sprintf("%02i", month_as_int),
-    dates = as.Date(paste0("2021-", month_as_char_pad, "-15"))
+    month_as_int = c(1:12, NA)
   )
 
   # semester extraction from dates
@@ -833,25 +831,69 @@ test_that("dst extracts daylight savings time correctly", {
   at$posixlt$as_vector()
   at$posixlt$as_vector()$mon
 
-
-  # we need to support both integer and integer + label, similar to below
-  lubridate::month(1)
-  lubridate::month(1.1)
-  lubridate::month(4L)
-  lubridate::month(4L, label = TRUE)
-
-
-  expect_error(
-    call_binding("month", "not a month")
+  compare_dplyr_binding(
+    .input %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    test_df_month
   )
-  expect_error(
-    call_binding("month", 22L)
+
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(
+        month_int_input = as.character(month(month_as_int, label = TRUE))
+      ) %>%
+      collect(),
+    test_df_month
   )
-  expect_error(
-    call_binding("month", -4)
+
+  compare_dplyr_binding(
+    .input %>%
+      # R returns ordered factor whereas Arrow returns character
+      mutate(
+        month_int_input = as.character(
+          month(month_as_int, label = TRUE, abbr = FALSE)
+      )) %>%
+      collect(),
+    test_df_month
   )
+})
+
+test_that("month() errors with double input and returns NA with int outside 1:12", {
+  test_df_month <- tibble(
+    month_as_int = c(-1L, 1L, 13L, NA),
+    month_as_double = month_as_int + 0.1
+  )
+
   expect_error(
-    call_binding("month", NA)
+    test_df_month %>%
+      arrow_table() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+
+  expect_error(
+    test_df_month %>%
+      record_batch() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+
+  expect_equal(
+    test_df_month %>%
+      arrow_table() %>%
+      select(month_as_int) %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    tibble(
+      month_as_int = c(-1L, 1L, 13L, NA),
+      month_int_input = c(NA, 1L, NA, NA)
+    )
   )
 })
 
