@@ -25,14 +25,17 @@
 #' @description A `Scalar` holds a single value of an Arrow type.
 #'
 #' @section Methods:
-#'   `$ToString()`: convert to a string
-#'   `$as_vector()`: convert to an R vector
-#'   `$as_array()`: convert to an Arrow `Array`
-#'   `$Equals(other)`: is this Scalar equal to `other`
-#'   `$ApproxEquals(other)`: is this Scalar approximately equal to `other`
-#'   `$is_valid`: is this Scalar valid
-#'   `$null_count`: number of invalid values - 1 or 0
-#'   `$type`: Scalar type
+#'
+#' - `$ToString()`: convert to a string
+#' - `$as_vector()`: convert to an R vector
+#' - `$as_array()`: convert to an Arrow `Array`
+#' - `$Equals(other)`: is this Scalar equal to `other`
+#' - `$ApproxEquals(other)`: is this Scalar approximately equal to `other`
+#' - `$is_valid`: is this Scalar valid
+#' - `$null_count`: number of invalid values - 1 or 0
+#' - `$type`: Scalar type
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: cast value 
+#'     to a different type
 #'
 #' @name Scalar
 #' @rdname Scalar
@@ -53,7 +56,6 @@
 #' @export
 Scalar <- R6Class("Scalar",
   inherit = ArrowDatum,
-  # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
     type_id = function() Scalar__type(self)$id,
