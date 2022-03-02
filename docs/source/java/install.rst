@@ -26,7 +26,7 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ------------------
 
-Java modules is currently compatible with JDK 8 / 9 / 10 / 11.
+Java modules are currently compatible with Java 8 / 9 / 10 / 11.
 
 Using Maven
 -----------
