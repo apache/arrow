@@ -60,7 +60,7 @@ jobs:
               echo ${log}
               cat ${log}
             fi
-          fi
+          done
       - name: Save the R test output
         if: always()
         uses: actions/upload-artifact@v2
