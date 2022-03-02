@@ -520,6 +520,15 @@ test_that("extract isoyear from date", {
   )
 })
 
+test_that("extract epiyear from date", {
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = epiyear(date)) %>%
+      collect(),
+    test_df
+  )
+})
+
 test_that("extract quarter from date", {
   compare_dplyr_binding(
     .input %>%
