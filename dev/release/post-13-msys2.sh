@@ -45,13 +45,10 @@ if ! git remote | grep -q '^upstream$'; then
   exit 1
 fi
 
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "${SOURCE_DIR}/git-vars.sh"
-
 echo "Updating repository: ${repository}"
 git fetch --all --prune --tags --force -j$(nproc)
-git checkout ${DEFAULT_BRANCH}
-git rebase upstream/${DEFAULT_BRANCH}
+git checkout master
+git rebase upstream/master
 
 branch="arrow-${version}"
 echo "Creating branch: ${branch}"

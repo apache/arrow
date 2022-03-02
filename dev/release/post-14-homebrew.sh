@@ -40,12 +40,10 @@ fi
 echo "Updating working copy"
 git fetch --all --prune --tags --force -j$(nproc)
 
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-source "${SOURCE_DIR}/git-vars.sh"
 branch=apache-arrow-${version}
 echo "Creating branch: ${branch}"
 git branch -D ${branch} || :
-git checkout -b ${branch} origin/${DEFAULT_BRANCH}
+git checkout -b ${branch} origin/master
 
 echo "Updating apache-arrow formulae"
 brew bump-formula-pr \
