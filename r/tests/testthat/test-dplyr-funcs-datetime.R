@@ -862,36 +862,26 @@ test_that("date works in arrow", {
 })
 
 test_that("date() errors with unsupported inputs", {
-  test_df <- tibble::tibble(
-    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
-    date_var = as.Date("2022-02-25"),
-    character_ymd_var = "2022-02-25 00:00:01",
-    character_ydm_var = "2022/25/02 00:00:01",
-    integer_var = 32L,
-    double_var = 34.56,
-    boolean_var = TRUE
-  )
-
   expect_error(
-    test_df %>%
+    example_data %>%
       arrow_table() %>%
-      mutate(date_char = date(character_ymd_var)) %>%
+      mutate(date_char = date("2022-02-25 00:00:01")) %>%
       collect(),
     regexp = "Unsupported cast from string to date32 using function cast_date32"
   )
 
   expect_error(
-    test_df %>%
+    example_data %>%
       arrow_table() %>%
-      mutate(date_bool = date(boolean_var)) %>%
+      mutate(date_bool = date(TRUE)) %>%
       collect(),
     regexp = "Unsupported cast from bool to date32 using function cast_date32"
   )
 
   expect_error(
-    test_df %>%
+    example_data %>%
       arrow_table() %>%
-      mutate(date_double = date(double_var)) %>%
+      mutate(date_double = date(34.56)) %>%
       collect(),
     regexp = "Unsupported cast from double to date32 using function cast_date32"
   )

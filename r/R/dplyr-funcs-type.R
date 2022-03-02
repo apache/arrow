@@ -82,48 +82,46 @@ register_bindings_type_cast <- function() {
                                        origin = "1970-01-01",
                                        tz = "UTC") {
 
+    # the origin argument will be better supported once we implement temporal
+    # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
+    # TODO revisit once the above has been sorted
+    if (origin != "1970-01-01") {
+      abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+    }
+
+    if (tz != "UTC") {
+      abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
+    }
+    # this could be improved with tryFormats once strptime returns NA and we
+    # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
+    if (is.null(format) && length(tryFormats) > 1) {
+      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
+    }
+
     if (call_binding("is.Date", x)) {
-      # base::as.Date() first converts to the desired timezone and then extracts
-      # the date, which is why we need to go through timestamp() first
       return(x)
 
     # cast from POSIXct
     } else if (call_binding("is.POSIXct", x)) {
-      if (tz == "UTC") {
-        x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
-      } else {
-        abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
-      }
+      # base::as.Date() first converts to the desired timezone and then extracts
+      # the date, which is why we need to go through timestamp() first
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = "UTC")))
 
     # cast from character
     } else if (call_binding("is.character", x)) {
-      # this could be improved with tryFormats once strptime returns NA and we
-      # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
-      # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-      if (is.null(format) && length(tryFormats) > 1) {
-        abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
-      }
       format <- format %||% tryFormats[[1]]
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
 
     # cast from numeric
-    } else if (call_binding("is.numeric", x)) {
-      if (origin != "1970-01-01") {
-        abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
-      }
-      # the origin argument will be better supported once we implement temporal
-      # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
-      # TODO revisit once the above has been sorted
-      if (!call_binding("is.integer", x)) {
-        # Arrow does not support direct casting from double to date so we have
-        # to convert to integers first - casting to int32() would error so we
-        # need to use `floor` before casting. `floor` is also a bit safer than
-        # int32() with `safe = FALSE` since it doesn't switch to `ceiling` for
-        # negative numbers
-        # TODO revisit if arrow decides to support double -> date casting
-        x <- call_binding("floor", x)
-        x <- build_expr("cast", x, options = cast_options(to_type = int32()))
-      }
+    } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
+      # Arrow does not support direct casting from double to date so we have to
+      # convert to integers first - casting to int32() would error so we need to
+      # use `floor` before casting. `floor` is also a bit safer than int32() with
+      # `safe = FALSE` since it doesn't switch to `ceiling` for negative numbers
+      # TODO revisit if arrow decides to support double -> date casting
+      x <- call_binding("floor", x)
+      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
