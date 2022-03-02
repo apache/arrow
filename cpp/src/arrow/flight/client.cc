@@ -555,6 +555,7 @@ Status FlightClient::Close() {
   if (!closed_) {
     closed_ = true;
     RETURN_NOT_OK(impl_->Close());
+    impl_.reset(nullptr);
   }
   return Status::OK();
 }
