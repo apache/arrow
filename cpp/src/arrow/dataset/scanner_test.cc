@@ -1472,7 +1472,7 @@ DatasetAndBatches MakeNestedDataset() {
 compute::Expression Materialize(std::vector<std::string> names,
                                 bool include_aug_fields = false) {
   if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment"}) {
+    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment", "__filename"}) {
       names.emplace_back(aug_name);
     }
   }
@@ -1502,6 +1502,7 @@ TEST(ScanNode, Schema) {
   fields.push_back(field("__fragment_index", int32()));
   fields.push_back(field("__batch_index", int32()));
   fields.push_back(field("__last_in_fragment", boolean()));
+  fields.push_back(field("__filename", utf8()));
   // output_schema is *always* the full augmented dataset schema, regardless of
   // projection (but some columns *may* be placeholder null Scalars if not projected)
   AssertSchemaEqual(Schema(fields), *scan->output_schema());
