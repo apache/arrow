@@ -63,6 +63,8 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
   }
 }
 
+util::optional<std::string> timezone_db_path;
+
 };  // namespace
 
 const BuildInfo& GetBuildInfo() { return kBuildInfo; }
@@ -74,21 +76,28 @@ RuntimeInfo GetRuntimeInfo() {
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsSupported(flags); });
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
+  info.using_os_timezone_db = USE_OS_TZDB;
+#if !USE_OS_TZDB
+  info.timezone_db_path = timezone_db_path;
+#endif
   return info;
 }
 
 Status Initialize(const ArrowGlobalOptions& options) noexcept {
-  if (options.tz_db_path != nullptr) {
-    #if !USE_OS_TZDB
+  if (options.tz_db_path.has_value()) {
+#if !USE_OS_TZDB
     try {
-      arrow_vendored::date::set_install(*options.tz_db_path);
+      arrow_vendored::date::set_install(options.tz_db_path.value());
       arrow_vendored::date::reload_tzdb();
-    } catch(const std::runtime_error& e) {
+    } catch (const std::runtime_error& e) {
       return Status::ExecutionError(e.what());
     }
-    #else
-      return Status::Invalid("Arrow was set to use OS timezone database at compile time, so it cannot be set at runtime.");
-    #endif  // !USE_OS_TZDB
+    timezone_db_path = options.tz_db_path.value();
+#else
+    return Status::Invalid(
+        "Arrow was set to use OS timezone database at compile time, so it cannot be set "
+        "at runtime.");
+#endif  // !USE_OS_TZDB
   }
   return Status::OK();
 }

@@ -1046,7 +1046,6 @@ struct RoundTemporal {
 // ----------------------------------------------------------------------
 // Convert timestamps to a string representation with an arbitrary format
 
-#ifndef _WIN32
 Result<std::locale> GetLocale(const std::string& locale) {
   try {
     return std::locale(locale.c_str());
@@ -1130,18 +1129,6 @@ struct Strftime {
     return Status::OK();
   }
 };
-#else
-// TODO(ARROW-13168)
-template <typename Duration, typename InType>
-struct Strftime {
-  static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
-    return Status::NotImplemented("Strftime not yet implemented on windows.");
-  }
-  static Status Call(KernelContext* ctx, const ArrayData& in, ArrayData* out) {
-    return Status::NotImplemented("Strftime not yet implemented on windows.");
-  }
-};
-#endif
 
 // ----------------------------------------------------------------------
 // Convert timestamps from local timestamp without a timezone to timestamps with a

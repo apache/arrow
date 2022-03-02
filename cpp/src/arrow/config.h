@@ -19,8 +19,9 @@
 
 #include <string>
 
-#include "arrow/util/config.h"  // IWYU pragma: export
 #include "arrow/status.h"
+#include "arrow/util/config.h"  // IWYU pragma: export
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -63,6 +64,12 @@ struct RuntimeInfo {
 
   /// The SIMD level available on the OS and CPU
   std::string detected_simd_level;
+
+  /// Whether using the OS-based timezone database
+  bool using_os_timezone_db;
+
+  /// The path to the timezone database; is None
+  util::optional<std::string> timezone_db_path;
 };
 
 /// \brief Get runtime build info.
@@ -81,9 +88,11 @@ RuntimeInfo GetRuntimeInfo();
 struct ArrowGlobalOptions {
   /// Path to text timezone database. This is only configurable on Windows,
   /// which does not have a compatible OS timezone database.
-  std::string* tz_db_path;
+  util::optional<std::string> tz_db_path;
 };
 
+// TODO: We need to tell users to run this before using timezones on Windows
+// TODO: We need to run this before C++ unit tests on Windows
 ARROW_EXPORT
 Status Initialize(const ArrowGlobalOptions& options) noexcept;
 
