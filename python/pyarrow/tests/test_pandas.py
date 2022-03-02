@@ -4096,7 +4096,7 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
 
 def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
-    if Version(pd.__version__) < Version("1.0.0"):
+    if Version(pd.__version__) < Version("1.2.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
     data = pa.array([1, 2, 3], pa.int64())
@@ -4120,7 +4120,7 @@ def test_array_to_pandas_types_mapper():
 @pytest.mark.pandas
 def test_chunked_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
-    if Version(pd.__version__) < Version("1.0.0"):
+    if Version(pd.__version__) < Version("1.2.0"):
         pytest.skip("ExtensionDtype to_pandas method missing")
 
     data = pa.chunked_array([pa.array([1, 2, 3], pa.int64())])
