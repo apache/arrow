@@ -74,7 +74,8 @@ Ops.ArrowDatum <- function(e1, e2) {
     switch(
       .Generic,
       "!" = return(eval_array_expression(.Generic, e1)),
-      "+" =, "-" = return(eval_array_expression(.Generic, 0L, e1)),
+      "+" = return(eval_array_expression(.Generic, 0L, e1)),
+      "-" = return(eval_array_expression("negate_checked", e1)),
     )
   }
 

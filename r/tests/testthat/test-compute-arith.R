@@ -134,7 +134,7 @@ test_that("Dates casting", {
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
 })
 
-test_that("Ops group generics work on Array objects", {
+test_that("Unary Ops group generics work on Array objects", {
   expect_equal(+Array$create(1L), Array$create(1L))
   expect_equal(-Array$create(1L), Array$create(-1L))
   expect_equal(!Array$create(c(TRUE, FALSE, NA)), Array$create(c(FALSE, TRUE, NA)))
