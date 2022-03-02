@@ -883,7 +883,7 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
       mutate(date_char_ymd = as.Date(character_ymd_var,
                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
       collect(),
-    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow",
+    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow yet",
     fixed = TRUE
   )
 

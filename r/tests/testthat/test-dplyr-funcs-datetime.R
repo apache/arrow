@@ -895,5 +895,4 @@ test_that("date() errors with unsupported inputs", {
       collect(),
     regexp = "Unsupported cast from double to date32 using function cast_date32"
   )
-
 })
