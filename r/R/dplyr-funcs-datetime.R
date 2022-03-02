@@ -105,25 +105,20 @@ register_bindings_datetime <- function() {
     (call_binding("yday", x) - 1) %/% 7 + 1
   })
 
-  register_binding("month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
-    browser()
+  register_binding("month", function(x,
+                                     label = FALSE,
+                                     abbr = TRUE,
+                                     locale = Sys.getlocale("LC_TIME")) {
+
     if (call_binding("is.integer", x)) {
-      if (inherits(x, "Expression")) {
-        x <- call_binding(
-          "if_else",
-          call_binding_agg("all", call_binding("between", x, 1, 12)),
-          x,
-          abort("bla1: Values are not in 1:12")
-        )
-        return(x)
-      } else {
-        if (all(1 <= x & x <= 12)) {
-          # x needs to be an Expression
-          x <- x
-        } else {
-          abort("bla2: Values are not in 1:12")
-        }
+      if (is.integer(x)) {
+        x <- build_expr("cast", x, options = cast_options(to_type = int32()))
       }
+      x <- call_binding("if_else",
+                        call_binding("between", x, 1, 12),
+                        x,
+                        NA_integer_)
+      x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
     }
 
     if (label) {
@@ -132,7 +127,8 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%B"
       }
-      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+      return(Expression$create("strftime", x,
+                               options = list(format = format, locale = locale)))
     }
 
     Expression$create("month", x)
