@@ -100,17 +100,17 @@ register_bindings_type_cast <- function() {
       # this could be improved with tryFormats once strptime returns NA and we
       # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
       # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
-      if (is.null(format)) {
-        if (length(tryFormats) == 1) {
-          format <- tryFormats[1]
-        } else {
-          abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
-        }
+      if (is.null(format) && length(tryFormats) > 1) {
+        abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
       }
+      format <- format %||% tryFormats[[1]]
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
 
     # cast from numeric
     } else if (call_binding("is.numeric", x)) {
+      if (origin != "1970-01-01") {
+        abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
+      }
       # the origin argument will be better supported once we implement temporal
       # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
       # TODO revisit once the above has been sorted
@@ -123,9 +123,6 @@ register_bindings_type_cast <- function() {
         # TODO revisit if arrow decides to support double -> date casting
         x <- call_binding("floor", x)
         x <- build_expr("cast", x, options = cast_options(to_type = int32()))
-      }
-      if (origin != "1970-01-01") {
-        abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
       }
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
