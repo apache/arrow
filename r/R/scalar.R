@@ -33,8 +33,8 @@
 #' - `$is_valid`: is this Scalar valid
 #' - `$null_count`: number of invalid values - 1 or 0
 #' - `$type`: Scalar type
-#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
-#'   data in the Scalar to change its type.
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: cast value 
+#'     to a different type
 #'
 #' @name Scalar
 #' @rdname Scalar
