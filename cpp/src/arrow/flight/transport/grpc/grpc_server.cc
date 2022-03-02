@@ -157,10 +157,10 @@ class GrpcServerCallContext : public ServerCallContext {
   std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>> middleware_map_;
 };
 
-class GrpcAddCallHeaders : public AddCallHeaders {
+class GrpcAddServerHeaders : public AddCallHeaders {
  public:
-  explicit GrpcAddCallHeaders(::grpc::ServerContext* context) : context_(context) {}
-  ~GrpcAddCallHeaders() override = default;
+  explicit GrpcAddServerHeaders(::grpc::ServerContext* context) : context_(context) {}
+  ~GrpcAddServerHeaders() override = default;
 
   void AddHeader(const std::string& key, const std::string& value) override {
     context_->AddInitialMetadata(key, value);
@@ -319,7 +319,7 @@ class GrpcServiceHandler : public FlightService::Service {
            util::string_view(entry.second.data(), entry.second.length())});
     }
 
-    GrpcAddCallHeaders outgoing_headers(context);
+    GrpcAddServerHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
       Status result = factory.second->StartCall(info, incoming_headers, &instance);

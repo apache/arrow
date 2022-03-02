@@ -89,11 +89,11 @@ struct ClientRpc {
   }
 };
 
-class GrpcAddCallHeaders : public AddCallHeaders {
+class GrpcAddClientHeaders : public AddCallHeaders {
  public:
-  explicit GrpcAddCallHeaders(std::multimap<::grpc::string, ::grpc::string>* metadata)
+  explicit GrpcAddClientHeaders(std::multimap<::grpc::string, ::grpc::string>* metadata)
       : metadata_(metadata) {}
-  ~GrpcAddCallHeaders() override = default;
+  ~GrpcAddClientHeaders() override = default;
 
   void AddHeader(const std::string& key, const std::string& value) override {
     metadata_->insert(std::make_pair(key, value));
@@ -113,7 +113,7 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
     using InterceptionHookPoints = ::grpc::experimental::InterceptionHookPoints;
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
-      GrpcAddCallHeaders add_headers(methods->GetSendInitialMetadata());
+      GrpcAddClientHeaders add_headers(methods->GetSendInitialMetadata());
       for (const auto& middleware : middleware_) {
         middleware->SendingHeaders(&add_headers);
       }
@@ -860,7 +860,7 @@ class GrpcClientImpl : public internal::ClientTransportImpl {
   // not correctly increase the reference count of this object:
   // https://github.com/grpc/grpc/issues/22287
   std::shared_ptr<
-      GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
+      ::GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS::TlsServerAuthorizationCheckConfig>
       noop_auth_check_;
 #endif
 };
