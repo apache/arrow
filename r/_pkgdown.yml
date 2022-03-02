@@ -20,7 +20,7 @@
 url: https://arrow.apache.org/docs/r/
 title: Arrow R Package
 template:
-  # bootstrap: 5 # ARROW-15734
+  bootstrap: 5
   bootswatch: cosmo
   params:
     ganalytics: UA-107500873-1
@@ -42,7 +42,7 @@ navbar:
       - news
       - project
     right:
-      # - search # ARROW-15734
+      - search
       - github
   components:
     home:
@@ -65,35 +65,6 @@ navbar:
           href: https://arrow.apache.org/docs/python/
         - text: R
           href: index.html
-    articles:
-      text: Articles
-      menu:
-        - text: Installing the Arrow Package on Linux
-          href: articles/install.html
-        - text: Working with Arrow Datasets and dplyr
-          href: articles/dataset.html
-        - text: Working with Cloud Storage (S3)
-          href: articles/fs.html
-        - text: Apache Arrow in Python and R with reticulate
-          href: articles/python.html
-        - text: Connecting to Flight RPC Servers
-          href: articles/flight.html
-        - text: Arrow R Developer Guide
-          href: articles/developing.html
-        - text: Developers
-          menu:
-          - text: Developer Environment Setup
-            href: articles/developers/setup.html
-          - text: Common Workflow Tasks
-            href: articles/developers/workflow.html
-          - text: Debugging
-            href: articles/developers/debugging.html
-          - text: Package Installation Details
-            href: articles/developers/install_details.html
-          - text: Docker
-            href: articles/developers/docker.html
-          - text: Writing Bindings
-            href: articles/developers/bindings.html
 
 articles:
   - title: Get started
