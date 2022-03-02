@@ -18,6 +18,8 @@
 Installing Java Modules
 =======================
 
+.. contents::
+
 System Compatibility
 --------------------
 
@@ -31,22 +33,44 @@ Java modules are currently compatible with Java 8 / 9 / 10 / 11.
 Using Maven
 -----------
 
-Downloading in Maven is triggered by a project declaring a dependency that is not present in the local repository.
-
 Central Repository
 ******************
 
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
-Configure your pom.xml with java module version needed. For example:
+Configure your pom.xml with java module version needed, for example for: memory-netty, format, and vector
 
 .. code-block::
 
-    <dependency>
-        <groupId>org.apache.arrow</groupId>
-        <artifactId>arrow-vector</artifactId>
-        <version>7.0.0</version>
-    </dependency
+    <?xml version="1.0" encoding="UTF-8"?>
+    <project xmlns="http://maven.apache.org/POM/4.0.0"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>org.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <properties>
+            <arrow.version>7.0.0</arrow.version>
+        </properties>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-format</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+        </dependencies>
+    </project>
 
 Staging Repository
 ******************
@@ -93,8 +117,6 @@ Installing Nightly Packages
     These packages are not official releases. Use them at your own risk.
 
 All arrow nightly version are uploaded to github assets for example for March 01 it is uploading to `Github Nightly`_
-
-.. image:: img/java_nightly_github_asset.png
 
 For example if you need to test your code with these artifacts, then, you need to configure maven settings with:
 
