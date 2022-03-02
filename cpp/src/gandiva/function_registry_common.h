@@ -285,13 +285,4 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 #define NUMERIC_BOOL_DATE_VAR_LEN_TYPES(INNER, NAME, ALIASES) \
   NUMERIC_BOOL_DATE_TYPES(INNER, NAME, ALIASES), VAR_LEN_TYPES(INNER, NAME, ALIASES)
 
-// Is True and Is Not True functions with validity that :
-// - NULL handling is of type NULL_NEVER
-//
-// The pre-compiled fn name includes the base name & input type name. istrue_boolean /
-// isfalse_boolean
-#define ISTRUE_ISFALSE_NULL_NEVER(NAME, ALIASES, IN_TYPE, OUT_TYPE)                  \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{IN_TYPE()}, \
-                 OUT_TYPE(), kResultNullNever, ARROW_STRINGIFY(NAME##_##IN_TYPE))
-
 }  // namespace gandiva
