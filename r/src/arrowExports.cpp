@@ -1626,6 +1626,23 @@ extern "C" SEXP _arrow_ExecNode_ReadFromRecordBatchReader(SEXP plan_sexp, SEXP r
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name);
+extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<std::string>::type table_name(table_name_sexp);
+	return cpp11::as_sexp(Tpch_Dbgen(plan, scale_factor, table_name));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
+	Rf_error("Cannot call Tpch_Dbgen(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -7472,6 +7489,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 5}, 
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
 		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
+		{ "_arrow_Tpch_Dbgen", (DL_FUNC) &_arrow_Tpch_Dbgen, 3}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 

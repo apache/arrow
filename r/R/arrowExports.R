@@ -412,6 +412,10 @@ ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
   .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
 }
 
+Tpch_Dbgen <- function(plan, scale_factor, table_name) {
+  .Call(`_arrow_Tpch_Dbgen`, plan, scale_factor, table_name)
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
@@ -1851,3 +1855,4 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
+
