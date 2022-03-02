@@ -188,7 +188,7 @@ types analogously to the \code{readr} type mapping:
 \item "f": \code{dictionary()}
 \item "D": \code{date32()}
 \item "T": \code{timestamp(unit = "ns")}
-\item "t": \code{time32(unit = "ms")}
+\item "t": \code{time32()} (The \code{unit} arg is set to the default value \code{"ms"})
 \item "_": \code{null()}
 \item "-": \code{null()}
 \item "?": infer the type from the data
