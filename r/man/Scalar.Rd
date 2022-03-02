@@ -18,8 +18,8 @@ A \code{Scalar} holds a single value of an Arrow type.
 \item \verb{$is_valid}: is this Scalar valid
 \item \verb{$null_count}: number of invalid values - 1 or 0
 \item \verb{$type}: Scalar type
-\item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
-data in the Scalar to change its type.
+\item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: cast value
+to a different type
 }
 }
 
