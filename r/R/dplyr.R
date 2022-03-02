@@ -152,7 +152,8 @@ dim.arrow_dplyr_query <- function(x) {
   } else if (isTRUE(x$filtered_rows)) {
     rows <- x$.data$num_rows
   } else if (query_on_dataset(x)) {
-    # TODO: do this with an ExecPlan instead of Scanner?
+    # TODO: do this with an ExecPlan instead of Scanner (after ARROW-12311)?
+    # See also https://github.com/apache/arrow/pull/12533/files#r818129459
     rows <- Scanner$create(x)$CountRows()
   } else {
     # Query on in-memory Table, so evaluate the filter
