@@ -835,7 +835,8 @@ test_that("month() supports integer input",{
           month_int_input = as.character(month(month_as_int, label = TRUE))
         ) %>%
         collect(),
-      test_df_month
+      test_df_month,
+      ignore_attr = on_windows()
     )
 
     compare_dplyr_binding(

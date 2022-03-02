@@ -28,6 +28,9 @@
   * `epiyear()` to get epiyear
 * date-time functionality:
   * `as.Date()` to convert to date
+* `lubridate`:
+  * component extraction functions: `tz()` (timezone), `semester()` (semester), `dst()` (daylight savings time indicator)
+  * improvements to `month()`, which now works with integer inputs 
 
 # arrow 7.0.0
 
