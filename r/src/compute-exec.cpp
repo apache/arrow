@@ -23,6 +23,7 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
+#include <arrow/compute/exec/tpch_node.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
@@ -289,6 +290,60 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
                                                  /*batch_size=*/1048576};
 
   return MakeExecNodeOrStop("table_source", plan.get(), {}, options);
+}
+
+std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    int scale_factor,
+    std::string table_name
+    ) {
+
+  auto gen = ValueOrStop(arrow::compute::TpchGen::Make(plan.get(), scale_factor));
+
+  compute::ExecNode *table;
+  if (table_name == "part") {
+    table = ValueOrStop(gen.Part());
+  } else if (table_name == "supplier") {
+    table = ValueOrStop(gen.Supplier());
+  } else if (table_name == "partsupp") {
+    table = ValueOrStop(gen.PartSupp());
+  } else if (table_name == "customer") {
+    table = ValueOrStop(gen.Customer());
+  } else if (table_name == "nation") {
+    table = ValueOrStop(gen.Nation());
+  } else if (table_name == "lineitem") {
+    table = ValueOrStop(gen.Lineitem());
+  } else if (table_name == "region") {
+    table = ValueOrStop(gen.Region());
+  } else if (table_name == "orders") {
+    table = ValueOrStop(gen.Orders());
+  } else {
+    cpp11::stop("That's not a valid table name");
+  }
+
+  arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
+
+  MakeExecNodeOrStop("sink", plan.get(), {table},
+                     compute::SinkNodeOptions{&sink_gen});
+
+  StopIfNotOk(plan->Validate());
+  StopIfNotOk(plan->StartProducing());
+
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+    bool not_finished_yet =
+      plan->finished().TryAddCallback([&plan] {
+        return [plan](const arrow::Status&) {};
+      });
+
+    if (not_finished_yet) {
+      plan->StopProducing();
+    }
+  }};
+
+  return compute::MakeGeneratorReader(
+    table->output_schema(),
+    [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
 }
 
 #endif

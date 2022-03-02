@@ -444,6 +444,10 @@ ExecNode_TableSourceNode <- function(plan, table) {
   .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
+Tpch_Dbgen <- function(plan, scale_factor, table_name) {
+  .Call(`_arrow_Tpch_Dbgen`, plan, scale_factor, table_name)
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
