@@ -64,7 +64,7 @@ navbar:
         - text: Python
           href: https://arrow.apache.org/docs/python/
         - text: R
-          href: https://arrow.apache.org/docs/r/
+          href: index.html
     articles:
       text: Articles
       menu:
