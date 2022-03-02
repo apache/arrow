@@ -26,6 +26,10 @@ library(dplyr, warn.conflicts = FALSE)
 # TODO: consider reevaluating this workaround after ARROW-12980
 withr::local_timezone("UTC")
 
+if (tolower(Sys.info()[["sysname"]]) == "windows") {
+  withr::local_locale(LC_TIME = "C")
+}
+
 test_date <- as.POSIXct("2017-01-01 00:00:11.3456789", tz = "Pacific/Marquesas")
 
 
@@ -115,8 +119,6 @@ test_that("errors in strptime", {
 })
 
 test_that("strftime", {
-  skip_on_os("windows") # TODO: Fix Windows locales
-  # Error on Windows: Cannot find locale 'English_United States.1252'
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
     date = c(as.Date("2021-01-01"), NA)
@@ -179,13 +181,16 @@ test_that("strftime", {
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
-  expect_error(
-    times %>%
-      Table$create() %>%
-      mutate(x = strftime(datetime, format = "%c")) %>%
-      collect(),
-    "%c flag is not supported in non-C locales."
-  )
+  # Skip on Windows because it must use C locale.
+  if (tolower(Sys.info()[["sysname"]]) != "windows") {
+    expect_error(
+      times %>%
+        Table$create() %>%
+        mutate(x = strftime(datetime, format = "%c")) %>%
+        collect(),
+      "%c flag is not supported in non-C locales."
+    )
+  }
 
   # Output precision of %S depends on the input timestamp precision.
   # Timestamps with second precision are represented as integers while
@@ -342,7 +347,6 @@ test_that("extract quarter from timestamp", {
 })
 
 test_that("extract month from timestamp", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = month(datetime)) %>%
@@ -405,7 +409,6 @@ test_that("extract day from timestamp", {
 })
 
 test_that("extract wday from timestamp", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(datetime)) %>%
@@ -558,7 +561,6 @@ test_that("extract week from date", {
 
 # Duplicate?
 test_that("extract month from date", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = month(date)) %>%
@@ -595,7 +597,6 @@ test_that("extract day from date", {
 })
 
 test_that("extract wday from date", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(date)) %>%
