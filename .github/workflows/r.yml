@@ -280,7 +280,7 @@ jobs:
           name: libarrow-rtools40-mingw64.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.config.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-ucrt64.zip
