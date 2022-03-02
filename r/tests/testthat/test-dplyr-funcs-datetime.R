@@ -119,8 +119,6 @@ test_that("errors in strptime", {
 })
 
 test_that("strftime", {
-  skip_on_os("windows") # TODO: Fix Windows locales
-  # Error on Windows: Cannot find locale 'English_United States.1252'
   times <- tibble(
     datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Etc/GMT+6"), NA),
     date = c(as.Date("2021-01-01"), NA)
@@ -349,7 +347,6 @@ test_that("extract quarter from timestamp", {
 })
 
 test_that("extract month from timestamp", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = month(datetime)) %>%
@@ -412,7 +409,6 @@ test_that("extract day from timestamp", {
 })
 
 test_that("extract wday from timestamp", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(datetime)) %>%
@@ -565,7 +561,6 @@ test_that("extract week from date", {
 
 # Duplicate?
 test_that("extract month from date", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = month(date)) %>%
@@ -602,7 +597,6 @@ test_that("extract day from date", {
 })
 
 test_that("extract wday from date", {
-  skip_on_os("windows") # TODO: Fix Windows locales
   compare_dplyr_binding(
     .input %>%
       mutate(x = wday(date)) %>%
