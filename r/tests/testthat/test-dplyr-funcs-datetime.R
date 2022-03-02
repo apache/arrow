@@ -828,6 +828,8 @@ test_that("month() supports integer input",{
       test_df_month
     )
 
+    skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+
     compare_dplyr_binding(
       .input %>%
         # R returns ordered factor whereas Arrow returns character
@@ -835,8 +837,7 @@ test_that("month() supports integer input",{
           month_int_input = as.character(month(month_as_int, label = TRUE))
         ) %>%
         collect(),
-      test_df_month,
-      ignore_attr = on_windows()
+      test_df_month
     )
 
     compare_dplyr_binding(

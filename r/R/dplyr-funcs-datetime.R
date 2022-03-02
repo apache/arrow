@@ -127,8 +127,7 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%B"
       }
-      return(Expression$create("strftime", x,
-                               options = list(format = format, locale = locale)))
+      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
     }
 
     Expression$create("month", x)
