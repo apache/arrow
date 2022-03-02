@@ -816,7 +816,7 @@ test_that("dst extracts daylight savings time correctly", {
   )
 })
 
-test_that("month() supports integer input",{
+test_that("month() supports integer input", {
     test_df_month <- tibble(
       month_as_int = c(1:12, NA)
     )
