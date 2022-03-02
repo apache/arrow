@@ -96,9 +96,10 @@ navbar:
             href: articles/developers/bindings.html
 
 articles:
-  - title: Usage
+  - title: Get started
     navbar: ~
     contents:
+      - arrow
       - install
       - dataset
       - fs
