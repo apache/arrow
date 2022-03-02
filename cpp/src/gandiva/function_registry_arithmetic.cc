@@ -124,15 +124,11 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int64, int64),
 
-      // is true, is not false
-      NativeFunction(
-          "istrue", std::vector<std::string>({"is true", "isnotfalse", "is not false"}),
-          DataTypeVector{boolean()}, boolean(), kResultNullNever, "istrue_boolean"),
+      ISTRUE_ISFALSE_NULL_NEVER(istrue, ({"is true", "isnotfalse", "is not false"}),
+                                boolean, boolean),
 
-      // is false, is not true
-      NativeFunction(
-          "isfalse", std::vector<std::string>({"is false", "isnottrue", "is not true"}),
-          DataTypeVector{boolean()}, boolean(), kResultNullNever, "isfalse_boolean"),
+      ISTRUE_ISFALSE_NULL_NEVER(isfalse, ({"is false", "isnottrue", "is not true"}),
+                                boolean, boolean),
 
       UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}), int32,
                               boolean),
