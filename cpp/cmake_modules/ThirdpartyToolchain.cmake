@@ -1651,6 +1651,7 @@ macro(build_substrait)
   set(SUBSTRAIT_LOCAL_DIR ${SOURCE_DIR})
 
   set(SUBSTRAIT_CPP_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait_ep-generated")
+  file(MAKE_DIRECTORY ${SUBSTRAIT_CPP_DIR})
 
   set(SUBSTRAIT_SUPPRESSED_WARNINGS)
   if(MSVC)
