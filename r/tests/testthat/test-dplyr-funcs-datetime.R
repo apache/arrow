@@ -356,11 +356,6 @@ test_that("extract month from timestamp", {
     test_df
   )
 
-  test_df %>%
-    arrow_table() %>%
-    mutate(x = month(datetime, label = TRUE)) %>%
-    collect()
-
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
 
   compare_dplyr_binding(
