@@ -30,11 +30,8 @@ Java Compatibility
 
 Java modules are currently compatible with Java 8 / 9 / 10 / 11.
 
-Using Maven
------------
-
-Central Repository
-******************
+Installing from Maven
+---------------------
 
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
@@ -72,40 +69,7 @@ Configure your pom.xml with java module version needed, for example for: memory-
         </dependencies>
     </project>
 
-Staging Repository
-******************
-
-Configure your maven settings.xml to download artifacts from staging repository with:
-
-.. code-block:: xml
-
-    $ cat ~/.m2/settings.xml
-    <?xml version="1.0" encoding="UTF-8"?>
-    <settings xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd" xmlns="http://maven.apache.org/SETTINGS/1.1.0"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-      <profiles>
-        <profile>
-          <repositories>
-            <repository>
-               <id>staged</id>
-               <name>staged-releases</name>
-               <url>https://repository.apache.org/content/repositories/staging/</url>
-               <releases>
-                 <enabled>true</enabled>
-               </releases>
-               <snapshots>
-                 <enabled>true</enabled>
-               </snapshots>
-             </repository>
-          </repositories>
-          <id>arrowrc</id>
-        </profile>
-      </profiles>
-    </settings>
-    $ mvn -Parrowrc clean install -X
-    Downloading from staged: https://repository.apache.org/content/repositories/staging/
-
-Installing from source
+Installing from Source
 ----------------------
 
 See :ref:`java-development`.
@@ -127,22 +91,6 @@ For example if you need to test your code with these artifacts, then, you need t
     <settings xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd" xmlns="http://maven.apache.org/SETTINGS/1.1.0"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
       <profiles>
-        <profile>
-          <repositories>
-            <repository>
-               <id>staged</id>
-               <name>staged-releases</name>
-               <url>https://repository.apache.org/content/repositories/staging/</url>
-               <releases>
-                 <enabled>true</enabled>
-               </releases>
-               <snapshots>
-                 <enabled>true</enabled>
-               </snapshots>
-             </repository>
-          </repositories>
-          <id>arrowrc</id>
-        </profile>
         <profile>
           <repositories>
             <repository>
