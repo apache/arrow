@@ -85,7 +85,7 @@ register_bindings_type_cast <- function() {
     # the origin argument will be better supported once we implement temporal
     # arithmetic (https://issues.apache.org/jira/browse/ARROW-14947)
     # TODO revisit once the above has been sorted
-    if (origin != "1970-01-01") {
+    if (call_binding("is.numeric", x) & origin != "1970-01-01") {
       abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
     }
 
@@ -93,7 +93,7 @@ register_bindings_type_cast <- function() {
     # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
     # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
     if (is.null(format) && length(tryFormats) > 1) {
-      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow yet")
+      abort("`as.Date()` with multiple `tryFormats` is not supported in Arrow")
     }
 
     if (call_binding("is.Date", x)) {
@@ -112,13 +112,9 @@ register_bindings_type_cast <- function() {
 
     # cast from numeric
     } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
-      # Arrow does not support direct casting from double to date so we have to
-      # convert to integers first - casting to int32() would error so we need to
-      # use `floor` before casting. `floor` is also a bit safer than int32() with
-      # `safe = FALSE` since it doesn't switch to `ceiling` for negative numbers
+      # Arrow does not support direct casting from double to date32()
       # TODO revisit if arrow decides to support double -> date casting
-      x <- call_binding("floor", x)
-      x <- build_expr("cast", x, options = cast_options(to_type = int32()))
+      abort("`as.Date()` with double/float is not supported in Arrow")
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })

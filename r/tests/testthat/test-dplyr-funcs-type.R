@@ -795,45 +795,6 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     test_df
   )
 
-  # actual and expected differ due to doubles are accounted for (floored in
-  # arrow and rounded to the next decimal in R)
-  expect_error(
-    compare_dplyr_binding(
-      .input %>%
-        mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-        collect(),
-      test_df
-    )
-  )
-
-  expect_equal(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect(),
-    test_df %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")),
-    # the absolute value for date_double is different due to arrow casting from
-    # integer and r from double => testing with a tolerance of 0.6
-    # `actual$date_double`: 34.0
-    # `expected$date_double`: 34.6
-    tolerance = 0.6
-  )
-
-  expect_equal(
-    test_df %>%
-      record_batch() %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
-      collect(),
-    test_df %>%
-      mutate(date_double = as.Date(double_var, origin = "1970-01-01")),
-    # the absolute value for date_double is different due to arrow casting from
-    # integer and r from double => testing with a tolerance of 0.6
-    # `actual$date_double`: 34.0
-    # `expected$date_double`: 34.6
-    tolerance = 0.6
-  )
-
   # currently we do not support an origin different to "1970-01-01"
   expect_warning(
     test_df %>%
@@ -844,13 +805,14 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
     fixed = TRUE
   )
 
+  # we do not support multiple tryFormats
   expect_warning(
     test_df %>%
       arrow_table() %>%
       mutate(date_char_ymd = as.Date(character_ymd_var,
                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
       collect(),
-    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow yet",
+    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow",
     fixed = TRUE
   )
 
@@ -860,6 +822,16 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
       mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
       collect(),
     regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
+    fixed = TRUE
+  )
+
+  # we do not support as.Date() with double/ float
+  expect_warning(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect(),
+    regexp = "`as.Date()` with double/float is not supported in Arrow",
     fixed = TRUE
   )
 
