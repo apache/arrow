@@ -322,6 +322,8 @@ This is the list of operations associated with the execution plan:
      - Options
    * - ``source``
      - :class:`arrow::compute::SourceNodeOptions`
+   * - ``table_source``
+     - :class:`arrow::compute::TableSourceNodeOptions`
    * - ``filter``
      - :class:`arrow::compute::FilterNodeOptions`
    * - ``project``
@@ -344,7 +346,6 @@ This is the list of operations associated with the execution plan:
      - :class:`arrow::dataset::WriteNodeOptions`
    * - ``union``
      - N/A
-
 
 .. _stream_execution_source_docs:
 
@@ -393,6 +394,31 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
   :language: cpp
   :start-after: (Doc section: Source Example)
   :end-before: (Doc section: Source Example)
+  :linenos:
+  :lineno-match:
+
+``table_source``
+----------------
+
+.. _stream_execution_table_source_docs:
+
+In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
+was used to input the data and the node expected data to be fed using a generator. But in 
+developing application much easier and to enable performance optimization, the 
+:class:`arrow::compute::TableSourceNodeOptions` can be used. Here the input data can be 
+passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. The objetive
+of the ``max_batch_size`` is to enable the user to tune the performance given the nature of 
+vivid workloads. Another important fact is that the streaming execution engine will use
+the ``max_batch_size`` as execution batch size. And it is important to note that the output
+batches from an execution plan doesn't get merged to form larger batches when an inserted 
+table has smaller batch size. 
+
+Example of using ``table_source``
+
+.. literalinclude:: ../../../cpp/examples/arrow/execution_plan_documentation_examples.cc
+  :language: cpp
+  :start-after: (Doc section: Table Source Example)
+  :end-before: (Doc section: Table Source Example)
   :linenos:
   :lineno-match:
 
