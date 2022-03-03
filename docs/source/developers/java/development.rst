@@ -113,9 +113,12 @@ Code Style
 ==========
 
 Code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
-
-The Maven build will validate code against the Checkstyle configuration.
 You can also just check the style without building the project.
+This checks the code style of all source code under the current directory or from within an individual module.
+
+.. code-block::
+
+    $ mvn checkstyle:check
 
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/master/dev/conbench_envs/README.md#L188

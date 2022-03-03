@@ -83,8 +83,8 @@ To build the default modules, go to the project root and execute:
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------\
 
-JNI Libraries
--------------
+Building JNI Libraries on Linux
+-------------------------------
 
 For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: Docker, Docker Compose, `archery`_.
 
@@ -98,8 +98,8 @@ For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: D
     |__ libarrow_orc_jni.so
     |__ libgandiva_jni.so
 
-Building C & C++ JNI Libraries on MacOS
----------------------------------------
+Building JNI Libraries on MacOS
+-------------------------------
 
 To build only the C Data Interface library:
 
@@ -170,8 +170,8 @@ To build other JNI libraries:
     |__ libarrow_orc_jni.dylib
     |__ libgandiva_jni.dylib
 
-Building Arrow JNI Libraries
-----------------------------
+Building Arrow JNI Modules
+--------------------------
 
 To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
@@ -250,24 +250,30 @@ Go to open java project and select java folder.
 This is the initial view for java project loaded with default profiles:
 
 .. image:: img/java_welcome.png
+   :alt: An example image for opening java project
 
 Let's create our maven configuration: java-dataset
 
 .. image:: img/java_mvn_configuration.png
+   :alt: An example image for create new maven configurations and parameters needed
 
 Let's define our JRE runner:
 
 .. image:: img/java_jre_runner.png
+   :alt: An example image for create new maven configurations and JRE configured
 
 Let's configure additional environment variables:
 
 .. image:: img/java_jre_env_properties.png
+   :alt: An example image for create new maven configurations and runners parameters
 
 Let's run our java-dataset maven configuration:
 
 .. image:: img/java_run_mvn_configuration.png
+   :alt: An example image for how to run new maven configuration created
 
 .. image:: img/java_run_mvn_configuration_result.png
+   :alt: An example image for results of run new maven configuration created
 
 Common Errors
 =============
