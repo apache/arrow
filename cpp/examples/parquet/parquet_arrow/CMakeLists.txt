@@ -40,5 +40,5 @@ find_package(Parquet REQUIRED)
 
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
 
-add_executable(parquet_arrow_example reader_writer.cc)
-target_link_libraries(parquet_arrow_example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})
+add_executable(parquet-arrow-example reader_writer.cc)
+target_link_libraries(parquet-arrow-example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})

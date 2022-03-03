@@ -159,9 +159,9 @@ cp -a /arrow/cpp/examples/minimal_build build
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
-./arrow_example
-c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
-./arrow_example
+./arrow-example
+c++ -std=c++11 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+./arrow-example
 popd
 
 if [ "${have_glib}" = "yes" ]; then

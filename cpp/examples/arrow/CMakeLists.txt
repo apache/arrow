@@ -98,7 +98,7 @@ if(ARROW_FLIGHT)
 
     add_arrow_example(flight_sql_example
                       DEPENDENCIES
-                      flight_sql_test_server
+                      flight-sql-test-server
                       EXTRA_LINK_LIBS
                       ${FLIGHT_EXAMPLES_LINK_LIBS}
                       ${FLIGHT_SQL_EXAMPLES_LINK_LIBS}
@@ -117,16 +117,16 @@ if(ARROW_PARQUET AND ARROW_DATASET)
 
   add_arrow_example(dataset_parquet_scan_example EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(dataset_parquet_scan_example parquet)
+  add_dependencies(dataset-parquet-scan-example parquet)
 
   add_arrow_example(dataset_documentation_example EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(dataset_documentation_example parquet)
+  add_dependencies(dataset-documentation-example parquet)
 
   add_arrow_example(execution_plan_documentation_examples EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(execution_plan_documentation_examples parquet)
+  add_dependencies(execution-plan-documentation-examples parquet)
 
   add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(join_example parquet)
+  add_dependencies(join-example parquet)
 endif()

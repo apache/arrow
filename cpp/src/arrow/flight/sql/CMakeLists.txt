@@ -88,13 +88,13 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
                  LABELS
                  "arrow_flight_sql")
 
-  add_executable(flight_sql_test_server test_server_cli.cc
+  add_executable(flight-sql-test-server test_server_cli.cc
                                         ${ARROW_FLIGHT_SQL_TEST_SERVER_SRCS})
-  target_link_libraries(flight_sql_test_server
+  target_link_libraries(flight-sql-test-server
                         PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS} ${GFLAGS_LIBRARIES}
                                 ${SQLite3_LIBRARIES})
 
-  add_executable(flight_sql_test_app test_app_cli.cc)
-  target_link_libraries(flight_sql_test_app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
+  add_executable(flight-sql-test-app test_app_cli.cc)
+  target_link_libraries(flight-sql-test-app PRIVATE ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS}
                                                     ${GFLAGS_LIBRARIES})
 endif()
