@@ -73,7 +73,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>2.0.43.Final</version>
+      <version>${dep.netty-tcnative.version}</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -348,12 +348,6 @@
         <dependency>
           <groupId>io.netty</groupId>
           <artifactId>netty-transport-native-unix-common</artifactId>
-          <version>${dep.netty.version}</version>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-epoll</artifactId>
           <version>${dep.netty.version}</version>
           <classifier>${os.detected.name}-${os.detected.arch}</classifier>
         </dependency>
