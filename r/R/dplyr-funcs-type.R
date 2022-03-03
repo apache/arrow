@@ -108,11 +108,13 @@ register_bindings_type_cast <- function() {
     # cast from character
     } else if (call_binding("is.character", x)) {
       format <- format %||% tryFormats[[1]]
+      # unit = 0L is the identifier for seconds in valid_time32_units
       x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
 
     # cast from numeric
     } else if (call_binding("is.numeric", x) & !call_binding("is.integer", x)) {
       # Arrow does not support direct casting from double to date32()
+      # https://issues.apache.org/jira/browse/ARROW-15798
       # TODO revisit if arrow decides to support double -> date casting
       abort("`as.Date()` with double/float is not supported in Arrow")
     }
