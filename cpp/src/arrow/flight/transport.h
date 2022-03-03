@@ -130,12 +130,12 @@ class ARROW_FLIGHT_EXPORT ClientDataStream : public TransportDataStream {
   /// \brief Attempt to cancel the call.
   ///
   /// This is only a hint and may not take effect immediately. The
-  /// client should still finish the call with Finish() as usual.
+  /// client should still finish the call with Finish(Status) as usual.
   virtual void TryCancel() {}
   /// \brief Finish the call, reporting the server-sent status and/or
   ///   any client-side errors as appropriate.
   ///
-  /// Implies WritesDone().
+  /// Implies WritesDone() and DoFinish().
   ///
   /// \param[in] st A client-side status to combine with the
   ///   server-side error. That is, if an error occurs on the
@@ -145,13 +145,13 @@ class ARROW_FLIGHT_EXPORT ClientDataStream : public TransportDataStream {
   Status Finish(Status st);
 
  protected:
-  /// \brief Finish the call, returning the final server status.
+  /// \brief End the call, returning the final server status.
   ///
   /// For implementors: should imply WritesDone() (even if it does not
   /// directly call it).
   ///
   /// Implies WritesDone().
-  virtual Status Finish() = 0;
+  virtual Status DoFinish() = 0;
 };
 
 /// An implementation of a Flight client for a particular transport.

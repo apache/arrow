@@ -180,6 +180,7 @@ set(ARROW_FLIGHT_SRCS
     # Bundle the gRPC impl with libarrow_flight
     transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc
+    transport/grpc/serialization_internal.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

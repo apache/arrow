@@ -36,7 +36,7 @@ arrow::Result<bool> TransportDataStream::WriteData(const FlightPayload&) {
 Status TransportDataStream::WritesDone() { return Status::OK(); }
 bool ClientDataStream::ReadPutMetadata(std::shared_ptr<Buffer>*) { return false; }
 Status ClientDataStream::Finish(Status st) {
-  auto server_status = Finish();
+  auto server_status = DoFinish();
   if (server_status.ok()) return st;
 
   return Status::FromDetailAndArgs(server_status.code(), server_status.detail(),

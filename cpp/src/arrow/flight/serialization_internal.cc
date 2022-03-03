@@ -17,6 +17,8 @@
 
 #include "arrow/flight/serialization_internal.h"
 
+// todo cleanup includes
+
 #include <cstdint>
 #include <limits>
 #include <string>
@@ -393,88 +395,6 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
 ::arrow::Result<std::unique_ptr<ipc::Message>> FlightData::OpenMessage() {
   return ipc::Message::Open(metadata, body);
 }
-
-// The pointer bitcast hack below causes legitimate warnings, silence them.
-#ifndef _WIN32
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif
-
-// Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
-// both take a T* argument (here pb::FlightData*).  But they don't do anything
-// with that argument except pass it to SerializationTraits<T>::Serialize() and
-// SerializationTraits<T>::Deserialize().
-//
-// Since we control SerializationTraits<pb::FlightData>, we can interpret the
-// pointer argument whichever way we want, including cast it back to the original type.
-// (see customize_protobuf.h).
-
-arrow::Result<bool> WritePayload(
-    const FlightPayload& payload,
-    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       grpc::WriteOptions());
-}
-
-arrow::Result<bool> WritePayload(
-    const FlightPayload& payload,
-    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       grpc::WriteOptions());
-}
-
-arrow::Result<bool> WritePayload(
-    const FlightPayload& payload,
-    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       grpc::WriteOptions());
-}
-
-arrow::Result<bool> WritePayload(const FlightPayload& payload,
-                                 grpc::ServerWriter<pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       grpc::WriteOptions());
-}
-
-bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
-}
-
-bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* reader,
-                 FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
-}
-
-bool ReadPayload(grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
-                 FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
-}
-
-bool ReadPayload(grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* reader,
-                 FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
-}
-
-bool ReadPayload(grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
-                 pb::PutResult* data) {
-  return reader->Read(data);
-}
-
-#ifndef _WIN32
-#pragma GCC diagnostic pop
-#endif
 
 }  // namespace internal
 }  // namespace flight

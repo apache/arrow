@@ -50,8 +50,8 @@
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
-#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/types.h"
 
 namespace arrow {
@@ -197,7 +197,8 @@ class GrpcClientInterceptorAdapterFactory
     } else if (method.ends_with("/ListActions")) {
       flight_method = FlightMethod::ListActions;
     } else {
-      DCHECK(false) << "Unknown Flight method: " << info->method();
+      ARROW_LOG(WARNING) << "Unknown Flight method: " << info->method();
+      flight_method = FlightMethod::Invalid;
     }
 
     const CallInfo flight_info{flight_method};
@@ -260,7 +261,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
 };
 
 /// \brief The base of the ClientDataStream implementation for gRPC.
-template <typename Stream, typename ReadPayload>
+template <typename Stream, typename ReadPayloadType>
 class FinishableDataStream : public internal::ClientDataStream {
  public:
   FinishableDataStream(std::shared_ptr<ClientRpc> rpc, std::shared_ptr<Stream> stream,
@@ -274,7 +275,7 @@ class FinishableDataStream : public internal::ClientDataStream {
   void TryCancel() override { rpc_->context.TryCancel(); }
 
  protected:
-  Status Finish() override {
+  Status DoFinish() override {
     if (finished_) {
       return server_status_;
     }
@@ -285,8 +286,8 @@ class FinishableDataStream : public internal::ClientDataStream {
     // wants to read and drain the read side. (If the client wants to
     // indicate that it is done writing, but not done reading, it
     // should use DoneWriting.
-    ReadPayload message;
-    while (internal::ReadPayload(stream_.get(), &message)) {
+    ReadPayloadType message;
+    while (ReadPayload(stream_.get(), &message)) {
       // Drain the read side to avoid gRPC hanging in Finish()
     }
 
@@ -343,14 +344,14 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
     done_writing_ = true;
     if (!stream_->WritesDone()) {
       // Error happened, try to close the stream to get more detailed info
-      return internal::ClientDataStream::Finish(MakeFlightError(
-          FlightStatusCode::Internal, "Could not flush pending record batches"));
+      return this->Finish(MakeFlightError(FlightStatusCode::Internal,
+                                          "Could not flush pending record batches"));
     }
     return Status::OK();
   }
 
  protected:
-  Status Finish() override {
+  Status DoFinish() override {
     // This may be used concurrently by reader/writer side of a
     // stream, so it needs to be protected.
     std::lock_guard<std::mutex> guard(finish_mutex_);
@@ -369,7 +370,7 @@ class WritableDataStream : public FinishableDataStream<Stream, ReadPayload> {
     bool finished_writes = done_writing_ || stream_->WritesDone();
     done_writing_ = true;
 
-    Status st = Base::Finish();
+    Status st = Base::DoFinish();
     if (!finished_writes) {
       return Status::FromDetailAndArgs(
           st.code(), st.detail(), st.message(),
@@ -391,7 +392,7 @@ class GrpcClientGetStream
   using FinishableDataStream::FinishableDataStream;
 
   bool ReadData(internal::FlightData* data) override {
-    bool success = internal::ReadPayload(stream_.get(), data);
+    bool success = ReadPayload(stream_.get(), data);
     if (ARROW_PREDICT_FALSE(!success)) return false;
     if (data->body) {
       auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
@@ -427,7 +428,7 @@ class GrpcClientPutStream
     return true;
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
-    return internal::WritePayload(payload, this->stream_.get());
+    return WritePayload(payload, this->stream_.get());
   }
 };
 
@@ -444,7 +445,7 @@ class GrpcClientExchangeStream
 
   bool ReadData(internal::FlightData* data) override {
     std::lock_guard<std::mutex> guard(read_mutex_);
-    bool success = internal::ReadPayload(stream_.get(), data);
+    bool success = ReadPayload(stream_.get(), data);
     if (ARROW_PREDICT_FALSE(!success)) return false;
     if (data->body) {
       auto status = Buffer::ViewOrCopy(data->body, memory_manager_).Value(&data->body);
@@ -456,7 +457,7 @@ class GrpcClientExchangeStream
     return true;
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
-    return internal::WritePayload(payload, this->stream_.get());
+    return WritePayload(payload, this->stream_.get());
   }
 };
 

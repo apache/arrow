@@ -34,10 +34,10 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/internal.h"
-#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/logging.h"
@@ -176,7 +176,7 @@ class GetDataStream : public internal::ServerDataStream {
   explicit GetDataStream(ServerWriter<pb::FlightData>* writer) : writer_(writer) {}
 
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
-    return internal::WritePayload(payload, writer_);
+    return WritePayload(payload, writer_);
   }
 
  private:
@@ -191,7 +191,7 @@ class PutDataStream final : public internal::ServerDataStream {
       : stream_(stream) {}
 
   bool ReadData(internal::FlightData* data) override {
-    return internal::ReadPayload(&*stream_, data);
+    return ReadPayload(&*stream_, data);
   }
   Status WritePutMetadata(const Buffer& metadata) override {
     pb::PutResult message{};
@@ -214,10 +214,10 @@ class ExchangeDataStream final : public internal::ServerDataStream {
       : stream_(stream) {}
 
   bool ReadData(internal::FlightData* data) override {
-    return internal::ReadPayload(&*stream_, data);
+    return ReadPayload(&*stream_, data);
   }
   arrow::Result<bool> WriteData(const FlightPayload& payload) override {
-    return internal::WritePayload(payload, stream_);
+    return WritePayload(payload, stream_);
   }
 
  private:
