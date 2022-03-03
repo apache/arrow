@@ -113,7 +113,6 @@ class GrpcServerAuthSender : public ServerAuthSender {
   ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
 };
 
-class FlightGrpcServiceImpl;
 class GrpcServerCallContext : public ServerCallContext {
   explicit GrpcServerCallContext(::grpc::ServerContext* context)
       : context_(context), peer_(context_->peer()) {}
@@ -226,17 +225,14 @@ class ExchangeDataStream final : public internal::ServerDataStream {
 
 // The gRPC service implementation, which forwards calls to the Flight
 // service and bridges between the Flight transport API and gRPC.
-class GrpcServiceHandler : public FlightService::Service {
+class GrpcServiceHandler final : public FlightService::Service {
  public:
   GrpcServiceHandler(
       std::shared_ptr<ServerAuthHandler> auth_handler,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
-      internal::FlightServiceImpl* service)
-      : auth_handler_(auth_handler),
-        middleware_(middleware),
-        service_(service),
-        server_(service_->base()) {}
+      internal::ServerTransportImpl* impl)
+      : auth_handler_(auth_handler), middleware_(middleware), impl_(impl) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   ::grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
@@ -371,8 +367,8 @@ class GrpcServiceHandler : public FlightService::Service {
     if (request) {
       SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &criteria));
     }
-    SERVICE_RETURN_NOT_OK(flight_context,
-                          server_->ListFlights(flight_context, &criteria, &listing));
+    SERVICE_RETURN_NOT_OK(
+        flight_context, impl_->base()->ListFlights(flight_context, &criteria, &listing));
     if (!listing) {
       // Treat null listing as no flights available
       RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
@@ -395,7 +391,7 @@ class GrpcServiceHandler : public FlightService::Service {
 
     std::unique_ptr<FlightInfo> info;
     SERVICE_RETURN_NOT_OK(flight_context,
-                          server_->GetFlightInfo(flight_context, descr, &info));
+                          impl_->base()->GetFlightInfo(flight_context, descr, &info));
 
     if (!info) {
       // Treat null listing as no flights available
@@ -419,7 +415,7 @@ class GrpcServiceHandler : public FlightService::Service {
 
     std::unique_ptr<SchemaResult> result;
     SERVICE_RETURN_NOT_OK(flight_context,
-                          server_->GetSchema(flight_context, descr, &result));
+                          impl_->base()->GetSchema(flight_context, descr, &result));
 
     if (!result) {
       // Treat null listing as no flights available
@@ -443,7 +439,7 @@ class GrpcServiceHandler : public FlightService::Service {
 
     GetDataStream stream(writer);
     RETURN_WITH_MIDDLEWARE(flight_context,
-                           service_->DoGet(flight_context, std::move(ticket), &stream));
+                           impl_->DoGet(flight_context, std::move(ticket), &stream));
   }
 
   ::grpc::Status DoPut(
@@ -453,7 +449,7 @@ class GrpcServiceHandler : public FlightService::Service {
     GRPC_RETURN_NOT_GRPC_OK(CheckAuth(FlightMethod::DoPut, context, flight_context));
 
     PutDataStream stream(reader);
-    RETURN_WITH_MIDDLEWARE(flight_context, service_->DoPut(flight_context, &stream));
+    RETURN_WITH_MIDDLEWARE(flight_context, impl_->DoPut(flight_context, &stream));
   }
 
   ::grpc::Status DoExchange(
@@ -464,7 +460,7 @@ class GrpcServiceHandler : public FlightService::Service {
 
     ExchangeDataStream data_stream(stream);
     RETURN_WITH_MIDDLEWARE(flight_context,
-                           service_->DoExchange(flight_context, &data_stream));
+                           impl_->DoExchange(flight_context, &data_stream));
   }
 
   ::grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
@@ -474,7 +470,8 @@ class GrpcServiceHandler : public FlightService::Service {
         CheckAuth(FlightMethod::ListActions, context, flight_context));
     // Retrieve the listing from the implementation
     std::vector<ActionType> types;
-    SERVICE_RETURN_NOT_OK(flight_context, server_->ListActions(flight_context, &types));
+    SERVICE_RETURN_NOT_OK(flight_context,
+                          impl_->base()->ListActions(flight_context, &types));
     RETURN_WITH_MIDDLEWARE(flight_context, WriteStream<ActionType>(types, writer));
   }
 
@@ -488,7 +485,7 @@ class GrpcServiceHandler : public FlightService::Service {
 
     std::unique_ptr<ResultStream> results;
     SERVICE_RETURN_NOT_OK(flight_context,
-                          server_->DoAction(flight_context, action, &results));
+                          impl_->base()->DoAction(flight_context, action, &results));
 
     if (!results) {
       RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::CANCELLED);
@@ -515,21 +512,24 @@ class GrpcServiceHandler : public FlightService::Service {
   std::shared_ptr<ServerAuthHandler> auth_handler_;
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware_;
-  internal::FlightServiceImpl* service_;
-  FlightServerBase* server_;
+  internal::ServerTransportImpl* impl_;
 };
 
 // The ServerTransportImpl implementation for gRPC. Manages the gRPC server itself.
-class GrpcServerImpl : public internal::ServerTransportImpl {
+class GrpcServerTransportImpl : public internal::ServerTransportImpl {
  public:
-  static arrow::Result<std::unique_ptr<internal::ServerTransportImpl>> Make() {
-    return std::unique_ptr<internal::ServerTransportImpl>(new GrpcServerImpl());
+  using internal::ServerTransportImpl::ServerTransportImpl;
+
+  static arrow::Result<std::unique_ptr<internal::ServerTransportImpl>> Make(
+      FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
+    return std::unique_ptr<internal::ServerTransportImpl>(
+        new GrpcServerTransportImpl(base, std::move(memory_manager)));
   }
 
-  Status Init(const FlightServerOptions& options, const arrow::internal::Uri& uri,
-              internal::FlightServiceImpl* server) override {
-    service_.reset(
-        new GrpcServiceHandler(options.auth_handler, options.middleware, server));
+  Status Init(const FlightServerOptions& options,
+              const arrow::internal::Uri& uri) override {
+    grpc_service_.reset(
+        new GrpcServiceHandler(options.auth_handler, options.middleware, this));
 
     ::grpc::ServerBuilder builder;
     // Allow uploading messages of any length
@@ -569,7 +569,7 @@ class GrpcServerImpl : public internal::ServerTransportImpl {
       return Status::NotImplemented("Scheme is not supported: " + scheme);
     }
 
-    builder.RegisterService(service_.get());
+    builder.RegisterService(grpc_service_.get());
 
     // Disable SO_REUSEPORT - it makes debugging/testing a pain as
     // leftover processes can handle requests on accident
@@ -579,8 +579,8 @@ class GrpcServerImpl : public internal::ServerTransportImpl {
       options.builder_hook(&builder);
     }
 
-    server_ = builder.BuildAndStart();
-    if (!server_) {
+    grpc_server_ = builder.BuildAndStart();
+    if (!grpc_server_) {
       return Status::UnknownError("Server did not start properly");
     }
 
@@ -592,22 +592,22 @@ class GrpcServerImpl : public internal::ServerTransportImpl {
     return Status::OK();
   }
   Status Shutdown() override {
-    server_->Shutdown();
+    grpc_server_->Shutdown();
     return Status::OK();
   }
   Status Shutdown(const std::chrono::system_clock::time_point& deadline) override {
-    server_->Shutdown(deadline);
+    grpc_server_->Shutdown(deadline);
     return Status::OK();
   }
   Status Wait() override {
-    server_->Wait();
+    grpc_server_->Wait();
     return Status::OK();
   }
   Location location() const override { return location_; }
 
  private:
-  std::unique_ptr<GrpcServiceHandler> service_;
-  std::unique_ptr<::grpc::Server> server_;
+  std::unique_ptr<GrpcServiceHandler> grpc_service_;
+  std::unique_ptr<::grpc::Server> grpc_server_;
   Location location_;
 };
 
@@ -618,7 +618,7 @@ void InitializeFlightGrpcServer() {
   std::call_once(kGrpcServerTransportInitialized, []() {
     auto* registry = flight::internal::GetDefaultTransportImplRegistry();
     for (const auto& transport : {"grpc", "grpc+tls", "grpc+tcp", "grpc+unix"}) {
-      ARROW_CHECK_OK(registry->RegisterServer(transport, GrpcServerImpl::Make));
+      ARROW_CHECK_OK(registry->RegisterServer(transport, GrpcServerTransportImpl::Make));
     }
   });
 }

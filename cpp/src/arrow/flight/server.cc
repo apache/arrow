@@ -126,9 +126,10 @@ class ServerSignalHandler {
 };
 }  // namespace
 
+/// Server implementation. Manages the lifecycle of the "real" server
+/// (ServerTransportImpl) and contains
 struct FlightServerBase::Impl {
-  std::unique_ptr<internal::ServerTransportImpl> server_;
-  std::unique_ptr<internal::FlightServiceImpl> service_;
+  std::unique_ptr<internal::ServerTransportImpl> transport_;
 
   // Signal handlers (on Windows) and the shutdown handler (other platforms)
   // are executed in a separate thread, so getting the current thread instance
@@ -170,7 +171,7 @@ struct FlightServerBase::Impl {
     }
     auto instance = running_instance_.load();
     if (instance != nullptr) {
-      auto status = instance->server_->Shutdown();
+      auto status = instance->transport_->Shutdown();
       if (!status.ok()) {
         ARROW_LOG(WARNING) << "Error shutting down server: " << status.ToString();
       }
@@ -200,16 +201,15 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   flight::transport::grpc::InitializeFlightGrpcServer();
 
   const auto scheme = options.location.scheme();
-  ARROW_ASSIGN_OR_RAISE(
-      impl_->server_,
-      internal::GetDefaultTransportImplRegistry()->MakeServerImpl(scheme));
-  impl_->service_.reset(new internal::FlightServiceImpl(this, options.memory_manager));
-  return impl_->server_->Init(options, *options.location.uri_, impl_->service_.get());
+  ARROW_ASSIGN_OR_RAISE(impl_->transport_,
+                        internal::GetDefaultTransportImplRegistry()->MakeServerImpl(
+                            scheme, this, options.memory_manager));
+  return impl_->transport_->Init(options, *options.location.uri_);
 }
 
 int FlightServerBase::port() const { return location().uri_->port(); }
 
-Location FlightServerBase::location() const { return impl_->server_->location(); }
+Location FlightServerBase::location() const { return impl_->transport_->location(); }
 
 Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
   impl_->signals_ = sigs;
@@ -218,7 +218,7 @@ Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
 }
 
 Status FlightServerBase::Serve() {
-  if (!impl_->server_) {
+  if (!impl_->transport_) {
     return Status::UnknownError("Server did not start properly");
   }
   impl_->got_signal_ = 0;
@@ -236,7 +236,7 @@ Status FlightServerBase::Serve() {
     impl_->old_signal_handlers_.push_back(std::move(old_handler));
   }
 
-  RETURN_NOT_OK(impl_->server_->Wait());
+  RETURN_NOT_OK(impl_->transport_->Wait());
   impl_->running_instance_ = nullptr;
 
   // Restore signal handlers
@@ -250,19 +250,19 @@ Status FlightServerBase::Serve() {
 int FlightServerBase::GotSignal() const { return impl_->got_signal_; }
 
 Status FlightServerBase::Shutdown(const std::chrono::system_clock::time_point* deadline) {
-  auto server = impl_->server_.get();
+  auto server = impl_->transport_.get();
   if (!server) {
     return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
   }
   impl_->running_instance_ = nullptr;
   if (deadline) {
-    return impl_->server_->Shutdown(*deadline);
+    return impl_->transport_->Shutdown(*deadline);
   }
-  return impl_->server_->Shutdown();
+  return impl_->transport_->Shutdown();
 }
 
 Status FlightServerBase::Wait() {
-  RETURN_NOT_OK(impl_->server_->Wait());
+  RETURN_NOT_OK(impl_->transport_->Wait());
   impl_->running_instance_ = nullptr;
   return Status::OK();
 }

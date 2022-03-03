@@ -262,8 +262,8 @@ class TransportMetadataWriter final : public FlightMetadataWriter {
 };
 }  // namespace
 
-Status FlightServiceImpl::DoGet(const ServerCallContext& context, const Ticket& ticket,
-                                ServerDataStream* stream) {
+Status ServerTransportImpl::DoGet(const ServerCallContext& context, const Ticket& ticket,
+                                  ServerDataStream* stream) {
   std::unique_ptr<FlightDataStream> data_stream;
   RETURN_NOT_OK(base_->DoGet(context, ticket, &data_stream));
 
@@ -293,8 +293,8 @@ Status FlightServiceImpl::DoGet(const ServerCallContext& context, const Ticket& 
   return Status::OK();
 }
 
-Status FlightServiceImpl::DoPut(const ServerCallContext& context,
-                                ServerDataStream* stream) {
+Status ServerTransportImpl::DoPut(const ServerCallContext& context,
+                                  ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMetadataWriter> writer(new TransportMetadataWriter(stream));
@@ -304,8 +304,8 @@ Status FlightServiceImpl::DoPut(const ServerCallContext& context,
   return Status::OK();
 }
 
-Status FlightServiceImpl::DoExchange(const ServerCallContext& context,
-                                     ServerDataStream* stream) {
+Status ServerTransportImpl::DoExchange(const ServerCallContext& context,
+                                       ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMessageWriter> writer(new TransportMessageWriter(stream));
