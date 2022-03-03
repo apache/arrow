@@ -3585,10 +3585,12 @@ macro(build_grpc)
 
   set(GRPC_GPR_ABSL_LIBRARIES
       absl::base
-      absl::cord
-      absl::status
       absl::statusor
-      absl::synchronization)
+      absl::status
+      absl::cord
+      absl::strings
+      absl::synchronization
+      absl::time)
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
@@ -3660,7 +3662,15 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       gRPC::address_sorting
+       gRPC::gpr
+       gRPC::grpc
+       gRPC::grpcpp_for_bundling
+       gRPC::upb
+       ${GRPC_GPR_ABSL_LIBRARIES})
+
 endmacro()
 
 if(ARROW_WITH_GRPC)
