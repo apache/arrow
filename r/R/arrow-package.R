@@ -67,7 +67,7 @@
     options(arrow.use_threads = FALSE)
 
     # Try to set timezone database
-    if ("tzdb" %in% rownames(installed.packages())) {
+    if (length(find.package("tzdb", quiet=TRUE))) {
       tzdb::tzdb_initialize()
       set_timezone_database(tzdb::tzdb_path("text"))
     } else {
