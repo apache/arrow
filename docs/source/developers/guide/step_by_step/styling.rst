@@ -51,11 +51,12 @@ styling.
    .. tab:: R package
 
       For the R package you can use ``{lintr}`` or ``{styler}``
-      to check if the code follows the tidyverse style.
+      to check if the code follows the
+      `tidyverse style <https://style.tidyverse.org/>`_.
 
       The instructions on how to use either of these two packages
-      can be found in the Styling an linting section of the
-      `Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
+      can be found in the
+      `Styling an linting section of the Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
 
 Pre-commit
 ----------
