@@ -854,6 +854,9 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
     set(EXAMPLE_NAME "${ARG_PREFIX}-${EXAMPLE_NAME}")
   endif()
 
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" EXAMPLE_NAME ${EXAMPLE_NAME})
+
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
     set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
