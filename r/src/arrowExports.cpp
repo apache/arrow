@@ -1643,6 +1643,28 @@ extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP t
 }
 #endif
 
+// compute-exec.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions);
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
+	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
+	arrow::r::Input<std::string>::type table_name(table_name_sexp);
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
+	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
+	arrow::r::Input<arrow::dataset::ExistingDataBehavior>::type existing_data_behavior(existing_data_behavior_sexp);
+	arrow::r::Input<int>::type max_partitions(max_partitions_sexp);
+	Tpch_Dbgen_Write(plan, scale_factor, table_name, filesystem, base_dir, existing_data_behavior, max_partitions);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
+	Rf_error("Cannot call Tpch_Dbgen_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::RecordBatch> RecordBatch__cast(const std::shared_ptr<arrow::RecordBatch>& batch, const std::shared_ptr<arrow::Schema>& schema, cpp11::list options);
@@ -7490,6 +7512,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 7}, 
 		{ "_arrow_ExecNode_ReadFromRecordBatchReader", (DL_FUNC) &_arrow_ExecNode_ReadFromRecordBatchReader, 2}, 
 		{ "_arrow_Tpch_Dbgen", (DL_FUNC) &_arrow_Tpch_Dbgen, 3}, 
+		{ "_arrow_Tpch_Dbgen_Write", (DL_FUNC) &_arrow_Tpch_Dbgen_Write, 7}, 
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
