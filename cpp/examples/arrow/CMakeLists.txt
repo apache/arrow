@@ -136,12 +136,15 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_dependencies(execution-plan-documentation-examples parquet)
 
   add_arrow_example(join_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
-  add_dependencies(join-example parquet)
-  add_dependencies(dataset_documentation_example parquet)
+  add_dependencies(join_example parquet)
 
   add_arrow_example(udf_example EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS} ${PYTHON_LIBRARIES} ${PYTHON_OTHER_LIBS})
   add_dependencies(udf_example parquet arrow_python)
+
+  add_arrow_example(aggregate_example EXTRA_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS})
+  add_dependencies(aggregate_example parquet)
+  
 endif()
 
 message("PYTHON_INCLUDE_DIRS : ${PYTHON_INCLUDE_DIRS}")

@@ -123,6 +123,24 @@ arrow::Result<BatchesWithSchema> MakeBasicBatches() {
   return out;
 }
 
+arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
+  std::shared_ptr<arrow::Table> table;
+
+  auto field_vector = {arrow::field("a", arrow::int64()),
+                       arrow::field("b", arrow::boolean())};
+  ARROW_ASSIGN_OR_RAISE(auto int_array,
+                        GetArrayDataSample<arrow::Int64Type>({0, 4, 10, 20, 30}));
+  ARROW_ASSIGN_OR_RAISE(auto bool_array, GetArrayDataSample<arrow::BooleanType>(
+                                             {false, true, false, true, true}));
+
+  auto schema = arrow::schema(field_vector);
+  auto data_vector = {int_array, bool_array};
+
+  table = arrow::Table::Make(schema, data_vector, 5);
+
+  return table;
+}
+
 class ExampleFunctionOptionsType : public cp::FunctionOptionsType {
   const char* type_name() const override { return "ExampleFunctionOptionsType"; }
   std::string Stringify(const cp::FunctionOptions&) const override {
@@ -371,12 +389,11 @@ arrow::Status ExecuteVar() {
   auto func = std::make_shared<cp::ScalarFunction>(name, cp::Arity::Unary(), &func_doc2);
   auto exec_func = [](cp::KernelContext* ctx, const cp::ExecBatch& batch,
                       arrow::Datum* out) -> arrow::Status {
-    auto tb = batch[0].table();
     std::cout << "Batch as Table " << std::endl;
-    std::cout << tb->num_columns() << std::endl;
     *out->mutable_array() = *batch[0].array();
     return arrow::Status::OK();
   };
+  auto options = std::make_shared<ExampleFunctionOptions>();
   cp::ScalarKernel kernel({cp::InputType::Array(arrow::int64())}, arrow::int64(),
                           exec_func);
 
@@ -386,24 +403,6 @@ arrow::Status ExecuteVar() {
 
   auto registry = cp::GetFunctionRegistry();
   ABORT_ON_FAILURE(registry->AddFunction(std::move(func)));
-
-  arrow::Int64Builder builder(arrow::default_memory_pool());
-  std::shared_ptr<arrow::Array> arr1, arr2;
-  ABORT_ON_FAILURE(builder.Append(42));
-  ABORT_ON_FAILURE(builder.Finish(&arr1));
-  ABORT_ON_FAILURE(builder.Append(58));
-  ABORT_ON_FAILURE(builder.Finish(&arr2));
-  auto options = std::make_shared<ExampleFunctionOptions>();
-  auto maybe_result = cp::CallFunction(name, {arr1}, options.get());
-  ABORT_ON_FAILURE(maybe_result.status());
-
-  std::cout << "Result 1: " << maybe_result->make_array()->ToString() << std::endl;
-
-  // Expression serialization will raise NotImplemented if an expression includes
-  // FunctionOptions for which serialization is not supported.
-  // auto expr = cp::call(name, {}, options);
-  // auto maybe_serialized = cp::Serialize(expr);
-  // std::cerr << maybe_serialized.status().ToString() << std::endl;
 
   auto exec_registry = cp::default_exec_factory_registry();
   ABORT_ON_FAILURE(
@@ -421,6 +420,8 @@ arrow::Status ExecuteVar() {
   cp::Expression custom_exp = cp::call(name, {cp::field_ref("a")}, options);
 
   auto source_node_options = cp::SourceNodeOptions{basic_data.schema, basic_data.gen()};
+  ARROW_ASSIGN_OR_RAISE(auto table, GetTable());
+  auto table_source_node_options = cp::TableSourceNodeOptions{table, 2};
   auto project_node_options = cp::ProjectNodeOptions{{
       cp::field_ref("a"),
       custom_exp,
@@ -432,7 +433,7 @@ arrow::Status ExecuteVar() {
   std::shared_ptr<arrow::Table> out;
   ABORT_ON_FAILURE(cp::Declaration::Sequence(
                        {
-                           {"source", source_node_options},
+                           {"table_source", table_source_node_options},
                            {"project", project_node_options},
                            {"table_sink", cp::TableSinkNodeOptions{&out, output_schema}},
                        })
@@ -448,6 +449,7 @@ arrow::Status ExecuteVar() {
 
   return future.status();
 }
+
 
 int main(int argc, char** argv) {
   auto status = ExecuteVar();

@@ -46,6 +46,10 @@ class ARROW_PYTHON_EXPORT UDFSynthesizer {
   cp::OutputType out_type_;
 };
 
+class ARROW_PYTHON_EXPORT UDFScalarAggregator{
+
+};
+
 }  // namespace py
 
 }  // namespace arrow
