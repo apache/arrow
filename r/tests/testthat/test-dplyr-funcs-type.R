@@ -19,6 +19,7 @@ skip_if_not_available("dataset")
 
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
+suppressPackageStartupMessages(library(lubridate))
 
 
 tbl <- example_data
@@ -766,5 +767,79 @@ test_that("nested structs can be created from scalars and existing data frames",
       ) %>%
       collect(),
     tibble(a = 1:2)
+  )
+
+  })
+
+test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
+  test_df <- tibble::tibble(
+    posixct_var = as.POSIXct("2022-02-25 00:00:01", tz = "Europe/London"),
+    date_var = as.Date("2022-02-25"),
+    character_ymd_var = "2022-02-25 00:00:01",
+    character_ydm_var = "2022/25/02 00:00:01",
+    integer_var = 32L,
+    double_var = 34.56
+  )
+
+  # casting from POSIXct treated separately so we can skip on Windows
+  # TODO move the test for casting from POSIXct below once ARROW-13168 is done
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_dv = as.Date(date_var),
+        date_char_ymd = as.Date(character_ymd_var, format = "%Y-%m-%d %H:%M:%S"),
+        date_char_ydm = as.Date(character_ydm_var, format = "%Y/%d/%m %H:%M:%S"),
+        date_int = as.Date(integer_var, origin = "1970-01-01")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # currently we do not support an origin different to "1970-01-01"
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # we do not support multiple tryFormats
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var,
+                                     tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(date_char_ymd = as.Date(character_ymd_var)) %>%
+      collect(),
+    regexp = "Failed to parse string: '2022-02-25 00:00:01' as a scalar of type timestamp[s]",
+    fixed = TRUE
+  )
+
+  # we do not support as.Date() with double/ float
+  compare_dplyr_binding(
+     .input %>%
+      mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
+      collect(),
+     test_df,
+     warning = TRUE
+  )
+
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        date_pv = as.Date(posixct_var),
+        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df
   )
 })

@@ -819,3 +819,88 @@ test_that("dst extracts daylight savings time correctly", {
     test_df
   )
 })
+
+test_that("date works in arrow", {
+  # https://issues.apache.org/jira/browse/ARROW-13168
+  skip_on_os("windows")
+  # this date is specific since lubridate::date() is different from base::as.Date()
+  # since as.Date returns the UTC date and date() doesn't
+  test_df <- tibble(
+    posixct_date = as.POSIXct(c("2012-03-26 23:12:13", NA), tz = "America/New_York"),
+    integer_var = c(32L, NA))
+
+  r_date_object <- lubridate::ymd_hms("2012-03-26 23:12:13")
+
+  # we can't (for now) use namespacing, so we need to make sure lubridate::date()
+  # and not base::date() is being used. This is due to the way testthat runs and
+  # normal use of arrow would not have to do this explicitly.
+  # TODO remove once https://issues.apache.org/jira/browse/ARROW-14575 is done
+  date <- lubridate::date
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date = date(posixct_date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(a_date_base = as.Date(posixct_date)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(date_from_r_object = date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(as_date_from_r_object = as.Date(r_date_object)) %>%
+      collect(),
+    test_df
+  )
+
+  # date from integer supported in arrow (similar to base::as.Date()), but in
+  # Arrow it assumes a fixed origin "1970-01-01". However this is not supported
+  # by lubridate. lubridate::date(integer_var) errors without an `origin`
+  expect_equal(
+    test_df %>%
+      arrow_table() %>%
+      select(integer_var) %>%
+      mutate(date_int = date(integer_var)) %>%
+      collect(),
+    tibble(integer_var = c(32L, NA),
+           date_int = as.Date(c("1970-02-02", NA)))
+  )
+})
+
+test_that("date() errors with unsupported inputs", {
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_char = date("2022-02-25 00:00:01")) %>%
+      collect(),
+    regexp = "Unsupported cast from string to date32 using function cast_date32"
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_bool = date(TRUE)) %>%
+      collect(),
+    regexp = "Unsupported cast from bool to date32 using function cast_date32"
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      mutate(date_double = date(34.56)) %>%
+      collect(),
+    regexp = "Unsupported cast from double to date32 using function cast_date32"
+  )
+})
