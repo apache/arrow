@@ -38,9 +38,10 @@ announce_file="${release_dir}/${version}.md"
 versions_yml="${ARROW_SITE_DIR}/_data/versions.yml"
 
 pushd "${ARROW_SITE_DIR}"
+source "${SOURCE_DIR}/git-vars.sh"
 git fetch --all --prune --tags --force -j$(nproc)
-git checkout master
-git rebase apache/master
+git checkout ${DEFAULT_BRANCH}
+git rebase apache/${DEFAULT_BRANCH}
 git branch -D ${branch_name} || :
 git checkout -b ${branch_name}
 popd

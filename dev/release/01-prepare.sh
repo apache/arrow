@@ -54,11 +54,12 @@ fi
 if [ ${PREPARE_BRANCH} -gt 0 ]; then
   if [[ $(git branch -l "${release_candidate_branch}") ]]; then
     next_rc_number=$(($rc_number+1))
+    source "${SOURCE_DIR}/git-vars.sh"
     echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
-    echo "1. Checkout the master branch for major releases and maint-<version> for patch releases."
+    echo "1. Checkout the default branch for major releases and maint-<version> for patch releases."
     echo "2. Execute the script again with bumped RC number."
     echo "Commands:"
-    echo "   git checkout master"
+    echo "   git checkout ${DEFAULT_BRANCH}"
     echo "   dev/release/01-prepare.sh ${version} ${next_version} ${next_rc_number}"
     exit 1
   fi
