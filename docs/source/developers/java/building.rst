@@ -83,22 +83,14 @@ To build the default modules, go to the project root and execute:
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------\
 
-Advanced Installation
----------------------
+Building C & C++ JNI Libraries on Linux
+---------------------------------------
 
-Build C / C++ Libs
-++++++++++++++++++
-
-Build C / C++ Libs Ubuntu
-#########################
-
-For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: Docker & Docker Compose.
+For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: Docker, Docker Compose, `archery`_.
 
 .. code-block::
 
     $ cd arrow
-    $ source dev/conbench_envs/hooks.sh install_archery
-    Successfully installed archery
     $ archery docker run java-jni-manylinux-2014
     $ ls -latr java-dist/
     |__ libarrow_cdata_jni.so
@@ -106,8 +98,8 @@ For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: D
     |__ libarrow_orc_jni.so
     |__ libgandiva_jni.so
 
-Build C / C++ Libs MacOS
-########################
+Building C & C++ JNI Libraries on MacOS
+---------------------------------------
 
 For Build C Data Interface lib:
 
@@ -180,11 +172,8 @@ For Build C++ Interface libs:
     |__ libarrow_orc_jni.dylib
     |__ libgandiva_jni.dylib
 
-Build Java Modules That Consume C / C++ Libs
-++++++++++++++++++++++++++++++++++++++++++++
-
-Build Java C Data Interface
-###########################
+Building Arrow JNI Libraries
+----------------------------
 
 Java arrow-c-data maven profile:
 
@@ -217,9 +206,6 @@ Java arrow-c-data maven profile:
     [INFO] ------------------------------------------------------------------------
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------
-
-Build Java C++ Interface
-########################
 
 Java arrow-jni maven profile (build ORC / Gandiva / Dataset):
 
@@ -258,6 +244,9 @@ Java arrow-jni maven profile (build ORC / Gandiva / Dataset):
 IDE Configuration
 =================
 
+IntelliJ IDE
+------------
+
 Go to open java project and select java folder.
 
 This is the initial view for java project loaded with default profiles:
@@ -290,18 +279,16 @@ Common Errors
     - Could NOT find Lz4 (missing: LZ4_LIB)
     - Could NOT find zstd (missing: ZSTD_LIB)
 
-    Download the dependencies at build time:
+    Download the dependencies at build time (More details in the `Dependency Resolution`_):
 
-.. code-block::
+    .. code-block::
 
-    -Dre2_SOURCE=BUNDLED \
-    -DBoost_SOURCE=BUNDLED \
-    -Dutf8proc_SOURCE=BUNDLED \
-    -DSnappy_SOURCE=BUNDLED \
-    -DORC_SOURCE=BUNDLED \
-    -DZLIB_SOURCE=BUNDLED \
+        -Dre2_SOURCE=BUNDLED \
+        -DBoost_SOURCE=BUNDLED \
+        -Dutf8proc_SOURCE=BUNDLED \
+        -DSnappy_SOURCE=BUNDLED \
+        -DORC_SOURCE=BUNDLED \
+        -DZLIB_SOURCE=BUNDLED
 
-2. Errors related to:
-    - Caused by: java.lang.NoSuchFieldException: reservedMemory.
-
-    We could move from classBits.getDeclaredField("reservedMemory") to classBits.getDeclaredField("RESERVED_MEMORY")
+.. _archery: https://arrow.apache.org/docs/developers/continuous_integration/archery.html
+.. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution

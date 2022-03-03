@@ -67,12 +67,15 @@ To speed up the build, you can skip them by passing -DskipTests.
 Performance Testing
 ===================
 
-Java module that contains performance tests is: `performance`
+The ``arrow-performance`` module contains benchmarks.
 
 Let's configure our environment to run performance tests:
 
 - Install `benchmark`_
 - Install `archery`_
+
+In case you need to see your performance tests on the UI, then, configure (optional):
+
 - Install `conbench`_
 
 Lets execute benchmark tests:
@@ -109,64 +112,12 @@ UI Benchmark:
 Code Style
 ==========
 
-Code style are configured at `java/dev/checkstyle`
+Code style are configured at ``java/dev/checkstyle`` (More detail at `checkstyle`_)
 
-.. code-block::
-
-    <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
-        <executions>
-            <execution>
-                <id>validate</id>
-                <phase>validate</phase>
-                <goals>
-                    <goal>check</goal>
-                </goals>
-            </execution>
-        </executions>
-        <configuration>
-            <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-            <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
-            <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
-            <includeTestSourceDirectory>true</includeTestSourceDirectory>
-            ...
-        </configuration>
-    </plugin>
-
-Validate check style configuration:
-
-.. code-block::
-
-    $ cd arrow/java
-    $ mvn validate
-    [INFO] ------------------------------------------------------------------------
-    [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
-    [INFO]
-    [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  1.053 s]
-    [INFO] Arrow Format ....................................... SUCCESS [  0.006 s]
-    [INFO] Arrow Memory ....................................... SUCCESS [  0.088 s]
-    [INFO] Arrow Memory - Core ................................ SUCCESS [  0.077 s]
-    [INFO] Arrow Memory - Unsafe .............................. SUCCESS [  0.136 s]
-    [INFO] Arrow Memory - Netty ............................... SUCCESS [  0.075 s]
-    [INFO] Arrow Vectors ...................................... SUCCESS [  0.603 s]
-    [INFO] Arrow Compression .................................. SUCCESS [  0.073 s]
-    [INFO] Arrow Tools ........................................ SUCCESS [  0.068 s]
-    [INFO] Arrow JDBC Adapter ................................. SUCCESS [  0.059 s]
-    [INFO] Arrow Plasma Client ................................ SUCCESS [  0.052 s]
-    [INFO] Arrow Flight ....................................... SUCCESS [  0.046 s]
-    [INFO] Arrow Flight Core .................................. SUCCESS [  0.065 s]
-    [INFO] Arrow Flight GRPC .................................. SUCCESS [  0.050 s]
-    [INFO] Arrow Flight SQL ................................... SUCCESS [  0.054 s]
-    [INFO] Arrow Flight Integration Tests ..................... SUCCESS [  0.046 s]
-    [INFO] Arrow AVRO Adapter ................................. SUCCESS [  0.051 s]
-    [INFO] Arrow Algorithms ................................... SUCCESS [  0.063 s]
-    [INFO] Arrow Performance Benchmarks ....................... SUCCESS [  0.060 s]
-    [INFO] ------------------------------------------------------------------------
-    [INFO] BUILD SUCCESS
-    [INFO] ------------------------------------------------------------------------
+The Maven build will validate code against the Checkstyle configuration.
+You can also just check the style without building the project.
 
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/master/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
+.. _checkstyle: https://github.com/apache/arrow/blob/master/java/dev/checkstyle/checkstyle.xml
