@@ -796,24 +796,22 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   )
 
   # currently we do not support an origin different to "1970-01-01"
-  expect_warning(
-    test_df %>%
-      arrow_table() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(date_int = as.Date(integer_var, origin = "1970-01-03")) %>%
       collect(),
-    regexp = "`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow",
-    fixed = TRUE
+    test_df,
+    warning = TRUE
   )
 
   # we do not support multiple tryFormats
-  expect_warning(
-    test_df %>%
-      arrow_table() %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(date_char_ymd = as.Date(character_ymd_var,
                                      tryFormats = c("%Y-%m-%d", "%Y/%m/%d"))) %>%
       collect(),
-    regexp = "`as.Date()` with multiple `tryFormats` is not supported in Arrow",
-    fixed = TRUE
+    test_df,
+    warning = TRUE
   )
 
   expect_error(
@@ -826,13 +824,12 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   )
 
   # we do not support as.Date() with double/ float
-  expect_warning(
-    test_df %>%
-      arrow_table() %>%
+  compare_dplyr_binding(
+     .input %>%
       mutate(date_double = as.Date(double_var, origin = "1970-01-01")) %>%
       collect(),
-    regexp = "`as.Date()` with double/float is not supported in Arrow",
-    fixed = TRUE
+     test_df,
+     warning = TRUE
   )
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
