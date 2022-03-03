@@ -24,6 +24,11 @@
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
 #include <arrow/compute/exec/tpch_node.h>
+// TODO: We probably don't want to add dataset + filesystem here, so instead we'll probably
+// want to move the definition of Tpch_Dbgen_Write if it works
+#include <arrow/dataset/api.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/table.h>
 #include <arrow/util/async_generator.h>
 #include <arrow/util/future.h>
@@ -33,6 +38,10 @@
 #include <iostream>
 
 namespace compute = ::arrow::compute;
+// TODO: We probably don't want to add dataset + fs here, so instead we'll probably
+// want to move the definition of Tpch_Dbgen_Write if it works
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
 
 std::shared_ptr<compute::FunctionOptions> make_compute_options(std::string func_name,
                                                                cpp11::list options);
@@ -344,6 +353,82 @@ std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
   return compute::MakeGeneratorReader(
     table->output_schema(),
     [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
+}
+
+// [[arrow::export]]
+void Tpch_Dbgen_Write(
+    const std::shared_ptr<compute::ExecPlan>& plan,
+    int scale_factor,
+    std::string table_name,
+    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
+    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions
+) {
+  auto gen = ValueOrStop(arrow::compute::TpchGen::Make(plan.get(), scale_factor));
+
+  compute::ExecNode *table;
+  if (table_name == "part") {
+    table = ValueOrStop(gen.Part());
+  } else if (table_name == "supplier") {
+    table = ValueOrStop(gen.Supplier());
+  } else if (table_name == "partsupp") {
+    table = ValueOrStop(gen.PartSupp());
+  } else if (table_name == "customer") {
+    table = ValueOrStop(gen.Customer());
+  } else if (table_name == "nation") {
+    table = ValueOrStop(gen.Nation());
+  } else if (table_name == "lineitem") {
+    table = ValueOrStop(gen.Lineitem());
+  } else if (table_name == "region") {
+    table = ValueOrStop(gen.Region());
+  } else if (table_name == "orders") {
+    table = ValueOrStop(gen.Orders());
+  } else {
+    cpp11::stop("That's not a valid table name");
+  }
+
+  // TODO: unhardcode this once it's working
+  auto base_path =  base_dir + "/parquet_dataset";
+  filesystem->CreateDir(base_path);
+
+  auto format = std::make_shared<ds::ParquetFileFormat>();
+
+  ds::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = format->DefaultWriteOptions();
+  write_options.existing_data_behavior = ds::ExistingDataBehavior::kDeleteMatchingPartitions;
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = arrow::dataset::Partitioning::Default();
+  write_options.basename_template = "part{i}.parquet";
+  write_options.max_partitions = 1024;
+
+  // TODO: this had a checked_cast in front of it in the code I adapted it from
+  // but I ran into namespace issues when doing it so I took it out to see if it
+  // worked, but maybe that's what's causing the sefault?
+  const ds::WriteNodeOptions options =
+    ds::WriteNodeOptions{write_options, table->output_schema()};
+
+
+  MakeExecNodeOrStop("consuming_sink", plan.get(), {table}, options);
+
+  cpp11::message("Just after consume");
+
+  StopIfNotOk(plan->Validate());
+
+  cpp11::message("Just after validate");
+
+  StopIfNotOk(plan->StartProducing());
+
+  // If the generator is destroyed before being completely drained, inform plan
+  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
+    bool not_finished_yet =
+      plan->finished().TryAddCallback([&plan] {
+        return [plan](const arrow::Status&) {};
+      });
+
+    if (not_finished_yet) {
+      plan->StopProducing();
+    }
+  }};
 }
 
 #endif

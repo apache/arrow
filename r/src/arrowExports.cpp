@@ -1751,18 +1751,23 @@ extern "C" SEXP _arrow_ExecNode_TableSourceNode(SEXP plan_sexp, SEXP table_sexp)
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name);
-extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor, std::string table_name, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions);
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<compute::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<int>::type scale_factor(scale_factor_sexp);
 	arrow::r::Input<std::string>::type table_name(table_name_sexp);
-	return cpp11::as_sexp(Tpch_Dbgen(plan, scale_factor, table_name));
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
+	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
+	arrow::r::Input<arrow::dataset::ExistingDataBehavior>::type existing_data_behavior(existing_data_behavior_sexp);
+	arrow::r::Input<int>::type max_partitions(max_partitions_sexp);
+	Tpch_Dbgen_Write(plan, scale_factor, table_name, filesystem, base_dir, existing_data_behavior, max_partitions);
+	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_Tpch_Dbgen(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp){
-	Rf_error("Cannot call Tpch_Dbgen(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_Tpch_Dbgen_Write(SEXP plan_sexp, SEXP scale_factor_sexp, SEXP table_name_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp){
+	Rf_error("Cannot call Tpch_Dbgen_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 

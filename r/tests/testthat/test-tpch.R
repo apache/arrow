@@ -37,18 +37,12 @@ test_that("tpch_dbgen()", {
   expect_identical(dim(part_tab), c(200000L, 9L))
 
   # and check a handful of types
-  expect_type_equal(part_tab[["R_PARTKEY"]], int32())
+  expect_type_equal(part_tab[["P_PARTKEY"]], int32())
+  expect_type_equal(part_tab[["P_NAME"]], string())
 })
 
-# these two are tested above
-tpch_tables_up <- setdiff(tpch_tables, c("lineitem", "region"))
-
-# nation segfaults
-# supplier hangs
-tpch_tables_up <- setdiff(tpch_tables_up, c("nation", "supplier"))
-
-# all of the rest below have an error with:
-# Invalid: Arrays used to construct an ExecBatch must have equal length
+# these three are tested above, but test that we can get tables for all the rest
+tpch_tables_up <- setdiff(tpch_tables, c("lineitem", "region", "part"))
 
 for (table_name in tpch_tables_up) {
   test_that(paste0("Generating table: ", table_name), {

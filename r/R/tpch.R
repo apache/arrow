@@ -30,7 +30,25 @@ tpch_tables <- c("customer", "lineitem", "nation", "orders", "part", "partsupp",
 tpch_dbgen <- function(table = tpch_tables, scale_factor) {
   table <- match.arg(table)
 
-  Tpch_Dbgen(arrow:::ExecPlan$create(), scale_factor, table)
+  Tpch_Dbgen(ExecPlan$create(), scale_factor, table)
 }
 
+tpch_dbgen_write <- function(table = tpch_tables, scale_factor, path, ...) {
+  table <- match.arg(table)
+
+  path_and_fs <- get_path_and_filesystem(path)
+
+  existing_data_behavior <- 0L
+  max_partitions <- 1024L
+
+  Tpch_Dbgen_Write(
+    ExecPlan$create(),
+    scale_factor,
+    table,
+    path_and_fs$fs,
+    path_and_fs$path,
+    existing_data_behavior,
+    max_partitions
+  )
+}
 
