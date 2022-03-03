@@ -183,10 +183,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     } else if (tz == "") {
       tz <- Sys.timezone()
     }
-    ts <- Expression$create("cast", x, options = list(to_type = timestamp(x$type()$unit(), tz)))
-  } else {
-    ts <- x
+    ts <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
   }
 
-  Expression$create("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+  build_expr("strptime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
