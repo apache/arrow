@@ -32,8 +32,8 @@ To speed up the build, you can skip them by passing -DskipTests.
 
     $ cd arrow/java
     $ mvn \
-        -Darrow.cpp.build.dir=$GITHUB_WORKSPACE/java-dist/lib -Parrow-jni \
-        -Darrow.c.jni.dist.dir=$GITHUB_WORKSPACE/java-dist/lib -Parrow-c-data \
+        -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni \
+        -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data \
         clean install
     [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
     [INFO]

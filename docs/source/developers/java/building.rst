@@ -108,17 +108,16 @@ For Build C Data Interface lib:
     $ cd arrow
     $ brew bundle --file=cpp/Brewfile
     Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ export GITHUB_WORKSPACE=<absolute path to your arrow project>
     $ export JAVA_HOME=<absolute path to your java home>
     $ mkdir -p java-dist java-native-c
     $ cd java-native-c
     $ cmake \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/java-dist \
-        $GITHUB_WORKSPACE/java/c
+        -DCMAKE_INSTALL_PREFIX=../java-dist \
+        ../java/c
     $ cmake --build . --target install
-    $ ls -latr $GITHUB_WORKSPACE/java-dist/lib
+    $ ls -latr ../java-dist/lib
     |__ libarrow_cdata_jni.dylib
 
 For Build C++ Interface libs:
@@ -128,7 +127,6 @@ For Build C++ Interface libs:
     $ cd arrow
     $ brew bundle --file=cpp/Brewfile
     Homebrew Bundle complete! 25 Brewfile dependencies now installed.
-    $ export GITHUB_WORKSPACE=<absolute path to your arrow project>
     $ export JAVA_HOME=<absolute path to your java home>
     $ mkdir -p java-dist java-native-cpp
     $ cd java-native-cpp
@@ -157,7 +155,7 @@ For Build C++ Interface libs:
         -DARROW_PLASMA=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_LIBDIR=lib \
-        -DCMAKE_INSTALL_PREFIX=$GITHUB_WORKSPACE/java-dist \
+        -DCMAKE_INSTALL_PREFIX=../java-dist \
         -DCMAKE_UNITY_BUILD=ON \
         -Dre2_SOURCE=BUNDLED \
         -DBoost_SOURCE=BUNDLED \
@@ -165,9 +163,9 @@ For Build C++ Interface libs:
         -DSnappy_SOURCE=BUNDLED \
         -DORC_SOURCE=BUNDLED \
         -DZLIB_SOURCE=BUNDLED \
-        $GITHUB_WORKSPACE/cpp
+        ../cpp
     $ cmake --build . --target install
-    $ ls -latr  $GITHUB_WORKSPACE/java-dist/lib
+    $ ls -latr  ../java-dist/lib
     |__ libarrow_dataset_jni.dylib
     |__ libarrow_orc_jni.dylib
     |__ libgandiva_jni.dylib
@@ -180,7 +178,7 @@ Java arrow-c-data maven profile:
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.c.jni.dist.dir=$GITHUB_WORKSPACE/java-dist/lib -Parrow-c-data clean install
+    $ mvn -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data clean install
     [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
     [INFO]
     [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  4.385 s]
@@ -212,7 +210,7 @@ Java arrow-jni maven profile (build ORC / Gandiva / Dataset):
 .. code-block::
 
     $ cd arrow/java
-    $ mvn -Darrow.cpp.build.dir=$GITHUB_WORKSPACE/java-dist/lib -Parrow-jni clean install
+    $ mvn -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni clean install
     [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
     [INFO]
     [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  7.342 s]
