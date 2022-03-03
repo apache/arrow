@@ -768,7 +768,8 @@ test_that("nested structs can be created from scalars and existing data frames",
       collect(),
     tibble(a = 1:2)
   )
-})
+
+  })
 
 test_that("as.Date() converts successfully from date, timestamp, integer, char and double", {
   test_df <- tibble::tibble(
@@ -841,16 +842,6 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
       collect(),
     regexp = "`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow",
     fixed = TRUE
-
-  )
-
-  expect_warning(
-    test_df %>%
-      arrow_table() %>%
-      mutate(date_pv = as.Date(posixct_var, tz = "Pacific/Marquesas")) %>%
-      collect(),
-    regexp = "`as.Date()` with a timezone different to 'UTC' is not supported in Arrow",
-    fixed = TRUE
   )
 
   expect_warning(
@@ -875,7 +866,10 @@ test_that("as.Date() converts successfully from date, timestamp, integer, char a
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-13168
   compare_dplyr_binding(
     .input %>%
-      mutate(date_pv = as.Date(posixct_var)) %>%
+      mutate(
+        date_pv = as.Date(posixct_var),
+        date_pv_tz = as.Date(posixct_var, tz = "Pacific/Marquesas")
+      ) %>%
       collect(),
     test_df
   )

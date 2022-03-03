@@ -89,9 +89,6 @@ register_bindings_type_cast <- function() {
       abort("`as.Date()` with an `origin` different than '1970-01-01' is not supported in Arrow")
     }
 
-    if (tz != "UTC") {
-      abort("`as.Date()` with a timezone different to 'UTC' is not supported in Arrow")
-    }
     # this could be improved with tryFormats once strptime returns NA and we
     # can use coalesce - https://issues.apache.org/jira/browse/ARROW-15659
     # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15659 is done
@@ -106,7 +103,7 @@ register_bindings_type_cast <- function() {
     } else if (call_binding("is.POSIXct", x)) {
       # base::as.Date() first converts to the desired timezone and then extracts
       # the date, which is why we need to go through timestamp() first
-      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = "UTC")))
+      x <- build_expr("cast", x, options = cast_options(to_type = timestamp(timezone = tz)))
 
     # cast from character
     } else if (call_binding("is.character", x)) {
