@@ -37,16 +37,20 @@ namespace internal {
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 // Returns Invalid if the payload is ill-formed
-// Returns IOError if gRPC did not write the message (note this is not
-// necessarily an error - the client may simply have gone away)
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer);
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerWriter<pb::FlightData>* writer);
+// Returns true if the payload was written, false if it was not
+// (likely due to disconnect or end-of-stream, e.g. via an
+// asynchronous cancellation)
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer);
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer);
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer);
+arrow::Result<bool> WritePayload(const FlightPayload& payload,
+                                 grpc::ServerWriter<pb::FlightData>* writer);
 
 /// Read Flight message from gRPC stream with zero-copy optimizations.
 /// True is returned on success, false if stream ended.

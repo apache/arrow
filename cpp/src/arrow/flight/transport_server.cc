@@ -214,7 +214,11 @@ class TransportMessageWriter final : public FlightMessageWriter {
 
  private:
   Status WritePayload(const FlightPayload& payload) {
-    RETURN_NOT_OK(stream_->WriteData(payload));
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not write metadata to stream (client disconnect?)");
+    }
     ++stats_.num_messages;
     return Status::OK();
   }
@@ -276,10 +280,9 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
   // Write the schema as the first message in the stream
   FlightPayload schema_payload;
   RETURN_NOT_OK(data_stream->GetSchemaPayload(&schema_payload));
-  auto status = stream->WriteData(schema_payload);
+  ARROW_ASSIGN_OR_RAISE(auto success, stream->WriteData(schema_payload));
   // Connection terminated
-  if (status.IsIOError()) return Status::OK();
-  RETURN_NOT_OK(status);
+  if (!success) return Status::OK();
 
   // Consume data stream and write out payloads
   while (true) {
@@ -287,11 +290,9 @@ Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ti
     RETURN_NOT_OK(data_stream->Next(&payload));
     // End of stream
     if (payload.ipc_message.metadata == nullptr) break;
-    auto status = stream->WriteData(payload);
-    // Ignore IOError (used to signal that client disconnected; there's nothing
-    // we can do - e.g. see WritePayload in serialization_internal.cc)
-    if (status.IsIOError()) return Status::OK();
-    RETURN_NOT_OK(status);
+    ARROW_ASSIGN_OR_RAISE(auto success, stream->WriteData(payload));
+    // Connection terminated
+    if (!success) return Status::OK();
   }
   RETURN_NOT_OK(stream->WritesDone());
   return Status::OK();

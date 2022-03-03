@@ -426,13 +426,8 @@ class GrpcClientPutStream
     }
     return true;
   }
-  Status WriteData(const FlightPayload& payload) override {
-    auto status = internal::WritePayload(payload, this->stream_.get());
-    if (status.IsIOError()) {
-      return internal::ClientDataStream::Finish(MakeFlightError(
-          FlightStatusCode::Internal, "Could not write record batch to stream"));
-    }
-    return status;
+  arrow::Result<bool> WriteData(const FlightPayload& payload) override {
+    return internal::WritePayload(payload, this->stream_.get());
   }
 };
 
@@ -460,13 +455,8 @@ class GrpcClientExchangeStream
     }
     return true;
   }
-  Status WriteData(const FlightPayload& payload) override {
-    auto status = internal::WritePayload(payload, this->stream_.get());
-    if (status.IsIOError()) {
-      return internal::ClientDataStream::Finish(MakeFlightError(
-          FlightStatusCode::Internal, "Could not write record batch to stream"));
-    }
-    return status;
+  arrow::Result<bool> WriteData(const FlightPayload& payload) override {
+    return internal::WritePayload(payload, this->stream_.get());
   }
 };
 

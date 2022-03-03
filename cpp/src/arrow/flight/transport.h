@@ -105,7 +105,12 @@ class ARROW_FLIGHT_EXPORT TransportDataStream {
   ///   Finish(Status).
   virtual bool ReadData(FlightData* data);
   /// \brief Attempt to write a FlightPayload.
-  virtual Status WriteData(const FlightPayload& payload);
+  ///
+  /// \param[in] payload The data to write.
+  /// \return true if the message was accepted by the transport, false
+  ///   if not (e.g. due to client/server disconnect), Status if there
+  ///   was an error (e.g. with the payload itself).
+  virtual arrow::Result<bool> WriteData(const FlightPayload& payload);
   /// \brief Indicate that there are no more writes on this stream.
   ///
   /// This is only a hint for the underlying transport and may not

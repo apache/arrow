@@ -294,7 +294,13 @@ class ClientPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
             std::make_shared<FlightWriteSizeStatusDetail>(write_size_limit_bytes_, size));
       }
     }
-    return stream_->WriteData(payload);
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      return MakeFlightError(
+          FlightStatusCode::Internal,
+          "Could not write record batch to stream (server disconnect?)");
+    }
+    return Status::OK();
   }
   Status Close() override {
     // Closing is handled one layer up in ClientStreamWriter::Close
@@ -345,7 +351,12 @@ class ClientStreamWriter : public FlightStreamWriter {
   Status Begin() {
     FlightPayload payload;
     RETURN_NOT_OK(internal::ToPayload(descriptor_, &payload.descriptor));
-    RETURN_NOT_OK(stream_->WriteData(payload));
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      return MakeFlightError(
+          FlightStatusCode::Internal,
+          "Could not write record batch to stream (server disconnect?)");
+    }
     return Status::OK();
   }
 
@@ -357,12 +368,12 @@ class ClientStreamWriter : public FlightStreamWriter {
   Status WriteMetadata(std::shared_ptr<Buffer> app_metadata) override {
     FlightPayload payload;
     payload.app_metadata = app_metadata;
-    auto status = stream_->WriteData(payload);
-    if (status.IsIOError()) {
-      return stream_->Finish(MakeFlightError(FlightStatusCode::Internal,
-                                             "Could not write metadata to stream"));
+    ARROW_ASSIGN_OR_RAISE(auto success, stream_->WriteData(payload));
+    if (!success) {
+      return MakeFlightError(FlightStatusCode::Internal,
+                             "Could not write metadata to stream (server disconnect?)");
     }
-    return status;
+    return Status::OK();
   }
 
   Status WriteWithMetadata(const RecordBatch& batch,

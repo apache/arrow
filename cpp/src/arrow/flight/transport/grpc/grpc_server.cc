@@ -175,7 +175,7 @@ class GetDataStream : public internal::ServerDataStream {
  public:
   explicit GetDataStream(ServerWriter<pb::FlightData>* writer) : writer_(writer) {}
 
-  Status WriteData(const FlightPayload& payload) override {
+  arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     return internal::WritePayload(payload, writer_);
   }
 
@@ -216,7 +216,7 @@ class ExchangeDataStream final : public internal::ServerDataStream {
   bool ReadData(internal::FlightData* data) override {
     return internal::ReadPayload(&*stream_, data);
   }
-  Status WriteData(const FlightPayload& payload) override {
+  arrow::Result<bool> WriteData(const FlightPayload& payload) override {
     return internal::WritePayload(payload, stream_);
   }
 

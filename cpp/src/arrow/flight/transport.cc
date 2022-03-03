@@ -30,7 +30,7 @@ namespace flight {
 namespace internal {
 
 bool TransportDataStream::ReadData(internal::FlightData*) { return false; }
-Status TransportDataStream::WriteData(const FlightPayload&) {
+arrow::Result<bool> TransportDataStream::WriteData(const FlightPayload&) {
   return Status::NotImplemented("Writing data for this stream");
 }
 Status TransportDataStream::WritesDone() { return Status::OK(); }

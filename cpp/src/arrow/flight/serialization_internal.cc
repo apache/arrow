@@ -409,48 +409,39 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
 // pointer argument whichever way we want, including cast it back to the original type.
 // (see customize_protobuf.h).
 
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
   RETURN_NOT_OK(payload.Validate());
   // Pretend to be pb::FlightData and intercept in SerializationTraits
-  if (!writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                     grpc::WriteOptions())) {
-    return Status::IOError("Could not write payload to stream");
-  }
-  return Status::OK();
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
 }
 
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
   // Pretend to be pb::FlightData and intercept in SerializationTraits
-  if (!writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                     grpc::WriteOptions())) {
-    return Status::IOError("Could not write payload to stream");
-  }
-  return Status::OK();
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
 }
 
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
+arrow::Result<bool> WritePayload(
+    const FlightPayload& payload,
+    grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
   // Pretend to be pb::FlightData and intercept in SerializationTraits
-  if (!writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                     grpc::WriteOptions())) {
-    return Status::IOError("Could not write payload to stream");
-  }
-  return Status::OK();
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
 }
 
-Status WritePayload(const FlightPayload& payload,
-                    grpc::ServerWriter<pb::FlightData>* writer) {
+arrow::Result<bool> WritePayload(const FlightPayload& payload,
+                                 grpc::ServerWriter<pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
   // Pretend to be pb::FlightData and intercept in SerializationTraits
-  if (!writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                     grpc::WriteOptions())) {
-    return Status::IOError("Could not write payload to stream");
-  }
-  return Status::OK();
+  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
+                       grpc::WriteOptions());
 }
 
 bool ReadPayload(grpc::ClientReader<pb::FlightData>* reader, FlightData* data) {
