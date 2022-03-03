@@ -714,7 +714,7 @@ test_glib() {
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
   bundle config set --local path 'vendor/bundle'
   bundle install
-  # bundle exec ruby test/run-test.rb
+  bundle exec ruby test/run-test.rb
 
   popd
 }
