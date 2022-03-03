@@ -25,6 +25,8 @@ namespace flight {
 struct Action;
 struct ActionType;
 class ClientAuthHandler;
+class ClientMiddleware;
+class ClientMiddlewareFactory;
 struct Criteria;
 class FlightCallOptions;
 struct FlightClientOptions;
@@ -42,6 +44,13 @@ struct Location;
 class ResultStream;
 struct SchemaResult;
 class ServerCallContext;
+class ServerMiddleware;
+class ServerMiddlewareFactory;
 struct Ticket;
+namespace internal {
+class ClientTransport;
+struct FlightData;
+class ServerTransport;
+}  // namespace internal
 }  // namespace flight
 }  // namespace arrow

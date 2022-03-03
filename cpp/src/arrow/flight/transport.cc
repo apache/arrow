@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport.h"
 
 #include <unordered_map>
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/transport_server.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/make_unique.h"
@@ -33,9 +34,6 @@ Status TransportDataStream::WriteData(const FlightPayload&) {
   return Status::NotImplemented("Writing data for this stream");
 }
 Status TransportDataStream::WritesDone() { return Status::OK(); }
-Status ServerDataStream::WritePutMetadata(const Buffer&) {
-  return Status::NotImplemented("Writing put metadata for this stream");
-}
 bool ClientDataStream::ReadPutMetadata(std::shared_ptr<Buffer>*) { return false; }
 Status ClientDataStream::Finish(Status st) {
   auto server_status = Finish();
@@ -46,64 +44,62 @@ Status ClientDataStream::Finish(Status st) {
                                    ". Client context: ", st.ToString());
 }
 
-Status ClientTransportImpl::Authenticate(
-    const FlightCallOptions& options, std::unique_ptr<ClientAuthHandler> auth_handler) {
+Status ClientTransport::Authenticate(const FlightCallOptions& options,
+                                     std::unique_ptr<ClientAuthHandler> auth_handler) {
   return Status::NotImplemented("Authenticate for this transport");
 }
 arrow::Result<std::pair<std::string, std::string>>
-ClientTransportImpl::AuthenticateBasicToken(const FlightCallOptions& options,
-                                            const std::string& username,
-                                            const std::string& password) {
+ClientTransport::AuthenticateBasicToken(const FlightCallOptions& options,
+                                        const std::string& username,
+                                        const std::string& password) {
   return Status::NotImplemented("AuthenticateBasicToken for this transport");
 }
-Status ClientTransportImpl::DoAction(const FlightCallOptions& options,
-                                     const Action& action,
-                                     std::unique_ptr<ResultStream>* results) {
+Status ClientTransport::DoAction(const FlightCallOptions& options, const Action& action,
+                                 std::unique_ptr<ResultStream>* results) {
   return Status::NotImplemented("DoAction for this transport");
 }
-Status ClientTransportImpl::ListActions(const FlightCallOptions& options,
-                                        std::vector<ActionType>* actions) {
+Status ClientTransport::ListActions(const FlightCallOptions& options,
+                                    std::vector<ActionType>* actions) {
   return Status::NotImplemented("ListActions for this transport");
 }
-Status ClientTransportImpl::GetFlightInfo(const FlightCallOptions& options,
-                                          const FlightDescriptor& descriptor,
-                                          std::unique_ptr<FlightInfo>* info) {
+Status ClientTransport::GetFlightInfo(const FlightCallOptions& options,
+                                      const FlightDescriptor& descriptor,
+                                      std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("GetFlightInfo for this transport");
 }
-Status ClientTransportImpl::GetSchema(const FlightCallOptions& options,
-                                      const FlightDescriptor& descriptor,
-                                      std::unique_ptr<SchemaResult>* schema_result) {
+Status ClientTransport::GetSchema(const FlightCallOptions& options,
+                                  const FlightDescriptor& descriptor,
+                                  std::unique_ptr<SchemaResult>* schema_result) {
   return Status::NotImplemented("GetSchema for this transport");
 }
-Status ClientTransportImpl::ListFlights(const FlightCallOptions& options,
-                                        const Criteria& criteria,
-                                        std::unique_ptr<FlightListing>* listing) {
+Status ClientTransport::ListFlights(const FlightCallOptions& options,
+                                    const Criteria& criteria,
+                                    std::unique_ptr<FlightListing>* listing) {
   return Status::NotImplemented("ListFlights for this transport");
 }
-Status ClientTransportImpl::DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                                  std::unique_ptr<ClientDataStream>* stream) {
+Status ClientTransport::DoGet(const FlightCallOptions& options, const Ticket& ticket,
+                              std::unique_ptr<ClientDataStream>* stream) {
   return Status::NotImplemented("DoGet for this transport");
 }
-Status ClientTransportImpl::DoPut(const FlightCallOptions& options,
-                                  std::unique_ptr<ClientDataStream>* stream) {
+Status ClientTransport::DoPut(const FlightCallOptions& options,
+                              std::unique_ptr<ClientDataStream>* stream) {
   return Status::NotImplemented("DoPut for this transport");
 }
-Status ClientTransportImpl::DoExchange(const FlightCallOptions& options,
-                                       std::unique_ptr<ClientDataStream>* stream) {
+Status ClientTransport::DoExchange(const FlightCallOptions& options,
+                                   std::unique_ptr<ClientDataStream>* stream) {
   return Status::NotImplemented("DoExchange for this transport");
 }
 
-class TransportImplRegistry::Impl final {
+class TransportRegistry::Impl final {
  public:
-  arrow::Result<std::unique_ptr<ClientTransportImpl>> MakeClientImpl(
-      const std::string& scheme) {
+  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(const std::string& scheme) {
     auto it = client_factories_.find(scheme);
     if (it == client_factories_.end()) {
       return Status::KeyError("No client transport implementation for ", scheme);
     }
     return it->second();
   }
-  arrow::Result<std::unique_ptr<ServerTransportImpl>> MakeServerImpl(
+  arrow::Result<std::unique_ptr<ServerTransport>> MakeServer(
       const std::string& scheme, FlightServerBase* base,
       std::shared_ptr<MemoryManager> memory_manager) {
     auto it = server_factories_.find(scheme);
@@ -128,34 +124,32 @@ class TransportImplRegistry::Impl final {
   }
 
  private:
-  std::unordered_map<std::string, TransportImplRegistry::ClientFactory> client_factories_;
-  std::unordered_map<std::string, TransportImplRegistry::ServerFactory> server_factories_;
+  std::unordered_map<std::string, TransportRegistry::ClientFactory> client_factories_;
+  std::unordered_map<std::string, TransportRegistry::ServerFactory> server_factories_;
 };
 
-TransportImplRegistry::TransportImplRegistry() {
-  impl_ = arrow::internal::make_unique<Impl>();
-}
-TransportImplRegistry::~TransportImplRegistry() = default;
-arrow::Result<std::unique_ptr<ClientTransportImpl>> TransportImplRegistry::MakeClientImpl(
+TransportRegistry::TransportRegistry() { impl_ = arrow::internal::make_unique<Impl>(); }
+TransportRegistry::~TransportRegistry() = default;
+arrow::Result<std::unique_ptr<ClientTransport>> TransportRegistry::MakeClient(
     const std::string& scheme) {
-  return impl_->MakeClientImpl(scheme);
+  return impl_->MakeClient(scheme);
 }
-arrow::Result<std::unique_ptr<ServerTransportImpl>> TransportImplRegistry::MakeServerImpl(
+arrow::Result<std::unique_ptr<ServerTransport>> TransportRegistry::MakeServer(
     const std::string& scheme, FlightServerBase* base,
     std::shared_ptr<MemoryManager> memory_manager) {
-  return impl_->MakeServerImpl(scheme, base, std::move(memory_manager));
+  return impl_->MakeServer(scheme, base, std::move(memory_manager));
 }
-Status TransportImplRegistry::RegisterClient(const std::string& scheme,
-                                             ClientFactory factory) {
+Status TransportRegistry::RegisterClient(const std::string& scheme,
+                                         ClientFactory factory) {
   return impl_->RegisterClient(scheme, std::move(factory));
 }
-Status TransportImplRegistry::RegisterServer(const std::string& scheme,
-                                             ServerFactory factory) {
+Status TransportRegistry::RegisterServer(const std::string& scheme,
+                                         ServerFactory factory) {
   return impl_->RegisterServer(scheme, std::move(factory));
 }
 
-TransportImplRegistry* GetDefaultTransportImplRegistry() {
-  static TransportImplRegistry kRegistry;
+TransportRegistry* GetDefaultTransportRegistry() {
+  static TransportRegistry kRegistry;
   return &kRegistry;
 }
 

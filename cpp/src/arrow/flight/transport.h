@@ -21,42 +21,41 @@
 ///
 /// \warning EXPERIMENTAL. Subject to change.
 ///
-/// To implement a transport, implement ServerTransportImpl and
-/// ClientTransportImpl, and register the desired URI schemes with
-/// TransportImplRegistry. Flight takes care of most of the per-RPC
+/// To implement a transport, implement ServerTransport and
+/// ClientTransport, and register the desired URI schemes with
+/// TransportRegistry. Flight takes care of most of the per-RPC
 /// details; transports only handle connections and providing a I/O
 /// stream implementation (TransportDataStream).
 ///
 /// On the server side:
 ///
 /// 1. Applications subclass FlightServerBase and override RPC handlers.
-/// 2. FlightServerBase::Init will look up and create a ServerTransportImpl
+/// 2. FlightServerBase::Init will look up and create a ServerTransport
 ///    based on the scheme of the Location given to it.
-/// 3. The ServerTransportImpl will start the actual server. (For instance,
+/// 3. The ServerTransport will start the actual server. (For instance,
 ///    for gRPC, it creates a gRPC server and registers a gRPC service.)
 ///    That server will handle connections.
 /// 4. The transport should forward incoming calls to the server to the RPC
-///    handlers defined on ServerTransportImpl, which implements the actual
+///    handlers defined on ServerTransport, which implements the actual
 ///    RPC handler using the interfaces here. Any I/O the RPC handler needs
 ///    to do is managed by transport-specific implementations of
 ///    TransportDataStream.
-/// 5. ServerTransportImpl calls FlightServerBase for the actual application
+/// 5. ServerTransport calls FlightServerBase for the actual application
 ///    logic.
 ///
 /// On the client side:
 ///
 /// 1. Applications create a FlightClient with a Location.
-/// 2. FlightClient will look up and create a ClientTransportImpl based on
+/// 2. FlightClient will look up and create a ClientTransport based on
 ///    the scheme of the Location given to it.
 /// 3. When calling a method on FlightClient, FlightClient will delegate to
-///    the ClientTransportImpl. There is some indirection, e.g. for DoGet,
-///    FlightClient only requests that the ClientTransportImpl start the
+///    the ClientTransport. There is some indirection, e.g. for DoGet,
+///    FlightClient only requests that the ClientTransport start the
 ///    call and provide it with an I/O stream. The "Flight implementation"
 ///    itself still lives in FlightClient.
 
 #pragma once
 
-#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -115,17 +114,6 @@ class ARROW_FLIGHT_EXPORT TransportDataStream {
 };
 
 /// \brief A transport-specific interface for reading/writing Arrow
-///   data for a server.
-class ARROW_FLIGHT_EXPORT ServerDataStream : public TransportDataStream {
- public:
-  /// \brief Attempt to write a non-data message.
-  ///
-  /// Only implemented for DoPut; mutually exclusive with
-  /// WriteData(const FlightPayload&).
-  virtual Status WritePutMetadata(const Buffer& payload);
-};
-
-/// \brief A transport-specific interface for reading/writing Arrow
 ///   data for a client.
 class ARROW_FLIGHT_EXPORT ClientDataStream : public TransportDataStream {
  public:
@@ -165,9 +153,9 @@ class ARROW_FLIGHT_EXPORT ClientDataStream : public TransportDataStream {
 ///
 /// Transports should override the methods they are capable of
 /// supporting. The default method implementations return an error.
-class ARROW_FLIGHT_EXPORT ClientTransportImpl {
+class ARROW_FLIGHT_EXPORT ClientTransport {
  public:
-  virtual ~ClientTransportImpl() = default;
+  virtual ~ClientTransport() = default;
 
   /// Initialize the client.
   virtual Status Init(const FlightClientOptions& options, const Location& location,
@@ -200,96 +188,18 @@ class ARROW_FLIGHT_EXPORT ClientTransportImpl {
                             std::unique_ptr<ClientDataStream>* stream);
 };
 
-/// \brief An implementation of a Flight server for a particular
-/// transport.
-///
-/// This class (the transport implementation) implements the underlying
-/// server and handles connections/incoming RPC calls. It should forward RPC
-/// calls to the RPC handlers defined on this class, which work in terms of
-/// the generic interfaces above. The RPC handlers here then forward calls
-/// to the underlying FlightServerBase instance that contains the actual
-/// application RPC method handlers.
-///
-/// Used by FlightServerBase to manage the server lifecycle.
-class ARROW_FLIGHT_EXPORT ServerTransportImpl {
- public:
-  ServerTransportImpl(FlightServerBase* base,
-                      std::shared_ptr<MemoryManager> memory_manager)
-      : base_(base), memory_manager_(std::move(memory_manager)) {}
-  virtual ~ServerTransportImpl() = default;
-
-  /// \name Server Lifecycle Methods
-  /// Transports implement these methods to start/shutdown the underlying
-  /// server.
-  /// @{
-  /// Initialize the server.
-  virtual Status Init(const FlightServerOptions& options,
-                      const arrow::internal::Uri& uri) = 0;
-  /// Shutdown the server. Once this returns, the server is no longer listening.
-  virtual Status Shutdown() = 0;
-  /// Shutdown the server. Once this returns, the server is no longer listening.
-  virtual Status Shutdown(const std::chrono::system_clock::time_point& deadline) = 0;
-  /// Wait for the server to shutdown. Once this returns, the server is no longer
-  /// listening.
-  virtual Status Wait() = 0;
-  /// Get the address the server is listening on, else an empty Location.
-  virtual Location location() const = 0;
-  ///@}
-
-  /// \name RPC Handlers
-  /// Implementations of RPC handlers for Flight methods using the common
-  /// interfaces here. Transports should call these methods from their
-  /// server implementation to handle the actual RPC calls.
-  ///@{
-  /// \brief Get the FlightServerBase.
-  ///
-  /// Intended as an escape hatch for now since not all methods have been
-  /// factored into a transport-agnostic interface.
-  FlightServerBase* base() const { return base_; }
-  /// \brief Implement DoGet in terms of a transport-level stream.
-  ///
-  /// \param[in] context The server context.
-  /// \param[in] request The request payload.
-  /// \param[in] stream The transport-specific data stream
-  ///   implementation. Must implement WriteData(const
-  ///   FlightPayload&).
-  Status DoGet(const ServerCallContext& context, const Ticket& request,
-               ServerDataStream* stream);
-  /// \brief Implement DoPut in terms of a transport-level stream.
-  ///
-  /// \param[in] context The server context.
-  /// \param[in] stream The transport-specific data stream
-  ///   implementation. Must implement ReadData(FlightData*)
-  ///   and WritePutMetadata(const Buffer&).
-  Status DoPut(const ServerCallContext& context, ServerDataStream* stream);
-  /// \brief Implement DoExchange in terms of a transport-level stream.
-  ///
-  /// \param[in] context The server context.
-  /// \param[in] stream The transport-specific data stream
-  ///   implementation. Must implement ReadData(FlightData*)
-  ///   and WriteData(const FlightPayload&).
-  Status DoExchange(const ServerCallContext& context, ServerDataStream* stream);
-  ///@}
-
- protected:
-  FlightServerBase* base_;
-  std::shared_ptr<MemoryManager> memory_manager_;
-};
-
 /// A registry of transport implementations.
-class ARROW_FLIGHT_EXPORT TransportImplRegistry {
+class ARROW_FLIGHT_EXPORT TransportRegistry {
  public:
-  using ClientFactory =
-      std::function<arrow::Result<std::unique_ptr<ClientTransportImpl>>()>;
-  using ServerFactory = std::function<arrow::Result<std::unique_ptr<ServerTransportImpl>>(
+  using ClientFactory = std::function<arrow::Result<std::unique_ptr<ClientTransport>>()>;
+  using ServerFactory = std::function<arrow::Result<std::unique_ptr<ServerTransport>>(
       FlightServerBase*, std::shared_ptr<MemoryManager> memory_manager)>;
 
-  TransportImplRegistry();
-  ~TransportImplRegistry();
+  TransportRegistry();
+  ~TransportRegistry();
 
-  arrow::Result<std::unique_ptr<ClientTransportImpl>> MakeClientImpl(
-      const std::string& scheme);
-  arrow::Result<std::unique_ptr<ServerTransportImpl>> MakeServerImpl(
+  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(const std::string& scheme);
+  arrow::Result<std::unique_ptr<ServerTransport>> MakeServer(
       const std::string& scheme, FlightServerBase* base,
       std::shared_ptr<MemoryManager> memory_manager);
 
@@ -303,7 +213,7 @@ class ARROW_FLIGHT_EXPORT TransportImplRegistry {
 
 /// \brief Get the registry of transport implementations.
 ARROW_FLIGHT_EXPORT
-TransportImplRegistry* GetDefaultTransportImplRegistry();
+TransportRegistry* GetDefaultTransportRegistry();
 
 }  // namespace internal
 }  // namespace flight

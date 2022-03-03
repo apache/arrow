@@ -36,8 +36,8 @@
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/grpc_client.h"
-#include "arrow/flight/transport_impl.h"
 #include "arrow/flight/types.h"
 
 namespace arrow {
@@ -447,9 +447,8 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
   client->reset(new FlightClient);
   (*client)->write_size_limit_bytes_ = options.write_size_limit_bytes;
   const auto scheme = location.scheme();
-  ARROW_ASSIGN_OR_RAISE(
-      (*client)->impl_,
-      internal::GetDefaultTransportImplRegistry()->MakeClientImpl(scheme));
+  ARROW_ASSIGN_OR_RAISE((*client)->impl_,
+                        internal::GetDefaultTransportRegistry()->MakeClient(scheme));
   return (*client)->impl_->Init(options, location, *location.uri_);
 }
 

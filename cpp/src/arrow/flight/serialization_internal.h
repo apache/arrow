@@ -23,7 +23,7 @@
 #include <memory>
 
 #include "arrow/flight/internal.h"
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/message.h"
 #include "arrow/result.h"

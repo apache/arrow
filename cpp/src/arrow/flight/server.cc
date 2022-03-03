@@ -38,8 +38,9 @@
 #include <utility>
 
 #include "arrow/device.h"
+#include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/grpc_server.h"
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -127,9 +128,9 @@ class ServerSignalHandler {
 }  // namespace
 
 /// Server implementation. Manages the lifecycle of the "real" server
-/// (ServerTransportImpl) and contains
+/// (ServerTransport) and contains
 struct FlightServerBase::Impl {
-  std::unique_ptr<internal::ServerTransportImpl> transport_;
+  std::unique_ptr<internal::ServerTransport> transport_;
 
   // Signal handlers (on Windows) and the shutdown handler (other platforms)
   // are executed in a separate thread, so getting the current thread instance
@@ -202,7 +203,7 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
 
   const auto scheme = options.location.scheme();
   ARROW_ASSIGN_OR_RAISE(impl_->transport_,
-                        internal::GetDefaultTransportImplRegistry()->MakeServerImpl(
+                        internal::GetDefaultTransportRegistry()->MakeServer(
                             scheme, this, options.memory_manager));
   return impl_->transport_->Init(options, *options.location.uri_);
 }

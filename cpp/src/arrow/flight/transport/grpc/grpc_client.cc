@@ -51,7 +51,7 @@
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/serialization_internal.h"
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport.h"
 #include "arrow/flight/types.h"
 
 namespace arrow {
@@ -494,10 +494,10 @@ constexpr char kDummyRootCert[] =
     "-----END CERTIFICATE-----\n";
 #endif
 
-class GrpcClientImpl : public internal::ClientTransportImpl {
+class GrpcClientImpl : public internal::ClientTransport {
  public:
-  static arrow::Result<std::unique_ptr<internal::ClientTransportImpl>> Make() {
-    return std::unique_ptr<internal::ClientTransportImpl>(new GrpcClientImpl());
+  static arrow::Result<std::unique_ptr<internal::ClientTransport>> Make() {
+    return std::unique_ptr<internal::ClientTransport>(new GrpcClientImpl());
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
@@ -869,7 +869,7 @@ std::once_flag kGrpcClientTransportInitialized;
 
 void InitializeFlightGrpcClient() {
   std::call_once(kGrpcClientTransportInitialized, []() {
-    auto* registry = flight::internal::GetDefaultTransportImplRegistry();
+    auto* registry = flight::internal::GetDefaultTransportRegistry();
     for (const auto& transport : {"grpc", "grpc+tls", "grpc+tcp", "grpc+unix"}) {
       ARROW_CHECK_OK(registry->RegisterClient(transport, GrpcClientImpl::Make));
     }

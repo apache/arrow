@@ -37,7 +37,8 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport.h"
+#include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
@@ -231,7 +232,7 @@ class GrpcServiceHandler final : public FlightService::Service {
       std::shared_ptr<ServerAuthHandler> auth_handler,
       std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
           middleware,
-      internal::ServerTransportImpl* impl)
+      internal::ServerTransport* impl)
       : auth_handler_(auth_handler), middleware_(middleware), impl_(impl) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
@@ -512,18 +513,18 @@ class GrpcServiceHandler final : public FlightService::Service {
   std::shared_ptr<ServerAuthHandler> auth_handler_;
   std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
       middleware_;
-  internal::ServerTransportImpl* impl_;
+  internal::ServerTransport* impl_;
 };
 
-// The ServerTransportImpl implementation for gRPC. Manages the gRPC server itself.
-class GrpcServerTransportImpl : public internal::ServerTransportImpl {
+// The ServerTransport implementation for gRPC. Manages the gRPC server itself.
+class GrpcServerTransport : public internal::ServerTransport {
  public:
-  using internal::ServerTransportImpl::ServerTransportImpl;
+  using internal::ServerTransport::ServerTransport;
 
-  static arrow::Result<std::unique_ptr<internal::ServerTransportImpl>> Make(
+  static arrow::Result<std::unique_ptr<internal::ServerTransport>> Make(
       FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
-    return std::unique_ptr<internal::ServerTransportImpl>(
-        new GrpcServerTransportImpl(base, std::move(memory_manager)));
+    return std::unique_ptr<internal::ServerTransport>(
+        new GrpcServerTransport(base, std::move(memory_manager)));
   }
 
   Status Init(const FlightServerOptions& options,
@@ -616,9 +617,9 @@ std::once_flag kGrpcServerTransportInitialized;
 
 void InitializeFlightGrpcServer() {
   std::call_once(kGrpcServerTransportInitialized, []() {
-    auto* registry = flight::internal::GetDefaultTransportImplRegistry();
+    auto* registry = flight::internal::GetDefaultTransportRegistry();
     for (const auto& transport : {"grpc", "grpc+tls", "grpc+tcp", "grpc+unix"}) {
-      ARROW_CHECK_OK(registry->RegisterServer(transport, GrpcServerTransportImpl::Make));
+      ARROW_CHECK_OK(registry->RegisterServer(transport, GrpcServerTransport::Make));
     }
   });
 }

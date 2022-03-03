@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/transport_impl.h"
+#include "arrow/flight/transport_server.h"
 
 #include <unordered_map>
 
@@ -30,6 +30,10 @@
 namespace arrow {
 namespace flight {
 namespace internal {
+
+Status ServerDataStream::WritePutMetadata(const Buffer&) {
+  return Status::NotImplemented("Writing put metadata for this stream");
+}
 
 namespace {
 class TransportIpcMessageReader : public ipc::MessageReader {
@@ -262,8 +266,8 @@ class TransportMetadataWriter final : public FlightMetadataWriter {
 };
 }  // namespace
 
-Status ServerTransportImpl::DoGet(const ServerCallContext& context, const Ticket& ticket,
-                                  ServerDataStream* stream) {
+Status ServerTransport::DoGet(const ServerCallContext& context, const Ticket& ticket,
+                              ServerDataStream* stream) {
   std::unique_ptr<FlightDataStream> data_stream;
   RETURN_NOT_OK(base_->DoGet(context, ticket, &data_stream));
 
@@ -293,8 +297,8 @@ Status ServerTransportImpl::DoGet(const ServerCallContext& context, const Ticket
   return Status::OK();
 }
 
-Status ServerTransportImpl::DoPut(const ServerCallContext& context,
-                                  ServerDataStream* stream) {
+Status ServerTransport::DoPut(const ServerCallContext& context,
+                              ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMetadataWriter> writer(new TransportMetadataWriter(stream));
@@ -304,8 +308,8 @@ Status ServerTransportImpl::DoPut(const ServerCallContext& context,
   return Status::OK();
 }
 
-Status ServerTransportImpl::DoExchange(const ServerCallContext& context,
-                                       ServerDataStream* stream) {
+Status ServerTransport::DoExchange(const ServerCallContext& context,
+                                   ServerDataStream* stream) {
   std::unique_ptr<TransportMessageReader> reader(
       new TransportMessageReader(stream, memory_manager_));
   std::unique_ptr<FlightMessageWriter> writer(new TransportMessageWriter(stream));

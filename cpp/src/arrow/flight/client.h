@@ -34,6 +34,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/variant.h"
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
 
@@ -43,10 +44,6 @@ class RecordBatch;
 class Schema;
 
 namespace flight {
-
-class ClientAuthHandler;
-class ClientMiddleware;
-class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -175,11 +172,6 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
   /// \brief Read a message from the server.
   virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
-
-// Forward declaration
-namespace internal {
-class ClientTransportImpl;
-}
 
 /// \brief Client class for Arrow Flight RPC services (gRPC-based).
 /// API experimental for now
@@ -341,7 +333,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
  private:
   FlightClient();
   Status CheckOpen() const;
-  std::unique_ptr<internal::ClientTransportImpl> impl_;
+  std::unique_ptr<internal::ClientTransport> impl_;
   bool closed_;
   int64_t write_size_limit_bytes_;
 };

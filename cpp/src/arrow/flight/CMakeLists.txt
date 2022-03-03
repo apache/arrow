@@ -175,8 +175,8 @@ set(ARROW_FLIGHT_SRCS
     serialization_internal.cc
     server.cc
     server_auth.cc
-    transport_impl.cc
-    transport_server_impl.cc
+    transport.cc
+    transport_server.cc
     # Bundle the gRPC impl with libarrow_flight
     transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc

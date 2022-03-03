@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"       // IWYU pragma: keep
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/ipc/dictionary.h"
@@ -40,9 +41,6 @@ class Schema;
 class Status;
 
 namespace flight {
-
-class ServerMiddleware;
-class ServerMiddlewareFactory;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
