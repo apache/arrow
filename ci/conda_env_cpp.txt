@@ -21,7 +21,8 @@ boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
-cmake
+# Required due to the AWS SDK C++ pin
+cmake<3.22
 gflags
 glog
 gmock>=1.10.0
