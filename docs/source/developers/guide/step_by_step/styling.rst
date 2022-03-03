@@ -32,7 +32,7 @@ Styling 😎
 
 Each language in the Apache Arrow project follows its own style guides.
 
-In this section we will connect to the existing documentation
+In this section we will provide links to the existing documentation
 to make it easier for you to find the relevant information about
 styling.
 
