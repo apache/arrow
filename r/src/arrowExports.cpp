@@ -6711,6 +6711,21 @@ extern "C" SEXP _arrow_ipc___RecordBatchStreamWriter__Open(SEXP stream_sexp, SEX
 }
 #endif
 
+// safe-call-into-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::strings TestSafeCallIntoR(cpp11::list funs_that_return_a_string);
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP funs_that_return_a_string_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type funs_that_return_a_string(funs_that_return_a_string_sexp);
+	return cpp11::as_sexp(TestSafeCallIntoR(funs_that_return_a_string));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_TestSafeCallIntoR(SEXP funs_that_return_a_string_sexp){
+	Rf_error("Cannot call TestSafeCallIntoR(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // scalar.cpp
 #if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
@@ -7541,32 +7556,6 @@ extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
 }
 #endif
 
-#if defined(ARROW_R_WITH_ARROW)
-extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
-BEGIN_CPP11
-arrow::r::r6_reset_pointer<arrow::Table>(r6);
-END_CPP11
-return R_NilValue;
-}
-#else
-extern "C" SEXP _arrow_Table__Reset(SEXP r6){
-	Rf_error("Cannot call Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
-#if defined(ARROW_R_WITH_ARROW)
-extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6) {
-BEGIN_CPP11
-arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
-END_CPP11
-return R_NilValue;
-}
-#else
-extern "C" SEXP _arrow_RecordBatch__Reset(SEXP r6){
-	Rf_error("Cannot call RecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
-}
-#endif
-
 extern "C" SEXP _arrow_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_ARROW)
@@ -8044,6 +8033,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
+		{ "_arrow_TestSafeCallIntoR", (DL_FUNC) &_arrow_TestSafeCallIntoR, 1}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
@@ -8097,8 +8087,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_GetIOThreadPoolCapacity", (DL_FUNC) &_arrow_GetIOThreadPoolCapacity, 0}, 
 		{ "_arrow_SetIOThreadPoolCapacity", (DL_FUNC) &_arrow_SetIOThreadPoolCapacity, 1}, 
 		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
-		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
-		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}
 };
 extern "C" void R_init_arrow(DllInfo* dll){
