@@ -25,7 +25,9 @@ Development Guidelines
 
 Unit Testing
 ============
+Unit tests are run by Maven during the build.
 
+To speed up the build, you can skip them by passing -DskipTests.
 .. code-block::
 
     $ cd arrow/java
@@ -67,7 +69,7 @@ Performance Testing
 
 Java module that contains performance tests is: `performance`
 
-Let's configure our performance environment to run performance tests:
+Let's configure our environment to run performance tests:
 
 - Install `benchmark`_
 - Install `archery`_

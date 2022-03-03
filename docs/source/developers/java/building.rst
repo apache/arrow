@@ -17,7 +17,7 @@
 
 .. highlight:: console
 
-.. _building-arrow-cpp:
+.. _building-arrow-java:
 
 ===================
 Building Arrow Java
@@ -28,7 +28,7 @@ Building Arrow Java
 System setup
 ============
 
-Arrow Java use Maven as a project management.
+Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
@@ -50,8 +50,7 @@ repository:
 Basic Installation
 ------------------
 
-You can also build java project for default modules configured.
-Go to parent project and execute:
+To build the default modules, go to the project root and execute:
 
 .. code-block::
 
@@ -286,12 +285,12 @@ Let's run our java-dataset maven configuration:
 Common Errors
 =============
 
-1.- Errors related to:
+1. If the build cannot find dependencies, with errors like these:
     - Could NOT find Boost (missing: Boost_INCLUDE_DIR system filesystem)
     - Could NOT find Lz4 (missing: LZ4_LIB)
     - Could NOT find zstd (missing: ZSTD_LIB)
 
-    Consider to configure parameters that download software at the build time with:
+    Download the dependencies at build time:
 
 .. code-block::
 
@@ -302,7 +301,7 @@ Common Errors
     -DORC_SOURCE=BUNDLED \
     -DZLIB_SOURCE=BUNDLED \
 
-2.- Errors related to:
+2. Errors related to:
     - Caused by: java.lang.NoSuchFieldException: reservedMemory.
 
     We could move from classBits.getDeclaredField("reservedMemory") to classBits.getDeclaredField("RESERVED_MEMORY")
