@@ -35,7 +35,8 @@ Installing from Maven
 
 By default, Maven will download from the central repository: https://repo.maven.apache.org/maven2/org/apache/arrow/
 
-Configure your pom.xml with java module version needed, for example for: memory-netty, format, and vector
+Configure your pom.xml with the Java modules needed, for example:
+``arrow-memory-netty``, ``arrow-format``, and ``arrow-vector``.
 
 .. code-block::
 
@@ -80,9 +81,9 @@ Installing Nightly Packages
 .. warning::
     These packages are not official releases. Use them at your own risk.
 
-All arrow nightly version are uploaded to github assets for example for March 01 it is uploading to `Github Nightly`_
+Arrow nightly builds are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-For example if you need to test your code with these artifacts, then, you need to configure maven settings with:
+To test your code with these artifacts, then configure Maven with:
 
 .. code-block:: xml
 
@@ -112,7 +113,7 @@ For example if you need to test your code with these artifacts, then, you need t
     $ mvn -Parrownightly clean install -X
     Downloading from staged: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars/org/apache/arrow/arrow-vector/8.0.0.dev143/arrow-vector-8.0.0.dev143.pom
 
-Consider that you could see arrow nightly builds at `Arrow Nightly`_.
+Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 
-.. _Arrow Nightly: https://lists.apache.org/list.html?builds@arrow.apache.org
+.. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars
