@@ -56,7 +56,7 @@ linters and styling of the code.
 
       The instructions on how to use either of these two packages
       can be found in the
-      `Styling an linting section of the Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
+      `Styling and Linting section of the Common developer workflow tasks <https://arrow.apache.org/docs/r/articles/developers/workflow.html#styling-and-linting>`_.
 
 Pre-commit
 ----------
