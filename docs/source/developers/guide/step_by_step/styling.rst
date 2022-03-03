@@ -40,11 +40,11 @@ styling.
 
    .. tab:: PyArrow
 
-      To checking styling issues in python files we use the
+      To checking styling issues in Python files we use the
       :ref:`Archery utility<archery>` tool developed within Apache
       Arrow to ease some of the development tasks.
 
-      The instructions on how to set up and use the utility
+      The instructions on how to set up and use Archery
       can be found in the Coding Style section of the
       :ref:`python-development`.
 
