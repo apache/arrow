@@ -534,8 +534,6 @@ else()
 endif()
 
 if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
-  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
-  set(ARROW_STATIC_INSTALL_INTERFACE_LIBS_REAL "arrow_bundled_dependencies")
 else()
   set(ARROW_STATIC_INSTALL_INTERFACE_LIBS_REAL ${ARROW_STATIC_INSTALL_INTERFACE_LIBS})
 endif()
