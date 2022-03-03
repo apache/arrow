@@ -22,7 +22,7 @@ namespace arrow
         class TpchText
         {
         public:
-            Status Init();
+            Status InitIfNeeded(random::pcg32_fast &rng);
             Result<Datum> GenerateComments(
                 size_t num_comments,
                 size_t min_length,
@@ -30,24 +30,28 @@ namespace arrow
                 random::pcg32_fast &rng);
 
         private:
-            void GenerateWord(size_t &offset, const char **words, size_t num_choices);
-            void GenerateNoun(size_t &offset);
-            void GenerateVerb(size_t &offset);
-            void GenerateAdjective(size_t &offset);
-            void GenerateAdverb(size_t &offset);
-            void GeneratePreposition(size_t &offset);
-            void GenerateAuxiliary(size_t &offset);
-            void GenerateTerminator(size_t &offset);
+            bool GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices);
+            bool GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr);
 
-            void GenerateNounPhrase(size_t &offset);
-            void GenerateVerbPhrase(size_t &offset);
-            void GeneratePrepositionalPhrase(size_t &offset);
+            bool GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
 
-            void GenerateSentence(size_t &offset);
+            bool GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr);
 
+            std::atomic<bool> done_ = { false };
+            int64_t generated_offset_ = 0;
+            std::mutex text_guard_;
             std::unique_ptr<Buffer> text_;
             random::pcg32_fast rng_;
-            static constexpr size_t kTextBytes = 300 * 1024 * 1024; // 300 MB
+            static constexpr int64_t kChunkSize = 8192;
+            static constexpr int64_t kTextBytes = 300 * 1024 * 1024; // 300 MB
         };
 
         class TpchTableGenerator
@@ -150,11 +154,13 @@ namespace arrow
             std::vector<std::shared_ptr<Field>> fields;
             if(columns.empty())
             {
+                fields.resize(name_map.size());
+                gen_list.resize(name_map.size());
                 for(auto pair : name_map)
                 {
                     int col_idx = pair.second;
-                    fields.push_back(field(pair.first, types[col_idx]));
-                    gen_list.push_back(col_idx);
+                    fields[col_idx] = field(pair.first, types[col_idx]);
+                    gen_list[col_idx] = col_idx;
                 }
                 return schema(std::move(fields));
             }
@@ -175,12 +181,39 @@ namespace arrow
 
         static TpchText g_text;
 
-        Status TpchText::Init()
+        Status TpchText::InitIfNeeded(random::pcg32_fast &rng)
         {
-            ARROW_ASSIGN_OR_RAISE(text_, AllocateBuffer(kTextBytes));
-            size_t offset = 0;
-            while(offset < kTextBytes)
-                GenerateSentence(offset);
+            if(done_.load())
+                return Status::OK();
+
+            {
+                std::lock_guard<std::mutex> lock(text_guard_);
+                if(!text_)
+                {
+                    ARROW_ASSIGN_OR_RAISE(text_, AllocateBuffer(kTextBytes));
+                }
+            }
+            char *out = reinterpret_cast<char *>(text_->mutable_data());
+            char temp_buff[kChunkSize];
+            while(done_.load() == false)
+            {
+                int64_t current_offset = 0;
+                int64_t offset = 0;
+                while(GenerateSentence(offset, rng, temp_buff))
+                    current_offset = offset;
+
+                {
+                    std::lock_guard<std::mutex> lock(text_guard_);
+                    if(done_.load())
+                        return Status::OK();
+                    int64_t bytes_remaining = kTextBytes - generated_offset_;
+                    int64_t memcpy_size = std::min(offset, bytes_remaining);
+                    std::memcpy(out + generated_offset_, temp_buff, memcpy_size);
+                    generated_offset_ += memcpy_size;
+                    if(generated_offset_ == kTextBytes)
+                        done_.store(true);
+                }
+            }
             return Status::OK();
         }
 
@@ -190,6 +223,7 @@ namespace arrow
             size_t max_length,
             random::pcg32_fast &rng)
         {
+            RETURN_NOT_OK(InitIfNeeded(rng));
             std::uniform_int_distribution<size_t> length_dist(min_length, max_length);
             ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buffer, AllocateBuffer(sizeof(int32_t) * (num_comments + 1)));
             int32_t *offsets = reinterpret_cast<int32_t *>(offset_buffer->mutable_data());
@@ -206,7 +240,7 @@ namespace arrow
                 size_t offset_in_text = offset_dist(rng);
                 std::memcpy(comments + offsets[i], text_->data() + offset_in_text, length);
             }
-            ArrayData ad(utf8(), num_comments, { nullptr, std::move(comment_buffer), std::move(offset_buffer) });
+            ArrayData ad(utf8(), num_comments, { nullptr, std::move(offset_buffer), std::move(comment_buffer) });
             return std::move(ad);
         }
 
@@ -237,7 +271,7 @@ namespace arrow
             for(int32_t i = 0; i < offsets[num_rows]; i++)
                 str[i] = alpha_numerics[char_dist(rng)];
 
-            ArrayData ad(utf8(), num_rows, { nullptr, std::move(str_buff), std::move(offset_buff) });
+            ArrayData ad(utf8(), num_rows, { nullptr, std::move(offset_buff), std::move(str_buff) });
             return std::move(ad);
         }
 
@@ -246,10 +280,10 @@ namespace arrow
             out += (num_digits - 1);
             while(x > 0)
             {
-                *out-- = x % 10;
+                *out-- = '0' + (x % 10);
                 x /= 10;
             }
-            x += num_digits;
+            out += num_digits;
         }
 
         void GeneratePhoneNumber(
@@ -405,163 +439,176 @@ namespace arrow
         };
         static constexpr size_t kNumTerminators = sizeof(Terminators) / sizeof(Terminators[0]);
 
-        void TpchText::GenerateWord(size_t &offset, const char **words, size_t num_choices)
+        bool TpchText::GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices)
         {
             std::uniform_int_distribution<size_t> dist(0, num_choices - 1);
-            const char *word = words[dist(rng_)];
-            size_t bytes_left = kTextBytes - offset;
+            const char *word = words[dist(rng)];
             size_t length = std::strlen(word);
-            size_t bytes_to_copy = std::min(bytes_left, length);
-            std::memcpy(text_->mutable_data() + offset, word, bytes_to_copy);
-            offset += bytes_to_copy;
+            if(offset + length > kChunkSize)
+                return false;
+            std::memcpy(arr + offset, word, length);
+            offset += length;
+            return true;
         }
 
-        void TpchText::GenerateNoun(size_t &offset)
+        bool TpchText::GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Nouns, kNumNouns);
+            return GenerateWord(offset, rng, arr, Nouns, kNumNouns);
         }
 
-        void TpchText::GenerateVerb(size_t &offset)
+        bool TpchText::GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Verbs, kNumVerbs);
+            return GenerateWord(offset, rng, arr, Verbs, kNumVerbs);
         }
 
-        void TpchText::GenerateAdjective(size_t &offset)
+        bool TpchText::GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Adjectives, kNumAdjectives);
+            return GenerateWord(offset, rng, arr, Adjectives, kNumAdjectives);
         }
 
-        void TpchText::GenerateAdverb(size_t &offset)
+        bool TpchText::GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Adverbs, kNumAdverbs);
+            return GenerateWord(offset, rng, arr, Adverbs, kNumAdverbs);
         }
 
-        void TpchText::GeneratePreposition(size_t &offset)
+        bool TpchText::GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Prepositions, kNumPrepositions);
+            return GenerateWord(offset, rng, arr, Prepositions, kNumPrepositions);
         }
 
-        void TpchText::GenerateAuxiliary(size_t &offset)
+        bool TpchText::GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Auxiliaries, kNumAuxiliaries);
+            return GenerateWord(offset, rng, arr, Auxiliaries, kNumAuxiliaries);
         }
 
-        void TpchText::GenerateTerminator(size_t &offset)
+        bool TpchText::GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
-            GenerateWord(offset, Terminators, kNumTerminators);
+            bool result = GenerateWord(offset, rng, arr, Terminators, kNumTerminators);
+            // Swap the space with the terminator
+            if(result)
+                std::swap(*(arr + offset - 2), *(arr + offset - 1));
+            return result;
         }
 
-        void TpchText::GenerateNounPhrase(size_t &offset)
+        bool TpchText::GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 3);
             const char *comma_space = ", ";
+            bool success = true;
             switch(dist(rng_))
             {
             case 0:
-                GenerateNoun(offset);
+                success &= GenerateNoun(offset, rng, arr);
                 break;
             case 1:
-                GenerateAdjective(offset);
-                GenerateNoun(offset);
+                success &= GenerateAdjective(offset, rng, arr);
+                success &= GenerateNoun(offset, rng, arr);
                 break;
             case 2:
-                GenerateAdjective(offset);
-                GenerateWord(offset, &comma_space, 1);
-                GenerateAdjective(offset);
-                GenerateNoun(offset);
+                success &= GenerateAdjective(offset, rng, arr);
+                success &= GenerateWord(offset, rng, arr, &comma_space, 1);
+                success &= GenerateAdjective(offset, rng, arr);
+                success &= GenerateNoun(offset, rng, arr);
                 break;
             case 3:
-                GenerateAdverb(offset);
-                GenerateAdjective(offset);
-                GenerateNoun(offset);
+                GenerateAdverb(offset, rng, arr);
+                GenerateAdjective(offset, rng, arr);
+                GenerateNoun(offset, rng, arr);
                 break;
             default:
                 Unreachable("Random number should be between 0 and 3 inclusive");
                 break;
             }
+            return success;
         }
 
-        void TpchText::GenerateVerbPhrase(size_t &offset)
+        bool TpchText::GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 3);
+            bool success = true;
             switch(dist(rng_))
             {
             case 0:
-                GenerateVerb(offset);
+                success &= GenerateVerb(offset, rng, arr);
                 break;
             case 1:
-                GenerateAuxiliary(offset);
-                GenerateVerb(offset);
+                success &= GenerateAuxiliary(offset, rng, arr);
+                success &= GenerateVerb(offset, rng, arr);
                 break;
             case 2:
-                GenerateVerb(offset);
-                GenerateAdverb(offset);
+                success &= GenerateVerb(offset, rng, arr);
+                success &= GenerateAdverb(offset, rng, arr);
                 break;
             case 3:
-                GenerateAuxiliary(offset);
-                GenerateVerb(offset);
-                GenerateAdverb(offset);
+                success &= GenerateAuxiliary(offset, rng, arr);
+                success &= GenerateVerb(offset, rng, arr);
+                success &= GenerateAdverb(offset, rng, arr);
                 break;
             default:
                 Unreachable("Random number should be between 0 and 3 inclusive");
                 break;
             }
+            return success;
         }
 
-        void TpchText::GeneratePrepositionalPhrase(size_t &offset)
+        bool TpchText::GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             const char *the_space = "the ";
-            GeneratePreposition(offset);
-            GenerateWord(offset, &the_space, 1);
-            GenerateNounPhrase(offset);
+            bool success = true;
+            success &= GeneratePreposition(offset, rng, arr);
+            success &= GenerateWord(offset, rng, arr, &the_space, 1);
+            success &= GenerateNounPhrase(offset, rng, arr);
+            return success;
         }
 
-        void TpchText::GenerateSentence(size_t &offset)
+        bool TpchText::GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 4);
+            bool success = true;
             switch(dist(rng_))
             {
             case 0:
-                GenerateNounPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             case 1:
-                GenerateNounPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GeneratePrepositionalPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GeneratePrepositionalPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             case 2:
-                GenerateNounPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GenerateNounPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             case 3:
-                GenerateNounPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GenerateNounPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             case 4:
-                GenerateNounPhrase(offset);
-                GeneratePrepositionalPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GenerateNounPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GeneratePrepositionalPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             case 5:
-                GenerateNounPhrase(offset);
-                GeneratePrepositionalPhrase(offset);
-                GenerateVerbPhrase(offset);
-                GeneratePrepositionalPhrase(offset);
-                GenerateTerminator(offset);
+                success &= GenerateNounPhrase(offset, rng, arr);
+                success &= GeneratePrepositionalPhrase(offset, rng, arr);
+                success &= GenerateVerbPhrase(offset, rng, arr);
+                success &= GeneratePrepositionalPhrase(offset, rng, arr);
+                success &= GenerateTerminator(offset, rng, arr);
                 break;
             default:
                 Unreachable("Random number should be between 0 and 5 inclusive");
                 break;
             }
+            return success;
         }
 
         using GenerateColumnFn = std::function<Status(size_t)>;
@@ -669,14 +716,17 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 {
-                    std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
-                    if(!part_output_queue_.empty())
+                    std::lock_guard<std::mutex> lock(partsupp_output_queue_mutex_);
+                    if(!partsupp_output_queue_.empty())
                     {
-                        ExecBatch batch = std::move(part_output_queue_.front());
-                        part_output_queue_.pop();
-                        return std::move(batch);
+                        ExecBatch result = std::move(partsupp_output_queue_.front());
+                        partsupp_output_queue_.pop();
+                        return std::move(result);
                     }
-                    else if(part_rows_generated_ == part_rows_to_generate_)
+                }
+                {
+                    std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
+                    if(part_rows_generated_ == part_rows_to_generate_)
                     {
                         return util::nullopt;
                     }
@@ -885,7 +935,7 @@ namespace arrow
                             *row++ = ' ';
                         }
                     }
-                    ArrayData ad(part_types_[PART::P_NAME], tld.part_to_generate, { nullptr, std::move(string_buffer), std::move(offset_buff) });
+                    ArrayData ad(part_types_[PART::P_NAME], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
                     Datum datum(ad);
                     tld.part[PART::P_NAME] = std::move(datum);
                 }
@@ -916,7 +966,7 @@ namespace arrow
             Status P_BRAND(size_t thread_index)
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
-                if(tld.part[PART::P_MFGR].kind() == Datum::NONE)
+                if(tld.part[PART::P_BRAND].kind() == Datum::NONE)
                 {
                     RETURN_NOT_OK(P_MFGR(thread_index));
                     std::uniform_int_distribution<int> dist(1, 5);
@@ -987,7 +1037,7 @@ namespace arrow
                             *row++ = ' ';
                         }
                     }
-                    ArrayData ad(part_types_[PART::P_TYPE], tld.part_to_generate, { nullptr, std::move(string_buffer), std::move(offset_buff) });
+                    ArrayData ad(part_types_[PART::P_TYPE], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
                     Datum datum(ad);
                     tld.part[PART::P_TYPE] = std::move(datum);
                 }
@@ -1065,7 +1115,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.part[PART::P_COMMENT].kind() == Datum::NONE)
                 {
-                    ARROW_ASSIGN_OR_RAISE(tld.part[PART::P_COMMENT], g_text.GenerateComments(batch_size_, 5, 22, tld.rng));
+                    ARROW_ASSIGN_OR_RAISE(tld.part[PART::P_COMMENT], g_text.GenerateComments(tld.part_to_generate, 5, 22, tld.rng));
                 }
                 return Status::OK();
             }
@@ -1222,7 +1272,7 @@ namespace arrow
                         for(int64_t irun = 0; irun < next_run; irun++)
                             ps_supplycost[irun] = { dist(tld.rng) };
 
-                        tld.partsupp[ibatch][PARTSUPP::PS_AVAILQTY].array()->length = next_run;
+                        tld.partsupp[ibatch][PARTSUPP::PS_SUPPLYCOST].array()->length = next_run;
                         irow += next_run;
                     }
                 }
@@ -1594,8 +1644,11 @@ namespace arrow
                         tld.orders[ORDERS::O_ORDERKEY].array()->buffers[1]->mutable_data());
                     for(int64_t i = 0; i < tld.orders_to_generate; i++)
                     {
-                        o_orderkey[i] = (tld.orderkey_start + i + 1);
-                        ARROW_DCHECK(1 <= o_orderkey[i] && o_orderkey[i] <= orders_rows_to_generate_);
+                        int32_t orderkey_index = tld.orderkey_start + i;
+                        int32_t index_of_run = orderkey_index / 8;
+                        int32_t index_in_run = orderkey_index % 8;
+                        o_orderkey[i] = (index_of_run * 32 + index_in_run + 1);
+                        ARROW_DCHECK(1 <= o_orderkey[i] && o_orderkey[i] <= 4 * orders_rows_to_generate_);
                     }
                 }
                 return Status::OK();
@@ -1802,7 +1855,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.orders[ORDERS::O_COMMENT].kind() == Datum::NONE)
                 {
-                    ARROW_ASSIGN_OR_RAISE(tld.orders[ORDERS::O_COMMENT], g_text.GenerateComments(batch_size_, 19, 78, tld.rng));
+                    ARROW_ASSIGN_OR_RAISE(tld.orders[ORDERS::O_COMMENT], g_text.GenerateComments(tld.orders_to_generate, 19, 78, tld.rng));
                 }
                 return Status::OK();
             }
@@ -2444,6 +2497,7 @@ namespace arrow
                     {
                         bad_row = dist(rng);
                     } while(good_rows_set.find(bad_row) != good_rows_set.end());
+                    bad_rows_set.insert(bad_row);
                 }
                 good_rows_.clear();
                 bad_rows_.clear();
@@ -2680,7 +2734,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.batch[SUPPLIER::S_COMMENT].kind() == Datum::NONE)
                 {
-                    ARROW_ASSIGN_OR_RAISE(tld.batch[SUPPLIER::S_COMMENT], g_text.GenerateComments(batch_size_, 25, 100, tld.rng));
+                    ARROW_ASSIGN_OR_RAISE(tld.batch[SUPPLIER::S_COMMENT], g_text.GenerateComments(tld.to_generate, 25, 100, tld.rng));
                     ModifyComments(thread_index, "Recommends", good_rows_);
                     ModifyComments(thread_index, "Complaints", bad_rows_);
                 }
@@ -2694,9 +2748,9 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 const int32_t *offsets = reinterpret_cast<const int32_t *>(
-                    tld.batch[SUPPLIER::S_COMMENT].array()->buffers[2]->data());
+                    tld.batch[SUPPLIER::S_COMMENT].array()->buffers[1]->data());
                 char *str = reinterpret_cast<char *>(
-                    tld.batch[SUPPLIER::S_COMMENT].array()->buffers[1]->mutable_data());
+                    tld.batch[SUPPLIER::S_COMMENT].array()->buffers[2]->mutable_data());
                 const char *customer = "Customer";
                 const size_t customer_length = std::strlen(customer);
                 const size_t review_length = std::strlen(review);
@@ -3057,7 +3111,7 @@ namespace arrow
                         std::memcpy(out, customer, customer_length);
                         AppendNumberPaddedToNineDigits(out + customer_length, c_custkey[irow]);
                     }
-                    ArrayData ad(utf8(), tld.to_generate, { nullptr, std::move(str_buff), std::move(offset_buff) });
+                    ArrayData ad(utf8(), tld.to_generate, { nullptr, std::move(offset_buff), std::move(str_buff) });
                     tld.batch[CUSTOMER::C_NAME] = std::move(ad);
                 }
                 return Status::OK();
@@ -3153,7 +3207,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.batch[CUSTOMER::C_COMMENT].kind() == Datum::NONE)
                 {
-                    ARROW_ASSIGN_OR_RAISE(tld.batch[CUSTOMER::C_COMMENT], g_text.GenerateComments(batch_size_, 29, 116, tld.rng));
+                    ARROW_ASSIGN_OR_RAISE(tld.batch[CUSTOMER::C_COMMENT], g_text.GenerateComments(tld.to_generate, 29, 116, tld.rng));
                 }
                 return Status::OK();
             }
@@ -3381,9 +3435,15 @@ namespace arrow
             const int32_t N_NATIONKEY[kRowCount] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 };
             const char *country_names_[kRowCount] =
             {
-                "ALGERIA", "ARGENTINA", "BRAZIL", "CANADA", "EGYPT", "ETHIOPIA", "FRANCE", "GERMANY",
-                "INDONESIA", "IRAQ", "IRAN", "JAPAN", "JORDAN", "KENYA", "MOROCCO", "MOZAMBIQUE", "PERU",
-                "CHINA", "ROMANIA", "SAUDI ARABIA", "VIETNAM", "RUSSIA", "UNITED KINGDOM", "UNITED STATES"
+                "ALGERIA", "ARGENTINA", "BRAZIL",
+                "CANADA", "EGYPT", "ETHIOPIA",
+                "FRANCE", "GERMANY", "INDIA",
+                "INDONESIA", "IRAN", "IRAQ",
+                "JAPAN", "JORDAN", "KENYA",
+                "MOROCCO", "MOZAMBIQUE", "PERU",
+                "CHINA", "ROMANIA", "SAUDI ARABIA",
+                "VIETNAM", "RUSSIA", "UNITED KINGDOM",
+                "UNITED STATES"
             };
             const int32_t N_REGIONKEY[kRowCount] = { 0, 1, 1, 1, 4, 0, 3, 3, 2, 2, 4, 4, 2, 4, 0, 0, 0, 1, 2, 3, 4, 2, 3, 3, 1 };
 
@@ -3619,12 +3679,6 @@ namespace arrow
 
         Result<TpchGen> TpchGen::Make(ExecPlan *plan, int scale_factor, int64_t batch_size)
         {
-            static bool has_inited_text = false;
-            if(!has_inited_text)
-            {
-                RETURN_NOT_OK(g_text.Init());
-                has_inited_text = true;
-            }
             TpchGen result(plan, scale_factor, batch_size);
             return result;
         }
@@ -3659,7 +3713,7 @@ namespace arrow
             {
                 part_and_part_supp_generator_ = std::make_shared<PartAndPartSupplierGenerator>();
             }
-            std::unique_ptr<PartGenerator> generator = arrow::internal::make_unique<PartGenerator>(part_and_part_supp_generator_);
+            std::unique_ptr<PartSuppGenerator> generator = arrow::internal::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
             return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
         }
