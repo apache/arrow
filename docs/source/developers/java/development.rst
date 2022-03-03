@@ -112,7 +112,7 @@ UI Benchmark:
 Code Style
 ==========
 
-Code style are configured at ``java/dev/checkstyle`` (More detail at `checkstyle`_)
+Code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
 
 The Maven build will validate code against the Checkstyle configuration.
 You can also just check the style without building the project.

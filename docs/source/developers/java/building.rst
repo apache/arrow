@@ -259,7 +259,7 @@ Let's define our JRE runner:
 
 .. image:: img/java_jre_runner.png
 
-Let's configure additional environment properties:
+Let's configure additional environment variables:
 
 .. image:: img/java_jre_env_properties.png
 
