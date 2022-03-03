@@ -110,13 +110,11 @@ The package can be built on Windows using [RTools 4](https://cran.r-project.org/
 
 Open the corresponding RTools Bash, for example "Rtools MinGW 64-bit" for mingw64.
 
-Install CMake and Ninja with:
+Install CMake, ccache, and Ninja with:
 
 ```{bash, save=run & windows}
 pacman --sync --refresh --noconfirm \
-  ${MINGW_PACKAGE_PREFIX}-cmake \
-  ${MINGW_PACKAGE_PREFIX}-ninja \
-  ${MINGW_PACKAGE_PREFIX}-openssl
+  ${MINGW_PACKAGE_PREFIX}-{ccache,cmake,ninja,openssl}
 export CMAKE_GENERATOR=Ninja
 ```
 
@@ -128,9 +126,10 @@ export PATH=~/Documents/R/R-4.1.2/bin/x64:$PATH
 
 You can install additional dependencies like so. Note that you are limited to the packages in [the RTools repo](https://github.com/r-windows/rtools-packages), which does not contain every dependency used by Arrow.
 
-```{bash}
+```{bash, save=run & windows}
 pacman --sync --refresh --noconfirm \
   ${MINGW_PACKAGE_PREFIX}-boost \
+  ${MINGW_PACKAGE_PREFIX}-brotli \
   ${MINGW_PACKAGE_PREFIX}-lz4 \
   ${MINGW_PACKAGE_PREFIX}-protobuf \
   ${MINGW_PACKAGE_PREFIX}-snappy \
@@ -210,18 +209,11 @@ cmake \
   -DARROW_DATASET=ON \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_MIMALLOC=ON \
   -DARROW_JSON=OFF \
   -DARROW_PARQUET=ON \
-  -DARROW_WITH_LZ4=OFF \
   -DARROW_WITH_SNAPPY=OFF \
   -DARROW_WITH_ZLIB=ON \
-  -DARROW_MIMALLOC=OFF \
-  -DARROW_S3=OFF \
-  -DARROW_WITH_BROTLI=ON \
-  -DARROW_WITH_BZ2=ON \
-  -DARROW_WITH_SNAPPY=ON \
-  -DARROW_WITH_ZSTD=ON \
   ..
 ```
 
@@ -230,6 +222,15 @@ cmake \
 `..` refers to the C++ source directory: you're in `cpp/build` and the source is in `cpp`.
 
 **For Windows**: some options, including `-DARROW_JEMALLOC`, are not supported on Windows. 
+
+
+```{bash, save=run & !sys_install, hide=TRUE}
+# For testing purposes, build with only shared libraries
+cmake \
+  -DARROW_BUILD_SHARED=ON \
+  -DARROW_BUILD_STATIC=OFF \
+  ..
+```
 
 #### Enabling more Arrow features
 

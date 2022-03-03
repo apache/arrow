@@ -85,36 +85,31 @@ function configure_dev() {
   echo "*** Using locally built Arrow at $ARROW_HOME"
   RWINLIB=$(cygpath $ARROW_HOME)
 
-  PKG_CFLAGS="-I${RWINLIB}/include -DARROW_R_WITH_ARROW"
-  PKG_LIBS=" -L${RWINLIB}/lib -L$MSYSTEM_PREFIX/lib -larrow -larrow_bundled_dependencies -lz -lole32 ${MIMALLOC_LIBS} ${OPENSSL_LIBS}"
-  # These are already in arrow_bundled_dependencies:
-  # -lutf8proc -lthrift -lsnappy -lzstd -llz4
+  export PKG_CONFIG_PATH=$(cygpath $ARROW_HOME)/lib/pkgconfig:$(cygpath $MSYSTEM_PREFIX)/lib
+  PKG_CONFIG_PACKAGES="arrow"
+
+  PKG_CFLAGS="-DARROW_R_WITH_ARROW"
 
   if [ $(cmake_option ARROW_PARQUET) -eq 1 ]; then 
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-    PKG_LIBS="-lparquet $PKG_LIBS"
-    # NOTE: parquet is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES parquet"
   fi
 
   if [ $(cmake_option ARROW_DATASET) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-    PKG_LIBS="-larrow_dataset $PKG_LIBS"
-    # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
-    # so there is no need to add its location to PKG_DIRS
+    PKG_CONFIG_PACKAGES="$PKG_CONFIG_PACKAGES arrow-dataset"
   fi
 
   if [ $(cmake_option ARROW_S3) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
-    if [ "$BUNDLED_LIBS" != "" ]; then
-      # We're depending on openssl/curl from the system, so they're not in the bundled deps
-      BUNDLED_LIBS="$BUNDLED_LIBS -lssl -lcrypto -lcurl"
-    fi
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
   fi
+
+  PKG_CFLAGS="$(pkg-config --cflags $PKG_CONFIG_PACKAGES) $PKG_CFLAGS"
+  PKG_LIBS=$(pkg-config --libs $PKG_CONFIG_PACKAGES)
 }
 
 
