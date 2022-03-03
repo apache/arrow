@@ -22,9 +22,9 @@ classdef tfeathermex < matlab.unittest.TestCase
             import matlab.unittest.fixtures.PathFixture
             % Add Feather test utilities to the MATLAB path.
             testCase.applyFixture(PathFixture('util'));
-            % mexfcn must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('mexfcn')), ...
-                '''mexfcn'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % arrow.cpp.call must be on the MATLAB path.
+            testCase.assertTrue(~isempty(which('arrow.cpp.call')), ...
+                '''arrow.cpp.call'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
     end
     
@@ -54,7 +54,7 @@ classdef tfeathermex < matlab.unittest.TestCase
             validVariable = arrow.util.createVariableStruct('double', 1, true, 'Valid');
             variables = [invalidVariable, validVariable];
             metadata = arrow.util.createMetadataStruct(1, 2);
-            mexfcn('featherwrite', filename, variables, metadata);
+            arrow.cpp.call('featherwrite', filename, variables, metadata);
             t = featherread(filename);
             
             testCase.verifyEqual(t.Properties.VariableNames{1}, 'x_');
