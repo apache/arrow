@@ -542,3 +542,14 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   expect_named(tbl_in, c("dbl", "lgl", "false", "chr"))
   expect_equal(nrow(tbl_in), 3)
 })
+
+test_that("read_csv_arrow() can read sub-second timestamps with col_types T setting (ARROW-15599)", {
+  tbl <- tibble::tibble(time = c("2018-10-07 19:04:05.000", "2018-10-07 19:04:05.001"))
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write.csv(tbl, tf, row.names = FALSE)
+
+  df <- read_csv_arrow(tf, col_types = "T", col_names = "time", skip = 1)
+  expected <- as.POSIXct(tbl$time, tz = "UTC")
+  expect_equal(df$time, expected, ignore_attr = "tzone")
+})

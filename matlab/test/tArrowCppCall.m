@@ -1,5 +1,5 @@
-classdef tmexfcn < matlab.unittest.TestCase
-    % Tests for mexfcn.
+classdef tArrowCppCall < matlab.unittest.TestCase
+    % Tests for arrow.cpp.call.
 
     % Licensed to the Apache Software Foundation (ASF) under one or more
     % contributor license agreements.  See the NOTICE file distributed with
@@ -21,40 +21,40 @@ classdef tmexfcn < matlab.unittest.TestCase
             import matlab.unittest.fixtures.PathFixture
             % Add Feather test utilities to the MATLAB path.
             testCase.applyFixture(PathFixture('util'));
-            % mexfcn must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('mexfcn')), ...
-                '''mexfcn'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
+            % arrow.cpp.call must be on the MATLAB path.
+            testCase.assertTrue(~isempty(which('arrow.cpp.call')), ...
+                '''arrow.cpp.call'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
         end
     end
 
     methods(Test)
-        function UnknownMEXFunctionError(testCase)
-        % Verifies mexfcn throws an error if an unkown MEX function name 
+        function UnknownCppFunctionError(testCase)
+        % Verifies arrow.cpp.call throws an error if an unkown C++ function name 
         % is passed to it.
-            errID = "MATLAB:arrow:UnknownMEXFunction";
-            fcn = @()mexfcn('NotAFunction');
+            errID = "MATLAB:arrow:UnknownCppFunction";
+            fcn = @()arrow.cpp.call('NotAFunction');
             testCase.verifyError(fcn, errID);
         end
 
-        function TooFewInputArguementsError(testCase)
-        % Verifies mexfcn throws an error if zero input arguments are
+        function TooFewInputArgumentsError(testCase)
+        % Verifies arrow.cpp.call throws an error if zero input arguments are
         % passed it.
             errID = "MATLAB:arrow:minrhs";
-            fcn = @()mexfcn;
+            fcn = @()arrow.cpp.call;
             testCase.verifyError(fcn, errID);
         end
 
         function InvalidFunctionNameDataTypeError(testCase)
-        % Verifies mexfcn throws an error if the first input argument is
+        % Verifies arrow.cpp.call throws an error if the first input argument is
         % not a character vector.
             errID = "MATLAB:arrow:FunctionNameDataType";
-            fcn = @()mexfcn(1);
+            fcn = @()arrow.cpp.call(1);
             testCase.verifyError(fcn, errID);
 
-            fcn = @()mexfcn(categorical);
+            fcn = @()arrow.cpp.call(categorical);
             testCase.verifyError(fcn, errID);
 
-            fcn = @()mexfcn(datetime(2021, 9, 10));
+            fcn = @()arrow.cpp.call(datetime(2021, 9, 10));
             testCase.verifyError(fcn, errID);
         end
     end

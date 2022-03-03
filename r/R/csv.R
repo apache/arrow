@@ -61,8 +61,8 @@
 #' * "l": `bool()`
 #' * "f": `dictionary()`
 #' * "D": `date32()`
-#' * "T": `timestamp()`
-#' * "t": `time32()`
+#' * "T": `timestamp(unit = "ns")`
+#' * "t": `time32()` (The `unit` arg is set to the default value `"ms"`)
 #' * "_": `null()`
 #' * "-": `null()`
 #' * "?": infer the type from the data
@@ -137,6 +137,12 @@
 #' dim(df)
 #' # Can select columns
 #' df <- read_csv_arrow(tf, col_select = starts_with("d"))
+#'
+#' # Specifying column types and names
+#' write.csv(data.frame(x = c(1, 3), y = c(2, 4)), file = tf, row.names = FALSE)
+#' read_csv_arrow(tf, schema = schema(x = int32(), y = utf8()), skip = 1)
+#' read_csv_arrow(tf, col_types = schema(y = utf8()))
+#' read_csv_arrow(tf, col_types = "ic", col_names = c("x", "y"), skip = 1)
 read_delim_arrow <- function(file,
                              delim = ",",
                              quote = '"',
@@ -599,7 +605,7 @@ readr_to_csv_convert_options <- function(na,
         "l" = bool(),
         "f" = dictionary(),
         "D" = date32(),
-        "T" = timestamp(),
+        "T" = timestamp(unit = "ns"),
         "t" = time32(),
         "_" = null(),
         "-" = null(),

@@ -24,8 +24,8 @@ namespace mex {
 void checkNumArgs(int nrhs) {
   if (nrhs < 1) {
     mexErrMsgIdAndTxt("MATLAB:arrow:minrhs",
-                      "'mexfcn' requires at least one input argument, which must be the "
-                      "name of the C++ MEX to invoke.");
+                      "'arrow.cpp.call' requires at least one input argument, which must be the "
+                      "name of the C++ function to call.");
   }
 }
 
@@ -33,7 +33,7 @@ std::string get_function_name(const mxArray* input) {
   std::string opname;
   if (!mxIsChar(input)) {
     mexErrMsgIdAndTxt("MATLAB:arrow:FunctionNameDataType",
-                      "The first input argument to 'mexfcn' must be a character vector.");
+                      "The first input argument to 'arrow.cpp.call' must be a character vector.");
   }
   const char* c_str = mxArrayToUTF8String(input);
   return std::string{c_str};
@@ -42,7 +42,7 @@ std::string get_function_name(const mxArray* input) {
 mex_fcn_t lookup_function(const std::string& function_name) {
   auto kv_pair = FUNCTION_MAP.find(function_name);
   if (kv_pair == FUNCTION_MAP.end()) {
-    mexErrMsgIdAndTxt("MATLAB:arrow:UnknownMEXFunction", "Unrecognized MEX function '%s'",
+    mexErrMsgIdAndTxt("MATLAB:arrow:UnknownCppFunction", "Unrecognized C++ function '%s'",
                       function_name.c_str());
   }
   return kv_pair->second;

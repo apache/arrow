@@ -290,7 +290,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' precision. For most use cases, the maximum precision offered by `Decimal128Type`
 #' is sufficient, and it will result in a more compact and more efficient encoding.
 #'
-#' #' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
+#' `decimal()` creates either a `Decimal128Type` or a `Decimal256Type`
 #' depending on the value for `precision`. If `precision` is greater than 38 a
 #' `Decimal256Type` is returned, otherwise a `Decimal128Type`.
 #'
