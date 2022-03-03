@@ -186,5 +186,5 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     ts <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
   }
 
-  build_expr("strptime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+  build_expr("strftime", ts, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
 }
