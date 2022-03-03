@@ -43,9 +43,8 @@
 #include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
-#include "gandiva/to_date_functions_holder.h"
-#include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/replace_holder.h"
+#include "gandiva/to_date_functions_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
