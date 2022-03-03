@@ -798,7 +798,7 @@ test_that("semester works with temporal types and integers", {
       collect(),
     regexp = "NotImplemented: Function 'month' has no kernel matching input types (array[string])",
     fixed = TRUE
-    )
+  )
 })
 
 test_that("dst extracts daylight savings time correctly", {
@@ -852,40 +852,39 @@ test_that("month() supports integer input", {
     )
   })
 
-  test_that("month() errors with double input and returns NA with int outside 1:12", {
-    test_df_month <- tibble(
+test_that("month() errors with double input and returns NA with int outside 1:12", {
+  test_df_month <- tibble(
+    month_as_int = c(-1L, 1L, 13L, NA),
+    month_as_double = month_as_int + 0.1
+  )
+
+  expect_error(
+    test_df_month %>%
+      arrow_table() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+
+  expect_error(
+    test_df_month %>%
+      record_batch() %>%
+      mutate(month_dbl_input = month(month_as_double)) %>%
+      collect(),
+    regexp = "Function 'month' has no kernel matching input types (array[double])",
+    fixed = TRUE
+  )
+
+  expect_equal(
+    test_df_month %>%
+      arrow_table() %>%
+      select(month_as_int) %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    tibble(
       month_as_int = c(-1L, 1L, 13L, NA),
-      month_as_double = month_as_int + 0.1
-    )
-
-    expect_error(
-      test_df_month %>%
-        arrow_table() %>%
-        mutate(month_dbl_input = month(month_as_double)) %>%
-        collect(),
-      regexp = "Function 'month' has no kernel matching input types (array[double])",
-      fixed = TRUE
-    )
-
-    expect_error(
-      test_df_month %>%
-        record_batch() %>%
-        mutate(month_dbl_input = month(month_as_double)) %>%
-        collect(),
-      regexp = "Function 'month' has no kernel matching input types (array[double])",
-      fixed = TRUE
-    )
-
-    expect_equal(
-      test_df_month %>%
-        arrow_table() %>%
-        select(month_as_int) %>%
-        mutate(month_int_input = month(month_as_int)) %>%
-        collect(),
-      tibble(
-        month_as_int = c(-1L, 1L, 13L, NA),
-        month_int_input = c(NA, 1L, NA, NA)
-      )
+      month_int_input = c(NA, 1L, NA, NA)
     )
   )
 })
