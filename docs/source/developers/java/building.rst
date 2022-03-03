@@ -83,8 +83,8 @@ To build the default modules, go to the project root and execute:
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------\
 
-Building C & C++ JNI Libraries on Linux
----------------------------------------
+JNI Libraries
+-------------
 
 For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: Docker, Docker Compose, `archery`_.
 
@@ -101,7 +101,7 @@ For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: D
 Building C & C++ JNI Libraries on MacOS
 ---------------------------------------
 
-For Build C Data Interface lib:
+To build only the C Data Interface library:
 
 .. code-block::
 
@@ -120,7 +120,7 @@ For Build C Data Interface lib:
     $ ls -latr ../java-dist/lib
     |__ libarrow_cdata_jni.dylib
 
-For Build C++ Interface libs:
+To build other JNI libraries:
 
 .. code-block::
 
@@ -173,7 +173,7 @@ For Build C++ Interface libs:
 Building Arrow JNI Libraries
 ----------------------------
 
-Java arrow-c-data maven profile:
+To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
 .. code-block::
 
@@ -205,7 +205,7 @@ Java arrow-c-data maven profile:
     [INFO] BUILD SUCCESS
     [INFO] ------------------------------------------------------------------------
 
-Java arrow-jni maven profile (build ORC / Gandiva / Dataset):
+To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
 .. code-block::
 
