@@ -25,14 +25,14 @@ Building Arrow Java
 
 .. contents::
 
-System setup
+System Setup
 ============
 
 Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JRE 8, 9, 10, 11. Consider: Battle tested by arrow CI checks: JRE 11 (defined: `java.yml`_, result: `java.runs`_)
+* JDK 8, 9, 10, or 11, but only JDK 11 is tested in CI
 * Maven 3+
 
 Building
@@ -173,31 +173,37 @@ Go to open java project and select java folder.
 
 This is the initial view for java project loaded with default profiles:
 
-.. image:: img/java_welcome.png
-   :alt: An example image to opening java project
+.. figure:: img/java_welcome.png
+   :scale: 50 %
+   :alt: A newly opened Arrow project
 
 Let's create our maven configuration: java-dataset
 
-.. image:: img/java_mvn_configuration.png
-   :alt: An example image to create new maven configurations and parameters needed
+.. figure:: img/java_mvn_configuration.png
+   :scale: 50 %
+   :alt: Setup new maven configurations with working directory, command to run and profile used to build
 
 Let's define our JRE runner:
 
-.. image:: img/java_jre_runner.png
-   :alt: An example image to create new maven configurations and JRE configured
+.. figure:: img/java_jre_runner.png
+   :scale: 50 %
+   :alt: Setup maven configurations with JRE selected
 
 Let's configure additional environment variables:
 
-.. image:: img/java_jre_env_properties.png
-   :alt: An example image to create new maven configurations and runners parameters
+.. figure:: img/java_jre_env_properties.png
+   :scale: 50 %
+   :alt: Setup maven configurations with environment variables and properties per building
 
 Let's run our java-dataset maven configuration:
 
-.. image:: img/java_run_mvn_configuration.png
-   :alt: An example image to how to run new maven configuration created
+.. figure:: img/java_run_mvn_configuration.png
+   :scale: 50 %
+   :alt: Icon to run new maven configuration created
 
-.. image:: img/java_run_mvn_configuration_result.png
-   :alt: An example image to see results of run new maven configuration created
+.. figure:: img/java_run_mvn_configuration_result.png
+   :scale: 50 %
+   :alt: Results to run new maven configuration created
 
 Common Errors
 =============
@@ -220,5 +226,3 @@ Common Errors
 
 .. _archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
-.. _java.yml: https://github.com/apache/arrow/blob/master/.github/workflows/java.yml
-.. _java.runs: https://github.com/apache/arrow/runs/4160229542?check_suite_focus=true
