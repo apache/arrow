@@ -111,52 +111,54 @@ double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
   return (*holder)();
 }
 
+// Returns true if a given text is castable to a date of format
 bool gdv_fn_is_date_utf8(int64_t context_ptr, int64_t holder_ptr, const char* data,
                          int data_len, bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::IsDateHolder* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Returns true if a given text is castable to a date of format
 bool gdv_fn_is_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr, const char* data,
                               int data_len, bool in1_validity, const char* pattern,
                               int pattern_len, bool in2_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::IsDateHolder* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Returns true if a given text is castable to a date of format
 bool gdv_fn_is_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                     const char* data, int data_len, bool in1_validity,
                                     const char* pattern, int pattern_len,
                                     bool in2_validity, int32_t suppress_errors,
                                     bool in3_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::IsDateHolder* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::IsDateHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Has similar behavior to the existent, but it returns the information about the hours,
+// minutes, and seconds
 int64_t gdv_fn_to_date_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                  const char* data, int data_len, bool in1_validity,
                                  const char* pattern, int pattern_len, bool in2_validity,
                                  bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+//  Has similar behavior to the existent, but it returns the information about the hours,
+//  minutes, and seconds
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                        const char* data, int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
                                        bool in2_validity, int32_t suppress_errors,
                                        bool in3_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToDateHolder* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::ToDateHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
@@ -165,22 +167,23 @@ int32_t gdv_fn_to_time_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                  const char* data, int data_len, bool in1_validity,
                                  const char* pattern, int pattern_len, bool in2_validity,
                                  bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToTimeHolder* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  auto* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
 
   return static_cast<int32_t>(
       (*holder)(context, data, data_len, in1_validity, out_valid));
 }
 
+// The TO_TIME functions returns the number of milliseconds since midnight
 int32_t gdv_fn_to_time_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                        const char* data, int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
                                        bool in2_validity, int32_t suppress_errors,
                                        bool in3_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToTimeHolder* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
 
   return static_cast<int32_t>(
       (*holder)(context, data, data_len, in1_validity, out_valid));
@@ -190,10 +193,10 @@ int64_t gdv_fn_to_timestamp_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                       const char* data, int data_len, bool in1_validity,
                                       const char* pattern, int pattern_len,
                                       bool in2_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToTimestampHolder* holder =
-      reinterpret_cast<gandiva::ToTimestampHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
@@ -203,77 +206,89 @@ int64_t gdv_fn_to_timestamp_utf8_utf8_int32(int64_t context_ptr, int64_t holder_
                                             int pattern_len, bool in2_validity,
                                             int32_t suppress_errors, bool in3_validity,
                                             bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToTimestampHolder* holder =
-      reinterpret_cast<gandiva::ToTimestampHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 int64_t gdv_fn_unix_timestamp_utf8(int64_t context_ptr, int64_t holder_ptr,
                                    const char* data, int data_len, bool in1_validity,
                                    bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::UnixTimestampHolder* holder =
-      reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 int64_t gdv_fn_unix_timestamp_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                         const char* data, int data_len, bool in1_validity,
                                         const char* pattern, int pattern_len,
                                         bool in2_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::UnixTimestampHolder* holder =
-      reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 int64_t gdv_fn_unix_timestamp_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                               const char* data, int data_len,
                                               bool in1_validity, const char* pattern,
                                               int pattern_len, bool in2_validity,
                                               int32_t suppress_errors, bool in3_validity,
                                               bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::UnixTimestampHolder* holder =
-      reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::UnixTimestampHolder*>(holder_ptr);
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 const char* gdv_fn_from_unixtime_utf8(int64_t context_ptr, int64_t holder_ptr,
                                       int64_t data, bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUnixtimeHolder* holder =
-      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
   return (*holder)(context, data, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 const char* gdv_fn_from_unixtime_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                            int64_t data, bool in1_validity,
                                            const char* pattern, int pattern_len,
                                            bool in2_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUnixtimeHolder* holder =
-      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
   return (*holder)(context, data, in1_validity, out_valid);
 }
 
+// Converts the number of seconds  to a string of that moment in the current system time
+// zone
 const char* gdv_fn_from_unixtime_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                                  int64_t data, bool in1_validity,
                                                  const char* pattern, int pattern_len,
                                                  bool in2_validity,
                                                  int32_t suppress_errors,
                                                  bool in3_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUnixtimeHolder* holder =
-      reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUnixtimeHolder*>(holder_ptr);
   return (*holder)(context, data, in1_validity, out_valid);
 }
 
@@ -281,50 +296,50 @@ const char* gdv_fn_from_utc_timestamp_utf8(int64_t context_ptr, int64_t holder_p
                                            const char* data, int32_t data_len,
                                            const char* tz, bool in1_validity,
                                            bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUtcTimestampUtf8Holder* holder =
-      reinterpret_cast<gandiva::FromUtcTimestampUtf8Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUtcTimestampUtf8Holder*>(holder_ptr);
   return (*holder)(context, data, data_len, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_from_utc_timestamp_int32(int64_t context_ptr, int64_t holder_ptr,
                                             int32_t data, const char* tz,
                                             bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUtcTimestampInt32Holder* holder =
-      reinterpret_cast<gandiva::FromUtcTimestampInt32Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUtcTimestampInt32Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_from_utc_timestamp_int64(int64_t context_ptr, int64_t holder_ptr,
                                             int64_t data, const char* tz,
                                             bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUtcTimestampInt64Holder* holder =
-      reinterpret_cast<gandiva::FromUtcTimestampInt64Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUtcTimestampInt64Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_from_utc_timestamp_float32(int64_t context_ptr, int64_t holder_ptr,
                                               gdv_float32 data, const char* tz,
                                               bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUtcTimestampFloat32Holder* holder =
-      reinterpret_cast<gandiva::FromUtcTimestampFloat32Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUtcTimestampFloat32Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_from_utc_timestamp_float64(int64_t context_ptr, int64_t holder_ptr,
                                               gdv_float64 data, const char* tz,
                                               bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::FromUtcTimestampFloat64Holder* holder =
-      reinterpret_cast<gandiva::FromUtcTimestampFloat64Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::FromUtcTimestampFloat64Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
@@ -332,50 +347,50 @@ const char* gdv_fn_to_utc_timestamp_utf8(int64_t context_ptr, int64_t holder_ptr
                                          const char* data, int32_t data_len,
                                          const char* tz, bool in1_validity,
                                          bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToUtcTimestampUtf8Holder* holder =
-      reinterpret_cast<gandiva::ToUtcTimestampUtf8Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToUtcTimestampUtf8Holder*>(holder_ptr);
   return (*holder)(context, data, data_len, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_to_utc_timestamp_int32(int64_t context_ptr, int64_t holder_ptr,
                                           int32_t data, const char* tz, bool in1_validity,
                                           bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToUtcTimestampInt32Holder* holder =
-      reinterpret_cast<gandiva::ToUtcTimestampInt32Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToUtcTimestampInt32Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_to_utc_timestamp_int64(int64_t context_ptr, int64_t holder_ptr,
                                           int64_t data, const char* tz, bool in1_validity,
                                           bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToUtcTimestampInt64Holder* holder =
-      reinterpret_cast<gandiva::ToUtcTimestampInt64Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToUtcTimestampInt64Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_to_utc_timestamp_float32(int64_t context_ptr, int64_t holder_ptr,
                                             gdv_float32 data, const char* tz,
                                             bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToUtcTimestampFloat32Holder* holder =
-      reinterpret_cast<gandiva::ToUtcTimestampFloat32Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToUtcTimestampFloat32Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 
 const char* gdv_fn_to_utc_timestamp_float64(int64_t context_ptr, int64_t holder_ptr,
                                             gdv_float64 data, const char* tz,
                                             bool in1_validity, bool* out_valid) {
-  gandiva::ExecutionContext* context =
-      reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-  gandiva::ToUtcTimestampFloat64Holder* holder =
-      reinterpret_cast<gandiva::ToUtcTimestampFloat64Holder*>(holder_ptr);
+  // Allocate context
+  auto* context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  // Allocate holder
+  auto* holder = reinterpret_cast<gandiva::ToUtcTimestampFloat64Holder*>(holder_ptr);
   return (*holder)(context, data, tz, in1_validity, out_valid);
 }
 

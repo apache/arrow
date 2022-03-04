@@ -21,7 +21,6 @@
 
 #include <chrono>
 #include <iomanip>
-#include <iostream>
 #include <map>
 #include <memory>
 #include <string>
@@ -33,10 +32,10 @@
 #include "gandiva/date_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
+#include "gandiva/gdv_function_stubs.h"
 #include "gandiva/node.h"
 #include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/visibility.h"
-#include "gdv_function_stubs.h"
 
 namespace gandiva {
 /// Super class for function holder for FromDate
@@ -61,11 +60,12 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
     // It receives milliseconds and time_t will handle up to seconds only
     time_t rawtime = in_data / 1000;
 
-    struct tm* ptm;
-    ptm = gmtime(&rawtime);
+    struct tm* tm_ptr;
+    struct tm tm;
+    tm_ptr = gmtime_r(&rawtime, &tm);
 
     std::stringstream iss;
-    iss << std::put_time(ptm, pattern_.c_str());
+    iss << std::put_time(tm_ptr, pattern_.c_str());
     std::string ret_str = iss.str();
     size_t length = strlen(ret_str.c_str()) + 1;
 
@@ -79,7 +79,7 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
 
  protected:
   FromDateFunctionsHolder(std::string pattern, int32_t suppress_errors)
-      : pattern_(std::move(pattern)), suppress_errors_(suppress_errors){};
+      : pattern_(std::move(pattern)), suppress_errors_(suppress_errors) {}
 
   std::string pattern_;  // date format string
 
@@ -234,7 +234,8 @@ class GANDIVA_EXPORT FromUtcFunctionsHolder : public FunctionHolder {
   }
 
  protected:
-  FromUtcFunctionsHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors){};
+  explicit FromUtcFunctionsHolder(int32_t suppress_errors)
+      : suppress_errors_(suppress_errors) {}
 
   std::string pattern_ = "%Y-%m-%d %H:%M:%S";  // date format string
 
@@ -353,10 +354,10 @@ class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~FromUtcTimestampUtf8Holder() override = default;
 
-  FromUtcTimestampUtf8Holder(int32_t suppress_errors)
+  explicit FromUtcTimestampUtf8Holder(int32_t suppress_errors)
       : FromUtcFunctionsHolder<FromUtcTimestampUtf8Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -415,10 +416,10 @@ class GANDIVA_EXPORT FromUtcTimestampInt32Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~FromUtcTimestampInt32Holder() override = default;
 
-  FromUtcTimestampInt32Holder(int32_t suppress_errors)
+  explicit FromUtcTimestampInt32Holder(int32_t suppress_errors)
       : FromUtcFunctionsHolder<FromUtcTimestampInt32Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -453,7 +454,7 @@ class GANDIVA_EXPORT FromUtcTimestampInt64Holder
  public:
   ~FromUtcTimestampInt64Holder() override = default;
 
-  FromUtcTimestampInt64Holder(int32_t suppress_errors)
+  explicit FromUtcTimestampInt64Holder(int32_t suppress_errors)
       : FromUtcFunctionsHolder<FromUtcTimestampInt64Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -514,10 +515,10 @@ class GANDIVA_EXPORT FromUtcTimestampFloat32Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~FromUtcTimestampFloat32Holder() override = default;
 
-  FromUtcTimestampFloat32Holder(int32_t suppress_errors)
+  explicit FromUtcTimestampFloat32Holder(int32_t suppress_errors)
       : FromUtcFunctionsHolder<FromUtcTimestampFloat32Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -578,10 +579,10 @@ class GANDIVA_EXPORT FromUtcTimestampFloat64Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~FromUtcTimestampFloat64Holder() override = default;
 
-  FromUtcTimestampFloat64Holder(int32_t suppress_errors)
+  explicit FromUtcTimestampFloat64Holder(int32_t suppress_errors)
       : FromUtcFunctionsHolder<FromUtcTimestampFloat64Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,

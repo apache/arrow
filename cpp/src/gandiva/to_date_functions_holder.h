@@ -137,7 +137,7 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
     std::shared_ptr<std::string> transformed_pattern;
     ARROW_RETURN_NOT_OK(DateUtils::ToInternalFormat(sql_pattern, &transformed_pattern));
     auto lholder = std::shared_ptr<HOLDER_TYPE>(
-        new HOLDER_TYPE(*(transformed_pattern.get()), suppress_errors));
+        new HOLDER_TYPE(*(transformed_pattern), suppress_errors));
     *holder = lholder;
     return Status::OK();
   }
@@ -311,7 +311,7 @@ class GANDIVA_EXPORT ToUtcFunctionsHolder : public FunctionHolder {
       return "";
     }
 
-    std::chrono::duration<long> seconds(in_data / 1000);
+    std::chrono::duration<int64_t> seconds(in_data / 1000);
 
     arrow_vendored::date::zoned_seconds zoned{
         tz, arrow_vendored::date::local_seconds{seconds}};
@@ -333,7 +333,8 @@ class GANDIVA_EXPORT ToUtcFunctionsHolder : public FunctionHolder {
   }
 
  protected:
-  ToUtcFunctionsHolder(int32_t suppress_errors) : suppress_errors_(suppress_errors){};
+  explicit ToUtcFunctionsHolder(int32_t suppress_errors)
+      : suppress_errors_(suppress_errors) {}
 
   std::string pattern_ = "%Y-%m-%d %H:%M:%S";  // date format string
 
@@ -435,7 +436,7 @@ class GANDIVA_EXPORT ToUtcTimestampUtf8Holder
       return "";
     }
 
-    std::chrono::duration<long> seconds(millis_timestamp / 1000);
+    std::chrono::duration<int64_t> seconds(millis_timestamp / 1000);
 
     arrow_vendored::date::zoned_seconds zoned{
         tz, arrow_vendored::date::local_seconds{seconds}};
@@ -454,10 +455,10 @@ class GANDIVA_EXPORT ToUtcTimestampUtf8Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~ToUtcTimestampUtf8Holder() override = default;
 
-  ToUtcTimestampUtf8Holder(int32_t suppress_errors)
+  explicit ToUtcTimestampUtf8Holder(int32_t suppress_errors)
       : ToUtcFunctionsHolder<ToUtcTimestampUtf8Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -497,7 +498,7 @@ class GANDIVA_EXPORT ToUtcTimestampInt32Holder
     }
 
     // int32 needs to be treated as seconds or it will overflow
-    std::chrono::duration<long> seconds(in_data);
+    std::chrono::duration<int64_t> seconds(in_data);
 
     arrow_vendored::date::zoned_seconds zoned{
         tz, arrow_vendored::date::local_seconds{seconds}};
@@ -516,10 +517,10 @@ class GANDIVA_EXPORT ToUtcTimestampInt32Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~ToUtcTimestampInt32Holder() override = default;
 
-  ToUtcTimestampInt32Holder(int32_t suppress_errors)
+  explicit ToUtcTimestampInt32Holder(int32_t suppress_errors)
       : ToUtcFunctionsHolder<ToUtcTimestampInt32Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -552,7 +553,7 @@ class GANDIVA_EXPORT ToUtcTimestampInt64Holder
  public:
   ~ToUtcTimestampInt64Holder() override = default;
 
-  ToUtcTimestampInt64Holder(int32_t suppress_errors)
+  explicit ToUtcTimestampInt64Holder(int32_t suppress_errors)
       : ToUtcFunctionsHolder<ToUtcTimestampInt64Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -611,10 +612,10 @@ class GANDIVA_EXPORT ToUtcTimestampFloat32Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~ToUtcTimestampFloat32Holder() override = default;
 
-  ToUtcTimestampFloat32Holder(int32_t suppress_errors)
+  explicit ToUtcTimestampFloat32Holder(int32_t suppress_errors)
       : ToUtcFunctionsHolder<ToUtcTimestampFloat32Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
@@ -674,10 +675,10 @@ class GANDIVA_EXPORT ToUtcTimestampFloat64Holder
     memcpy(ret, ret_str.c_str(), length);
 
     return ret;
-  };
+  }
   ~ToUtcTimestampFloat64Holder() override = default;
 
-  ToUtcTimestampFloat64Holder(int32_t suppress_errors)
+  explicit ToUtcTimestampFloat64Holder(int32_t suppress_errors)
       : ToUtcFunctionsHolder<ToUtcTimestampFloat64Holder>(suppress_errors) {}
 
   static Status Make(const FunctionNode& node,
