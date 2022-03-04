@@ -21,6 +21,7 @@
 #include <string>
 
 #include "arrow/flight/protocol_internal.h"  // IWYU pragma: keep
+#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/macros.h"
 
@@ -81,6 +82,9 @@ extern const char* kGrpcStatusDetailHeader;
 
 ARROW_FLIGHT_EXPORT
 extern const char* kBinaryErrorDetailsKey;
+
+/// TODO:
+static constexpr char kAuthHeader[] = "authorization";
 
 ARROW_FLIGHT_EXPORT
 Status SchemaToString(const Schema& schema, std::string* out);

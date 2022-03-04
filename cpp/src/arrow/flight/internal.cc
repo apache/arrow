@@ -26,6 +26,7 @@
 
 #include "arrow/flight/platform.h"
 #include "arrow/flight/protocol_internal.h"
+#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/types.h"
 
 #ifdef GRPCPP_PP_INCLUDE

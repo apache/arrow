@@ -162,17 +162,16 @@ endif()
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
-# Note, we do not compile the generated Protobuf sources directly, instead
+# Note, we do not compile the generated gRPC sources directly, instead
 # compiling them via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
 # protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
-    client_header_internal.cc
+    cookie_internal.cc
     internal.cc
-    protocol_internal.cc
-    serialization_internal.cc
     server.cc
     server_auth.cc
     transport.cc
@@ -181,6 +180,7 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/grpc_client.cc
     transport/grpc/grpc_server.cc
     transport/grpc/serialization_internal.cc
+    transport/grpc/protocol_grpc_internal.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

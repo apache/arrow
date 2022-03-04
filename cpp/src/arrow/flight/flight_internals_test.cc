@@ -22,8 +22,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
@@ -300,18 +300,18 @@ TEST_F(TestCookieMiddleware, Expires) {
 class TestCookieParsing : public ::testing::Test {
  public:
   void VerifyParseCookie(const std::string& cookie_str, bool expired) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(expired, cookie.IsExpired());
   }
 
   void VerifyCookieName(const std::string& cookie_str, const std::string& name) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(name, cookie.GetName());
   }
 
   void VerifyCookieString(const std::string& cookie_str,
                           const std::string& cookie_as_string) {
-    internal::Cookie cookie = internal::Cookie::parse(cookie_str);
+    internal::Cookie cookie = internal::Cookie::Parse(cookie_str);
     EXPECT_EQ(cookie_as_string, cookie.AsCookieString());
   }
 

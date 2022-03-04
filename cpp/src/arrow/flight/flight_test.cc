@@ -44,8 +44,13 @@
 #error "gRPC headers should not be in public API"
 #endif
 
+#ifdef GRPCPP_PP_INCLUDE
+#include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
+
 #include "arrow/flight/internal.h"
-#include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"
 

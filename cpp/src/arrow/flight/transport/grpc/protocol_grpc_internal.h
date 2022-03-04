@@ -13,34 +13,15 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License.
-
-// Interfaces for defining middleware for Flight clients and
-// servers. Currently experimental.
 
 #pragma once
 
-#include "arrow/flight/platform.h"
-#include "arrow/flight/visibility.h"  // IWYU pragma: keep
+// This addresses platform-specific defines, e.g. on Windows
+#include "arrow/flight/platform.h"  // IWYU pragma: keep
 
-#include <map>
-#include <string>
-#include <utility>
+// This header holds the Flight gRPC definitions.
 
-#ifdef GRPCPP_PP_INCLUDE
-#include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
+// Need to include this first to get our gRPC customizations
+#include "arrow/flight/transport/grpc/customize_grpc.h"  // IWYU pragma: export
 
-#include "arrow/flight/middleware.h"
-
-namespace arrow {
-
-namespace flight {
-
-namespace internal {}  // namespace internal
-
-}  // namespace flight
-
-}  // namespace arrow
+#include "arrow/flight/Flight.grpc.pb.h"  // IWYU pragma: export

@@ -41,13 +41,14 @@
 #include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/client_auth.h"
-#include "arrow/flight/client_header_internal.h"
 #include "arrow/flight/client_middleware.h"
+#include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/transport.h"
@@ -461,6 +462,56 @@ class GrpcClientExchangeStream
   }
 };
 
+static constexpr char kBearerPrefix[] = "Bearer ";
+static constexpr char kBasicPrefix[] = "Basic ";
+
+/// \brief Add base64 encoded credentials to the outbound headers.
+///
+/// \param context Context object to add the headers to.
+/// \param username Username to format and encode.
+/// \param password Password to format and encode.
+void AddBasicAuthHeaders(::grpc::ClientContext* context, const std::string& username,
+                         const std::string& password) {
+  const std::string credentials = username + ":" + password;
+  context->AddMetadata(internal::kAuthHeader,
+                       kBasicPrefix + arrow::util::base64_encode(credentials));
+}
+
+/// \brief Get bearer token from inbound headers.
+///
+/// \param context Incoming ClientContext that contains headers.
+/// \return Arrow result with bearer token (empty if no bearer token found).
+arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
+    ::grpc::ClientContext& context) {
+  // Lambda function to compare characters without case sensitivity.
+  auto char_compare = [](const char& char1, const char& char2) {
+    return (::toupper(char1) == ::toupper(char2));
+  };
+
+  // Get the auth token if it exists, this can be in the initial or the trailing metadata.
+  auto trailing_headers = context.GetServerTrailingMetadata();
+  auto initial_headers = context.GetServerInitialMetadata();
+  auto bearer_iter = trailing_headers.find(internal::kAuthHeader);
+  if (bearer_iter == trailing_headers.end()) {
+    bearer_iter = initial_headers.find(internal::kAuthHeader);
+    if (bearer_iter == initial_headers.end()) {
+      return std::make_pair("", "");
+    }
+  }
+
+  // Check if the value of the auth token starts with the bearer prefix and latch it.
+  std::string bearer_val(bearer_iter->second.data(), bearer_iter->second.size());
+  if (bearer_val.size() > strlen(kBearerPrefix)) {
+    if (std::equal(bearer_val.begin(), bearer_val.begin() + strlen(kBearerPrefix),
+                   kBearerPrefix, char_compare)) {
+      return std::make_pair(internal::kAuthHeader, bearer_val);
+    }
+  }
+
+  // The server is not required to provide a bearer token.
+  return std::make_pair("", "");
+}
+
 // Dummy self-signed certificate to be used because TlsCredentials
 // requires root CA certs, even if you are skipping server
 // verification.
@@ -674,14 +725,10 @@ class GrpcClientImpl : public internal::ClientTransport {
       const std::string& password) override {
     // Add basic auth headers to outgoing headers.
     ClientRpc rpc(options);
-    internal::AddBasicAuthHeaders(&rpc.context, username, password);
-
+    AddBasicAuthHeaders(&rpc.context, username, password);
     std::shared_ptr<
         ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
         stream = stub_->Handshake(&rpc.context);
-    GrpcClientAuthSender outgoing{stream};
-    GrpcClientAuthReader incoming{stream};
-
     // Explicitly close our side of the connection.
     bool finished_writes = stream->WritesDone();
     RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
@@ -689,9 +736,8 @@ class GrpcClientImpl : public internal::ClientTransport {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
     }
-
     // Grab bearer token from incoming headers.
-    return internal::GetBearerTokenHeader(rpc.context);
+    return GetBearerTokenHeader(rpc.context);
   }
 
   Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,

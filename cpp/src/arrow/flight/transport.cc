@@ -21,6 +21,7 @@
 
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/transport_server.h"
+#include "arrow/ipc/message.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/make_unique.h"
@@ -28,6 +29,10 @@
 namespace arrow {
 namespace flight {
 namespace internal {
+
+::arrow::Result<std::unique_ptr<ipc::Message>> FlightData::OpenMessage() {
+  return ipc::Message::Open(metadata, body);
+}
 
 bool TransportDataStream::ReadData(internal::FlightData*) { return false; }
 arrow::Result<bool> TransportDataStream::WriteData(const FlightPayload&) {

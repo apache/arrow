@@ -23,6 +23,7 @@
 #include <memory>
 
 #include "arrow/flight/protocol_internal.h"
+#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/type_fwd.h"
 #include "arrow/result.h"
 
@@ -30,6 +31,8 @@ namespace arrow {
 namespace flight {
 namespace transport {
 namespace grpc {
+
+namespace pb = arrow::flight::protocol;
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 // Returns Invalid if the payload is ill-formed
