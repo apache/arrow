@@ -882,7 +882,10 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         auto filefragment_casted = dynamic_cast<const FileFragment*>(partial.fragment.value.get());
         if(filefragment_casted != nullptr ){
             batch->values.emplace_back(filefragment_casted->source().path());
+        } else {
+            batch->values.emplace_back("");
         }
+
         return batch;
       });
 
