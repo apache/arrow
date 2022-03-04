@@ -709,8 +709,12 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
   for (size_t i = 0; i < exprs.size(); ++i) {
     exprs[i] = compute::field_ref(names[i]);
   }
+  auto fields = dataset_schema.fields();
+  for (const auto& aug_field : kAugmentedFields) {
+    fields.push_back(aug_field);
+  }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                          dataset_schema);
+                                          Schema(fields));
 }
 
 Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
@@ -879,11 +883,12 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
 
-        auto filefragment_casted = dynamic_cast<const FileFragment*>(partial.fragment.value.get());
-        if(filefragment_casted != nullptr ){
-            batch->values.emplace_back(filefragment_casted->source().path());
+        auto filefragment_casted =
+            dynamic_cast<const FileFragment*>(partial.fragment.value.get());
+        if (filefragment_casted != nullptr) {
+          batch->values.emplace_back(filefragment_casted->source().path());
         } else {
-            batch->values.emplace_back("");
+          batch->values.emplace_back("");
         }
 
         return batch;

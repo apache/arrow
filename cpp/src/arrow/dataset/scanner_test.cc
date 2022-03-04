@@ -1472,7 +1472,8 @@ DatasetAndBatches MakeNestedDataset() {
 compute::Expression Materialize(std::vector<std::string> names,
                                 bool include_aug_fields = false) {
   if (include_aug_fields) {
-    for (auto aug_name : {"__fragment_index", "__batch_index", "__last_in_fragment", "__filename"}) {
+    for (auto aug_name :
+         {"__fragment_index", "__batch_index", "__last_in_fragment", "__filename"}) {
       names.emplace_back(aug_name);
     }
   }
