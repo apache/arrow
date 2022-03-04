@@ -146,11 +146,3 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_dependencies(aggregate_example parquet)
   
 endif()
-
-message("PYTHON_INCLUDE_DIRS : ${PYTHON_INCLUDE_DIRS}")
-
-message("PYTHON_OTHER_LIBS : ${PYTHON_OTHER_LIBS}")
-
-message("PYTHON_LIBRARIES : ${PYTHON_LIBRARIES}")
-
-
