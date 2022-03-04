@@ -61,8 +61,8 @@ linters and styling of the code.
 Pre-commit
 ----------
 
-It is useful to setup `pre-commit <https://pre-commit.com/>`_,
-multi-language package manager for pre-commit hooks. It will
+It is useful to set up `pre-commit <https://pre-commit.com/>`_,
+a multi-language package manager for pre-commit hooks. It will
 check your code and will stop the commit process, described in
 the following section, if there are any errors.
 
