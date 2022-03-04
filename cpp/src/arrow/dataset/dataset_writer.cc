@@ -249,14 +249,15 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         write_options_(write_options),
         writer_state_(writer_state) {}
 
-  DatasetWriterDirectoryQueue(std::string directory, std::string prefix, std::shared_ptr<Schema> schema,
+  DatasetWriterDirectoryQueue(std::string directory, std::string prefix,
+                              std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
                               DatasetWriterState* writer_state)
       : directory_(std::move(directory)),
         prefix_(std::move(prefix)),
         schema_(std::move(schema)),
         write_options_(write_options),
-        writer_state_(writer_state) {}      
+        writer_state_(writer_state) {}
 
   Result<std::shared_ptr<RecordBatch>> NextWritableChunk(
       std::shared_ptr<RecordBatch> batch, std::shared_ptr<RecordBatch>* remainder,
@@ -350,13 +351,13 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
                                 util::DestroyingDeleter<DatasetWriterDirectoryQueue>>>
   Make(util::AsyncTaskGroup* task_group,
        const FileSystemDatasetWriteOptions& write_options,
-       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema,
-       std::string dir, std::string prefix) {
+       DatasetWriterState* writer_state, std::shared_ptr<Schema> schema, std::string dir,
+       std::string prefix) {
     auto dir_queue = util::MakeUniqueAsync<DatasetWriterDirectoryQueue>(
-        std::move(dir), std::move(prefix), std::move(schema), write_options, writer_state);
-
+        std::move(dir), std::move(prefix), std::move(schema), write_options,
+        writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
-    if(prefix.empty()){
+    if (prefix.empty()) {
       dir_queue->PrepareDirectory();
     }
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
