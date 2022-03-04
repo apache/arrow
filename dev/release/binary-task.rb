@@ -887,7 +887,8 @@ class BinaryTask
       rm(destination_path, verbose: false)
     end
     sh("gpg",
-       "--detach-sig",
+       "--armor",
+       "--detach-sign",
        "--local-user", gpg_key_id,
        "--output", destination_path,
        source_path,
