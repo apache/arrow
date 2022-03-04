@@ -1076,3 +1076,41 @@ test_that("ISO_datetime & ISOdate", {
     ignore_attr = TRUE
   )
 })
+
+test_that("difftime works correctly", {
+  test_df <- tibble(
+    time1 = as.POSIXct(
+      c("2021-02-20", "2021-07-31", "2021-10-31", "2021-01-31"),
+      tz = "Europe/London"),
+    time2 = as.POSIXct(
+      c("2021-02-20 00:02:01", "2021-07-31 00:03:54", "2021-10-31 00:05:45", "2021-01-31 00:07:36"),
+      tz = "Europe/London"),
+    secs = c(121L, 234L, 345L, 456L)
+  )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      secs2 = difftime(time1, time2, units = "secs")
+    ) %>%
+    collect()
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(
+      time3 = time1 + secs,
+      secs3 = difftime(time1, time3, units = "secs")
+    ) %>%
+    collect()
+
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nd = dates + secs,
+        secs2 = difftime(nd, dates, units = "secs")
+      ) %>%
+      collect(),
+    test_df
+  )
+})
