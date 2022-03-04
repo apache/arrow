@@ -170,10 +170,12 @@ PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_place
       null_placement(null_placement) {}
 constexpr char PartitionNthOptions::kTypeName[];
 
-SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys)
+SelectKOptions::SelectKOptions(int64_t k, std::vector<SortKey> sort_keys,
+                               NullPlacement null_placement)
     : FunctionOptions(internal::kSelectKOptionsType),
       k(k),
-      sort_keys(std::move(sort_keys)) {}
+      sort_keys(std::move(sort_keys)),
+      null_placement(null_placement) {}
 constexpr char SelectKOptions::kTypeName[];
 
 namespace internal {

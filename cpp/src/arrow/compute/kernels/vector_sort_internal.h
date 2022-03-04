@@ -342,11 +342,18 @@ struct MergeImpl {
       std::function<void(uint64_t* range_begin, uint64_t* range_middle,
                          uint64_t* range_end, uint64_t* temp_indices)>;
 
+  using MergeGeneralFunc =
+      std::function<void(uint64_t* range_begin, uint64_t* range_middle,
+                         uint64_t* range_end, uint64_t* temp_indices, uint64_t k)>;
+
   MergeImpl(NullPlacement null_placement, MergeNullsFunc&& merge_nulls,
             MergeNonNullsFunc&& merge_non_nulls)
       : null_placement_(null_placement),
         merge_nulls_(std::move(merge_nulls)),
         merge_non_nulls_(std::move(merge_non_nulls)) {}
+
+  MergeImpl(NullPlacement null_placement, MergeGeneralFunc&& merge_general)
+      : null_placement_(null_placement), merge_general_(std::move(merge_general)) {}
 
   Status Init(ExecContext* ctx, int64_t temp_indices_length) {
     ARROW_ASSIGN_OR_RAISE(
@@ -362,6 +369,24 @@ struct MergeImpl {
       return MergeNullsAtStart(left, right, null_count);
     } else {
       return MergeNullsAtEnd(left, right, null_count);
+    }
+  }
+
+  NullPartitionResult MergeK(const NullPartitionResult& left,
+                             const NullPartitionResult& right, int64_t null_count,
+                             uint64_t k) const {
+    return MergeKNullsAtEnd(left, right, null_count, k);
+  }
+
+  NullPartitionResult MergeKElements(const NullPartitionResult& left,
+                                     const NullPartitionResult& right, int64_t null_count,
+                                     uint64_t k) const {
+    uint64_t total_elements = left.non_null_count() + left.null_count() +
+                              right.non_null_count() + right.null_count();
+    if (total_elements <= k) {
+      return Merge(left, right, null_count);
+    } else {
+      return MergeK(left, right, null_count, k);
     }
   }
 
@@ -435,10 +460,22 @@ struct MergeImpl {
     return p;
   }
 
+  NullPartitionResult MergeKNullsAtEnd(const NullPartitionResult& left,
+                                         const NullPartitionResult& right,
+                                         int64_t null_count, uint64_t k) const {
+    merge_general_(left.non_nulls_begin, right.non_nulls_begin, right.nulls_end,
+                     temp_indices_, k);
+    // left.nulls_end and right.non_nulls_begin are unused for mergeK.
+    const auto p = NullPartitionResult{left.non_nulls_begin, left.nulls_end,
+                                       right.non_nulls_begin, right.nulls_end};;
+    return p;
+  }
+
  private:
   NullPlacement null_placement_;
   MergeNullsFunc merge_nulls_;
   MergeNonNullsFunc merge_non_nulls_;
+  MergeGeneralFunc merge_general_;
   std::unique_ptr<Buffer> temp_buffer_;
   uint64_t* temp_indices_ = nullptr;
 };

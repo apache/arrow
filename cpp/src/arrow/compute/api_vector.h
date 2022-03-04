@@ -142,7 +142,8 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
 /// \brief SelectK options
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
  public:
-  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {});
+  explicit SelectKOptions(int64_t k = -1, std::vector<SortKey> sort_keys = {},
+                          NullPlacement null_placement = NullPlacement::AtEnd);
   static constexpr char const kTypeName[] = "SelectKOptions";
   static SelectKOptions Defaults() { return SelectKOptions(); }
 
@@ -172,6 +173,8 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
+  /// Whether nulls and NaNs are placed at the start or at the end
+  NullPlacement null_placement;
 };
 
 /// \brief Partitioning options for NthToIndices

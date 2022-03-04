@@ -144,6 +144,19 @@ struct ChunkedArrayResolver : protected ChunkResolver {
         checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
   }
 
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> Resolve(ChunkLocation loc) const {
+    return ResolvedChunk<ArrayType>(
+        checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+  }
+
+  template <typename ArrayType>
+  ChunkLocation ResolveChunkLocation(int64_t index) const {
+    const auto loc = ChunkResolver::Resolve(index);
+    return ResolvedChunk<ArrayType>(
+        checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+  }
+
  protected:
   static std::vector<int64_t> MakeLengths(const std::vector<const Array*>& chunks) {
     std::vector<int64_t> lengths(chunks.size());
