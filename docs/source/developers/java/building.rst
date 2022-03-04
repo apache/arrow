@@ -62,7 +62,9 @@ To build the default modules, go to the project root and execute:
 Building JNI Libraries on Linux
 -------------------------------
 
-For Build C Data Interface lib & Build C++ Libs (`archery`_ needs docker and docker compose installed locally):
+First, we need to build the `C++ shared libraries`_ that the JNI bindings will use.
+We can build these manually or we can use `Archery`_ to build them using a Docker container
+(This will require installing Docker, Docker Compose, and Archery).
 
 .. code-block::
 
@@ -199,7 +201,7 @@ Let's run our java-dataset maven configuration:
 
 .. figure:: img/java_run_mvn_configuration.png
    :scale: 50 %
-   :alt: Icon to run new maven configuration created
+   :alt: Option to run new maven configuration created
 
 .. figure:: img/java_run_mvn_configuration_result.png
    :scale: 50 %
@@ -224,5 +226,6 @@ Common Errors
         -DORC_SOURCE=BUNDLED \
         -DZLIB_SOURCE=BUNDLED
 
-.. _archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
+.. _Archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
+.. _C++ shared libraries: https://arrow.apache.org/docs/cpp/build_system.html
