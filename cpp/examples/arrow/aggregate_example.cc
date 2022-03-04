@@ -106,7 +106,6 @@ arrow::Status DoAggregate() {
                                /*keys=*/{}};
   auto schema = arrow::schema({
       arrow::field("count(c)", arrow::int64())
-      //arrow::field("a", arrow::int64())
   });
 
   ABORT_ON_FAILURE(cp::Declaration::Sequence(

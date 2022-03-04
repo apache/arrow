@@ -2413,6 +2413,6 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
         c_callback = <PyObject*>callback
 
         cdef COutputType* c_out_type = new COutputType(c_type)
-        cdef CUDFSynthesizer* c_udf_syn = new CUDFSynthesizer(c_func_name, 
-            c_arity, c_func_doc, c_in_types, deref(c_out_type))
-        c_udf_syn.MakeFunction(c_callback)
+        # cdef CScalarUDFBuilder* c_sc_builder = new CScalarUDFBuilder(c_func_name, 
+        #     c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
+        # c_sc_builder.MakeFunction()

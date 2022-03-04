@@ -26,29 +26,40 @@ namespace arrow {
 
 namespace py {
 
-class ARROW_PYTHON_EXPORT UDFSynthesizer {
- public:
-  UDFSynthesizer(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
-                 std::vector<cp::InputType> in_types, cp::OutputType out_type)
-      : func_name_(func_name),
-        arity_(arity),
-        func_doc_(func_doc),
-        in_types_(in_types),
-        out_type_(out_type) {}
+// class ARROW_PYTHON_EXPORT UDFBuilder {
+//   public:
+//     virtual Status MakeFunction();
 
-  Status MakeFunction(PyObject* function);
+//   protected:
+//     UDFBuilder(std::string func_name, cp::Function::Kind kind, cp::Arity arity, cp::FunctionDoc func_doc,
+//                  std::vector<cp::InputType> in_types, cp::OutputType out_type)
+//       : func_name_(func_name),
+//         kind_(kind),
+//         arity_(arity),
+//         func_doc_(func_doc),
+//         in_types_(in_types),
+//         out_type_(out_type) {}
 
- private:
-  std::string func_name_;
-  cp::Arity arity_;
-  cp::FunctionDoc func_doc_;
-  std::vector<cp::InputType> in_types_;
-  cp::OutputType out_type_;
-};
+//     std::string func_name_;
+//     cp::Function::Kind kind_;
+//     cp::Arity arity_;
+//     cp::FunctionDoc func_doc_;
+//     std::vector<cp::InputType> in_types_;
+//     cp::OutputType out_type_;
+// };
 
-class ARROW_PYTHON_EXPORT UDFScalarAggregator{
+// class ARROW_PYTHON_EXPORT ScalarUDFBuilder : public UDFBuilder{
+//   public:
+//     ScalarUDFBuilder(std::string func_name, cp::Arity arity, cp::FunctionDoc func_doc,
+//                    std::vector<cp::InputType> in_types, cp::OutputType out_type, PyObject* function)
+//         : UDFBuilder(func_name, cp::Function::SCALAR, arity, func_doc, in_types, out_type), function_(function)  {}
 
-};
+//     Status MakeFunction() override;
+
+//   private:
+//     PyObject* function_;
+
+// };
 
 }  // namespace py
 
