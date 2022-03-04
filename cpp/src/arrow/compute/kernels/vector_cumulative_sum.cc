@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/visit_type_inline.h"
@@ -23,30 +24,34 @@
 namespace arrow {
 namespace compute {
 namespace internal {
-namespace {
-
-template <typename CType>
-CType CumulativeSum(std::shared_ptr<Array>& input, ArrayData* output, CType start) {
-  CType sum = start;
-  CType* data = checked_cast<CType*>(input->data()->buffers[1]->data());
-  CType* out_values = checked_cast<CType*>(output->buffers[1]->mutable_data());
-  for (size_t i = input->offset; i < input->length; ++i) {
-    if (input->IsValid(i)) {
-      sum += data[i];
-      out_values[i] = sum;
-    }
-  }
-
-  return sum;
-}
 
 template <typename Type>
-struct CumulativeSumFunctor {
+struct CumulativeSum {
   using CType = TypeTraits<Type>::CType;
+  using ScalarType = TypeTraits<Type>::ScalarType;
+
+  CType Sum(ExecContext* ctx, std::shared_ptr<Array>& input, ArrayData* output,
+            CType start) {
+    CType sum = start;
+    CType* data = checked_cast<CType*>(input->data()->buffers[1]->data());
+    CType* out_values = checked_cast<CType*>(output->buffers[1]->mutable_data());
+    ArithmeticOptions options;
+    for (size_t i = input->offset; i < input->length; ++i) {
+      if (input->IsValid(i)) {
+        Datum value_datum(data[i]);
+        Datum sum_datum(sum);
+        auto result = Add(value_datum, sum_datum, options, ctx);
+        ScalarType result_scalar = result.ValueOrDie().scalar_as();
+        sum = result_scalar.value;
+        out_values[i] = sum;
+      }
+    }
+
+    return sum;
+  }
 
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const NumericScalar& start_scalar =
-        checked_cast<const NumericScalar&>(*batch[1].scalar());
+    const ScalarType& start_scalar = checked_cast<const ScalarType&>(*batch[1].scalar());
     CType start = start_scalar.value;
 
     switch (batch[0].kind()) {
@@ -68,7 +73,7 @@ struct CumulativeSumFunctor {
           output->null_count = 0;
         }
 
-        CumulativeSum(input, output, start);
+        Sum(ctx->exec_context(), input, output, start);
         return Status::OK();
       case Datum::CHUNKED_ARRAY:
         const auto& input = batch[0].chunked_array();
@@ -90,7 +95,7 @@ struct CumulativeSumFunctor {
             out_chunk->null_count = 0;
           }
 
-          CType last_value = CumulativeSum(chunk, out_chunk, start);
+          CType last_value = Sum(ctx->exec_context(), chunk, out_chunk, start);
           start = last_value;
           out_chunks.push_back(MakeArray(std::move(out_chunk)));
         }
@@ -115,32 +120,40 @@ const FunctionDoc cumulative_sum_doc(
     "Compute the cumulative sum over an array of numbers",
     ("`values` must be an array of numeric type values.\n"
      "`start` is a single value of the same type.\n"
-     "Return an array which is the cumulative sum computed over `values`\n"
+     "Return an array which is the cumulative sum computed over `values.`\n"
+     "Null entries remain in place but are not used in calucating sum.\n"
      "`start` is an optional starting sum of computation."),
     {"values", "start"});
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec,
-                        std::shared_ptr<ScalarFunction> func) {
-    ScalarKernel kernel;
-    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
-    kernel.signature = CumulativeSumFunctor<NumberType>::GetSignature(get_id.id);
-    kernel.exec = std::move(exec);
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  };
-
-  auto cumulative_sum = std::make_shared<ScalarFunction>(
+  auto cumulative_sum = std::make_shared<VectorFunction>(
       "cumulative_sum", Arity::Binary(), &cumulative_sum_doc);
 
+  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec) {
+    VectorKernel kernel;
+    kernel.can_execute_chunkwise = true;
+    kernel.null_handling = NullHandling::type::INTERSECTION;
+    kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
+    kernel.signature = CumulativeSum<NumberType>::GetSignature(get_id.id);
+    kernel.exec = std::move(exec);
+    DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
+  };
+
   for (auto ty : NumericTypes()) {
-    add_kernel(ty, GenerateTypeAgnosticPrimitive<CumulativeSumFunctor>(ty),
-               cumulative_sum);
+    add_kernel(ty, GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
   }
+
+  for (auto ty : TemporalTypes()) {
+    add_kernel(ty, GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
+  }
+
+  add_kernel(Type::DURATION,
+             GenerateTypeAgnosticPrimitive<CumulativeSum>(Type::DURATION));
+  add_kernel(Type::INTERVAL_MONTHS,
+             GenerateTypeAgnosticPrimitive<CumulativeSum>(Type::INTERVAL_MONTHS));
 
   DCHECK_OK(registry->AddFunction(std::move(cumulative_sum)));
 }
-
-}  // namespace
 
 }  // namespace internal
 }  // namespace compute
