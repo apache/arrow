@@ -976,3 +976,7 @@ test_that("format() for unsupported types returns the input as string", {
       collect()
   )
 })
+
+test_that("conversion with as.difftime() works", {
+
+})

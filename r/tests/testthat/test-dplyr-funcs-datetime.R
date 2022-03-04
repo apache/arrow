@@ -1085,8 +1085,17 @@ test_that("difftime works correctly", {
     time2 = as.POSIXct(
       c("2021-02-20 00:02:01", "2021-07-31 00:03:54", "2021-10-31 00:05:45", "2021-01-31 00:07:36"),
       tz = "Europe/London"),
-    secs = c(121L, 234L, 345L, 456L)
+    time3 = as.POSIXct(
+      c("2021-02-20 02:01:00", "2021-07-31 03:54:00", "2021-10-31 05:45:00", "2021-01-31 07:36:00"),
+      tz = "Europe/London"),
+    secs = c(121L, 234L, 345L, 456L),
+    mins = c(121L, 234L, 345L, 456L)
   )
+
+  test_df %>%
+    arrow_table() %>%
+    mutate(mins2 = difftime(time1, time3, units = "mins")) %>%
+    collect()
 
   test_df %>%
     arrow_table() %>%
@@ -1095,6 +1104,7 @@ test_that("difftime works correctly", {
     ) %>%
     collect()
 
+  # fails but not because of difftime, but because of time + secs
   test_df %>%
     arrow_table() %>%
     mutate(
@@ -1103,12 +1113,31 @@ test_that("difftime works correctly", {
     ) %>%
     collect()
 
+  # fails due to different attributes
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = difftime(time1, time2, units = "secs")
+      ) %>%
+      collect(),
+    test_df
+  )
+
+  # passes
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = difftime(time1, time2, units = "secs")
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
 
   compare_dplyr_binding(
     .input %>%
       mutate(
-        nd = dates + secs,
-        secs2 = difftime(nd, dates, units = "secs")
+        mins2 = difftime(time1, time3, units = "mins")
       ) %>%
       collect(),
     test_df

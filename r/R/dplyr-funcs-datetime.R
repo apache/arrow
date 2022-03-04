@@ -187,6 +187,26 @@ register_bindings_datetime <- function() {
   })
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
+  })  
+  register_binding("difftime", function(time1,
+                                        time2,
+                                        tz,
+                                        units = c("auto", "secs", "mins",
+                                                  "hours", "days", "weeks")) {
+    # browser()
+    units <- match.arg(units)
+    if (units == "secs") {
+      # NB order of the args is different in the C++ kernel vs base::difftime()
+      build_expr("seconds_between", time2, time1)
+    } else if (units == "mins") {
+      build_expr("minutes_between", time2, time1)
+    } else if (units == "hours") {
+      build_expr("hours_between", time2, time1)
+    } else if (units == "days") {
+      build_expr("days_between", time2, time1)
+    } else if (units == "weeks") {
+      build_expr("weeks_between", time2, time1)
+    }
   })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
