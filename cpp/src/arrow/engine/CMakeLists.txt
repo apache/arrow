@@ -72,3 +72,5 @@ add_arrow_test(substrait_test
                "arrow-engine"
                LABELS
                "arrow_engine")
+
+add_subdirectory(substrait)
