@@ -24,7 +24,7 @@ unsupported:
   - datetime
   - duration
   - interval
-  - interval_mdn
+  - interval_month_day_nano
   - map
   - map_non_canonical
   - nested

@@ -24,7 +24,7 @@ unsupported:
   - decimal256
   - duration # TODO(ARROW-5239): Intervals + JS
   - interval # TODO(ARROW-5239): Intervals + JS
-  - interval_mdn
+  - interval_month_day_nano
   - map_non_canonical # TODO(ARROW-8716)
   - nested_large_offsets
   - union

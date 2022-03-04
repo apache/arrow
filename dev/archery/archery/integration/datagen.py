@@ -1407,7 +1407,7 @@ def generate_month_day_nano_interval_case():
     ]
 
     batch_sizes = [7, 10]
-    return _generate_file("interval_mdn", fields, batch_sizes)
+    return _generate_file("interval_month_day_nano", fields, batch_sizes)
 
 
 def generate_map_case():
@@ -1588,7 +1588,7 @@ CASES = {
     "datetime": generate_datetime_case,
     "duration": generate_duration_case,
     "interval": generate_interval_case,
-    "interval_mdn": generate_month_day_nano_interval_case,
+    "interval_month_day_nano": generate_month_day_nano_interval_case,
     "map": generate_map_case,
     "map_non_canonical": generate_non_canonical_map_case,
     "nested": generate_nested_case,

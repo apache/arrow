@@ -17,6 +17,8 @@
 
 # cli
 click
+
+# integration
 pydantic
 
 # bot, crossbow
