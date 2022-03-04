@@ -171,7 +171,7 @@ set(ARROW_FLIGHT_SRCS
     client.cc
     client_cookie_middleware.cc
     cookie_internal.cc
-    internal.cc
+    serialization_internal.cc
     server.cc
     server_auth.cc
     transport.cc
@@ -181,6 +181,7 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/grpc_server.cc
     transport/grpc/serialization_internal.cc
     transport/grpc/protocol_grpc_internal.cc
+    transport/grpc/util_internal.cc
     types.cc)
 
 add_arrow_lib(arrow_flight

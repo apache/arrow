@@ -50,7 +50,7 @@
 #include <grpc++/grpc++.h>
 #endif
 
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"
 

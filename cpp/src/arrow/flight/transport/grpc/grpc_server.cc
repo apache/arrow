@@ -33,11 +33,12 @@
 #endif
 
 #include "arrow/buffer.h"
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/serialization_internal.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/logging.h"
@@ -126,7 +127,7 @@ class GrpcServerCallContext : public ServerCallContext {
   // then returns the final gRPC status to send to the client
   ::grpc::Status FinishRequest(const ::grpc::Status& status) {
     // Don't double-convert status - return the original one here
-    FinishRequest(internal::FromGrpcStatus(status));
+    FinishRequest(FromGrpcStatus(status));
     return status;
   }
 
@@ -137,7 +138,7 @@ class GrpcServerCallContext : public ServerCallContext {
 
     // Set custom headers to map the exact Arrow status for clients
     // who want it.
-    return internal::ToGrpcStatus(status, context_);
+    return ToGrpcStatus(status, context_);
   }
 
   ServerMiddleware* GetMiddleware(const std::string& key) const override {
@@ -291,7 +292,7 @@ class GrpcServiceHandler final : public FlightService::Service {
       }
     } else {
       const auto client_metadata = context->client_metadata();
-      const auto auth_header = client_metadata.find(internal::kGrpcAuthHeader);
+      const auto auth_header = client_metadata.find(kGrpcAuthHeader);
       std::string token;
       if (auth_header == client_metadata.end()) {
         token = "";

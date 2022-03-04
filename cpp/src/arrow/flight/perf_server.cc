@@ -36,8 +36,8 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/internal.h"
 #include "arrow/flight/perf.pb.h"
+#include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/test_util.h"
 
 #ifdef ARROW_CUDA

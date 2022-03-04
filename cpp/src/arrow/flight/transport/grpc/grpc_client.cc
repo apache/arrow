@@ -49,10 +49,11 @@
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/cookie_internal.h"
-#include "arrow/flight/internal.h"
 #include "arrow/flight/middleware.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/serialization_internal.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 
 namespace arrow {
@@ -84,7 +85,7 @@ struct ClientRpc {
     if (auth_handler) {
       std::string token;
       RETURN_NOT_OK(auth_handler->GetToken(&token));
-      context.AddMetadata(internal::kGrpcAuthHeader, token);
+      context.AddMetadata(kGrpcAuthHeader, token);
     }
     return Status::OK();
   }
@@ -131,7 +132,7 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
       DCHECK_NE(nullptr, methods->GetRecvStatus());
       DCHECK_NE(nullptr, methods->GetRecvTrailingMetadata());
       ReceivedHeaders(*methods->GetRecvTrailingMetadata());
-      const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
+      const Status status = FromGrpcStatus(*methods->GetRecvStatus());
       for (const auto& middleware : middleware_) {
         middleware->CallCompleted(status);
       }
@@ -231,7 +232,7 @@ class GrpcClientAuthSender : public ClientAuthSender {
     if (stream_->Write(response)) {
       return Status::OK();
     }
-    return internal::FromGrpcStatus(stream_->Finish());
+    return FromGrpcStatus(stream_->Finish());
   }
 
  private:
@@ -253,7 +254,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
       *token = std::move(*request.mutable_payload());
       return Status::OK();
     }
-    return internal::FromGrpcStatus(stream_->Finish());
+    return FromGrpcStatus(stream_->Finish());
   }
 
  private:
@@ -292,7 +293,7 @@ class FinishableDataStream : public internal::ClientDataStream {
       // Drain the read side to avoid gRPC hanging in Finish()
     }
 
-    server_status_ = internal::FromGrpcStatus(stream_->Finish(), &rpc_->context);
+    server_status_ = FromGrpcStatus(stream_->Finish(), &rpc_->context);
     if (!server_status_.ok()) {
       server_status_ = Status::FromDetailAndArgs(
           server_status_.code(), server_status_.detail(), server_status_.message(),
@@ -712,7 +713,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     // Explicitly close our side of the connection
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
+    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
@@ -731,7 +732,7 @@ class GrpcClientImpl : public internal::ClientTransport {
         stream = stub_->Handshake(&rpc.context);
     // Explicitly close our side of the connection.
     bool finished_writes = stream->WritesDone();
-    RETURN_NOT_OK(internal::FromGrpcStatus(stream->Finish(), &rpc.context));
+    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
@@ -761,7 +762,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
     RETURN_NOT_OK(options.stop_token.Poll());
     listing->reset(new SimpleFlightListing(std::move(flights)));
-    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
+    return FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
@@ -787,7 +788,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     *results = std::unique_ptr<ResultStream>(
         new SimpleResultStream(std::move(materialized_results)));
-    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
+    return FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status ListActions(const FlightCallOptions& options,
@@ -807,7 +808,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     }
     if (options.stop_token.IsStopRequested()) rpc.context.TryCancel();
     RETURN_NOT_OK(options.stop_token.Poll());
-    return internal::FromGrpcStatus(stream->Finish(), &rpc.context);
+    return FromGrpcStatus(stream->Finish(), &rpc.context);
   }
 
   Status GetFlightInfo(const FlightCallOptions& options,
@@ -820,7 +821,7 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
-    Status s = internal::FromGrpcStatus(
+    Status s = FromGrpcStatus(
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
@@ -839,8 +840,8 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     ClientRpc rpc(options);
     RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
-    Status s = internal::FromGrpcStatus(
-        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
+    Status s = FromGrpcStatus(stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response),
+                              &rpc.context);
     RETURN_NOT_OK(s);
 
     std::string str;

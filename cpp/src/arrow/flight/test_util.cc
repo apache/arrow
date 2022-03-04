@@ -43,7 +43,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_util.h"
 
 namespace arrow {

@@ -50,9 +50,9 @@
 
 #include "arrow/buffer.h"
 #include "arrow/device.h"
-#include "arrow/flight/internal.h"
-#include "arrow/flight/server.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/util/bit_util.h"
@@ -287,7 +287,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         auto status = SliceFromBuffer(buffer).Value(&slice);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
           // This will likely lead to abort as gRPC cannot recover from an error here
-          return arrow::flight::internal::ToGrpcStatus(status);
+          return ToGrpcStatus(status);
         }
         slices.push_back(std::move(slice));
 
