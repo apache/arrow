@@ -36,6 +36,7 @@
 #include "gandiva/node.h"
 #include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/visibility.h"
+#include "gdv_function_stubs.h"
 
 namespace gandiva {
 /// Super class for function holder for FromDate
@@ -68,7 +69,8 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
     std::string ret_str = iss.str();
     size_t length = strlen(ret_str.c_str()) + 1;
 
-    char* ret = new char[length];
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
@@ -155,7 +157,7 @@ class GANDIVA_EXPORT FromDateFunctionsHolder : public FunctionHolder {
     std::shared_ptr<std::string> transformed_pattern;
     ARROW_RETURN_NOT_OK(DateUtils::ToInternalFormat(sql_pattern, &transformed_pattern));
     auto lholder = std::shared_ptr<HOLDER_TYPE>(
-        new HOLDER_TYPE(*(transformed_pattern.get()), suppress_errors));
+        new HOLDER_TYPE(*(transformed_pattern), suppress_errors));
     *holder = lholder;
     return Status::OK();
   }
@@ -223,7 +225,8 @@ class GANDIVA_EXPORT FromUtcFunctionsHolder : public FunctionHolder {
 
     size_t length = 20;
 
-    char* ret = new char[length];
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
@@ -344,7 +347,8 @@ class GANDIVA_EXPORT FromUtcTimestampUtf8Holder
 
     size_t length = 20;
 
-    char* ret = new char[length];
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
@@ -405,7 +409,8 @@ class GANDIVA_EXPORT FromUtcTimestampInt32Holder
 
     size_t length = 20;
 
-    char* ret = new char[length];
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
@@ -501,9 +506,10 @@ class GANDIVA_EXPORT FromUtcTimestampFloat32Holder
     std::string ret_str = iss.str();
     ret_str = ret_str.substr(0, ret_str.find('.'));
 
-    size_t length = 20;
-
-    char* ret = new char[length];
+    int length = 20;
+    // Allocate length = 20;
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
@@ -566,7 +572,8 @@ class GANDIVA_EXPORT FromUtcTimestampFloat64Holder
 
     size_t length = 20;
 
-    char* ret = new char[length];
+    char* ret = reinterpret_cast<char*>(
+        gdv_fn_context_arena_malloc(reinterpret_cast<int64_t>(context), (20)));
 
     memcpy(ret, ret_str.c_str(), length);
 
