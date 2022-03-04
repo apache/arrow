@@ -139,3 +139,21 @@ test_that("reader with 0 batches", {
   expect_r6_class(tab, "Table")
   expect_identical(dim(tab), c(0L, 1L))
 })
+
+test_that("reader head method edge cases", {
+  batch <- record_batch(
+    x = 1:10,
+    y = letters[1:10]
+  )
+  sink <- BufferOutputStream$create()
+  writer <- RecordBatchStreamWriter$create(sink, batch$schema)
+  writer$write(batch)
+  writer$write(batch)
+  writer$close()
+  buf <- sink$finish()
+
+  reader <- RecordBatchStreamReader$create(buf)
+  expect_error(head(reader, -1)) # Not (yet) supported
+  expect_equal(head(reader, 0), Table$create(x = integer(0), y = character(0)))
+  expect_equal(head(reader, 100), Table$create(batch, batch))
+})

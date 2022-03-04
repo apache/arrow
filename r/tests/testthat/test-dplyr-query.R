@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -60,7 +60,7 @@ test_that("Print method", {
       filter(int < 5) %>%
       select(int, chr) %>%
       print(),
-    'InMemoryDataset (query)
+    'RecordBatch (query)
 int: int32
 chr: string
 

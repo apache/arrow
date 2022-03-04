@@ -436,8 +436,12 @@ ExecNode_Join <- function(input, type, right_data, left_keys, right_keys, left_o
   .Call(`_arrow_ExecNode_Join`, input, type, right_data, left_keys, right_keys, left_output, right_output)
 }
 
-ExecNode_ReadFromRecordBatchReader <- function(plan, reader) {
-  .Call(`_arrow_ExecNode_ReadFromRecordBatchReader`, plan, reader)
+ExecNode_SourceNode <- function(plan, reader) {
+  .Call(`_arrow_ExecNode_SourceNode`, plan, reader)
+}
+
+ExecNode_TableSourceNode <- function(plan, table) {
+  .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
 RecordBatch__cast <- function(batch, schema, options) {
@@ -1654,6 +1658,10 @@ RecordBatchReader__batches <- function(reader) {
 
 Table__from_RecordBatchReader <- function(reader) {
   .Call(`_arrow_Table__from_RecordBatchReader`, reader)
+}
+
+RecordBatchReader__Head <- function(reader, num_rows) {
+  .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
 }
 
 ipc___RecordBatchStreamReader__Open <- function(stream) {

@@ -582,17 +582,25 @@ test_that("map_batches", {
 test_that("head/tail", {
   # head/tail with no query are still deterministic order
   ds <- open_dataset(dataset_dir)
-  expect_equal(as.data.frame(head(ds)), head(df1))
-  expect_equal(
-    as.data.frame(head(ds, 12)),
-    rbind(df1, df2[1:2, ])
-  )
+  big_df <- rbind(df1, df2)
 
+  # No n provided (default is 6, all from one batch)
+  expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(as.data.frame(tail(ds)), tail(df2))
-  expect_equal(
-    as.data.frame(tail(ds, 12)),
-    rbind(df1[9:10, ], df2)
-  )
+
+  # n = 0: have to drop `fct` because factor levels don't come through from
+  # arrow when there are 0 rows
+  zero_df <- big_df[FALSE, names(big_df) != "fct"]
+  expect_equal(as.data.frame(head(ds, 0))[, names(ds) != "fct"], zero_df)
+  expect_equal(as.data.frame(tail(ds, 0))[, names(ds) != "fct"], zero_df)
+
+  # Two more cases: more than 1 batch, and more than nrow
+  for (n in c(12, 1000)) {
+    expect_equal(as.data.frame(head(ds, n)), head(big_df, n))
+    expect_equal(as.data.frame(tail(ds, n)), tail(big_df, n))
+  }
+  expect_error(head(ds, -1)) # Not yet implemented
+  expect_error(tail(ds, -1)) # Not yet implemented
 })
 
 test_that("Dataset [ (take by index)", {
@@ -881,7 +889,8 @@ test_that("dataset to C-interface to arrow_dplyr_query with proj/filter", {
   scan <- Scanner$create(
     ds,
     projection = names(ds),
-    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L)))
+    filter = Expression$create("less", Expression$field_ref("int"), Expression$scalar(8L))
+  )
   reader <- scan$ToRecordBatchReader()
   reader$export_to_c(stream_ptr)
 

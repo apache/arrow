@@ -125,10 +125,7 @@ arrow_available <- function() {
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  is_32bit <- .Machine$sizeof.pointer < 8
-  is_old_r <- getRversion() < "4.0.0"
-  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
-  if (is_32bit && is_old_r && is_windows) {
+  if (on_old_windows()) {
     # 32-bit rtools 3.5 does not properly implement the std::thread expectations
     # but we can't just disable ARROW_DATASET in that build,
     # so report it as "off" here.
@@ -137,6 +134,14 @@ arrow_with_dataset <- function() {
   tryCatch(.Call(`_dataset_available`), error = function(e) {
     return(FALSE)
   })
+}
+
+on_old_windows <- function() {
+  is_32bit <- .Machine$sizeof.pointer < 8
+  is_old_r <- getRversion() < "4.0.0"
+  is_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+  is_32bit && is_old_r && is_windows
 }
 
 #' @rdname arrow_available
