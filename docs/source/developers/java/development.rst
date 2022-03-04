@@ -35,34 +35,6 @@ To speed up the build, you can skip them by passing -DskipTests.
         -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni \
         -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data \
         clean install
-    [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
-    [INFO]
-    [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  7.308 s]
-    [INFO] Arrow Format ....................................... SUCCESS [  4.899 s]
-    [INFO] Arrow Memory ....................................... SUCCESS [  2.065 s]
-    [INFO] Arrow Memory - Core ................................ SUCCESS [ 11.417 s]
-    [INFO] Arrow Memory - Unsafe .............................. SUCCESS [  8.132 s]
-    [INFO] Arrow Memory - Netty ............................... SUCCESS [ 10.211 s]
-    [INFO] Arrow Vectors ...................................... SUCCESS [01:48 min]
-    [INFO] Arrow Compression .................................. SUCCESS [  7.282 s]
-    [INFO] Arrow Tools ........................................ SUCCESS [ 12.612 s]
-    [INFO] Arrow JDBC Adapter ................................. SUCCESS [ 15.558 s]
-    [INFO] Arrow Plasma Client ................................ SUCCESS [  6.303 s]
-    [INFO] Arrow Flight ....................................... SUCCESS [  2.326 s]
-    [INFO] Arrow Flight Core .................................. SUCCESS [ 50.632 s]
-    [INFO] Arrow Flight GRPC .................................. SUCCESS [  9.932 s]
-    [INFO] Arrow Flight SQL ................................... SUCCESS [ 22.559 s]
-    [INFO] Arrow Flight Integration Tests ..................... SUCCESS [  9.649 s]
-    [INFO] Arrow AVRO Adapter ................................. SUCCESS [ 17.145 s]
-    [INFO] Arrow Algorithms ................................... SUCCESS [ 44.571 s]
-    [INFO] Arrow Performance Benchmarks ....................... SUCCESS [  9.202 s]
-    [INFO] Arrow Java C Data Interface ........................ SUCCESS [ 15.794 s]
-    [INFO] Arrow Orc Adapter .................................. SUCCESS [ 14.205 s]
-    [INFO] Arrow Gandiva ...................................... SUCCESS [02:06 min]
-    [INFO] Arrow Java Dataset ................................. SUCCESS [ 15.261 s]
-    [INFO] ------------------------------------------------------------------------
-    [INFO] BUILD SUCCESS
-    [INFO] ------------------------------------------------------------------------
 
 Performance Testing
 ===================

@@ -32,7 +32,7 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JRE 8, 9, 10, 11
+* JRE 8, 9, 10, 11. Consider: Battle tested by arrow CI checks: JRE 11 (defined: `java.yml`_, result: `java.runs`_)
 * Maven 3+
 
 Building
@@ -58,35 +58,11 @@ To build the default modules, go to the project root and execute:
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
     $ mvn clean install
-    [INFO] Reactor Summary for Apache Arrow Java Root POM 8.0.0-SNAPSHOT:
-    [INFO]
-    [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  4.922 s]
-    [INFO] Arrow Format ....................................... SUCCESS [  4.395 s]
-    [INFO] Arrow Memory ....................................... SUCCESS [  0.938 s]
-    [INFO] Arrow Memory - Core ................................ SUCCESS [ 11.491 s]
-    [INFO] Arrow Memory - Unsafe .............................. SUCCESS [  5.449 s]
-    [INFO] Arrow Memory - Netty ............................... SUCCESS [  8.754 s]
-    [INFO] Arrow Vectors ...................................... SUCCESS [01:37 min]
-    [INFO] Arrow Compression .................................. SUCCESS [  5.907 s]
-    [INFO] Arrow Tools ........................................ SUCCESS [ 11.015 s]
-    [INFO] Arrow JDBC Adapter ................................. SUCCESS [ 13.751 s]
-    [INFO] Arrow Plasma Client ................................ SUCCESS [  3.934 s]
-    [INFO] Arrow Flight ....................................... SUCCESS [  0.649 s]
-    [INFO] Arrow Flight Core .................................. SUCCESS [ 38.331 s]
-    [INFO] Arrow Flight GRPC .................................. SUCCESS [  5.894 s]
-    [INFO] Arrow Flight SQL ................................... SUCCESS [ 21.862 s]
-    [INFO] Arrow Flight Integration Tests ..................... SUCCESS [  7.638 s]
-    [INFO] Arrow AVRO Adapter ................................. SUCCESS [ 14.447 s]
-    [INFO] Arrow Algorithms ................................... SUCCESS [ 35.105 s]
-    [INFO] Arrow Performance Benchmarks ....................... SUCCESS [  5.323 s]
-    [INFO] ------------------------------------------------------------------------
-    [INFO] BUILD SUCCESS
-    [INFO] ------------------------------------------------------------------------\
 
 Building JNI Libraries on Linux
 -------------------------------
 
-For Build C Data Interface lib & Build C++ Libs. Consider: Next step requires: Docker, Docker Compose, `archery`_.
+For Build C Data Interface lib & Build C++ Libs (`archery`_ needs docker and docker compose installed locally):
 
 .. code-block::
 
@@ -179,31 +155,6 @@ To compile the JNI bindings, use the ``arrow-c-data`` Maven profile:
 
     $ cd arrow/java
     $ mvn -Darrow.c.jni.dist.dir=../java-dist/lib -Parrow-c-data clean install
-    [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
-    [INFO]
-    [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  4.385 s]
-    [INFO] Arrow Format ....................................... SUCCESS [  4.832 s]
-    [INFO] Arrow Memory ....................................... SUCCESS [  1.862 s]
-    [INFO] Arrow Memory - Core ................................ SUCCESS [ 12.162 s]
-    [INFO] Arrow Memory - Unsafe .............................. SUCCESS [  6.768 s]
-    [INFO] Arrow Memory - Netty ............................... SUCCESS [  6.897 s]
-    [INFO] Arrow Vectors ...................................... SUCCESS [01:43 min]
-    [INFO] Arrow Compression .................................. SUCCESS [  6.510 s]
-    [INFO] Arrow Tools ........................................ SUCCESS [ 13.280 s]
-    [INFO] Arrow JDBC Adapter ................................. SUCCESS [ 13.726 s]
-    [INFO] Arrow Plasma Client ................................ SUCCESS [  5.237 s]
-    [INFO] Arrow Flight ....................................... SUCCESS [  0.809 s]
-    [INFO] Arrow Flight Core .................................. SUCCESS [ 47.461 s]
-    [INFO] Arrow Flight GRPC .................................. SUCCESS [  6.864 s]
-    [INFO] Arrow Flight SQL ................................... SUCCESS [ 20.334 s]
-    [INFO] Arrow Flight Integration Tests ..................... SUCCESS [  7.542 s]
-    [INFO] Arrow AVRO Adapter ................................. SUCCESS [ 13.826 s]
-    [INFO] Arrow Algorithms ................................... SUCCESS [ 32.442 s]
-    [INFO] Arrow Performance Benchmarks ....................... SUCCESS [  5.418 s]
-    [INFO] Arrow Java C Data Interface ........................ SUCCESS [  7.907 s]
-    [INFO] ------------------------------------------------------------------------
-    [INFO] BUILD SUCCESS
-    [INFO] ------------------------------------------------------------------------
 
 To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` Maven profile:
 
@@ -211,33 +162,6 @@ To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` M
 
     $ cd arrow/java
     $ mvn -Darrow.cpp.build.dir=../java-dist/lib -Parrow-jni clean install
-    [INFO] Reactor Summary for Apache Arrow Java Root POM 7.0.0:
-    [INFO]
-    [INFO] Apache Arrow Java Root POM ......................... SUCCESS [  7.342 s]
-    [INFO] Arrow Format ....................................... SUCCESS [  2.417 s]
-    [INFO] Arrow Memory ....................................... SUCCESS [  1.967 s]
-    [INFO] Arrow Memory - Core ................................ SUCCESS [  4.714 s]
-    [INFO] Arrow Memory - Unsafe .............................. SUCCESS [  3.157 s]
-    [INFO] Arrow Memory - Netty ............................... SUCCESS [  3.334 s]
-    [INFO] Arrow Vectors ...................................... SUCCESS [ 21.791 s]
-    [INFO] Arrow Compression .................................. SUCCESS [  3.854 s]
-    [INFO] Arrow Tools ........................................ SUCCESS [  8.359 s]
-    [INFO] Arrow JDBC Adapter ................................. SUCCESS [  8.847 s]
-    [INFO] Arrow Plasma Client ................................ SUCCESS [  2.459 s]
-    [INFO] Arrow Flight ....................................... SUCCESS [  2.357 s]
-    [INFO] Arrow Flight Core .................................. SUCCESS [ 38.837 s]
-    [INFO] Arrow Flight GRPC .................................. SUCCESS [  5.955 s]
-    [INFO] Arrow Flight SQL ................................... SUCCESS [ 17.390 s]
-    [INFO] Arrow Flight Integration Tests ..................... SUCCESS [  6.148 s]
-    [INFO] Arrow AVRO Adapter ................................. SUCCESS [  9.635 s]
-    [INFO] Arrow Algorithms ................................... SUCCESS [ 26.949 s]
-    [INFO] Arrow Performance Benchmarks ....................... SUCCESS [  4.211 s]
-    [INFO] Arrow Orc Adapter .................................. SUCCESS [  6.522 s]
-    [INFO] Arrow Gandiva ...................................... SUCCESS [01:20 min]
-    [INFO] Arrow Java Dataset ................................. SUCCESS [ 12.949 s]
-    [INFO] ------------------------------------------------------------------------
-    [INFO] BUILD SUCCESS
-    [INFO] ------------------------------------------------------------------------
 
 IDE Configuration
 =================
@@ -250,30 +174,30 @@ Go to open java project and select java folder.
 This is the initial view for java project loaded with default profiles:
 
 .. image:: img/java_welcome.png
-   :alt: An example image for opening java project
+   :alt: An example image to opening java project
 
 Let's create our maven configuration: java-dataset
 
 .. image:: img/java_mvn_configuration.png
-   :alt: An example image for create new maven configurations and parameters needed
+   :alt: An example image to create new maven configurations and parameters needed
 
 Let's define our JRE runner:
 
 .. image:: img/java_jre_runner.png
-   :alt: An example image for create new maven configurations and JRE configured
+   :alt: An example image to create new maven configurations and JRE configured
 
 Let's configure additional environment variables:
 
 .. image:: img/java_jre_env_properties.png
-   :alt: An example image for create new maven configurations and runners parameters
+   :alt: An example image to create new maven configurations and runners parameters
 
 Let's run our java-dataset maven configuration:
 
 .. image:: img/java_run_mvn_configuration.png
-   :alt: An example image for how to run new maven configuration created
+   :alt: An example image to how to run new maven configuration created
 
 .. image:: img/java_run_mvn_configuration_result.png
-   :alt: An example image for results of run new maven configuration created
+   :alt: An example image to see results of run new maven configuration created
 
 Common Errors
 =============
@@ -294,5 +218,7 @@ Common Errors
         -DORC_SOURCE=BUNDLED \
         -DZLIB_SOURCE=BUNDLED
 
-.. _archery: https://arrow.apache.org/docs/developers/continuous_integration/archery.html
+.. _archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
+.. _java.yml: https://github.com/apache/arrow/blob/master/.github/workflows/java.yml
+.. _java.runs: https://github.com/apache/arrow/runs/4160229542?check_suite_focus=true
