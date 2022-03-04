@@ -168,7 +168,7 @@ verify_dir_artifact_signatures() {
 
 test_binary() {
   show_header "Testing binary artifacts"
-  setup_conda || exit 1
+  maybe_setup_conda || exit 1
 
   local download_dir=binaries
   mkdir -p ${download_dir}
@@ -424,7 +424,7 @@ install_conda() {
   conda activate base
 }
 
-setup_conda() {
+maybe_setup_conda() {
   # Optionally setup conda environment with the passed dependencies
   local env="conda-${ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
@@ -455,7 +455,7 @@ setup_conda() {
   fi
 }
 
-setup_virtualenv() {
+maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
   local env="venv-${ENV:-source}"
   local pyver=${PYTHON_VERSION:-3}
@@ -499,19 +499,19 @@ setup_virtualenv() {
     # Install dependencies
     if [ $# -gt 0 ]; then
       show_info "Installed pip packages $@..."
-      pip install $@
+      pip install "$@"
     fi
   fi
 }
 
-setup_go() {
+maybe_setup_go() {
   show_info "Ensuring that Go is installed..."
   if [ "${USE_CONDA}" -eq 0 ]; then
     install_go
   fi
 }
 
-setup_nodejs() {
+maybe_setup_nodejs() {
   show_info "Ensuring that NodeJS is installed..."
   if [ "${USE_CONDA}" -eq 0 ]; then
     install_nodejs
@@ -522,7 +522,7 @@ test_package_java() {
   show_header "Build and test Java libraries"
 
   # Build and test Java (Requires newer Maven -- I used 3.3.9)
-  setup_conda maven || exit 1
+  maybe_setup_conda maven || exit 1
 
   pushd java
   mvn test
@@ -534,8 +534,8 @@ test_and_install_cpp() {
   show_header "Build, install and test C++ libraries"
 
   # Build and test C++
-  setup_virtualenv numpy || exit 1
-  setup_conda \
+  maybe_setup_virtualenv numpy || exit 1
+  maybe_setup_conda \
     --file ci/conda_env_unix.txt \
     --file ci/conda_env_cpp.txt \
     --file ci/conda_env_gandiva.txt \
@@ -618,8 +618,8 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
-  setup_conda --file ci/conda_env_python.txt || exit 1
+  maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
+  maybe_setup_conda --file ci/conda_env_python.txt || exit 1
 
   export PYARROW_PARALLEL=$NPROC
   export PYARROW_WITH_DATASET=1
@@ -685,11 +685,11 @@ import pyarrow.parquet
 }
 
 test_glib() {
-  show_header "Build and test C Glib libraries"
+  show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  setup_conda glib gobject-introspection meson ninja ruby || exit 1
-  setup_virtualenv meson || exit 1
+  maybe_setup_conda glib gobject-introspection meson ninja ruby || exit 1
+  maybe_setup_virtualenv meson || exit 1
 
   # Install bundler if doesn't exist
   if ! bundle --version; then
@@ -723,8 +723,8 @@ test_ruby() {
   show_header "Build and test Ruby libraries"
 
   # required dependencies are installed by test_glib
-  setup_conda || exit 1
-  setup_virtualenv || exit 1
+  maybe_setup_conda || exit 1
+  maybe_setup_virtualenv || exit 1
 
   which ruby
   which bundle
@@ -782,8 +782,8 @@ test_csharp() {
 test_js() {
   show_header "Build and test JavaScript libraries"
 
-  setup_nodejs || exit 1
-  setup_conda nodejs=17 || exit 1
+  maybe_setup_nodejs || exit 1
+  maybe_setup_conda nodejs=17 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install -g yarn
@@ -802,8 +802,8 @@ test_js() {
 test_go() {
   show_header "Build and test Go libraries"
 
-  setup_go || exit 1
-  setup_conda compilers go=1.17 || exit 1
+  maybe_setup_go || exit 1
+  maybe_setup_conda compilers go=1.17 || exit 1
 
   pushd go/arrow
   go get -v ./...
@@ -816,8 +816,8 @@ test_go() {
 test_integration() {
   show_header "Build and execute integration tests"
 
-  setup_conda || exit 1
-  setup_virtualenv || exit 1
+  maybe_setup_conda || exit 1
+  maybe_setup_virtualenv || exit 1
 
   pip install -e dev/archery
 
@@ -964,8 +964,8 @@ test_linux_wheels() {
     local pyver=${python/m}
     for platform in ${platform_tags}; do
       show_header "Testing Python ${pyver} wheel for platform ${platform}"
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ${ARROW_SOURCE_DIR}/ci/scripts/python_wheel_unix_test.sh ${ARROW_SOURCE_DIR}
     done
@@ -995,8 +995,8 @@ test_macos_wheels() {
         check_s3=OFF
       fi
 
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_conda || exit 1
-      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} setup_virtualenv || continue
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_conda || exit 1
+      ENV=wheel-${pyver}-${platform} PYTHON_VERSION=${pyver} maybe_setup_virtualenv || continue
 
       pip install pyarrow-${VERSION}-cp${pyver/.}-cp${python/.}-${platform}.whl
       INSTALL_PYARROW=OFF ARROW_FLIGHT=${check_flight} ARROW_S3=${check_s3} \
@@ -1013,7 +1013,7 @@ test_macos_wheels() {
 
       # create and activate a virtualenv for testing as arm64
       for arch in "arm64" "x86_64"; do
-        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} setup_virtualenv || continue
+        ENV=wheel-${pyver}-universal2-${arch} PYTHON=${python} maybe_setup_virtualenv || continue
         # install pyarrow's universal2 wheel
         pip install pyarrow-${VERSION}-cp${pyver/.}-cp${pyver/.}-macosx_11_0_universal2.whl
         # check the imports and execute the unittests
@@ -1026,7 +1026,7 @@ test_macos_wheels() {
 
 test_wheels() {
   show_header "Downloading Python wheels"
-  setup_conda python || exit 1
+  maybe_setup_conda python || exit 1
 
   local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
@@ -1057,7 +1057,7 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
-  setup_conda maven python || exit 1
+  maybe_setup_conda maven python || exit 1
 
   local download_dir=jars
   mkdir -p ${download_dir}
