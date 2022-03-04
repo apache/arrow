@@ -15,15 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-
-.. SCOPE OF THIS SECTION
-.. This section should include extra description to the
-.. language-specific documentation. Possible topics to
-.. add: How to run one test, test file or all the tests
-.. together and why is it good to do that.
-.. What if the unconnected tests start failing? etc.
-
-
 .. _styling:
 
 **********
@@ -40,9 +31,10 @@ linters and styling of the code.
 
    .. tab:: PyArrow
 
-      To checking styling issues in Python files we use the
-      :ref:`Archery utility<archery>` tool developed within Apache
-      Arrow to ease some of the development tasks.
+      We use flake8 linting for styling issues in Python. To help
+      developers check styling of the code, among other common
+      development tasks, :ref:`Archery utility<archery>` tool was
+      developed within Apache Arrow.
 
       The instructions on how to set up and use Archery
       can be found in the Coding Style section of the
