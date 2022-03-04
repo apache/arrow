@@ -90,8 +90,7 @@ constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
-// then PopulateColumns. PopulateColumns must be called in the reverse order of the
-// populators (it populates data backwards).
+// then PopulateRows.
 class ColumnPopulator {
  public:
   ColumnPopulator(MemoryPool* pool, std::string end_chars,
@@ -117,14 +116,13 @@ class ColumnPopulator {
   }
 
   // Places string data onto each row in output and updates the corresponding row
-  // pointers in preparation for calls to other (preceding) ColumnPopulators.
+  // pointers in preparation for calls to other (next) ColumnPopulators.
   // Implementations may apply certain checks e.g. for illegal values, which in case of
   // failure causes this function to return an error Status.
   // Args:
   //   output: character buffer to write to.
-  //   offsets: an array of end of row column within the the output buffer (values are
-  //   one past the end of the position to write to).
-  virtual Status PopulateColumns(char* output, int32_t* offsets) const = 0;
+  //   offsets: an array of start of row column within the output buffer.
+  virtual Status PopulateRows(char* output, int32_t* offsets) const = 0;
 
  protected:
   virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
@@ -136,15 +134,14 @@ class ColumnPopulator {
   MemoryPool* const pool_;
 };
 
-// Copies the contents of to out properly escaping any necessary characters.
-// Returns the position prior to last copied character (out_end is decremented).
-char* EscapeReverse(arrow::util::string_view s, char* out_end) {
-  for (const char* val = s.data() + s.length() - 1; val >= s.data(); val--, out_end--) {
-    if (*val == '"') {
-      *out_end = *val;
-      out_end--;
+// Copies the contents of s to out properly escaping any necessary characters.
+// Returns the position next to last copied character.
+char* Escape(arrow::util::string_view s, char* out_end) {
+  for (const char c : s) {
+    *out_end++ = c;
+    if (c == '"') {
+      *out_end++ = '"';
     }
-    *out_end = *val;
   }
   return out_end;
 }
@@ -184,14 +181,12 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  Status PopulateColumns(char* output, int32_t* offsets) const override {
+  Status PopulateRows(char* output, int32_t* offsets) const override {
     // Function applied to valid values cast to string.
     auto valid_function = [&](arrow::util::string_view s) {
-      int32_t next_column_offset = static_cast<int32_t>(s.length() + end_chars_.size());
-      memcpy((output + *offsets - next_column_offset), s.data(), s.length());
-      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
-             end_chars_.size());
-      *offsets -= next_column_offset;
+      memcpy(output + *offsets, s.data(), s.length());
+      memcpy(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
+      *offsets += static_cast<int32_t>(s.length() + end_chars_.size());
       offsets++;
       return Status::OK();
     };
@@ -199,13 +194,10 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     // Function applied to null values cast to string.
     auto null_function = [&]() {
       // For nulls, the configured null value string is copied into the output.
-      int32_t next_column_offset =
-          static_cast<int32_t>(null_string_->size() + end_chars_.size());
-      memcpy((output + *offsets - next_column_offset), null_string_->data(),
-             null_string_->size());
-      memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+      memcpy(output + *offsets, null_string_->data(), null_string_->size());
+      memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
              end_chars_.size());
-      *offsets -= next_column_offset;
+      *offsets += static_cast<int32_t>(null_string_->size() + end_chars_.size());
       offsets++;
       return Status::OK();
     };
@@ -309,40 +301,33 @@ class QuotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  Status PopulateColumns(char* output, int32_t* offsets) const override {
+  Status PopulateRows(char* output, int32_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
     VisitArrayDataInline<StringType>(
         *(casted_array_->data()),
         [&](arrow::util::string_view s) {
           // still needs string content length to be added
-          char* row_end = output + *offsets;
-          int32_t next_column_offset = 0;
+          char* row = output + *offsets;
+          *row++ = '"';
           if (!*needs_escaping) {
-            next_column_offset = static_cast<int32_t>(s.length() + kQuoteDelimiterCount);
-            memcpy(row_end - next_column_offset + /*quote_offset=*/1, s.data(),
-                   s.length());
+            memcpy(row, s.data(), s.length());
+            row += s.length();
           } else {
-            // Adjust row_end by 2 + end_chars_.size(): 1 quote char, end_chars_.size()
-            // and 1 to position at the first position to write to.
-            next_column_offset = static_cast<int32_t>(
-                row_end - EscapeReverse(s, row_end - 2 - end_chars_.size()));
+            row = Escape(s, row);
           }
-          *(row_end - next_column_offset) = '"';
-          *(row_end - end_chars_.size() - 1) = '"';
-          memcpy(row_end - end_chars_.size(), end_chars_.data(), end_chars_.length());
-          *offsets -= next_column_offset;
+          *row++ = '"';
+          memcpy(row, end_chars_.data(), end_chars_.length());
+          row += end_chars_.length();
+          *offsets += static_cast<int32_t>(row - (output + *offsets));
           offsets++;
           needs_escaping++;
         },
         [&]() {
           // For nulls, the configured null value string is copied into the output.
-          int32_t next_column_offset =
-              static_cast<int32_t>(null_string_->size() + end_chars_.size());
-          memcpy((output + *offsets - next_column_offset), null_string_->data(),
-                 null_string_->size());
-          memcpy((output + *offsets - end_chars_.size()), end_chars_.c_str(),
+          memcpy(output + *offsets, null_string_->data(), null_string_->size());
+          memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
                  end_chars_.size());
-          *offsets -= next_column_offset;
+          *offsets += static_cast<int32_t>(null_string_->size() + end_chars_.size());
           offsets++;
           needs_escaping++;
         });
@@ -544,17 +529,19 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   Status WriteHeader() {
     // Only called once, as part of initialization
     RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
-    char* next = reinterpret_cast<char*>(data_buffer_->mutable_data() +
-                                         data_buffer_->size() - options_.eol.size());
-    for (int col = schema_->num_fields() - 1; col >= 0; col--) {
-      *next-- = options_.delimiter;
-      *next-- = '"';
-      next = EscapeReverse(schema_->field(col)->name(), next);
-      *next-- = '"';
+    char* next = reinterpret_cast<char*>(data_buffer_->mutable_data());
+    for (int col = 0; col < schema_->num_fields(); ++col) {
+      *next++ = '"';
+      next = Escape(schema_->field(col)->name(), next);
+      *next++ = '"';
+      if (col != schema_->num_fields() - 1) {
+        *next++ = options_.delimiter;
+      }
     }
-    memcpy(data_buffer_->mutable_data() + data_buffer_->size() - options_.eol.size(),
-           options_.eol.data(), options_.eol.size());
-    DCHECK_EQ(reinterpret_cast<uint8_t*>(next + 1), data_buffer_->data());
+    memcpy(next, options_.eol.data(), options_.eol.size());
+    next += options_.eol.size();
+    DCHECK_EQ(reinterpret_cast<uint8_t*>(next),
+              data_buffer_->data() + data_buffer_->size());
     return sink_->Write(data_buffer_);
   }
 
@@ -572,25 +559,26 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     }
     // Calculate cumulative offsets for each row (including delimiters).
     // ',' * num_columns - 1(last column doesn't have ,) + eol
-    int32_t delimiters_length =
+    const int32_t delimiters_length =
         static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
-    offsets_[0] += delimiters_length;
-    for (int64_t row = 1; row < batch.num_rows(); row++) {
-      offsets_[row] += offsets_[row - 1] + delimiters_length;
+    int32_t last_row_length = offsets_[0] + delimiters_length;
+    offsets_[0] = 0;
+    for (size_t row = 1; row < offsets_.size(); ++row) {
+      const int32_t this_row_length = offsets_[row] + delimiters_length;
+      offsets_[row] = offsets_[row - 1] + last_row_length;
+      last_row_length = this_row_length;
     }
     // Resize the target buffer to required size. We assume batch to batch sizes
     // should be pretty close so don't shrink the buffer to avoid allocation churn.
-    RETURN_NOT_OK(data_buffer_->Resize(offsets_.back(), /*shrink_to_fit=*/false));
+    RETURN_NOT_OK(
+        data_buffer_->Resize(offsets_.back() + last_row_length, /*shrink_to_fit=*/false));
 
     // Use the offsets to populate contents.
-    for (auto populator = column_populators_.rbegin();
-         populator != column_populators_.rend(); populator++) {
-      RETURN_NOT_OK(
-          (*populator)
-              ->PopulateColumns(reinterpret_cast<char*>(data_buffer_->mutable_data()),
-                                offsets_.data()));
+    for (auto& populator : column_populators_) {
+      RETURN_NOT_OK(populator->PopulateRows(
+          reinterpret_cast<char*>(data_buffer_->mutable_data()), offsets_.data()));
     }
-    DCHECK_EQ(0, offsets_[0]);
+    DCHECK_EQ(data_buffer_->size(), offsets_.back());
     return Status::OK();
   }
 
