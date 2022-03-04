@@ -36,8 +36,9 @@ import org.apache.arrow.vector.util.TransferPair;
  * timestamp (microsecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class TimeStampMicroTZVector extends TimeStampTZVector {
+public final class TimeStampMicroTZVector extends TimeStampVector {
   private final FieldReader reader;
+  private final String timeZone;
 
   /**
    * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
@@ -60,6 +61,8 @@ public final class TimeStampMicroTZVector extends TimeStampTZVector {
    */
   public TimeStampMicroTZVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
+    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
+    timeZone = arrowType.getTimezone();
     reader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 
@@ -72,6 +75,8 @@ public final class TimeStampMicroTZVector extends TimeStampTZVector {
    */
   public TimeStampMicroTZVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
+    ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
+    timeZone = arrowType.getTimezone();
     reader = new TimeStampMicroTZReaderImpl(TimeStampMicroTZVector.this);
   }
 
@@ -94,6 +99,15 @@ public final class TimeStampMicroTZVector extends TimeStampTZVector {
   @Override
   public MinorType getMinorType() {
     return MinorType.TIMESTAMPMICROTZ;
+  }
+
+  /**
+   * Get the time zone of the timestamps stored in this vector.
+   *
+   * @return the time zone of the timestamps stored in this vector.
+   */
+  public String getTimeZone() {
+    return this.timeZone;
   }
 
 
