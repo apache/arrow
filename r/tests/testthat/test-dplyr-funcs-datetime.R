@@ -1137,7 +1137,24 @@ test_that("difftime works correctly", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        mins2 = difftime(time1, time3, units = "mins")
+        mins2 = difftime(time1, time3, units = "mins")) %>%
+      collect(),
+    test_df
+  )
+
+  test_df %>%
+    # arrow_table() %>%
+    mutate(
+      nd = dates + secs,
+      secs2 = difftime(nd, dates, units = "secs")
+    ) %>%
+    collect()
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        nd = dates + secs,
+        secs2 = difftime(nd, dates, units = "secs")
       ) %>%
       collect(),
     test_df
