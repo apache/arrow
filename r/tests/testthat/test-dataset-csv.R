@@ -367,3 +367,18 @@ test_that("Error if read_options$column_names and schema-names differ (ARROW-147
     "`column_names` and `schema` field names match but are not in the same order"
   )
 })
+
+test_that("skip argument in open_dataset", {
+  tbl <- df1[, c("int", "dbl")]
+
+  header_csv_dir <- make_temp_dir()
+  write.table(tbl, file.path(header_csv_dir, "file1.csv"), sep = ",", row.names = FALSE)
+
+  ds <- open_dataset(
+    header_csv_dir,
+    format = "csv",
+    schema = schema(int = int32(), dbl = float64()),
+    skip = 1
+  )
+  expect_equal(collect(ds), tbl)
+})
