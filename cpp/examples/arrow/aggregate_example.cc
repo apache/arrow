@@ -71,10 +71,11 @@ arrow::Result<std::shared_ptr<arrow::Table>> GetTable() {
                        arrow::field("c", arrow::int64())};
   ARROW_ASSIGN_OR_RAISE(auto int_array,
                         GetArrayDataSample<arrow::Int64Type>({0, 1, 2, 0, 4, 1, 0, 5}));
-  ARROW_ASSIGN_OR_RAISE(auto bool_array, GetArrayDataSample<arrow::BooleanType>(
-                                             {false, true, false, true, true, false, true, false}));
-  ARROW_ASSIGN_OR_RAISE(auto data_array,
-                        GetArrayDataSample<arrow::Int64Type>({10, 11, 12, 10, 11, 11, 10, 15}));                                             
+  ARROW_ASSIGN_OR_RAISE(auto bool_array,
+                        GetArrayDataSample<arrow::BooleanType>(
+                            {false, true, false, true, true, false, true, false}));
+  ARROW_ASSIGN_OR_RAISE(auto data_array, GetArrayDataSample<arrow::Int64Type>(
+                                             {10, 11, 12, 10, 11, 11, 10, 15}));
 
   auto schema = arrow::schema(field_vector);
   auto data_vector = {int_array, bool_array, data_array};
@@ -99,14 +100,11 @@ arrow::Status DoAggregate() {
 
   std::shared_ptr<arrow::Table> out;
   cp::CountOptions options(cp::CountOptions::ONLY_VALID);
-  auto aggregate_options =
-      cp::AggregateNodeOptions{/*aggregates=*/{{"sum", &options}},
-                               /*targets=*/{"c"},
-                               /*names=*/{"count(c)"},
-                               /*keys=*/{}};
-  auto schema = arrow::schema({
-      arrow::field("count(c)", arrow::int64())
-  });
+  auto aggregate_options = cp::AggregateNodeOptions{/*aggregates=*/{{"sum", &options}},
+                                                    /*targets=*/{"c"},
+                                                    /*names=*/{"count(c)"},
+                                                    /*keys=*/{}};
+  auto schema = arrow::schema({arrow::field("count(c)", arrow::int64())});
 
   ABORT_ON_FAILURE(cp::Declaration::Sequence(
                        {

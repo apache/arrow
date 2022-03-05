@@ -450,7 +450,6 @@ arrow::Status ExecuteVar() {
   return future.status();
 }
 
-
 int main(int argc, char** argv) {
   auto status = ExecuteVar();
   if (!status.ok()) {

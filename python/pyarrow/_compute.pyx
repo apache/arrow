@@ -2390,6 +2390,8 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
             vector[CInputType] c_in_types
             PyObject* c_callback
             shared_ptr[CDataType] c_type
+            COutputType* c_out_type
+            CScalarUdfBuilder* c_sc_builder
             object obj
         
         if func_name and isinstance(func_name, str):
@@ -2412,7 +2414,6 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
         c_type = pyarrow_unwrap_data_type(out_type)
         c_callback = <PyObject*>callback
 
-        cdef COutputType* c_out_type = new COutputType(c_type)
-        # cdef CScalarUDFBuilder* c_sc_builder = new CScalarUDFBuilder(c_func_name, 
-        #     c_arity, c_func_doc, c_in_types, deref(c_out_type), c_callback)
-        # c_sc_builder.MakeFunction()
+        c_out_type = new COutputType(c_type)
+        c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc, c_in_types, deref(c_out_type))
+        c_sc_builder.MakeFunction(c_callback)
