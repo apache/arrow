@@ -301,6 +301,33 @@ message Location {
  */
 message Ticket {
   bytes ticket = 1;
+  // Data representing some part of the data retrievable by the ticket.
+  //
+  // `inlined_completeness` indicates what part of the data retriavable
+  // by the ticket this represents. This is provided as an optimization for
+  // client/server applications that want to reduce latency to first result
+  // without requiring another RPC round-trip to retrieve the ticket.  applications
+  // built on top of Flight are responsible for any negotiation necessary on whether
+  // inlining data is appropriate.
+  //
+  // The size of inlined_data is expected to be small (typically less then 1MB) 
+  // and inlining too much data across tickets can run into underlying transport 
+  // limitations.  Furthermore, since the data is expected to be small, implementations 
+  // are less likely to optimize for zero-copy in these cases.  
+  repeated FlightData inlined_data = 1;
+  enum InlinedCompleteness {
+    // Default is no data is inlined.  An UNDEFINED value is not provided because an enum
+    // for the data that the client isn't aware of makes the data unusable.
+    NO_INLINED_DATA = 0;
+    // The data present in inlined_data represents all data
+    // present for the ticket.
+    COMPLETE_DATA = 1;
+    // The data present for inlined_data represents only a partial
+    // sample of the data available for the ticket.  No guarantees on the 
+    // ordering are provided.
+    SAMPLE_DATA = 2;
+  };
+  InlinedCompleteness inlined_completeness = 2;
 }
 
 /*
