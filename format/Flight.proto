@@ -314,7 +314,7 @@ message Ticket {
   // and inlining too much data across tickets can run into underlying transport 
   // limitations.  Furthermore, since the data is expected to be small, implementations 
   // are less likely to optimize for zero-copy in these cases.  
-  repeated FlightData inlined_data = 1;
+  repeated FlightData inlined_data = 2;
   enum InlinedCompleteness {
     // Default is no data is inlined.  An UNDEFINED value is not provided because an enum
     // for the data that the client isn't aware of makes the data unusable.
@@ -327,7 +327,7 @@ message Ticket {
     // ordering are provided.
     SAMPLE_DATA = 2;
   };
-  InlinedCompleteness inlined_completeness = 2;
+  InlinedCompleteness inlined_completeness = 3;
 }
 
 /*
