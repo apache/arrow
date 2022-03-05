@@ -58,6 +58,7 @@ namespace arrow
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                std::cout << batch.ToString() << std::endl;
                 num_rows += batch.length;
             }
             ASSERT_EQ(num_rows, 10000);

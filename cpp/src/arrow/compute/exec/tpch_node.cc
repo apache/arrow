@@ -89,7 +89,7 @@ namespace arrow
 
         protected:
             std::atomic<bool> done_ = { false };
-            std::atomic<int64_t> batches_generated_ = { 0 };
+            std::atomic<int64_t> batches_outputted_ = { 0 };
         };
 
         int GetNumDigits(int64_t x)
@@ -197,17 +197,17 @@ namespace arrow
             char temp_buff[kChunkSize];
             while(done_.load() == false)
             {
-                int64_t current_offset = 0;
-                int64_t offset = 0;
-                while(GenerateSentence(offset, rng, temp_buff))
-                    current_offset = offset;
+                int64_t known_valid_offset = 0;
+                int64_t try_offset = 0;
+                while(GenerateSentence(try_offset, rng, temp_buff))
+                    known_valid_offset = try_offset;
 
                 {
                     std::lock_guard<std::mutex> lock(text_guard_);
                     if(done_.load())
                         return Status::OK();
                     int64_t bytes_remaining = kTextBytes - generated_offset_;
-                    int64_t memcpy_size = std::min(offset, bytes_remaining);
+                    int64_t memcpy_size = std::min(known_valid_offset, bytes_remaining);
                     std::memcpy(out + generated_offset_, temp_buff, memcpy_size);
                     generated_offset_ += memcpy_size;
                     if(generated_offset_ == kTextBytes)
@@ -283,7 +283,7 @@ namespace arrow
                 *out-- = '0' + (x % 10);
                 x /= 10;
             }
-            out += num_digits;
+            out += (num_digits + 1);
         }
 
         void GeneratePhoneNumber(
@@ -506,7 +506,7 @@ namespace arrow
                 break;
             case 2:
                 success &= GenerateAdjective(offset, rng, arr);
-                success &= GenerateWord(offset, rng, arr, &comma_space, 1);
+                success &= GenerateWord(--offset, rng, arr, &comma_space, 1);
                 success &= GenerateAdjective(offset, rng, arr);
                 success &= GenerateNoun(offset, rng, arr);
                 break;
@@ -637,6 +637,16 @@ namespace arrow
                 return Status::OK();
             }
             
+            int64_t part_batches_generated() const
+            {
+                return part_batches_generated_.load();
+            }
+
+            int64_t partsupp_batches_generated() const
+            {
+                return partsupp_batches_generated_.load();
+            }
+
             Result<std::shared_ptr<Schema>> SetPartOutputColumns(const std::vector<std::string> &cols)
             {
                 return SetOutputColumns(cols, part_types_, part_name_map_, part_cols_);
@@ -647,18 +657,20 @@ namespace arrow
                 return SetOutputColumns(cols, partsupp_types_, partsupp_name_map_, partsupp_cols_);
             }
 
-            Result<util::optional<ExecBatch>> NextPartBatch(size_t thread_index)
+            Result<util::optional<ExecBatch>> NextPartBatch()
             {
+                size_t thread_index = thread_indexer_();
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 {
                     std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
+                    bool all_generated = part_rows_generated_ == part_rows_to_generate_;
                     if(!part_output_queue_.empty())
                     {
                         ExecBatch batch = std::move(part_output_queue_.front());
                         part_output_queue_.pop();
                         return std::move(batch);
                     }
-                    else if(part_rows_generated_ == part_rows_to_generate_)
+                    else if(all_generated)
                     {
                         return util::nullopt;
                     }
@@ -669,6 +681,10 @@ namespace arrow
                             batch_size_,
                             part_rows_to_generate_ - part_rows_generated_);
                         part_rows_generated_ += tld.part_to_generate;
+
+                        int64_t num_ps_batches = PartsuppBatchesToGenerate(thread_index);
+                        part_batches_generated_.fetch_add(1);
+                        partsupp_batches_generated_.fetch_add(num_ps_batches);
                         ARROW_DCHECK(part_rows_generated_ <= part_rows_to_generate_);
                     }
                 }
@@ -712,8 +728,9 @@ namespace arrow
                 return ExecBatch::Make(std::move(part_result));
             }
 
-            Result<util::optional<ExecBatch>> NextPartSuppBatch(size_t thread_index)
+            Result<util::optional<ExecBatch>> NextPartSuppBatch()
             {
+                size_t thread_index = thread_indexer_();
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 {
                     std::lock_guard<std::mutex> lock(partsupp_output_queue_mutex_);
@@ -737,6 +754,9 @@ namespace arrow
                             batch_size_,
                             part_rows_to_generate_ - part_rows_generated_);
                         part_rows_generated_ += tld.part_to_generate;
+                        int64_t num_ps_batches = PartsuppBatchesToGenerate(thread_index);
+                        part_batches_generated_.fetch_add(1);
+                        partsupp_batches_generated_.fetch_add(num_ps_batches);
                         ARROW_DCHECK(part_rows_generated_ <= part_rows_to_generate_);
                     }
                 }
@@ -1120,13 +1140,20 @@ namespace arrow
                 return Status::OK();
             }
             
+            int64_t PartsuppBatchesToGenerate(size_t thread_index)
+            {
+                ThreadLocalData &tld = thread_local_data_[thread_index];
+                int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
+                int64_t num_batches = (ps_to_generate + batch_size_ - 1) / batch_size_;
+                return num_batches;
+            }
+
             Status InitPartsupp(size_t thread_index)
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 tld.generated_partsupp.reset();
                 tld.partsupp.clear();
-                int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
-                int64_t num_batches = (ps_to_generate + batch_size_ - 1) / batch_size_;
+                int64_t num_batches = PartsuppBatchesToGenerate(thread_index);
                 tld.partsupp.resize(num_batches);
                 for(std::vector<Datum> &batch : tld.partsupp)
                 {
@@ -1321,7 +1348,10 @@ namespace arrow
             int64_t part_rows_generated_;
             std::vector<int> part_cols_;
             std::vector<int> partsupp_cols_;
-  
+            ThreadIndexer thread_indexer_;
+
+            std::atomic<size_t> part_batches_generated_ = { 0 };
+            std::atomic<size_t> partsupp_batches_generated_ = { 0 };
             static constexpr int64_t kPartSuppRowsPerPart = 4;
         };
 
@@ -1349,6 +1379,16 @@ namespace arrow
                 return Status::OK();
             }
 
+            int64_t orders_batches_generated() const
+            {
+                return orders_batches_generated_.load();
+            }
+
+            int64_t lineitem_batches_generated() const
+            {
+                return lineitem_batches_generated_.load();
+            }
+
             Result<std::shared_ptr<Schema>> SetOrdersOutputColumns(const std::vector<std::string> &cols)
             {
                 return SetOutputColumns(cols, orders_types_, orders_name_map_, orders_cols_);
@@ -1359,8 +1399,9 @@ namespace arrow
                 return SetOutputColumns(cols, lineitem_types_, lineitem_name_map_, lineitem_cols_);
             }
 
-            Result<util::optional<ExecBatch>> NextOrdersBatch(size_t thread_index)
+            Result<util::optional<ExecBatch>> NextOrdersBatch()
             {
+                size_t thread_index = thread_indexer_();
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 {
                     std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
@@ -1381,6 +1422,7 @@ namespace arrow
                             batch_size_,
                             orders_rows_to_generate_ - orders_rows_generated_);
                         orders_rows_generated_ += tld.orders_to_generate;
+                        orders_batches_generated_.fetch_add(1);
                         ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
                     }
                 }
@@ -1426,8 +1468,9 @@ namespace arrow
                 return ExecBatch::Make(std::move(orders_result));
             }
 
-            Result<util::optional<ExecBatch>> NextLineItemBatch(size_t thread_index)
+            Result<util::optional<ExecBatch>> NextLineItemBatch()
             {
+                size_t thread_index = thread_indexer_();
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 ExecBatch queued;
                 bool from_queue = false;
@@ -1450,18 +1493,20 @@ namespace arrow
                 }
                 {
                     std::lock_guard<std::mutex> lock(orders_output_queue_mutex_);
-                    tld.orderkey_start = orders_rows_generated_;
-                    tld.orders_to_generate = std::min(
-                        batch_size_,
-                        orders_rows_to_generate_ - orders_rows_generated_);
-                    orders_rows_generated_ += tld.orders_to_generate;
-                    ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
                     if(orders_rows_generated_ == orders_rows_to_generate_)
                     {
                         if(from_queue)
                             return std::move(queued);
                         return util::nullopt;
                     }
+
+                    tld.orderkey_start = orders_rows_generated_;
+                    tld.orders_to_generate = std::min(
+                        batch_size_,
+                        orders_rows_to_generate_ - orders_rows_generated_);
+                    orders_rows_generated_ += tld.orders_to_generate;
+                    orders_batches_generated_.fetch_add(1ll);
+                    ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
                 }
                 tld.orders.clear();
                 tld.orders.resize(ORDERS::kNumCols);
@@ -1469,6 +1514,7 @@ namespace arrow
                 tld.generated_lineitem.reset();
                 if(from_queue)
                 {
+                    lineitem_batches_generated_.fetch_sub(1);
                     for(size_t i = 0; i < lineitem_cols_.size(); i++)
                         if(tld.lineitem[0][lineitem_cols_[i]].kind() == Datum::NONE)
                             tld.lineitem[0][lineitem_cols_[i]] = std::move(queued[i]);
@@ -1505,6 +1551,7 @@ namespace arrow
                     ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(lineitem_result)));
                     lineitem_results.emplace_back(std::move(eb));
                 }
+                lineitem_batches_generated_.fetch_add(static_cast<int64_t>(lineitem_results.size()));
                 // Return the first batch, enqueue the rest.
                 {
                     std::lock_guard<std::mutex> lock(lineitem_output_queue_mutex_);
@@ -1872,7 +1919,7 @@ namespace arrow
                     tld.items_per_order.push_back(length);
                     tld.lineitem_to_generate += length;
                 }
-                size_t num_batches = (tld.first_batch_offset + tld.lineitem_to_generate + batch_size_ - 1) / batch_size_;
+                int64_t num_batches = (tld.first_batch_offset + tld.lineitem_to_generate + batch_size_ - 1) / batch_size_;
                 tld.lineitem.clear();
                 tld.lineitem.resize(num_batches);
                 for(std::vector<Datum> &batch : tld.lineitem)
@@ -1889,13 +1936,17 @@ namespace arrow
                 if(tld.lineitem[ibatch][column].kind() == Datum::NONE)
                 {
                     int32_t byte_width = arrow::internal::GetByteWidth(*lineitem_types_[column]);
+                    std::printf("Thread %lu, byte size %d\n", thread_index, byte_width);
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(batch_size_ * byte_width));
                     ArrayData ad(lineitem_types_[column], batch_size_, { nullptr, std::move(buff) });
                     tld.lineitem[ibatch][column] = std::move(ad);
                     out_batch_offset = 0;
                 }
-                if(ibatch == 0)
+                else
+                {
+                    ARROW_DCHECK(ibatch == 0);
                     out_batch_offset = tld.first_batch_offset;
+                }
                 return Status::OK();
             }
 
@@ -2461,6 +2512,10 @@ namespace arrow
             int64_t orders_rows_generated_;
             std::vector<int> orders_cols_;
             std::vector<int> lineitem_cols_;
+            ThreadIndexer thread_indexer_;
+
+            std::atomic<size_t> orders_batches_generated_ = { 0 };
+            std::atomic<size_t> lineitem_batches_generated_ = { 0 };
         };
 
         class SupplierGenerator : public TpchTableGenerator
@@ -2518,7 +2573,9 @@ namespace arrow
                 output_callback_ = std::move(output_callback);
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -2584,7 +2641,6 @@ namespace arrow
 
                 tld.to_generate = std::min(batch_size_,
                                            rows_to_generate_ - tld.suppkey_start);
-                bool is_last_batch = tld.to_generate < batch_size_;
 
                 tld.batch.clear();
                 tld.batch.resize(SUPPLIER::kNumCols);
@@ -2598,15 +2654,14 @@ namespace arrow
                     result[i] = tld.batch[col_idx];
                 }
                 ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(result)));
-                batches_generated_++;
+                int64_t batches_to_generate = (rows_to_generate_ + batch_size_ - 1) / batch_size_;
+                int64_t batches_outputted_before_this_one = batches_outputted_.fetch_add(1);
+                bool is_last_batch = batches_outputted_before_this_one == (batches_to_generate - 1);
                 output_callback_(std::move(eb));
                 if(is_last_batch)
                 {
-                    bool expected = false;
-                    if(done_.compare_exchange_strong(expected, true))
-                    {
-                        finished_callback_(batches_generated_.load());
-                    }
+                    done_.store(true);
+                    finished_callback_(batches_outputted_.load());
                     return Status::OK();
                 }
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
@@ -2657,7 +2712,7 @@ namespace arrow
                     for(int64_t irow = 0; irow < tld.to_generate; irow++)
                     {
                         char *out = s_name + byte_width * irow;
-                        std::memcpy(out, supplier, supplier_length);
+                        std::strncpy(out, supplier, byte_width);
                         AppendNumberPaddedToNineDigits(out + supplier_length, s_suppkey[irow]);
                     }
                 }
@@ -2799,7 +2854,6 @@ namespace arrow
             PartGenerator(std::shared_ptr<PartAndPartSupplierGenerator> gen)
                 : gen_(std::move(gen))
             {
-                batches_generated_.store(0);
             }
 
             Status Init(
@@ -2825,7 +2879,9 @@ namespace arrow
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
 
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -2834,22 +2890,26 @@ namespace arrow
             }
 
         private:
-            Status ProduceCallback(size_t thread_index)
+            Status ProduceCallback(size_t)
             {
+                if(done_.load())
+                    return Status::OK();
                 ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                                      gen_->NextPartBatch(thread_index));
-                if(done_.load() || !maybe_batch.has_value())
+                                      gen_->NextPartBatch());
+                if(!maybe_batch.has_value())
                 {
-                    bool expected = false;
-                    if(done_.compare_exchange_strong(expected, true))
+                    int64_t batches_generated = gen_->part_batches_generated();
+                    if(batches_generated == batches_outputted_.load())
                     {
-                        finished_callback_(batches_generated_.load());
+                        bool expected = false;
+                        if(done_.compare_exchange_strong(expected, true))
+                            finished_callback_(batches_outputted_.load());
                     }
                     return Status::OK();
                 }
                 ExecBatch batch = std::move(*maybe_batch);
-                batches_generated_++;
                 output_callback_(std::move(batch));
+                batches_outputted_++;
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
             }
 
@@ -2868,7 +2928,6 @@ namespace arrow
             PartSuppGenerator(std::shared_ptr<PartAndPartSupplierGenerator> gen)
                 : gen_(std::move(gen))
             {
-                batches_generated_.store(0);
             }
 
             Status Init(
@@ -2894,7 +2953,9 @@ namespace arrow
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
 
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -2903,22 +2964,26 @@ namespace arrow
             }
 
         private:
-            Status ProduceCallback(size_t thread_index)
+            Status ProduceCallback(size_t)
             {
+                if(done_.load())
+                    return Status::OK();
                 ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                                      gen_->NextPartSuppBatch(thread_index));
-                if(done_.load() || !maybe_batch.has_value())
+                                      gen_->NextPartSuppBatch());
+                if(!maybe_batch.has_value())
                 {
-                    bool expected = false;
-                    if(done_.compare_exchange_strong(expected, true))
+                    int64_t batches_generated = gen_->partsupp_batches_generated();
+                    if(batches_generated == batches_outputted_.load())
                     {
-                        finished_callback_(batches_generated_.load());
+                        bool expected = false;
+                        if(done_.compare_exchange_strong(expected, true))
+                            finished_callback_(batches_outputted_.load());
                     }
                     return Status::OK();
                 }
                 ExecBatch batch = std::move(*maybe_batch);
-                batches_generated_++;
                 output_callback_(std::move(batch));
+                batches_outputted_++;
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
             }
 
@@ -2961,7 +3026,9 @@ namespace arrow
                 output_callback_ = std::move(output_callback);
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -3029,7 +3096,6 @@ namespace arrow
 
                 tld.to_generate = std::min(batch_size_,
                                            rows_to_generate_ - tld.custkey_start);
-                bool is_last_batch = tld.to_generate < batch_size_;
 
                 tld.batch.clear();
                 tld.batch.resize(CUSTOMER::kNumCols);
@@ -3043,14 +3109,16 @@ namespace arrow
                     result[i] = tld.batch[col_idx];
                 }
                 ARROW_ASSIGN_OR_RAISE(ExecBatch eb, ExecBatch::Make(std::move(result)));
-                batches_generated_++;
+                int64_t batches_to_generate = (rows_to_generate_ + batch_size_ - 1) / batch_size_;
+                int64_t batches_generated_before_this_one = batches_outputted_.fetch_add(1);
+                bool is_last_batch = batches_generated_before_this_one == (batches_to_generate - 1);
                 output_callback_(std::move(eb));
                 if(is_last_batch)
                 {
                     bool expected = false;
                     if(done_.compare_exchange_strong(expected, true))
                     {
-                        finished_callback_(batches_generated_.load());
+                        finished_callback_(batches_outputted_.load());
                     }
                     return Status::OK();
                 }
@@ -3238,7 +3306,6 @@ namespace arrow
             OrdersGenerator(std::shared_ptr<OrdersAndLineItemGenerator> gen)
                 : gen_(std::move(gen))
             {
-                batches_generated_.store(0);
             }
 
             Status Init(
@@ -3264,7 +3331,9 @@ namespace arrow
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
 
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -3273,22 +3342,26 @@ namespace arrow
             }
 
         private:
-            Status ProduceCallback(size_t thread_index)
+            Status ProduceCallback(size_t)
             {
+                if(done_.load())
+                    return Status::OK();
                 ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                                      gen_->NextOrdersBatch(thread_index));
-                if(done_.load() || !maybe_batch.has_value())
+                                      gen_->NextOrdersBatch());
+                if(!maybe_batch.has_value())
                 {
-                    bool expected = false;
-                    if(done_.compare_exchange_strong(expected, true))
+                    int64_t batches_generated = gen_->orders_batches_generated();
+                    if(batches_generated == batches_outputted_.load())
                     {
-                        finished_callback_(batches_generated_.load());
+                        bool expected = false;
+                        if(done_.compare_exchange_strong(expected, true))
+                            finished_callback_(batches_outputted_.load());
                     }
                     return Status::OK();
                 }
                 ExecBatch batch = std::move(*maybe_batch);
-                batches_generated_++;
                 output_callback_(std::move(batch));
+                batches_outputted_++;
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
             }
 
@@ -3331,7 +3404,9 @@ namespace arrow
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
 
-                return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
+                for(size_t i = 0; i < num_threads; i++)
+                    RETURN_NOT_OK(schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); }));
+                return Status::OK();
             }
 
             std::shared_ptr<Schema> schema() const override
@@ -3340,22 +3415,26 @@ namespace arrow
             }
 
         private:
-            Status ProduceCallback(size_t thread_index)
+            Status ProduceCallback(size_t)
             {
+                if(done_.load())
+                    return Status::OK();
                 ARROW_ASSIGN_OR_RAISE(util::optional<ExecBatch> maybe_batch,
-                                      gen_->NextLineItemBatch(thread_index));
+                                      gen_->NextLineItemBatch());
                 if(!maybe_batch.has_value())
                 {
-                    bool expected = false;
-                    if(done_.compare_exchange_strong(expected, true))
+                    int64_t batches_generated = gen_->lineitem_batches_generated();
+                    if(batches_generated == batches_outputted_.load())
                     {
-                        finished_callback_(batches_generated_.load());
+                        bool expected = false;
+                        if(done_.compare_exchange_strong(expected, true))
+                            finished_callback_(batches_outputted_.load());
                     }
                     return Status::OK();
                 }
                 ExecBatch batch = std::move(*maybe_batch);
-                batches_generated_++;
                 output_callback_(std::move(batch));
+                batches_outputted_++;
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
             }
 
