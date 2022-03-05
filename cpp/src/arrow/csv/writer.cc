@@ -103,7 +103,7 @@ class ColumnPopulator {
 
   // Adds the number of characters each entry in data will add to to elements
   // in row_lengths.
-  Status UpdateRowLengths(const Array& data, int32_t* row_lengths) {
+  Status UpdateRowLengths(const Array& data, int64_t* row_lengths) {
     compute::ExecContext ctx(pool_);
     // Populators are intented to be applied to reasonably small data.  In most cases
     // threading overhead would not be justified.
@@ -122,10 +122,10 @@ class ColumnPopulator {
   // Args:
   //   output: character buffer to write to.
   //   offsets: an array of start of row column within the output buffer.
-  virtual Status PopulateRows(char* output, int32_t* offsets) const = 0;
+  virtual Status PopulateRows(char* output, int64_t* offsets) const = 0;
 
  protected:
-  virtual Status UpdateRowLengths(int32_t* row_lengths) = 0;
+  virtual Status UpdateRowLengths(int64_t* row_lengths) = 0;
   std::shared_ptr<StringArray> casted_array_;
   const std::string end_chars_;
   std::shared_ptr<Buffer> null_string_;
@@ -160,7 +160,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
         delimiter_(delimiter),
         reject_values_with_quotes_(reject_values_with_quotes) {}
 
-  Status UpdateRowLengths(int32_t* row_lengths) override {
+  Status UpdateRowLengths(int64_t* row_lengths) override {
     if (reject_values_with_quotes_) {
       // When working on values that, after casting, could produce quotes,
       // we need to return an error in accord with RFC4180.
@@ -171,7 +171,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     VisitArrayDataInline<StringType>(
         *casted_array_->data(),
         [&](arrow::util::string_view s) {
-          row_lengths[row_number] += static_cast<int32_t>(s.length());
+          row_lengths[row_number] += static_cast<int64_t>(s.length());
           row_number++;
         },
         [&]() {
@@ -181,12 +181,12 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  Status PopulateRows(char* output, int32_t* offsets) const override {
+  Status PopulateRows(char* output, int64_t* offsets) const override {
     // Function applied to valid values cast to string.
     auto valid_function = [&](arrow::util::string_view s) {
       memcpy(output + *offsets, s.data(), s.length());
       memcpy(output + *offsets + s.length(), end_chars_.c_str(), end_chars_.size());
-      *offsets += static_cast<int32_t>(s.length() + end_chars_.size());
+      *offsets += static_cast<int64_t>(s.length() + end_chars_.size());
       offsets++;
       return Status::OK();
     };
@@ -261,7 +261,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
                         std::shared_ptr<Buffer> null_string)
       : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
 
-  Status UpdateRowLengths(int32_t* row_lengths) override {
+  Status UpdateRowLengths(int64_t* row_lengths) override {
     const StringArray& input = *casted_array_;
 
     row_needs_escaping_.resize(casted_array_->length(), false);
@@ -272,8 +272,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
       VisitArrayDataInline<StringType>(
           *input.data(),
           [&](arrow::util::string_view s) {
-            row_lengths[row_number] +=
-                static_cast<int32_t>(s.length()) + static_cast<int32_t>(kQuoteCount);
+            row_lengths[row_number] += static_cast<int64_t>(s.length()) + kQuoteCount;
             row_number++;
           },
           [&]() {
@@ -289,8 +288,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
             int64_t escaped_count = CountQuotes(s);
             // TODO: Maybe use 64 bit row lengths or safe cast?
             row_needs_escaping_[row_number] = escaped_count > 0;
-            row_lengths[row_number] += static_cast<int32_t>(s.length()) +
-                                       static_cast<int32_t>(escaped_count + kQuoteCount);
+            row_lengths[row_number] +=
+                static_cast<int64_t>(s.length()) + escaped_count + kQuoteCount;
             row_number++;
           },
           [&]() {
@@ -301,7 +300,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
     return Status::OK();
   }
 
-  Status PopulateRows(char* output, int32_t* offsets) const override {
+  Status PopulateRows(char* output, int64_t* offsets) const override {
     auto needs_escaping = row_needs_escaping_.begin();
     VisitArrayDataInline<StringType>(
         *(casted_array_->data()),
@@ -318,7 +317,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           *row++ = '"';
           memcpy(row, end_chars_.data(), end_chars_.length());
           row += end_chars_.length();
-          *offsets += static_cast<int32_t>(row - (output + *offsets));
+          *offsets += static_cast<int64_t>(row - (output + *offsets));
           offsets++;
           needs_escaping++;
         },
@@ -561,10 +560,10 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     // ',' * num_columns - 1(last column doesn't have ,) + eol
     const int32_t delimiters_length =
         static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
-    int32_t last_row_length = offsets_[0] + delimiters_length;
+    int64_t last_row_length = offsets_[0] + delimiters_length;
     offsets_[0] = 0;
     for (size_t row = 1; row < offsets_.size(); ++row) {
-      const int32_t this_row_length = offsets_[row] + delimiters_length;
+      const int64_t this_row_length = offsets_[row] + delimiters_length;
       offsets_[row] = offsets_[row - 1] + last_row_length;
       last_row_length = this_row_length;
     }
@@ -586,7 +585,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
   io::OutputStream* sink_;
   std::shared_ptr<io::OutputStream> owned_sink_;
   std::vector<std::unique_ptr<ColumnPopulator>> column_populators_;
-  std::vector<int32_t, arrow::stl::allocator<int32_t>> offsets_;
+  std::vector<int64_t, arrow::stl::allocator<int64_t>> offsets_;
   std::shared_ptr<ResizableBuffer> data_buffer_;
   const std::shared_ptr<Schema> schema_;
   const WriteOptions options_;
