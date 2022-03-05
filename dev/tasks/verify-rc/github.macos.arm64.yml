@@ -21,8 +21,8 @@
 
 jobs:
   verify:
-    name: "Verify release candidate macOS {{ artifact }}"
-    runs-on: {{ github_runner }}
+    name: "Verify release candidate on macOS"
+    runs-on: {{ github_runner|default("self-hosted") }}
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
@@ -35,14 +35,16 @@ jobs:
         shell: bash
         run: rm -rf arrow
 
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
 
       - name: Run verification
         shell: bash
+        env:
+          TEST_DEFAULT: 0
+          TEST_{{ target|upper }}: 1
         run: |
           export PATH="$(brew --prefix node@16)/bin:$PATH"
           export PATH="$(brew --prefix ruby)/bin:$PATH"
           export PKG_CONFIG_PATH="$(brew --prefix ruby)/lib/pkgconfig"
           arch -{{ arch_emulation|default("arm64") }} arrow/dev/release/verify-release-candidate.sh \
-            {{ artifact }} \
-            {{ release|default("1.0.0") }} {{ rc|default("0") }}
+            {{ release|default("") }} {{ rc|default("") }}

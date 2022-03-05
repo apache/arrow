@@ -15,5 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-clang>=11
-llvmdev>=11
+ARG arch=amd64
+FROM ${arch}/ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y -q && \
+    apt-get install -y -q --no-install-recommends \
+        build-essential \
+        clang \
+        cmake \
+        curl \
+        git \
+        libcurl4-openssl-dev \
+        libgirepository1.0-dev \
+        libglib2.0-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        llvm-dev \
+        maven \
+        ninja-build \
+        openjdk-11-jdk \
+        pkg-config \
+        python3-dev \
+        python3-pip \
+        python3-venv \
+        ruby-dev \
+        wget && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists*

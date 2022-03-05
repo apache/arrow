@@ -19,57 +19,33 @@
 
 {{ macros.github_header() }}
 
-{% set use_conda = use_conda|default(False) %}
-
 jobs:
-  verify:
-    name: "Verify release candidate on Ubuntu"
-    runs-on: {{ github_runner|default("ubuntu-20.04") }}
+  test:
+    name: "Verify release candidate {{ distro }} source"
+    runs-on: ubuntu-latest
     {% if env is defined %}
     env:
     {% for key, value in env.items() %}
       {{ key }}: {{ value }}
     {% endfor %}
     {% endif %}
-
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
+      {{ macros.github_install_archery()|indent }}
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y \
-            autoconf-archive \
-            binfmt-support \
-            bison \
-            build-essential \
-            curl \
-            flex \
-            gtk-doc-tools \
-            libgirepository1.0-dev \
-            wget
-
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.1
-
-      - uses: actions/setup-java@v2
-        with:
-          distribution: 'temurin'
-          java-version: '11'
-
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '16'
-
-      - name: Run verification
+      - name: Execute Docker Build
         shell: bash
-        env:
-          TEST_DEFAULT: 0
-          TEST_{{ target|upper }}: 1
-        {% if use_conda %}
-          USE_CONDA: 1
-        {% endif %}
         run: |
-          arrow/dev/release/verify-release-candidate.sh {{ release|default("") }} {{ rc|default("") }}
+          archery docker run \
+            -e VERIFY_VERSION="{{ release|default("") }}" \
+            -e VERIFY_RC="{{ rc|default("") }}" \
+            -e TEST_DEFAULT=0 \
+            -e TEST_{{ target|upper }}=1 \
+            {{ distro }}-verify-rc
+
+    {% if arrow.branch == 'master' %}
+      {{ macros.github_login_dockerhub()|indent }}
+      - name: Push Docker Image
+        shell: bash
+        run: archery docker push {{ distro }}-verify-rc
+    {% endif %}

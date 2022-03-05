@@ -95,7 +95,7 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - almalinux-verify-rc-source
+  - almalinux-verify-rc
   - conda:
     - conda-cpp:
       - conda-integration
@@ -111,6 +111,7 @@ x-hierarchy:
         - conda-python-kartothek
         - conda-python-spark
         - conda-python-turbodbc
+  - conda-verify-rc
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -141,7 +142,7 @@ x-hierarchy:
   - ubuntu-cpp-thread-sanitizer
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
-  - ubuntu-verify-rc-source
+  - ubuntu-verify-rc
   - fedora-r-clang-sanitizer
   - r
   - r-revdepcheck
@@ -157,6 +158,8 @@ x-hierarchy:
   - python-wheel-windows-test
 
 volumes:
+  almalinux-ccache:
+    name: ${ARCH}-almalinux-ccache
   conda-ccache:
     name: ${ARCH}-conda-ccache
   debian-ccache:
@@ -1708,32 +1711,77 @@ services:
 
   ################################# Source Verification #####################################
 
-  almalinux-verify-rc-source:
+  conda-verify-rc:
+    image: ubuntu:${UBUNTU}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
+    shm_size: '1gb'
+    environment:
+      <<: *ccache
+      CMAKE_GENERATOR: Ninja
+      DEBIAN_FRONTEND: "noninteractive"
+      DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
+      USE_CONDA: 1
+    command: >
+      /bin/bash -c "
+        apt update -y && apt install -y curl git gnupg tzdata wget &&
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
+
+  almalinux-verify-rc:
     # Usage:
     #   docker-compose build almalinux-verify-rc-source
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 almalinux-verify-rc-source
     # Parameters:
     #   ALMALINUX: 8
-    image: almalinux:${ALMALINUX}
+    image: ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
+    build:
+      context: .
+      dockerfile: ci/docker/almalinux-${ALMALINUX}-verify-rc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-almalinux-${ALMALINUX}-verify-rc
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
     shm_size: '1gb'
+    environment:
+      <<: *ccache
+      CMAKE_GENERATOR: Ninja
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
     command: >
       /bin/bash -c "
-        /arrow/dev/release/setup-rhel-rebuilds.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
-  ubuntu-verify-rc-source:
+  ubuntu-verify-rc:
     # Usage:
     #   docker-compose build ubuntu-verify-rc-source
     #   docker-compose run -e VERIFY_VERSION=6.0.1 -e VERIFY_RC=1 ubuntu-verify-rc-source
     # Parameters:
     #   UBUNTU: 18.04, 20.04
-    image: ubuntu:${UBUNTU}
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-verify-rc.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-verify-rc
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
     volumes:
       - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     shm_size: '1gb'
+    environment:
+      <<: *ccache
+      CMAKE_GENERATOR: Ninja
+      TEST_APT: 0  # would require docker-in-docker
+      TEST_YUM: 0
     command: >
       /bin/bash -c "
-        DEBIAN_FRONTEND=noninteractive /arrow/dev/release/setup-ubuntu.sh &&
-        /arrow/dev/release/verify-release-candidate.sh source $${VERIFY_VERSION} $${VERIFY_RC}"
+        /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
