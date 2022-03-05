@@ -296,6 +296,10 @@ register_bindings_type_elementwise <- function() {
 
 register_bindings_type_format <- function() {
   register_binding("format", function(x, ...) {
+    if (!inherits(x, "Expression")) {
+      return(format(x, ...))
+    }
+
     if (inherits(x, "Expression") &&
         x$type_id() %in% Type[c("TIMESTAMP", "DATE32", "DATE64")]) {
       binding_format_datetime(x, ...)

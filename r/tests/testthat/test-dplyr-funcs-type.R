@@ -882,6 +882,14 @@ test_that("format date/time", {
     times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(1),
+             y = format(13.7, nsmall = 3)) %>%
+      collect(),
+    times
+  )
+
   withr::with_timezone(
     "Pacific/Marquesas",
     {
