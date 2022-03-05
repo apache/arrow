@@ -921,11 +921,11 @@ test_that("format() for unsupported types returns the input as string", {
   )
   expect_equal(
     example_data %>%
-      record_batch() %>%
+      arrow_table() %>%
       mutate(y = format(dbl, nsmall = 3)) %>%
       collect(),
     example_data %>%
-      record_batch() %>%
+      arrow_table() %>%
       mutate(y = as.character(dbl)) %>%
       collect()
   )
