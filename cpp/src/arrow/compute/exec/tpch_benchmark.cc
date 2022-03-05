@@ -170,6 +170,7 @@ static void BM_Tpch_Q1(benchmark::State &st)
 }
 
 //BENCHMARK(BM_Tpch_Q1)->RangeMultiplier(10)->Range(1, 1000)->ArgNames({ "SF" });
-BENCHMARK(BM_Tpch_Q1)->RangeMultiplier(10)->Range(1, 10)->ArgNames({ "SF" });
+//BENCHMARK(BM_Tpch_Q1)->RangeMultiplier(10)->Range(1, 10)->ArgNames({ "SF" });
+BENCHMARK(BM_Tpch_Q1)->Args({1})->ArgNames({ "SF" });
 }
 }
