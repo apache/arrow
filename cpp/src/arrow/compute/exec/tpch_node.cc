@@ -688,8 +688,8 @@ namespace arrow
                         ARROW_DCHECK(part_rows_generated_ <= part_rows_to_generate_);
                     }
                 }
-                tld.part.clear();
                 tld.part.resize(PART::kNumCols);
+                std::fill(tld.part.begin(), tld.part.end(), Datum());
                 RETURN_NOT_OK(InitPartsupp(thread_index));
 
                 for(int col : part_cols_)
@@ -760,8 +760,8 @@ namespace arrow
                         ARROW_DCHECK(part_rows_generated_ <= part_rows_to_generate_);
                     }
                 }
-                tld.part.clear();
                 tld.part.resize(PART::kNumCols);
+                std::fill(tld.part.begin(), tld.part.end(), Datum());
                 RETURN_NOT_OK(InitPartsupp(thread_index));
 
                 for(int col : part_cols_)
@@ -1152,13 +1152,12 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 tld.generated_partsupp.reset();
-                tld.partsupp.clear();
                 int64_t num_batches = PartsuppBatchesToGenerate(thread_index);
                 tld.partsupp.resize(num_batches);
                 for(std::vector<Datum> &batch : tld.partsupp)
                 {
-                    batch.clear();
                     batch.resize(PARTSUPP::kNumCols);
+                    std::fill(batch.begin(), batch.end(), Datum());
                 }
                 return Status::OK();
             }
@@ -1426,8 +1425,8 @@ namespace arrow
                         ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
                     }
                 }
-                tld.orders.clear();
                 tld.orders.resize(ORDERS::kNumCols);
+                std::fill(tld.orders.begin(), tld.orders.end(), Datum());
                 RETURN_NOT_OK(GenerateRowCounts(thread_index));
                 tld.first_batch_offset = 0;
                 tld.generated_lineitem.reset();
@@ -1508,8 +1507,8 @@ namespace arrow
                     orders_batches_generated_.fetch_add(1ll);
                     ARROW_DCHECK(orders_rows_generated_ <= orders_rows_to_generate_);
                 }
-                tld.orders.clear();
                 tld.orders.resize(ORDERS::kNumCols);
+                std::fill(tld.orders.begin(), tld.orders.end(), Datum());
                 RETURN_NOT_OK(GenerateRowCounts(thread_index));
                 tld.generated_lineitem.reset();
                 if(from_queue)
@@ -1920,12 +1919,11 @@ namespace arrow
                     tld.lineitem_to_generate += length;
                 }
                 int64_t num_batches = (tld.first_batch_offset + tld.lineitem_to_generate + batch_size_ - 1) / batch_size_;
-                tld.lineitem.clear();
                 tld.lineitem.resize(num_batches);
                 for(std::vector<Datum> &batch : tld.lineitem)
                 {
-                    batch.clear();
                     batch.resize(LINEITEM::kNumCols);
+                    std::fill(batch.begin(), batch.end(), Datum());
                 }
                 return Status::OK();
             }
@@ -1936,17 +1934,14 @@ namespace arrow
                 if(tld.lineitem[ibatch][column].kind() == Datum::NONE)
                 {
                     int32_t byte_width = arrow::internal::GetByteWidth(*lineitem_types_[column]);
-                    std::printf("Thread %lu, byte size %d\n", thread_index, byte_width);
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(batch_size_ * byte_width));
                     ArrayData ad(lineitem_types_[column], batch_size_, { nullptr, std::move(buff) });
                     tld.lineitem[ibatch][column] = std::move(ad);
                     out_batch_offset = 0;
                 }
-                else
-                {
-                    ARROW_DCHECK(ibatch == 0);
+                if(ibatch == 0)
                     out_batch_offset = tld.first_batch_offset;
-                }
+
                 return Status::OK();
             }
 
@@ -2642,8 +2637,8 @@ namespace arrow
                 tld.to_generate = std::min(batch_size_,
                                            rows_to_generate_ - tld.suppkey_start);
 
-                tld.batch.clear();
                 tld.batch.resize(SUPPLIER::kNumCols);
+                std::fill(tld.batch.begin(), tld.batch.end(), Datum());
                 for(int col : gen_list_)
                     RETURN_NOT_OK(generators_[col](thread_index));
 
@@ -3097,8 +3092,8 @@ namespace arrow
                 tld.to_generate = std::min(batch_size_,
                                            rows_to_generate_ - tld.custkey_start);
 
-                tld.batch.clear();
                 tld.batch.resize(CUSTOMER::kNumCols);
+                std::fill(tld.batch.begin(), tld.batch.end(), Datum());
                 for(int col : gen_list_)
                     RETURN_NOT_OK(generators_[col](thread_index));
 
