@@ -3584,13 +3584,28 @@ macro(build_grpc)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
+      absl::bad_optional_access
       absl::base
-      absl::statusor
-      absl::status
       absl::cord
+      absl::debugging_internal
+      absl::demangle_internal
+      absl::graphcycles_internal
+      absl::int128
+      absl::malloc_internal
+      absl::raw_logging_internal
+      absl::spinlock_wait
+      absl::stacktrace
+      absl::status
+      absl::statusor
       absl::strings
+      absl::strings_internal
+      absl::str_format_internal
+      absl::symbolize
       absl::synchronization
-      absl::time)
+      absl::throw_delegate
+      absl::time
+      absl::time_zone)
+
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
@@ -3664,12 +3679,12 @@ macro(build_grpc)
 
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
+       ${GRPC_GPR_ABSL_LIBRARIES}
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
        gRPC::grpcpp_for_bundling
-       gRPC::upb
-       ${GRPC_GPR_ABSL_LIBRARIES})
+       gRPC::upb)
 
 endmacro()
 
