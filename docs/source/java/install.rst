@@ -83,93 +83,87 @@ Installing Nightly Packages
 
 Arrow nightly builds are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-There is not a recipe to configure maven settings.xml/pom.xml to integrate local project with github nightly packages
-in a easily/transparent way. For that reason if you need to test nightly packages one way is:
+Follow the steps and get your nightly packages installed to local maven repository:
 
-* Define what nightly directory are you needed, example: nightly-2022-03-03-0-github-java-jars
-* Then, define packages needed: ALL or only needed (memory)
-* Then, run a shell that download ALL or only needed (memory) jar|pom files to a temporary directory
-* Then, the same shell install packages downloaded locally using maven command `mvn install:install-file`
-* Then, go to your project add nightly packages needed
-* Then, compile your project with `mvn clean install`
+1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-03-0-github-java-jars
+2. Define nightly packages to use, for example: `arrow-vector` and `arrow-format`
 
-These are detailed steps:
+.. code-block:: xml
 
-Create a filename `arrow_java_nightly.sh` that contains the following lines ofcode:
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <arrow.version>8.0.0.dev165</arrow.version>
+    </properties>
 
-.. code-block:: shell
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-format</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+    </dependencies>
 
-    $ cat arrow_java_nightly.sh
-    #!/bin/bash
-
-    # Shell variables
-    ARROW_JAVA_NIGHTLY_VERSION=${1:-'nightly-2022-03-03-0-github-java-jars'}
-    DEPENDENCY_TO_INSTALL=${2:-'arrow'}
-
-    # Local Variables
-    TMP_FOLDER=arrow_java_$(date +"%d-%m-%Y")
-    PATTERN_TO_GET_LIB_AND_VERSION='([a-z].+)-([0-9].[0-9].[0-9].dev[0-9]+).([a-z]+)'
-
-    # Aplication logic
-    echo $DEPENDENCY_TO_INSTALL
-    mkdir -p $TMP_FOLDER
-    pushd $TMP_FOLDER
-    echo "**************** 1 - Download arrow-java $1 dependencies ****************"
-    wget $( \
-        wget \
-            -qO- https://api.github.com/repos/ursacomputing/crossbow/releases/tags/$ARROW_JAVA_NIGHTLY_VERSION \
-            | jq -r '.assets[] | select((.name | endswith(".pom")) or (.name | endswith(".jar"))) | .browser_download_url' \
-            | grep $DEPENDENCY_TO_INSTALL )
-
-
-    echo "**************** 2 - Install arrow java libraries to local repository ****************"
-    for LIBRARY in $(ls | grep -E '.jar' | grep dev); do
-        [[ $LIBRARY =~ $PATTERN_TO_GET_LIB_AND_VERSION ]]
-        FILE=$PWD/${BASH_REMATCH[0]}
-        if [[ ( ${BASH_REMATCH[0]} == *"$DEPENDENCY_TO_INSTALL"* ) ]];then
-            if [ -f "$FILE" ]; then
-                FILE=$FILE
-            else
-                if [ -f "$FILE.jar" ]; then # Out of regex: -javadoc.jar / -sources.jar
-                    FILE=$FILE.jar
-                else
-                    if [ -f "$FILE-with-dependencies.jar" ]; then # Out of regex: -with-dependencies.jar
-                        FILE=$FILE-with-dependencies.jar
-                    else
-                        echo "Please! Review $FILE, it was not intalled on m2 locally."
-                    fi
-                fi
-            fi
-            echo "$FILE"
-            mvn install:install-file \
-                -Dfile="$FILE" \
-                -DgroupId=org.apache.arrow \
-                -DartifactId=${BASH_REMATCH[1]} \
-                -Dversion=${BASH_REMATCH[2]} \
-                -Dpackaging=${BASH_REMATCH[3]} \
-                -DcreateChecksum=true \
-                -Dgenerate.pom=true
-        fi
-    done
-    popd
-    # rm -rf $TMP_FOLDER
-    echo "Go to your project and execute: mvn clean install"
-
-Run the shell file just created with the following parameters:
+3. Download packages needed to a temporary directory
 
 .. code-block:: shell
 
-    # Download all dependencies
-    $ sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars
+    $ mkdir nightly-2022-03-03-0-github-java-jars
+    $ cd nightly-2022-03-03-0-github-java-jars
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar
+    $ tree
+    |__ arrow-format-8.0.0.dev165.jar
+    |__ arrow-vector-8.0.0.dev165.jar
 
-    # Download needed library, for example: memory
-    $ sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars memory
+4. Install nightly java version to local maven repository with `mvn install:install-file`
 
-Run maven project and execute:
+.. code-block:: shell
+
+    $ mvn install:install-file \
+        -Dfile="$(pwd)/arrow-format-8.0.0.dev165.jar" \
+        -DgroupId=org.apache.arrow \
+        -DartifactId=arrow-format \
+        -Dversion=8.0.0.dev165 \
+        -Dpackaging=jar \
+        -DcreateChecksum=true \
+        -Dgenerate.pom=true
+    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-format/8.0.0.dev165/arrow-format-8.0.0.dev165.jar
+    $ mvn install:install-file \
+        -Dfile="$(pwd)/arrow-vector-8.0.0.dev165.jar" \
+        -DgroupId=org.apache.arrow \
+        -DartifactId=arrow-vector \
+        -Dversion=8.0.0.dev165 \
+        -Dpackaging=jar \
+        -DcreateChecksum=true \
+        -Dgenerate.pom=true
+    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-vector/8.0.0.dev165/arrow-vector-8.0.0.dev165.jar
+
+6. Validate packages installed locally on maven repository:
+
+.. code-block:: shell
+
+    $ tree /Users/arrow/.m2/repository/org/apache/arrow
+    |__ arrow-format
+        |__ 8.0.0.dev165
+            |__ arrow-format-8.0.0.dev165.jar
+            |__ arrow-format-8.0.0.dev165.pom
+    |__ arrow-vector
+        |__ 8.0.0.dev165
+            |__ arrow-vector-8.0.0.dev165.jar
+            |__ arrow-vector-8.0.0.dev165.pom
+
+5. Compile your project with `mvn clean install`.
 
 .. code-block:: shell
 
     $ mvn clean install
+    [INFO] BUILD SUCCESS
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 
