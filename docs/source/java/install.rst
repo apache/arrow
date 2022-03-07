@@ -160,16 +160,16 @@ Run the shell file just created with the following parameters:
 .. code-block:: shell
 
     # Download all dependencies
-    sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars
+    $ sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars
 
     # Download needed library, for example: memory
-    sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars memory
+    $ sh arrow_java_nightly.sh nightly-2022-03-03-0-github-java-jars memory
 
 Run maven project and execute:
 
 .. code-block:: shell
 
-    mvn clean install
+    $ mvn clean install
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
 
