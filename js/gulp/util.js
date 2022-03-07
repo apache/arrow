@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import fs from "fs";
-import path from "path";
-import child_process from "child_process";
-import stream from "stream";
-import util from "util";
-import asyncDoneSync from "async-done";
+import fs from 'fs';
+import path from 'path';
+import child_process from 'child_process';
+import stream from 'stream';
+import util from 'util';
+import asyncDoneSync from 'async-done';
 const pump = stream.pipeline;
-import { targets, modules } from "./argv.js";
-import { ReplaySubject, empty as ObservableEmpty, throwError as ObservableThrow, fromEvent as ObservableFromEvent } from "rxjs";
-import { share, flatMap, takeUntil, defaultIfEmpty, mergeWith } from "rxjs/operators";
+import { targets, modules } from './argv.js';
+import { ReplaySubject, empty as ObservableEmpty, throwError as ObservableThrow, fromEvent as ObservableFromEvent } from 'rxjs';
+import { share, flatMap, takeUntil, defaultIfEmpty, mergeWith } from 'rxjs/operators';
 const asyncDone = util.promisify(asyncDoneSync);
-import { createRequire } from "module";
-import esmRequire from "./esm-require.cjs"
+import { createRequire } from 'module';
+import esmRequire from './esm-require.cjs'
 
 const require = createRequire(import.meta.url);
 

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { taskName } from "./util.js";
+import { taskName } from './util.js';
 
 export const createTask = ((taskFn) => ((target, format, ...args) => {
   // Give the memoized fn a displayName so gulp's output is easier to follow.
