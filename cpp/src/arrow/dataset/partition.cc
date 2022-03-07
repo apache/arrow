@@ -423,8 +423,7 @@ Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
     // if all subsequent keys are absent we'll just print the available keys
     break;
   }
-
-  return std::make_pair("", fs::internal::JoinFilenamePartitions(std::move(segments)));
+  return std::make_pair("", fs::internal::JoinAbstractPath(std::move(segments),"_")+"_");
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
@@ -637,7 +636,7 @@ class FilenamePartitioningFactory : public KeyValuePartitioningFactory {
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<std::string>& paths) override {
-    for (auto path : paths) {
+    for (const auto& path : paths) {
       size_t field_index = 0;
       for (auto&& segment : fs::internal::SplitFilename(path)) {
         if (field_index == field_names_.size()) break;

@@ -108,13 +108,13 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs);
 
 // Join the components of an abstract path.
 template <class StringIt>
-std::string JoinAbstractPath(StringIt it, StringIt end) {
+std::string JoinAbstractPath(StringIt it, StringIt end, const std::string& sep) {
   std::string path;
   for (; it != end; ++it) {
     if (it->empty()) continue;
 
     if (!path.empty()) {
-      path += kSep;
+      path += sep;
     }
     path += *it;
   }
@@ -122,29 +122,8 @@ std::string JoinAbstractPath(StringIt it, StringIt end) {
 }
 
 template <class StringRange>
-std::string JoinAbstractPath(const StringRange& range) {
-  return JoinAbstractPath(range.begin(), range.end());
-}
-
-// Join the components of filename partitions
-template <class StringIt>
-std::string JoinFilenamePartitions(StringIt it, StringIt end) {
-  std::string path;
-  for (; it != end; ++it) {
-    if (it->empty()) continue;
-
-    if (!path.empty()) {
-      path += kFilenameSep;
-    }
-    path += *it;
-  }
-  path += kFilenameSep;
-  return path;
-}
-
-template <class StringRange>
-std::string JoinFilenamePartitions(const StringRange& range) {
-  return JoinFilenamePartitions(range.begin(), range.end());
+std::string JoinAbstractPath(const StringRange& range, const std::string& sep = kSep) {
+  return JoinAbstractPath(range.begin(), range.end(), sep);
 }
 
 /// Convert slashes to backslashes, on all platforms.  Mostly useful for testing.
