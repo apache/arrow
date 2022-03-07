@@ -111,14 +111,21 @@ register_bindings_datetime <- function() {
                                      locale = Sys.getlocale("LC_TIME")) {
 
     if (call_binding("is.integer", x)) {
-      if (is.integer(x)) {
-        x <- build_expr("cast", x, options = cast_options(to_type = int32()))
-      }
       x <- call_binding("if_else",
                         call_binding("between", x, 1, 12),
                         x,
                         NA_integer_)
-      x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
+      if (!label) {
+        # if we don't need a label we can return the integer itself (constrained
+        # to 1:12)
+        return(x)
+      } else {
+        # make the integer into a date32() - which interprets integers as
+        # days from epoch (we multiply by 28 to be able to later extract the
+        # month with label) - NB this builds a false date (to be used by strftime)
+        # since we only know and care about the month
+        x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
+      }
     }
 
     if (label) {
@@ -127,10 +134,10 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%B"
       }
-      return(Expression$create("strftime", x, options = list(format = format, locale = locale)))
+      return(build_expr("strftime", x, options = list(format = format, locale = locale)))
     }
 
-    Expression$create("month", x)
+    build_expr("month", x)
   })
 
   register_binding("is.Date", function(x) {
