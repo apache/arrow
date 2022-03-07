@@ -21,11 +21,20 @@
 #include <string>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/platform.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+
+// NOTE(lidavidm): Obviously this is bad. But Protobuf generates
+// unavoidable compiler warnings on MSVC and this lets us silence them
+// (see platform.h). Reference:
+// https://github.com/protocolbuffers/protobuf/blob/master/cmake/README.md
+// The gRPC transport also does this though for different reasons, see
+// protocol_grpc_internal.cc
+#include "arrow/flight/Flight.pb.cc"  // NOLINT
 
 namespace arrow {
 namespace flight {

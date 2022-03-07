@@ -167,7 +167,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 # overrides to enable Flight-specific optimizations. See comments in
 # protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
-    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
     cookie_internal.cc
