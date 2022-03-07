@@ -863,6 +863,27 @@ TEST(TestBoolBufferBuilder, AppendCopies) {
   ASSERT_EQ(built->size(), bit_util::BytesForBits(13 + 17));
 }
 
+TEST(TestBoolBufferBuilder, Update) {
+  TypedBufferBuilder<bool> builder;
+
+  ASSERT_OK(builder.Append(10, true));
+  ASSERT_EQ(builder.false_count(), 0);
+  builder.UnsafeUpdate(0, false);
+  ASSERT_EQ(builder.false_count(), 1);
+  builder.UnsafeUpdate(0, true);
+  ASSERT_EQ(builder.false_count(), 0);
+  builder.UnsafeUpdate(6, false);
+  ASSERT_EQ(builder.false_count(), 1);
+
+  std::shared_ptr<Buffer> built;
+  ASSERT_OK(builder.Finish(&built));
+  AssertIsCPUBuffer(*built);
+
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_EQ(bit_util::GetBit(built->data(), i), i == 6 ? false : true);
+  }
+}
+
 TEST(TestBoolBufferBuilder, Reserve) {
   TypedBufferBuilder<bool> builder;
 

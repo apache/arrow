@@ -1170,6 +1170,33 @@ TEST(NumericBuilderAccessors, TestSettersGetters) {
   ASSERT_EQ(((const NumericBuilder<Int64Type>&)builder)[0], new_datum);
 }
 
+TEST(NumericBuilderAccessors, TestSettersGettersNull) {
+  int64_t datum = 42;
+  NumericBuilder<Int64Type> builder(int64(), default_memory_pool());
+
+  builder.Reset();
+  ASSERT_OK(builder.Append(datum));
+  ASSERT_OK(builder.Append(datum));
+  ASSERT_EQ(builder.GetValue(0), datum);
+  ASSERT_EQ(builder.GetValue(1), datum);
+  ASSERT_EQ(builder.null_count(), 0);
+
+  // Now update the value.
+  builder.UnsafeSetIsNull(0, true);
+  ASSERT_EQ(builder.GetValue(0), 0);
+  ASSERT_EQ(builder.GetValue(1), datum);
+  ASSERT_EQ(builder.null_count(), 1);
+
+  std::shared_ptr<Array> arr;
+  ASSERT_OK(builder.Finish(&arr));
+  ASSERT_EQ(arr->null_count(), 1);
+
+  const auto& iarr = static_cast<const Int64Array&>(*arr);
+  ASSERT_TRUE(iarr.IsNull(0));
+  ASSERT_TRUE(iarr.IsValid(1));
+  ASSERT_EQ(iarr.Value(1), datum);
+}
+
 typedef ::testing::Types<PBoolean, PUInt8, PUInt16, PUInt32, PUInt64, PInt8, PInt16,
                          PInt32, PInt64, PFloat, PDouble, PDayTimeInterval,
                          PMonthDayNanoInterval>

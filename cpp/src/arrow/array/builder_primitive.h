@@ -146,6 +146,11 @@ class NumericBuilder : public ArrayBuilder {
     return reinterpret_cast<value_type*>(data_builder_.mutable_data())[index];
   }
 
+  void UnsafeSetIsNull(int64_t index, bool is_null) {
+    this->operator[](index) = value_type{};
+    null_count_ += null_bitmap_builder_.UnsafeUpdate(index, !is_null);
+  }
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append

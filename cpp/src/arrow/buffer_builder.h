@@ -383,6 +383,24 @@ class TypedBufferBuilder<bool> {
     bit_length_ += num_elements;
   }
 
+  /// \brief Update a bit based on the given index and returns the change of
+  /// total number of false bits
+  int UnsafeUpdate(int64_t index, bool value) {
+    auto old_value = bit_util::GetBit(data(), index);
+    if (old_value == value) {
+      return 0;
+    }
+
+    bit_util::SetBitTo(mutable_data(), index, value);
+    if (value) {
+      --false_count_;
+      return -1;
+    } else {
+      ++false_count_;
+      return 1;
+    }
+  }
+
   Status Resize(const int64_t new_capacity, bool shrink_to_fit = true) {
     const int64_t old_byte_capacity = bytes_builder_.capacity();
     ARROW_RETURN_NOT_OK(
