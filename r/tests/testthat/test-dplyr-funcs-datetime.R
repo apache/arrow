@@ -1141,4 +1141,18 @@ test_that("difftime works correctly", {
     collect(),
    test_df_with_tz
   )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 =
+          difftime(
+            as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
+            time1,
+            units = "secs",
+            tz = "Pacific/Marquesas")
+      ) %>%
+      collect(),
+    test_df_with_tz
+  )
 })
