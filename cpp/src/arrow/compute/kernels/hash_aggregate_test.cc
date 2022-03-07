@@ -2748,7 +2748,7 @@ TEST(GroupBy, OneScalar) {
 }
 
 TEST(GroupBy, ListNumeric) {
-  for (auto type : NumericTypes()) {
+  for (const auto& type : NumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       auto table =

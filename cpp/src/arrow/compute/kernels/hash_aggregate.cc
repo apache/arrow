@@ -2782,43 +2782,39 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    return VisitGroupedValues<Type>(
-        batch,
-        [&](uint32_t group, CType val) -> Status {
-          RETURN_NOT_OK(values_.Append(val));
-          RETURN_NOT_OK(groups_.Append(group));
-          RETURN_NOT_OK(values_bitmap_.Append(true));
-          ++num_args_;
-          return Status::OK();
-        },
-        [&](uint32_t group) -> Status {
-          RETURN_NOT_OK(values_.Append(static_cast<CType>(0)));
-          RETURN_NOT_OK(groups_.Append(group));
-          RETURN_NOT_OK(values_bitmap_.Append(false));
-          ++num_args_;
-          return Status::OK();
-        });
+    const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
+    const auto* values = batch[0].array()->GetValues<CType>(1);
+    const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
+    int64_t num_values = batch[1].array()->length;
+
+    num_args_ += num_values;
+    RETURN_NOT_OK(groups_.Append(groups, num_values));
+    RETURN_NOT_OK(values_.Append(values, num_values));
+
+    if (values_bitmap == nullptr) {
+      RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
+    } else {
+      RETURN_NOT_OK(values_bitmap_.Reserve(num_values));
+      values_bitmap_.UnsafeAppend(values_bitmap, 0, num_values);
+    }
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedListImpl*>(&raw_other);
-    auto other_raw_values = other->values_.mutable_data();
-    uint32_t* other_raw_groups = other->groups_.mutable_data();
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    const auto* other_raw_groups = other->groups_.data();
+    const auto* g = group_id_mapping.GetValues<uint32_t>(1);
 
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other->num_args_;
          ++other_g) {
-      if (bit_util::GetBit(other->values_bitmap_.data(), other_g)) {
-        RETURN_NOT_OK(values_.Append(GetSet::Get(other_raw_values, other_g)));
-        RETURN_NOT_OK(values_bitmap_.Append(true));
-      } else {
-        RETURN_NOT_OK(values_.Append(static_cast<CType>(0)));
-        RETURN_NOT_OK(values_bitmap_.Append(false));
-      }
       RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
-      ++num_args_;
     }
+
+    RETURN_NOT_OK(values_.Append(other->values_.data(), other->num_args_));
+    RETURN_NOT_OK(values_bitmap_.Reserve(other->num_args_));
+    values_bitmap_.UnsafeAppend(other->values_bitmap_.data(), 0, other->num_args_);
+    num_args_ += other->num_args_;
     return Status::OK();
   }
 
@@ -2872,20 +2868,26 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecBatch& batch) override {
+    const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
+    const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
+    int64_t num_values = batch[1].array()->length;
+
+    num_args_ += num_values;
+    RETURN_NOT_OK(groups_.Append(groups, num_values));
+    if (values_bitmap == nullptr) {
+      RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
+    } else {
+      RETURN_NOT_OK(values_bitmap_.Reserve(num_values));
+      values_bitmap_.UnsafeAppend(values_bitmap, 0, num_values);
+    }
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t group, util::string_view val) -> Status {
-          values_.emplace_back(val);
-          RETURN_NOT_OK(groups_.Append(group));
-          RETURN_NOT_OK(values_bitmap_.Append(true));
-          ++num_args_;
+          values_.emplace_back(StringType(val.data(), val.size(), allocator_));
           return Status::OK();
         },
         [&](uint32_t group) -> Status {
-          values_.emplace_back(util::string_view{});
-          RETURN_NOT_OK(groups_.Append(group));
-          RETURN_NOT_OK(values_bitmap_.Append(false));
-          ++num_args_;
+          values_.emplace_back("");
           return Status::OK();
         });
   }
@@ -2893,21 +2895,18 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedListImpl*>(&raw_other);
-    uint32_t* other_raw_groups = other->groups_.mutable_data();
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    const auto* other_raw_groups = other->groups_.data();
+    const auto* g = group_id_mapping.GetValues<uint32_t>(1);
 
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < other->num_args_;
          ++other_g) {
-      if (bit_util::GetBit(other->values_bitmap_.data(), other_g)) {
-        values_.emplace_back(other->values_[other_g]);
-        RETURN_NOT_OK(values_bitmap_.Append(true));
-      } else {
-        values_.emplace_back(util::string_view{});
-        RETURN_NOT_OK(values_bitmap_.Append(false));
-      }
       RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
-      ++num_args_;
     }
+
+    values_.insert(values_.end(), other->values_.begin(), other->values_.end());
+    RETURN_NOT_OK(values_bitmap_.Reserve(other->num_args_));
+    values_bitmap_.UnsafeAppend(other->values_bitmap_.data(), 0, other->num_args_);
+    num_args_ += other->num_args_;
     return Status::OK();
   }
 
@@ -3042,10 +3041,10 @@ struct GroupedListFactory {
     return Status::OK();
   }
 
-  Status Visit(const BooleanType&) {
-    kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
-    return Status::OK();
-  }
+  //    Status Visit(const BooleanType&) {
+  //      kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
+  //      return Status::OK();
+  //    }
   //
   //  Status Visit(const NullType&) {
   //    kernel = MakeKernel(std::move(argument_type),
@@ -3646,7 +3645,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(
-        AddHashAggKernels({/*null(),*/ boolean(), decimal128(1, 1), decimal256(1, 1),
+        AddHashAggKernels({/*null(), boolean(),*/ decimal128(1, 1), decimal256(1, 1),
                            month_interval(), fixed_size_binary(1)},
                           GroupedListFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
