@@ -43,7 +43,7 @@ messages defined via Protobuf (see below).
 SQL Metadata
 ------------
 
-Flight SQL provides a variety of commands to fetch metadata about the
+Flight SQL provides a variety of commands to fetch catalog metadata about the
 database server.
 
 All of these commands can be used with the GetFlightInfo and GetSchema
@@ -69,7 +69,7 @@ fixed according to the specification.
     columns in a given parent table.
 
 ``CommandGetDbSchemas``
-    List the schemas (note: *not* an Arrow schema) available in the
+    List the schemas (note: a grouping of tables, *not* an Arrow schema) available in the
     database. The definition varies by vendor.
 
 ``CommandGetExportedKeys``
