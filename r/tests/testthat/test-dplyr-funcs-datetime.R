@@ -1098,6 +1098,16 @@ test_that("difftime works correctly", {
     ignore_attr = TRUE
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        secs2 = difftime(as.POSIXct("2022-03-07"), time1, units = "secs")
+      ) %>%
+      collect(),
+    test_df,
+    ignore_attr = TRUE
+  )
+
   # units other than "secs" not supported in arrow
   compare_dplyr_binding(
     .input %>%
