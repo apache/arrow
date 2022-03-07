@@ -278,6 +278,7 @@ Now build and install the Arrow C++ libraries:
          -DARROW_WITH_SNAPPY=ON \
          -DARROW_WITH_BROTLI=ON \
          -DARROW_PARQUET=ON \
+         -DPARQUET_REQUIRE_ENCRYPTION=ON \
          -DARROW_PYTHON=ON \
          -DARROW_BUILD_TESTS=ON \
          ..
@@ -292,6 +293,7 @@ adding flags with ``ON``:
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
+* ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
 * ``ARROW_PLASMA``: Shared memory object store
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
@@ -347,6 +349,10 @@ Now, build pyarrow:
 
 If you did build one of the optional components (in C++), you need to set the
 corresponding ``PYARROW_WITH_$COMPONENT`` environment variable to 1.
+
+Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
+need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
+variable to 1.
 
 If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
 folder and run ``git clean -Xfd .``.
@@ -539,6 +545,7 @@ configuration of the Arrow C++ library build:
        -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
        -DARROW_CXXFLAGS="/WX /MP" ^
        -DARROW_PARQUET=on ^
+       -DPARQUET_REQUIRE_ENCRYPTION=on ^
        -DARROW_PYTHON=on ^
        -DARROW_BUILD_TESTS=ON ^
        ..

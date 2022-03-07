@@ -147,5 +147,24 @@ register_bindings_datetime <- function() {
   register_binding("pm", function(x) {
     !call_binding("am", x)
   })
+  register_binding("tz", function(x) {
+    if (!call_binding("is.POSIXct", x)) {
+      abort(paste0("timezone extraction for objects of class `", type(x)$ToString(), "` not supported in Arrow"))
+    }
 
+    x$type()$timezone()
+  })
+  register_binding("semester", function(x, with_year = FALSE) {
+    month <- call_binding("month", x)
+    semester <- call_binding("if_else", month <= 6, 1L, 2L)
+    if (with_year) {
+      year <- call_binding("year", x)
+      return(year + semester / 10)
+    } else {
+      return(semester)
+    }
+  })
+  register_binding("date", function(x) {
+    build_expr("cast", x, options = list(to_type = date32()))
+  })
 }

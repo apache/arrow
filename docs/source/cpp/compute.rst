@@ -441,13 +441,13 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 +------------------+--------+------------------+----------------------+-------+
 | add_checked      | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| divide           | Binary | Numeric          | Numeric              | \(1)  |
+| divide           | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| divide_checked   | Binary | Numeric          | Numeric              | \(1)  |
+| divide_checked   | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| multiply         | Binary | Numeric          | Numeric              | \(1)  |
+| multiply         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
-| multiply_checked | Binary | Numeric          | Numeric              | \(1)  |
+| multiply_checked | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
 | negate           | Unary  | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
@@ -458,6 +458,10 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 | power_checked    | Binary | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
 | sign             | Unary  | Numeric          | Int8/Float32/Float64 | \(2)  |
++------------------+--------+------------------+----------------------+-------+
+| sqrt             | Unary  | Numeric          | Numeric              |       |
++------------------+--------+------------------+----------------------+-------+
+| sqrt_checked     | Unary  | Numeric          | Numeric              |       |
 +------------------+--------+------------------+----------------------+-------+
 | subtract         | Binary | Numeric/Temporal | Numeric/Temporal     | \(1)  |
 +------------------+--------+------------------+----------------------+-------+
@@ -1573,7 +1577,7 @@ These functions select and return a subset of their input.
 +===============+========+==============+==============+==============+=========================+===========+
 | array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Boolean      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+

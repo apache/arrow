@@ -51,6 +51,20 @@ std::shared_ptr<arrow::Table> Table__from_RecordBatchReader(
   return table;
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> RecordBatchReader__Head(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader, int64_t num_rows) {
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  std::shared_ptr<arrow::RecordBatch> this_batch;
+  while (num_rows > 0) {
+    this_batch = ValueOrStop(reader->Next());
+    if (this_batch == nullptr) break;
+    batches.push_back(this_batch->Slice(0, num_rows));
+    num_rows -= this_batch->num_rows();
+  }
+  return ValueOrStop(arrow::Table::FromRecordBatches(reader->schema(), batches));
+}
+
 // -------- RecordBatchStreamReader
 
 // [[arrow::export]]

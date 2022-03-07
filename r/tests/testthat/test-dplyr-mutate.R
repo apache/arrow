@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -432,7 +432,7 @@ test_that("print a mutated table", {
       select(int) %>%
       mutate(twice = int * 2) %>%
       print(),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 twice: double (multiply_checked(int, 2))
 

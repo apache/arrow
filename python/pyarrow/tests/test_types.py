@@ -303,6 +303,25 @@ def test_tzinfo_to_string(tz, expected):
     assert pa.lib.tzinfo_to_string(tz) == expected
 
 
+def test_dateutil_tzinfo_to_string():
+    pytest.importorskip("dateutil")
+    import dateutil.tz
+
+    tz = dateutil.tz.UTC
+    assert pa.lib.tzinfo_to_string(tz) == 'UTC'
+    tz = dateutil.tz.gettz('Europe/Paris')
+    assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
+
+
+def test_zoneinfo_tzinfo_to_string():
+    zoneinfo = pytest.importorskip('zoneinfo')
+
+    tz = zoneinfo.ZoneInfo('UTC')
+    assert pa.lib.tzinfo_to_string(tz) == 'UTC'
+    tz = zoneinfo.ZoneInfo('Europe/Paris')
+    assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
+
+
 def test_tzinfo_to_string_errors():
     msg = "Not an instance of datetime.tzinfo"
     with pytest.raises(TypeError):

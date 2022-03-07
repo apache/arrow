@@ -331,7 +331,8 @@ static auto kRoundOptionsType = GetFunctionOptionsType<RoundOptions>(
     DataMember("round_mode", &RoundOptions::round_mode));
 static auto kRoundTemporalOptionsType = GetFunctionOptionsType<RoundTemporalOptions>(
     DataMember("multiple", &RoundTemporalOptions::multiple),
-    DataMember("unit", &RoundTemporalOptions::unit));
+    DataMember("unit", &RoundTemporalOptions::unit),
+    DataMember("week_starts_monday", &RoundTemporalOptions::week_starts_monday));
 static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultipleOptions>(
     DataMember("multiple", &RoundToMultipleOptions::multiple),
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
@@ -488,10 +489,12 @@ RoundOptions::RoundOptions(int64_t ndigits, RoundMode round_mode)
 }
 constexpr char RoundOptions::kTypeName[];
 
-RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit)
+RoundTemporalOptions::RoundTemporalOptions(int multiple, CalendarUnit unit,
+                                           bool week_starts_monday)
     : FunctionOptions(internal::kRoundTemporalOptionsType),
       multiple(std::move(multiple)),
-      unit(unit) {}
+      unit(unit),
+      week_starts_monday(week_starts_monday) {}
 constexpr char RoundTemporalOptions::kTypeName[];
 
 RoundToMultipleOptions::RoundToMultipleOptions(double multiple, RoundMode round_mode)
@@ -637,6 +640,7 @@ SCALAR_ARITHMETIC_UNARY(Ln, "ln", "ln_checked")
 SCALAR_ARITHMETIC_UNARY(Log10, "log10", "log10_checked")
 SCALAR_ARITHMETIC_UNARY(Log1p, "log1p", "log1p_checked")
 SCALAR_ARITHMETIC_UNARY(Log2, "log2", "log2_checked")
+SCALAR_ARITHMETIC_UNARY(Sqrt, "sqrt", "sqrt_checked")
 SCALAR_ARITHMETIC_UNARY(Negate, "negate", "negate_checked")
 SCALAR_ARITHMETIC_UNARY(Sin, "sin", "sin_checked")
 SCALAR_ARITHMETIC_UNARY(Tan, "tan", "tan_checked")

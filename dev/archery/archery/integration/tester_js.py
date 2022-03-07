@@ -20,16 +20,16 @@ import os
 from .tester import Tester
 from .util import run_cmd, ARROW_ROOT_DEFAULT, log
 
+_EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'js/bin')
+_VALIDATE = os.path.join(_EXE_PATH, 'integration.js')
+_JSON_TO_ARROW = os.path.join(_EXE_PATH, 'json-to-arrow.js')
+_STREAM_TO_FILE = os.path.join(_EXE_PATH, 'stream-to-file.js')
+_FILE_TO_STREAM = os.path.join(_EXE_PATH, 'file-to-stream.js')
+
 
 class JSTester(Tester):
     PRODUCER = True
     CONSUMER = True
-
-    EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'js/bin')
-    VALIDATE = os.path.join(EXE_PATH, 'integration.js')
-    JSON_TO_ARROW = os.path.join(EXE_PATH, 'json-to-arrow.js')
-    STREAM_TO_FILE = os.path.join(EXE_PATH, 'stream-to-file.js')
-    FILE_TO_STREAM = os.path.join(EXE_PATH, 'file-to-stream.js')
 
     name = 'JS'
 
@@ -51,23 +51,23 @@ class JSTester(Tester):
         run_cmd(cmd)
 
     def validate(self, json_path, arrow_path, quirks=None):
-        return self._run(self.VALIDATE, arrow_path, json_path, 'VALIDATE')
+        return self._run(_VALIDATE, arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):
         cmd = ['node',
-               '--no-warnings', self.JSON_TO_ARROW,
+               '--no-warnings', _JSON_TO_ARROW,
                '-a', arrow_path,
                '-j', json_path]
         self.run_shell_command(cmd)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['node', '--no-warnings', self.STREAM_TO_FILE,
+        cmd = ['node', '--no-warnings', _STREAM_TO_FILE,
                '<', stream_path,
                '>', file_path]
         self.run_shell_command(cmd)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['node', '--no-warnings', self.FILE_TO_STREAM,
+        cmd = ['node', '--no-warnings', _FILE_TO_STREAM,
                '<', file_path,
                '>', stream_path]
         self.run_shell_command(cmd)

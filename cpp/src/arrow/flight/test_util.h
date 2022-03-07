@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -25,6 +28,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 #include "arrow/flight/client.h"
@@ -45,6 +49,24 @@ class child;
 
 namespace arrow {
 namespace flight {
+
+// ----------------------------------------------------------------------
+// Helpers to compare values for equality
+
+inline void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
+  std::shared_ptr<Schema> ex_schema, actual_schema;
+  ipc::DictionaryMemo expected_memo;
+  ipc::DictionaryMemo actual_memo;
+  ASSERT_OK(expected.GetSchema(&expected_memo, &ex_schema));
+  ASSERT_OK(actual.GetSchema(&actual_memo, &actual_schema));
+
+  AssertSchemaEqual(*ex_schema, *actual_schema);
+  ASSERT_EQ(expected.total_records(), actual.total_records());
+  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
+
+  ASSERT_EQ(expected.descriptor(), actual.descriptor());
+  ASSERT_THAT(actual.endpoints(), ::testing::ContainerEq(expected.endpoints()));
+}
 
 // ----------------------------------------------------------------------
 // Fixture to use for running test servers
@@ -101,43 +123,6 @@ Status MakeServer(std::unique_ptr<FlightServerBase>* server,
 }
 
 // ----------------------------------------------------------------------
-// A RecordBatchReader for serving a sequence of in-memory record batches
-
-// Silence warning
-// "non dll-interface class RecordBatchReader used as base for dll-interface class"
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4275)
-#endif
-
-class ARROW_FLIGHT_EXPORT BatchIterator : public RecordBatchReader {
- public:
-  BatchIterator(const std::shared_ptr<Schema>& schema,
-                const std::vector<std::shared_ptr<RecordBatch>>& batches)
-      : schema_(schema), batches_(batches), position_(0) {}
-
-  std::shared_ptr<Schema> schema() const override { return schema_; }
-
-  Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
-    if (position_ >= batches_.size()) {
-      *out = nullptr;
-    } else {
-      *out = batches_[position_++];
-    }
-    return Status::OK();
-  }
-
- private:
-  std::shared_ptr<Schema> schema_;
-  std::vector<std::shared_ptr<RecordBatch>> batches_;
-  size_t position_;
-};
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-
-// ----------------------------------------------------------------------
 // A FlightDataStream that numbers the record batches
 /// \brief A basic implementation of FlightDataStream that will provide
 /// a sequence of FlightData messages to be written to a gRPC stream
@@ -157,8 +142,6 @@ class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
 // ----------------------------------------------------------------------
 // Example data for test-server and unit tests
 
-using BatchVector = std::vector<std::shared_ptr<RecordBatch>>;
-
 ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleIntSchema();
 
@@ -172,19 +155,19 @@ ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleLargeSchema();
 
 ARROW_FLIGHT_EXPORT
-Status ExampleIntBatches(BatchVector* out);
+Status ExampleIntBatches(RecordBatchVector* out);
 
 ARROW_FLIGHT_EXPORT
-Status ExampleFloatBatches(BatchVector* out);
+Status ExampleFloatBatches(RecordBatchVector* out);
 
 ARROW_FLIGHT_EXPORT
-Status ExampleDictBatches(BatchVector* out);
+Status ExampleDictBatches(RecordBatchVector* out);
 
 ARROW_FLIGHT_EXPORT
-Status ExampleNestedBatches(BatchVector* out);
+Status ExampleNestedBatches(RecordBatchVector* out);
 
 ARROW_FLIGHT_EXPORT
-Status ExampleLargeBatches(BatchVector* out);
+Status ExampleLargeBatches(RecordBatchVector* out);
 
 ARROW_FLIGHT_EXPORT
 arrow::Result<std::shared_ptr<RecordBatch>> VeryLargeBatch();

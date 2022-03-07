@@ -555,5 +555,4 @@ we made can be viewed `here <https://github.com/apache/arrow/pull/11900>`_.
 
 .. seealso::
    
-   For more information about Pull Request workflow see :ref:`pr_and_github`.
-
+   For more information about Pull Request workflow see :ref:`pr_lifecycle`.

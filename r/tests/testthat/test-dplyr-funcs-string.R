@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 skip_if_not_available("utf8proc")
 
 library(dplyr, warn.conflicts = FALSE)

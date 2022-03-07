@@ -99,6 +99,7 @@ module.exports = {
         "unicorn/prefer-export-from": "off",
         "unicorn/prefer-switch": "off",
         "unicorn/prefer-node-protocol": "off",
+        "unicorn/text-encoding-identifier-case": "off",
 
         "unicorn/consistent-destructuring": "warn",
         "unicorn/no-array-reduce": ["warn", { "allowSimpleOperations": true }],

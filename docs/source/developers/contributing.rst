@@ -30,7 +30,7 @@ There are lots of ways to make valuable contributions to the project and
 community.
 
 This page provides some orientation for how to get involved. It also offers
-some recommendations on how to get best results when engaging with the
+some recommendations on how to get the best results when engaging with the
 community.
 
 Code of Conduct
@@ -131,7 +131,7 @@ When you're reporting a bug, please help us understand the issue by providing,
 to the best of your ability,
 
 * Clear, minimal steps to reproduce the issue, with as few non-Arrow
-  dependencies as possible. If there's a problem on reading a file, try to
+  dependencies as possible. If there's a problem with reading a file, try to
   provide as small of an example file as possible, or code to create one.
   If your bug report says "it crashes trying to read my file, but I can't
   share it with you," it's really hard for us to debug.
@@ -190,7 +190,7 @@ direct questions, such as:
 
 * Do you think $PROPOSED_APPROACH is the right one?
 * In which file(s) should I be looking to make changes?
-* Is there anything related in the codebase I can look at to learn?
+* Is there anything related in the codebase that I can look at to learn?
 
 If you ask these questions and do not get an answer, it is OK to ask again.
 
@@ -209,7 +209,7 @@ To contribute a patch:
   `ARROW-767: [C++] Filesystem abstraction <https://github.com/apache/arrow/pull/4225>`_).
 * Give the pull request a clear, brief description: when the pull request is
   merged, this will be retained in the extended commit message.
-* Make sure that your code passes the unit tests. You can find instructions how
+* Make sure that your code passes the unit tests. You can find the instructions on how
   to run the unit tests for each Arrow component in its respective README file.
 
 Core developers and others with a stake in the part of the project your change
@@ -272,7 +272,7 @@ To start a new branch, pull the latest from upstream first::
    $ git checkout -b $BRANCH
 
 It does not matter what you call your branch. Some people like to use the JIRA
-number as branch name, others use descriptive names.
+number as a branch name, others use descriptive names.
 
 Once you have a branch going, you should sync with ``upstream/master``
 regularly, as many commits are merged to master every day.
@@ -304,7 +304,7 @@ omitted from the ``git pull`` command, as it is implied by default. ::
     [pull]
             rebase = true
 
-Once you have an updated local copy, you can push to your remote repo.  Note, since your
+Once you have an updated local copy, you can push it to your remote repo.  Note, since your
 remote repo still holds the old history, you would need to do a force push. ::
 
     $ git push --force origin branch
@@ -333,7 +333,7 @@ Endianness
 ++++++++++
 
 The Arrow format allows setting endianness.  Due to the popularity of
-little endian architectures most of implementation assume little endian by
+little endian architectures, most of the implementations  assume little endian by
 default. There has been some  effort to support big endian platforms as well.
 Based on a `mailing-list discussion
 <https://mail-archives.apache.org/mod_mbox/arrow-dev/202009.mbox/%3cCAK7Z5T--HHhr9Dy43PYhD6m-XoU4qoGwQVLwZsG-kOxXjPTyZA@mail.gmail.com%3e>`__,
@@ -355,7 +355,7 @@ implementation can support:
    messages).
 
 The decision on what level to support is based on maintainers' preferences for
-complexity and technical risk.  In general all implementations should be open
+complexity and technical risk.  In general, all implementations should be open
 to native endianness support (provided the CI and performance requirements
 are met).  Cross endianness support is a question for individual maintainers.
 

@@ -106,7 +106,8 @@ enum class CalendarUnit : int8_t {
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY);
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
+                                bool week_starts_monday = true);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -114,6 +115,8 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   int multiple;
   /// The unit used for rounding of time
   CalendarUnit unit;
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
@@ -737,6 +740,18 @@ Result<Datum> Log1p(const Datum& arg, ArithmeticOptions options = ArithmeticOpti
 ARROW_EXPORT
 Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
+/// \brief Get the square-root of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the square-root for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise square-root
+ARROW_EXPORT
+Result<Datum> Sqrt(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
                    ExecContext* ctx = NULLPTR);
 
 /// \brief Round to the nearest integer less than or equal in magnitude to the

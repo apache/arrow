@@ -69,6 +69,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Protobuf
     RapidJSON
     Snappy
+    Substrait
     Thrift
     utf8proc
     xsimd
@@ -173,6 +174,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
     build_snappy()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Substrait")
+    build_substrait()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
@@ -309,8 +312,15 @@ endif()
 
 if(ARROW_ORC
    OR ARROW_FLIGHT
-   OR ARROW_GANDIVA
-   OR ARROW_ENGINE)
+   OR ARROW_GANDIVA)
+  set(ARROW_WITH_PROTOBUF ON)
+endif()
+
+if(ARROW_ENGINE)
+  set(ARROW_WITH_SUBSTRAIT ON)
+endif()
+
+if(ARROW_WITH_SUBSTRAIT)
   set(ARROW_WITH_PROTOBUF ON)
 endif()
 
@@ -608,6 +618,14 @@ else()
              "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
              "${THIRDPARTY_MIRROR_URL}/snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
   endif()
+endif()
+
+if(DEFINED ENV{ARROW_SUBSTRAIT_URL})
+  set(SUBSTRAIT_SOURCE_URL "$ENV{ARROW_SUBSTRAIT_URL}")
+else()
+  set_urls(SUBSTRAIT_SOURCE_URL
+           "https://github.com/substrait-io/substrait/archive/${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -1421,7 +1439,7 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
-# Protocol Buffers (required for ORC and Flight and Gandiva libraries)
+# Protocol Buffers (required for ORC, Flight, Gandiva and Substrait libraries)
 
 macro(build_protobuf)
   message("Building Protocol Buffers from source")
@@ -1606,6 +1624,88 @@ if(ARROW_WITH_PROTOBUF)
 endif()
 
 # ----------------------------------------------------------------------
+# Substrait (required by compute engine)
+
+macro(build_substrait)
+  message("Building Substrait from source")
+
+  set(SUBSTRAIT_PROTOS
+      capabilities
+      expression
+      extensions/extensions
+      function
+      parameterized_types
+      plan
+      relations
+      type
+      type_expressions)
+
+  externalproject_add(substrait_ep
+                      CONFIGURE_COMMAND ""
+                      BUILD_COMMAND ""
+                      INSTALL_COMMAND ""
+                      URL ${SUBSTRAIT_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_SUBSTRAIT_BUILD_SHA256_CHECKSUM}")
+
+  externalproject_get_property(substrait_ep SOURCE_DIR)
+  set(SUBSTRAIT_LOCAL_DIR ${SOURCE_DIR})
+
+  set(SUBSTRAIT_CPP_DIR "${CMAKE_CURRENT_BINARY_DIR}/substrait_ep-generated")
+  file(MAKE_DIRECTORY ${SUBSTRAIT_CPP_DIR})
+
+  set(SUBSTRAIT_SUPPRESSED_WARNINGS)
+  if(MSVC)
+    # Protobuf generated files trigger some spurious warnings on MSVC.
+
+    # Implicit conversion from uint64_t to uint32_t:
+    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4244")
+
+    # Missing dll-interface:
+    list(APPEND SUBSTRAIT_SUPPRESSED_WARNINGS "/wd4251")
+  endif()
+
+  set(SUBSTRAIT_SOURCES)
+  set(SUBSTRAIT_PROTO_GEN_ALL)
+  foreach(SUBSTRAIT_PROTO ${SUBSTRAIT_PROTOS})
+    set(SUBSTRAIT_PROTO_GEN "${SUBSTRAIT_CPP_DIR}/substrait/${SUBSTRAIT_PROTO}.pb")
+
+    foreach(EXT h cc)
+      set_source_files_properties("${SUBSTRAIT_PROTO_GEN}.${EXT}"
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "${SUBSTRAIT_SUPPRESSED_WARNINGS}"
+                                             GENERATED TRUE
+                                             SKIP_UNITY_BUILD_INCLUSION TRUE)
+      list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
+    endforeach()
+    add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                               "--cpp_out=${SUBSTRAIT_CPP_DIR}"
+                               "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
+                       DEPENDS ${PROTO_DEPENDS} substrait_ep)
+
+    list(APPEND SUBSTRAIT_SOURCES "${SUBSTRAIT_PROTO_GEN}.cc")
+  endforeach()
+
+  add_custom_target(substrait_gen ALL DEPENDS ${SUBSTRAIT_PROTO_GEN_ALL})
+
+  set(SUBSTRAIT_INCLUDES ${SUBSTRAIT_CPP_DIR} ${PROTOBUF_INCLUDE_DIR})
+
+  add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
+  set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
+  target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
+  target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(substrait substrait_gen)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
+endmacro()
+
+if(ARROW_WITH_SUBSTRAIT)
+  # Currently, we can only build Substrait from source.
+  set(Substrait_SOURCE "BUNDLED")
+  resolve_dependency(Substrait)
+endif()
+
+# ----------------------------------------------------------------------
 # jemalloc - Unix-only high-performance allocator
 
 if(ARROW_JEMALLOC)
@@ -1725,6 +1825,11 @@ if(ARROW_MIMALLOC)
                                    IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${MIMALLOC_INCLUDE_DIR}")
+  if(WIN32)
+    set_property(TARGET mimalloc::mimalloc
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES "bcrypt.lib" "psapi.lib")
+  endif()
   add_dependencies(mimalloc::mimalloc mimalloc_ep)
   add_dependencies(toolchain mimalloc_ep)
 
@@ -2289,7 +2394,14 @@ if(ARROW_WITH_RE2)
   # source not uses C++ 11.
   resolve_dependency(re2 HAVE_ALT TRUE)
   if(${re2_SOURCE} STREQUAL "SYSTEM")
-    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
+    get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
+    if(NOT RE2_LIB)
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION_RELEASE)
+    endif()
+    if(NOT RE2_LIB)
+      get_target_property(RE2_LIB re2::re2 IMPORTED_LOCATION)
+    endif()
+
     string(APPEND ARROW_PC_LIBS_PRIVATE " ${RE2_LIB}")
   endif()
   add_definitions(-DARROW_WITH_RE2)
@@ -3906,7 +4018,7 @@ endif()
 # OpenTelemetry C++
 
 macro(build_opentelemetry)
-  message("Building OpenTelemetry from source")
+  message(STATUS "Building OpenTelemetry from source")
 
   build_nlohmann_json_once()
   find_curl()

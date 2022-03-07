@@ -78,6 +78,15 @@ inline bool HasSpacedValues(const ColumnDescriptor* descr) {
     return false;
   }
 }
+
+// Throws exception if number_decoded does not match expected.
+inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
+  if (ARROW_PREDICT_FALSE(number_decoded != expected)) {
+    ParquetException::EofException("Decoded values " + std::to_string(number_decoded) +
+                                   " does not match expected " +
+                                   std::to_string(expected));
+  }
+}
 }  // namespace
 
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
@@ -1478,13 +1487,13 @@ class TypedRecordReader : public ColumnReaderImplBase<DType>,
     int64_t num_decoded = this->current_decoder_->DecodeSpaced(
         ValuesHead<T>(), static_cast<int>(values_with_nulls),
         static_cast<int>(null_count), valid_bits, valid_bits_offset);
-    DCHECK_EQ(num_decoded, values_with_nulls);
+    CheckNumberDecoded(num_decoded, values_with_nulls);
   }
 
   virtual void ReadValuesDense(int64_t values_to_read) {
     int64_t num_decoded =
         this->current_decoder_->Decode(ValuesHead<T>(), static_cast<int>(values_to_read));
-    DCHECK_EQ(num_decoded, values_to_read);
+    CheckNumberDecoded(num_decoded, values_to_read);
   }
 
   // Return number of logical records read
@@ -1612,7 +1621,7 @@ class FLBARecordReader : public TypedRecordReader<FLBAType>,
     auto values = ValuesHead<FLBA>();
     int64_t num_decoded =
         this->current_decoder_->Decode(values, static_cast<int>(values_to_read));
-    DCHECK_EQ(num_decoded, values_to_read);
+    CheckNumberDecoded(num_decoded, values_to_read);
 
     for (int64_t i = 0; i < num_decoded; i++) {
       PARQUET_THROW_NOT_OK(builder_->Append(values[i].ptr));
@@ -1668,7 +1677,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
   void ReadValuesDense(int64_t values_to_read) override {
     int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
         static_cast<int>(values_to_read), &accumulator_);
-    DCHECK_EQ(num_decoded, values_to_read);
+    CheckNumberDecoded(num_decoded, values_to_read);
     ResetValues();
   }
 
@@ -1676,7 +1685,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     int64_t num_decoded = this->current_decoder_->DecodeArrow(
         static_cast<int>(values_to_read), static_cast<int>(null_count),
         valid_bits_->mutable_data(), values_written_, &accumulator_);
-    DCHECK_EQ(num_decoded, values_to_read - null_count);
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
     ResetValues();
   }
 
@@ -1737,7 +1746,7 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       /// Flush values since they have been copied into the builder
       ResetValues();
     }
-    DCHECK_EQ(num_decoded, values_to_read);
+    CheckNumberDecoded(num_decoded, values_to_read);
   }
 
   void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {

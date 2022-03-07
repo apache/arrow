@@ -305,16 +305,17 @@ target_include_directories(arrow_matlab PRIVATE ${CPP_SOURCE_DIR})
 target_include_directories(arrow_matlab PRIVATE ${ARROW_INCLUDE_DIR})
 target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
 
-set(mexfcn_sources mex/mexfcn.cc)
-list(TRANSFORM mexfcn_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
+set(mexcall_sources mex/call.cc)
+list(TRANSFORM mexcall_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
 
-# Build mexfcn MEX binary.
+# Build call MEX binary.
 matlab_add_mex(R2018a
-               NAME mexfcn
-               SRC ${mexfcn_sources}
+               NAME mexcall
+               OUTPUT_NAME call
+               SRC ${mexcall_sources}
                LINK_TO arrow_matlab)
 
-target_include_directories(mexfcn PRIVATE ${CPP_SOURCE_DIR})
+target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
 
 # ##############################################################################
 # C++ Tests
@@ -395,44 +396,48 @@ endif()
 # Create a subdirectory at CMAKE_INSTALL_PREFIX to install the interface.
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
+# Create a package hierarchy at CMAKE_INSTALL_PREFIX to install the mex function
+# and dependencies.
+set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab/+arrow/+cpp")
+
 # Install MATLAB source files.
 # On macOS, exclude '.DS_Store' files in the source tree from installation.
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
         DESTINATION ${CMAKE_INSTALL_DIR}
         PATTERN ".DS_Store" EXCLUDE)
 
-# Install arrow_matlab and mexfcn.
+# Install arrow_matlab and mexcall.
 # Use the RUNTIME output artifact keyword for Windows.
 # Use the LIBRARY output artifact keyword for macOS and Linux.
-install(TARGETS arrow_matlab mexfcn
-        RUNTIME DESTINATION ${CMAKE_INSTALL_DIR}
-        LIBRARY DESTINATION ${CMAKE_INSTALL_DIR})
+install(TARGETS arrow_matlab mexcall
+        RUNTIME DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+        LIBRARY DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR})
 
 get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
 if(WIN32)
-  # On Windows, arrow.dll must be installed to to CMAKE_INSTALL_DIR regardless of whether
+  # On Windows, arrow.dll must be installed to to CMAKE_PACKAGED_INSTALL_DIR regardless of whether
   # Arrow_FOUND is true or false.
-  install(FILES ${ARROW_SHARED_LIB} DESTINATION "${CMAKE_INSTALL_DIR}")
+  install(FILES ${ARROW_SHARED_LIB} DESTINATION "${CMAKE_PACKAGED_INSTALL_DIR}")
 endif()
 
 # On macOS, use the RPATH values below for runtime dependency resolution. This enables
 # relocation of the installation directory.
 if(APPLE)
   # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-  # to the RPATH of arrow_matlab and mexfcn, including the MATLAB dependencies.
+  # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
   # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  set_target_properties(arrow_matlab mexfcn PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-  # Add @loader_path to the RPATH of mexfcn so that libarrow_matlab.dylib can be found
+  # Add @loader_path to the RPATH of mexcall so that libarrow_matlab.dylib can be found
   # at runtime.
-  set_target_properties(mexfcn PROPERTIES INSTALL_RPATH "@loader_path")
+  set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
 
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
     # install libarrow.dylib (symlink) and the real files it points to.
     #
     # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -440,7 +445,7 @@ if(APPLE)
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_INSTALL_DIR}
+            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
             REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
             PATTERN "cmake" EXCLUDE
@@ -458,17 +463,17 @@ if(UNIX
    AND NOT APPLE
    AND NOT CYGWIN)
   # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-  # to the RUNPATH of arrow_matlab and mexfcn, including the MATLAB dependencies.
+  # to the RUNPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
   # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  set_target_properties(arrow_matlab mexfcn PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-  # Add $ORIGIN to the RUNPATH of mexfcn so that libarrow_matlab.so can be found
+  # Add $ORIGIN to the RUNPATH of mexcall so that libarrow_matlab.so can be found
   # at runtime.
-  set_target_properties(mexfcn PROPERTIES INSTALL_RPATH $ORIGIN)
+  set_target_properties(mexcall PROPERTIES INSTALL_RPATH $ORIGIN)
 
   if(NOT Arrow_FOUND)
     # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_INSTALL_DIR. The DIRECTORY install command is used to
+    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
     # install libarrow.so (symlink) and the real files it points to.
     #
     # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -476,7 +481,7 @@ if(UNIX
     # folders that would be empty after installation:
     # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
     install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_INSTALL_DIR}
+            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
             FILES_MATCHING
             REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
             PATTERN "cmake" EXCLUDE

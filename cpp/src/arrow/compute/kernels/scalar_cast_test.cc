@@ -2546,5 +2546,15 @@ TEST(Cast, DictTypeToAnotherDict) {
       Cast(arr, dictionary(int8(), int8()), CastOptions::Safe()));
 }
 
+TEST(Cast, NoOutBitmapIfInIsAllValid) {
+  auto a = ArrayFromJSON(int8(), "[1]");
+  CastOptions options;
+  options.to_type = int32();
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("cast", {a}, &options));
+  auto res = result.make_array();
+  ASSERT_EQ(a->data()->buffers[0], nullptr);
+  ASSERT_EQ(res->data()->buffers[0], nullptr);
+}
+
 }  // namespace compute
 }  // namespace arrow

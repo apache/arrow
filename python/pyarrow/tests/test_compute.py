@@ -152,7 +152,7 @@ def test_option_class_equality():
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
-        pc.RoundTemporalOptions(1, "second"),
+        pc.RoundTemporalOptions(1, "second", True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
         pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
@@ -2031,6 +2031,11 @@ def _check_temporal_rounding(ts, values, unit):
         result = pc.round_temporal(ta, options=options).to_pandas()
         expected = ts.dt.round(frequency)
         np.testing.assert_array_equal(result, expected)
+
+    # Check RoundTemporalOptions defaults
+    result = pc.round_temporal(ta).to_pandas()
+    expected = ts.dt.round("1D")
+    np.testing.assert_array_equal(result, expected)
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
+skip_if(on_old_windows())
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
@@ -25,8 +25,7 @@ tbl <- example_data
 test_that("Empty select returns no columns", {
   compare_dplyr_binding(
     .input %>% select() %>% collect(),
-    tbl,
-    skip_table = "Table with 0 cols doesn't know how many rows it should have"
+    tbl
   )
 })
 test_that("Empty select still includes the group_by columns", {

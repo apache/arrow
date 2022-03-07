@@ -186,7 +186,12 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("{key: Range}: beginless include end") do
-      assert_equal(<<-TABLE, @table.slice(count: ..8).to_s)
+      begin
+        range = eval("..8")
+      rescue SyntaxError
+        omit("beginless range isn't supported")
+      end
+      assert_equal(<<-TABLE, @table.slice(count: range).to_s)
 	count	visible
 0	    1	true   
 1	    2	false  
@@ -196,7 +201,12 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("{key: Range}: beginless exclude end") do
-      assert_equal(<<-TABLE, @table.slice(count: ...8).to_s)
+      begin
+        range = eval("...8")
+      rescue SyntaxError
+        omit("beginless range isn't supported")
+      end
+      assert_equal(<<-TABLE, @table.slice(count: range).to_s)
 	count	visible
 0	    1	true   
 1	    2	false  
@@ -205,7 +215,12 @@ class TableTest < Test::Unit::TestCase
     end
 
     test("{key: Range}: endless") do
-      assert_equal(<<-TABLE, @table.slice(count: 16..).to_s)
+      begin
+        range = eval("16..")
+      rescue SyntaxError
+        omit("endless range isn't supported")
+      end
+      assert_equal(<<-TABLE, @table.slice(count: range).to_s)
 	count	visible
 0	   16	true   
 1	   32	false  

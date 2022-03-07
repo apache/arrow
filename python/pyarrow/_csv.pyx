@@ -1025,17 +1025,22 @@ cdef class WriteOptions(_Weakrefable):
     batch_size : int, optional (default 1024)
         How many rows to process together when converting and writing
         CSV data
+    delimiter : 1-character string, optional (default ",")
+        The character delimiting individual cells in the CSV data.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, include_header=None, batch_size=None):
+    def __init__(self, *, include_header=None, batch_size=None,
+                 delimiter=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
         if batch_size is not None:
             self.batch_size = batch_size
+        if delimiter is not None:
+            self.delimiter = delimiter
 
     @property
     def include_header(self):
@@ -1059,6 +1064,17 @@ cdef class WriteOptions(_Weakrefable):
     @batch_size.setter
     def batch_size(self, value):
         deref(self.options).batch_size = value
+
+    @property
+    def delimiter(self):
+        """
+        The character delimiting individual cells in the CSV data.
+        """
+        return chr(deref(self.options).delimiter)
+
+    @delimiter.setter
+    def delimiter(self, value):
+        deref(self.options).delimiter = _single_char(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):

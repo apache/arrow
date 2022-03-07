@@ -410,7 +410,8 @@ class GcsFileSystem::Impl {
       google::cloud::StatusOr<gcs::BucketMetadata> b = client_.GetBucketMetadata(bucket);
       if (!b) {
         if (b.status().code() == GcsCode::kNotFound) {
-          b = client_.CreateBucket(bucket, gcs::BucketMetadata());
+          b = client_.CreateBucket(bucket, gcs::BucketMetadata().set_location(
+                                               options_.default_bucket_location));
         }
         if (!b) return internal::ToArrowStatus(b.status());
       }
@@ -433,7 +434,10 @@ class GcsFileSystem::Impl {
   Status CreateDir(const GcsPath& p) {
     if (p.object.empty()) {
       return internal::ToArrowStatus(
-          client_.CreateBucket(p.bucket, gcs::BucketMetadata()).status());
+          client_
+              .CreateBucket(p.bucket, gcs::BucketMetadata().set_location(
+                                          options_.default_bucket_location))
+              .status());
     }
     auto parent = p.parent();
     if (!parent.object.empty()) {
@@ -542,14 +546,19 @@ class GcsFileSystem::Impl {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const GcsPath& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+    std::shared_ptr<const KeyValueMetadata> resolved_metadata = metadata;
+    if (resolved_metadata == nullptr && options_.default_metadata != nullptr) {
+      resolved_metadata = options_.default_metadata;
+    }
     gcs::EncryptionKey encryption_key;
-    ARROW_ASSIGN_OR_RAISE(encryption_key, internal::ToEncryptionKey(metadata));
+    ARROW_ASSIGN_OR_RAISE(encryption_key, internal::ToEncryptionKey(resolved_metadata));
     gcs::PredefinedAcl predefined_acl;
-    ARROW_ASSIGN_OR_RAISE(predefined_acl, internal::ToPredefinedAcl(metadata));
+    ARROW_ASSIGN_OR_RAISE(predefined_acl, internal::ToPredefinedAcl(resolved_metadata));
     gcs::KmsKeyName kms_key_name;
-    ARROW_ASSIGN_OR_RAISE(kms_key_name, internal::ToKmsKeyName(metadata));
+    ARROW_ASSIGN_OR_RAISE(kms_key_name, internal::ToKmsKeyName(resolved_metadata));
     gcs::WithObjectMetadata with_object_metadata;
-    ARROW_ASSIGN_OR_RAISE(with_object_metadata, internal::ToObjectMetadata(metadata));
+    ARROW_ASSIGN_OR_RAISE(with_object_metadata,
+                          internal::ToObjectMetadata(resolved_metadata));
 
     auto stream = client_.WriteObject(path.bucket, path.object, encryption_key,
                                       predefined_acl, kms_key_name, with_object_metadata);
@@ -610,46 +619,106 @@ class GcsFileSystem::Impl {
 
 bool GcsOptions::Equals(const GcsOptions& other) const {
   return credentials == other.credentials &&
-         endpoint_override == other.endpoint_override && scheme == other.scheme;
+         endpoint_override == other.endpoint_override && scheme == other.scheme &&
+         default_bucket_location == other.default_bucket_location;
 }
 
 GcsOptions GcsOptions::Defaults() {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials()),
-      {},
-      "https"};
+  GcsOptions options{};
+  options.credentials =
+      std::make_shared<GcsCredentials>(google::cloud::MakeGoogleDefaultCredentials());
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::Anonymous() {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials()),
-      {},
-      "http"};
+  GcsOptions options{};
+  options.credentials =
+      std::make_shared<GcsCredentials>(google::cloud::MakeInsecureCredentials());
+  options.scheme = "http";
+  return options;
 }
 
 GcsOptions GcsOptions::FromAccessToken(const std::string& access_token,
                                        std::chrono::system_clock::time_point expiration) {
-  return GcsOptions{
-      std::make_shared<GcsCredentials>(
-          google::cloud::MakeAccessTokenCredentials(access_token, expiration)),
-      {},
-      "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeAccessTokenCredentials(access_token, expiration));
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::FromImpersonatedServiceAccount(
     const GcsCredentials& base_credentials, const std::string& target_service_account) {
-  return GcsOptions{std::make_shared<GcsCredentials>(
-                        google::cloud::MakeImpersonateServiceAccountCredentials(
-                            base_credentials.credentials, target_service_account)),
-                    {},
-                    "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeImpersonateServiceAccountCredentials(
+          base_credentials.credentials, target_service_account));
+  options.scheme = "https";
+  return options;
 }
 
 GcsOptions GcsOptions::FromServiceAccountCredentials(const std::string& json_object) {
-  return GcsOptions{std::make_shared<GcsCredentials>(
-                        google::cloud::MakeServiceAccountCredentials(json_object)),
-                    {},
-                    "https"};
+  GcsOptions options{};
+  options.credentials = std::make_shared<GcsCredentials>(
+      google::cloud::MakeServiceAccountCredentials(json_object));
+  options.scheme = "https";
+  return options;
+}
+
+Result<GcsOptions> GcsOptions::FromUri(const arrow::internal::Uri& uri,
+                                       std::string* out_path) {
+  const auto bucket = uri.host();
+  auto path = uri.path();
+  if (bucket.empty()) {
+    if (!path.empty()) {
+      return Status::Invalid("Missing bucket name in GCS URI");
+    }
+  } else {
+    if (path.empty()) {
+      path = bucket;
+    } else {
+      if (path[0] != '/') {
+        return Status::Invalid("GCS URI should be absolute, not relative");
+      }
+      path = bucket + path;
+    }
+  }
+  if (out_path != nullptr) {
+    *out_path = std::string(internal::RemoveTrailingSlash(path));
+  }
+
+  std::unordered_map<std::string, std::string> options_map;
+  ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
+  for (const auto& kv : options_items) {
+    options_map.emplace(kv.first, kv.second);
+  }
+
+  if (!uri.password().empty() || !uri.username().empty()) {
+    return Status::Invalid("GCS does not accept username or password.");
+  }
+
+  auto options = GcsOptions::Defaults();
+  for (const auto& kv : options_map) {
+    if (kv.first == "location") {
+      options.default_bucket_location = kv.second;
+    } else if (kv.first == "scheme") {
+      options.scheme = kv.second;
+    } else if (kv.first == "endpoint_override") {
+      options.endpoint_override = kv.second;
+    } else {
+      return Status::Invalid("Unexpected query parameter in GCS URI: '", kv.first, "'");
+    }
+  }
+
+  return options;
+}
+
+Result<GcsOptions> GcsOptions::FromUri(const std::string& uri_string,
+                                       std::string* out_path) {
+  arrow::internal::Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri, out_path);
 }
 
 std::string GcsFileSystem::type_name() const { return "gcs"; }

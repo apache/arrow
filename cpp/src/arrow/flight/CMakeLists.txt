@@ -213,6 +213,7 @@ if(ARROW_TESTING)
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES
+                test_definitions.cc
                 test_util.cc
                 DEPENDENCIES
                 GTest::gtest
@@ -236,6 +237,12 @@ foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
                              PRIVATE ARROW_FLIGHT_EXPORTING
                                      ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
 endforeach()
+
+add_arrow_test(flight_internals_test
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_TEST_LINK_LIBS}
+               LABELS
+               "arrow_flight")
 
 add_arrow_test(flight_test
                STATIC_LINK_LIBS

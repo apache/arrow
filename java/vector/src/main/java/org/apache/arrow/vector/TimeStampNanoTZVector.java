@@ -101,6 +101,15 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     return MinorType.TIMESTAMPNANOTZ;
   }
 
+  /**
+   * Get the time zone of the timestamps stored in this vector.
+   *
+   * @return the time zone of the timestamps stored in this vector.
+   */
+  public String getTimeZone() {
+    return this.timeZone;
+  }
+
 
   /*----------------------------------------------------------------*
    |                                                                |

@@ -233,14 +233,18 @@ jobs:
 
   windows-r:
     needs: [windows-cpp]
-    name: AMD64 Windows R RTools ${{ matrix.rtools }}
+    name: AMD64 Windows R ${{ matrix.config.rversion }} RTools ${{ matrix.config.rtools }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        rtools: [35, 40]
+        config:
+        - { rtools: 35, rversion: "3.6" }
+        - { rtools: 40, rversion: "4.1" }
+        # TODO: Once R 4.2 comes out we can switch to devel + 4.2
+        - { rtools: 42, rversion: "devel" }
     env:
       ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
@@ -252,31 +256,31 @@ jobs:
           fetch-depth: 0
       - run: mkdir r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools35-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools35-mingw64.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-mingw32.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 40 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-mingw64.zip
           path: r/windows
       - name: Download artifacts
-        if: ${{ matrix.rtools == 40 }}
+        if: ${{ matrix.config.rtools == 42 }}
         uses: actions/download-artifact@v2
         with:
           name: libarrow-rtools40-ucrt64.zip
@@ -301,19 +305,12 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ccache
-          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
-          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
+          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.config.rtools }}-ccache-mingw-
       - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.rtools == 40 }}
         with:
-          r-version: "4.1"
-          rtools-version: 40
-          Ncpus: 2
-      - uses: r-lib/actions/setup-r@v2
-        if: ${{ matrix.rtools == 35 }}
-        with:
-          rtools-version: 35
-          r-version: "3.6"
+          r-version: ${{ matrix.config.rversion }}
+          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - name: Make R tests verbose
         # If you get a segfault/mysterious test Execution halted,
@@ -329,13 +326,13 @@ jobs:
       # are frozen for old versions of R. We need newer cpp11 than is available as
       # "binary" (though it doesn't matter because the cpp11 R package is just a
       # vehicle for the header-only C++ code.
-        if: ${{ matrix.rtools == 35 }}
+        if: ${{ matrix.config.rtools == 35 }}
         shell: Rscript {0}
         run: install.packages("cpp11", type = "source")
       - name: Install R package dependencies
         shell: Rscript {0}
         run: |
-          options(pkgType="win.binary")
+          # options(pkgType="win.binary") # processx doesn't have a binary for UCRT yet
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps("r", dependencies = TRUE)
       - name: Check
