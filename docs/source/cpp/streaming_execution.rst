@@ -403,15 +403,12 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
 .. _stream_execution_table_source_docs:
 
 In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
-was used to input the data and the node expected data to be fed using a generator. But in 
-developing application much easier and to enable performance optimization, the 
-:class:`arrow::compute::TableSourceNodeOptions` can be used. Here the input data can be 
-passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. The objetive
-of the ``max_batch_size`` is to enable the user to tune the performance given the nature of 
-vivid workloads. Another important fact is that the streaming execution engine will use
-the ``max_batch_size`` as execution batch size. And it is important to note that the output
-batches from an execution plan doesn't get merged to form larger batches when an inserted 
-table has smaller batch size. 
+was used to input the data.  But when developing an application, if the data is already in memory
+as a table, it is much easier, and more performant to use :class:`arrow::compute::TableSourceNodeOptions`.
+Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
+The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
+It is important to note that the table batches will not get merged to form larger batches when the source
+table has a smaller batch size. 
 
 Example of using ``table_source``
 

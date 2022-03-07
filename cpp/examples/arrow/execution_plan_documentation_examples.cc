@@ -367,10 +367,10 @@ arrow::Status SourceSinkExample(cp::ExecContext& exec_context) {
 /**
  * \brief
  * TableSource-Sink Example
- * This example shows how a tabl_source and sink can be used
- * in an execution plan. This includes table source node
- * receiving data as a table and the sink node emits
- * the data as an output represented in a table.
+ * This example shows how a table_source and sink can be used
+ * in an execution plan. This includes a table source node
+ * receiving data from a table and the sink node emits
+ * the data to a generator which we collect into a table.
  * \param exec_context : execution context
  * \return arrow::Status
  */
