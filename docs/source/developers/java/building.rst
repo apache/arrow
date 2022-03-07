@@ -173,11 +173,16 @@ IntelliJ IDE
 
 Go to open java project and select java folder.
 
-This is the initial view for java project loaded with default profiles:
+When IntelliJ open arrow java project its compiled automatically and show you maven modules inside root project and
+also offer a side bar to see profile and maven plugin configured by default.
 
 .. figure:: img/java_welcome.png
    :scale: 50 %
    :alt: A newly opened Arrow project
+
+Also IntelliJ offer options to configure custom run/debug configurations to setup maven module working directory,
+maven command line to run, profiles, configure JRE to use, add environment variables as some examples of these.
+Option available at: Run -> Edit Configurations.
 
 Let's create our maven configuration: java-dataset
 
@@ -197,11 +202,14 @@ Let's configure additional environment variables:
    :scale: 50 %
    :alt: Setup maven configurations with environment variables and properties per building
 
-Let's run our java-dataset maven configuration:
+IntelliJ also, offer a run option button to runs configuration created. Option available at: Run -> Run 'java-dataset'.
+Let's run our java-dataset maven configuration created:
 
 .. figure:: img/java_run_mvn_configuration.png
    :scale: 50 %
    :alt: Option to run new maven configuration created
+
+Also you could see results of your run automatically on the Run Toolbar. Option available at: View -> Tool Windows -> Run
 
 .. figure:: img/java_run_mvn_configuration_result.png
    :scale: 50 %
