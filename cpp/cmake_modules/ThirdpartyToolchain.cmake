@@ -3412,6 +3412,14 @@ macro(build_absl_once)
                           absl::raw_logging_internal
                           absl::strings
                           absl::time_zone)
+    if(APPLE)
+      # This is due to upstream absl::cctz issue
+      # https://github.com/abseil/abseil-cpp/issues/283
+      find_library(CoreFoundation CoreFoundation)
+      set_property(TARGET absl::time
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+    endif()
     set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
     set_property(TARGET absl::utility
                  PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::config
@@ -3685,7 +3693,6 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-
 endmacro()
 
 if(ARROW_WITH_GRPC)

@@ -42,8 +42,12 @@ if(ARROW_FLIGHT)
     message(FATAL_ERROR "Statically built gRPC requires ARROW_BUILD_STATIC=ON")
   else()
     set(FLIGHT_EXAMPLES_LINK_LIBS arrow_flight_static)
-    set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
-                                  -Wl,--no-whole-archive)
+    if(APPLE)
+      set(GRPC_REFLECTION_LINK_LIBS -Wl,-force_load gRPC::grpc++_reflection)
+    else()
+      set(GRPC_REFLECTION_LINK_LIBS -Wl,--whole-archive gRPC::grpc++_reflection
+                                    -Wl,--no-whole-archive)
+    endif()
   endif()
 
   set(FLIGHT_EXAMPLE_GENERATED_PROTO_FILES
