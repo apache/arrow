@@ -171,49 +171,23 @@ IDE Configuration
 IntelliJ IDE
 ------------
 
-Go to open java project and select java folder.
-
-When IntelliJ open arrow java project its compiled automatically and show you maven modules inside root project and
-also offer a side bar to see profile and maven plugin configured by default.
+IntelliJ can import Maven projects. To start working on Arrow in IntelliJ, just open the `java/`
+subdirectory of the Arrow repository.
 
 .. figure:: img/java_welcome.png
    :scale: 50 %
    :alt: A newly opened Arrow project
 
-Also IntelliJ offer options to configure custom run/debug configurations to setup maven module working directory,
-maven command line to run, profiles, configure JRE to use, add environment variables as some examples of these.
-Option available at: Run -> Edit Configurations.
+An option to understand the arrow java code is running the java unit test in debugging mode to see
+objects initialized parameters and values assigned.
 
-Let's create our maven configuration: java-dataset
+Let's debug `TestArrowBuf.java`_ to see `ArrowBuf` object initialization. Go to the java class `TestArrowBuf.java`
+and method `testSetBytesBigEndian`, add breakpoints needed, right click on the method name and select option
+mention `Debug 'testSetBytesBigEndian()'` and inspect te variable when debug mode arrive to `ArrowBuf` variable.
 
-.. figure:: img/java_mvn_configuration.png
+.. figure:: img/java_debug_mode.png
    :scale: 50 %
-   :alt: Setup new maven configurations with working directory, command to run and profile used to build
-
-Let's define our JRE runner:
-
-.. figure:: img/java_jre_runner.png
-   :scale: 50 %
-   :alt: Setup maven configurations with JRE selected
-
-Let's configure additional environment variables:
-
-.. figure:: img/java_jre_env_properties.png
-   :scale: 50 %
-   :alt: Setup maven configurations with environment variables and properties per building
-
-IntelliJ also, offer a run option button to runs configuration created. Option available at: Run -> Run 'java-dataset'.
-Let's run our java-dataset maven configuration created:
-
-.. figure:: img/java_run_mvn_configuration.png
-   :scale: 50 %
-   :alt: Option to run new maven configuration created
-
-Also you could see results of your run automatically on the Run Toolbar. Option available at: View -> Tool Windows -> Run
-
-.. figure:: img/java_run_mvn_configuration_result.png
-   :scale: 50 %
-   :alt: Results to run new maven configuration created
+   :alt: An ArrowBuf variable initialized with parameters and values assigned.
 
 Common Errors
 =============
@@ -237,3 +211,4 @@ Common Errors
 .. _Archery: https://github.com/apache/arrow/blob/master/dev/archery/README.md
 .. _Dependency Resolution: https://arrow.apache.org/docs/developers/cpp/building.html#individual-dependency-resolution
 .. _C++ shared libraries: https://arrow.apache.org/docs/cpp/build_system.html
+.. _TestArrowBuf.java :https://github.com/apache/arrow/blob/master/java/memory/memory-core/src/test/java/org/apache/arrow/memory/TestArrowBuf.java#L130:L147
