@@ -33,7 +33,6 @@ namespace internal {
 std::vector<std::string> SplitAbstractPath(const std::string& path) {
   std::vector<std::string> parts;
   auto v = util::string_view(path);
-
   // Strip trailing slash
   if (v.length() > 0 && v.back() == kSep) {
     v = v.substr(0, v.length() - 1);
@@ -148,6 +147,12 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& prefi
     return stem;
   }
   return EnsureTrailingSlash(base) + prefix + std::string(RemoveLeadingSlash(stem));
+}
+
+std::string ConcatAbstractPath(const std::vector<std::string>& parts) {
+  auto result = EnsureTrailingSlash(*parts.begin());
+  std::for_each(parts.begin(), parts.end()-1, [&result] (const std::string& s) { result+=s; });
+  return result + std::string(RemoveLeadingSlash(*parts.end()));
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {

@@ -241,14 +241,6 @@ struct WriteTask {
 
 class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
  public:
-  DatasetWriterDirectoryQueue(std::string directory, std::shared_ptr<Schema> schema,
-                              const FileSystemDatasetWriteOptions& write_options,
-                              DatasetWriterState* writer_state)
-      : directory_(std::move(directory)),
-        schema_(std::move(schema)),
-        write_options_(write_options),
-        writer_state_(writer_state) {}
-
   DatasetWriterDirectoryQueue(std::string directory, std::string prefix,
                               std::shared_ptr<Schema> schema,
                               const FileSystemDatasetWriteOptions& write_options,
@@ -336,8 +328,8 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
 
   uint64_t rows_written() const { return rows_written_; }
 
-  void PrepareDirectory(std::string& prefix) {
-    if (prefix.empty()) {
+  void PrepareDirectory() {
+    if (!directory_.empty()) {
       init_future_ =
           DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
               [this]() { return write_options_.filesystem->CreateDir(directory_); }));
@@ -362,7 +354,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
         std::move(directory), std::move(prefix), std::move(schema), write_options,
         writer_state);
     RETURN_NOT_OK(task_group->AddTask(dir_queue->on_closed()));
-    dir_queue->PrepareDirectory(prefix);
+    dir_queue->PrepareDirectory();
     ARROW_ASSIGN_OR_RAISE(dir_queue->current_filename_, dir_queue->GetNextFilename());
     // std::move required to make RTools 3.5 mingw compiler happy
     return std::move(dir_queue);
@@ -490,7 +482,7 @@ class DatasetWriter::DatasetWriterImpl : public util::AsyncDestroyable {
         auto dir_queue_itr,
         ::arrow::internal::GetOrInsertGenerated(
             &directory_queues_, directory + prefix,
-            [this, &batch, &directory, &prefix](const std::string& dir) {
+            [this, &batch, &directory, &prefix](const std::string& key) {
               return DatasetWriterDirectoryQueue::Make(&task_group_, write_options_,
                                                        &writer_state_, batch->schema(),
                                                        directory, prefix);
