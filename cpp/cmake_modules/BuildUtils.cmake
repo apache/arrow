@@ -239,7 +239,8 @@ function(ADD_ARROW_LIB LIB_NAME)
       PRIVATE_INCLUDES
       DEPENDENCIES
       SHARED_INSTALL_INTERFACE_LIBS
-      STATIC_INSTALL_INTERFACE_LIBS)
+      STATIC_INSTALL_INTERFACE_LIBS
+      OUTPUT_PATH)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
