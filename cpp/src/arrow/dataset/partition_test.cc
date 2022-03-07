@@ -57,11 +57,12 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(compute::Expression expr, const std::string& expected) {
+  void AssertFormat(compute::Expression expr, const std::string& expected_directory, const std::string& expected_prefix="") {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
-    ASSERT_EQ(formatted.first, expected);
+    ASSERT_EQ(formatted.first, expected_directory);
+    ASSERT_EQ(formatted.second, expected_prefix);
 
     // ensure the formatted path round trips the relevant components of the partition
     // expression: roundtripped should be a subset of expr
@@ -442,6 +443,17 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
   AssertFormatError<StatusCode::TypeError>(
       and_(equal(field_ref("alpha"), literal("0.0")),
            equal(field_ref("beta"), literal("hello"))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningFormat) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(and_(equal(field_ref("alpha"), literal(0)),
+                    equal(field_ref("beta"), literal("hello"))),
+               "", "0_hello_");
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
