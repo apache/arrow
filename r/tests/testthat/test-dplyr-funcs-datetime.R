@@ -1112,6 +1112,7 @@ test_that("difftime works correctly", {
     ignore_attr = TRUE
   )
 
+  skip_on_os("windows")
   test_df_with_tz <- tibble(
     time1 = as.POSIXct(
       c("2021-02-20", "2021-07-31", "2021-10-30", "2021-01-31"),
