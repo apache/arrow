@@ -597,6 +597,8 @@ func levelSliceOrNil(rep []int16, offset, batch int64) []int16 {
 	return rep[offset : batch+offset]
 }
 
+//lint:ignore U1000 maybeReplaceValidity
+//lint:ignore SA1019 ignore deprecated array.Interface
 func (w *ByteArrayColumnChunkWriter) maybeReplaceValidity(values array.Interface, newNullCount int64) array.Interface {
 	if w.bitsBuffer == nil {
 		return values

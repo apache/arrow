@@ -166,6 +166,8 @@ type ArrowReadProperties struct {
 	// BatchSize is the size used for calls to NextBatch when reading whole columns
 	BatchSize int64
 
+	//lint:ignore U1000 readDict
 	readDict  map[int]bool
+	//lint:ignore U1000 preBuffer
 	preBuffer bool
 }

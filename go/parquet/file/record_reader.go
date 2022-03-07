@@ -303,6 +303,7 @@ type recordReader struct {
 	recordReaderImpl
 	leafInfo LevelInfo
 
+	//lint:ignore U1000 nullable
 	nullable    bool
 	atRecStart  bool
 	recordsRead int64
@@ -314,6 +315,7 @@ type recordReader struct {
 	defLevels *memory.Buffer
 	repLevels *memory.Buffer
 
+	//lint:ignore U1000 readDict
 	readDict bool
 	refCount int64
 }

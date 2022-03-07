@@ -70,6 +70,7 @@ type LevelInfo struct {
 	RepeatedAncestorDefLevel int16
 }
 
+//lint:ignore U1000 newDefaultLevelInfo
 func newDefaultLevelInfo() *LevelInfo {
 	return &LevelInfo{NullSlotUsage: 1}
 }

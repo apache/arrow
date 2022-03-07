@@ -222,6 +222,7 @@ type PrimitiveWriterTestSuite struct {
 	metadata   *metadata.ColumnChunkMetaDataBuilder
 	sink       *encoding.BufferWriter
 	readbuffer *memory.Buffer
+	//lint:ignore U1000 reader
 	reader     file.ColumnChunkReader
 }
 
