@@ -28,7 +28,9 @@ using the Arrow in-memory format and the :doc:`Flight RPC
 Generally, a database will implement the RPC methods according to the
 specification, but does not need to implement a client-side driver. A
 database client can use the provided Flight SQL client to interact
-with any database that supports the necessary endpoints.
+with any database that supports the necessary endpoints. Flight SQL
+clients wrap the underlying Flight client to provide methods for the
+new RPC methods described here.
 
 .. warning:: Flight SQL is **experimental** and changes to the
              protocol may still be made.
@@ -43,8 +45,8 @@ messages defined via Protobuf (see below).
 SQL Metadata
 ------------
 
-Flight SQL provides a variety of commands to fetch catalog metadata about the
-database server.
+Flight SQL provides a variety of commands to fetch catalog metadata
+about the database server.
 
 All of these commands can be used with the GetFlightInfo and GetSchema
 RPC methods. The Protobuf request message should be packed into a
@@ -69,8 +71,9 @@ fixed according to the specification.
     columns in a given parent table.
 
 ``CommandGetDbSchemas``
-    List the schemas (note: a grouping of tables, *not* an Arrow schema) available in the
-    database. The definition varies by vendor.
+    List the schemas (note: a grouping of tables, *not* an Arrow
+    schema) available in the database. The definition varies by
+    vendor.
 
 ``CommandGetExportedKeys``
     List foreign key columns that reference the primary key columns of
