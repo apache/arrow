@@ -2381,7 +2381,8 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     else:
         raise TypeError(f"func_doc must be a dictionary")
 
-def register_function(func_name, arity, function_doc, in_types, out_type, callback):
+def register_function(func_name, arity, function_doc, in_types,
+ out_type, callback, mem_allocation="no_preallocate", null_handling="computed_no_preallocate"):
         cdef:
             c_string c_func_name
             CArity c_arity
@@ -2392,8 +2393,22 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
             shared_ptr[CDataType] c_type
             COutputType* c_out_type
             CScalarUdfBuilder* c_sc_builder
+            MemAllocation c_mem_allocation
+            NullHandling c_null_handling
             object obj
-        
+
+        _mem_allocation_map = {
+            "preallocate": MemAllocation_PREALLOCATE,
+            "no_preallocate": MemAllocation_NO_PREALLOCATE    
+        }
+
+        _null_handling_map = {
+            "intersect": NullHandling_INTERSECTION,
+            "computed_preallocate": NullHandling_COMPUTED_PREALLOCATE,
+            "computed_no_preallocate": NullHandling_COMPUTED_NO_PREALLOCATE,
+            "output_not_null": NullHandling_OUTPUT_NOT_NULL
+        }
+
         if func_name and isinstance(func_name, str):
             c_func_name = func_name.encode()
         else:
@@ -2415,5 +2430,8 @@ def register_function(func_name, arity, function_doc, in_types, out_type, callba
         c_callback = <PyObject*>callback
 
         c_out_type = new COutputType(c_type)
-        c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc, c_in_types, deref(c_out_type))
+        c_mem_allocation = <MemAllocation>_mem_allocation_map[mem_allocation]
+        c_null_handling = <NullHandling>_null_handling_map[null_handling]
+        c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc,
+         c_in_types, deref(c_out_type), c_mem_allocation, c_null_handling)
         c_sc_builder.MakeFunction(c_callback)

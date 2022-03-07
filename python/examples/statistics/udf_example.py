@@ -58,4 +58,26 @@ a2 = pc.call_function(func_name, [pa.array([20])])
 
 print(a2)
 
+# unary scalar example 
+
+def unary_scalar_function(scalar):
+    return pc.call_function("add", [scalar, 1])
+
+print("=" * 80)
+print("Example 2")
+print("=" * 80)
+callback = unary_scalar_function
+func_name = "py_scalar_add_func"
+in_types = [InputType.scalar(pa.int64())]
+out_type = pa.int64()
+register_function(func_name, arity, func_doc, in_types, out_type, callback) 
+
+func2 = pc.get_function(func_name)
+
+a3 = pc.call_function(func_name, [pa.scalar(10)])
+
+print(a3)
+
+
+
 
