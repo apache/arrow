@@ -846,7 +846,8 @@ test_that("month() supports integer input", {
         mutate(
           month_int_input = as.character(
             month(month_as_int, label = TRUE, abbr = FALSE)
-          )) %>%
+          )
+        ) %>%
         collect(),
       test_df_month
     )
