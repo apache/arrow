@@ -211,7 +211,7 @@ TEST_F(DatasetWriterTestFixture, BasicFilePrefix) {
   Future<> queue_fut = dataset_writer->WriteRecordBatch(MakeBatch(100), "", "1_");
   AssertFinished(queue_fut);
   ASSERT_FINISHES_OK(dataset_writer->Finish());
-  AssertFilesCreated({"testdir/1_/1_chunk-0.arrow"});
+  AssertFilesCreated({"testdir/1_chunk-0.arrow"});
 }
 
 TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
