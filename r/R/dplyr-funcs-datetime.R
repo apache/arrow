@@ -187,26 +187,26 @@ register_bindings_datetime <- function() {
   })
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
-  })  
+  })
   register_binding("difftime", function(time1,
                                         time2,
                                         tz,
                                         units = c("auto", "secs", "mins",
                                                   "hours", "days", "weeks")) {
-    # browser()
-    units <- match.arg(units)
-    if (units == "secs") {
-      # NB order of the args is different in the C++ kernel vs base::difftime()
-      build_expr("seconds_between", time2, time1)
-    } else if (units == "mins") {
-      build_expr("minutes_between", time2, time1)
-    } else if (units == "hours") {
-      build_expr("hours_between", time2, time1)
-    } else if (units == "days") {
-      build_expr("days_between", time2, time1)
-    } else if (units == "weeks") {
-      build_expr("weeks_between", time2, time1)
+
+    if (units != "secs") {
+      abort("`difftime()` with units other than seconds not supported in Arrow")
     }
+
+    if (missing(tz)) {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(unit = "s")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(unit = "s")))
+    } else {
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+    }
+
+    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
   })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
