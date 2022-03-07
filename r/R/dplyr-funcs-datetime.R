@@ -194,6 +194,7 @@ register_bindings_datetime <- function() {
                                         units = c("auto", "secs", "mins",
                                                   "hours", "days", "weeks")) {
 
+    units <- match.arg(units)
     if (units != "secs") {
       abort("`difftime()` with units other than seconds not supported in Arrow")
     }
