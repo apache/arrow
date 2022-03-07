@@ -642,5 +642,9 @@ setup(
     maintainer='Apache Arrow Developers',
     maintainer_email='dev@arrow.apache.org',
     test_suite='pyarrow.tests',
-    url='https://arrow.apache.org/'
+    url='https://arrow.apache.org/',
+    project_urls={
+        'Documentation': 'https://arrow.apache.org/docs/python',
+        'Source': 'https://github.com/apache/arrow',
+    },
 )
