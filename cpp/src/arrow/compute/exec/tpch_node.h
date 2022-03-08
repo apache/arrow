@@ -36,7 +36,7 @@ namespace arrow
         class TpchGen
         {
         public:
-            static Result<TpchGen> Make(ExecPlan *plan, int scale_factor = 1, int64_t batch_size = 4096);
+            static Result<TpchGen> Make(ExecPlan *plan, float scale_factor = 1.0f, int64_t batch_size = 4096);
 
             Result<ExecNode *> Supplier(std::vector<std::string> columns = {});
             Result<ExecNode *> Part(std::vector<std::string> columns = {});
@@ -48,7 +48,7 @@ namespace arrow
             Result<ExecNode *> Region(std::vector<std::string> columns = {});
 
         private:
-            TpchGen(ExecPlan *plan, int scale_factor, int64_t batch_size)
+            TpchGen(ExecPlan *plan, float scale_factor, int64_t batch_size)
                 : plan_(plan),
                   scale_factor_(scale_factor),
                   batch_size_(batch_size),
@@ -59,7 +59,7 @@ namespace arrow
             Result<ExecNode *> CreateNode(std::vector<std::string> columns);
 
             ExecPlan *plan_;
-            int scale_factor_;
+            float scale_factor_;
             int64_t batch_size_;
 
             std::shared_ptr<PartAndPartSupplierGenerator> part_and_part_supp_generator_;
