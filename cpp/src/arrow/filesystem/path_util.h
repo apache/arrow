@@ -37,8 +37,10 @@ constexpr char kFilenameSep = '_';
 
 // Split an abstract path into its individual components.
 ARROW_EXPORT
-std::vector<std::string> SplitAbstractPath(util::string_view path,
-                                           const char& sep = kSep);
+std::vector<std::string> SplitAbstractPath(util::string_view path, const char& sep);
+ARROW_EXPORT
+std::vector<std::string> SplitAbstractPath(const std::string& path);
+
 // Return the extension of the file
 ARROW_EXPORT
 std::string GetAbstractPathExtension(const std::string& s);
@@ -55,11 +57,6 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 // Append a non-empty stem to an abstract path.
 ARROW_EXPORT
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
-
-// Append a non-empty stem to an abstract path with a filename prefix.
-ARROW_EXPORT
-std::string ConcatAbstractPath(const std::string& base, const std::string& prefix,
-                               const std::string& stem);
 
 ARROW_EXPORT
 std::string ConcatAbstractPaths(const std::vector<std::string>& parts);

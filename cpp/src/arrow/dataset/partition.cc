@@ -62,14 +62,6 @@ Result<std::string> SafeUriUnescape(util::string_view encoded) {
   return decoded;
 }
 
-arrow::util::string_view StripTrailingSlash(const std::string& path) {
-  auto v = util::string_view(path);
-  if (v.length() > 0 && v.back() == arrow::fs::internal::kSep) {
-    v = v.substr(0, v.length() - 1);
-  }
-  return v;
-}
-
 arrow::util::string_view StripNonPrefix(const std::string& path) {
   auto v = util::string_view(path);
   auto non_prefix_index = v.rfind(arrow::fs::internal::kFilenameSep);
@@ -324,7 +316,7 @@ Result<std::vector<KeyValuePartitioning::Key>> DirectoryPartitioning::ParseKeys(
   std::vector<Key> keys;
 
   int i = 0;
-  for (auto&& segment : fs::internal::SplitAbstractPath(StripTrailingSlash(path))) {
+  for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
     if (i >= schema_->num_fields()) break;
 
     switch (options_.segment_encoding) {
@@ -591,7 +583,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     for (auto path : paths) {
       size_t field_index = 0;
-      for (auto&& segment : fs::internal::SplitAbstractPath(StripTrailingSlash(path))) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         if (field_index == field_names_.size()) break;
 
         switch (options_.segment_encoding) {
@@ -769,7 +761,7 @@ Result<std::vector<KeyValuePartitioning::Key>> HivePartitioning::ParseKeys(
     const std::string& path) const {
   std::vector<Key> keys;
 
-  for (const auto& segment : fs::internal::SplitAbstractPath(StripTrailingSlash(path))) {
+  for (const auto& segment : fs::internal::SplitAbstractPath(path)) {
     ARROW_ASSIGN_OR_RAISE(auto maybe_key, ParseKey(segment, hive_options_));
     if (auto key = maybe_key) {
       keys.push_back(std::move(*key));
@@ -811,7 +803,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
       const std::vector<std::string>& paths) override {
     auto options = options_.AsHivePartitioningOptions();
     for (auto path : paths) {
-      for (auto&& segment : fs::internal::SplitAbstractPath(StripTrailingSlash(path))) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path)) {
         ARROW_ASSIGN_OR_RAISE(auto maybe_key,
                               HivePartitioning::ParseKey(segment, options));
         if (auto key = maybe_key) {

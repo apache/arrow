@@ -56,6 +56,14 @@ std::vector<std::string> SplitAbstractPath(util::string_view path, const char& s
   return parts;
 }
 
+std::vector<std::string> SplitAbstractPath(const std::string& path) {
+  auto v = util::string_view(path);
+  if (v.length() > 0 && v.back() == arrow::fs::internal::kSep) {
+    v = v.substr(0, v.length() - 1);
+  }
+  return SplitAbstractPath(v, kSep);
+}
+
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) {
   // XXX should strip trailing slash?
 
@@ -99,15 +107,6 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
     return stem;
   }
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
-}
-
-std::string ConcatAbstractPath(const std::string& base, const std::string& prefix,
-                               const std::string& stem) {
-  DCHECK(!stem.empty());
-  if (base.empty()) {
-    return stem;
-  }
-  return EnsureTrailingSlash(base) + prefix + std::string(RemoveLeadingSlash(stem));
 }
 
 std::string ConcatAbstractPath(const std::vector<std::string>& parts) {
