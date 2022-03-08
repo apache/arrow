@@ -17,12 +17,18 @@
 
 package org.apache.arrow.driver.jdbc;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
+import java.util.List;
 import java.util.Properties;
 import java.util.function.Function;
 
@@ -95,6 +101,29 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .authentication(authentication)
         .producer(producer)
         .build();
+  }
+
+  /**
+   * Get the Path from the Files to be used in the encrypted test of Flight.
+   *
+   * @return the Path from the Files with certificates and keys.
+   */
+  static Path getFlightTestDataRoot() throws URISyntaxException {
+    return Paths.get(FlightServerTestRule.class.getClassLoader().getResource("keys").toURI());
+  }
+
+  /**
+   * Create CertKeyPair object with the certificates and keys.
+   *
+   * @return A list with CertKeyPair.
+   */
+  public static List<FlightServerTestRule.CertKeyPair> exampleTlsCerts() throws URISyntaxException {
+    final Path root = getFlightTestDataRoot();
+    return Arrays.asList(
+        new FlightServerTestRule.CertKeyPair(root.resolve("cert0.pem").toFile(),
+            root.resolve("cert0.pkcs1").toFile()),
+        new FlightServerTestRule.CertKeyPair(root.resolve("cert1.pem").toFile(),
+            root.resolve("cert1.pkcs1").toFile()));
   }
 
   ArrowFlightJdbcDataSource createDataSource() {
@@ -179,6 +208,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     private final Properties properties = new Properties();
     private FlightSqlProducer producer;
     private Authentication authentication;
+    private boolean useTls;
 
     /**
      * Sets the host for the server rule.
@@ -187,7 +217,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return the Builder.
      */
     public Builder host(final String host) {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(), host);
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST.camelName(),
+          host);
       return this;
     }
 
@@ -209,7 +240,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      * @return the Builder.
      */
     public Builder port(final int port) {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(), port);
+      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT.camelName(),
+          port);
       return this;
     }
 
@@ -244,9 +276,19 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
      */
     public FlightServerTestRule build() {
       authentication.populateProperties(properties);
-
       return new FlightServerTestRule(properties, new ArrowFlightConnectionConfigImpl(properties),
           new RootAllocator(Long.MAX_VALUE), producer, authentication);
+    }
+
+    /**
+     * Sets whether to use TLS encryption in this handler.
+     *
+     * @param useTls whether to use TLS encryption.
+     * @return this instance.
+     */
+    public FlightServerTestRule.Builder withTlsEncryption(final boolean useTls) {
+      this.useTls = useTls;
+      return this;
     }
   }
 
@@ -280,7 +322,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
 
     /**
-     * A factory for the MiddlewareCookkie.
+     * A factory for the MiddlewareCookie.
      */
     static class Factory implements FlightServerMiddleware.Factory<MiddlewareCookie> {
 
@@ -288,7 +330,8 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       private String cookie;
 
       @Override
-      public MiddlewareCookie onCallStarted(CallInfo callInfo, CallHeaders callHeaders, RequestContext requestContext) {
+      public MiddlewareCookie onCallStarted(CallInfo callInfo, CallHeaders callHeaders,
+                                            RequestContext requestContext) {
         cookie = callHeaders.get("Cookie");
         receivedCookieHeader = null != cookie;
         return new MiddlewareCookie(this);
@@ -297,6 +340,17 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
       public String getCookie() {
         return cookie;
       }
+    }
+  }
+
+  public static class CertKeyPair {
+
+    public final File cert;
+    public final File key;
+
+    public CertKeyPair(File cert, File key) {
+      this.cert = cert;
+      this.key = key;
     }
   }
 
