@@ -1392,6 +1392,7 @@ tasks:
         PYTHON: "{{ python_version }}"
         PANDAS: "{{ pandas_version }}"
         NUMPY: "{{ numpy_version }}"
+        PARQUET_REQUIRE_ENCRYPTION: "OFF"
     {% if cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
