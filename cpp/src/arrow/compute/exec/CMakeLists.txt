@@ -26,11 +26,14 @@ add_arrow_compute_test(expression_test
 
 add_arrow_compute_test(plan_test PREFIX "arrow-compute")
 add_arrow_compute_test(hash_join_node_test PREFIX "arrow-compute")
+add_arrow_compute_test(tpch_node_test PREFIX "arrow-compute")
 add_arrow_compute_test(union_node_test PREFIX "arrow-compute")
 
 add_arrow_compute_test(util_test PREFIX "arrow-compute")
 
 add_arrow_benchmark(expression_benchmark PREFIX "arrow-compute")
+
+add_arrow_benchmark(tpch_benchmark PREFIX "arrow-compute")
 
 if(ARROW_BUILD_OPENMP_BENCHMARKS)
   find_package(OpenMP REQUIRED)

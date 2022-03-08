@@ -444,6 +444,10 @@ ExecNode_TableSourceNode <- function(plan, table) {
   .Call(`_arrow_ExecNode_TableSourceNode`, plan, table)
 }
 
+Tpch_Dbgen_Write <- function(plan, scale_factor, table_name, filesystem, base_dir, existing_data_behavior, max_partitions) {
+  invisible(.Call(`_arrow_Tpch_Dbgen_Write`, plan, scale_factor, table_name, filesystem, base_dir, existing_data_behavior, max_partitions))
+}
+
 RecordBatch__cast <- function(batch, schema, options) {
   .Call(`_arrow_RecordBatch__cast`, batch, schema, options)
 }
