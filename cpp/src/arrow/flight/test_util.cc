@@ -26,6 +26,9 @@
 #include <cstdlib>
 #include <sstream>
 
+// We need Windows fixes before including Boost
+#include "arrow/flight/platform.h"
+
 #include <boost/filesystem.hpp>
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
@@ -43,7 +46,6 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
 
 namespace arrow {
