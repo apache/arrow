@@ -3412,6 +3412,14 @@ macro(build_absl_once)
                           absl::raw_logging_internal
                           absl::strings
                           absl::time_zone)
+    if(APPLE)
+      # This is due to upstream absl::cctz issue
+      # https://github.com/abseil/abseil-cpp/issues/283
+      find_library(CoreFoundation CoreFoundation)
+      set_property(TARGET absl::time
+                   APPEND
+                   PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+    endif()
     set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
     set_property(TARGET absl::utility
                  PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::config
@@ -3584,13 +3592,28 @@ macro(build_grpc)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
+      absl::bad_optional_access
       absl::base
-      absl::statusor
-      absl::status
       absl::cord
+      absl::debugging_internal
+      absl::demangle_internal
+      absl::graphcycles_internal
+      absl::int128
+      absl::malloc_internal
+      absl::raw_logging_internal
+      absl::spinlock_wait
+      absl::stacktrace
+      absl::status
+      absl::statusor
       absl::strings
+      absl::strings_internal
+      absl::str_format_internal
+      absl::symbolize
       absl::synchronization
-      absl::time)
+      absl::throw_delegate
+      absl::time
+      absl::time_zone)
+
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
