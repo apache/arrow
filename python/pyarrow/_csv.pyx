@@ -152,11 +152,6 @@ cdef class ReadOptions(_Weakrefable):
     def use_threads(self):
         """
         Whether to use multiple threads to accelerate reading.
-
-        Examples:
-        ---------
-        >>> pyarrow.csv.read_csv(input_file,
-        ...                      read_options=csv.ReadOptions(use_threads=False))
         """
         return deref(self.options).use_threads
 
@@ -183,33 +178,6 @@ cdef class ReadOptions(_Weakrefable):
         The number of rows to skip before the column names (if any)
         and the CSV data.
         See `skip_rows_after_names` for interaction description
-
-        Examples:
-        ---------
-        >>> from pyarrow import csv
-
-        >>> read_options = csv.ReadOptions(skip_rows=1)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        Flamingo: string
-        2: int64
-        01/03/2022: string
-        ----
-        Flamingo: [["Horse","Brittle stars","Centipede"]]
-        2: [[4,5,100]]
-        01/03/2022: [["02/03/2022","03/03/2022","04/03/2022"]]
-
-        >>> read_options = csv.ReadOptions(column_names=["a", "n", "d"],
-        ...                                skip_rows=1)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        a: string
-        n: int64
-        d: string
-        ----
-        a: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n: [[2,4,5,100]]
-        d: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return deref(self.options).skip_rows
 
@@ -222,21 +190,6 @@ cdef class ReadOptions(_Weakrefable):
         """
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
-
-        Examples:
-        ---------
-        >>> from pyarrow import csv
-
-        >>> >>> read_options = csv.ReadOptions(column_names=["a", "n", "d"])
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        a: string
-        n: string
-        d: string
-        ----
-        a: [["animals","Flamingo","Horse","Brittle stars","Centipede"]]
-        n: [["n_legs","2","4","5","100"]]
-        d: [["entry","01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return [frombytes(s) for s in deref(self.options).column_names]
 
@@ -253,32 +206,6 @@ cdef class ReadOptions(_Weakrefable):
         If true, column names will be of the form "f0", "f1"...
         If false, column names will be read from the first CSV row
         after `skip_rows`.
-
-        Examples:
-        ---------
-        >>> from pyarrow import csv
-
-        >>> read_options = csv.ReadOptions(autogenerate_column_names=True)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        f0: string
-        f1: string
-        f2: string
-        ----
-        f0: [["animals","Flamingo","Horse","Brittle stars","Centipede"]]
-        f1: [["n_legs","2","4","5","100"]]
-        f2: [["entry","01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
-
-        >>> read_options = csv.ReadOptions(autogenerate_column_names=False)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: string
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return deref(self.options).autogenerate_column_names
 
@@ -296,34 +223,6 @@ cdef class ReadOptions(_Weakrefable):
         - `skip_rows` is applied (if non-zero);
         - column names aread (unless `column_names` is set);
         - `skip_rows_after_names` is applied (if non-zero).
-
-        Examples:
-        ---------
-
-        >>> from pyarrow import csv
-
-        >>> read_options = csv.ReadOptions(skip_rows_after_names=1)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: string
-        ----
-        animals: [["Horse","Brittle stars","Centipede"]]
-        n_legs: [[4,5,100]]
-        entry: [["02/03/2022","03/03/2022","04/03/2022"]]
-
-        >>> read_options = csv.ReadOptions(column_names=["a", "n", "d"],
-        ...                                skip_rows_after_names=1)
-        >>> csv.read_csv("animals.csv", read_options=read_options)
-        pyarrow.Table
-        a: string
-        n: int64
-        d: string
-        ----
-        a: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n: [[2,4,5,100]]
-        d: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return deref(self.options).skip_rows_after_names
 
@@ -429,30 +328,6 @@ cdef class ParseOptions(_Weakrefable):
     def delimiter(self):
         """
         The character delimiting individual cells in the CSV data.
-
-        Examples:
-        ---------
-
-        >>> from pyarrow import csv
-
-        >>> parse_options = csv.ParseOptions(delimiter=";")
-        >>> csv.read_csv("animals.csv", parse_options=parse_options)
-        pyarrow.Table
-        animals,"n_legs","entry": string
-        ----
-        animals,"n_legs","entry": [["Flamingo,2,"01/03/2022"","Horse,4,"02/03/2022"",
-        "Brittle stars,5,"03/03/2022"","Centipede,100,"04/03/2022""]]
-
-        >>> parse_options = csv.ParseOptions(delimiter=",")
-        >>> csv.read_csv("animals.csv", parse_options=parse_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: string
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return chr(deref(self.options).delimiter)
 
@@ -465,22 +340,6 @@ cdef class ParseOptions(_Weakrefable):
         """
         The character used optionally for quoting CSV values
         (False if quoting is not allowed).
-
-        Examples:
-        ---------
-
-        >>> from pyarrow import csv
-
-        >>> parse_options = csv.ParseOptions(quote_char=",")
-        >>> csv.read_csv("animals.csv", parse_options=parse_options)
-        pyarrow.Table
-        "animals": string
-        "n_legs": int64
-        "entry": string
-        ----
-        "animals": [[""Flamingo"",""Horse"",""Brittle stars"",""Centipede""]]
-        "n_legs": [[2,4,5,100]]
-        "entry": [[""01/03/2022"",""02/03/2022"",""03/03/2022"",""04/03/2022""]]
         """
         if deref(self.options).quoting:
             return chr(deref(self.options).quote_char)
@@ -500,11 +359,6 @@ cdef class ParseOptions(_Weakrefable):
         """
         Whether two quotes in a quoted CSV value denote a single quote
         in the data.
-
-        Examples:
-        ---------
-        >>> parse_options = csv.ParseOptions(double_quote=False)
-        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).double_quote
 
@@ -517,29 +371,6 @@ cdef class ParseOptions(_Weakrefable):
         """
         The character used optionally for escaping special characters
         (False if escaping is not allowed).
-
-        Examples:
-        ---------
-        >>> from pyarrow import csv
-
-        >>> parse_options = csv.ParseOptions(escape_char=",")
-        >>> csv.read_csv("animals.csv", parse_options=parse_options)
-        pyarrow.Table
-        animals"n_legs""entry": string
-        ----
-        animals"n_legs""entry": [["Flamingo2"01/03/2022"","Horse4"02/03/2022"",
-        "Brittle stars5"03/03/2022"","Centipede100"04/03/2022""]]
-
-        >>> parse_options = csv.ParseOptions(escape_char="/")
-        >>> csv.read_csv("animals.csv", parse_options=parse_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: int64
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [[1032022,2032022,3032022,4032022]]
         """
         if deref(self.options).escaping:
             return chr(deref(self.options).escape_char)
@@ -560,11 +391,6 @@ cdef class ParseOptions(_Weakrefable):
         Whether newline characters are allowed in CSV values.
         Setting this to True reduces the performance of multi-threaded
         CSV reading.
-
-        Examples:
-        ---------
-        >>> parse_options = csv.ParseOptions(newlines_in_values=True)
-        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).newlines_in_values
 
@@ -578,11 +404,6 @@ cdef class ParseOptions(_Weakrefable):
         Whether empty lines are ignored in CSV input.
         If False, an empty line is interpreted as containing a single empty
         value (assuming a one-column CSV file).
-
-        Example:
-        --------
-        >>> parse_options = csv.ParseOptions(ignore_empty_lines=False)
-        >>> csv.read_csv(input_file, parse_options=parse_options)
         """
         return deref(self.options).ignore_empty_lines
 
@@ -770,11 +591,6 @@ cdef class ConvertOptions(_Weakrefable):
     def check_utf8(self):
         """
         Whether to check UTF8 validity of string columns.
-
-        Example:
-        --------
-        >>> convert_options = csv.ConvertOptions(check_utf8=False)
-        >>> csv.read_csv(input_file, convert_options=convert_options)
         """
         return deref(self.options).check_utf8
 
@@ -786,22 +602,6 @@ cdef class ConvertOptions(_Weakrefable):
     def strings_can_be_null(self):
         """
         Whether string / binary columns can have null values.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(strings_can_be_null = True,
-        ...                                      null_values=["Horse"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: string
-        ----
-        animals: [["Flamingo",null,"Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return deref(self.options).strings_can_be_null
 
@@ -813,11 +613,6 @@ cdef class ConvertOptions(_Weakrefable):
     def quoted_strings_can_be_null(self):
         """
         Whether quoted values can be null.
-
-        Example:
-        --------
-        >>> convert_options = csv.ConvertOptions(quoted_strings_can_be_null=False)
-        >>> csv.read_csv(input_file, convert_options=convert_options)
         """
         return deref(self.options).quoted_strings_can_be_null
 
@@ -829,23 +624,6 @@ cdef class ConvertOptions(_Weakrefable):
     def column_types(self):
         """
         Explicitly map column names to column types.
-
-        Examples:
-        ---------
-        >>> import pyarrow as pa
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(
-        ...     column_types={"n_legs": pa.float64()})
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        n_legs: double
-        entry: string
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
              for item in deref(self.options).column_types}
@@ -874,22 +652,6 @@ cdef class ConvertOptions(_Weakrefable):
     def null_values(self):
         """
         A sequence of strings that denote nulls in the data.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(strings_can_be_null = True,
-        ...                                      null_values=["Horse"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: string
-        ----
-        animals: [["Flamingo",null,"Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return [frombytes(x) for x in deref(self.options).null_values]
 
@@ -901,21 +663,6 @@ cdef class ConvertOptions(_Weakrefable):
     def true_values(self):
         """
         A sequence of strings that denote true booleans in the data.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-        >>> convert_options = csv.ConvertOptions(false_values=["Flamingo","Horse"],
-        ...                                      true_values=["Brittle stars","Centipede"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: bool
-        n_legs: int64
-        entry: string
-        ----
-        animals: [[false,false,true,true]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return [frombytes(x) for x in deref(self.options).true_values]
 
@@ -927,21 +674,6 @@ cdef class ConvertOptions(_Weakrefable):
     def false_values(self):
         """
         A sequence of strings that denote false booleans in the data.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-        >>> convert_options = csv.ConvertOptions(false_values=["Flamingo","Horse"],
-        ...                                      true_values=["Brittle stars","Centipede"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: bool
-        n_legs: int64
-        entry: string
-        ----
-        animals: [[false,false,true,true]]
-        n_legs: [[2,4,5,100]]
-        entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
         """
         return [frombytes(x) for x in deref(self.options).false_values]
 
@@ -954,11 +686,6 @@ cdef class ConvertOptions(_Weakrefable):
         """
         The character used as decimal point in floating-point and decimal
         data.
-
-        Examples:
-        ---------
-        >>> convert_options = csv.ConvertOptions(decimal_point=",")
-        >>> csv.read_csv(input_file, convert_options=convert_options)
         """
         return chr(deref(self.options).decimal_point)
 
@@ -970,25 +697,6 @@ cdef class ConvertOptions(_Weakrefable):
     def auto_dict_encode(self):
         """
         Whether to try to automatically dict-encode string / binary data.
-
-        Examples:
-        ---------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(auto_dict_encode=True)
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: dictionary<values=string, indices=int32, ordered=0>
-        n_legs: int64
-        entry: dictionary<values=string, indices=int32, ordered=0>
-        ----
-        animals: [  -- dictionary:
-        ["Flamingo","Horse","Brittle stars","Centipede"]  -- indices:
-        [0,1,2,3]]
-        n_legs: [[2,4,5,100]]
-        entry: [  -- dictionary:
-        ["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]  -- indices:
-        [0,1,2,3]]
         """
         return deref(self.options).auto_dict_encode
 
@@ -1002,36 +710,6 @@ cdef class ConvertOptions(_Weakrefable):
         The maximum dictionary cardinality for `auto_dict_encode`.
 
         This value is per chunk.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(auto_dict_encode=True, auto_dict_max_cardinality=2)
-        >>> csv.read_csv("animal_table.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        n_legs: double
-        date: string
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2.1,4,5,100]]
-        date: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
-
-        >>> convert_options = csv.ConvertOptions(auto_dict_encode=True, auto_dict_max_cardinality=5)
-        >>> csv.read_csv("animal_table.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: dictionary<values=string, indices=int32, ordered=0>
-        n_legs: double
-        date: dictionary<values=string, indices=int32, ordered=0>
-        ----
-        animals: [  -- dictionary:
-        ["Flamingo","Horse","Brittle stars","Centipede"]  -- indices:
-        [0,1,2,3]]
-        n_legs: [[2.1,4,5,100]]
-        date: [  -- dictionary:
-        ["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]  -- indices:
-        [0,1,2,3]]
         """
         return deref(self.options).auto_dict_max_cardinality
 
@@ -1046,17 +724,6 @@ cdef class ConvertOptions(_Weakrefable):
 
         If empty, the Table will include all columns from the CSV file.
         If not empty, only these columns will be included, in this order.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(include_columns=["animals"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
         """
         return [frombytes(s) for s in deref(self.options).include_columns]
 
@@ -1076,19 +743,6 @@ cdef class ConvertOptions(_Weakrefable):
         or null by default).
         This option is ignored if `include_columns` is empty.
 
-        Example:
-        --------
-        >>> from pyarrow import csv
-
-        >>> convert_options = csv.ConvertOptions(include_columns=["animals", "location"],
-        ...                                      include_missing_columns=True)
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        location: null
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        location: [4 nulls]
         """
         return deref(self.options).include_missing_columns
 
@@ -1103,21 +757,6 @@ cdef class ConvertOptions(_Weakrefable):
         when attempting to infer or convert timestamp values (the special
         value ISO8601() can also be given).  By default, a fast built-in
         ISO-8601 parser is used.
-
-        Example:
-        --------
-        >>> from pyarrow import csv
-        >>> convert_options = csv.ConvertOptions(
-        ...                   timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"])
-        >>> csv.read_csv("animals.csv", convert_options=convert_options)
-        pyarrow.Table
-        animals: string
-        n_legs: int64
-        entry: timestamp[s]
-        ----
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        n_legs: [[2,4,5,100]]
-        entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,2022-04-03 00:00:00]]
         """
         cdef:
             shared_ptr[CTimestampParser] c_parser
@@ -1301,13 +940,42 @@ def read_csv(input_file, read_options=None, parse_options=None,
     :class:`pyarrow.Table`
         Contents of the CSV file as a in-memory table.
 
-    Examples
-    --------
+    Example
+    -------
 
-    Reading from the example of pyarrow.csv.write_csv:
+    Defining an example file from bytes object:
+
+    >>> import io
+    >>> s = b'1;2;3\nFlamingo;2;01/03/2022\nHorse;4;02/03/2022\nBrittle stars;5;03/03/2022\nCentipede;100;04/03/2022'
+
+    Read the data from a file:
 
     >>> from pyarrow import csv
-    >>> csv.read_csv("animals.csv")
+    >>> csv.read_csv(io.BytesIO(s))
+    pyarrow.Table
+    1;2;3: string
+    ----
+    1;2;3: [["Flamingo;2;01/03/2022","Horse;4;02/03/2022",
+    "Brittle stars;5;03/03/2022","Centipede;100;04/03/2022"]]
+
+    Change the delimiter:
+
+    >>> parse_options = csv.ParseOptions(delimiter=";")
+    >>> csv.read_csv(io.BytesIO(s), parse_options=parse_options)
+    pyarrow.Table
+    1: string
+    2: int64
+    3: string
+    ----
+    1: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    2: [[2,4,5,100]]
+    3: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
+
+    Ignore the first numbered row and substitute it with defined or
+    autogenerated column names:
+
+    >>> read_options = csv.ReadOptions(column_names=["animals", "n_legs", "entry"], skip_rows=1)
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options, parse_options=parse_options)
     pyarrow.Table
     animals: string
     n_legs: int64
@@ -1316,6 +984,140 @@ def read_csv(input_file, read_options=None, parse_options=None,
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
     n_legs: [[2,4,5,100]]
     entry: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
+
+    >>> read_options = csv.ReadOptions(autogenerate_column_names=True, skip_rows=1)
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options, parse_options=parse_options)
+    pyarrow.Table
+    f0: string
+    f1: int64
+    f2: string
+    ----
+    f0: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    f1: [[2,4,5,100]]
+    f2: [["01/03/2022","02/03/2022","03/03/2022","04/03/2022"]]
+
+    Remove the first 2 rows of the data:
+
+    >>> read_options = csv.ReadOptions(skip_rows_after_names=2)
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options, parse_options=parse_options)
+    pyarrow.Table
+    1: string
+    2: int64
+    3: string
+    ----
+    1: [["Brittle stars","Centipede"]]
+    2: [[5,100]]
+    3: [["03/03/2022","04/03/2022"]]
+
+    Add date parsing format to get a timestamp column:
+
+    >>> read_options = csv.ReadOptions(column_names=["animals", "n_legs", "entry"], skip_rows=1)
+    >>> convert_options = csv.ConvertOptions(timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"])
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: int64
+    entry: timestamp[s]
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
+    entry: [[2022-01-03 00:00:00,2022-02-03 00:00:00,2022-03-03 00:00:00,2022-04-03 00:00:00]]
+
+    Specify which columns to read and add an additional column:
+
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals", "location"],
+    ...                                      include_missing_columns=True,
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"])
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    location: null
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    location: [4 nulls]
+
+    Define a column as a dictionary:
+
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals", "location"],
+    ...                                      include_missing_columns=True,
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"],
+    ...                                      auto_dict_encode=True)
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: dictionary<values=string, indices=int32, ordered=0>
+    location: null
+    ----
+    animals: [  -- dictionary:
+    ["Flamingo","Horse","Brittle stars","Centipede"]  -- indices:
+    [0,1,2,3]]
+    location: [4 nulls]
+
+    Set upper limit for the number of categories. If the categories is more
+    than the limit, the conversion to dictionary will not happen:
+
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals", "location"],
+    ...                                      include_missing_columns=True,
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"],
+    ...                                      auto_dict_encode=True, auto_dict_max_cardinality=2)
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    location: null
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    location: [4 nulls]
+
+    Define strings that should be set to missing:
+
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals"],
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"],
+    ...                                      strings_can_be_null = True,
+    ...                                      null_values=["Horse"])
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    ----
+    animals: [["Flamingo",null,"Brittle stars","Centipede"]]
+
+    Define values to be True and False when converting a column into a bool type:
+
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals"],
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"],
+    ...                                      false_values=["Flamingo","Horse"],
+    ...                                      true_values=["Brittle stars","Centipede"])
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: bool
+    ----
+    animals: [[false,false,true,true]]
+
+    Change the type of a column:
+
+    >>> import pyarrow as pa
+    >>> convert_options = csv.ConvertOptions(include_columns=["animals", "n_legs"],
+    ...                                      timestamp_parsers=["%m/%d/%Y", "%d/%m/%Y"],
+    ...                                      column_types={"n_legs": pa.float64()})
+    >>> csv.read_csv(io.BytesIO(s), read_options=read_options,
+    ...                             parse_options=parse_options,
+    ...                             convert_options=convert_options)
+    pyarrow.Table
+    animals: string
+    n_legs: double
+    ----
+    animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+    n_legs: [[2,4,5,100]]
     """
     cdef:
         shared_ptr[CInputStream] stream
@@ -1487,7 +1289,9 @@ def write_csv(data, output_file, write_options=None,
     memory_pool : MemoryPool, optional
         Pool for temporary allocations.
 
-    Examples
+    Example
+    -------
+
     >>> import pyarrow as pa
     >>> from pyarrow import csv
 
@@ -1499,6 +1303,12 @@ def write_csv(data, output_file, write_options=None,
     ...                  names=["animals", "n_legs", "entry"])
 
     >>> csv.write_csv(table, "animals.csv")
+
+    >>> write_options = csv.WriteOptions(include_header=False)
+    >>> csv.write_csv(table, "animals.csv", write_options=write_options)
+
+    >>> write_options = csv.WriteOptions(delimiter=";")
+    >>> csv.write_csv(table, "animals.csv", write_options=write_options)
     """
     cdef:
         shared_ptr[COutputStream] stream
