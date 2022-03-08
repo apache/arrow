@@ -1392,7 +1392,11 @@ tasks:
         PYTHON: "{{ python_version }}"
         PANDAS: "{{ pandas_version }}"
         NUMPY: "{{ numpy_version }}"
-    {% if cache_leaf %}
+      {% if pandas_version == "latest" %}
+        # ensure we have at least one build with parquet encryption disabled
+        PARQUET_REQUIRE_ENCRYPTION: "OFF"
+      {% endif %}
+    {% if not cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
     {% endif %}
