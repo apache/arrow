@@ -1792,7 +1792,27 @@ cdef class ListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int32 array.
+        Return the list offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int32Array
+
+        Examples
+        --------
+        >>> array = pa.array([[1, 2], None, [3, 4, 5])
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at 0x7f3adc4776a0>
+        [
+          0,
+          2,
+          2,
+          5
+        ]
         """
         return pyarrow_wrap_array((<CListArray*> self.ap).offsets())
 
@@ -1852,7 +1872,15 @@ cdef class LargeListArray(BaseListArray):
     @property
     def offsets(self):
         """
-        Return the offsets as an int64 array.
+        Return the list offsets as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int64Array
         """
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
