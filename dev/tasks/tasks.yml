@@ -1396,7 +1396,7 @@ tasks:
         # ensure we have at least one build with parquet encryption disabled
         PARQUET_REQUIRE_ENCRYPTION: "OFF"
       {% endif %}
-    {% if cache_leaf %}
+    {% if not cache_leaf %}
       # use the latest pandas release, so prevent reusing any cached layers
       flags: --no-leaf-cache
     {% endif %}
