@@ -56,10 +56,10 @@ field in a CMD-type FlightDescriptor.
 If the command is used with GetFlightInfo, the server will return a
 FlightInfo response. The client should then use the Ticket(s) in the
 FlightInfo with the DoGet RPC method to fetch a Arrow data containing
-the results of the command. In other words, metadata is returned as
+the results of the command. In other words, SQL metadata is returned as
 Arrow data, just like query results themselves.
 
-The schema returned by GetSchema or DoGet for a particular command is
+The Arrow schema returned by GetSchema or DoGet for a particular command is
 fixed according to the specification.
 
 ``CommandGetCatalogs``
@@ -110,7 +110,7 @@ encoded in the request FlightDescriptor in the same way.
 Commands beginning with "Action" are instead used with the DoAction
 RPC method, in which case the command should be packed into a
 google.protobuf.Any message, then serialized and packed into the
-``body`` of a Flight Action. Also, the ``type`` should be set to the
+``body`` of a Flight Action. Also, the action ``type`` should be set to the
 command name (i.e. for ``ActionClosePreparedStatementRequest``, the
 ``type`` should be ``ClosePreparedStatement``).
 
