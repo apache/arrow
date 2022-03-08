@@ -239,6 +239,9 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -319,6 +322,9 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
       - name: Download MinIO
         shell: msys2 {0}
         run: |

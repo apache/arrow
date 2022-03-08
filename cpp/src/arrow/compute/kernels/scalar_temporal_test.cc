@@ -564,8 +564,6 @@ TEST_F(ScalarTemporalTest, TestOutsideNanosecondRange) {
   CheckScalarUnary("subsecond", unit, times, float64(), subsecond);
 }
 
-#ifndef _WIN32
-// TODO: We should test on windows once ARROW-13168 is resolved.
 TEST_F(ScalarTemporalTest, TestIsLeapYear) {
   auto is_leap_year_marquesas =
       "[false, true, false, false, false, false, false, false, false, false, false, "
@@ -792,7 +790,6 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
     ASSERT_RAISES(Invalid, Subsecond(timestamp_array));
   }
 }
-#endif
 
 TEST_F(ScalarTemporalTest, Week) {
   auto unit = timestamp(TimeUnit::NANO);
@@ -1607,8 +1604,6 @@ TEST_F(ScalarTemporalTest, TestTemporalDifferenceErrors) {
       CallFunction("weeks_between", {arr1, arr1}, &options));
 }
 
-// TODO: We should test on windows once ARROW-13168 is resolved.
-#ifndef _WIN32
 TEST_F(ScalarTemporalTest, TestAssumeTimezone) {
   std::string timezone_utc = "UTC";
   std::string timezone_kolkata = "Asia/Kolkata";
@@ -2579,7 +2574,6 @@ TEST_F(ScalarTemporalTest, TestCeilFloorRoundTemporalKolkata) {
   CheckScalarUnary("round_temporal", unit, times, unit, round_1_hours, &round_to_1_hours);
   CheckScalarUnary("round_temporal", unit, times, unit, round_2_hours, &round_to_2_hours);
 }
-#endif  // !_WIN32
 
 }  // namespace compute
 }  // namespace arrow

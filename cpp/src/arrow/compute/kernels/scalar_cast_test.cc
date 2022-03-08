@@ -1182,11 +1182,6 @@ TEST(Cast, TimestampToDate) {
 }
 
 TEST(Cast, ZonedTimestampToDate) {
-#ifdef _WIN32
-  // TODO(ARROW-13168): we lack tzdb on Windows
-  GTEST_SKIP() << "ARROW-13168: no access to timezone database on Windows";
-#endif
-
   {
     // See TestZoned in scalar_temporal_test.cc
     auto timestamps =
@@ -1378,11 +1373,6 @@ TEST(Cast, TimestampToTime) {
 }
 
 TEST(Cast, ZonedTimestampToTime) {
-#ifdef _WIN32
-  // TODO(ARROW-13168): we lack tzdb on Windows
-  GTEST_SKIP() << "ARROW-13168: no access to timezone database on Windows";
-#endif
-
   CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO, "Pacific/Marquesas"), kTimestampJson),
             ArrayFromJSON(time64(TimeUnit::NANO), R"([
           52259123456789, 50003999999999, 56480001001001, 65000000000000,
@@ -1573,7 +1563,6 @@ TEST(Cast, TimestampToString) {
   }
 }
 
-#ifndef _WIN32
 TEST(Cast, TimestampWithZoneToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
     CheckCast(
@@ -1608,21 +1597,6 @@ TEST(Cast, TimestampWithZoneToString) {
             R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
   }
 }
-#else
-// TODO(ARROW-13168): we lack tzdb on Windows
-TEST(Cast, TimestampWithZoneToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
-    ASSERT_RAISES(NotImplemented, Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "UTC"),
-                                                     "[-34226955, 1456767743]"),
-                                       CastOptions::Safe(string_type)));
-
-    ASSERT_RAISES(NotImplemented,
-                  Cast(ArrayFromJSON(timestamp(TimeUnit::SECOND, "America/Phoenix"),
-                                     "[-34226955, 1456767743]"),
-                       CastOptions::Safe(string_type)));
-  }
-}
-#endif
 
 TEST(Cast, DateToDate) {
   auto day_32 = ArrayFromJSON(date32(), "[0, null, 100, 1, 10]");
