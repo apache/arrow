@@ -362,6 +362,22 @@ suppress dllimport/dllexport marking of symbols. Projects that statically link
 against Arrow on Windows additionally need this definition. The Unix builds do
 not use the macro.
 
+Downloading the Timezone Database
+=================================
+
+To run some of the compute unit tests on Windows, the IANA timezone database
+and the Windows timezone mapping need to be downloaded first. To download
+them to the default search directory (in the user Downloads directory), use 
+the following section of the `ci/appveyor-setup.bat
+<https://github.com/apache/arrow/blob/master/ci/appveyor-cpp-setup.bat>`_
+script:
+
+.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
+   :language: cpp
+   :start-after: @rem (Doc section: Download timezone database)
+   :end-before: @rem (Doc section: Download timezone database)
+   :linenos:
+
 Replicating Appveyor Builds
 ===========================
 
