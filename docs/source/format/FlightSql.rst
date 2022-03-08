@@ -59,8 +59,8 @@ FlightInfo with the DoGet RPC method to fetch a Arrow data containing
 the results of the command. In other words, SQL metadata is returned as
 Arrow data, just like query results themselves.
 
-The Arrow schema returned by GetSchema or DoGet for a particular command is
-fixed according to the specification.
+The Arrow schema returned by GetSchema or DoGet for a particular
+command is fixed according to the specification.
 
 ``CommandGetCatalogs``
     List the catalogs available in the database. The definition varies
@@ -110,9 +110,9 @@ encoded in the request FlightDescriptor in the same way.
 Commands beginning with "Action" are instead used with the DoAction
 RPC method, in which case the command should be packed into a
 google.protobuf.Any message, then serialized and packed into the
-``body`` of a Flight Action. Also, the action ``type`` should be set to the
-command name (i.e. for ``ActionClosePreparedStatementRequest``, the
-``type`` should be ``ClosePreparedStatement``).
+``body`` of a Flight Action. Also, the action ``type`` should be set
+to the command name (i.e. for ``ActionClosePreparedStatementRequest``,
+the ``type`` should be ``ClosePreparedStatement``).
 
 ``ActionClosePreparedStatementRequest``
     Close a previously created prepared statement.
@@ -125,14 +125,15 @@ command name (i.e. for ``ActionClosePreparedStatementRequest``, the
 
     When used with DoPut: binds parameter values to the prepared statement.
 
-    When used with GetFlightInfo: execute the prepared statement.
+    When used with GetFlightInfo: execute the prepared statement. The
+    prepared statement can be reused after fetching results.
 
 ``CommandPreparedStatementUpdate``
     Execute a previously created prepared statement that does not
     return results.
 
     When used with DoPut: execute the query and return the number of
-    affected rows.
+    affected rows. The prepared statement can be reused afterwards.
 
 ``CommandStatementQuery``
     Execute an ad-hoc SQL query.
