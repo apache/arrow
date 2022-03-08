@@ -113,42 +113,42 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public byte getByte() {
+  public byte getByte() throws SQLException {
     return getAccessor().getByte();
   }
 
   @Override
-  public short getShort() {
+  public short getShort() throws SQLException {
     return getAccessor().getShort();
   }
 
   @Override
-  public int getInt() {
+  public int getInt() throws SQLException {
     return getAccessor().getInt();
   }
 
   @Override
-  public long getLong() {
+  public long getLong() throws SQLException {
     return getAccessor().getLong();
   }
 
   @Override
-  public float getFloat() {
+  public float getFloat() throws SQLException {
     return getAccessor().getFloat();
   }
 
   @Override
-  public double getDouble() {
+  public double getDouble() throws SQLException {
     return getAccessor().getDouble();
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
+  public BigDecimal getBigDecimal() throws SQLException {
     return getAccessor().getBigDecimal();
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) {
+  public BigDecimal getBigDecimal(int i) throws SQLException {
     return getAccessor().getBigDecimal(i);
   }
 
@@ -183,7 +183,7 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public Object getObject(Map<String, Class<?>> map) {
+  public Object getObject(Map<String, Class<?>> map) throws SQLException {
     return getAccessor().getObject(map);
   }
 
@@ -253,7 +253,7 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public <T> T getObject(Class<T> type) {
+  public <T> T getObject(Class<T> type) throws SQLException {
     return getAccessor().getObject(type);
   }
 }
