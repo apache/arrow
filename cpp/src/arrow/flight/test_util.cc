@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/platform.h"
+#include "arrow/flight/test_util.h"
 
 #ifdef __APPLE__
 #include <limits.h>
@@ -43,8 +43,8 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
+#include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
-#include "arrow/flight/test_util.h"
 
 namespace arrow {
 namespace flight {
