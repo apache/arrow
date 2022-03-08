@@ -49,7 +49,6 @@ namespace arrow
             int64_t generated_offset_ = 0;
             std::mutex text_guard_;
             std::unique_ptr<Buffer> text_;
-            random::pcg32_fast rng_;
             static constexpr int64_t kChunkSize = 8192;
             static constexpr int64_t kTextBytes = 300 * 1024 * 1024; // 300 MB
         };
@@ -65,7 +64,7 @@ namespace arrow
 
             virtual Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) = 0;
 
             virtual Status StartProducing(
@@ -495,7 +494,7 @@ namespace arrow
             std::uniform_int_distribution<size_t> dist(0, 3);
             const char *comma_space = ", ";
             bool success = true;
-            switch(dist(rng_))
+            switch(dist(rng))
             {
             case 0:
                 success &= GenerateNoun(offset, rng, arr);
@@ -526,7 +525,7 @@ namespace arrow
         {
             std::uniform_int_distribution<size_t> dist(0, 3);
             bool success = true;
-            switch(dist(rng_))
+            switch(dist(rng))
             {
             case 0:
                 success &= GenerateVerb(offset, rng, arr);
@@ -565,7 +564,7 @@ namespace arrow
         {
             std::uniform_int_distribution<size_t> dist(0, 4);
             bool success = true;
-            switch(dist(rng_))
+            switch(dist(rng))
             {
             case 0:
                 success &= GenerateNounPhrase(offset, rng, arr);
@@ -618,7 +617,7 @@ namespace arrow
             Status Init(
                 size_t num_threads,
                 int64_t batch_size,
-                int scale_factor)
+                float scale_factor)
             {
                 if(!inited_)
                 {
@@ -632,7 +631,7 @@ namespace arrow
                         // 5 is the maximum number of different strings we need to concatenate
                         tld.string_indices.resize(5 * batch_size_);
                     }
-                    part_rows_to_generate_ = scale_factor_ * 200000;
+                    part_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 200000);
                 }
                 return Status::OK();
             }
@@ -693,7 +692,9 @@ namespace arrow
                 RETURN_NOT_OK(InitPartsupp(thread_index));
 
                 for(int col : part_cols_)
+                {
                     RETURN_NOT_OK(part_generators_[col](thread_index));
+                }
                 for(int col : partsupp_cols_)
                     RETURN_NOT_OK(partsupp_generators_[col](thread_index));
 
@@ -995,17 +996,20 @@ namespace arrow
                     RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_BRAND));
                     const char *p_mfgr = reinterpret_cast<const char *>(
                         tld.part[PART::P_MFGR].array()->buffers[1]->data());
-                    char *p_brand = reinterpret_cast<char *>(tld.part[PART::P_BRAND].array()->buffers[1]->mutable_data());
+                    char *p_brand = reinterpret_cast<char *>(
+                        tld.part[PART::P_BRAND].array()->buffers[1]->mutable_data());
                     int32_t byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_BRAND]);
                     int32_t mfgr_byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_MFGR]);
                     const size_t mfgr_id_offset = std::strlen("Manufacturer#");
                     for(int64_t irow = 0; irow < tld.part_to_generate; irow++)
                     {
+                        char *row = p_brand + byte_width * irow;
                         char mfgr_id = *(p_mfgr + irow * mfgr_byte_width + mfgr_id_offset);
                         char brand_id = '0' + dist(tld.rng);
-                        std::strncpy(p_brand + byte_width * irow, brand, byte_width);
-                        *(p_brand + byte_width * irow + brand_length) = mfgr_id;
-                        *(p_brand + byte_width * irow + brand_length + 1) = brand_id;
+                        std::strncpy(row, brand, byte_width);
+                        *(row + brand_length) = mfgr_id;
+                        *(row + brand_length + 1) = brand_id;
+                        irow += 0;
                     }
                 }
                 return Status::OK();
@@ -1038,11 +1042,9 @@ namespace arrow
                             tld.string_indices[irow * 3 + ipart] = name_part_index;
                             string_length += std::strlen(types[ipart][name_part_index]);
                         }
-                        // Add 4 because there is a space between each word (i.e. 2 spaces)
-                        offsets[irow + 1] = offsets[irow] + string_length + 2;
+                        offsets[irow + 1] = offsets[irow] + string_length;
                     }
-                    // Add an extra byte for the space after in the very last string.
-                    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer, AllocateBuffer(offsets[tld.part_to_generate] + 1));
+                    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer, AllocateBuffer(offsets[tld.part_to_generate]));
                     char *strings = reinterpret_cast<char *>(string_buffer->mutable_data());
                     for(int64_t irow = 0; irow < tld.part_to_generate; irow++)
                     {
@@ -1054,7 +1056,6 @@ namespace arrow
                             size_t length = std::strlen(part);
                             std::memcpy(row, part, length);
                             row += length;
-                            *row++ = ' ';
                         }
                     }
                     ArrayData ad(part_types_[PART::P_TYPE], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
@@ -1100,10 +1101,8 @@ namespace arrow
                         size_t container2_length = std::strlen(container2);
 
                         char *row = p_container + byte_width * irow;
-                        // Abuse strncpy to zero out the rest of the array
                         std::strncpy(row, container1, byte_width);
-                        row[container1_length] = ' ';
-                        std::memcpy(row + container1_length + 1, container2, container2_length);
+                        std::memcpy(row + container1_length, container2, container2_length);
                     }
                 }
                 return Status::OK();
@@ -1225,7 +1224,7 @@ namespace arrow
                     int64_t ipartsupp = 0;
                     int64_t ipart = 0;
                     int64_t ps_to_generate = kPartSuppRowsPerPart * tld.part_to_generate;
-                    const int32_t S = scale_factor_ * 10000;
+                    const int32_t S = static_cast<int32_t>(scale_factor_ * 10000);
                     for(int64_t irow = 0; irow < ps_to_generate; ibatch++)
                     {
                         RETURN_NOT_OK(AllocatePartSuppBatch(thread_index, ibatch, PARTSUPP::PS_SUPPKEY));
@@ -1342,7 +1341,7 @@ namespace arrow
             std::queue<ExecBatch> part_output_queue_;
             std::queue<ExecBatch> partsupp_output_queue_;
             int64_t batch_size_;
-            int scale_factor_;
+            float scale_factor_;
             int64_t part_rows_to_generate_;
             int64_t part_rows_generated_;
             std::vector<int> part_cols_;
@@ -1360,7 +1359,7 @@ namespace arrow
             Status Init(
                 size_t num_threads,
                 int64_t batch_size,
-                int scale_factor)
+                float scale_factor)
             {
                 if(!inited_)
                 {
@@ -1373,7 +1372,7 @@ namespace arrow
                     {
                         tld.items_per_order.resize(batch_size_);
                     }
-                    orders_rows_to_generate_ = scale_factor_ * 150000 * 10;
+                    orders_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 150000 * 10);
                 }
                 return Status::OK();
             }
@@ -1711,7 +1710,8 @@ namespace arrow
                     // divisible by 3. Rather than repeatedly generating numbers until we get to
                     // a non-divisible-by-3 number, we just generate a number between
                     // 0 and SF * 50000 - 1, multiply by 3, and then add either 1 or 2. 
-                    std::uniform_int_distribution<int32_t> base_dist(0, scale_factor_ * 50000 - 1);
+                    int32_t sf_50k = static_cast<int32_t>(scale_factor_ * 50000);
+                    std::uniform_int_distribution<int32_t> base_dist(0, sf_50k - 1);
                     std::uniform_int_distribution<int32_t> offset_dist(1, 2);
                     int32_t *o_custkey = reinterpret_cast<int32_t *>(
                         tld.orders[ORDERS::O_CUSTKEY].array()->buffers[1]->mutable_data());
@@ -1867,7 +1867,8 @@ namespace arrow
                 {
                     RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_CLERK));
                     int32_t byte_width = arrow::internal::GetByteWidth(*orders_types_[ORDERS::O_CLERK]);
-                    std::uniform_int_distribution<int64_t> dist(1, scale_factor_ * 1000);
+                    int64_t max_clerk_id = static_cast<int64_t>(scale_factor_ * 1000);
+                    std::uniform_int_distribution<int64_t> dist(1, max_clerk_id);
                     char *o_clerk = reinterpret_cast<char *>(
                         tld.orders[ORDERS::O_CLERK].array()->buffers[1]->mutable_data());
                     for(int64_t i = 0; i < tld.orders_to_generate; i++)
@@ -1991,7 +1992,8 @@ namespace arrow
                     tld.generated_lineitem[LINEITEM::L_PARTKEY] = true;
 
                     size_t ibatch = 0;
-                    std::uniform_int_distribution<int32_t> dist(1, scale_factor_ * 200000);
+                    int32_t max_partkey = static_cast<int32_t>(scale_factor_ * 200000);
+                    std::uniform_int_distribution<int32_t> dist(1, max_partkey);
                     for(int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++)
                     {
                         size_t batch_offset;
@@ -2020,7 +2022,7 @@ namespace arrow
 
                     size_t ibatch = 0;
                     std::uniform_int_distribution<int32_t> dist(0, 3);
-                    const int32_t S = scale_factor_ * 10000;
+                    const int32_t S = static_cast<int32_t>(scale_factor_ * 10000);
                     for(int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++)
                     {
                         size_t batch_offset = 0;
@@ -2502,7 +2504,7 @@ namespace arrow
             std::queue<ExecBatch> orders_output_queue_;
             std::queue<ExecBatch> lineitem_output_queue_;
             int64_t batch_size_;
-            int scale_factor_;
+            float scale_factor_;
             int64_t orders_rows_to_generate_;
             int64_t orders_rows_generated_;
             std::vector<int> orders_cols_;
@@ -2518,12 +2520,12 @@ namespace arrow
         public:
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
                 batch_size_ = batch_size;
-                rows_to_generate_ = scale_factor_ * 10000;
+                rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 10000);
                 rows_generated_.store(0);
                 ARROW_ASSIGN_OR_RAISE(schema_, SetOutputColumns(
                                           columns,
@@ -2537,7 +2539,8 @@ namespace arrow
                 std::unordered_set<int64_t> good_rows_set;
                 while(good_rows_set.size() < num_special_rows)
                 {
-                    good_rows_set.insert(dist(rng));
+                    int64_t row = dist(rng);
+                    good_rows_set.insert(row);
                 }
                 std::unordered_set<int64_t> bad_rows_set;
                 while(bad_rows_set.size() < num_special_rows)
@@ -2817,7 +2820,7 @@ namespace arrow
                     std::uniform_int_distribution<int32_t> start_dist(0, str_length - total_length);
                     int32_t start = start_dist(tld.rng);
                     std::memcpy(out + start, customer, customer_length);
-                    std::memcpy(out + start + gap, review, review_length);
+                    std::memcpy(out + start + customer_length + gap, review, review_length);
                 }
             }
 
@@ -2837,7 +2840,7 @@ namespace arrow
             ScheduleCallback schedule_callback_;
             int64_t rows_to_generate_;
             std::atomic<int64_t> rows_generated_;
-            int scale_factor_;
+            float scale_factor_;
             int64_t batch_size_;
             std::vector<int> gen_list_;
             std::shared_ptr<Schema> schema_;
@@ -2853,7 +2856,7 @@ namespace arrow
 
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
@@ -2912,7 +2915,7 @@ namespace arrow
             FinishedCallback finished_callback_;
             ScheduleCallback schedule_callback_;
             int64_t batch_size_;
-            int64_t scale_factor_;
+            float scale_factor_;
             std::shared_ptr<PartAndPartSupplierGenerator> gen_;
             std::shared_ptr<Schema> schema_;
         };
@@ -2927,7 +2930,7 @@ namespace arrow
 
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
@@ -2986,7 +2989,7 @@ namespace arrow
             FinishedCallback finished_callback_;
             ScheduleCallback schedule_callback_;
             int64_t batch_size_;
-            int64_t scale_factor_;
+            float scale_factor_;
             std::shared_ptr<PartAndPartSupplierGenerator> gen_;
             std::shared_ptr<Schema> schema_;
         };
@@ -2996,7 +2999,7 @@ namespace arrow
         public:
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
@@ -3289,7 +3292,7 @@ namespace arrow
             ScheduleCallback schedule_callback_;
             int64_t rows_to_generate_;
             std::atomic<int64_t> rows_generated_;
-            int scale_factor_;
+            float scale_factor_;
             int64_t batch_size_;
             std::vector<int> gen_list_;
             std::shared_ptr<Schema> schema_;
@@ -3305,7 +3308,7 @@ namespace arrow
 
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
@@ -3364,7 +3367,7 @@ namespace arrow
             FinishedCallback finished_callback_;
             ScheduleCallback schedule_callback_;
             int64_t batch_size_;
-            int64_t scale_factor_;
+            float scale_factor_;
             std::shared_ptr<OrdersAndLineItemGenerator> gen_;
             std::shared_ptr<Schema> schema_;
         };
@@ -3378,7 +3381,7 @@ namespace arrow
 
             Status Init(
                 std::vector<std::string> columns,
-                int scale_factor,
+                float scale_factor,
                 int64_t batch_size) override
             {
                 scale_factor_ = scale_factor;
@@ -3437,7 +3440,7 @@ namespace arrow
             FinishedCallback finished_callback_;
             ScheduleCallback schedule_callback_;
             int64_t batch_size_;
-            int64_t scale_factor_;
+            float scale_factor_;
             std::shared_ptr<OrdersAndLineItemGenerator> gen_;
             std::shared_ptr<Schema> schema_;
         };
@@ -3447,7 +3450,7 @@ namespace arrow
         public:
             Status Init(
                 std::vector<std::string> columns,
-                int /*scale_factor*/,
+                float /*scale_factor*/,
                 int64_t /*batch_size*/) override
             {
                 ARROW_ASSIGN_OR_RAISE(schema_,
@@ -3557,7 +3560,7 @@ namespace arrow
         public:
             Status Init(
                 std::vector<std::string> columns,
-                int /*scale_factor*/,
+                float /*scale_factor*/,
                 int64_t /*batch_size*/) override
             {
                 ARROW_ASSIGN_OR_RAISE(schema_,
@@ -3751,7 +3754,7 @@ namespace arrow
             ThreadIndexer thread_indexer_;
         };
 
-        Result<TpchGen> TpchGen::Make(ExecPlan *plan, int scale_factor, int64_t batch_size)
+        Result<TpchGen> TpchGen::Make(ExecPlan *plan, float scale_factor, int64_t batch_size)
         {
             TpchGen result(plan, scale_factor, batch_size);
             return result;
