@@ -130,16 +130,23 @@ register_bindings_type_cast <- function() {
     }
 
     if (call_binding("is.character", x)) {
-      x <- build_expr("strptime", x, options = list(format = format, tz = tz, units = "s"))
-      y <- build_expr("strptime", "0:0:0", options = list(format = "%X", tz = tz, units = "s"))
-      diff_x_y <- call_binding("difftime", x - y, units = "secs", tz = tz)
+      x <- build_expr("strptime", x, options = list(format = format, tz = tz, unit = 0L))
+      y <- build_expr("strptime", "0:0:0", options = list(format = "%X", tz = tz, unit = 0L))
+      diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
       return(diff_x_y)
     }
 
     # numeric -> duration not supported in Arrow yet
     # https://issues.apache.org/jira/browse/ARROW-15862
-    if (call_binding("is.numeric")) {
+    if (call_binding("is.numeric", x)) {
+      if (call_binding("is.integer", x)) {
+        x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
+        y <- build_expr("cast", 0L, options = cast_options(to_type = time32(unit = "s")))
+        diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
+        return(diff_x_y)
+      } else {
       abort("`as.difftime()` with integer inputs not supported in Arrow ")
+      }
     }
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))

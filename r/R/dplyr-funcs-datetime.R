@@ -193,18 +193,20 @@ register_bindings_datetime <- function() {
                                         tz,
                                         units = c("auto", "secs", "mins",
                                                   "hours", "days", "weeks")) {
-
     units <- match.arg(units)
     if (units != "secs") {
       abort("`difftime()` with units other than seconds not supported in Arrow")
     }
 
-    if (missing(tz)) {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(unit = "s")))
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(unit = "s")))
-    } else {
-      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
-      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+    # for time32() we do not need to worry about timezone
+    if (call_binding("is.instant", time1) & call_binding("is.instant", time1)) {
+      if (missing(tz)) {
+        time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(unit = "s")))
+        time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(unit = "s")))
+      } else {
+        time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+        time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+      }
     }
 
     build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
