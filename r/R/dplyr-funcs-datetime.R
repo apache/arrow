@@ -116,16 +116,15 @@ register_bindings_datetime <- function() {
                         x,
                         NA_integer_)
       if (!label) {
-        # if we don't need a label we can return the integer itself (constrained
-        # to 1:12)
+        # if we don't need a label we can return the integer itself (already
+        # constrained to 1:12)
         return(x)
-      } else {
+      }
         # make the integer into a date32() - which interprets integers as
         # days from epoch (we multiply by 28 to be able to later extract the
         # month with label) - NB this builds a false date (to be used by strftime)
         # since we only know and care about the month
         x <- build_expr("cast", x * 28L, options = cast_options(to_type = date32()))
-      }
     }
 
     if (label) {
