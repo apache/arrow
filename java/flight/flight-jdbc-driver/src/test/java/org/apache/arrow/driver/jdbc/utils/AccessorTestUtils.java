@@ -33,6 +33,10 @@ import org.hamcrest.Matcher;
 import org.junit.rules.ErrorCollector;
 
 public class AccessorTestUtils {
+  @FunctionalInterface
+  public interface CheckedFunction<T, R> {
+    R apply(T t) throws SQLException;
+  }
 
   public static class Cursor {
 
@@ -105,7 +109,7 @@ public class AccessorTestUtils {
       return result;
     }
 
-    public <R> void assertAccessorGetter(ValueVector vector, Function<T, R> getter,
+    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
                                          MatcherGetter<T, R> matcherGetter)
         throws Exception {
       iterate(vector, (accessor, currentRow) -> {
