@@ -534,7 +534,7 @@ else()
 endif()
 
 if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
-  set(ARROW_STATIC_INSTALL_INTERFACE_LIBS_REAL ${ARROW_STATIC_INSTALL_INTERFACE_LIBS})
+  string(APPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
 endif()
 # Need -latomic on Raspbian.
 # See also: https://issues.apache.org/jira/browse/ARROW-12860
@@ -563,10 +563,9 @@ add_arrow_lib(arrow
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
               STATIC_LINK_LIBS
               ${ARROW_STATIC_LINK_LIBS}
-              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS_REAL}
+              ${ARROW_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
-              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS}
-              STATIC_INSTALL_INTERFACE_LIBS)
+              ${ARROW_SHARED_INSTALL_INTERFACE_LIBS})
 
 add_dependencies(arrow ${ARROW_LIBRARIES})
 
