@@ -146,7 +146,7 @@ Instead, install them to the local Maven repository:
         -Dgenerate.pom=true
     [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-vector/8.0.0.dev165/arrow-vector-8.0.0.dev165.jar
 
-6. Validate that the packages were installed:
+5. Validate that the packages were installed:
 
 .. code-block:: shell
 
@@ -160,12 +160,7 @@ Instead, install them to the local Maven repository:
             |__ arrow-vector-8.0.0.dev165.jar
             |__ arrow-vector-8.0.0.dev165.pom
 
-5. Compile your project with `mvn clean install`.
-
-.. code-block:: shell
-
-    $ mvn clean install
-    [INFO] BUILD SUCCESS
+6. Compile your project like usual with ``mvn install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars
