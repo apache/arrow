@@ -136,14 +136,14 @@ class ColumnPopulator {
 
 // Copies the contents of s to out properly escaping any necessary characters.
 // Returns the position next to last copied character.
-char* Escape(arrow::util::string_view s, char* out_end) {
+char* Escape(arrow::util::string_view s, char* out) {
   for (const char c : s) {
-    *out_end++ = c;
+    *out++ = c;
     if (c == '"') {
-      *out_end++ = '"';
+      *out++ = '"';
     }
   }
-  return out_end;
+  return out;
 }
 
 // Populator used for non-string/binary types, or when unquoted strings/binary types are
@@ -175,7 +175,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
           row_number++;
         },
         [&]() {
-          row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+          row_lengths[row_number] += static_cast<int64_t>(null_string_->size());
           row_number++;
         });
     return Status::OK();
@@ -197,7 +197,7 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       memcpy(output + *offsets, null_string_->data(), null_string_->size());
       memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
              end_chars_.size());
-      *offsets += static_cast<int32_t>(null_string_->size() + end_chars_.size());
+      *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
       offsets++;
       return Status::OK();
     };
@@ -276,7 +276,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
             row_number++;
           },
           [&]() {
-            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_lengths[row_number] += static_cast<int64_t>(null_string_->size());
             row_number++;
           });
     } else {
@@ -286,14 +286,13 @@ class QuotedColumnPopulator : public ColumnPopulator {
           [&](arrow::util::string_view s) {
             // Each quote in the value string needs to be escaped.
             int64_t escaped_count = CountQuotes(s);
-            // TODO: Maybe use 64 bit row lengths or safe cast?
             row_needs_escaping_[row_number] = escaped_count > 0;
             row_lengths[row_number] +=
                 static_cast<int64_t>(s.length()) + escaped_count + kQuoteCount;
             row_number++;
           },
           [&]() {
-            row_lengths[row_number] += static_cast<int32_t>(null_string_->size());
+            row_lengths[row_number] += static_cast<int64_t>(null_string_->size());
             row_number++;
           });
     }
@@ -317,7 +316,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           *row++ = '"';
           memcpy(row, end_chars_.data(), end_chars_.length());
           row += end_chars_.length();
-          *offsets += static_cast<int64_t>(row - (output + *offsets));
+          *offsets = static_cast<int64_t>(row - output);
           offsets++;
           needs_escaping++;
         },
@@ -326,7 +325,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
           memcpy(output + *offsets, null_string_->data(), null_string_->size());
           memcpy(output + *offsets + null_string_->size(), end_chars_.c_str(),
                  end_chars_.size());
-          *offsets += static_cast<int32_t>(null_string_->size() + end_chars_.size());
+          *offsets += static_cast<int64_t>(null_string_->size() + end_chars_.size());
           offsets++;
           needs_escaping++;
         });
@@ -557,7 +556,11 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
           column_populators_[col]->UpdateRowLengths(*batch.column(col), offsets_.data()));
     }
     // Calculate cumulative offsets for each row (including delimiters).
-    // ',' * num_columns - 1(last column doesn't have ,) + eol
+    // - before conversion: offsets_[i] = length of i-th row
+    // - after conversion:  offsets_[i] = offset to the starting of i-th row buffer
+    //   - offsets_[0] = 0
+    //   - offsets_[i] = offsets_[i-1] + len(i-1-th row) + len(delimiters)
+    // Delimiters: ',' * num_columns - 1(last column doesn't have ,) + eol
     const int32_t delimiters_length =
         static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
     int64_t last_row_length = offsets_[0] + delimiters_length;
