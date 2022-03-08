@@ -131,7 +131,7 @@ register_bindings_type_cast <- function() {
 
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, tz = tz, unit = 0L))
-      y <- build_expr("strptime", "0:0:0", options = list(format = "%X", tz = tz, unit = 0L))
+      y <- build_expr("strptime", "0:0", options = list(format = "%H:%M", tz = tz, unit = 0L))
       diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
       return(diff_x_y)
     }
