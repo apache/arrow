@@ -167,6 +167,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 # overrides to enable Flight-specific optimizations. See comments in
 # protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
     cookie_internal.cc
@@ -182,6 +183,18 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/protocol_grpc_internal.cc
     transport/grpc/util_internal.cc
     types.cc)
+
+if(MSVC)
+  # Protobuf generated files trigger spurious warnings on MSVC.
+  foreach(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
+                           "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h")
+    # Suppress missing dll-interface warning
+    set_source_files_properties("${GENERATED_SOURCE}"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                           GENERATED TRUE
+                                           SKIP_UNITY_BUILD_INCLUSION TRUE)
+  endforeach()
+endif()
 
 add_arrow_lib(arrow_flight
               CMAKE_PACKAGE_NAME
