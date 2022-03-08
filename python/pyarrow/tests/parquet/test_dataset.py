@@ -150,7 +150,11 @@ def test_create_parquet_dataset_multi_threaded(tempdir):
 
     manifest = pq.ParquetManifest(base_path, filesystem=fs,
                                   metadata_nthreads=1)
-    dataset = pq.ParquetDataset(base_path, filesystem=fs, metadata_nthreads=16)
+    with pytest.warns(
+        DeprecationWarning, match="Specifying the 'metadata_nthreads'"
+    ):
+        dataset = pq.ParquetDataset(
+            base_path, filesystem=fs, metadata_nthreads=16)
     assert len(dataset.pieces) > 0
     partitions = dataset.partitions
     assert len(partitions.partition_names) > 0

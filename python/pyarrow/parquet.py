@@ -1368,7 +1368,7 @@ coerce_int96_timestamp_unit : str, default None.
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
-                filters=None, metadata_nthreads=1, read_dictionary=None,
+                filters=None, metadata_nthreads=None, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
                 use_legacy_dataset=None, pre_buffer=True,
                 coerce_int96_timestamp_unit=None):
@@ -1401,7 +1401,7 @@ coerce_int96_timestamp_unit : str, default None.
 
     def __init__(self, path_or_paths, filesystem=None, schema=None,
                  metadata=None, split_row_groups=False, validate_schema=True,
-                 filters=None, metadata_nthreads=1, read_dictionary=None,
+                 filters=None, metadata_nthreads=None, read_dictionary=None,
                  memory_map=False, buffer_size=0, partitioning="hive",
                  use_legacy_dataset=True, pre_buffer=True,
                  coerce_int96_timestamp_unit=None):
@@ -1409,6 +1409,16 @@ coerce_int96_timestamp_unit : str, default None.
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
                 'using use_legacy_dataset=True')
+        if metadata_nthreads is not None:
+            warnings.warn(
+                "Specifying the 'metadata_nthreads' keyword is deprecated as "
+                "of pyarrow 8.0.0, and the keyword will be removed in a "
+                "future version",
+                DeprecationWarning, stacklevel=2,
+            )
+        else:
+            metadata_nthreads = 1
+
         self._metadata = _ParquetDatasetMetadata()
         a_path = path_or_paths
         if isinstance(a_path, list):
@@ -1733,7 +1743,7 @@ class _ParquetDatasetV2:
         # Raise error for not supported keywords
         for keyword, default in [
                 ("metadata", None), ("split_row_groups", False),
-                ("validate_schema", True), ("metadata_nthreads", 1)]:
+                ("validate_schema", True), ("metadata_nthreads", None)]:
             if keyword in kwargs and kwargs[keyword] is not default:
                 raise ValueError(
                     "Keyword '{0}' is not yet supported with the new "
