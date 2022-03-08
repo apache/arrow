@@ -123,11 +123,25 @@ register_bindings_type_cast <- function() {
   })
   register_binding("as.difftime", function(x,
                                            format = "%X",
-                                           units = c("secs"),
-                                           tz = NULL) {
-    if (call_binding("is.character", x)) {
-      x <- call_binding("strptime", x, format = format)
+                                           units = "auto",
+                                           tz = "UTC") {
+    if (units != "secs") {
+      abort("`as.difftime()` with units other than seconds not supported in Arrow")
     }
+
+    if (call_binding("is.character", x)) {
+      x <- build_expr("strptime", x, options = list(format = format, tz = tz, units = "s"))
+      y <- build_expr("strptime", "0:0:0", options = list(format = "%X", tz = tz, units = "s"))
+      diff_x_y <- call_binding("difftime", x - y, units = "secs", tz = tz)
+      return(diff_x_y)
+    }
+
+    # numeric -> duration not supported in Arrow yet
+    # https://issues.apache.org/jira/browse/ARROW-15862
+    if (call_binding("is.numeric")) {
+      abort("`as.difftime()` with integer inputs not supported in Arrow ")
+    }
+
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
   })
 
