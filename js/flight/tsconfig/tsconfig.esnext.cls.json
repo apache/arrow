@@ -1,0 +1,12 @@
+// Compiler configuration to build the ESNext Closure Compiler target
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "es2015",
+    "declaration": false,
+    "declarationMap": false,
+    "noEmitHelpers": true,
+    "importHelpers": false
+  }
+}

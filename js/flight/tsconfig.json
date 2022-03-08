@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig/tsconfig.base.json",
+  "formatCodeOptions": {
+    "tabSize": 2,
+    "indentSize": 2
+  },
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "isolatedModules": true,
+    "strict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "baseUrl": "./",
+    "rootDir": "./",
+    "paths": {
+      "flight/*": ["src/*"],
+    },
+    "composite": true
+  },
+  "include": ["src/**/*.ts", "ts-proto/**/*.ts", "proto/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
+}

@@ -1,0 +1,67 @@
+{
+    "name": "apache-arrow-flight",
+    "description": "Apache Arrow columnar in-memory format",
+    "type": "module",
+    "scripts": {
+        "dev": "nodemon --watch './**/*.ts' --exec 'node --experimental-specifier-resolution=node --loader ts-node/esm' src/index.ts",
+        "gen-proto": "npx protoc --ts_opt server_grpc1 --ts_opt client_grpc1 --ts_out ./src/ts-proto --proto_path ../../format google/protobuf/any.proto Flight.proto FlightSql.proto",
+        "generate-protobuf-types": "$(npm bin)/proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=proto/ ../../format/Flight*.proto",
+        "lerna": "lerna",
+        "test": "cross-env NODE_NO_WARNINGS=1 gulp test",
+        "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
+        "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
+        "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
+        "perf": "node --loader ts-node/esm/transpile-only ./perf/index.ts",
+        "test:integration": "node ./bin/integration.js --mode validate",
+        "release": "./npm-release.sh",
+        "clean:all": "yarn clean && yarn clean:testdata",
+        "clean:testdata": "gulp clean:testdata",
+        "create:testdata": "gulp create:testdata",
+        "test:coverage": "gulp test -t src --coverage",
+        "test:bundle": "gulp bundle",
+        "doc": "del-cli ./doc && typedoc",
+        "lint": "eslint src test --fix",
+        "lint:ci": "eslint src test",
+        "prepublishOnly": "echo \"Error: do 'yarn release' instead of 'npm publish'\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/apache/arrow.git"
+    },
+    "keywords": [
+        "apache",
+        "arrow"
+    ],
+    "author": "Apache Software Foundation",
+    "license": "Apache-2.0",
+    "bugs": {
+        "url": "https://issues.apache.org/jira/projects/ARROW"
+    },
+    "homepage": "https://github.com/apache/arrow/blob/master/js/README.md",
+    "files": [
+        "bin",
+        "src",
+        "gulp",
+        "jestconfigs",
+        "test",
+        "*.json",
+        "tsconfigs",
+        "README.md",
+        "gulpfile.js",
+        "npm-release.sh",
+        "jest.config.js"
+    ],
+    "dependencies": {
+        "@grpc/grpc-js": "^1.5.7",
+        "@grpc/proto-loader": "^0.6.9",
+        "@protobuf-ts/plugin": "^2.2.2"
+    },
+    "devDependencies": {
+        "nodemon": "^2.0.15",
+        "ts-node": "^10.7.0"
+    },
+    "engines": {
+        "node": ">=12.0"
+    },
+    "version": "8.0.0-SNAPSHOT"
+}

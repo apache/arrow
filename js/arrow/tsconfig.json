@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig/tsconfig.base.json",
+  "formatCodeOptions": {
+    "tabSize": 2,
+    "indentSize": 2
+  },
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "isolatedModules": true,
+    "noEmit": false,
+    "esModuleInterop": true,
+    "baseUrl": "./",
+    "rootDir": "./",
+    "paths": {
+      "apache-arrow": ["src/Arrow.node"],
+      "apache-arrow/*": ["src/*"]
+    },
+    "composite": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
+}
