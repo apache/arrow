@@ -1908,7 +1908,8 @@ use_legacy_dataset : bool, default False
     pyarrow 1.0.0. Among other things, this allows to pass `filters`
     for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
-    Set to True to use the legacy behaviour.
+    Set to True to use the legacy behaviour (this option is deprecated,
+    and the legacy implementation will be removed in a future version).
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process if use_legacy_dataset=False.
