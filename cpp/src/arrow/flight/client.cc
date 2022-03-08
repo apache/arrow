@@ -183,7 +183,10 @@ class ClientStreamReader : public FlightStreamReader {
       // Re-peek here since EnsureDataStarted() advances the stream
       return Next(out);
     }
-    RETURN_NOT_OK(batch_reader_->ReadNext(&out->data));
+    auto status = batch_reader_->ReadNext(&out->data);
+    if (ARROW_PREDICT_FALSE(!status.ok())) {
+      return stream_->Finish(std::move(status));
+    }
     out->app_metadata = std::move(app_metadata_);
     return Status::OK();
   }
@@ -324,9 +327,19 @@ class ClientStreamWriter : public FlightStreamWriter {
         batch_writer_(nullptr),
         app_metadata_(nullptr),
         writer_closed_(false),
+        closed_(false),
         write_options_(options),
         write_size_limit_bytes_(write_size_limit_bytes),
         descriptor_(std::move(descriptor)) {}
+
+  ~ClientStreamWriter() {
+    if (closed_) return;
+    // gRPC implicitly Close()s on destruction so we should too
+    auto status = Close();
+    if (!status.ok()) {
+      ARROW_LOG(WARNING) << "Close() failed: " << status.ToString();
+    }
+  }
 
   Status Begin(const std::shared_ptr<Schema>& schema,
                const ipc::IpcWriteOptions& options) override {
@@ -399,17 +412,22 @@ class ClientStreamWriter : public FlightStreamWriter {
 
   Status Close() override {
     // Do not CheckStarted - Close applies to data and metadata
-    if (batch_writer_ && !writer_closed_) {
-      // This is important! Close() calls
-      // IpcPayloadWriter::CheckStarted() which will force the initial
-      // schema message to be written to the stream. This is required
-      // to unstick the server, else the client and the server end up
-      // waiting for each other. This happens if the client never
-      // wrote anything before calling Close().
-      writer_closed_ = true;
-      return stream_->Finish(batch_writer_->Close());
+    if (!closed_) {
+      closed_ = true;
+      if (batch_writer_ && !writer_closed_) {
+        // This is important! Close() calls
+        // IpcPayloadWriter::CheckStarted() which will force the initial
+        // schema message to be written to the stream. This is required
+        // to unstick the server, else the client and the server end up
+        // waiting for each other. This happens if the client never
+        // wrote anything before calling Close().
+        writer_closed_ = true;
+        final_status_ = stream_->Finish(batch_writer_->Close());
+      } else {
+        final_status_ = stream_->Finish(Status::OK());
+      }
     }
-    return stream_->Finish(Status::OK());
+    return final_status_;
   }
 
   ipc::WriteStats stats() const override {
@@ -429,6 +447,9 @@ class ClientStreamWriter : public FlightStreamWriter {
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
   std::shared_ptr<Buffer> app_metadata_;
   bool writer_closed_;
+  bool closed_;
+  // Close() is expected to be idempotent
+  Status final_status_;
 
   // Temporary state to construct the IPC payload writer
   ipc::IpcWriteOptions write_options_;

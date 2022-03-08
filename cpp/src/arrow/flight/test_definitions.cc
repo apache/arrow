@@ -24,6 +24,7 @@
 #include "arrow/flight/api.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/testing/generator.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace flight {
@@ -237,6 +238,7 @@ void DataTest::TestOverflowServerBatch() {
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("Cannot send record batches exceeding 2GiB yet"),
         reader->ReadAll(&batches));
+    ARROW_UNUSED(writer->Close());
   }
 }
 void DataTest::TestOverflowClientBatch() {
@@ -477,11 +479,13 @@ void DataTest::TestDoExchangeError() {
     FlightStreamChunk chunk;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Expected error"), reader->Next(&chunk));
+    ARROW_UNUSED(writer->Close());
   }
   {
     ASSERT_OK(client_->DoExchange(descr, &writer, &reader));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         NotImplemented, ::testing::HasSubstr("Expected error"), reader->GetSchema());
+    ARROW_UNUSED(writer->Close());
   }
   // writer->Begin isn't tested here because, as noted in client.cc,
   // OpenRecordBatchWriter lazily writes the initial message - hence
@@ -513,7 +517,17 @@ class DoPutTestServer : public FlightServerBase {
                std::unique_ptr<FlightMessageReader> reader,
                std::unique_ptr<FlightMetadataWriter> writer) override {
     descriptor_ = reader->descriptor();
-    return reader->ReadAll(&batches_);
+    int counter = 0;
+    while (true) {
+      FlightStreamChunk chunk;
+      RETURN_NOT_OK(reader->Next(&chunk));
+      if (!chunk.data) break;
+      batches_.push_back(std::move(chunk.data));
+      auto buffer = Buffer::FromString(std::to_string(counter));
+      RETURN_NOT_OK(writer->WriteMetadata(*buffer));
+      counter++;
+    }
+    return Status::OK();
   }
 
  protected:
@@ -524,13 +538,16 @@ class DoPutTestServer : public FlightServerBase {
 };
 
 void DoPutTest::SetUp() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
   ASSERT_OK(MakeServer<DoPutTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
 void DoPutTest::TearDown() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
+  reinterpret_cast<DoPutTestServer*>(server_.get())->batches_.clear();
 }
 void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
                              const RecordBatchVector& expected_batches) {
@@ -547,10 +564,21 @@ void DoPutTest::CheckDoPut(const FlightDescriptor& descr,
   std::unique_ptr<FlightStreamWriter> stream;
   std::unique_ptr<FlightMetadataReader> reader;
   ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
+
+  // Ensure that the reader can be used independently of the writer
+  auto* reader_ref = reader.get();
+  std::thread reader_thread([reader_ref, &batches]() {
+    for (size_t i = 0; i < batches.size(); i++) {
+      std::shared_ptr<Buffer> out;
+      ASSERT_OK(reader_ref->ReadMetadata(&out));
+    }
+  });
+
   for (const auto& batch : batches) {
     ASSERT_OK(stream->WriteRecordBatch(*batch));
   }
   ASSERT_OK(stream->DoneWriting());
+  reader_thread.join();
   ASSERT_OK(stream->Close());
 
   CheckBatches(descr, batches);
@@ -579,7 +607,7 @@ void DoPutTest::TestInts() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutFloats() {
+void DoPutTest::TestFloats() {
   auto descr = FlightDescriptor::Path({"floats"});
   RecordBatchVector batches;
   auto a0 = ArrayFromJSON(float32(), "[0, 1.2, -3.4, 5.6, null]");
@@ -590,7 +618,7 @@ void DoPutTest::TestDoPutFloats() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutEmptyBatch() {
+void DoPutTest::TestEmptyBatch() {
   // Sending and receiving a 0-sized batch shouldn't fail
   auto descr = FlightDescriptor::Path({"ints"});
   RecordBatchVector batches;
@@ -601,7 +629,7 @@ void DoPutTest::TestDoPutEmptyBatch() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutDicts() {
+void DoPutTest::TestDicts() {
   auto descr = FlightDescriptor::Path({"dicts"});
   RecordBatchVector batches;
   auto dict_values = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"quux\"]");
@@ -619,7 +647,7 @@ void DoPutTest::TestDoPutDicts() {
 
 // Ensure the server is configured to allow large messages by default
 // Tests a 32 MiB batch
-void DoPutTest::TestDoPutLargeBatch() {
+void DoPutTest::TestLargeBatch() {
   auto descr = FlightDescriptor::Path({"large-batches"});
   auto schema = ExampleLargeSchema();
   RecordBatchVector batches;
@@ -627,10 +655,10 @@ void DoPutTest::TestDoPutLargeBatch() {
   CheckDoPut(descr, schema, batches);
 }
 
-void DoPutTest::TestDoPutSizeLimit() {
+void DoPutTest::TestSizeLimit() {
   const int64_t size_limit = 4096;
-  Location location;
-  ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+  ASSERT_OK_AND_ASSIGN(auto location,
+                       Location::ForScheme(transport(), "localhost", server_->port()));
   auto client_options = FlightClientOptions::Defaults();
   client_options.write_size_limit_bytes = size_limit;
   std::unique_ptr<FlightClient> client;
@@ -709,8 +737,10 @@ Status AppMetadataTestServer::DoPut(const ServerCallContext& context,
 }
 
 void AppMetadataTest::SetUp() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
   ASSERT_OK(MakeServer<AppMetadataTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
 void AppMetadataTest::TearDown() {
@@ -890,8 +920,10 @@ class IpcOptionsTestServer : public FlightServerBase {
 };
 
 void IpcOptionsTest::SetUp() {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "localhost", 0));
   ASSERT_OK(MakeServer<IpcOptionsTestServer>(
-      &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+      location, &server_, &client_,
+      [](FlightServerOptions* options) { return Status::OK(); },
       [](FlightClientOptions* options) { return Status::OK(); }));
 }
 void IpcOptionsTest::TearDown() {

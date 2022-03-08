@@ -107,11 +107,11 @@ class GrpcDoPutTest : public DoPutTest {
   std::string transport() const override { return "grpc"; }
 };
 TEST_F(GrpcDoPutTest, TestInts) { TestInts(); }
-TEST_F(GrpcDoPutTest, TestDoPutFloats) { TestDoPutFloats(); }
-TEST_F(GrpcDoPutTest, TestDoPutEmptyBatch) { TestDoPutEmptyBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutDicts) { TestDoPutDicts(); }
-TEST_F(GrpcDoPutTest, TestDoPutLargeBatch) { TestDoPutLargeBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutSizeLimit) { TestDoPutSizeLimit(); }
+TEST_F(GrpcDoPutTest, TestFloats) { TestFloats(); }
+TEST_F(GrpcDoPutTest, TestEmptyBatch) { TestEmptyBatch(); }
+TEST_F(GrpcDoPutTest, TestDicts) { TestDicts(); }
+TEST_F(GrpcDoPutTest, TestLargeBatch) { TestLargeBatch(); }
+TEST_F(GrpcDoPutTest, TestSizeLimit) { TestSizeLimit(); }
 
 class GrpcAppMetadataTest : public AppMetadataTest {
  protected:
@@ -1613,10 +1613,12 @@ TEST_F(TestCancel, DoExchange) {
   std::shared_ptr<Table> table;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
                                   stream->ReadAll(&table));
+  ARROW_UNUSED(writer->Close());
 
   ASSERT_OK(client_->DoExchange(FlightDescriptor::Command(""), &writer, &stream));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
                                   stream->ReadAll(&table, options.stop_token));
+  ARROW_UNUSED(writer->Close());
 }
 
 }  // namespace flight

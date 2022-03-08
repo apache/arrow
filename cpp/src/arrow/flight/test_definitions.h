@@ -97,11 +97,11 @@ class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
 
   // Test methods
   void TestInts();
-  void TestDoPutFloats();
-  void TestDoPutEmptyBatch();
-  void TestDoPutDicts();
-  void TestDoPutLargeBatch();
-  void TestDoPutSizeLimit();
+  void TestFloats();
+  void TestEmptyBatch();
+  void TestDicts();
+  void TestLargeBatch();
+  void TestSizeLimit();
 
  private:
   std::unique_ptr<FlightClient> client_;
