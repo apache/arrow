@@ -372,6 +372,19 @@ module ValuesListArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_interval
+    values = [
+      [
+        1,
+        nil,
+        12,
+      ],
+      nil,
+    ]
+    target = build(:month_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       [

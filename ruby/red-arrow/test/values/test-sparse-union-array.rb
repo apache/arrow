@@ -324,6 +324,15 @@ module ValuesSparseUnionArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_interval
+    values = [
+      {"0" => 1},
+      {"1" => nil},
+    ]
+    target = build(:month_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_decimal256
     values = [
       {"0" => BigDecimal("92.92")},
