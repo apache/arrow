@@ -758,3 +758,15 @@ def test_permutation_of_column_order(tempdir):
                       names=['a', 'b'])
 
     assert table == table2
+
+
+def test_read_table_legacy_deprecated(tempdir):
+    # ARROW-15870
+    table = pa.table({'a': [1, 2, 3]})
+    path = tempdir / 'data.parquet'
+    pq.write_table(table, path)
+
+    with pytest.warns(
+        DeprecationWarning, match="Passing 'use_legacy_dataset=True'"
+    ):
+        pq.read_table(path, use_legacy_dataset=True)
