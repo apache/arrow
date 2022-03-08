@@ -145,7 +145,7 @@ register_bindings_type_cast <- function() {
         diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
         return(diff_x_y)
       } else {
-      abort("`as.difftime()` with integer inputs not supported in Arrow ")
+      abort("`as.difftime()` with double/float inputs not supported in Arrow ")
       }
     }
 

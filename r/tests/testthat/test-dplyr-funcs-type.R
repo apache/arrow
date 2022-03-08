@@ -881,7 +881,7 @@ test_that("as.difftime() works properly", {
     hms_string = c("0:7:45", "12:34:56"),
     hm_string = c("7:45", "12:34"),
     int = c(30L, 75L),
-    dbl = c(30, 75)
+    dbl = c(31, 76)
   )
 
   compare_dplyr_binding(
@@ -905,11 +905,21 @@ test_that("as.difftime() works properly", {
     test_df
   )
 
+  # coercing doubles to difftime/duration is not supported in Arrow
   compare_dplyr_binding(
     .input %>%
-    mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
-    collect(),
-  test_df,
-  warning = TRUE
-)
+      mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # "mins" or other values for units cannot be handled in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(int_difftime = as.difftime(int, units = "mins")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
 })
