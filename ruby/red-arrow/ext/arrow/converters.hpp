@@ -202,7 +202,6 @@ namespace red_arrow {
     //                      const int64_t i) {
     // };
 
-
     inline VALUE convert(const arrow::MonthIntervalArray& array,
                          const int64_t i) {
       return INT2NUM(array.Value(i));
