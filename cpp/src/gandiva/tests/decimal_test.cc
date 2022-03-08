@@ -180,58 +180,6 @@ TEST_F(TestDecimal, TestLiteral) {
   EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
 }
 
-TEST_F(TestDecimal, TestNegativeDecimal) {
-  // schema for input fields
-  constexpr int32_t precision = 36;
-  constexpr int32_t scale = 18;
-  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
-  auto field_a = field("a", decimal_type);
-  auto schema = arrow::schema({
-      field_a,
-  });
-
-  Decimal128TypePtr add2_type;
-  auto status = DecimalTypeUtil::GetResultType(DecimalTypeUtil::kOpAdd,
-                                               {decimal_type, decimal_type}, &add2_type);
-
-  // output fields
-  auto res = field("res0", add2_type);
-
-  // build expression : a + b + c
-  auto node_a = TreeExprBuilder::MakeField(field_a);
-  static std::string decimal_point_six = "6";
-  DecimalScalar128 literal(decimal_point_six, 2, 1);
-  auto node_b = TreeExprBuilder::MakeDecimalLiteral(literal);
-  auto add2 = TreeExprBuilder::MakeFunction("add", {node_a, node_b}, add2_type);
-  auto expr = TreeExprBuilder::MakeExpression(add2, res);
-
-  // Build a projector for the expression.
-  std::shared_ptr<Projector> projector;
-  status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
-  DCHECK_OK(status);
-
-  // Create a row-batch with some sample data
-  int num_records = 4;
-  auto array_a =
-      MakeArrowArrayDecimal(decimal_type, MakeDecimalVector({"1", "2", "3", "4"}, scale),
-                            {false, true, true, true});
-
-  // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
-
-  auto expected = MakeArrowArrayDecimal(
-      add2_type, MakeDecimalVector({"1.6", "2.6", "3.6", "4.6"}, scale),
-      {false, true, true, true});
-
-  // Evaluate expression
-  arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
-  DCHECK_OK(status);
-
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(expected, outputs[0]);
-}
-
 TEST_F(TestDecimal, TestIfElse) {
   // schema for input fields
   constexpr int32_t precision = 36;
@@ -352,6 +300,54 @@ TEST_F(TestDecimal, TestCompare) {
   EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayBool({true, false, true, false}),
                             outputs[5]);  // greater_than_or_equal_to
 }
+
+
+TEST_F(TestDecimal, TestNegative) {
+  // schema for input fields
+  constexpr int32_t precision = 3;
+  constexpr int32_t scale = 1;
+
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
+  auto field_a = field("a", decimal_type);
+  auto schema = arrow::schema({field_a});
+
+  // build expressions
+  auto exprs = std::vector<ExpressionPtr>{
+      TreeExprBuilder::MakeExpression("negative", {field_a}, field("res_negative", decimal_type)),
+  };
+
+  // Build a projector for the expression.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
+  DCHECK_OK(status);
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+  auto validity = {true, true, true, true};
+  auto array_a = MakeArrowArrayDecimal(
+      decimal_type, MakeDecimalVector({"10.5", "-10.5", "-50.2", "50.2"}, scale),
+      validity);
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  DCHECK_OK(status);
+
+  // Validate results
+
+  // negative(x)
+  EXPECT_ARROW_ARRAY_EQUALS(
+      MakeArrowArrayDecimal(decimal_type,
+                            MakeDecimalVector({"-10.5", "10.5", "50.2", "-50.2"}, scale),
+                            validity),
+      outputs[0]);
+
+}
+
 
 // ARROW-9092: This test is conditionally disabled when building with LLVM 9
 // because it hangs.

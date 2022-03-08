@@ -22,6 +22,9 @@
 
 #include "../execution_context.h"
 #include "gandiva/precompiled/types.h"
+#include "arrow/util/decimal.h"
+#include "gandiva/decimal_scalar.h"
+#include "arrow/testing/gtest_util.h"
 
 namespace gandiva {
 
@@ -86,18 +89,27 @@ TEST(TestArithmeticOps, TestNegativeDecimal) {
 
   int64_t out_high_bits = 0;
   uint64_t out_low_bits = 0;
+  int32_t out_precision = 0;
+  int32_t out_scale = 0;
 
-  negative_decimal(ctx_ptr, 10, 5, 3, 1, &out_high_bits, &out_low_bits);
-  EXPECT_EQ(out_high_bits, -11);
-  EXPECT_EQ((int64_t)out_low_bits, -5);
+  arrow::Decimal128 input_decimal("-10.5");
+  negative_decimal(ctx_ptr, input_decimal.high_bits(), input_decimal.low_bits(), 3, 1, &out_high_bits, &out_low_bits, &out_precision, &out_scale);
+  arrow::Decimal128 output_decimal("10.5");
+  EXPECT_EQ(output_decimal.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal.low_bits(), out_low_bits);
 
-  negative_decimal(ctx_ptr, -10, -5, 3, 1, &out_high_bits, &out_low_bits);
-  EXPECT_EQ(out_high_bits, 9);
-  EXPECT_EQ((int64_t)out_low_bits, 5);
+  arrow::Decimal128 input_decimal2("10.5");
+  negative_decimal(ctx_ptr, input_decimal2.high_bits(), input_decimal2.low_bits(), 3, 1, &out_high_bits, &out_low_bits, &out_precision, &out_scale);
+  arrow::Decimal128 output_decimal2("-10.5");
+  EXPECT_EQ(output_decimal2.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal2.low_bits(), out_low_bits);
 
-  negative_decimal(ctx_ptr, 0, 5, 2, 1, &out_high_bits, &out_low_bits);
-  EXPECT_EQ(out_high_bits, -1);
-  EXPECT_EQ((int64_t)out_low_bits, -5);
+  arrow::Decimal128 input_decimal3("-23049223942343.532412");
+  negative_decimal(ctx_ptr, input_decimal3.high_bits(), input_decimal3.low_bits(), 20, 6, &out_high_bits, &out_low_bits, &out_precision, &out_scale);
+  arrow::Decimal128 output_decimal3("23049223942343.532412");
+  EXPECT_EQ(output_decimal3.high_bits(), out_high_bits);
+  EXPECT_EQ(output_decimal3.low_bits(), out_low_bits);
+
 }
 
 TEST(TestArithmeticOps, TestPositiveNegative) {

@@ -178,8 +178,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
 
       NativeFunction(
           "negative", {},
-          DataTypeVector{int64(), int64(), uint64(), int32(), int32(), int64(), uint64()},
-          {}, kResultNullIfNull, "negative_decimal",
+          DataTypeVector{decimal128()},
+          decimal128(), kResultNullIfNull, "negative_decimal",
           NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       // compare functions
