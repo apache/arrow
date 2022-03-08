@@ -109,11 +109,12 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
 }
 
-std::string ConcatAbstractPath(const std::vector<std::string>& parts) {
+std::string ConcatAbstractPaths(const std::vector<std::string>& parts) {
   auto result = EnsureTrailingSlash(*parts.begin());
-  std::for_each(parts.begin(), parts.end() - 1,
+  std::for_each(parts.begin() + 1, parts.end() - 1,
                 [&result](const std::string& s) { result += s; });
-  return result + std::string(RemoveLeadingSlash(*parts.end()));
+  result = result + std::string(RemoveLeadingSlash(*(parts.end() - 1)));
+  return result;
 }
 
 std::string EnsureTrailingSlash(util::string_view v) {
