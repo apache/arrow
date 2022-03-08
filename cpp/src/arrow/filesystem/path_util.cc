@@ -30,62 +30,23 @@ namespace internal {
 
 // XXX How does this encode Windows UNC paths?
 
-std::vector<std::string> SplitAbstractPath(const std::string& path) {
+std::vector<std::string> SplitAbstractPath(util::string_view path, const char& sep) {
   std::vector<std::string> parts;
-  auto v = util::string_view(path);
-  // Strip trailing slash
-  if (v.length() > 0 && v.back() == kSep) {
-    v = v.substr(0, v.length() - 1);
-  }
   // Strip leading slash
-  if (v.length() > 0 && v.front() == kSep) {
-    v = v.substr(1);
+  if (path.length() > 0 && path.front() == kSep) {
+    path = path.substr(1);
   }
-  if (v.length() == 0) {
+  if (path.length() == 0) {
     return parts;
   }
 
-  auto append_part = [&parts, &v](size_t start, size_t end) {
-    parts.push_back(std::string(v.substr(start, end - start)));
+  auto append_part = [&parts, &path](size_t start, size_t end) {
+    parts.push_back(std::string(path.substr(start, end - start)));
   };
 
   size_t start = 0;
   while (true) {
-    size_t end = v.find_first_of(kSep, start);
-    append_part(start, end);
-    if (end == std::string::npos) {
-      break;
-    }
-    start = end + 1;
-  }
-  return parts;
-}
-
-std::vector<std::string> SplitFilename(const std::string& path) {
-  std::vector<std::string> parts;
-  auto v = util::string_view(path);
-
-  // Strip non-prefix segment
-  auto non_prefix_index = v.rfind(kFilenameSep);
-  if (v.length() > 0 && non_prefix_index != std::string::npos) {
-    v = v.substr(0, non_prefix_index);
-  }
-
-  // Strip leading slash
-  if (v.length() > 0 && v.front() == kSep) {
-    v = v.substr(1);
-  }
-  if (v.length() == 0) {
-    return parts;
-  }
-
-  auto append_part = [&parts, &v](size_t start, size_t end) {
-    parts.push_back(std::string(v.substr(start, end - start)));
-  };
-
-  size_t start = 0;
-  while (true) {
-    size_t end = v.find_first_of(kFilenameSep, start);
+    size_t end = path.find_first_of(sep, start);
     append_part(start, end);
     if (end == std::string::npos) {
       break;
@@ -151,7 +112,8 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& prefi
 
 std::string ConcatAbstractPath(const std::vector<std::string>& parts) {
   auto result = EnsureTrailingSlash(*parts.begin());
-  std::for_each(parts.begin(), parts.end()-1, [&result] (const std::string& s) { result+=s; });
+  std::for_each(parts.begin(), parts.end() - 1,
+                [&result](const std::string& s) { result += s; });
   return result + std::string(RemoveLeadingSlash(*parts.end()));
 }
 

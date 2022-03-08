@@ -57,7 +57,8 @@ class TestPartitioning : public ::testing::Test {
     ASSERT_EQ(partitioning_->Format(expr).status().code(), code);
   }
 
-  void AssertFormat(compute::Expression expr, const std::string& expected_directory, const std::string& expected_prefix="") {
+  void AssertFormat(compute::Expression expr, const std::string& expected_directory,
+                    const std::string& expected_prefix = "") {
     // formatted partition expressions are bound to the schema of the dataset being
     // written
     ASSERT_OK_AND_ASSIGN(auto formatted, partitioning_->Format(expr));
@@ -306,9 +307,6 @@ TEST_F(TestPartitioning, DiscoverSchemaFilename) {
 
   // If there are too many digits fall back to string
   AssertInspect({"3760212050_1_"}, {Str("alpha"), Int("beta")});
-
-  // missing segment for beta doesn't cause an error or fallback
-  AssertInspect({"0_1_", "hello_"}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitioning, DirectoryDictionaryInference) {
@@ -345,8 +343,6 @@ TEST_F(TestPartitioning, FilenameDictionaryInference) {
   // successful dictionary inference
   AssertInspect({"a_0_"}, {DictStr("alpha"), DictInt("beta")});
   AssertInspect({"a_0_", "a_1_"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"a_0_", "a_"}, {DictStr("alpha"), DictInt("beta")});
-  AssertInspect({"0_a_", "1_"}, {DictInt("alpha"), DictStr("beta")});
   AssertInspect({"a_0_", "b_0_", "a_1_", "b_1_"}, {DictStr("alpha"), DictInt("beta")});
 }
 

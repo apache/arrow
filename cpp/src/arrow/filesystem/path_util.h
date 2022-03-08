@@ -37,12 +37,8 @@ constexpr char kFilenameSep = '_';
 
 // Split an abstract path into its individual components.
 ARROW_EXPORT
-std::vector<std::string> SplitAbstractPath(const std::string& s);
-
-// Split a filename into its individual partitions.
-ARROW_EXPORT
-std::vector<std::string> SplitFilename(const std::string& s);
-
+std::vector<std::string> SplitAbstractPath(util::string_view path,
+                                           const char& sep = kSep);
 // Return the extension of the file
 ARROW_EXPORT
 std::string GetAbstractPathExtension(const std::string& s);
@@ -108,7 +104,7 @@ std::vector<std::string> MinimalCreateDirSet(std::vector<std::string> dirs);
 
 // Join the components of an abstract path.
 template <class StringIt>
-std::string JoinAbstractPath(StringIt it, StringIt end, const std::string& sep) {
+std::string JoinAbstractPath(StringIt it, StringIt end, const char& sep = kSep) {
   std::string path;
   for (; it != end; ++it) {
     if (it->empty()) continue;
@@ -122,7 +118,7 @@ std::string JoinAbstractPath(StringIt it, StringIt end, const std::string& sep) 
 }
 
 template <class StringRange>
-std::string JoinAbstractPath(const StringRange& range, const std::string& sep = kSep) {
+std::string JoinAbstractPath(const StringRange& range, const char& sep = kSep) {
   return JoinAbstractPath(range.begin(), range.end(), sep);
 }
 
