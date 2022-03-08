@@ -83,7 +83,8 @@ Installing Nightly Packages
 
 Arrow nightly builds are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-Follow the steps and get your nightly packages installed to local maven repository:
+Maven cannot directly use the artifacts from GitHub.
+Instead, install them to the local Maven repository:
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-03-0-github-java-jars
 2. Define nightly packages to use, for example: `arrow-vector` and `arrow-format`
@@ -121,7 +122,7 @@ Follow the steps and get your nightly packages installed to local maven reposito
     |__ arrow-format-8.0.0.dev165.jar
     |__ arrow-vector-8.0.0.dev165.jar
 
-4. Install nightly java version to local maven repository with `mvn install:install-file`
+4. Install the artifacts to the local Maven repository with ``mvn install:install-file``
 
 .. code-block:: shell
 
@@ -144,7 +145,7 @@ Follow the steps and get your nightly packages installed to local maven reposito
         -Dgenerate.pom=true
     [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-vector/8.0.0.dev165/arrow-vector-8.0.0.dev165.jar
 
-6. Validate packages installed locally on maven repository:
+6. Validate that the packages were installed:
 
 .. code-block:: shell
 
