@@ -167,6 +167,7 @@ Instead, install them to the local Maven repository:
     [INFO] BUILD SUCCESS
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
+The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars
