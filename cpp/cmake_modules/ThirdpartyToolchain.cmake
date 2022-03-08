@@ -3783,6 +3783,7 @@ macro(build_nlohmann_json)
   add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
 endmacro()
 if(ARROW_WITH_NLOHMANN_JSON)
+  set(nlohmann_json_SOURCE "AUTO")
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
                       INTERFACE_INCLUDE_DIRECTORIES)
