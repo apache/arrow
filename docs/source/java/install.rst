@@ -88,7 +88,7 @@ Maven cannot directly use the artifacts from GitHub.
 Instead, install them to the local Maven repository:
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-03-0-github-java-jars
-2. Define nightly packages to use, for example: `arrow-vector` and `arrow-format`
+2. Add packages to your pom.xml, for example: ``arrow-vector`` and ``arrow-format``:
 
 .. code-block:: xml
 
@@ -111,7 +111,7 @@ Instead, install them to the local Maven repository:
         </dependency>
     </dependencies>
 
-3. Download packages needed to a temporary directory
+3. Download packages needed to a temporary directory:
 
 .. code-block:: shell
 
@@ -123,7 +123,7 @@ Instead, install them to the local Maven repository:
     |__ arrow-format-8.0.0.dev165.jar
     |__ arrow-vector-8.0.0.dev165.jar
 
-4. Install the artifacts to the local Maven repository with ``mvn install:install-file``
+4. Install the artifacts to the local Maven repository with ``mvn install:install-file``:
 
 .. code-block:: shell
 
