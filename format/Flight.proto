@@ -313,11 +313,14 @@ message Ticket {
   // The size of inlined_data is expected to be small (typically less then 1MB) 
   // and inlining too much data across tickets can run into underlying transport 
   // limitations.  Furthermore, since the data is expected to be small, implementations 
-  // are less likely to optimize for zero-copy in these cases.  
+  // are less likely to optimize for zero-copy in these cases. 
+  //
+  // The inlined data is not expected to contain schema metadata. The schema
+  // should be identical to the schema provided on FlightInfo. 
   repeated FlightData inlined_data = 2;
   enum InlinedCompleteness {
     // Default is no data is inlined.  An UNDEFINED value is not provided because an enum
-    // for the data that the client isn't aware of makes the data unusable.
+    // for the data that the client isn't aware of makes the data unusable anyways.
     NO_INLINED_DATA = 0;
     // The data present in inlined_data represents all data
     // present for the ticket.
