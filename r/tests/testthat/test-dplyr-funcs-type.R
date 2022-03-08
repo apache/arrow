@@ -891,6 +891,9 @@ test_that("as.difftime() works properly", {
      test_df
   )
 
+  # TODO add test with `format` mismatch returning NA once
+  # https://issues.apache.org/jira/browse/ARROW-15659 is solved
+  # as.difftime("07:", format = "%H:%M")
   compare_dplyr_binding(
     .input %>%
       mutate(hm_difftime = as.difftime(hm_string, units = "secs", format = "%H:%M")) %>%
