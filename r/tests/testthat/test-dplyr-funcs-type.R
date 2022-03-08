@@ -890,6 +890,13 @@ test_that("format date/time", {
     times
   )
 
+  compare_dplyr_binding(
+    .input %>%
+      mutate(start_date = format(as.POSIXct("2022-01-01 01:01:00"))) %>%
+      collect(),
+    times
+  )
+
   withr::with_timezone(
     "Pacific/Marquesas",
     {
