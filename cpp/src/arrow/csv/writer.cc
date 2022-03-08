@@ -560,7 +560,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     // - after conversion:  offsets_[i] = offset to the starting of i-th row buffer
     //   - offsets_[0] = 0
     //   - offsets_[i] = offsets_[i-1] + len(i-1-th row) + len(delimiters)
-    // Delimiters: ',' * num_columns - 1(last column doesn't have ,) + eol
+    // Delimiters: ',' * (num_columns - 1) + eol
     const int32_t delimiters_length =
         static_cast<int32_t>(batch.num_columns() - 1 + options_.eol.size());
     int64_t last_row_length = offsets_[0] + delimiters_length;
