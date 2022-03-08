@@ -83,42 +83,42 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public byte getByte() {
+  public byte getByte() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public short getShort() {
+  public short getShort() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public int getInt() {
+  public int getInt() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public long getLong() {
+  public long getLong() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public float getFloat() {
+  public float getFloat() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public double getDouble() {
+  public double getDouble() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
+  public BigDecimal getBigDecimal() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal(final int i) {
+  public BigDecimal getBigDecimal(final int i) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -153,7 +153,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public Object getObject(final Map<String, Class<?>> map) {
+  public Object getObject(final Map<String, Class<?>> map) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -223,9 +223,8 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public <T> T getObject(final Class<T> type) {
+  public <T> T getObject(final Class<T> type) throws SQLException {
     final Object value;
-
     if (type == Byte.class) {
       value = getByte();
     } else if (type == Short.class) {
@@ -249,7 +248,6 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     } else {
       value = getObject();
     }
-
     return !type.isPrimitive() && wasNull ? null : type.cast(value);
   }
 }
