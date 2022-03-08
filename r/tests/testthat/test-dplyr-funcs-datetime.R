@@ -181,8 +181,7 @@ test_that("strftime", {
 
   # This check is due to differences in the way %c currently works in Arrow and R's strftime.
   # We can revisit after https://github.com/HowardHinnant/date/issues/704 is resolved.
-  # Skip on Windows because it must use C locale.
-  if (tolower(Sys.info()[["sysname"]]) != "windows") {
+  if (Sys.getlocale("LC_TIME") != "C") {
     expect_error(
       times %>%
         Table$create() %>%

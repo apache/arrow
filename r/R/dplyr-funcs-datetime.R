@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-check_locale <- function(locale = Sys.getlocale("LC_TIME")) {
+check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   if (tolower(Sys.info()[["sysname"]]) == "windows" & locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
-    stop(paste0("On Windows, locales other than 'C' are not supported in Arrow. ",
+    stop(paste0("On Windows, time locales other than 'C' are not supported in Arrow. ",
                 "Consider setting `Sys.setlocale('LC_TIME', 'C')`"))
   }
   locale
@@ -57,7 +57,7 @@ register_bindings_datetime <- function() {
     } else {
       ts <- x
     }
-    Expression$create("strftime", ts, options = list(format = format, locale = check_locale()))
+    Expression$create("strftime", ts, options = list(format = format, locale = check_time_locale()))
   })
 
   register_binding("format_ISO8601", function(x, usetz = FALSE, precision = NULL, ...) {
@@ -104,7 +104,7 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%A"
       }
-      return(Expression$create("strftime", x, options = list(format = format, locale = check_locale(locale))))
+      return(Expression$create("strftime", x, options = list(format = format, locale = check_time_locale(locale))))
     }
 
     Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
@@ -142,7 +142,8 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%B"
       }
-      return(build_expr("strftime", x, options = list(format = format, locale = check_locale(locale))))
+<<<<<<< HEAD
+      return(build_expr("strftime", x, options = list(format = format, locale = check_time_locale(locale))))
     }
 
     build_expr("month", x)
