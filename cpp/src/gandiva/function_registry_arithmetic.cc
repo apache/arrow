@@ -176,6 +176,10 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
                      "negative_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("negative", {}, DataTypeVector{int64(), int64(), uint64(), int32(), int32(), int64(), uint64()}, void_type(), kResultNullIfNull,
+                     "negative_decimal",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),
       BINARY_RELATIONAL_BOOL_FN(not_equal, {}),

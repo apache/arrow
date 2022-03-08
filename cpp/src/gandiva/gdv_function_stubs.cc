@@ -31,6 +31,7 @@
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 
+#include "arrow/util/int_util_internal.h"
 #include "gandiva/encrypt_utils.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"

@@ -80,6 +80,26 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_FALSE(context.has_error());
 }
 
+TEST(TestArithmeticOps, TestNegativeDecimal) {
+  gandiva::ExecutionContext ctx;
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  int64_t out_high_bits = 0;
+  uint64_t out_low_bits = 0;
+
+  negative_decimal(ctx_ptr, 10, 5, 3, 1, &out_high_bits, &out_low_bits);
+  EXPECT_EQ(out_high_bits, -11);
+  EXPECT_EQ((int64_t)out_low_bits, -5);
+
+  negative_decimal(ctx_ptr, -10, -5, 3, 1, &out_high_bits, &out_low_bits);
+  EXPECT_EQ(out_high_bits, 9);
+  EXPECT_EQ((int64_t)out_low_bits, 5);
+
+  negative_decimal(ctx_ptr, 0, 5, 2, 1, &out_high_bits, &out_low_bits);
+  EXPECT_EQ(out_high_bits, -1);
+  EXPECT_EQ((int64_t)out_low_bits, -5);
+}
+
 TEST(TestArithmeticOps, TestPositiveNegative) {
   EXPECT_EQ(positive_int32(10), 10);
   EXPECT_EQ(positive_int64(1000), 1000);
