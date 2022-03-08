@@ -28,4 +28,4 @@
 
 #endif  // _MSC_VER
 
-#include "arrow/util/config.h"                 // IWYU pragma: keep
+#include "arrow/util/config.h"  // IWYU pragma: keep

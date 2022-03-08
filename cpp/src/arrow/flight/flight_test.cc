@@ -50,6 +50,8 @@
 #include <grpc++/grpc++.h>
 #endif
 
+// Include before test_util.h (boost), contains Windows fixes
+#include "arrow/flight/platform.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"

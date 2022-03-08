@@ -25,6 +25,7 @@
 
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
+
 #include <io.h>
 #else
 #include <fcntl.h>
