@@ -1087,7 +1087,6 @@ class BinaryTask
       ["debian", "bookworm", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
-      ["ubuntu", "hirsute", "main"],
       ["ubuntu", "impish", "main"],
     ]
   end

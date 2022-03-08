@@ -159,14 +159,12 @@ class LocalBinaryTask < BinaryTask
       # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
-      "ubuntu-xenial",
-      # "ubuntu-xenial-arm64",
+      "debian-bookworm",
+      # "debian-bookworm-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-hirsute",
-      # "ubuntu-hirsute-arm64",
       "ubuntu-impish",
       # "ubuntu-impish-arm64",
     ]
@@ -218,8 +216,7 @@ class LocalBinaryTask < BinaryTask
       "amazon-linux-2",
       # "amazon-linux-2-aarch64",
       "centos-7",
-      "centos-8",
-      # "centos-8-aarch64",
+      # "centos-7-aarch64",
     ]
   end
 

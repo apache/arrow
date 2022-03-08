@@ -115,6 +115,10 @@ if [ -n "${SOURCE_ARCHIVE}" ]; then
 else
   run cp /host/tmp/${PACKAGE}-${VERSION}.* rpmbuild/SOURCES/
 fi
+if [ -x /host/prepare-sources.sh ]; then
+  /host/prepare-sources.sh
+fi
+
 run cp \
     /host/tmp/${PACKAGE}.spec \
     rpmbuild/SPECS/
