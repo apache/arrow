@@ -369,8 +369,8 @@ NEGATIVE_INTEGER(int64, 64)
 #undef NEGATIVE_INTEGER
 
 void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
-                          int32_t /*precision*/, int32_t /*scale*/,
-                          int64_t* out_high_bits, uint64_t* out_low_bits) {
+                      int32_t /*precision*/, int32_t /*scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits) {
   arrow::BasicDecimal128 res = arrow::BasicDecimal128(high_bits, low_bits).Negate();
 
   *out_high_bits = res.high_bits();
