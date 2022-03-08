@@ -2006,6 +2006,12 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
 
+    warnings.warn(
+        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
+        "be removed in a future version.",
+        DeprecationWarning, stacklevel=2)
+
     if ignore_prefixes is not None:
         raise ValueError(
             "The 'ignore_prefixes' keyword is only supported when "

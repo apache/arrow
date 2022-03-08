@@ -45,9 +45,6 @@ except ImportError:
     pd = tm = None
 
 
-pytestmark = pytest.mark.parquet
-
-
 def test_parquet_invalid_version(tempdir):
     table = pa.table({'a': [1, 2, 3]})
     with pytest.raises(ValueError, match="Unsupported Parquet format version"):
@@ -593,7 +590,10 @@ def test_read_table_doesnt_warn(datadir, use_legacy_dataset):
         pq.read_table(datadir / 'v0.7.1.parquet',
                       use_legacy_dataset=use_legacy_dataset)
 
-    assert len(record) == 0
+    if use_legacy_dataset:
+        assert len(record) == 1
+    else:
+        assert len(record) == 0
 
 
 @pytest.mark.pandas
