@@ -859,6 +859,18 @@ test_that("month() errors with double input and returns NA with int outside 1:12
     month_as_double = month_as_int + 0.1
   )
 
+  expect_equal(
+    test_df_month %>%
+      arrow_table() %>%
+      select(month_as_int) %>%
+      mutate(month_int_input = month(month_as_int)) %>%
+      collect(),
+    tibble(
+      month_as_int = c(-1L, 1L, 13L, NA),
+      month_int_input = c(NA, 1L, NA, NA)
+    )
+  )
+
   expect_error(
     test_df_month %>%
       arrow_table() %>%
@@ -877,17 +889,6 @@ test_that("month() errors with double input and returns NA with int outside 1:12
     fixed = TRUE
   )
 
-  expect_equal(
-    test_df_month %>%
-      arrow_table() %>%
-      select(month_as_int) %>%
-      mutate(month_int_input = month(month_as_int)) %>%
-      collect(),
-    tibble(
-      month_as_int = c(-1L, 1L, 13L, NA),
-      month_int_input = c(NA, 1L, NA, NA)
-    )
-  )
 })
 
 test_that("date works in arrow", {
