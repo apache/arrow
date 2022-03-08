@@ -41,6 +41,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-make)
     packages+=(${MINGW_PACKAGE_PREFIX}-mlir)
     packages+=(${MINGW_PACKAGE_PREFIX}-ninja)
+    packages+=(${MINGW_PACKAGE_PREFIX}-nlohmann-json)
     packages+=(${MINGW_PACKAGE_PREFIX}-polly)
     packages+=(${MINGW_PACKAGE_PREFIX}-protobuf)
     packages+=(${MINGW_PACKAGE_PREFIX}-python3-numpy)
@@ -67,7 +68,7 @@ case "${target}" in
     packages+=(${MINGW_PACKAGE_PREFIX}-gcc)
     packages+=(${MINGW_PACKAGE_PREFIX}-go)
     packages+=(${MINGW_PACKAGE_PREFIX}-toolchain)
-    packages+=(base-devel)    
+    packages+=(base-devel)
     ;;
 esac
 
