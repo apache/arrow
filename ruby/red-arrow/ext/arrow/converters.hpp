@@ -207,7 +207,6 @@ namespace red_arrow {
       return INT2NUM(array.Value(i));
     }
 
-
     VALUE convert(const arrow::ListArray& array,
                   const int64_t i);
 
