@@ -43,13 +43,13 @@ register_bindings_type_cast <- function() {
   # as.* type casting functions
   # as.factor() is mapped in expression.R
   register_binding("as.character", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = string()))
+    build_expr("cast", x, options = cast_options(to_type = string()))
   })
   register_binding("as.double", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
   })
   register_binding("as.integer", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -60,7 +60,7 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.integer64", function(x) {
-    Expression$create(
+    build_expr(
       "cast",
       x,
       options = cast_options(
@@ -71,10 +71,10 @@ register_bindings_type_cast <- function() {
     )
   })
   register_binding("as.logical", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = boolean()))
+    build_expr("cast", x, options = cast_options(to_type = boolean()))
   })
   register_binding("as.numeric", function(x) {
-    Expression$create("cast", x, options = cast_options(to_type = float64()))
+    build_expr("cast", x, options = cast_options(to_type = float64()))
   })
   register_binding("as.Date", function(x,
                                        format = NULL,

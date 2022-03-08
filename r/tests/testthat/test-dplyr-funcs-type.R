@@ -100,6 +100,14 @@ test_that("explicit type conversions with as.*()", {
         dbl2dbl = as.double(dbl),
         dbl2int = as.integer(dbl),
         dbl2num = as.numeric(dbl),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1),
+        rint2int = as.integer(1L),
+        rint2num = as.numeric(1.5),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2num = as.numeric(1.5)
       ) %>%
       collect(),
     tbl
@@ -110,7 +118,11 @@ test_that("explicit type conversions with as.*()", {
         chr2chr = as.character(chr),
         chr2dbl = as.double(chr),
         chr2int = as.integer(chr),
-        chr2num = as.numeric(chr)
+        chr2num = as.numeric(chr),
+        rchr2chr = as.character("string"),
+        rchr2dbl = as.double("1.5"),
+        rchr2int = as.integer("1"),
+        rchr2num = as.numeric("1.5")
       ) %>%
       collect(),
     tibble(chr = c("1", "2", "3"))
@@ -121,6 +133,9 @@ test_that("explicit type conversions with as.*()", {
         chr2i64 = as.integer64(chr),
         dbl2i64 = as.integer64(dbl),
         i642i64 = as.integer64(i64),
+        rchr2i64 = as.integer64("10000000000"),
+        rdbl2i64 = as.integer64(10000000000),
+        ri642i64 = as.integer64(as.integer64(1e10))
       ) %>%
       collect(),
     tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
@@ -130,7 +145,10 @@ test_that("explicit type conversions with as.*()", {
       transmute(
         chr2lgl = as.logical(chr),
         dbl2lgl = as.logical(dbl),
-        int2lgl = as.logical(int)
+        int2lgl = as.logical(int),
+        rchr2lgl = as.logical("TRUE"),
+        rdbl2lgl = as.logical(0),
+        rint2lgl = as.logical(1L)
       ) %>%
       collect(),
     tibble(
@@ -153,11 +171,24 @@ test_that("explicit type conversions with as.*()", {
         lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
         lgl2dbl = as.double(lgl),
         lgl2int = as.integer(lgl),
-        lgl2lgl = as.logical(lgl)
+        lgl2lgl = as.logical(lgl),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2lgl = as.logical(1),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1L),
+        rint2int = as.integer(1L),
+        rint2lgl = as.logical(1L),
+        rlgl2chr = as.character(TRUE), # Arrow returns "true", "false" here ...
+        rlgl2dbl = as.double(FALSE),
+        rlgl2int = as.integer(NA),
+        rlgl2lgl = as.logical(FALSE)
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(lgl2chr = toupper(lgl2chr),
+             rlgl2chr = toupper(rlgl2chr)), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
