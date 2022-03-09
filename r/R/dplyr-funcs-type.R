@@ -125,6 +125,10 @@ register_bindings_type_cast <- function() {
                                            format = "%X",
                                            units = "auto",
                                            tz = "UTC") {
+    if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
+      format <- "%H:%M:%S"
+    }
+
     if (units != "secs") {
       abort("`as.difftime()` with units other than seconds not supported in Arrow")
     }
@@ -136,8 +140,9 @@ register_bindings_type_cast <- function() {
       return(diff_x_y)
     }
 
-    # numeric -> duration not supported in Arrow yet
-    # https://issues.apache.org/jira/browse/ARROW-15862
+    # numeric -> duration not supported in Arrow yet so we use time23() as
+    # intermediate step
+    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862 done
     if (call_binding("is.numeric", x)) {
       if (call_binding("is.integer", x)) {
         x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
