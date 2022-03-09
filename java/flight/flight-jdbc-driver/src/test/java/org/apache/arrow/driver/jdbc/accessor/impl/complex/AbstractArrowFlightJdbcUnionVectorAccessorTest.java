@@ -226,12 +226,9 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
   @Test
   public void testGetObjectWithClassUsesSpecificAccessor() throws SQLException {
-    try {
       accessor.getObject(Object.class);
       verify(innerAccessor).getObject(Object.class);
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
+
   }
 
   @Test
