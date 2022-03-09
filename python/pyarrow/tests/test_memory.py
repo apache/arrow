@@ -191,10 +191,6 @@ def run_debug_memory_pool(pool_factory, env_value):
 
         pool = pa.{pool_factory}()
         buf = pa.allocate_buffer(64, memory_pool=pool)
-        # Allocate another buffer which will hopefully be laid out
-        # contiguously after `buf` (so that writing out of bounds to `buf`
-        # doesn't crash the process).
-        buf2 = pa.allocate_buffer(64, memory_pool=pool)
 
         # Write memory out of bounds
         ptr = ctypes.cast(buf.address, ctypes.POINTER(ctypes.c_ubyte))
@@ -240,5 +236,10 @@ def test_debug_memory_pool_warn(pool_factory):
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_disabled(pool_factory):
     res = run_debug_memory_pool(pool_factory.__name__, "")
-    res.check_returncode()
+    # The subprocess either returned successfully or was killed by a signal
+    # (due to writing out of bounds), depending on the underlying allocator.
+    if os.name == "posix":
+        assert res.returncode <= 0
+    else:
+        res.check_returncode()
     assert res.stderr == ""
