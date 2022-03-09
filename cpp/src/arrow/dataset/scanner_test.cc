@@ -1399,6 +1399,7 @@ DatasetAndBatches DatasetAndBatchesFromJSON(
       // ... and with the last-in-fragment flag
       batches.back().values.emplace_back(batch_index ==
                                          fragment_batch_strs[fragment_index].size() - 1);
+      batches.back().values.emplace_back(fragments[fragment_index]->ToString());
 
       // each batch carries a guarantee inherited from its Fragment's partition expression
       batches.back().guarantee = fragments[fragment_index]->partition_expression();

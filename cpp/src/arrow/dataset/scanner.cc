@@ -882,15 +882,7 @@ Result<compute::ExecNode*> MakeScanNode(compute::ExecPlan* plan,
         batch->values.emplace_back(partial.fragment.index);
         batch->values.emplace_back(partial.record_batch.index);
         batch->values.emplace_back(partial.record_batch.last);
-
-        auto filefragment_casted = dynamic_cast<const FileFragment*>(
-            partial.fragment.value.get());
-        if (filefragment_casted != nullptr) {
-          batch->values.emplace_back(filefragment_casted->ToString());
-        } else {
-          batch->values.emplace_back("Not a file fragment");
-        }
-
+        batch->values.emplace_back(partial.fragment.value->ToString());
         return batch;
       });
 
