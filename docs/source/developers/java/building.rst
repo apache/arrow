@@ -174,8 +174,8 @@ IntelliJ
 To start working on Arrow in IntelliJ, just open the `java/`
 subdirectory of the Arrow repository.
 
-* For JDK 8 consider to disable `error-prone` profile to project build successfully.
-* For JDK 11 project build successfully with all profiles enabled by default.
+* For JDK 8, disable the ``error-prone`` profile to build the project successfully.
+* For JDK 11, the project should build successfully with the default profiles.
 
 Common Errors
 =============
