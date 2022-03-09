@@ -125,6 +125,7 @@ register_bindings_type_cast <- function() {
                                            format = "%X",
                                            units = "auto",
                                            tz = "UTC") {
+    # windows doesn't seem to like "%X"
     if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
       format <- "%H:%M:%S"
     }
