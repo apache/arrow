@@ -38,6 +38,9 @@ namespace gandiva {
 #define HASH_SHA256_NULL_NEVER_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH_SHA256_NULL_NEVER, name, ALIASES)
 
+#define HASH_SHA512_NULL_NEVER_FN(name, ALIASES) \
+  NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH_SHA512_NULL_NEVER, name, ALIASES)
+
 #define HASH_MD5_NULL_NEVER_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH_MD5_NULL_NEVER, name, ALIASES)
 
@@ -60,11 +63,9 @@ std::vector<NativeFunction> GetHashFunctionRegistry() {
 
       HASH_SHA256_NULL_NEVER_FN(hashSHA256, {}),
 
-      HASH_MD5_NULL_NEVER_FN(hashMD5, {}),
+      HASH_SHA512_NULL_NEVER_FN(hashSHA512, {}),
 
-      NativeFunction("mask_hash", {"maskhash"}, DataTypeVector{utf8()}, utf8(),
-                     kResultNullIfNull, "gdv_mask_hash_utf8_utf8",
-                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
+      HASH_MD5_NULL_NEVER_FN(hashMD5, {})};
 
   return hash_fn_registry_;
 }

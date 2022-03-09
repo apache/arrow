@@ -235,6 +235,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  kResultNullNever, ARROW_STRINGIFY(gdv_fn_sha1_##TYPE),  \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
+// HashSHA512 functions that :
+// - NULL handling is of type NULL_NEVER
+// - can return errors
+//
+// The function name includes the base name & input type name. gdv_fn_sha512_float64
+#define HASH_SHA512_NULL_NEVER(NAME, ALIASES, TYPE)                                   \
+  NativeFunction(#NAME, {"sha512"}, DataTypeVector{TYPE()}, utf8(), kResultNullNever, \
+                 ARROW_STRINGIFY(gdv_fn_sha512_##TYPE),                               \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
 // HashSHA256 functions that :
 // - NULL handling is of type NULL_NEVER
 // - can return errors

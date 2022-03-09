@@ -106,6 +106,11 @@ const char* gdv_fn_castVARBINARY_int64_int64(int64_t context, gdv_int64 value,
                                              int64_t out_len, int32_t* out_length);
 
 GANDIVA_EXPORT
+const char* gdv_fn_sha512_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+                                     int32_t x_precision, int32_t x_scale,
+                                     gdv_boolean x_isvalid, int32_t* out_length);
+
+GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                      int32_t x_precision, int32_t x_scale,
                                      gdv_boolean x_isvalid, int32_t* out_length);
@@ -200,8 +205,4 @@ GANDIVA_EXPORT
 const char* gdv_mask_last_n_utf8_int32(int64_t context, const char* data,
                                        int32_t data_len, int32_t n_to_mask,
                                        int32_t* out_len);
-
-GANDIVA_EXPORT
-const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len,
-                                    int32_t* out_len);
 }
