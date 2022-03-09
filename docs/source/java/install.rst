@@ -81,39 +81,86 @@ Installing Nightly Packages
 .. warning::
     These packages are not official releases. Use them at your own risk.
 
-Arrow nightly builds are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
+Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
+The artifacts are uploaded to GitHub. For example, for 2022/03/01, they can be found at `Github Nightly`_.
 
-To test your code with these artifacts, then configure Maven with:
+Maven cannot directly use the artifacts from GitHub.
+Instead, install them to the local Maven repository:
+
+1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-03-0-github-java-jars
+2. Add packages to your pom.xml, for example: ``arrow-vector`` and ``arrow-format``:
 
 .. code-block:: xml
 
-    $ cat ~/.m2/settings.xml
-    <?xml version="1.0" encoding="UTF-8"?>
-    <settings xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd" xmlns="http://maven.apache.org/SETTINGS/1.1.0"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-      <profiles>
-        <profile>
-          <repositories>
-            <repository>
-               <id>staged</id>
-               <name>staged-releases</name>
-               <url>https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars/</url>
-               <releases>
-                 <enabled>true</enabled>
-               </releases>
-               <snapshots>
-                 <enabled>true</enabled>
-               </snapshots>
-             </repository>
-          </repositories>
-          <id>arrownightly</id>
-        </profile>
-      </profiles>
-    </settings>
-    $ mvn -Parrownightly clean install -X
-    Downloading from staged: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars/org/apache/arrow/arrow-vector/8.0.0.dev143/arrow-vector-8.0.0.dev143.pom
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <arrow.version>8.0.0.dev165</arrow.version>
+    </properties>
 
-Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-vector</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-format</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+    </dependencies>
+
+3. Download packages needed to a temporary directory:
+
+.. code-block:: shell
+
+    $ mkdir nightly-2022-03-03-0-github-java-jars
+    $ cd nightly-2022-03-03-0-github-java-jars
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar
+    $ wget https://github.com/ursacomputing/crossbow/releases/download/nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar
+    $ tree
+    |__ arrow-format-8.0.0.dev165.jar
+    |__ arrow-vector-8.0.0.dev165.jar
+
+4. Install the artifacts to the local Maven repository with ``mvn install:install-file``:
+
+.. code-block:: shell
+
+    $ mvn install:install-file \
+        -Dfile="$(pwd)/arrow-format-8.0.0.dev165.jar" \
+        -DgroupId=org.apache.arrow \
+        -DartifactId=arrow-format \
+        -Dversion=8.0.0.dev165 \
+        -Dpackaging=jar \
+        -DcreateChecksum=true \
+        -Dgenerate.pom=true
+    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-format-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-format/8.0.0.dev165/arrow-format-8.0.0.dev165.jar
+    $ mvn install:install-file \
+        -Dfile="$(pwd)/arrow-vector-8.0.0.dev165.jar" \
+        -DgroupId=org.apache.arrow \
+        -DartifactId=arrow-vector \
+        -Dversion=8.0.0.dev165 \
+        -Dpackaging=jar \
+        -DcreateChecksum=true \
+        -Dgenerate.pom=true
+    [INFO] Installing /nightly-2022-03-03-0-github-java-jars/arrow-vector-8.0.0.dev165.jar to /Users/arrow/.m2/repository/org/apache/arrow/arrow-vector/8.0.0.dev165/arrow-vector-8.0.0.dev165.jar
+
+5. Validate that the packages were installed:
+
+.. code-block:: shell
+
+    $ tree /Users/arrow/.m2/repository/org/apache/arrow
+    |__ arrow-format
+        |__ 8.0.0.dev165
+            |__ arrow-format-8.0.0.dev165.jar
+            |__ arrow-format-8.0.0.dev165.pom
+    |__ arrow-vector
+        |__ 8.0.0.dev165
+            |__ arrow-vector-8.0.0.dev165.jar
+            |__ arrow-vector-8.0.0.dev165.pom
+
+6. Compile your project like usual with ``mvn install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
 .. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-2022-03-01-0-github-java-jars
