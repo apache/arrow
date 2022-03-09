@@ -135,25 +135,25 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetCharacterStreamUsesSpecificAccessor() {
+  public void testGetCharacterStreamUsesSpecificAccessor() throws SQLException {
     accessor.getCharacterStream();
     verify(innerAccessor).getCharacterStream();
   }
 
   @Test
-  public void testGetBinaryStreamUsesSpecificAccessor() {
+  public void testGetBinaryStreamUsesSpecificAccessor() throws SQLException {
     accessor.getBinaryStream();
     verify(innerAccessor).getBinaryStream();
   }
 
   @Test
-  public void testGetUnicodeStreamUsesSpecificAccessor() {
+  public void testGetUnicodeStreamUsesSpecificAccessor() throws SQLException {
     accessor.getUnicodeStream();
     verify(innerAccessor).getUnicodeStream();
   }
 
   @Test
-  public void testGetAsciiStreamUsesSpecificAccessor() {
+  public void testGetAsciiStreamUsesSpecificAccessor() throws SQLException {
     accessor.getAsciiStream();
     verify(innerAccessor).getAsciiStream();
   }

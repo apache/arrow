@@ -158,17 +158,17 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public InputStream getAsciiStream() {
+  public InputStream getAsciiStream() throws SQLException {
     return getAccessor().getAsciiStream();
   }
 
   @Override
-  public InputStream getUnicodeStream() {
+  public InputStream getUnicodeStream() throws SQLException {
     return getAccessor().getUnicodeStream();
   }
 
   @Override
-  public InputStream getBinaryStream() {
+  public InputStream getBinaryStream() throws SQLException {
     return getAccessor().getBinaryStream();
   }
 
@@ -178,7 +178,7 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public Reader getCharacterStream() {
+  public Reader getCharacterStream() throws SQLException {
     return getAccessor().getCharacterStream();
   }
 

@@ -235,20 +235,20 @@ public class ArrowFlightJdbcAccessorTest {
     accessor.getBytes();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetAsciiStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetAsciiStream() throws SQLException {
     when(accessor.getAsciiStream()).thenCallRealMethod();
     accessor.getAsciiStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetUnicodeStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetUnicodeStream() throws SQLException {
     when(accessor.getUnicodeStream()).thenCallRealMethod();
     accessor.getUnicodeStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBinaryStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBinaryStream() throws SQLException {
     when(accessor.getBinaryStream()).thenCallRealMethod();
     accessor.getBinaryStream();
   }
@@ -266,8 +266,8 @@ public class ArrowFlightJdbcAccessorTest {
     accessor.getObject(map);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetCharacterStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetCharacterStream() throws SQLException {
     when(accessor.getCharacterStream()).thenCallRealMethod();
     accessor.getCharacterStream();
   }
