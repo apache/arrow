@@ -109,14 +109,6 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   return EnsureTrailingSlash(base) + std::string(RemoveLeadingSlash(stem));
 }
 
-std::string ConcatAbstractPaths(const std::vector<std::string>& parts) {
-  auto result = EnsureTrailingSlash(*parts.begin());
-  std::for_each(parts.begin() + 1, parts.end() - 1,
-                [&result](const std::string& s) { result += s; });
-  result = result + std::string(RemoveLeadingSlash(*(parts.end() - 1)));
-  return result;
-}
-
 std::string EnsureTrailingSlash(util::string_view v) {
   if (v.length() > 0 && v.back() != kSep) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...

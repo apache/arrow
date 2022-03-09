@@ -286,7 +286,7 @@ class DatasetWriterDirectoryQueue : public util::AsyncDestroyable {
     if (!basename) {
       return Status::Invalid("string interpolation of basename template failed");
     }
-    return fs::internal::ConcatAbstractPaths({directory_, prefix_, *basename});
+    return fs::internal::ConcatAbstractPath(directory_, prefix_ + *basename);
   }
 
   Status FinishCurrentFile() {

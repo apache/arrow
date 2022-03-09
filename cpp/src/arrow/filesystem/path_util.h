@@ -58,9 +58,6 @@ Status ValidateAbstractPathParts(const std::vector<std::string>& parts);
 ARROW_EXPORT
 std::string ConcatAbstractPath(const std::string& base, const std::string& stem);
 
-ARROW_EXPORT
-std::string ConcatAbstractPaths(const std::vector<std::string>& parts);
-
 // Make path relative to base, if it starts with base.  Otherwise error out.
 ARROW_EXPORT
 Result<std::string> MakeAbstractPathRelative(const std::string& base,
