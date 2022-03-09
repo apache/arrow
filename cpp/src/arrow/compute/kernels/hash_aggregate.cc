@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
@@ -2794,10 +2795,10 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    DCHECK_EQ(batch[0].array()->offset, 0);
-    const auto* values = batch[0].array()->GetValues<CType>(1);
+    //    DCHECK_EQ(batch[0].array()->offset, 0);
     const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
-    int64_t num_values = batch[1].array()->length;
+    const auto* values = batch[0].array()->GetValues<CType>(1);
+    int64_t num_values = batch[0].array()->length;
 
     RETURN_NOT_OK(groups_.Append(groups, num_values));
     RETURN_NOT_OK(GetSet::AppendBuffers(values_, values, num_values));
@@ -2857,6 +2858,7 @@ struct GroupedListImpl final : public GroupedAggregator {
         out_type_, num_args_,
         {has_nulls_ ? std::move(null_bitmap_buffer) : nullptr, std::move(values_buffer)});
     auto values = MakeArray(values_array_data);
+    ARROW_LOG(WARNING) << values->ToString();
     return Grouper::ApplyGroupings(*groupings, *values);
   }
 
@@ -2895,9 +2897,10 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecBatch& batch) override {
+    //    DCHECK_EQ(batch[0].array()->offset, 0);
     const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
     const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
-    int64_t num_values = batch[1].array()->length;
+    int64_t num_values = batch[0].array()->length;
 
     num_args_ += num_values;
     RETURN_NOT_OK(groups_.Append(groups, num_values));
@@ -2950,6 +2953,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
         ArrayData::Make(out_type_, num_args_, {std::move(null_bitmap_buffer), nullptr});
     RETURN_NOT_OK(MakeOffsetsValues(values_array_data.get(), values_));
     auto values = MakeArray(values_array_data);
+    ARROW_LOG(WARNING) << values->ToString();
     return Grouper::ApplyGroupings(*groupings, *values);
   }
 
