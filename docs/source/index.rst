@@ -74,6 +74,7 @@ target environment.**
    format/Versioning
    format/Columnar
    format/Flight
+   format/FlightSql
    format/Integration
    format/CDataInterface
    format/CStreamInterface
