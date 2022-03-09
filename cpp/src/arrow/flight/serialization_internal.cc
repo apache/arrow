@@ -242,7 +242,7 @@ Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
 }
 
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out) {
-  // TODO(lidavidm): make these use Result<T>
+  // TODO(ARROW-15612): make these use Result<T>
   std::string str_descr;
   pb::FlightDescriptor pb_descr;
   RETURN_NOT_OK(ToProto(descr, &pb_descr));
