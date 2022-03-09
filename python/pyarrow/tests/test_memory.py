@@ -191,6 +191,10 @@ def run_debug_memory_pool(pool_factory, env_value):
 
         pool = pa.{pool_factory}()
         buf = pa.allocate_buffer(64, memory_pool=pool)
+        # Allocate another buffer which will hopefully be laid out
+        # contiguously after `buf` (so that writing out of bounds to `buf`
+        # doesn't crash the process).
+        buf2 = pa.allocate_buffer(64, memory_pool=pool)
 
         # Write memory out of bounds
         ptr = ctypes.cast(buf.address, ctypes.POINTER(ctypes.c_ubyte))
