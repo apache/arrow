@@ -621,6 +621,11 @@ struct GroupedValueTraits {
 
   static CType Get(const CType* values, uint32_t g) { return values[g]; }
   static void Set(CType* values, uint32_t g, CType v) { values[g] = v; }
+  static Status AppendBuffers(TypedBufferBuilder<CType>& destination, const CType* values,
+                              int64_t num_values) {
+    RETURN_NOT_OK(destination.Append(values, num_values));
+    return Status::OK();
+  }
 };
 template <>
 struct GroupedValueTraits<BooleanType> {
@@ -629,6 +634,12 @@ struct GroupedValueTraits<BooleanType> {
   }
   static void Set(uint8_t* values, uint32_t g, bool v) {
     bit_util::SetBitTo(values, g, v);
+  }
+  static Status AppendBuffers(TypedBufferBuilder<bool>& destination, const bool* values,
+                              int64_t num_values) {
+    RETURN_NOT_OK(destination.Reserve(num_values));
+    destination.UnsafeAppend(reinterpret_cast<const uint8_t*>(values), 0, num_values);
+    return Status::OK();
   }
 };
 
@@ -2783,13 +2794,14 @@ struct GroupedListImpl final : public GroupedAggregator {
 
   Status Consume(const ExecBatch& batch) override {
     const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
+    DCHECK_EQ(batch[0].array()->offset, 0);
     const auto* values = batch[0].array()->GetValues<CType>(1);
     const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
     int64_t num_values = batch[1].array()->length;
 
     num_args_ += num_values;
     RETURN_NOT_OK(groups_.Append(groups, num_values));
-    RETURN_NOT_OK(values_.Append(values, num_values));
+    RETURN_NOT_OK(GetSet::AppendBuffers(values_, values, num_values));
 
     if (values_bitmap == nullptr) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
@@ -3041,10 +3053,10 @@ struct GroupedListFactory {
     return Status::OK();
   }
 
-  //    Status Visit(const BooleanType&) {
-  //      kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
-  //      return Status::OK();
-  //    }
+  Status Visit(const BooleanType&) {
+    kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
+    return Status::OK();
+  }
   //
   //  Status Visit(const NullType&) {
   //    kernel = MakeKernel(std::move(argument_type),
@@ -3645,7 +3657,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(
-        AddHashAggKernels({/*null(), boolean(),*/ decimal128(1, 1), decimal256(1, 1),
+        AddHashAggKernels({/*null(),*/ boolean(), decimal128(1, 1), decimal256(1, 1),
                            month_interval(), fixed_size_binary(1)},
                           GroupedListFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
