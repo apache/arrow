@@ -39,33 +39,8 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
-  private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
-      extends AbstractArrowFlightJdbcUnionVectorAccessor {
-    protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
-      super(() -> 0, (boolean wasNull) -> {
-      });
-    }
-
-    @Override
-    protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
-      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
-      });
-    }
-
-    @Override
-    protected byte getCurrentTypeId() {
-      return 0;
-    }
-
-    @Override
-    protected ValueVector getVectorByTypeId(byte typeId) {
-      return new NullVector();
-    }
-  }
-
   @Mock
   ArrowFlightJdbcAccessor innerAccessor;
-
   @Spy
   AbstractArrowFlightJdbcUnionVectorAccessorMock accessor;
 
@@ -226,8 +201,8 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
 
   @Test
   public void testGetObjectWithClassUsesSpecificAccessor() throws SQLException {
-      accessor.getObject(Object.class);
-      verify(innerAccessor).getObject(Object.class);
+    accessor.getObject(Object.class);
+    verify(innerAccessor).getObject(Object.class);
 
   }
 
@@ -263,5 +238,29 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   public void testGetBigDecimalWithScaleUsesSpecificAccessor() throws SQLException {
     accessor.getBigDecimal(2);
     verify(innerAccessor).getBigDecimal(2);
+  }
+
+  private static class AbstractArrowFlightJdbcUnionVectorAccessorMock
+      extends AbstractArrowFlightJdbcUnionVectorAccessor {
+    protected AbstractArrowFlightJdbcUnionVectorAccessorMock() {
+      super(() -> 0, (boolean wasNull) -> {
+      });
+    }
+
+    @Override
+    protected ArrowFlightJdbcAccessor createAccessorForVector(ValueVector vector) {
+      return new ArrowFlightJdbcNullVectorAccessor((boolean wasNull) -> {
+      });
+    }
+
+    @Override
+    protected byte getCurrentTypeId() {
+      return 0;
+    }
+
+    @Override
+    protected ValueVector getVectorByTypeId(byte typeId) {
+      return new NullVector();
+    }
   }
 }
