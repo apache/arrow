@@ -17,6 +17,7 @@
 package ipc_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -64,20 +65,22 @@ func TestFileCompressed(t *testing.T) {
 
 	for _, codec := range compressTypes {
 		for name, recs := range arrdata.Records {
-			t.Run(name, func(t *testing.T) {
-				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-				defer mem.AssertSize(t, 0)
+			for _, n := range []int{0, 1, 2, 3} {
+				t.Run(fmt.Sprintf("%s compress concurrency %d", name, n), func(t *testing.T) {
+					mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+					defer mem.AssertSize(t, 0)
 
-				f, err := ioutil.TempFile(tempDir, "go-arrow-file-")
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer f.Close()
+					f, err := ioutil.TempFile(tempDir, "go-arrow-file-")
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer f.Close()
 
-				arrdata.WriteFileCompressed(t, f, mem, recs[0].Schema(), recs, codec)
-				arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
-				arrdata.CheckArrowConcurrentFile(t, f, mem, recs[0].Schema(), recs)
-			})
+					arrdata.WriteFileCompressed(t, f, mem, recs[0].Schema(), recs, codec, n)
+					arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
+					arrdata.CheckArrowConcurrentFile(t, f, mem, recs[0].Schema(), recs)
+				})
+			}
 		}
 	}
 }
