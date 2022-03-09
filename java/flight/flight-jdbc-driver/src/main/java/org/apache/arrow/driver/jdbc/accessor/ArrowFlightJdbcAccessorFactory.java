@@ -201,7 +201,7 @@ public class ArrowFlightJdbcAccessorFactory {
       return new ArrowFlightJdbcNullVectorAccessor(setCursorWasNull);
     }
 
-    throw new UnsupportedOperationException("This vector is not supported: " + vector.getClass().getName());
+    throw new UnsupportedOperationException("Unsupported vector type: " + vector.getClass().getName());
   }
 
   /**
