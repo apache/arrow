@@ -38,18 +38,6 @@ public class AccessorTestUtils {
     R apply(T t) throws SQLException;
   }
 
-  public interface AccessorSupplier<T extends ArrowFlightJdbcAccessor> {
-    T supply(ValueVector vector, IntSupplier getCurrentRow);
-  }
-
-  public interface AccessorConsumer<T extends ArrowFlightJdbcAccessor> {
-    void accept(T accessor, int currentRow) throws Exception;
-  }
-
-  public interface MatcherGetter<T extends ArrowFlightJdbcAccessor, R> {
-    Matcher<R> get(T accessor, int currentRow);
-  }
-
   public static class Cursor {
     int currentRow = 0;
     int limit;
@@ -107,7 +95,8 @@ public class AccessorTestUtils {
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         MatcherGetter<T, R> matcherGetter) throws Exception {
+                                         MatcherGetter<T, R> matcherGetter)
+        throws Exception {
       iterate(vector, (accessor, currentRow) -> {
         R object = getter.apply(accessor);
         boolean wasNull = accessor.wasNull();
@@ -117,7 +106,8 @@ public class AccessorTestUtils {
       });
     }
 
-    public <R> void assertAccessorGetterThrowingException(ValueVector vector, CheckedFunction<T, R> getter)
+    public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
+                                         Function<T, Matcher<R>> matcherGetter)
         throws Exception {
       iterate(vector, (accessor, currentRow) ->
           ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class, () -> getter.apply(accessor)));
@@ -129,12 +119,14 @@ public class AccessorTestUtils {
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         Supplier<Matcher<R>> matcherGetter) throws Exception {
+                                         Supplier<Matcher<R>> matcherGetter)
+        throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcherGetter.get());
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
-                                         Matcher<R> matcher) throws Exception {
+                                         Matcher<R> matcher)
+        throws Exception {
       assertAccessorGetter(vector, getter, (accessor, currentRow) -> matcher);
     }
   }
