@@ -33,6 +33,4 @@ RUN apt-get update -y -q && \
       python3-pip && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
-RUN pip3 install wheel && \
-    pip3 install -U setuptools && \
-    pip3 install wheel virtualenv
+RUN pip3 install -U pip setuptools wheel
