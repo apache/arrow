@@ -2751,74 +2751,148 @@ TEST(GroupBy, ListNumeric) {
   for (const auto& type : NumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      auto table =
-          TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
+      {  // With nulls
+        SCOPED_TRACE("with nulls");
+        auto table =
+            TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
     [99,  1],
     [99,  1]
 ])",
-                                                                                   R"([
+                                                                                     R"([
     [88,  2],
     [null,   3],
     [null,   3]
 ])",
-                                                                                   R"([
+                                                                                     R"([
     [null,   4],
     [null,   4]
 ])",
-                                                                                   R"([
+                                                                                     R"([
     [77,  null],
     [99,  3]
 ])",
-                                                                                   R"([
+                                                                                     R"([
     [88,  2],
     [66, 2]
 ])",
-                                                                                   R"([
+                                                                                     R"([
     [55, null],
     [44,  3]
   ])",
-                                                                                   R"([
+                                                                                     R"([
     [33,    null],
     [22,    null]
   ])"});
 
-      ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
-                           internal::GroupBy(
-                               {
-                                   table->GetColumnByName("argument"),
-                               },
-                               {
-                                   table->GetColumnByName("key"),
-                               },
-                               {
-                                   {"hash_list", nullptr},
-                               },
-                               use_threads));
-      ValidateOutput(aggregated_and_grouped);
-      SortBy({"key_0"}, &aggregated_and_grouped);
+        ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                             internal::GroupBy(
+                                 {
+                                     table->GetColumnByName("argument"),
+                                 },
+                                 {
+                                     table->GetColumnByName("key"),
+                                 },
+                                 {
+                                     {"hash_list", nullptr},
+                                 },
+                                 use_threads));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
 
-      // Order of sub-arrays is not stable
-      auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
-        EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
-        EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
-        return sorted.make_array();
-      };
+        // Order of sub-arrays is not stable
+        auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+          EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+          EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+          return sorted.make_array();
+        };
 
-      auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+        auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
 
-      auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
-      AssertDatumsEqual(ArrayFromJSON(type, R"([99, 99])"),
-                        sort(*list_arr->value_slice(0)),
-                        /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"([66, 88, 88])"),
-                        sort(*list_arr->value_slice(1)), /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"([44, 99, null, null])"),
-                        sort(*list_arr->value_slice(2)), /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"([null, null])"),
-                        sort(*list_arr->value_slice(3)),
-                        /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"([22, 33, 55, 77])"),
-                        sort(*list_arr->value_slice(4)), /*verbose=*/true);
+        auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+        AssertDatumsEqual(ArrayFromJSON(type, R"([99, 99])"),
+                          sort(*list_arr->value_slice(0)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([66, 88, 88])"),
+                          sort(*list_arr->value_slice(1)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([44, 99, null, null])"),
+                          sort(*list_arr->value_slice(2)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([null, null])"),
+                          sort(*list_arr->value_slice(3)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([22, 33, 55, 77])"),
+                          sort(*list_arr->value_slice(4)), /*verbose=*/true);
+      }
+      {  // Without nulls
+        SCOPED_TRACE("without nulls");
+        auto table =
+            TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
+    [99,  1],
+    [99,  1]
+])",
+                                                                                     R"([
+    [88,  2],
+    [100,   3],
+    [100,   3]
+])",
+                                                                                     R"([
+    [86,   4],
+    [86,   4]
+])",
+                                                                                     R"([
+    [77,  null],
+    [99,  3]
+])",
+                                                                                     R"([
+    [88,  2],
+    [66, 2]
+])",
+                                                                                     R"([
+    [55, null],
+    [44,  3]
+  ])",
+                                                                                     R"([
+    [33,    null],
+    [22,    null]
+  ])"});
+
+        ASSERT_OK_AND_ASSIGN(auto aggregated_and_grouped,
+                             internal::GroupBy(
+                                 {
+                                     table->GetColumnByName("argument"),
+                                 },
+                                 {
+                                     table->GetColumnByName("key"),
+                                 },
+                                 {
+                                     {"hash_list", nullptr},
+                                 },
+                                 use_threads));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
+
+        // Order of sub-arrays is not stable
+        auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+          EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+          EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+          return sorted.make_array();
+        };
+
+        auto struct_arr = aggregated_and_grouped.array_as<StructArray>();
+
+        auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+        AssertDatumsEqual(ArrayFromJSON(type, R"([99, 99])"),
+                          sort(*list_arr->value_slice(0)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([66, 88, 88])"),
+                          sort(*list_arr->value_slice(1)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([44, 99, 100, 100])"),
+                          sort(*list_arr->value_slice(2)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([86, 86])"),
+                          sort(*list_arr->value_slice(3)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([22, 33, 55, 77])"),
+                          sort(*list_arr->value_slice(4)), /*verbose=*/true);
+      }
     }
   }
 }
@@ -2827,66 +2901,130 @@ TEST(GroupBy, ListBinaryTypes) {
   for (bool use_threads : {true, false}) {
     for (const auto& type : BaseBinaryTypes()) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-
-      auto table = TableFromJSON(schema({
-                                     field("argument0", type),
-                                     field("key", int64()),
-                                 }),
-                                 {R"([
+      {  // with nulls
+        SCOPED_TRACE("with nulls");
+        auto table = TableFromJSON(schema({
+                                       field("argument0", type),
+                                       field("key", int64()),
+                                   }),
+                                   {R"([
     [null,   1],
     ["aaaa", 1]
 ])",
-                                  R"([
+                                    R"([
     ["babcd",2],
     [null,   3],
     ["2",    null],
     ["d",    1],
     ["bc",   2]
 ])",
-                                  R"([
+                                    R"([
     ["bcd", 2],
     ["123", null],
     [null,  3]
 ])"});
 
-      ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                           internal::GroupBy(
-                               {
-                                   table->GetColumnByName("argument0"),
-                               },
-                               {
-                                   table->GetColumnByName("key"),
-                               },
-                               {
-                                   {"hash_list", nullptr},
-                               },
-                               use_threads));
-      ValidateOutput(aggregated_and_grouped);
-      SortBy({"key_0"}, &aggregated_and_grouped);
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             internal::GroupBy(
+                                 {
+                                     table->GetColumnByName("argument0"),
+                                 },
+                                 {
+                                     table->GetColumnByName("key"),
+                                 },
+                                 {
+                                     {"hash_list", nullptr},
+                                 },
+                                 use_threads));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
 
-      // Order of sub-arrays is not stable
-      auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
-        EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
-        EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
-        return sorted.make_array();
-      };
+        // Order of sub-arrays is not stable
+        auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+          EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+          EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+          return sorted.make_array();
+        };
 
-      const auto& struct_arr = aggregated_and_grouped.array_as<StructArray>();
-      // Check the key column
-      AssertDatumsEqual(ArrayFromJSON(int64(), R"([1, 2, 3, null])"),
-                        struct_arr->field(struct_arr->num_fields() - 1));
+        const auto& struct_arr = aggregated_and_grouped.array_as<StructArray>();
+        // Check the key column
+        AssertDatumsEqual(ArrayFromJSON(int64(), R"([1, 2, 3, null])"),
+                          struct_arr->field(struct_arr->num_fields() - 1));
 
-      auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
-      AssertDatumsEqual(ArrayFromJSON(type, R"(["aaaa", "d", null])"),
-                        sort(*list_arr->value_slice(0)),
-                        /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"(["babcd", "bc", "bcd"])"),
-                        sort(*list_arr->value_slice(1)), /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"([null, null])"),
-                        sort(*list_arr->value_slice(2)), /*verbose=*/true);
-      AssertDatumsEqual(ArrayFromJSON(type, R"(["123", "2"])"),
-                        sort(*list_arr->value_slice(3)),
-                        /*verbose=*/true);
+        auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["aaaa", "d", null])"),
+                          sort(*list_arr->value_slice(0)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["babcd", "bc", "bcd"])"),
+                          sort(*list_arr->value_slice(1)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"([null, null])"),
+                          sort(*list_arr->value_slice(2)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["123", "2"])"),
+                          sort(*list_arr->value_slice(3)),
+                          /*verbose=*/true);
+      }
+      {
+        SCOPED_TRACE("without nulls");
+        auto table = TableFromJSON(schema({
+                                       field("argument0", type),
+                                       field("key", int64()),
+                                   }),
+                                   {R"([
+    ["y",   1],
+    ["aaaa", 1]
+])",
+                                    R"([
+    ["babcd",2],
+    ["z",   3],
+    ["2",    null],
+    ["d",    1],
+    ["bc",   2]
+])",
+                                    R"([
+    ["bcd", 2],
+    ["123", null],
+    ["z",  3]
+])"});
+
+        ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                             internal::GroupBy(
+                                 {
+                                     table->GetColumnByName("argument0"),
+                                 },
+                                 {
+                                     table->GetColumnByName("key"),
+                                 },
+                                 {
+                                     {"hash_list", nullptr},
+                                 },
+                                 use_threads));
+        ValidateOutput(aggregated_and_grouped);
+        SortBy({"key_0"}, &aggregated_and_grouped);
+
+        // Order of sub-arrays is not stable
+        auto sort = [](const Array& arr) -> std::shared_ptr<Array> {
+          EXPECT_OK_AND_ASSIGN(auto indices, SortIndices(arr));
+          EXPECT_OK_AND_ASSIGN(auto sorted, Take(arr, indices));
+          return sorted.make_array();
+        };
+
+        const auto& struct_arr = aggregated_and_grouped.array_as<StructArray>();
+        // Check the key column
+        AssertDatumsEqual(ArrayFromJSON(int64(), R"([1, 2, 3, null])"),
+                          struct_arr->field(struct_arr->num_fields() - 1));
+
+        auto list_arr = checked_pointer_cast<ListArray>(struct_arr->field(0));
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["aaaa", "d", "y"])"),
+                          sort(*list_arr->value_slice(0)),
+                          /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["babcd", "bc", "bcd"])"),
+                          sort(*list_arr->value_slice(1)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["z", "z"])"),
+                          sort(*list_arr->value_slice(2)), /*verbose=*/true);
+        AssertDatumsEqual(ArrayFromJSON(type, R"(["123", "2"])"),
+                          sort(*list_arr->value_slice(3)),
+                          /*verbose=*/true);
+      }
     }
   }
 }
