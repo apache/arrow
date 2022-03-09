@@ -434,8 +434,9 @@ Result<std::pair<std::string, std::string>> FilenamePartitioning::FormatValues(
     // if all subsequent keys are absent we'll just print the available keys
     break;
   }
-  return std::make_pair("",
-                        fs::internal::JoinAbstractPath(std::move(segments), '_') + '_');
+  return std::make_pair("", fs::internal::JoinAbstractPath(
+                                std::move(segments), arrow::fs::internal::kFilenameSep) +
+                                arrow::fs::internal::kFilenameSep);
 }
 
 KeyValuePartitioningOptions PartitioningFactoryOptions::AsPartitioningOptions() const {
