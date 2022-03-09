@@ -376,8 +376,6 @@ void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
 
   *out_high_bits = res.high_bits();
   *out_low_bits = res.low_bits();
-  //  out_precision = precision;
-  //  out_scale = scale;
 }
 
 #define DIV(TYPE)                                                                     \
