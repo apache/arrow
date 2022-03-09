@@ -356,6 +356,19 @@ module ValuesDenseUnionArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_day_time_interval
+    values = [
+      {"0" => {day: 1, millisecond: 100}},
+      {"1" => nil},
+    ]
+    inputs = [
+      {"0" => Arrow::DayMillisecond.new(1, 100)},
+      {"1" => nil},
+    ]
+    target = build(:day_time_interval, inputs)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"0" => [true, nil, false]},
