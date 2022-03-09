@@ -5,8 +5,11 @@
 #include <arrow/compute/exec/exec_plan.h>
 #include <arrow/engine/api.h>
 
-#include <optional>
+#include <chrono>
+#include <cmath>
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace arrow {
 namespace qtest {
@@ -16,9 +19,9 @@ struct QueryTestOptions {
   std::string query_name;
   /// Number of CPU threads to initialize Arrow with.  By default Arrow will base this
   /// on std::thread::hardware_concurrency
-  std::optional<int> cpu_threads;
+  util::optional<int> cpu_threads;
   /// Number of I/O threads to initialize Arrow with.  By default Arrow will use 8
-  std::optional<int> io_threads;
+  util::optional<int> io_threads;
   /// Number of iterations of the query to run, defaults to a single run
   int num_iterations = 1;
   /// If true, validate the query results, if possible

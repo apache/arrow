@@ -330,6 +330,10 @@ if(ARROW_BUILD_BENCHMARKS
   set(ARROW_TESTING ON)
 endif()
 
+if(ARROW_BUILD_QUERY_TESTER)
+  set(ARROW_ENGINE ON)
+endif()
+
 if(ARROW_GANDIVA)
   set(ARROW_WITH_RE2 ON)
 endif()
@@ -965,6 +969,10 @@ endif()
 
 if(ARROW_SKYHOOK)
   add_subdirectory(src/skyhook)
+endif()
+
+if(ARROW_BUILD_QUERY_TESTER)
+  add_subdirectory(tools/query-tester)
 endif()
 
 if(ARROW_BUILD_EXAMPLES)

@@ -163,6 +163,8 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
 
   define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks" OFF)
 
+  define_option(ARROW_BUILD_QUERY_TESTER "Build the Arrow engine query testing tool" OFF)
+
   # Reference benchmarks are used to compare to naive implementation, or
   # discover various hardware limits.
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE

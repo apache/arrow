@@ -2,15 +2,16 @@
 #include "builtin_queries.h"
 
 #include <arrow/filesystem/api.h>
+#include <arrow/filesystem/path_util.h>
 
 #include <filesystem>
 #include <iostream>
 #include <mutex>
 
-namespace std_fs = std::filesystem;
 namespace cp = arrow::compute;
 
-namespace arrow::qtest {
+namespace arrow {
+namespace qtest {
 
 Status ValidateOptions(const QueryTestOptions& options) {
   if (options.cpu_threads && *options.cpu_threads <= 0) {
@@ -29,20 +30,38 @@ Status ValidateOptions(const QueryTestOptions& options) {
 }
 
 namespace {
+
+fs::LocalFileSystem* local_fs() {
+  static std::unique_ptr<fs::LocalFileSystem> local_fs =
+      std::unique_ptr<fs::LocalFileSystem>(new fs::LocalFileSystem());
+  return local_fs.get();
+}
+
+bool IsDirectory(const std::string& path) {
+  Result<fs::FileInfo> maybe_file_info = local_fs()->GetFileInfo(path);
+  if (!maybe_file_info.ok()) {
+    return false;
+  }
+  return maybe_file_info->IsDirectory();
+}
+
 Result<std::string> DoGetRootDirectory(const std::string& executable_path) {
-  std_fs::path path = std_fs::absolute(std_fs::path(executable_path));
+  std::string path = executable_path;
   while (true) {
-    if (std_fs::is_directory(path / "queries") &&
-        std_fs::is_directory(path / "datasets")) {
-      return path;
+    std::string potential_root = fs::internal::JoinAbstractPath(
+        std::vector<std::string>{path, "tools", "query-tester"});
+    if (IsDirectory(fs::internal::JoinAbstractPath(
+            std::vector<std::string>{potential_root, "queries"}))) {
+      return potential_root;
     }
-    if (path.has_parent_path() && path != path.parent_path()) {
-      path = path.parent_path();
-    } else {
+    std::pair<std::string, std::string> parent_info =
+        fs::internal::GetAbstractPathParent(path);
+    if (parent_info.first.empty()) {
       return Status::Invalid(
-          "Could not locate the root directory.  Did you perhaps move or copy the "
-          "query_tester executable outside of the project directory?");
+          "Could not locate the tools/query-tester directory.  Did you perhaps move or "
+          "copy the query_tester executable outside of the project directory?");
     }
+    path = parent_info.first;
   }
 }
 
@@ -51,7 +70,7 @@ Result<std::string> GetRootDirectory(const std::string& executable) {
   return cached_root_directory;
 }
 
-Result<std::shared_ptr<Buffer>> PathToBuffer(const std_fs::path& path) {
+Result<std::shared_ptr<Buffer>> PathToBuffer(const std::string& path) {
   fs::LocalFileSystem local_fs;
   ARROW_ASSIGN_OR_RAISE(fs::FileInfo file_info, local_fs.GetFileInfo(path));
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<io::InputStream> in_stream,
@@ -69,7 +88,7 @@ Result<std::shared_ptr<compute::ExecPlan>> DeclsToPlan(
 }
 
 Result<std::shared_ptr<compute::ExecPlan>> LoadQueryFromSubstraitJson(
-    const std_fs::path& path, const engine::ConsumerFactory& consumer_factory) {
+    const std::string& path, const engine::ConsumerFactory& consumer_factory) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> json_bytes, PathToBuffer(path));
   ARROW_ASSIGN_OR_RAISE(
       std::shared_ptr<Buffer> plan_bytes,
@@ -80,7 +99,7 @@ Result<std::shared_ptr<compute::ExecPlan>> LoadQueryFromSubstraitJson(
 }
 
 Result<std::shared_ptr<compute::ExecPlan>> LoadQueryFromSubstraitBinary(
-    const std_fs::path& path, const engine::ConsumerFactory& consumer_factory) {
+    const std::string& path, const engine::ConsumerFactory& consumer_factory) {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> plan_bytes, PathToBuffer(path));
   ARROW_ASSIGN_OR_RAISE(std::vector<cp::Declaration> decls,
                         engine::DeserializePlan(*plan_bytes, consumer_factory));
@@ -88,7 +107,7 @@ Result<std::shared_ptr<compute::ExecPlan>> LoadQueryFromSubstraitBinary(
 }
 
 Result<std::shared_ptr<compute::ExecPlan>> LoadQueryFromPath(
-    const std_fs::path& path, const std::string& extension,
+    const std::string& path, const std::string& extension,
     const engine::ConsumerFactory& consumer_factory) {
   if (extension == "substrait.pb.json") {
     return LoadQueryFromSubstraitJson(path, consumer_factory);
@@ -129,30 +148,36 @@ class QueryResultUpdatingConsumer : public cp::SinkNodeConsumer {
   std::size_t iteration_ = 0;
 };
 
-Result<std::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromFiles(
+Result<util::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromFiles(
     const std::string& root_path, const std::string& query_name,
     const engine::ConsumerFactory& consumer_factory) {
-  for (const auto& entry :
-       std_fs::directory_iterator(std_fs::path(root_path) / "queries")) {
-    auto entry_path_str = entry.path().filename().string();
-    auto first_dot_idx = entry_path_str.find('.');
+  std::string queries_path =
+      fs::internal::JoinAbstractPath(std::vector<std::string>{root_path, "queries"});
+  fs::FileSelector selector;
+  selector.base_dir = queries_path;
+  selector.recursive = false;
+  ARROW_ASSIGN_OR_RAISE(std::vector<fs::FileInfo> query_files,
+                        local_fs()->GetFileInfo(selector));
+  for (const auto& query_file : query_files) {
+    auto query_file_str = query_file.base_name();
+    auto first_dot_idx = query_file_str.find('.');
     if (first_dot_idx != std::string::npos) {
-      auto stem = entry_path_str.substr(0, first_dot_idx);
+      auto stem = query_file_str.substr(0, first_dot_idx);
       if (stem == query_name) {
-        auto extension = entry_path_str.substr(first_dot_idx + 1);
-        return LoadQueryFromPath(entry.path(), extension, consumer_factory);
+        auto extension = query_file_str.substr(first_dot_idx + 1);
+        return LoadQueryFromPath(query_file.path(), extension, consumer_factory);
       }
     }
   }
-  return std::nullopt;
+  return util::nullopt;
 }
 
-Result<std::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromBuiltin(
+Result<util::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromBuiltin(
     const std::string& query_name, const engine::ConsumerFactory& consumer_factory) {
   const auto& builtin_queries_map = GetBuiltinQueries();
   const auto& query = builtin_queries_map.find(query_name);
   if (query == builtin_queries_map.end()) {
-    return std::nullopt;
+    return util::nullopt;
   }
   std::shared_ptr<cp::SinkNodeConsumer> consumer = consumer_factory();
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, query->second(consumer));
@@ -175,7 +200,7 @@ Status InitializeArrow(const QueryTestOptions& options) {
 Result<std::shared_ptr<compute::ExecPlan>> LoadQuery(
     const std::string& root_path, const std::string& query_name,
     const engine::ConsumerFactory& consumer_factory) {
-  ARROW_ASSIGN_OR_RAISE(std::optional<std::shared_ptr<compute::ExecPlan>> maybe_query,
+  ARROW_ASSIGN_OR_RAISE(util::optional<std::shared_ptr<compute::ExecPlan>> maybe_query,
                         LoadQueryFromFiles(root_path, query_name, consumer_factory));
   if (maybe_query) {
     return *maybe_query;
@@ -216,4 +241,5 @@ Status ReportResult(const QueryTestResult& result) {
   return Status::OK();
 }
 
-}  // namespace arrow::qtest
+}  // namespace qtest
+}  // namespace arrow

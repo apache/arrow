@@ -7,11 +7,13 @@
 #include <arrow/compute/api.h>
 #include <arrow/compute/exec/exec_plan.h>
 
-namespace arrow::qtest {
+namespace arrow {
+namespace qtest {
 
 using QueryPlanFactory = std::function<Result<std::shared_ptr<compute::ExecPlan>>(
     std::shared_ptr<compute::SinkNodeConsumer>)>;
 
 const std::unordered_map<std::string, QueryPlanFactory>& GetBuiltinQueries();
 
-}  // namespace arrow::qtest
+}  // namespace qtest
+}  // namespace arrow

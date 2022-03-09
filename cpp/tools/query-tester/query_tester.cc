@@ -1,6 +1,17 @@
 #include <argparse/argparse.hpp>
 
+#include <filesystem>
+#include <optional>
+
 #include "test_runner.h"
+
+template <typename T>
+arrow::util::optional<T> ToArrow(std::optional<T> std_opt) {
+  if (std_opt) {
+    return *std_opt;
+  }
+  return arrow::util::nullopt;
+}
 
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("query_tester");
@@ -28,11 +39,11 @@ int main(int argc, char* argv[]) {
 
   arrow::qtest::QueryTestOptions options;
   options.query_name = program.get<std::string>("query");
-  options.cpu_threads = program.present<int>("--cpu-threads");
-  options.io_threads = program.present<int>("--io-threads");
+  options.cpu_threads = ToArrow(program.present<int>("--cpu-threads"));
+  options.io_threads = ToArrow(program.present<int>("--io-threads"));
   options.validate = program.get<bool>("--validate");
   options.num_iterations = program.get<int>("--num-iterations");
-  options.executable_path = argv[0];
+  options.executable_path = std::filesystem::absolute(argv[0]);
 
   arrow::Result<arrow::qtest::QueryTestResult> result =
       arrow::qtest::RunQueryTest(options);

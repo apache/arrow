@@ -6,7 +6,8 @@
 
 namespace cp = arrow::compute;
 
-namespace arrow::qtest {
+namespace arrow {
+namespace qtest {
 
 namespace {
 
@@ -98,4 +99,5 @@ const std::unordered_map<std::string, QueryPlanFactory>& GetBuiltinQueries() {
   return builtin_queries_map;
 }
 
-}  // namespace arrow::qtest
+}  // namespace qtest
+}  // namespace arrow
