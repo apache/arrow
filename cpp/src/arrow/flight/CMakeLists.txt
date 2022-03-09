@@ -41,17 +41,20 @@ if(NOT ARROW_GRPC_USE_SHARED)
       PARENT_SCOPE)
 endif()
 
+set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
   endif()
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_shared)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
   endif()
 endif()
@@ -245,10 +248,12 @@ if(ARROW_TESTING)
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
                 GTest::gtest
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow_static
                 arrow_flight_static
-                arrow_testing_static)
+                arrow_testing_static
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
