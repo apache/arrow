@@ -117,7 +117,6 @@ class GrpcAppMetadataTest : public AppMetadataTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-
 TEST_F(GrpcAppMetadataTest, TestDoGet) { TestDoGet(); }
 TEST_F(GrpcAppMetadataTest, TestDoGetDictionaries) { TestDoGetDictionaries(); }
 TEST_F(GrpcAppMetadataTest, TestDoPut) { TestDoPut(); }
@@ -128,7 +127,6 @@ class GrpcIpcOptionsTest : public IpcOptionsTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-
 TEST_F(GrpcIpcOptionsTest, TestDoGetReadOptions) { TestDoGetReadOptions(); }
 TEST_F(GrpcIpcOptionsTest, TestDoPutWriteOptions) { TestDoPutWriteOptions(); }
 TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptions) {
@@ -140,6 +138,14 @@ TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptionsBegin) {
 TEST_F(GrpcIpcOptionsTest, TestDoExchangeServerWriteOptions) {
   TestDoExchangeServerWriteOptions();
 }
+
+class GrpcCudaDataTest : public CudaDataTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+TEST_F(GrpcCudaDataTest, TestDoGet) { TestDoGet(); }
+TEST_F(GrpcCudaDataTest, TestDoPut) { TestDoPut(); }
+TEST_F(GrpcCudaDataTest, TestDoExchange) { TestDoExchange(); }
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
