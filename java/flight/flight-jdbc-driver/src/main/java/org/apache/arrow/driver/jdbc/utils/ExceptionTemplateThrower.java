@@ -19,6 +19,8 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.String.format;
 
+import java.sql.SQLException;
+
 import org.apache.calcite.avatica.util.Cursor.Accessor;
 
 /**
@@ -37,8 +39,8 @@ public final class ExceptionTemplateThrower {
    *
    * @return the exception.
    */
-  public static UnsupportedOperationException getOperationNotSupported(final Class<?> type) {
-    return new UnsupportedOperationException(
+  public static SQLException getOperationNotSupported(final Class<?> type) {
+    return new SQLException(
         format("Operation not supported for type: %s.", type.getName()));
   }
 }

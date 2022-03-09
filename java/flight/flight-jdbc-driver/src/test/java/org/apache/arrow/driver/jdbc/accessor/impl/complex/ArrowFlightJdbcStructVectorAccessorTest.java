@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.nullValue;
 
+import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
@@ -146,7 +147,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWorkWithNestedComplexData() {
+  public void testShouldGetObjectWorkWithNestedComplexData() throws SQLException {
     try (StructVector rootVector = StructVector.empty("",
         rootAllocatorTestRule.getRootAllocator())) {
       StructVector structVector = rootVector.addOrGetStruct("struct");

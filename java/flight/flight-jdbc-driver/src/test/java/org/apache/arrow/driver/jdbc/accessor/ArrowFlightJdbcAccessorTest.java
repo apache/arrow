@@ -181,176 +181,176 @@ public class ArrowFlightJdbcAccessorTest {
     verify(accessor).getObject(objectClass);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBoolean() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBoolean() throws SQLException {
     when(accessor.getBoolean()).thenCallRealMethod();
     accessor.getBoolean();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetByte() throws SQLException {
     when(accessor.getByte()).thenCallRealMethod();
     accessor.getByte();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetShort() throws SQLException {
     when(accessor.getShort()).thenCallRealMethod();
     accessor.getShort();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetInt() throws SQLException {
     when(accessor.getInt()).thenCallRealMethod();
     accessor.getInt();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetLong() throws SQLException {
     when(accessor.getLong()).thenCallRealMethod();
     accessor.getLong();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetFloat() throws SQLException {
     when(accessor.getFloat()).thenCallRealMethod();
     accessor.getFloat();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetDouble() throws SQLException {
     when(accessor.getDouble()).thenCallRealMethod();
     accessor.getDouble();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBigDecimal() throws SQLException {
     when(accessor.getBigDecimal()).thenCallRealMethod();
     accessor.getBigDecimal();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBytes() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBytes() throws SQLException {
     when(accessor.getBytes()).thenCallRealMethod();
     accessor.getBytes();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetAsciiStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetAsciiStream() throws SQLException {
     when(accessor.getAsciiStream()).thenCallRealMethod();
     accessor.getAsciiStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetUnicodeStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetUnicodeStream() throws SQLException {
     when(accessor.getUnicodeStream()).thenCallRealMethod();
     accessor.getUnicodeStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBinaryStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBinaryStream() throws SQLException {
     when(accessor.getBinaryStream()).thenCallRealMethod();
     accessor.getBinaryStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetObject() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetObject() throws SQLException {
     when(accessor.getObject()).thenCallRealMethod();
     accessor.getObject();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetObjectMap() throws SQLException {
     Map<String, Class<?>> map = new HashMap<>();
     when(accessor.getObject(map)).thenCallRealMethod();
     accessor.getObject(map);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetCharacterStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetCharacterStream() throws SQLException {
     when(accessor.getCharacterStream()).thenCallRealMethod();
     accessor.getCharacterStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetRef() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetRef() throws SQLException {
     when(accessor.getRef()).thenCallRealMethod();
     accessor.getRef();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBlob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBlob() throws SQLException {
     when(accessor.getBlob()).thenCallRealMethod();
     accessor.getBlob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetClob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetClob() throws SQLException {
     when(accessor.getClob()).thenCallRealMethod();
     accessor.getClob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetArray() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetArray() throws SQLException {
     when(accessor.getArray()).thenCallRealMethod();
     accessor.getArray();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetStruct() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetStruct() throws SQLException {
     when(accessor.getStruct()).thenCallRealMethod();
     accessor.getStruct();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetURL() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetURL() throws SQLException {
     when(accessor.getURL()).thenCallRealMethod();
     accessor.getURL();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNClob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNClob() throws SQLException {
     when(accessor.getNClob()).thenCallRealMethod();
     accessor.getNClob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetSQLXML() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetSQLXML() throws SQLException {
     when(accessor.getSQLXML()).thenCallRealMethod();
     accessor.getSQLXML();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNString() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNString() throws SQLException {
     when(accessor.getNString()).thenCallRealMethod();
     accessor.getNString();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNCharacterStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNCharacterStream() throws SQLException {
     when(accessor.getNCharacterStream()).thenCallRealMethod();
     accessor.getNCharacterStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetDate() throws SQLException {
     when(accessor.getDate(null)).thenCallRealMethod();
     accessor.getDate(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTime() throws SQLException {
     when(accessor.getTime(null)).thenCallRealMethod();
     accessor.getTime(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTimestamp() throws SQLException {
     when(accessor.getTimestamp(null)).thenCallRealMethod();
     accessor.getTimestamp(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetBigDecimalWithValue() throws SQLException {
     when(accessor.getBigDecimal(0)).thenCallRealMethod();
     accessor.getBigDecimal(0);
