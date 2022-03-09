@@ -294,22 +294,24 @@ TEST(TestArithmeticOps, TestIsTrueFalse) {
   EXPECT_EQ(isfalse_boolean(true, false), false);
   EXPECT_EQ(isfalse_boolean(false, false), false);
 
-  EXPECT_EQ(istrue_int32(10), true);
-  EXPECT_EQ(istrue_int32(0), false);
-  EXPECT_EQ(isfalse_int32(10), false);
-  EXPECT_EQ(isfalse_int32(0), true);
-  EXPECT_EQ(istrue_int64(10), true);
-  EXPECT_EQ(istrue_int64(0), false);
-  EXPECT_EQ(isfalse_int64(10), false);
-  EXPECT_EQ(isfalse_int64(0), true);
-  EXPECT_EQ(istrue_uint32(10), true);
-  EXPECT_EQ(istrue_uint32(0), false);
-  EXPECT_EQ(isfalse_uint32(10), false);
-  EXPECT_EQ(isfalse_uint32(0), true);
-  EXPECT_EQ(istrue_uint64(10), true);
-  EXPECT_EQ(istrue_uint64(0), false);
-  EXPECT_EQ(isfalse_uint64(10), false);
-  EXPECT_EQ(isfalse_uint64(0), true);
+  EXPECT_EQ(istrue_int32(10, true), true);
+  EXPECT_EQ(istrue_int32(0, true), false);
+  EXPECT_EQ(isfalse_int32(10, true), false);
+  EXPECT_EQ(isfalse_int32(0, true), true);
+  EXPECT_EQ(istrue_int64(10, true), true);
+  EXPECT_EQ(istrue_int64(0, true), false);
+  EXPECT_EQ(isfalse_int64(10, true), false);
+  EXPECT_EQ(isfalse_int64(0, true), true);
+  EXPECT_EQ(istrue_uint32(10, true), true);
+  EXPECT_EQ(istrue_uint32(0, true), false);
+  EXPECT_EQ(isfalse_uint32(10, true), false);
+  EXPECT_EQ(isfalse_uint32(0, true), true);
+  EXPECT_EQ(istrue_uint64(10, true), true);
+  EXPECT_EQ(istrue_uint64(0, true), false);
+  EXPECT_EQ(isfalse_uint64(10, true), false);
+  EXPECT_EQ(isfalse_uint64(0, true), true);
+  EXPECT_EQ(isfalse_uint64(0, false), false);
+  EXPECT_EQ(isfalse_uint64(10, false), false);
 }
 
 TEST(TestArithmeticOps, TestNvl) {
