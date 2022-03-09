@@ -20,12 +20,8 @@
 # arrow 7.0.0.9000
 
 * `read_csv_arrow()`'s readr-style type `T` is now mapped to `timestamp(unit = "ns")` instead of `timestamp(unit = "s")`.
-* `lubridate`: 
-  * `tz()` to extract/get timezone
-  * `semester()` to extract/get semester
-  * `dst()` to get daylight savings time indicator.
-  * `date()` to extract date
-  * `epiyear()` to get epiyear
+* `lubridate`:
+  * component extraction functions: `tz()` (timezone), `semester()` (semester), `dst()` (daylight savings time indicator), `date()` (extract date), `epiyear()` (epiyear), improvements to `month()`, which now works with integer inputs.
 * date-time functionality:
   * `as.Date()` to convert to date
 
