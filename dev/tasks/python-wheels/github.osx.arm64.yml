@@ -75,6 +75,17 @@ jobs:
         shell: bash
         run: arch -arm64 vcpkg install openssl:arm64-osx-static-release
 
+      - name: Install Packages
+        run: |
+           arch -arm64 vcpkg install \
+            --clean-after-build \
+            --x-install-root=${VCPKG_ROOT}/installed \
+            --x-manifest-root=arrow/ci/vcpkg \
+            --x-feature=flight \
+            --x-feature=gcs \
+            --x-feature=json \
+            --x-feature=parquet
+
       {% if arch == "universal2" %}
       # OpenSSL doesn't provide an universal2 configuration yet, so vcpkg is
       # unable to propagate the list of architectures from VCPKG_OSX_ARCHIETCTURES.
@@ -94,17 +105,6 @@ jobs:
                  -output $VCPKG_ROOT/installed/universal2-osx-static-release/lib/${lib}.a
           done
       {% endif %}
-
-      - name: Install Packages
-        run: |
-           arch -arm64 vcpkg install \
-            --clean-after-build \
-            --x-install-root=${VCPKG_ROOT}/installed \
-            --x-manifest-root=arrow/ci/vcpkg \
-            --x-feature=flight \
-            --x-feature=gcs \
-            --x-feature=json \
-            --x-feature=parquet
 
       - name: Build Wheel
         shell: bash
