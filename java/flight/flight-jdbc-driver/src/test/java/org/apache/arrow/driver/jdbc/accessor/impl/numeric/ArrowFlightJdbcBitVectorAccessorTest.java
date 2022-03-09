@@ -41,10 +41,9 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
   @Rule
   public final ErrorCollector collector = new ErrorCollector();
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor>
-      accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector,
-              getCurrentRow, (boolean wasNull) -> {
-          });
+      accessorSupplier = (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector,
+          getCurrentRow, (boolean wasNull) -> {
+      });
   private final AccessorIterator<ArrowFlightJdbcBitVectorAccessor>
       accessorIterator =
       new AccessorIterator<>(collector, accessorSupplier);

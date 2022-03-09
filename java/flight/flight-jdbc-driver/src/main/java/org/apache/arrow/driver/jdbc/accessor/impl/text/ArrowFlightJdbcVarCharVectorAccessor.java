@@ -41,14 +41,6 @@ import org.apache.arrow.vector.util.Text;
  */
 public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccessor {
 
-  /**
-   * Functional interface to help integrating VarCharVector and LargeVarCharVector.
-   */
-  @FunctionalInterface
-  interface Getter {
-    Text get(int index);
-  }
-
   private final Getter getter;
 
   public ArrowFlightJdbcVarCharVectorAccessor(VarCharVector vector,
@@ -100,9 +92,15 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public boolean getBoolean() {
+  public boolean getBoolean() throws SQLException {
     String value = getString();
-    return value != null && !value.isEmpty() && !value.equals("false") && !value.equals("0");
+    if (value == null || value.equalsIgnoreCase("false") || value.equals("0")) {
+      return false;
+    } else if (value.equalsIgnoreCase("true") || value.equals("1")) {
+      return true;
+    } else {
+      throw new SQLException();
+    }
   }
 
   @Override
@@ -234,5 +232,13 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
     } catch (Exception e) {
       throw new SQLException(e);
     }
+  }
+
+  /**
+   * Functional interface to help integrating VarCharVector and LargeVarCharVector.
+   */
+  @FunctionalInterface
+  interface Getter {
+    Text get(int index);
   }
 }
