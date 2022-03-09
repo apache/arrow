@@ -89,6 +89,7 @@ target environment.**
    developers/contributing
    developers/bug_reports
    developers/guide/index
+   developers/advanced
    developers/reviewing
    developers/cpp/index
    developers/java/index

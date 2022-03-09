@@ -61,10 +61,18 @@ Additional information
 
 Other resources
 ---------------
+Github
+
+- `GitHub docs: Fork a repo <https://docs.github.com/en/get-started/quickstart/fork-a-repo>`_
+- `GitHub: Creating a pull request from a fork <https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork>`_
+
+Contributing
 
 - :ref:`contributing`
 - `Arrow R Developer Guide <https://arrow.apache.org/docs/r/articles/developing.html>`_
 - `Writing Bindings article for R package <https://arrow.apache.org/docs/r/articles/developers/bindings.html>`_.
+
+Reproducible examples:
 
 - `Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 - `Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_

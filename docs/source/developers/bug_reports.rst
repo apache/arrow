@@ -201,5 +201,6 @@ Good reproducible examples or minimal bug reports can be found in next tabs:
 Other resources:
 
 * `Python: Craft Minimal Bug Reports by Matthew Rocklin <https://matthewrocklin.com/blog/work/2018/02/28/minimal-bug-reports>`_
+* `R: Tidyverse: Make a reprex <https://www.tidyverse.org/help/#reprex>`_
 * `R: Tidyverse's Reprex do's and don'ts <https://reprex.tidyverse.org/articles/reprex-dos-and-donts.html>`_
 * `Mozilla's bug-reporting guidelines <https://developer.mozilla.org/en-US/docs/Mozilla/QA/Bug_writing_guidelines>`_
