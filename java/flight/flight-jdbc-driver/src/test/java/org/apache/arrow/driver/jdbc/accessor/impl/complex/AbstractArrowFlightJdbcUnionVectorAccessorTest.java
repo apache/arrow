@@ -203,7 +203,6 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   public void testGetObjectWithClassUsesSpecificAccessor() throws SQLException {
     accessor.getObject(Object.class);
     verify(innerAccessor).getObject(Object.class);
-
   }
 
   @Test
