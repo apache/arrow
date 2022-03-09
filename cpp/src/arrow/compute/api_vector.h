@@ -188,6 +188,17 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+/// \brief Options for cumulative sum function
+class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
+ public:
+  explicit CumulativeSumOptions(std::shared_ptr<Scalar> start);
+  CumulativeSumOptions() : CumulativeSumOptions(std::make_shared<NullScalar>()) {}
+  static constexpr char const kTypeName[] = "CumulativeSumOptions";
+
+  /// Optional starting value for sum computation
+  std::shared_ptr<Scalar> start;
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter
@@ -521,6 +532,16 @@ Result<Datum> DictionaryEncode(
     const Datum& data,
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> CumulativeSum(const Array& values,
+                                             CumulativeSumOptions& options,
+                                             ExecContext* ctx = NULLPTR);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> CumulativeSum(const ChunkedArray& chunked_array,
+                                             CumulativeSumOptions& options,
+                                             ExecContext* ctx = NULLPTR);
 
 // ----------------------------------------------------------------------
 // Deprecated functions

@@ -51,8 +51,8 @@ struct CumulativeSum {
   }
 
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const ScalarType& start_scalar = checked_cast<const ScalarType&>(*batch[1].scalar());
-    CType start = start_scalar.value;
+    const auto& options = OptionsWrapper<CumulativeSumOptions<CType>>::Get(ctx);
+    CType start = checked_cast<const ScalarType&>(options.start).value;
 
     switch (batch[0].kind()) {
       case Datum::ARRAY:
@@ -110,9 +110,7 @@ struct CumulativeSum {
   }
 
   static std::shared_ptr<KernelSignature> GetSignature(detail::GetTypeId get_id) {
-    return KernelSignature::Make(
-        {InputType::Array(get_id.id), InputType::Scalar(get_id.id)},
-        OutputType(FirstType));
+    return KernelSignature::Make({InputType::Array(get_id.id)}, OutputType(FirstType));
   }
 };
 
@@ -136,6 +134,7 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
     kernel.signature = CumulativeSum<NumberType>::GetSignature(get_id.id);
     kernel.exec = std::move(exec);
+    kernel.init = OptionsWrapper<CumulativeSumOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
   };
 
