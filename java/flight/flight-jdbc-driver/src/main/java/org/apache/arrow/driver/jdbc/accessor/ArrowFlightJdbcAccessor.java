@@ -17,7 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor;
 
-import static org.apache.arrow.driver.jdbc.utils.ExceptionTemplateThrower.getOperationNotSupported;
+import static java.lang.String.format;
 import static org.apache.calcite.avatica.util.Cursor.Accessor;
 
 import java.io.InputStream;
@@ -38,6 +38,8 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.function.IntSupplier;
+
+import org.apache.calcite.avatica.util.Cursor;
 
 /**
  * Base Jdbc Accessor.
@@ -75,6 +77,17 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     }
 
     return object.toString();
+  }
+
+  /**
+   * Gets a {@link Exception} for an attempt to perform a conversion
+   * not yet supported by the {@link Cursor.Accessor} in use.
+   *
+   * @return the exception.
+   */
+  private static UnsupportedOperationException getOperationNotSupported(final Class<?> type) {
+    return new UnsupportedOperationException(
+        format("Operation not supported for type: %s.", type.getName()));
   }
 
   @Override

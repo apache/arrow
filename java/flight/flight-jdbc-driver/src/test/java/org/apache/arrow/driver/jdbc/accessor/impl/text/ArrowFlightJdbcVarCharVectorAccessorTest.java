@@ -593,17 +593,21 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {
     when(getter.get(0)).thenReturn(value);
-
     boolean result = accessor.getBoolean();
     collector.checkThat(result, equalTo(expectedResult));
   }
 
-  @Test
-  public void testShouldGetBooleanReturnTrueForNonEmpty() throws Exception {
-    assertGetBoolean(new Text("anything"), true);
+  private void assertGetBooleanForSQLException(Text value) {
+    when(getter.get(0)).thenReturn(value);
+    collector.checkThrows(SQLException.class, () -> accessor.getBoolean());
   }
 
   @Test
+  public void testShouldGetBooleanReturnTrueForNonEmpty() {
+    assertGetBooleanForSQLException(new Text("anything"));
+  }
+
+  @Test(expected = SQLException.class)
   public void testShouldGetBooleanReturnFalseForEmpty() throws Exception {
     assertGetBoolean(new Text(""), false);
   }
