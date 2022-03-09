@@ -142,7 +142,6 @@ register_bindings_datetime <- function() {
       } else {
         format <- "%B"
       }
-<<<<<<< HEAD
       return(build_expr("strftime", x, options = list(format = format, locale = check_time_locale(locale))))
     }
 

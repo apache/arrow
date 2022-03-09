@@ -1883,6 +1883,19 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
                    expected, &options);
 }
 
+TEST_F(ScalarTemporalTest, PlatformLocale) {
+  if (!LocaleExists("fr_FR.UTF-8")) {
+    GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
+  }
+  auto locale = std::locale("fr_FR.UTF-8");
+  std::stringstream ss;
+  ss.imbue(locale);
+  auto dt = ScalarFromJSON(timestamp(TimeUnit::MILLI, "UTC"), "2021-08-18T15:11:50.456");
+  ss << dt;
+  auto result = ss.str();
+  EXPECT_EQ(result, "01 janvier 1970 00:00:59,123");
+}
+
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
   auto options = StrftimeOptions("%d %B %Y %H:%M:%S", "non-existent");
   const char* seconds = R"(["1970-01-01T00:00:59", null])";

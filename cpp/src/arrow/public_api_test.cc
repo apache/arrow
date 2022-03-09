@@ -85,6 +85,7 @@
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
+#include "arrow/testing/gtest_util.h"
 
 namespace arrow {
 
@@ -101,6 +102,29 @@ TEST(Misc, BuildInfo) {
   ss << info.version_major << "." << info.version_minor << "." << info.version_patch;
   ASSERT_THAT(info.version_string, ::testing::HasSubstr(ss.str()));
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
+}
+
+TEST(Misc, SetTimzoneConfig) {
+#ifndef _WIN32
+  GTEST_SKIP() << "Can only set the Timezone database on Windows";
+#else
+  // Create a tmp directory
+  ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
+
+  // Validate that setting tzdb to that dir fails
+  arrow::ArrowGlobalOptions options = {util::make_optional(tempdir->path().ToString())};
+  ASSERT_NOT_OK(arrow::Initialize(options));
+
+  // Copy tzdb data from ~/Downloads
+  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+  auto selector = arrow::fs::FileSelector();
+  selector.base_dir = "~/Downloads/tzdata";
+  selector.recursive = true;
+  ASSERT_OK(arrow::fs::CopyFiles(fs, selector, fs, tempdir->path().ToString()));
+
+  // Validate that tzdb is working
+  ASSERT_OK(arrow::Initialize(options));
+#endif  // _WIN32
 }
 
 }  // namespace arrow
