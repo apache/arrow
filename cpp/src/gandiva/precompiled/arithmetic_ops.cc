@@ -369,16 +369,15 @@ NEGATIVE_INTEGER(int64, 64)
 #undef NEGATIVE_INTEGER
 
 void negative_decimal(gdv_int64 context, int64_t high_bits, uint64_t low_bits,
-                      int32_t precision, int32_t scale, int64_t* out_high_bits,
-                      uint64_t* out_low_bits,
-                      int32_t* out_precision, int32_t* out_scale) {
-
+                      int32_t /*precision*/, int32_t /*scale*/, int32_t /*out_precision*/,
+                      int32_t /*out_scale*/, int64_t* out_high_bits,
+                      uint64_t* out_low_bits) {
   arrow::BasicDecimal128 res = arrow::BasicDecimal128(high_bits, low_bits).Negate();
 
   *out_high_bits = res.high_bits();
   *out_low_bits = res.low_bits();
-  *out_precision = precision;
-  *out_scale = scale;
+  //  out_precision = precision;
+  //  out_scale = scale;
 }
 
 #define DIV(TYPE)                                                                     \

@@ -301,7 +301,6 @@ TEST_F(TestDecimal, TestCompare) {
                             outputs[5]);  // greater_than_or_equal_to
 }
 
-
 TEST_F(TestDecimal, TestNegative) {
   // schema for input fields
   constexpr int32_t precision = 3;
@@ -314,7 +313,8 @@ TEST_F(TestDecimal, TestNegative) {
 
   // build expressions
   auto exprs = std::vector<ExpressionPtr>{
-      TreeExprBuilder::MakeExpression("negative", {field_a}, field("res_negative", decimal_type)),
+      TreeExprBuilder::MakeExpression("negative", {field_a},
+                                      field("res_negative", decimal_type)),
   };
 
   // Build a projector for the expression.
@@ -338,16 +338,13 @@ TEST_F(TestDecimal, TestNegative) {
   DCHECK_OK(status);
 
   // Validate results
-
   // negative(x)
   EXPECT_ARROW_ARRAY_EQUALS(
       MakeArrowArrayDecimal(decimal_type,
                             MakeDecimalVector({"-10.5", "10.5", "50.2", "-50.2"}, scale),
                             validity),
       outputs[0]);
-
 }
-
 
 // ARROW-9092: This test is conditionally disabled when building with LLVM 9
 // because it hangs.
