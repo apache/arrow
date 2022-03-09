@@ -40,46 +40,51 @@ Code of Conduct
 All participation in the Apache Arrow project is governed by the ASF's
 `Code of Conduct <https://www.apache.org/foundation/policies/conduct.html>`_.
 
-.. panels::
-   :card: + contrib-card text-center
-   :column: col-lg-6 col-md-6 col-sm-6 col-xs-12 d-flex
+.. grid:: 2
+   :gutter: 4
+   :padding: 2 2 0 0
+   :class-container: sd-text-center
 
-   ---
-   :img-top: /developers/images/users-solid.svg
+   .. grid-item-card:: Community
+      :img-top: /developers/images/users-solid.svg
+      :class-card: contrib-card
+      :shadow: md
 
-   Community
-   ^^^^^^^^^
+      A good first step to getting involved in the Arrow project is to join
+      the mailing lists and participate in discussions where you can.
 
-   A good first step to getting involved in the Arrow project is to join
-   the mailing lists and participate in discussions where you can.
+      +++
 
-   +++
+      .. button-link:: https://arrow.apache.org/community/
+         :click-parent:
+         :color: secondary
+         :expand:
 
-   .. link-button:: https://arrow.apache.org/community/
-      :text: Apache Arrow Community
-      :classes: btn-block btn-secondary stretched-link
+         Apache Arrow Community
 
-   ---
-   :img-top: /developers/images/book-open-solid.svg
+   .. grid-item-card:: Bug reports
+      :img-top: /developers/images/bug-solid.svg
+      :class-card: contrib-card
+      :shadow: md
 
-   New Contributors
-   ^^^^^^^^^^^^^^^^
+      Alerting us to unexpected behavior and missing features, even
+      if you can't solve the problems yourself, help us understand
+      and prioritize work to improve the libraries.
 
-   First time contributing?
+      +++
 
-   The New Contributor's Guide provides necessary information for
-   contributing to the Apache Arrow project.
+      .. button-ref:: bug-reports
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
 
-   +++
+         Bugs and Features
 
-   .. link-button:: guide-introduction
-      :type: ref
-      :text: New Contributor's guide
-      :classes: btn-block btn-secondary stretched-link
-
-.. dropdown:: :fa:`hand-point-up`  Communicating through the mailing lists
-   :title: h5
+.. dropdown:: :fa:`hand-point-up` Communicating through the mailing lists
    :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
 
    Projects in The Apache Software Foundation ("the ASF") use public, archived
    mailing lists to create a public record of each project's development
@@ -90,9 +95,10 @@ All participation in the Apache Arrow project is governed by the ASF's
    thoughtful in their responses, and they help developers who are spread across
    many timezones to participate more equally.
 
-.. dropdown:: :fa:`pencil`  Improve documentation
-   :title: h5
+.. dropdown:: :fa:`pencil` Improve documentation
    :animate: fade-in-slide-down
+   :class-title: sd-fs-5
+   :class-container: sd-shadow-md
 
    A great way to contribute to the project is to improve documentation. If you
    found some docs to be incomplete or inaccurate, share your hard-earned knowledge
@@ -107,43 +113,48 @@ All participation in the Apache Arrow project is governed by the ASF's
    * :ref:`documentation`
    * :ref:`building-docs`
 
-.. panels::
-   :card: + contrib-card text-center
-   :column: col-lg-6 col-md-6 col-sm-6 col-xs-12 d-flex
+.. grid:: 2
+   :gutter: 4
+   :padding: 2 2 0 0
+   :class-container: sd-text-center
 
-   ---
-   :img-top: /developers/images/code-solid.svg
+   .. grid-item-card:: New Contributors
+      :img-top: /developers/images/book-open-solid.svg
+      :class-card: contrib-card
+      :shadow: md
 
-   Advanced
-   ^^^^^^^^
+      First time contributing?
 
-   Additional information you might need if you are not
-   new to the contributing process in general but want to
-   check the workflow we use at Apache Arrow.
+      The New Contributor's Guide provides necessary information for
+      contributing to the Apache Arrow project.
 
-   +++
+      +++
 
-   .. link-button:: advanced_contrib
-      :type: ref
-      :text: Advanced Code Contribution
-      :classes: btn-block btn-secondary stretched-link
+      .. button-ref:: guide-introduction
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
 
-   ---
-   :img-top: /developers/images/bug-solid.svg
+         New Contributor's guide
 
-   Bug reports
-   ^^^^^^^^^^^
+   .. grid-item-card:: Advanced
+      :img-top: /developers/images/code-solid.svg
+      :class-card: contrib-card
+      :shadow: md
 
-   Alerting us to unexpected behavior and missing features, even
-   if you can't solve the problems yourself, help us understand
-   and prioritize work to improve the libraries.
+      Additional information you might need if you are not
+      new to the contributing process in general but want to
+      check the workflow we use at Apache Arrow.
+      +++
 
-   +++
+      .. button-ref:: advanced_contrib
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
 
-   .. link-button:: bug-reports
-      :type: ref
-      :text: Bugs and Features
-      :classes: btn-block btn-secondary stretched-link
+         Advanced Code Contribution
 
 Language specific
 =================

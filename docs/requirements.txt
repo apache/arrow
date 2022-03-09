@@ -7,5 +7,5 @@ ipython
 numpydoc
 pydata-sphinx-theme
 sphinx-tabs
-sphinx-panels
+sphinx-design
 sphinx>=4.2
