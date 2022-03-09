@@ -26,9 +26,9 @@ MINICONDA=$HOME/miniconda-for-arrow
 LIBRARY_INSTALL_DIR=$HOME/local-libs
 CPP_BUILD_DIR=$HOME/arrow-cpp-build
 ARROW_ROOT=/arrow
-PYTHON=3.7
+PYTHON=3.10
 
-git clone https://github.com/apache/arrow.git /arrow
+git clone --depth=100 https://github.com/apache/arrow.git /arrow
 
 #----------------------------------------------------------------------
 # Run these only once
@@ -54,7 +54,7 @@ function setup_miniconda() {
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_python.txt \
         compilers \
-        python=3.7 \
+        python=$PYTHON \
         pandas
 
   export PATH=$LOCAL_PATH
