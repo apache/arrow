@@ -520,7 +520,8 @@ def test_partitioning():
         pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64())
     ])
-    for klass in [ds.DirectoryPartitioning, ds.HivePartitioning, ds.FilenamePartitioning]:
+    for klass in [ds.DirectoryPartitioning, ds.HivePartitioning,
+                  ds.FilenamePartitioning]:
         partitioning = klass(schema)
         assert isinstance(partitioning, ds.Partitioning)
 
@@ -568,7 +569,7 @@ def test_partitioning():
     for shouldfail in ['/alpha=one/beta=2', '/alpha=one', '/beta=two']:
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
-    
+
     partitioning = ds.FilenamePartitioning(
         pa.schema([
             pa.field('group', pa.int64()),
@@ -584,6 +585,7 @@ def test_partitioning():
 
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('prefix_3_aaa_')
+
 
 def test_expression_arithmetic_operators():
     dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
