@@ -99,7 +99,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
     } else if (value.equalsIgnoreCase("true") || value.equals("1")) {
       return true;
     } else {
-      throw new SQLException();
+      throw new SQLException("Is not possible to convert this value for boolean: " + value);
     }
   }
 
