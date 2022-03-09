@@ -22,7 +22,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/logging.h"
-#include "gandiva/basic_decimal_scalar.h"
 #include "gandiva/execution_context.h"
 
 namespace gandiva {
