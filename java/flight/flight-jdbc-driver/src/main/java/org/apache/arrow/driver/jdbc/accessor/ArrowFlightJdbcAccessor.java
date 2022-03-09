@@ -129,29 +129,17 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
 
   @Override
   public InputStream getAsciiStream() throws SQLException {
-    try {
-      throw getOperationNotSupported(this.getClass());
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
+    throw getOperationNotSupported(this.getClass());
   }
 
   @Override
   public InputStream getUnicodeStream() throws SQLException {
-    try {
-      throw getOperationNotSupported(this.getClass());
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
+    throw getOperationNotSupported(this.getClass());
   }
 
   @Override
   public InputStream getBinaryStream() throws SQLException {
-    try {
-      throw getOperationNotSupported(this.getClass());
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
+    throw getOperationNotSupported(this.getClass());
   }
 
   @Override
@@ -161,11 +149,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
 
   @Override
   public Reader getCharacterStream() throws SQLException {
-    try {
-      throw getOperationNotSupported(this.getClass());
-    } catch (Exception e) {
-      throw new SQLException(e);
-    }
+    throw getOperationNotSupported(this.getClass());
   }
 
   @Override
