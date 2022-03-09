@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/array/array_base.h"
-#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/result.h"
 #include "arrow/visit_type_inline.h"
@@ -52,7 +52,16 @@ struct CumulativeSum {
 
   Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = OptionsWrapper<CumulativeSumOptions<CType>>::Get(ctx);
-    CType start = checked_cast<const ScalarType&>(options.start).value;
+    std::shared_ptr<Scalar>& start_scalar = options.start;
+    CType start = 0;
+    if (start_scalar) {
+      if (start_scalar->is_valid()) {
+        if (start_scalar->type()->id() != TypeTraits<Type>::type_singleton()->id()) {
+          return Status::Invalid("Types of array values and starting value do not match.");
+        }
+        start = UnboxScalar<Type>::Unbox(*start_scalar);
+      }
+    }
 
     switch (batch[0].kind()) {
       case Datum::ARRAY:
@@ -127,29 +136,22 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   auto cumulative_sum = std::make_shared<VectorFunction>(
       "cumulative_sum", Arity::Binary(), &cumulative_sum_doc);
 
-  auto add_kernel = [&](detail::GetTypeId get_id, ArrayKernelExec exec) {
+  std::vector<detail::GetTypeId> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+  types.insert(types.end(), TemporalTypes().begin(), TemporalTypes().end());
+  types.push_back(Type::DURATION);
+  types.push_back(Type::INTERVAL_MONTHS);
+
+  for (auto ty : types) {
     VectorKernel kernel;
     kernel.can_execute_chunkwise = true;
     kernel.null_handling = NullHandling::type::INTERSECTION;
     kernel.mem_allocation = MemAllocation::type::PREALLOCATE;
-    kernel.signature = CumulativeSum<NumberType>::GetSignature(get_id.id);
-    kernel.exec = std::move(exec);
+    kernel.signature = CumulativeSum<NumberType>::GetSignature(ty.id);
+    kernel.exec = std::move(GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
     kernel.init = OptionsWrapper<CumulativeSumOptions>::Init;
     DCHECK_OK(cumulative_sum->AddKernel(std::move(kernel)));
-  };
-
-  for (auto ty : NumericTypes()) {
-    add_kernel(ty, GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
   }
-
-  for (auto ty : TemporalTypes()) {
-    add_kernel(ty, GenerateTypeAgnosticPrimitive<CumulativeSum>(ty));
-  }
-
-  add_kernel(Type::DURATION,
-             GenerateTypeAgnosticPrimitive<CumulativeSum>(Type::DURATION));
-  add_kernel(Type::INTERVAL_MONTHS,
-             GenerateTypeAgnosticPrimitive<CumulativeSum>(Type::INTERVAL_MONTHS));
 
   DCHECK_OK(registry->AddFunction(std::move(cumulative_sum)));
 }

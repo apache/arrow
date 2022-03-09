@@ -192,7 +192,7 @@ class ARROW_EXPORT PartitionNthOptions : public FunctionOptions {
 class ARROW_EXPORT CumulativeSumOptions : public FunctionOptions {
  public:
   explicit CumulativeSumOptions(std::shared_ptr<Scalar> start);
-  CumulativeSumOptions() : CumulativeSumOptions(std::make_shared<NullScalar>()) {}
+  CumulativeSumOptions() : CumulativeSumOptions(nullptr) {}
   static constexpr char const kTypeName[] = "CumulativeSumOptions";
 
   /// Optional starting value for sum computation
