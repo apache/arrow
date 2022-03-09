@@ -27,14 +27,13 @@
 #include <sstream>
 
 // We need Windows fixes before including Boost
-#include "arrow/flight/platform.h"
+#include "arrow/util/windows_compatibility.h"
 
 #include <boost/filesystem.hpp>
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
 // cpp/cmake_modules/BuildUtils.cmake for details.
 #include <boost/process.hpp>
-
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
