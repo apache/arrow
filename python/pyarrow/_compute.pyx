@@ -261,6 +261,22 @@ cdef class Arity(_Weakrefable):
     def unary():
         cdef CArity c_arity = CArity.Unary()
         return wrap_arity(c_arity)
+    
+    @staticmethod
+    def binary():
+        cdef CArity c_arity = CArity.Binary()
+        return wrap_arity(c_arity)
+
+    @staticmethod
+    def ternary():
+        cdef CArity c_arity = CArity.Ternary()
+        return wrap_arity(c_arity)
+
+    @staticmethod
+    def varargs(int num_args):
+        cdef CArity c_arity = CArity.VarArgs(num_args)
+        return wrap_arity(c_arity)
+
 
 cdef class Function(_Weakrefable):
     """
@@ -2381,6 +2397,27 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     else:
         raise TypeError(f"func_doc must be a dictionary")
 
+cdef class UDFError(Exception):
+    cdef dict __dict__
+
+    def __init__(self, message='', extra_info=b''):
+        super().__init__(message)
+        self.extra_info = tobytes(extra_info)
+
+    cdef CStatus to_status(self):
+        message = tobytes("UDF error: {}".format(str(self)))
+        return CStatus_UnknownError(message)
+
+cdef class UDFRegistrationError(UDFError):
+    
+    def __init__(self, message='', extra_info=b''):
+        super().__init__(message, extra_info)
+
+    cdef CStatus to_status(self):
+        message = tobytes("UDF Registration error: {}".format(str(self)))
+        return CStatus_UnknownError(message)
+    
+
 def register_function(func_name, arity, function_doc, in_types,
  out_type, callback, mem_allocation="no_preallocate", null_handling="computed_no_preallocate"):
         cdef:
@@ -2395,6 +2432,7 @@ def register_function(func_name, arity, function_doc, in_types,
             CScalarUdfBuilder* c_sc_builder
             MemAllocation c_mem_allocation
             NullHandling c_null_handling
+            CStatus st
             object obj
 
         _mem_allocation_map = {
@@ -2434,4 +2472,7 @@ def register_function(func_name, arity, function_doc, in_types,
         c_null_handling = <NullHandling>_null_handling_map[null_handling]
         c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc,
          c_in_types, deref(c_out_type), c_mem_allocation, c_null_handling)
-        c_sc_builder.MakeFunction(c_callback)
+        st = c_sc_builder.MakeFunction(c_callback)
+        if not st.ok():
+            error_msg = st.message().decode()
+            raise UDFRegistrationError(message = error_msg)

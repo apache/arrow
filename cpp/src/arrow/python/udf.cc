@@ -30,35 +30,41 @@ namespace arrow {
 
 namespace py {
 
-#define DEFINE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX)                                               \
-  Status exec_function_##FUNCTION_SUFFIX(const cp::ExecBatch& batch, PyObject* function, int num_args, Datum *out) {                \
-    std::shared_ptr<TYPE_NAME> c_res_data;                                                    \
-    PyObject* result = NULLPTR;                                                               \
-    PyObject* data = NULLPTR;                                                                 \
-    PyObject* arg_tuple = NULLPTR;                                                            \
-    auto c_data = batch[0].CONVERT_SUFFIX();                                                  \
-    Py_XINCREF(data);                                                                         \
-    Py_XINCREF(arg_tuple);                                                                    \
-    Py_XINCREF(result);                                                                       \
-    data = wrap_##FUNCTION_SUFFIX(c_data);                                                    \
-    arg_tuple = PyTuple_New(num_args);                                                        \
-    PyTuple_SetItem(arg_tuple, 0, data);                                                      \
-    result = PyObject_CallObject(function, arg_tuple);                                        \
-    Py_XDECREF(function);                                                                     \
-    if (result == NULL) {                                                                     \
-      return Status::ExecutionError("Error occured in computation");                          \
-    }                                                                                         \
-    auto res = unwrap_##FUNCTION_SUFFIX(result);                                              \
-    if (!res.status().ok()) {                                                                 \
-      return res.status();                                                                    \
-    }                                                                                         \
-    c_res_data = res.ValueOrDie();                                                            \
-    Py_XDECREF(data);                                                                         \
-    Py_XDECREF(arg_tuple);                                                                    \
-    Py_XDECREF(result);                                                                       \
-    auto datum = new Datum(c_res_data);                                                       \
-    *out = *datum;                                                                            \
-    return Status::OK();                                                                      \
+#define DEFINE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX)                      \
+  Status exec_function_##FUNCTION_SUFFIX(const cp::ExecBatch& batch, PyObject* function, \
+                                         int num_args, Datum* out) {                     \
+    std::shared_ptr<TYPE_NAME> c_res_data;                                               \
+    PyObject* result = NULLPTR;                                                          \
+    PyObject* data = NULLPTR;                                                            \
+    PyObject* arg_tuple = NULLPTR;                                                       \
+    Py_XINCREF(data);                                                                    \
+    Py_XINCREF(arg_tuple);                                                               \
+    Py_XINCREF(result);                                                                  \
+    arg_tuple = PyTuple_New(num_args);                                                   \
+    for (int arg_id = 0; arg_id < num_args; arg_id++) {                                  \
+      if (!batch[arg_id].is_##FUNCTION_SUFFIX()) {                                       \
+        return Status::Invalid("Input type and data type doesn't match");                \
+      }                                                                                  \
+      auto c_data = batch[arg_id].CONVERT_SUFFIX();                                      \
+      data = wrap_##FUNCTION_SUFFIX(c_data);                                             \
+      PyTuple_SetItem(arg_tuple, arg_id, data);                                          \
+    }                                                                                    \
+    result = PyObject_CallObject(function, arg_tuple);                                   \
+    Py_XDECREF(function);                                                                \
+    if (result == NULL) {                                                                \
+      return Status::ExecutionError("Error occured in computation");                     \
+    }                                                                                    \
+    auto res = unwrap_##FUNCTION_SUFFIX(result);                                         \
+    if (!res.status().ok()) {                                                            \
+      return res.status();                                                               \
+    }                                                                                    \
+    c_res_data = res.ValueOrDie();                                                       \
+    Py_XDECREF(data);                                                                    \
+    Py_XDECREF(arg_tuple);                                                               \
+    Py_XDECREF(result);                                                                  \
+    auto datum = new Datum(c_res_data);                                                  \
+    *out = *datum;                                                                       \
+    return Status::OK();                                                                 \
   }
 
 DEFINE_CALL_UDF(Scalar, scalar, scalar)
@@ -73,10 +79,6 @@ Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
         "Function Arity and Input data shape doesn't match, expceted {}");
   }
   return Status::OK();
-}
-
-bool CheckBatchValueTypes(const ExecBatch& batch, int num_args) {
-  
 }
 
 Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
@@ -94,31 +96,15 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
 
     if (PyCallable_Check(function)) {
       RETURN_NOT_OK(VerifyArityAndInput(this->arity(), batch));
-      // if the batch is an array
-      auto num_args = this->arity().num_args;
-      if (num_args == 1) {  // unary function
-        if (batch[0].is_array()) {
-          RETURN_NOT_OK(exec_function_array(batch, function, 1, out));
-        } else if (batch[0].is_scalar()) {
-          RETURN_NOT_OK(exec_function_scalar(batch, function, 1, out));
-        } else {
-          return Status::Invalid("Invalid type, expected scalar or array input");
-        }
-      } else if (num_args == 2) {  // binary function
-        if (batch[0].is_array() && batch[1].is_array()) {
-        } else if (batch[0].is_scalar() && batch[1].is_scalar()) {
-          return Status::NotImplemented("TODO:");
-        } else {
-          return Status::Invalid("Invalid type, expected scalar or array input");
-        }
-      } else if (num_args == 3) {  // ternary function
-        return Status::NotImplemented("TODO:");
-      } else if (num_args > 3) {  // varargs function
-        return Status::NotImplemented("TODO:");
+      if (batch[0].is_array()) {  // checke 0-th element to select array callable
+        RETURN_NOT_OK(exec_function_array(batch, function, this->arity().num_args, out));
+      } else if (batch[0].is_scalar()) {  // check 0-th element to select scalar callable
+        RETURN_NOT_OK(exec_function_scalar(batch, function, this->arity().num_args, out));
+      } else {
+        return Status::Invalid("Unexpected input type, scalar or array type expected.");
       }
-      // if the batch is a scalar
     } else {
-      return Status::ExecutionError("Error occured in computation");
+      return Status::ExecutionError("Expected a callable python object.");
     }
     Py_XDECREF(function);
     return Status::OK();
@@ -130,12 +116,12 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
   kernel.null_handling = this->null_handling();
   st = func->AddKernel(std::move(kernel));
   if (!st.ok()) {
-    return Status::ExecutionError("Kernel couldn't be added to the udf");
+    return Status::ExecutionError("Kernel couldn't be added to the udf : " + st.message());
   }
   auto registry = cp::GetFunctionRegistry();
   st = registry->AddFunction(std::move(func));
   if (!st.ok()) {
-    return Status::ExecutionError("udf registration failed");
+    return Status::ExecutionError("udf registration failed : " + st.message());
   }
   return Status::OK();
 }

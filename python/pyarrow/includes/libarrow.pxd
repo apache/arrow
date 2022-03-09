@@ -1853,7 +1853,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_bool is_varargs
         
         @staticmethod
+        CArity Nullary()
+
+        @staticmethod
         CArity Unary()
+
+        @staticmethod
+        CArity Binary()
+
+        @staticmethod
+        CArity Ternary()
+
+        @staticmethod
+        CArity VarArgs(int min_args)
 
     cdef cppclass CInputType" arrow::compute::InputType":
         @staticmethod
