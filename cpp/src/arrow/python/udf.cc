@@ -50,7 +50,6 @@ namespace py {
       PyTuple_SetItem(arg_tuple, arg_id, data);                                          \
     }                                                                                    \
     result = PyObject_CallObject(function, arg_tuple);                                   \
-    Py_XDECREF(function);                                                                \
     if (result == NULL) {                                                                \
       return Status::ExecutionError("Error occured in computation");                     \
     }                                                                                    \
@@ -59,11 +58,11 @@ namespace py {
       return res.status();                                                               \
     }                                                                                    \
     c_res_data = res.ValueOrDie();                                                       \
+    auto datum = new Datum(c_res_data);                                                  \
+    *out = *datum;                                                                       \
     Py_XDECREF(data);                                                                    \
     Py_XDECREF(arg_tuple);                                                               \
     Py_XDECREF(result);                                                                  \
-    auto datum = new Datum(c_res_data);                                                  \
-    *out = *datum;                                                                       \
     return Status::OK();                                                                 \
   }
 
@@ -106,7 +105,6 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
     } else {
       return Status::ExecutionError("Expected a callable python object.");
     }
-    Py_XDECREF(function);
     return Status::OK();
   };
 
@@ -116,7 +114,8 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
   kernel.null_handling = this->null_handling();
   st = func->AddKernel(std::move(kernel));
   if (!st.ok()) {
-    return Status::ExecutionError("Kernel couldn't be added to the udf : " + st.message());
+    return Status::ExecutionError("Kernel couldn't be added to the udf : " +
+                                  st.message());
   }
   auto registry = cp::GetFunctionRegistry();
   st = registry->AddFunction(std::move(func));
