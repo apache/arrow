@@ -44,7 +44,7 @@ RUN dnf update -y && \
         gtest-devel \
         java-latest-openjdk-devel \
         java-latest-openjdk-headless \
-        json \
+        json-devel \
         libzstd-devel \
         llvm-devel \
         llvm-static \
