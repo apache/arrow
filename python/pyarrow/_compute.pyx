@@ -1736,6 +1736,26 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
+cdef class _CumulativeSumOptions(FunctionOptions):
+    def _set_options(self, start):
+        self.wrapped.reset(new CCumulativeSumOptions(
+            pyarrow_unwrap_scalar(start)))
+
+
+class CumulativeSumOptions(_CumulativeSumOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar
+        Optional starting value for sum computation
+    """
+
+    def __init__(self, start):
+        self._set_options(start)
+
+
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):
         self.wrapped.reset(new CArraySortOptions(

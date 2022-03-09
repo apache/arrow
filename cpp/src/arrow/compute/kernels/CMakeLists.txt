@@ -47,6 +47,7 @@ add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
 
 add_arrow_compute_test(vector_test
                        SOURCES
+                       vector_cumulative_sum_test.cc
                        vector_hash_test.cc
                        vector_nested_test.cc
                        vector_replace_test.cc

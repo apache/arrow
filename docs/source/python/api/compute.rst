@@ -479,6 +479,7 @@ Structural Transforms
 .. autosummary::
    :toctree: ../generated/
 
+   cumulative_sum
    fill_null_backward
    fill_null_forward
    list_element
@@ -501,6 +502,7 @@ Compute Options
    CastOptions
    CountOptions
    CountOptions
+   CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions
