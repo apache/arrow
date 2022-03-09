@@ -41,6 +41,14 @@ namespace arrow {
 
 namespace py {
 
+#define DECLARE_CALL_UDF(TYPE_NAME, FUNCTION_SUFFIX, CONVERT_SUFFIX) \
+  ARROW_PYTHON_EXPORT Status exec_function_##FUNCTION_SUFFIX(const cp::ExecBatch&, PyObject*, int, Datum*);
+
+DECLARE_CALL_UDF(Scalar, scalar, scalar)
+DECLARE_CALL_UDF(Array, array, make_array)
+
+#undef DECLARE_CALL_UDF
+
 class ARROW_PYTHON_EXPORT UdfBuilder {
  public:
   UdfBuilder(const std::string func_name, const cp::Function::Kind kind,
