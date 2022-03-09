@@ -166,8 +166,8 @@ Connection to the specific language development pages:
    .. tab:: C++
 
       * :ref:`cpp-development`
-      * :ref:`building-arrow-cpp`
       * :ref:`C++ Development Guidelines <development-cpp>`
+      * :ref:`building-arrow-cpp`
 
    .. tab:: Python
 
