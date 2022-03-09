@@ -888,7 +888,6 @@ test_that("month() errors with double input and returns NA with int outside 1:12
     regexp = "Function 'month' has no kernel matching input types (array[double])",
     fixed = TRUE
   )
-
 })
 
 test_that("date works in arrow", {
