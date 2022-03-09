@@ -12,8 +12,9 @@ namespace qtest {
 namespace {
 
 Result<std::shared_ptr<cp::ExecPlan>> Tpch1(
-    std::shared_ptr<cp::SinkNodeConsumer> consumer) {
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
+    std::shared_ptr<cp::SinkNodeConsumer> consumer, cp::ExecContext* exec_context) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        cp::ExecPlan::Make(exec_context));
   ARROW_ASSIGN_OR_RAISE(cp::TpchGen gen, cp::TpchGen::Make(plan.get(), 1));
 
   ARROW_ASSIGN_OR_RAISE(

@@ -100,7 +100,7 @@ struct QueryTestResult {
 /// .substrait.pb - Loads a Substrait plan using the binary protobuf format
 Result<std::shared_ptr<compute::ExecPlan>> LoadQuery(
     const std::string& root_path, const std::string& query_name,
-    const engine::ConsumerFactory& consumer_factory);
+    const engine::ConsumerFactory& consumer_factory, compute::ExecContext* exec_context);
 /// Validate the options (will be run automatically by RunQueryTest)
 Status ValidateOptions(const QueryTestOptions& options);
 /// Run a query test.

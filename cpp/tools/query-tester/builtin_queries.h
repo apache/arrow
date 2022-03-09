@@ -11,7 +11,7 @@ namespace arrow {
 namespace qtest {
 
 using QueryPlanFactory = std::function<Result<std::shared_ptr<compute::ExecPlan>>(
-    std::shared_ptr<compute::SinkNodeConsumer>)>;
+    std::shared_ptr<compute::SinkNodeConsumer>, compute::ExecContext*)>;
 
 const std::unordered_map<std::string, QueryPlanFactory>& GetBuiltinQueries();
 

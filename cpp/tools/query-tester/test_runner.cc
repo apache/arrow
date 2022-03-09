@@ -173,14 +173,16 @@ Result<util::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromFiles(
 }
 
 Result<util::optional<std::shared_ptr<compute::ExecPlan>>> LoadQueryFromBuiltin(
-    const std::string& query_name, const engine::ConsumerFactory& consumer_factory) {
+    const std::string& query_name, const engine::ConsumerFactory& consumer_factory,
+    cp::ExecContext* exec_context) {
   const auto& builtin_queries_map = GetBuiltinQueries();
   const auto& query = builtin_queries_map.find(query_name);
   if (query == builtin_queries_map.end()) {
     return util::nullopt;
   }
   std::shared_ptr<cp::SinkNodeConsumer> consumer = consumer_factory();
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, query->second(consumer));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan,
+                        query->second(consumer, exec_context));
   return plan;
 }
 
@@ -199,14 +201,15 @@ Status InitializeArrow(const QueryTestOptions& options) {
 
 Result<std::shared_ptr<compute::ExecPlan>> LoadQuery(
     const std::string& root_path, const std::string& query_name,
-    const engine::ConsumerFactory& consumer_factory) {
+    const engine::ConsumerFactory& consumer_factory, cp::ExecContext* exec_context) {
   ARROW_ASSIGN_OR_RAISE(util::optional<std::shared_ptr<compute::ExecPlan>> maybe_query,
                         LoadQueryFromFiles(root_path, query_name, consumer_factory));
   if (maybe_query) {
     return *maybe_query;
   }
 
-  ARROW_ASSIGN_OR_RAISE(maybe_query, LoadQueryFromBuiltin(query_name, consumer_factory));
+  ARROW_ASSIGN_OR_RAISE(maybe_query,
+                        LoadQueryFromBuiltin(query_name, consumer_factory, exec_context));
   if (maybe_query) {
     return *maybe_query;
   }
@@ -219,13 +222,15 @@ Result<QueryTestResult> RunQueryTest(const QueryTestOptions& options) {
   ARROW_ASSIGN_OR_RAISE(auto root_path, GetRootDirectory(options.executable_path));
   ARROW_RETURN_NOT_OK(ValidateOptions(options));
   ARROW_RETURN_NOT_OK(InitializeArrow(options));
+  cp::ExecContext exec_context(default_memory_pool(), internal::GetCpuThreadPool());
   QueryTestResult result;
   auto consumer = std::make_shared<QueryResultUpdatingConsumer>(&result);
   auto consumer_factory = [consumer] { return consumer; };
   for (int i = 0; i < options.num_iterations; i++) {
     consumer->Start(i);
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<compute::ExecPlan> plan,
-                          LoadQuery(root_path, options.query_name, consumer_factory));
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<compute::ExecPlan> plan,
+        LoadQuery(root_path, options.query_name, consumer_factory, &exec_context));
     ARROW_RETURN_NOT_OK(plan->StartProducing());
     ARROW_RETURN_NOT_OK(plan->finished().status());
   }
