@@ -163,8 +163,8 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   public BigDecimal getBigDecimal() throws SQLException {
     try {
       return new BigDecimal(this.getString());
-    } catch (Exception e) {
-      throw new SQLException(e);
+    } catch (NumberFormatException exception) {
+      throw new SQLException(exception);
     }
   }
 
