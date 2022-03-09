@@ -310,6 +310,15 @@ module RawRecordsMapArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_interval
+    records = [
+      [{"key1" => 1, "key2" => nil}],
+      [nil],
+    ]
+    target = build(:month_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"key1" => [true, nil, false], "key2" => nil}],

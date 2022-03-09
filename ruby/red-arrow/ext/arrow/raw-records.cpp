@@ -98,6 +98,7 @@ namespace red_arrow {
       VISIT(Timestamp)
       // TODO
       // VISIT(Interval)
+      VISIT(MonthInterval)
       VISIT(List)
       VISIT(Struct)
       VISIT(Map)
