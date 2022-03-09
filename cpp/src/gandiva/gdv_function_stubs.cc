@@ -19,7 +19,6 @@
 
 #include <utf8proc.h>
 
-#include <openssl/crypto.h>
 #include <boost/crc.hpp>
 #include <iomanip>
 #include <string>
@@ -448,41 +447,6 @@ const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
   }
 
   return out;
-}
-
-GANDIVA_EXPORT
-const char* gdv_mask_hash_utf8_utf8(int64_t context, const char* data, int32_t data_len,
-                                    int32_t* out_len) {
-  if (data_len <= 0) {
-    *out_len = 0;
-    return nullptr;
-  }
-
-  // Gandiva hash the value by sha256 and encoding it into a lower case hex string in
-  // non FIPS mode. In FIPS enabled mode, it's required to use sha512 for mask hash.
-  if (FIPS_mode()) {
-    const char* sha_hash = gandiva::gdv_sha512_hash(context, data, data_len, out_len);
-
-    if (sha_hash == nullptr) {
-      gdv_fn_context_set_error_msg(context,
-                                   "Could not allocate memory for output string");
-      *out_len = 0;
-      return "";
-    }
-
-    return sha_hash;
-  } else {
-    const char* sha_hash = gandiva::gdv_sha256_hash(context, data, data_len, out_len);
-
-    if (sha_hash == nullptr) {
-      gdv_fn_context_set_error_msg(context,
-                                   "Could not allocate memory for output string");
-      *out_len = 0;
-      return "";
-    }
-
-    return sha_hash;
-  }
 }
 
 GANDIVA_EXPORT
@@ -1000,17 +964,5 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_cast_intervalyear_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_cast_intervalyear_utf8_int32));
-
-  // gdv_mask_hash_utf8_utf8
-  args = {
-      types->i64_type(),     // context
-      types->i8_ptr_type(),  // data
-      types->i32_type(),     // data_len
-      types->i32_ptr_type()  // out_len
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_mask_hash_utf8_utf8",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_mask_hash_utf8_utf8));
 }
 }  // namespace gandiva
