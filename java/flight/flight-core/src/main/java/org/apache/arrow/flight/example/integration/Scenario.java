@@ -17,11 +17,11 @@
 
 package org.apache.arrow.flight.integration.tests;
 
-import org.apache.arrow.flight.FlightClient;
-import org.apache.arrow.flight.FlightProducer;
-import org.apache.arrow.flight.FlightServer;
-import org.apache.arrow.flight.Location;
-import org.apache.arrow.memory.BufferAllocator;
+import static java.lang.String.format;
+
+import java.sql.SQLException;
+
+import org.apache.calcite.avatica.util.Cursor.Accessor;
 
 /**
  * A particular scenario in integration testing.
@@ -41,5 +41,8 @@ interface Scenario {
   /**
    * Run as the client in the scenario.
    */
-  void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception;
+  public static SQLException getOperationNotSupported(final Class<?> type) {
+    return new SQLException(
+        format("Operation not supported for type: %s.", type.getName()));
+  }
 }
