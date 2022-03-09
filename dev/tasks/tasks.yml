@@ -1152,7 +1152,7 @@ tasks:
         PYARROW_TEST_HYPOTHESIS: ON
         PYTHON: 3.8
         # limit to execute hypothesis tests only
-        PYTEST_ARGS: "-m hypothesis"
+        PYTEST_ARGS: "-m hypothesis --enable-hypothesis"
       image: conda-python-pandas
 
   test-debian-11-python-3:
