@@ -52,7 +52,7 @@ public class ArrowFlightJdbcAccessorTest {
   MockedArrowFlightJdbcAccessor accessor;
 
   @Test
-  public void testShouldGetObjectWithByteClassReturnGetByte() {
+  public void testShouldGetObjectWithByteClassReturnGetByte() throws SQLException {
     byte expected = Byte.MAX_VALUE;
     when(accessor.getByte()).thenReturn(expected);
 
@@ -63,7 +63,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithShortClassReturnGetShort() {
+  public void testShouldGetObjectWithShortClassReturnGetShort() throws SQLException {
     short expected = Short.MAX_VALUE;
     when(accessor.getShort()).thenReturn(expected);
 
@@ -74,7 +74,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithIntegerClassReturnGetInt() {
+  public void testShouldGetObjectWithIntegerClassReturnGetInt() throws SQLException {
     int expected = Integer.MAX_VALUE;
     when(accessor.getInt()).thenReturn(expected);
 
@@ -85,7 +85,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithLongClassReturnGetLong() {
+  public void testShouldGetObjectWithLongClassReturnGetLong() throws SQLException {
     long expected = Long.MAX_VALUE;
     when(accessor.getLong()).thenReturn(expected);
 
@@ -96,7 +96,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithFloatClassReturnGetFloat() {
+  public void testShouldGetObjectWithFloatClassReturnGetFloat() throws SQLException {
     float expected = Float.MAX_VALUE;
     when(accessor.getFloat()).thenReturn(expected);
 
@@ -107,7 +107,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithDoubleClassReturnGetDouble() {
+  public void testShouldGetObjectWithDoubleClassReturnGetDouble() throws SQLException {
     double expected = Double.MAX_VALUE;
     when(accessor.getDouble()).thenReturn(expected);
 
@@ -118,7 +118,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithBooleanClassReturnGetBoolean() {
+  public void testShouldGetObjectWithBooleanClassReturnGetBoolean() throws SQLException {
     when(accessor.getBoolean()).thenReturn(true);
 
     when(accessor.getObject(Boolean.class)).thenCallRealMethod();
@@ -128,7 +128,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithBigDecimalClassReturnGetBigDecimal() {
+  public void testShouldGetObjectWithBigDecimalClassReturnGetBigDecimal() throws SQLException {
     BigDecimal expected = BigDecimal.TEN;
     when(accessor.getBigDecimal()).thenReturn(expected);
 
@@ -139,7 +139,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithStringClassReturnGetString() {
+  public void testShouldGetObjectWithStringClassReturnGetString() throws SQLException {
     String expected = "STRING_VALUE";
     when(accessor.getString()).thenReturn(expected);
 
@@ -150,7 +150,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithByteArrayClassReturnGetBytes() {
+  public void testShouldGetObjectWithByteArrayClassReturnGetBytes() throws SQLException {
     byte[] expected = "STRING_VALUE".getBytes(StandardCharsets.UTF_8);
     when(accessor.getBytes()).thenReturn(expected);
 
@@ -161,7 +161,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithObjectClassReturnGetObject() {
+  public void testShouldGetObjectWithObjectClassReturnGetObject() throws SQLException {
     Object expected = new Object();
     when(accessor.getObject()).thenReturn(expected);
 
@@ -172,7 +172,7 @@ public class ArrowFlightJdbcAccessorTest {
   }
 
   @Test
-  public void testShouldGetObjectWithAccessorsObjectClassReturnGetObject() {
+  public void testShouldGetObjectWithAccessorsObjectClassReturnGetObject() throws SQLException {
     Class<Long> objectClass = Long.class;
 
     when(accessor.getObject(objectClass)).thenCallRealMethod();
@@ -181,56 +181,56 @@ public class ArrowFlightJdbcAccessorTest {
     verify(accessor).getObject(objectClass);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBoolean() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBoolean() throws SQLException {
     when(accessor.getBoolean()).thenCallRealMethod();
     accessor.getBoolean();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetByte() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetByte() throws SQLException {
     when(accessor.getByte()).thenCallRealMethod();
     accessor.getByte();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetShort() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetShort() throws SQLException {
     when(accessor.getShort()).thenCallRealMethod();
     accessor.getShort();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetInt() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetInt() throws SQLException {
     when(accessor.getInt()).thenCallRealMethod();
     accessor.getInt();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetLong() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetLong() throws SQLException {
     when(accessor.getLong()).thenCallRealMethod();
     accessor.getLong();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetFloat() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetFloat() throws SQLException {
     when(accessor.getFloat()).thenCallRealMethod();
     accessor.getFloat();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetDouble() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetDouble() throws SQLException {
     when(accessor.getDouble()).thenCallRealMethod();
     accessor.getDouble();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBigDecimal() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBigDecimal() throws SQLException {
     when(accessor.getBigDecimal()).thenCallRealMethod();
     accessor.getBigDecimal();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBytes() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBytes() throws SQLException {
     when(accessor.getBytes()).thenCallRealMethod();
     accessor.getBytes();
   }
@@ -253,14 +253,14 @@ public class ArrowFlightJdbcAccessorTest {
     accessor.getBinaryStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetObject() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetObject() throws SQLException {
     when(accessor.getObject()).thenCallRealMethod();
     accessor.getObject();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetObjectMap() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetObjectMap() throws SQLException {
     Map<String, Class<?>> map = new HashMap<>();
     when(accessor.getObject(map)).thenCallRealMethod();
     accessor.getObject(map);
@@ -272,86 +272,86 @@ public class ArrowFlightJdbcAccessorTest {
     accessor.getCharacterStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetRef() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetRef() throws SQLException {
     when(accessor.getRef()).thenCallRealMethod();
     accessor.getRef();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBlob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBlob() throws SQLException {
     when(accessor.getBlob()).thenCallRealMethod();
     accessor.getBlob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetClob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetClob() throws SQLException {
     when(accessor.getClob()).thenCallRealMethod();
     accessor.getClob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetArray() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetArray() throws SQLException {
     when(accessor.getArray()).thenCallRealMethod();
     accessor.getArray();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetStruct() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetStruct() throws SQLException {
     when(accessor.getStruct()).thenCallRealMethod();
     accessor.getStruct();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetURL() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetURL() throws SQLException {
     when(accessor.getURL()).thenCallRealMethod();
     accessor.getURL();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNClob() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNClob() throws SQLException {
     when(accessor.getNClob()).thenCallRealMethod();
     accessor.getNClob();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetSQLXML() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetSQLXML() throws SQLException {
     when(accessor.getSQLXML()).thenCallRealMethod();
     accessor.getSQLXML();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNString() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNString() throws SQLException {
     when(accessor.getNString()).thenCallRealMethod();
     accessor.getNString();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetNCharacterStream() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetNCharacterStream() throws SQLException {
     when(accessor.getNCharacterStream()).thenCallRealMethod();
     accessor.getNCharacterStream();
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetDate() throws SQLException {
     when(accessor.getDate(null)).thenCallRealMethod();
     accessor.getDate(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTime() throws SQLException {
     when(accessor.getTime(null)).thenCallRealMethod();
     accessor.getTime(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test(expected = SQLException.class)
   public void testShouldFailToGetTimestamp() throws SQLException {
     when(accessor.getTimestamp(null)).thenCallRealMethod();
     accessor.getTimestamp(null);
   }
 
-  @Test(expected = UnsupportedOperationException.class)
-  public void testShouldFailToGetBigDecimalWithValue() {
+  @Test(expected = SQLException.class)
+  public void testShouldFailToGetBigDecimalWithValue() throws SQLException {
     when(accessor.getBigDecimal(0)).thenCallRealMethod();
     accessor.getBigDecimal(0);
   }

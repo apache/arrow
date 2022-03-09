@@ -75,61 +75,61 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetNCharacterStreamUsesSpecificAccessor() {
+  public void testGetNCharacterStreamUsesSpecificAccessor() throws SQLException {
     accessor.getNCharacterStream();
     verify(innerAccessor).getNCharacterStream();
   }
 
   @Test
-  public void testGetNStringUsesSpecificAccessor() {
+  public void testGetNStringUsesSpecificAccessor() throws SQLException {
     accessor.getNString();
     verify(innerAccessor).getNString();
   }
 
   @Test
-  public void testGetSQLXMLUsesSpecificAccessor() {
+  public void testGetSQLXMLUsesSpecificAccessor() throws SQLException {
     accessor.getSQLXML();
     verify(innerAccessor).getSQLXML();
   }
 
   @Test
-  public void testGetNClobUsesSpecificAccessor() {
+  public void testGetNClobUsesSpecificAccessor() throws SQLException {
     accessor.getNClob();
     verify(innerAccessor).getNClob();
   }
 
   @Test
-  public void testGetURLUsesSpecificAccessor() {
+  public void testGetURLUsesSpecificAccessor() throws SQLException {
     accessor.getURL();
     verify(innerAccessor).getURL();
   }
 
   @Test
-  public void testGetStructUsesSpecificAccessor() {
+  public void testGetStructUsesSpecificAccessor() throws SQLException {
     accessor.getStruct();
     verify(innerAccessor).getStruct();
   }
 
   @Test
-  public void testGetArrayUsesSpecificAccessor() {
+  public void testGetArrayUsesSpecificAccessor() throws SQLException {
     accessor.getArray();
     verify(innerAccessor).getArray();
   }
 
   @Test
-  public void testGetClobUsesSpecificAccessor() {
+  public void testGetClobUsesSpecificAccessor() throws SQLException {
     accessor.getClob();
     verify(innerAccessor).getClob();
   }
 
   @Test
-  public void testGetBlobUsesSpecificAccessor() {
+  public void testGetBlobUsesSpecificAccessor() throws SQLException {
     accessor.getBlob();
     verify(innerAccessor).getBlob();
   }
 
   @Test
-  public void testGetRefUsesSpecificAccessor() {
+  public void testGetRefUsesSpecificAccessor() throws SQLException {
     accessor.getRef();
     verify(innerAccessor).getRef();
   }
@@ -159,61 +159,61 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetBytesUsesSpecificAccessor() {
+  public void testGetBytesUsesSpecificAccessor() throws SQLException {
     accessor.getBytes();
     verify(innerAccessor).getBytes();
   }
 
   @Test
-  public void testGetBigDecimalUsesSpecificAccessor() {
+  public void testGetBigDecimalUsesSpecificAccessor() throws SQLException {
     accessor.getBigDecimal();
     verify(innerAccessor).getBigDecimal();
   }
 
   @Test
-  public void testGetDoubleUsesSpecificAccessor() {
+  public void testGetDoubleUsesSpecificAccessor() throws SQLException {
     accessor.getDouble();
     verify(innerAccessor).getDouble();
   }
 
   @Test
-  public void testGetFloatUsesSpecificAccessor() {
+  public void testGetFloatUsesSpecificAccessor() throws SQLException {
     accessor.getFloat();
     verify(innerAccessor).getFloat();
   }
 
   @Test
-  public void testGetLongUsesSpecificAccessor() {
+  public void testGetLongUsesSpecificAccessor() throws SQLException {
     accessor.getLong();
     verify(innerAccessor).getLong();
   }
 
   @Test
-  public void testGetIntUsesSpecificAccessor() {
+  public void testGetIntUsesSpecificAccessor() throws SQLException {
     accessor.getInt();
     verify(innerAccessor).getInt();
   }
 
   @Test
-  public void testGetShortUsesSpecificAccessor() {
+  public void testGetShortUsesSpecificAccessor() throws SQLException {
     accessor.getShort();
     verify(innerAccessor).getShort();
   }
 
   @Test
-  public void testGetByteUsesSpecificAccessor() {
+  public void testGetByteUsesSpecificAccessor() throws SQLException {
     accessor.getByte();
     verify(innerAccessor).getByte();
   }
 
   @Test
-  public void testGetBooleanUsesSpecificAccessor() {
+  public void testGetBooleanUsesSpecificAccessor() throws SQLException {
     accessor.getBoolean();
     verify(innerAccessor).getBoolean();
   }
 
   @Test
-  public void testGetStringUsesSpecificAccessor() {
+  public void testGetStringUsesSpecificAccessor() throws SQLException {
     accessor.getString();
     verify(innerAccessor).getString();
   }
@@ -225,7 +225,7 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetObjectWithClassUsesSpecificAccessor() {
+  public void testGetObjectWithClassUsesSpecificAccessor() throws SQLException {
     accessor.getObject(Object.class);
     verify(innerAccessor).getObject(Object.class);
   }
@@ -252,14 +252,14 @@ public class AbstractArrowFlightJdbcUnionVectorAccessorTest {
   }
 
   @Test
-  public void testGetObjectUsesSpecificAccessor() {
+  public void testGetObjectUsesSpecificAccessor() throws SQLException {
     Map<String, Class<?>> map = mock(Map.class);
     accessor.getObject(map);
     verify(innerAccessor).getObject(map);
   }
 
   @Test
-  public void testGetBigDecimalWithScaleUsesSpecificAccessor() {
+  public void testGetBigDecimalWithScaleUsesSpecificAccessor() throws SQLException {
     accessor.getBigDecimal(2);
     verify(innerAccessor).getBigDecimal(2);
   }
