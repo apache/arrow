@@ -168,26 +168,14 @@ To compile the JNI bindings for ORC / Gandiva / Dataset, use the ``arrow-jni`` M
 IDE Configuration
 =================
 
-IntelliJ IDE
-------------
+IntelliJ
+--------
 
-IntelliJ can import Maven projects. To start working on Arrow in IntelliJ, just open the `java/`
+To start working on Arrow in IntelliJ, just open the `java/`
 subdirectory of the Arrow repository.
 
-.. figure:: img/java_welcome.png
-   :scale: 50 %
-   :alt: A newly opened Arrow project
-
-An option to understand the arrow java code is running the java unit test in debugging mode to see
-objects initialized parameters and values assigned.
-
-Let's debug `TestArrowBuf.java`_ to see `ArrowBuf` object initialization. Go to the java class `TestArrowBuf.java`
-and method `testSetBytesBigEndian`, add breakpoints needed, right click on the method name and select option
-mention `Debug 'testSetBytesBigEndian()'` and inspect te variable when debug mode arrive to `ArrowBuf` variable.
-
-.. figure:: img/java_debug_mode.png
-   :scale: 50 %
-   :alt: An ArrowBuf variable initialized with parameters and values assigned.
+* For JDK 8 consider to disable `error-prone` profile to project build successfully.
+* For JDK 11 project build successfully with all profiles enabled by default.
 
 Common Errors
 =============
