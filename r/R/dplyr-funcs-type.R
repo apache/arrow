@@ -296,6 +296,8 @@ register_bindings_type_elementwise <- function() {
 
 register_bindings_type_format <- function() {
   register_binding("format", function(x, ...) {
+    # We use R's format if we get a single R object here since we don't (yet)
+    # support all of the possible options for casting to string
     if (!inherits(x, "Expression")) {
       return(format(x, ...))
     }

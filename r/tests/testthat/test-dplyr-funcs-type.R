@@ -927,7 +927,7 @@ test_that("format() for unsupported types returns the input as string", {
   expect_equal(
     example_data %>%
       record_batch() %>%
-      mutate(x = format(int, trim = TRUE)) %>%
+      mutate(x = format(int)) %>%
       collect(),
     example_data %>%
       record_batch() %>%
@@ -937,7 +937,7 @@ test_that("format() for unsupported types returns the input as string", {
   expect_equal(
     example_data %>%
       arrow_table() %>%
-      mutate(y = format(dbl, nsmall = 3)) %>%
+      mutate(y = format(dbl)) %>%
       collect(),
     example_data %>%
       arrow_table() %>%
