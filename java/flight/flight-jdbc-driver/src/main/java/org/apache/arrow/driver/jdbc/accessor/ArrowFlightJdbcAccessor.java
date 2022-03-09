@@ -68,7 +68,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public String getString() {
+  public String getString() throws SQLException {
     final Object object = getObject();
     if (object == null) {
       return null;
@@ -78,7 +78,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public boolean getBoolean() {
+  public boolean getBoolean() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -123,32 +123,32 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public byte[] getBytes() {
+  public byte[] getBytes() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getAsciiStream() {
+  public InputStream getAsciiStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getUnicodeStream() {
+  public InputStream getUnicodeStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getBinaryStream() {
+  public InputStream getBinaryStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Object getObject() {
+  public Object getObject() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getCharacterStream() {
+  public Reader getCharacterStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -158,27 +158,27 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public Ref getRef() {
+  public Ref getRef() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Blob getBlob() {
+  public Blob getBlob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Clob getClob() {
+  public Clob getClob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Array getArray() {
+  public Array getArray() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Struct getStruct() {
+  public Struct getStruct() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -198,27 +198,27 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public URL getURL() {
+  public URL getURL() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public NClob getNClob() {
+  public NClob getNClob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public SQLXML getSQLXML() {
+  public SQLXML getSQLXML() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public String getNString() {
+  public String getNString() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getNCharacterStream() {
+  public Reader getNCharacterStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
