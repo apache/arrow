@@ -57,7 +57,7 @@ like so:
 
 .. code-block:: shell
 
-   pytest arrow/python/pyarrow
+   python -m pytest arrow/python/pyarrow
 
 Package requirements to run the unit tests are found in
 ``requirements-test.txt`` and can be installed if needed with ``pip install -r
@@ -73,7 +73,7 @@ run
 
 .. code-block:: shell
 
-   pytest pyarrow --help
+   python -m pytest pyarrow --help
 
 and look for the "custom options" section.
 
@@ -117,8 +117,8 @@ System Requirements
 On macOS, any modern XCode (6.4 or higher; the current version is 13) or
 Xcode Command Line Tools (``xcode-select --install``) are sufficient.
 
-On Linux, for this guide, we require a minimum of gcc 4.8, or clang 3.7 or
-higher. You can check your version by running
+On Linux, for this guide, we require a minimum of gcc 4.8 or clang 3.7.
+You can check your version by running
 
 .. code-block:: console
 
@@ -146,14 +146,17 @@ Pull in the test data and setup the environment variables:
 .. code-block:: shell
 
    pushd arrow
-   git submodule init
-   git submodule update
+   git submodule update --init
    export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data"
    export ARROW_TEST_DATA="${PWD}/testing/data"
    popd
 
 Using Conda
 ~~~~~~~~~~~
+
+The `conda <https://conda.io/>`_ package manager allows installing build-time
+dependencies for Arrow C++ and PyArrow as pre-built binaries, which can make
+Arrow development easier and faster.
 
 Let's create a conda environment with all the C++ build and Python dependencies
 from conda-forge, targeting development for Python 3.9:
@@ -189,15 +192,20 @@ about our build toolchain:
 
    export ARROW_HOME=$CONDA_PREFIX
 
-Using pip
-~~~~~~~~~
+Using system and bundled dependencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. warning::
 
    If you installed Python using the Anaconda distribution or `Miniconda
-   <https://conda.io/miniconda.html>`_, you cannot currently use ``virtualenv``
-   to manage your development. Please follow the conda-based development
+   <https://conda.io/miniconda.html>`_, you cannot currently use a
+   pip-based virtual environment. Please follow the conda-based development
    instructions instead.
+
+If not using conda, you must arrange for your system to provide the required
+build tools and dependencies.  Note that if some dependencies are absent,
+the Arrow C++ build chain may still be able to download and compile them
+on the fly, but this will take a longer time than with pre-installed binaries.
 
 .. _python-homebrew:
 
@@ -211,43 +219,26 @@ building Arrow C++:
 See :ref:`here <cpp-build-dependency-management>` for a list of dependencies you
 may need.
 
-On Debian/Ubuntu, you need the following minimal set of dependencies. All other
-dependencies will be automatically built by Arrow's third-party toolchain.
+On Debian/Ubuntu, you need the following minimal set of dependencies:
 
 .. code-block:: console
 
-   $ sudo apt-get install libjemalloc-dev libboost-dev \
-                          libboost-filesystem-dev \
-                          libboost-system-dev \
-                          libboost-regex-dev \
-                          python-dev \
-                          autoconf \
-                          flex \
-                          bison
+   $ sudo apt-get install build-essential cmake python3-dev
 
-If you are building Arrow for Python 3, install ``python3-dev`` instead of ``python-dev``.
-
-On Arch Linux, you can get these dependencies via pacman.
-
-.. code-block:: console
-
-   $ sudo pacman -S jemalloc boost
-
-Now, let's create a Python virtualenv with all Python dependencies in the same
-folder as the repositories and a target installation folder:
+Now, let's create a Python virtual environment with all Python dependencies
+in the same folder as the repositories, and a target installation folder:
 
 .. code-block:: shell
 
-   virtualenv -p python3.9 pyarrow-dev
+   python3 -m venv pyarrow-dev
    source ./pyarrow-dev/bin/activate
-   pip install -r arrow/python/requirements-build.txt \
-        -r arrow/python/requirements-test.txt
+   pip install -r arrow/python/requirements-build.txt
 
    # This is the folder where we will install the Arrow libraries during
    # development
    mkdir dist
 
-If your cmake version is too old on Linux, you could get a newer one via
+If your CMake version is too old on Linux, you could get a newer one via
 ``pip install cmake``.
 
 We need to set some environment variables to let Arrow's build system know
@@ -261,7 +252,8 @@ about our build toolchain:
 Build and test
 --------------
 
-Now build and install the Arrow C++ libraries:
+Now build the Arrow C++ libraries and install them into the directory we
+created above (stored in ``$ARROW_HOME``):
 
 .. code-block:: shell
 
@@ -270,7 +262,7 @@ Now build and install the Arrow C++ libraries:
 
    cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
          -DCMAKE_INSTALL_LIBDIR=lib \
-         -DCMAKE_BUILD_TYPE=debug \
+         -DCMAKE_BUILD_TYPE=Debug \
          -DARROW_WITH_BZ2=ON \
          -DARROW_WITH_ZLIB=ON \
          -DARROW_WITH_ZSTD=ON \
@@ -289,7 +281,8 @@ Now build and install the Arrow C++ libraries:
 There are a number of optional components that can can be switched ON by
 adding flags with ``ON``:
 
-* ``ARROW_FLIGHT``: RPC framework
+* ``ARROW_CUDA``: Support for CUDA-enabled GPUs
+* ``ARROW_FLIGHT``: Flight RPC framework
 * ``ARROW_GANDIVA``: LLVM-based expression compiler
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
@@ -297,18 +290,25 @@ adding flags with ``ON``:
 * ``ARROW_PLASMA``: Shared memory object store
 
 Anything set to ``ON`` above can also be turned off. Note that some compression
-libraries are needed for Parquet support.
+libraries are recommended for full Parquet support.
 
-To enable C++ debugging information, pass the option ``-DCMAKE_BUILD_TYPE=debug``.
+You may choose between different kinds of C++ build types:
+
+* ``-DCMAKE_BUILD_TYPE=Release`` (the default) produces a build with optimizations
+  enabled and debugging information disabled;
+* ``-DCMAKE_BUILD_TYPE=Debug`` produces a build with optimizations
+  disabled and debugging information enabled;
+* ``-DCMAKE_BUILD_TYPE=RelWithDebInfo`` produces a build with both optimizations
+  and debugging information enabled.
 
 .. seealso::
-   :ref:`cpp-building-building`.
+   :ref:`Building Arrow C++ <cpp-building-building>`.
 
 If multiple versions of Python are installed in your environment, you may have
-to pass additional parameters to cmake so that it can find the right
+to pass additional parameters to CMake so that it can find the right
 executable, headers and libraries.  For example, specifying
-``-DPython3_EXECUTABLE=$VIRTUAL_ENV/bin/python`` (assuming that you're in
-virtualenv) enables cmake to choose the python executable which you are using.
+``-DPython3_EXECUTABLE=<path/to/bin/python>`` lets CMake choose the
+Python executable which you are using.
 
 .. note::
 
@@ -327,7 +327,7 @@ virtualenv) enables cmake to choose the python executable which you are using.
 
 .. note::
 
-   With older versions of ``cmake`` (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
+   With older versions of CMake (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
    instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
    for more details.
 
@@ -335,8 +335,8 @@ For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
 advisable to delete the build folder with command ``rm -rf /arrow/cpp/build``.
-If the build has passed successfully and you need to rebuild due to latest pull from master,
-then this step is not needed.
+If the build has passed successfully and you need to rebuild due to latest pull
+from git master, then this step is not needed.
 
 Now, build pyarrow:
 
@@ -354,8 +354,8 @@ Similarly, if you built with ``PARQUET_REQUIRE_ENCRYPTION`` (in C++), you
 need to set the corresponding ``PYARROW_WITH_PARQUET_ENCRYPTION`` environment
 variable to 1.
 
-If you wish to delete pyarrow build before rebuilding navigate to the ``arrow/python``
-folder and run ``git clean -Xfd .``.
+If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
+to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
@@ -378,20 +378,8 @@ Docker examples
 
 If you are having difficulty building the Python library from source, take a
 look at the ``python/examples/minimal_build`` directory which illustrates a
-complete build and test from source both with the conda and pip/virtualenv
-build methods.
-
-Building with CUDA support
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The :mod:`pyarrow.cuda` module offers support for using Arrow platform
-components with Nvidia's CUDA-enabled GPU devices. To build with this support,
-pass ``-DARROW_CUDA=ON`` when building the C++ libraries, and set the following
-environment variable when building pyarrow:
-
-.. code-block:: shell
-
-   export PYARROW_WITH_CUDA=1
+complete build and test from source both with the conda- and pip-based build
+methods.
 
 Debugging
 ---------
@@ -403,21 +391,25 @@ Using gdb on Linux
 ~~~~~~~~~~~~~~~~~~
 
 To debug the C++ libraries with gdb while running the Python unit
-   test, first start pytest with gdb:
+tests, first start pytest with gdb:
 
-.. code-block:: shell
+.. code-block:: console
 
-   gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
+   $ gdb --args python -m pytest pyarrow/tests/test_to_run.py -k $TEST_TO_MATCH
 
 To set a breakpoint, use the same gdb syntax that you would when
-debugging a C++ unittest, for example:
+debugging a C++ program, for example:
 
-.. code-block:: shell
+.. code-block:: console
 
    (gdb) b src/arrow/python/arrow_to_pandas.cc:1874
    No source file named src/arrow/python/arrow_to_pandas.cc.
    Make breakpoint pending on future shared library load? (y or [n]) y
    Breakpoint 1 (src/arrow/python/arrow_to_pandas.cc:1874) pending.
+
+.. seealso::
+
+   The :ref:`GDB extension for Arrow C++ <cpp_gdb_extension>`.
 
 .. _build_pyarrow_win:
 
@@ -429,14 +421,12 @@ Building on Windows requires one of the following compilers to be installed:
 - `Build Tools for Visual Studio 2017 <https://download.visualstudio.microsoft.com/download/pr/3e542575-929e-4297-b6c6-bef34d0ee648/639c868e1219c651793aff537a1d3b77/vs_buildtools.exe>`_
 - Visual Studio 2017
 
-During the setup of Build Tools ensure at least one Windows SDK is selected.
-
-Visual Studio 2019 and its build tools are currently not supported.
+During the setup of Build Tools, ensure at least one Windows SDK is selected.
 
 We bootstrap a conda environment similar to above, but skipping some of the
 Linux/macOS-only packages:
 
-First, starting from fresh clones of Apache Arrow:
+First, starting from a fresh clone of Apache Arrow:
 
 .. code-block:: shell
 
@@ -458,7 +448,7 @@ We set a number of environment variables:
 - the path of the installation directory of the Arrow C++ libraries as
   ``ARROW_HOME``
 - add the path of installed DLL libraries to ``PATH``
-- and choose the compiler to be used
+- and the CMake generator to be used as ``PYARROW_CMAKE_GENERATOR``
 
 .. code-block:: shell
 
@@ -505,7 +495,7 @@ Then run the unit tests with:
 .. code-block:: shell
 
    pushd arrow\python
-   py.test pyarrow -v
+   python -m pytest pyarrow
    popd
 
 .. note::
@@ -518,13 +508,15 @@ Then run the unit tests with:
    the Arrow C++ libraries. Therefore, to use ``pyarrow`` in python, ``PATH``
    must contain the directory with the Arrow .dll-files.
 
-   If you want to bundle the Arrow C++ libraries with ``pyarrow`` add
-   ``--bundle-arrow-cpp`` as build parameter:
+   If you want to bundle the Arrow C++ libraries with ``pyarrow``, add
+   the ``--bundle-arrow-cpp`` option when building:
 
-   ``python setup.py build_ext --bundle-arrow-cpp``
+   .. code-block:: shell
+
+      python setup.py build_ext --bundle-arrow-cpp
 
    Important: If you combine ``--bundle-arrow-cpp`` with ``--inplace`` the
-   Arrow C++ libraries get copied to the python source tree and are not cleared
+   Arrow C++ libraries get copied to the source tree and are not cleared
    by ``python setup.py clean``. They remain in place and will take precedence
    over any later Arrow C++ libraries contained in ``PATH``. This can lead to
    incompatibilities when ``pyarrow`` is later built without
@@ -573,10 +565,7 @@ To run all tests of the Arrow C++ library, you can also run ``ctest``:
    ctest
    popd
 
-Windows Caveats
----------------
+Caveats
+-------
 
-Some components are not supported yet on Windows:
-
-* Flight RPC
-* Plasma
+The Plasma component is not supported on Windows.

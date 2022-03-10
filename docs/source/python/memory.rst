@@ -121,7 +121,7 @@ name for a memory pool::
    :ref:`API documentation for memory pools <api.memory_pool>`.
 
 .. seealso::
-   On-GPU buffers using Arrow's optional :doc:`CUDA integration <cuda>`.
+   On-GPU buffers using Arrow's optional :doc:`CUDA integration <integration/cuda>`.
 
 
 Input and Output

@@ -212,10 +212,13 @@ show the traceback in addition to allocation size. This does require debug
 symbols, from either a debug build or a release with debug symbols build.
 
 .. note::
-   If you profiling Arrow's tests on another platform, you can run the following
-   docker container using archery to access a Linux environment:::
+   If you are profiling Arrow's tests on another platform, you can run the
+   following Docker container using Archery to access a Linux environment:
+
+   .. code-block:: shell
 
       archery docker run ubuntu-cpp bash
+      # Inside the Docker container...
       /arrow/ci/scripts/cpp_build.sh /arrow /build
       cd build/cpp/debug
       ./arrow-array-test # Run a test
@@ -233,8 +236,8 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
 
    .. tab:: jemalloc
       
-      :: 
-      
+      .. code-block:: shell
+
          perf probe -x libarrow.so je_arrow_mallocx '$params' 
          perf probe -x libarrow.so je_arrow_mallocx%return '$retval' 
          perf probe -x libarrow.so je_arrow_rallocx '$params' 
@@ -248,7 +251,7 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
 
    .. tab:: mimalloc
       
-      ::
+      .. code-block:: shell
 
          perf probe -x libarrow.so mi_malloc_aligned '$params' 
          perf probe -x libarrow.so mi_malloc_aligned%return '$retval' 
@@ -263,8 +266,10 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
 
 Once probes have been set, you can record calls with associated tracebacks using
 ``perf record``. In this example, we are running the StructArray unit tests in
-Arrow::
-   
+Arrow:
+
+.. code-block:: shell
+
    perf record -g --call-graph dwarf \
      $PROBE_ARGS \
      ./arrow-array-test --gtest_filter=StructArray*
@@ -331,10 +336,12 @@ new lines delimited JSON for easier processing.
            current['params'] = params
 
 
-Here's an example invocation of that script, with a preview of output data::
+Here's an example invocation of that script, with a preview of output data:
 
-   > perf script | python3 /arrow/process_perf_events.py > processed_events.jsonl
-   > head head processed_events.jsonl | cut -c -120
+.. code-block:: console
+
+   $ perf script | python3 /arrow/process_perf_events.py > processed_events.jsonl
+   $ head processed_events.jsonl | cut -c -120
    {"time": 14814.954378, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x80"}, "traceback"
    {"time": 14814.95443, "event": "probe_libarrow:je_arrow_mallocx__return", "params": {"arg1": "0x7f4a97e09000"}, "traceba
    {"time": 14814.95448, "event": "probe_libarrow:je_arrow_mallocx", "params": {"flags": "6", "size": "0x40"}, "traceback":
@@ -404,9 +411,9 @@ tracebacks along with the count of dangling allocations:
 
 The script can be invoked like so:
 
-::
+.. code-block:: console
 
-   > cat processed_events.jsonl | python3 /arrow/count_tracebacks.py
+   $ cat processed_events.jsonl | python3 /arrow/count_tracebacks.py
    Num of dangling allocations: 1
     7fc945e5cfd2 arrow::(anonymous namespace)::JemallocAllocator::ReallocateAligned+0x13b (/build/cpp/debug/libarrow.so.700.0.0)
     7fc945e5fe4f arrow::BaseMemoryPoolImpl<arrow::(anonymous namespace)::JemallocAllocator>::Reallocate+0x93 (/build/cpp/debug/libarrow.so.700.0.0)
