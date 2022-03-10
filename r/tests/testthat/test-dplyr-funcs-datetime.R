@@ -1112,10 +1112,41 @@ test_that("difftime works correctly", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        mins = difftime(time1, time2, units = "mins"),
-        hours = difftime(time1, time2, units = "hours"),
-        days = difftime(time1, time2, units = "days"),
-        weeks = difftime(time1, time2, units = "weeks")) %>%
+        mins = difftime(time1, time2, units = "mins")
+      ) %>%
+      collect(),
+    test_df,
+    warning = TRUE,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        hours = difftime(time1, time2, units = "hours")
+      ) %>%
+      collect(),
+    test_df,
+    warning = TRUE,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        days = difftime(time1, time2, units = "days")
+      ) %>%
+      collect(),
+    test_df,
+    warning = TRUE,
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        weeks = difftime(time1, time2, units = "weeks")
+      ) %>%
       collect(),
     test_df,
     warning = TRUE,
