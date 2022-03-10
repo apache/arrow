@@ -67,11 +67,10 @@ Result<std::vector<compute::Declaration>> DeserializePlan(
 
   std::vector<compute::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
-    ARROW_ASSIGN_OR_RAISE(auto decl,
-        FromProto(plan_rel.has_root()
-          ? plan_rel.root().input()
-          : plan_rel.rel(), ext_set)
-    );
+    ARROW_ASSIGN_OR_RAISE(
+        auto decl,
+        FromProto(plan_rel.has_root() ? plan_rel.root().input() : plan_rel.rel(),
+                  ext_set));
     if (plan_rel.has_root()) {
       compute::ProjectNodeOptions* options_with_names =
           dynamic_cast<compute::ProjectNodeOptions*>(decl.options.get());
