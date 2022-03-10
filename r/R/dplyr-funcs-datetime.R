@@ -157,8 +157,7 @@ register_bindings_datetime <- function() {
   })
 
   register_binding("leap_year", function(date) {
-    year <- Expression$create("year", date)
-    (year %% 4 == 0) & ((year %% 100 != 0) | (year %% 400 == 0))
+    Expression$create("is_leap_year", date)
   })
 
   register_binding("am", function(x) {
