@@ -21,9 +21,7 @@ PLATFORMS = [
 ]
 
 
-def packages_to_delete(platform: str, to_delete: Set[str]):
-    env = os.environ.copy()
-    env["CONDA_SUBDIR"] = platform
+def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
     pkgs_json = check_output(
         [
             "conda",
@@ -32,21 +30,24 @@ def packages_to_delete(platform: str, to_delete: Set[str]):
             "-c",
             "arrow-nightlies",
             "--override-channels",
+            "--subdir",
+            platform
         ],
-        env=env,
     )
     pkgs = json.loads(pkgs_json)
+    num_builds = 0
 
     for package_name, builds in pkgs.items():
+        num_builds += len(builds)
         builds = pd.DataFrame(builds)
         builds["version"] = builds["version"].map(Version)
         # May be NaN if package doesn't depend on Python
         builds["py_version"] = builds["build"].str.extract(r'(py\d+)')
         builds["timestamp"] = pd.to_datetime(builds['timestamp'], unit='ms')
-        builds["stale"] = builds["timestamp"]< DELETE_BEFORE
+        builds["stale"] = builds["timestamp"] < DELETE_BEFORE
 
         for (subdir, python, stale), group in builds.groupby(
-                ["subdir", "py_version", "stale"]):
+                ["subdir", "py_version", "stale"], dropna=False):
             if stale:
                 del_candidates = group
             else:
@@ -63,19 +64,21 @@ def packages_to_delete(platform: str, to_delete: Set[str]):
                 )
             )
 
-    return to_delete
+    return num_builds
 
 
 if __name__ == "__main__":
     to_delete = set()
+    num_builds = 0
     for platform in PLATFORMS:
-        packages_to_delete(platform, to_delete)
+        num_builds += builds_to_delete(platform, to_delete)
 
     to_delete = sorted(to_delete)
 
-    print(f"{len(to_delete)} packages may be deleted")
-    for name in sorted(to_delete):
-        print(f"Deleting {name} …")
+    print(f"{len(to_delete)} builds may be deleted out of {num_builds}")
+    for name in to_delete:
+        print(f"- {name}")
 
     if "FORCE" in sys.argv:
+        print(f"Deleting ...")
         check_call(["anaconda", "remove", "-f"] + to_delete)
