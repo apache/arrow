@@ -1024,7 +1024,7 @@ enum Searchable {
  *   maximum_scale: int (The maximum scale of the data type on the data source.
  *                       NULL is returned if scale is not applicable.),
  *   sql_data_type: int not null (The value of the SQL DATA TYPE which has the same values
- *                                as date_type value. Except for interval and datetime, which
+ *                                as data_type value. Except for interval and datetime, which
  *                                uses generic values. More info about those types can be
  *                                obtained through datetime_subcode. The possible values can be seen
  *                                in the XdbcDataType enum.),
