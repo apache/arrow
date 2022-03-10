@@ -154,7 +154,7 @@ Pull in the test data and setup the environment variables:
 Using Conda
 ~~~~~~~~~~~
 
-The `conda <https://conda.io/>`_ package managers allows installing build-time
+The `conda <https://conda.io/>`_ package manager allows installing build-time
 dependencies for Arrow C++ and PyArrow as pre-built binaries, which can make
 Arrow development easier and faster.
 
