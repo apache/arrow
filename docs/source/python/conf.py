@@ -134,6 +134,7 @@ def setup(app):
     app.add_config_value('cuda_enabled', cuda_enabled, 'env')
     app.add_config_value('flight_enabled', flight_enabled, 'env')
     app.add_directive('arrow-computefuncs', ComputeFunctionsTableDirective)
+    app.connect("html-page-context", setup_dropdown_href)
 
 
 class ComputeFunctionsTableDirective(Directive):

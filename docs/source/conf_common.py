@@ -174,21 +174,21 @@ html_context = {
     "github_version": "master",
     "doc_path": "docs/source",
     "dropdown_entries": [
-        ("C/GLib", "/c_glib"),
-        ("C++", "/cpp"),
+        ("C/GLib", "c_glib"),
+        ("C++", "cpp"),
         ("C#", "https://github.com/apache/arrow/blob/master/csharp/README.md"),
         ("Go", "https://godoc.org/github.com/apache/arrow/go/arrow"),
-        ("Java", "/java"),
-        ("JavaScript", "/js"),
+        ("Java", "java"),
+        ("JavaScript", "js"),
         ("Julia", "https://github.com/apache/arrow/blob/master/julia/Arrow/README.md"),
         ("MATLAB", "https://github.com/apache/arrow/blob/master/matlab/README.md"),
-        ("Python", "/python"),
-        ("R", "/r"),
+        ("Python", "python"),
+        ("R", "r"),
         ("Ruby", "https://github.com/apache/arrow/blob/master/ruby/README.md"),
         ("Rust", "https://docs.rs/crate/arrow/"),
-        ("Implementation status", "/status.html"),
-        ("Specifications and Protocols", "/format"),
-        ("Developer documentation", "/developers"),
+        ("Implementation status", "status.html"),
+        ("Specifications and Protocols", "format"),
+        ("Developer documentation", "developers"),
     ]
 }
 
@@ -440,5 +440,32 @@ def update_subproject_name(app, pagename, templatename, context, doctree):
         context["subproject"] = subproject
 
 
+def setup_dropdown_href(app, pagename, templatename, context, doctree):
+    """Add a function that jinja can access for returning the dropdown href."""
+
+    def get_dropdown_href(ref):
+        # leave actual urls as is
+        if ref.startswith("http"):
+            return ref
+        # internal references need to be corrected
+        index_href = context["pathto"]('index')
+
+        if index_href == "#":
+            index_href = "index.html"
+
+        if context["subproject"] in ("Python", "C++"):
+            index_href = "../" + index_href
+
+        if ref.startswith("status"):
+            breakpoint()
+
+        return index_href.replace(
+            'index.html', ref if ref.endswith(".html") else ref + '/index.html'
+        )
+
+    context["get_dropdown_href"] = get_dropdown_href
+
+
 def setup(app):
     app.connect("html-page-context", update_subproject_name)
+    app.connect("html-page-context", setup_dropdown_href)

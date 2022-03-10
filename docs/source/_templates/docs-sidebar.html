@@ -10,7 +10,7 @@
   </button>
   <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
       {% for name, url in dropdown_entries %}
-      <a class="nav-link" href="{{ url }}">{{ name }}</a>
+      <a class="nav-link" href="{{ get_dropdown_href(url) }}">{{ name }}</a>
       {% endfor %}
  </div>
 </div>
@@ -28,7 +28,9 @@
 
 <nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
   <div class="bd-toc-item active">
-    {% if pagename.startswith("format") or pagename.startswith("developers") %}
+    {% if subproject == "Python" and ("api" in pagename or "generated" in pagename) %}
+    {{ generate_nav_html("sidebar", startdepth=0, maxdepth=2, collapse=False, includehidden=True, titles_only=True) }}
+    {% elif pagename.startswith("format") or pagename.startswith("developers") %}
     {{ generate_nav_html("sidebar", startdepth=1, maxdepth=4, collapse=False, includehidden=True, titles_only=True) }}
     {% else %}
     {{ generate_nav_html("sidebar", startdepth=0, maxdepth=4, collapse=False, includehidden=True, titles_only=True) }}
