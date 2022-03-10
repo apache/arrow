@@ -1,8 +1,7 @@
 from subprocess import check_output, check_call
-from typing import List, Set
+from typing import Set
 
 import json
-import os
 import pandas as pd
 import sys
 
@@ -80,5 +79,5 @@ if __name__ == "__main__":
         print(f"- {name}")
 
     if "FORCE" in sys.argv:
-        print(f"Deleting ...")
+        print("Deleting ...")
         check_call(["anaconda", "remove", "-f"] + to_delete)
