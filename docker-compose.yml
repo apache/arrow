@@ -950,6 +950,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: *ccache
+      PARQUET_REQUIRE_ENCRYPTION:  # inherit
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
