@@ -47,6 +47,8 @@ if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
 endif()
 
+# Xcode has some new build system and relies on this flag being set
+# https://cmake.org/cmake/help/latest/policy/CMP0114.html
 if(POLICY CMP0114)
   cmake_policy(SET CMP0114 NEW)
 endif()
