@@ -886,8 +886,8 @@ test_that("as.difftime() works properly", {
 
   compare_dplyr_binding(
      .input %>%
-      mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
-      collect(),
+       mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
+       collect(),
      test_df
   )
 
