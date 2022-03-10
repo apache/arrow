@@ -2290,7 +2290,7 @@ test_that("round/floor/ceiling on datetime (to nearest second)", {
       mutate(
         out_1 = round_date(datetime),
         out_2 = floor_date(datetime),
-        out_3 = ceiling_date(datetime),
+        out_3 = ceiling_date(datetime, change_on_boundary = FALSE),
       ) %>%
       collect(),
     test_df
@@ -2555,13 +2555,19 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = ceiling_date(datetime, "month"),
-        out_2 = ceiling_date(datetime, "quarter"),
-        out_3 = ceiling_date(datetime, "year"),
+        out_1 = ceiling_date(datetime, "month", change_on_boundary = FALSE),
+        out_2 = ceiling_date(datetime, "quarter", change_on_boundary = FALSE),
+        out_3 = ceiling_date(datetime, "year", change_on_boundary = FALSE),
       ) %>%
       collect(),
     test_df_v2
   )
+})
+
+test_that("change_on_boundary is respected in ceiling_time", {
+
+  # insert tests here
+
 })
 
 
@@ -2607,9 +2613,8 @@ test_that("round/floor/ceiling on dates (to nearest day)", {
     test_df %>% arrow_table() %>% mutate(out = floor_date(date, "1 day")) %>% collect(),
     test_df %>% mutate(out = floor_date(date, "1 day") %>% as.Date())
   )
-
   expect_equal(
-    test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day")) %>% collect(),
+    test_df %>% arrow_table() %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE)) %>% collect(),
     test_df %>% mutate(out = ceiling_date(date, "1 day", change_on_boundary = FALSE) %>% as.Date())
   )
 })
