@@ -108,6 +108,16 @@ TEST(Misc, SetTimzoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #else
+  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+  auto home_raw = std::getenv("USERPROFILE");
+  std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
+  ASSERT_OK_AND_ASSIGN(std::string tzdata_dir,
+                       fs->NormalizePath(home + "\\Downloads\\tzdata"));
+  ASSERT_OK_AND_ASSIGN(auto tzdata_path,
+                       arrow::internal::PlatformFilename::FromString(tzdata_dir));
+  if (!arrow::internal::FileExists(tzdata_path).ValueOr(false)) {
+    GTEST_SKIP() << "Couldn't find timezone database in expected dir: " << tzdata_dir;
+  }
   // Create a tmp directory
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
@@ -116,9 +126,8 @@ TEST(Misc, SetTimzoneConfig) {
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads
-  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
   auto selector = arrow::fs::FileSelector();
-  selector.base_dir = "~/Downloads/tzdata";
+  selector.base_dir = tzdata_dir;
   selector.recursive = true;
   ASSERT_OK(arrow::fs::CopyFiles(fs, selector, fs, tempdir->path().ToString()));
 
