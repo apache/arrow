@@ -34,11 +34,16 @@
 #include "arrow/array/validate.h"
 
 #include <unordered_set>
+#include <string>
 
 namespace arrow
 {
     namespace compute
     {
+        static constexpr uint32_t STARTDATE = 8035; // January 1, 1992 is 8035 days after January 1, 1970
+        static constexpr uint32_t CURRENTDATE = 9298; // June 17, 1995 is 9298 days after January 1, 1970
+        static constexpr uint32_t ENDDATE = 10591; // December 12, 1998 is 10591 days after January 1, 1970
+
         void ValidateBatch(const ExecBatch &batch)
         {
             for(const Datum &d : batch.values)
@@ -62,6 +67,36 @@ namespace arrow
             }
         }
 
+        void VerifyStringAndNumber_Single(
+            const char *row,
+            const char *prefix,
+            const int64_t i,
+            const int32_t *nums,
+            int byte_width,
+            bool verify_padding)
+        {
+            size_t num_offset = std::strlen(prefix);
+            ASSERT_EQ(std::memcmp(row, prefix, num_offset), 0) << row << ", prefix=" << prefix << ", i=" << i;
+            const char *num_str = row + num_offset;
+            int64_t num = 0;
+            int ibyte = static_cast<int>(num_offset);
+            for(; *num_str && ibyte < byte_width; ibyte++)
+            {
+                num *= 10;
+                ASSERT_TRUE(std::isdigit(*num_str));
+                num += *num_str++ - '0';
+            }
+            if(nums)
+            {
+                ASSERT_EQ(static_cast<int32_t>(num), nums[i]);
+            }
+            if(verify_padding)
+            {
+                int num_chars = ibyte - num_offset;
+                ASSERT_GE(num_chars, 9);
+            }
+        }
+
         void VerifyStringAndNumber_FixedWidth(
             const Datum &strings,
             const Datum &numbers,
@@ -81,29 +116,46 @@ namespace arrow
                     numbers.array()->buffers[1]->data());
             }
 
-            size_t num_offset = std::strlen(prefix);
             for(int64_t i = 0; i < length; i++)
             {
                 const char *row = str + i * byte_width;
-                ASSERT_EQ(std::memcmp(row, prefix, num_offset), 0) << row << ", prefix=" << prefix << ", i=" << i;
-                const char *num_str = row + num_offset;
-                int64_t num = 0;
-                int ibyte = static_cast<int>(num_offset);
-                for(; *num_str && ibyte < byte_width; ibyte++)
-                {
-                    num *= 10;
-                    ASSERT_TRUE(std::isdigit(*num_str));
-                    num += *num_str++ - '0';
-                }
-                if(nums)
-                {
-                    ASSERT_EQ(static_cast<int32_t>(num), nums[i]);
-                }
-                if(verify_padding)
-                {
-                    int num_chars = ibyte - num_offset;
-                    ASSERT_GE(num_chars, 9);
-                }
+                VerifyStringAndNumber_Single(row, prefix, i, nums, byte_width, verify_padding);
+            }
+        }
+
+        void VerifyStringAndNumber_Varlen(
+            const Datum &strings,
+            const Datum &numbers,
+            const char *prefix,
+            bool verify_padding = true)
+        {
+            int64_t length = strings.length();
+            const int32_t *offsets = reinterpret_cast<const int32_t *>(
+                strings.array()->buffers[1]->data());
+            const char *str = reinterpret_cast<const char *>(
+                strings.array()->buffers[2]->data());
+
+            const int32_t *nums = nullptr;
+            if(numbers.kind() != Datum::NONE)
+            {
+                ASSERT_EQ(length, numbers.length());
+                nums = reinterpret_cast<const int32_t *>(
+                    numbers.array()->buffers[1]->data());
+            }
+
+            for(int64_t i = 0; i < length; i++)
+            {
+                char tmp_str[256] = {};
+                int32_t start = offsets[i];
+                int32_t str_len = offsets[i + 1] - offsets[i];
+                std::memcpy(tmp_str, str + start, str_len);
+                VerifyStringAndNumber_Single(
+                    tmp_str,
+                    prefix,
+                    i,
+                    nums,
+                    sizeof(tmp_str),
+                    verify_padding);
             }
         }
 
@@ -126,6 +178,18 @@ namespace arrow
                     bool is_valid = std::isdigit(str[i]) || std::isalpha(str[i]) || str[i] == ',' || str[i] == ' ';
                     ASSERT_TRUE(is_valid) << "Character " << str[i] << " is not a digit, a letter, a comma, or a space";
                 }
+            }
+        }
+
+        void VerifyModuloBetween(const Datum &d, int32_t min, int32_t max, int32_t mod)
+        {
+            int64_t length = d.length();
+            const int32_t *n = reinterpret_cast<const int32_t *>(d.array()->buffers[1]->data());
+            for(int64_t i = 0; i < length; i++)
+            {
+                int32_t m = n[i] % mod;
+                ASSERT_GE(m, min) << "Value must be between " << min << " and " << max << " mod " << mod << ", " << n[i] << " % " << mod << " = " << m;
+                ASSERT_LE(m, max) << "Value must be between " << min << " and " << max << " mod " << mod << ", " << n[i] << " % " << mod << " = " << m;
             }
         }
 
@@ -214,7 +278,10 @@ namespace arrow
             }
         }
 
-        void VerifyCorrectNumberOfWords_FixedWidth(const Datum &d, int num_words, int byte_width)
+        void VerifyCorrectNumberOfWords_FixedWidth(
+            const Datum &d,
+            int num_words,
+            int byte_width)
         {
             int expected_num_spaces = num_words - 1;
             int64_t length = d.length();
@@ -235,6 +302,41 @@ namespace arrow
                 ASSERT_TRUE(is_only_alphas_or_spaces) << "Words must be composed only of letters, got " << row;
                 ASSERT_EQ(actual_num_spaces, expected_num_spaces) << "Wrong number of spaces in " << row;
             }
+        }
+
+        void VerifyOneOf(const Datum &d, const std::unordered_set<char> &possibilities)
+        {
+            int64_t length = d.length();
+            const char *col = reinterpret_cast<const char *>(
+                d.array()->buffers[1]->data());
+            for(int64_t i = 0; i < length; i++)
+                ASSERT_TRUE(possibilities.find(col[i]) != possibilities.end());
+        }
+        
+        void VerifyOneOf(
+            const Datum &d,
+            int32_t byte_width,
+            const std::unordered_set<std::string> &possibilities)
+        {
+            int64_t length = d.length();
+            const char *col = reinterpret_cast<const char *>(
+                d.array()->buffers[1]->data());
+            for(int64_t i = 0; i < length; i++)
+            {
+                const char *row = col + i * byte_width;
+                char tmp_str[256] = {};
+                std::memcpy(tmp_str, row, byte_width);
+                ASSERT_TRUE(possibilities.find(tmp_str) != possibilities.end()) << tmp_str << " is not a valid string.";
+            }
+        }
+
+        void CountInstances(std::unordered_map<int32_t, int32_t> &counts, const Datum &d)
+        {
+            int64_t length = d.length();
+            const int32_t *nums = reinterpret_cast<const int32_t *>(
+                d.array()->buffers[1]->data());
+            for(int64_t i = 0; i < length; i++)
+                counts[nums[i]]++;
         }
 
         void CountModifiedComments(const Datum &d, int &good_count, int &bad_count)
@@ -372,13 +474,24 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+
+            constexpr int64_t kExpectedRows = 800000;
             int64_t num_rows = 0;
+
+            std::unordered_map<int32_t, int32_t> counts;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                CountInstances(counts, batch[0]);
+                VerifyAllBetween(batch[2], 1, 9999);
+                VerifyDecimalsBetween(batch[3], 100, 100000);
                 num_rows += batch.length;
             }
-            ASSERT_EQ(num_rows, 800000);
+            for(auto &partkey : counts)
+                ASSERT_EQ(partkey.second, 4) << "Key " << partkey.first << " has count " << partkey.second;
+            ASSERT_EQ(counts.size(), kExpectedRows / 4);
+
+            ASSERT_EQ(num_rows, kExpectedRows);
             arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
 
@@ -393,13 +506,35 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+
+            const int64_t kExpectedRows = 150000;
             int64_t num_rows = 0;
+
+            std::unordered_set<int32_t> seen_custkey;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                VerifyUniqueKey(
+                    seen_custkey,
+                    batch[0],
+                    /*min=*/1,
+                    /*max=*/static_cast<int32_t>(kExpectedRows));
+                VerifyStringAndNumber_Varlen(
+                    batch[1],
+                    batch[0],
+                    "Customer#");
+                VerifyVString(batch[2], /*min=*/10, /*max=*/40);
+                VerifyNationKey(batch[3]);
+                VerifyPhone(batch[4]);
+                VerifyDecimalsBetween(batch[5], -99999, 999999);
+                VerifyCorrectNumberOfWords_FixedWidth(
+                    batch[6],
+                    /*num_words=*/1,
+                    /*byte_width=*/10);
                 num_rows += batch.length;
             }
-            ASSERT_EQ(num_rows, 150000);
+            ASSERT_EQ(seen_custkey.size(), kExpectedRows);
+            ASSERT_EQ(num_rows, kExpectedRows);
             arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
 
@@ -414,13 +549,39 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+
+            constexpr int64_t kExpectedRows = 1500000;
             int64_t num_rows = 0;
+
+            std::unordered_set<int32_t> seen_orderkey;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                VerifyUniqueKey(
+                    seen_orderkey,
+                    batch[0],
+                    /*min=*/1,
+                    /*max=*/static_cast<int32_t>(4 * kExpectedRows));
+                VerifyAllBetween(batch[1], /*min=*/1, /*max=*/static_cast<int32_t>(kExpectedRows));
+                VerifyModuloBetween(batch[1], /*min=*/1, /*max=*/2, /*mod=*/3);
+                VerifyOneOf(batch[2], { 'F', 'O', 'P' });
+                VerifyAllBetween(batch[4], STARTDATE, ENDDATE - 151);
+                VerifyOneOf(batch[5],
+                            /*byte_width=*/15,
+                            {
+                                "1-URGENT", "2-HIGH", "3-MEDIUM", "4-NOT SPECIFIED", "5-LOW",
+                            });
+                VerifyStringAndNumber_FixedWidth(
+                    batch[6],
+                    Datum(),
+                    /*byte_width=*/15,
+                    "Clerk#",
+                    /*verify_padding=*/true);
+                VerifyAllBetween(batch[7], /*min=*/0, /*max=*/0);
                 num_rows += batch.length;
             }
-            ASSERT_EQ(num_rows, 1500000);
+            ASSERT_EQ(seen_orderkey.size(), kExpectedRows);
+            ASSERT_EQ(num_rows, kExpectedRows);
             arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
 
@@ -435,9 +596,38 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+            std::unordered_map<int32_t, int32_t> counts;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                CountInstances(counts, batch[0]);
+                VerifyAllBetween(batch[1], /*min=*/1, /*max=*/200000);
+                VerifyAllBetween(batch[3], /*min=*/1, /*max=*/7);
+                VerifyDecimalsBetween(batch[4], /*min=*/100, /*max=*/5000);
+                VerifyDecimalsBetween(batch[6], /*min=*/0, /*max=*/10);
+                VerifyDecimalsBetween(batch[7], /*min=*/0, /*max=*/8);
+                VerifyOneOf(batch[8], { 'R', 'A', 'N' });
+                VerifyOneOf(batch[9], { 'O', 'F' });
+                VerifyAllBetween(batch[10], STARTDATE + 1, ENDDATE - 151 + 121);
+                VerifyAllBetween(batch[11], STARTDATE + 30, ENDDATE - 151 + 90);
+                VerifyAllBetween(batch[12], STARTDATE + 2, ENDDATE - 151 + 121 + 30);
+                VerifyOneOf(
+                    batch[13],
+                    /*byte_width=*/25,
+                    {
+                        "DELIVER IN PERSON", "COLLECT COD", "NONE", "TAKE BACK RETURN",
+                    });
+                VerifyOneOf(
+                    batch[14],
+                    /*byte_width=*/10,
+                    {
+                        "REG AIR", "AIR", "RAIL", "SHIP", "TRUCK", "MAIL", "FOB",
+                    });
+            }
+            for(auto &count : counts)
+            {
+                ASSERT_GE(count.second, 1);
+                ASSERT_LE(count.second, 7);
             }
             arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
@@ -453,13 +643,33 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+
+            constexpr int64_t kExpectedRows = 25;
             int64_t num_rows = 0;
+
+            std::unordered_set<int32_t> seen_nationkey;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                VerifyUniqueKey(seen_nationkey, batch[0], 0, kExpectedRows - 1);
+                VerifyOneOf(
+                    batch[1],
+                    /*byte_width=*/25,
+                    {
+                        "ALGERIA", "ARGENTINA", "BRAZIL",
+                        "CANADA", "EGYPT", "ETHIOPIA",
+                        "FRANCE", "GERMANY", "INDIA",
+                        "INDONESIA", "IRAN", "IRAQ",
+                        "JAPAN", "JORDAN", "KENYA",
+                        "MOROCCO", "MOZAMBIQUE", "PERU",
+                        "CHINA", "ROMANIA", "SAUDI ARABIA",
+                        "VIETNAM", "RUSSIA", "UNITED KINGDOM",
+                        "UNITED STATES"
+                    });
+                VerifyAllBetween(batch[2], 0, 4);
                 num_rows += batch.length;
             }
-            ASSERT_EQ(num_rows, 25);
+            ASSERT_EQ(num_rows, kExpectedRows);
             arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
 
@@ -474,10 +684,22 @@ namespace arrow
             std::ignore = *sink.AddToPlan(plan.get());
             auto fut = StartAndCollect(plan.get(), sink_gen);
             auto res = *fut.MoveResult();
+
+            constexpr int64_t kExpectedRows = 5;
             int64_t num_rows = 0;
+
+            std::unordered_set<int32_t> seen_regionkey;
             for(auto &batch : res)
             {
                 ValidateBatch(batch);
+                VerifyUniqueKey(seen_regionkey, batch[0], 0, kExpectedRows - 1);
+                VerifyOneOf(
+                    batch[1],
+                    /*byte_width=*/25,
+                    {
+                        "AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"
+                    });
+
                 num_rows += batch.length;
             }
             ASSERT_EQ(num_rows, 5);

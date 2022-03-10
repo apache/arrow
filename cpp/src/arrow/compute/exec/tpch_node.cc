@@ -1197,6 +1197,7 @@ namespace arrow
                         {
                             for(; ipartsupp < kPartSuppRowsPerPart && irun < next_run; ipartsupp++, irun++)
                                 ps_partkey[batch_offset++] = p_partkey[ipart];
+
                             if(ipartsupp == kPartSuppRowsPerPart)
                             {
                                 ipartsupp = 0;
@@ -1229,7 +1230,7 @@ namespace arrow
                     {
                         RETURN_NOT_OK(AllocatePartSuppBatch(thread_index, ibatch, PARTSUPP::PS_SUPPKEY));
                         int32_t *ps_suppkey = reinterpret_cast<int32_t *>(
-                            tld.partsupp[ibatch][PARTSUPP::PS_PARTKEY].array()->buffers[1]->mutable_data());
+                            tld.partsupp[ibatch][PARTSUPP::PS_SUPPKEY].array()->buffers[1]->mutable_data());
                         int64_t next_run = std::min(batch_size_, ps_to_generate - irow);
 
                         int64_t batch_offset = 0;
