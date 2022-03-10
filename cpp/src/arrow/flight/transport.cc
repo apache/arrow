@@ -97,7 +97,8 @@ Status ClientTransport::DoExchange(const FlightCallOptions& options,
 
 class TransportRegistry::Impl final {
  public:
-  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(const std::string& scheme) {
+  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(
+      const std::string& scheme) const {
     auto it = client_factories_.find(scheme);
     if (it == client_factories_.end()) {
       return Status::KeyError("No client transport implementation for ", scheme);
@@ -106,7 +107,7 @@ class TransportRegistry::Impl final {
   }
   arrow::Result<std::unique_ptr<ServerTransport>> MakeServer(
       const std::string& scheme, FlightServerBase* base,
-      std::shared_ptr<MemoryManager> memory_manager) {
+      std::shared_ptr<MemoryManager> memory_manager) const {
     auto it = server_factories_.find(scheme);
     if (it == server_factories_.end()) {
       return Status::KeyError("No server transport implementation for ", scheme);
@@ -136,12 +137,12 @@ class TransportRegistry::Impl final {
 TransportRegistry::TransportRegistry() { impl_ = arrow::internal::make_unique<Impl>(); }
 TransportRegistry::~TransportRegistry() = default;
 arrow::Result<std::unique_ptr<ClientTransport>> TransportRegistry::MakeClient(
-    const std::string& scheme) {
+    const std::string& scheme) const {
   return impl_->MakeClient(scheme);
 }
 arrow::Result<std::unique_ptr<ServerTransport>> TransportRegistry::MakeServer(
     const std::string& scheme, FlightServerBase* base,
-    std::shared_ptr<MemoryManager> memory_manager) {
+    std::shared_ptr<MemoryManager> memory_manager) const {
   return impl_->MakeServer(scheme, base, std::move(memory_manager));
 }
 Status TransportRegistry::RegisterClient(const std::string& scheme,

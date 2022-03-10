@@ -203,10 +203,11 @@ class ARROW_FLIGHT_EXPORT TransportRegistry {
   TransportRegistry();
   ~TransportRegistry();
 
-  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(const std::string& scheme);
+  arrow::Result<std::unique_ptr<ClientTransport>> MakeClient(
+      const std::string& scheme) const;
   arrow::Result<std::unique_ptr<ServerTransport>> MakeServer(
       const std::string& scheme, FlightServerBase* base,
-      std::shared_ptr<MemoryManager> memory_manager);
+      std::shared_ptr<MemoryManager> memory_manager) const;
 
   Status RegisterClient(const std::string& scheme, ClientFactory factory);
   Status RegisterServer(const std::string& scheme, ServerFactory factory);

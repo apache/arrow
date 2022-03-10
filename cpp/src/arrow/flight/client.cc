@@ -479,48 +479,48 @@ Status FlightClient::Connect(const Location& location, const FlightClientOptions
   client->reset(new FlightClient);
   (*client)->write_size_limit_bytes_ = options.write_size_limit_bytes;
   const auto scheme = location.scheme();
-  ARROW_ASSIGN_OR_RAISE((*client)->impl_,
+  ARROW_ASSIGN_OR_RAISE((*client)->transport_,
                         internal::GetDefaultTransportRegistry()->MakeClient(scheme));
-  return (*client)->impl_->Init(options, location, *location.uri_);
+  return (*client)->transport_->Init(options, location, *location.uri_);
 }
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
                                   std::unique_ptr<ClientAuthHandler> auth_handler) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->Authenticate(options, std::move(auth_handler));
+  return transport_->Authenticate(options, std::move(auth_handler));
 }
 
 arrow::Result<std::pair<std::string, std::string>> FlightClient::AuthenticateBasicToken(
     const FlightCallOptions& options, const std::string& username,
     const std::string& password) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->AuthenticateBasicToken(options, username, password);
+  return transport_->AuthenticateBasicToken(options, username, password);
 }
 
 Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
                               std::unique_ptr<ResultStream>* results) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->DoAction(options, action, results);
+  return transport_->DoAction(options, action, results);
 }
 
 Status FlightClient::ListActions(const FlightCallOptions& options,
                                  std::vector<ActionType>* actions) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->ListActions(options, actions);
+  return transport_->ListActions(options, actions);
 }
 
 Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->GetFlightInfo(options, descriptor, info);
+  return transport_->GetFlightInfo(options, descriptor, info);
 }
 
 Status FlightClient::GetSchema(const FlightCallOptions& options,
                                const FlightDescriptor& descriptor,
                                std::unique_ptr<SchemaResult>* schema_result) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->GetSchema(options, descriptor, schema_result);
+  return transport_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
@@ -532,14 +532,14 @@ Status FlightClient::ListFlights(const FlightCallOptions& options,
                                  const Criteria& criteria,
                                  std::unique_ptr<FlightListing>* listing) {
   RETURN_NOT_OK(CheckOpen());
-  return impl_->ListFlights(options, criteria, listing);
+  return transport_->ListFlights(options, criteria, listing);
 }
 
 Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
                            std::unique_ptr<FlightStreamReader>* stream) {
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(impl_->DoGet(options, ticket, &remote_stream));
+  RETURN_NOT_OK(transport_->DoGet(options, ticket, &remote_stream));
   *stream = std::unique_ptr<ClientStreamReader>(new ClientStreamReader(
       std::move(remote_stream), options.read_options, options.stop_token));
   // Eagerly read the schema
@@ -553,7 +553,7 @@ Status FlightClient::DoPut(const FlightCallOptions& options,
                            std::unique_ptr<FlightMetadataReader>* reader) {
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(impl_->DoPut(options, &remote_stream));
+  RETURN_NOT_OK(transport_->DoPut(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   *reader =
       std::unique_ptr<FlightMetadataReader>(new ClientMetadataReader(shared_stream));
@@ -570,7 +570,7 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
                                 std::unique_ptr<FlightStreamReader>* reader) {
   RETURN_NOT_OK(CheckOpen());
   std::unique_ptr<internal::ClientDataStream> remote_stream;
-  RETURN_NOT_OK(impl_->DoExchange(options, &remote_stream));
+  RETURN_NOT_OK(transport_->DoExchange(options, &remote_stream));
   std::shared_ptr<internal::ClientDataStream> shared_stream = std::move(remote_stream);
   *reader = std::unique_ptr<FlightStreamReader>(
       new ClientStreamReader(shared_stream, options.read_options, options.stop_token));
@@ -585,8 +585,8 @@ Status FlightClient::DoExchange(const FlightCallOptions& options,
 Status FlightClient::Close() {
   if (!closed_) {
     closed_ = true;
-    RETURN_NOT_OK(impl_->Close());
-    impl_.reset(nullptr);
+    RETURN_NOT_OK(transport_->Close());
+    transport_.reset(nullptr);
   }
   return Status::OK();
 }
