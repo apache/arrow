@@ -2751,7 +2751,7 @@ TEST(GroupBy, ListNumeric) {
   for (const auto& type : NumericTypes()) {
     for (auto use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      {  // With nulls
+      {
         SCOPED_TRACE("with nulls");
         auto table =
             TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
@@ -2822,7 +2822,7 @@ TEST(GroupBy, ListNumeric) {
         AssertDatumsEqual(ArrayFromJSON(type, R"([22, 33, 55, 77])"),
                           sort(*list_arr->value_slice(4)), /*verbose=*/true);
       }
-      {  // Without nulls
+      {
         SCOPED_TRACE("without nulls");
         auto table =
             TableFromJSON(schema({field("argument", type), field("key", int64())}), {R"([
@@ -2901,7 +2901,7 @@ TEST(GroupBy, ListBinaryTypes) {
   for (bool use_threads : {true, false}) {
     for (const auto& type : BaseBinaryTypes()) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-      {  // with nulls
+      {
         SCOPED_TRACE("with nulls");
         auto table = TableFromJSON(schema({
                                        field("argument0", type),
@@ -3043,8 +3043,6 @@ TEST(GroupBy, ListMiscTypes) {
     for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       SCOPED_TRACE(use_exec_plan ? "with exec_plan" : "without exec_plan");
-      ARROW_LOG(WARNING) << (use_threads ? "parallel/merged" : "serial");
-      ARROW_LOG(WARNING) << (use_exec_plan ? "with exec_plan" : "without exec_plan");
 
       auto table = TableFromJSON(in_schema, {R"([
     [null, true,   null,    null,    null,  1],
@@ -3115,20 +3113,20 @@ TEST(GroupBy, ListMiscTypes) {
                         sort(*list_arr_0->value_slice(3)),
                         /*verbose=*/true);
 
-      //      auto type_1 = boolean();
-      //      auto list_arr_1 = checked_pointer_cast<ListArray>(struct_arr->field(1));
-      //      AssertDatumsEqual(ArrayFromJSON(type_1, R"([true, true, true])"),
-      //                        sort(*list_arr_1->value_slice(0)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_1, R"([false, false, false])"),
-      //                        sort(*list_arr_1->value_slice(1)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_1, R"([false, true])"),
-      //                        sort(*list_arr_1->value_slice(2)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_1, R"([true, null])"),
-      //                        sort(*list_arr_1->value_slice(3)),
-      //                        /*verbose=*/true);
+      auto type_1 = boolean();
+      auto list_arr_1 = checked_pointer_cast<ListArray>(struct_arr->field(1));
+      AssertDatumsEqual(ArrayFromJSON(type_1, R"([true, true, true])"),
+                        sort(*list_arr_1->value_slice(0)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_1, R"([false, false, false])"),
+                        sort(*list_arr_1->value_slice(1)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_1, R"([false, true])"),
+                        sort(*list_arr_1->value_slice(2)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_1, R"([true, null])"),
+                        sort(*list_arr_1->value_slice(3)),
+                        /*verbose=*/true);
 
       auto type_2 = decimal128(3, 2);
       auto list_arr_2 = checked_pointer_cast<ListArray>(struct_arr->field(2));
@@ -3160,20 +3158,20 @@ TEST(GroupBy, ListMiscTypes) {
                         sort(*list_arr_3->value_slice(3)),
                         /*verbose=*/true);
 
-      //      auto type_4 = fixed_size_binary(3);
-      //      auto list_arr_4 = checked_pointer_cast<ListArray>(struct_arr->field(4));
-      //      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["aaa", "ddd", null])"),
-      //                        sort(*list_arr_4->value_slice(0)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["bab", "bac", "bcd"])"),
-      //                        sort(*list_arr_4->value_slice(1)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_4, R"([null, null])"),
-      //                        sort(*list_arr_4->value_slice(2)),
-      //                        /*verbose=*/true);
-      //      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["123", "234"])"),
-      //                        sort(*list_arr_4->value_slice(3)),
-      //                        /*verbose=*/true);
+      auto type_4 = fixed_size_binary(3);
+      auto list_arr_4 = checked_pointer_cast<ListArray>(struct_arr->field(4));
+      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["aaa", "ddd", null])"),
+                        sort(*list_arr_4->value_slice(0)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["bab", "bac", "bcd"])"),
+                        sort(*list_arr_4->value_slice(1)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_4, R"([null, null])"),
+                        sort(*list_arr_4->value_slice(2)),
+                        /*verbose=*/true);
+      AssertDatumsEqual(ArrayFromJSON(type_4, R"(["123", "234"])"),
+                        sort(*list_arr_4->value_slice(3)),
+                        /*verbose=*/true);
     }
   }
 }

@@ -622,9 +622,9 @@ struct GroupedValueTraits {
 
   static CType Get(const CType* values, uint32_t g) { return values[g]; }
   static void Set(CType* values, uint32_t g, CType v) { values[g] = v; }
-  static Status AppendBuffers(TypedBufferBuilder<CType>& destination, const CType* values,
-                              int64_t num_values) {
-    RETURN_NOT_OK(destination.Append(values, num_values));
+  static Status AppendBuffers(TypedBufferBuilder<CType>* destination, const CType* values,
+                              int64_t offset, int64_t num_values) {
+    RETURN_NOT_OK(destination->Append(values + offset, num_values));
     return Status::OK();
   }
 };
@@ -636,10 +636,11 @@ struct GroupedValueTraits<BooleanType> {
   static void Set(uint8_t* values, uint32_t g, bool v) {
     bit_util::SetBitTo(values, g, v);
   }
-  static Status AppendBuffers(TypedBufferBuilder<bool>& destination, const bool* values,
-                              int64_t num_values) {
-    RETURN_NOT_OK(destination.Reserve(num_values));
-    destination.UnsafeAppend(reinterpret_cast<const uint8_t*>(values), 0, num_values);
+  static Status AppendBuffers(TypedBufferBuilder<bool>* destination, const bool* values,
+                              int64_t offset, int64_t num_values) {
+    RETURN_NOT_OK(destination->Reserve(num_values));
+    destination->UnsafeAppend(reinterpret_cast<const uint8_t*>(values), offset,
+                              num_values);
     return Status::OK();
   }
 };
@@ -2795,22 +2796,23 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    //    DCHECK_EQ(batch[0].array()->offset, 0);
-    const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
-    const auto* values = batch[0].array()->GetValues<CType>(1);
     int64_t num_values = batch[0].array()->length;
+    int64_t offset = batch[0].array()->offset;
 
+    const auto* groups = batch[1].array()->GetValues<uint32_t>(1, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
-    RETURN_NOT_OK(GetSet::AppendBuffers(values_, values, num_values));
+
+    const auto* values = batch[0].array()->GetValues<CType>(1, 0);
+    RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, offset, num_values));
 
     if (batch[0].null_count() > 0) {
       if (!has_nulls_) {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
       }
-      const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
-      RETURN_NOT_OK(values_bitmap_.Reserve(num_values));
-      values_bitmap_.UnsafeAppend(values_bitmap, 0, num_values);
+      const auto* values_bitmap = batch[0].array()->GetValues<bool>(0, 0);
+      RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
+          &values_bitmap_, values_bitmap, offset, num_values));
     } else if (has_nulls_) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     }
@@ -2829,14 +2831,18 @@ struct GroupedListImpl final : public GroupedAggregator {
       RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
     }
 
-    RETURN_NOT_OK(values_.Append(other->values_.data(), other->num_args_));
+    const auto* values = reinterpret_cast<const CType*>(other->values_.data());
+    RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, 0, other->num_args_));
+
     if (other->has_nulls_) {
       if (!has_nulls_) {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
       }
-      RETURN_NOT_OK(values_bitmap_.Reserve(other->num_args_));
-      values_bitmap_.UnsafeAppend(other->values_bitmap_.data(), 0, other->num_args_);
+      const auto* values_bitmap =
+          reinterpret_cast<const bool*>(other->values_bitmap_.data());
+      RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
+          &values_bitmap_, values_bitmap, 0, other->num_args_));
     } else if (has_nulls_) {
       RETURN_NOT_OK(values_bitmap_.Append(other->num_args_, true));
     }
@@ -2849,7 +2855,7 @@ struct GroupedListImpl final : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap_buffer, values_bitmap_.Finish());
 
-    auto groups = UInt32Array(num_args_, std::move(groups_buffer));
+    auto groups = UInt32Array(num_args_, groups_buffer);
     ARROW_ASSIGN_OR_RAISE(
         auto groupings,
         Grouper::MakeGroupings(groups, static_cast<uint32_t>(num_groups_), ctx_));
@@ -2858,7 +2864,6 @@ struct GroupedListImpl final : public GroupedAggregator {
         out_type_, num_args_,
         {has_nulls_ ? std::move(null_bitmap_buffer) : nullptr, std::move(values_buffer)});
     auto values = MakeArray(values_array_data);
-    ARROW_LOG(WARNING) << values->ToString();
     return Grouper::ApplyGroupings(*groupings, *values);
   }
 
@@ -2897,19 +2902,20 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecBatch& batch) override {
-    //    DCHECK_EQ(batch[0].array()->offset, 0);
-    const auto* groups = batch[1].array()->GetValues<uint32_t>(1);
-    const auto* values_bitmap = batch[0].array()->GetValues<uint8_t>(0);
     int64_t num_values = batch[0].array()->length;
+    int64_t offset = batch[0].array()->offset;
 
-    num_args_ += num_values;
+    const auto* groups = batch[1].array()->GetValues<uint32_t>(1, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
-    if (values_bitmap == nullptr) {
+
+    if (batch[0].null_count() == 0) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     } else {
-      RETURN_NOT_OK(values_bitmap_.Reserve(num_values));
-      values_bitmap_.UnsafeAppend(values_bitmap, 0, num_values);
+      const auto* values_bitmap = batch[0].array()->GetValues<bool>(0, 0);
+      RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
+          &values_bitmap_, values_bitmap, offset, num_values));
     }
+    num_args_ += num_values;
     return VisitGroupedValues<Type>(
         batch,
         [&](uint32_t group, util::string_view val) -> Status {
@@ -2934,8 +2940,11 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     }
 
     values_.insert(values_.end(), other->values_.begin(), other->values_.end());
-    RETURN_NOT_OK(values_bitmap_.Reserve(other->num_args_));
-    values_bitmap_.UnsafeAppend(other->values_bitmap_.data(), 0, other->num_args_);
+
+    const auto* values_bitmap =
+        reinterpret_cast<const bool*>(other->values_bitmap_.data());
+    RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
+        &values_bitmap_, values_bitmap, 0, other->num_args_));
     num_args_ += other->num_args_;
     return Status::OK();
   }
@@ -2944,7 +2953,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups_.Finish());
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap_buffer, values_bitmap_.Finish());
 
-    auto groups = UInt32Array(num_args_, std::move(groups_buffer));
+    auto groups = UInt32Array(num_args_, groups_buffer);
     ARROW_ASSIGN_OR_RAISE(
         auto groupings,
         Grouper::MakeGroupings(groups, static_cast<uint32_t>(num_groups_), ctx_));
@@ -2953,7 +2962,6 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
         ArrayData::Make(out_type_, num_args_, {std::move(null_bitmap_buffer), nullptr});
     RETURN_NOT_OK(MakeOffsetsValues(values_array_data.get(), values_));
     auto values = MakeArray(values_array_data);
-    ARROW_LOG(WARNING) << values->ToString();
     return Grouper::ApplyGroupings(*groupings, *values);
   }
 
