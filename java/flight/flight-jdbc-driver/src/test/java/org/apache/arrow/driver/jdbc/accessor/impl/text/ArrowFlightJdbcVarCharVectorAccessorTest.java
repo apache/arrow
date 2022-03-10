@@ -118,7 +118,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for byte.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getByte();
   }
 
@@ -127,7 +127,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("128");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getByte();
   }
 
@@ -136,7 +136,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("-129");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getByte();
   }
 
@@ -167,7 +167,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for short.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getShort();
   }
 
@@ -176,7 +176,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("32768");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getShort();
   }
 
@@ -185,7 +185,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("-32769");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getShort();
   }
 
@@ -216,7 +216,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for int.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getInt();
   }
 
@@ -225,7 +225,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("2147483648");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getInt();
   }
 
@@ -234,7 +234,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("-2147483649");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getInt();
   }
 
@@ -265,7 +265,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for long.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getLong();
   }
 
@@ -274,7 +274,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("9223372036854775808");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getLong();
   }
 
@@ -283,7 +283,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("-9223372036854775809");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getLong();
   }
 
@@ -310,11 +310,20 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
+  public void testShouldBigDecimalWithParametersThrowsExceptionForNonNumericValue() throws Exception {
+    Text value = new Text("Invalid value for BigDecimal.");
+    when(getter.get(0)).thenReturn(value);
+
+    thrown.expect(SQLException.class);
+    accessor.getBigDecimal(1);
+  }
+
+  @Test
   public void testShouldGetBigDecimalThrowsExceptionForNonNumericValue() throws Exception {
     Text value = new Text("Invalid value for BigDecimal.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getBigDecimal();
   }
 
@@ -345,7 +354,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for double.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getDouble();
   }
 
@@ -409,7 +418,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Text value = new Text("Invalid value for float.");
     when(getter.get(0)).thenReturn(value);
 
-    thrown.expect(IllegalArgumentException.class);
+    thrown.expect(SQLException.class);
     accessor.getFloat();
   }
 

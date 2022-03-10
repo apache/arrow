@@ -106,43 +106,75 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public byte getByte() {
-    return Byte.parseByte(this.getString());
+  public byte getByte() throws SQLException {
+    try {
+      return Byte.parseByte(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public short getShort() {
-    return Short.parseShort(this.getString());
+  public short getShort() throws SQLException {
+    try {
+      return Short.parseShort(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public int getInt() {
-    return Integer.parseInt(this.getString());
+  public int getInt() throws SQLException {
+    try {
+      return Integer.parseInt(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public long getLong() {
-    return Long.parseLong(this.getString());
+  public long getLong() throws SQLException {
+    try {
+      return Long.parseLong(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public float getFloat() {
-    return Float.parseFloat(this.getString());
+  public float getFloat() throws SQLException {
+    try {
+      return Float.parseFloat(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public double getDouble() {
-    return Double.parseDouble(this.getString());
+  public double getDouble() throws SQLException {
+    try {
+      return Double.parseDouble(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
-    return new BigDecimal(this.getString());
+  public BigDecimal getBigDecimal() throws SQLException {
+    try {
+      return new BigDecimal(this.getString());
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) {
-    return BigDecimal.valueOf(this.getLong(), i);
+  public BigDecimal getBigDecimal(int i) throws SQLException {
+    try {
+      return BigDecimal.valueOf(this.getLong(), i);
+    } catch (Exception e) {
+      throw new SQLException(e);
+    }
   }
 
   @Override

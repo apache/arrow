@@ -103,112 +103,112 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public String getString() {
+  public String getString() throws SQLException {
     return getAccessor().getString();
   }
 
   @Override
-  public boolean getBoolean() {
+  public boolean getBoolean() throws SQLException {
     return getAccessor().getBoolean();
   }
 
   @Override
-  public byte getByte() {
+  public byte getByte() throws SQLException {
     return getAccessor().getByte();
   }
 
   @Override
-  public short getShort() {
+  public short getShort() throws SQLException {
     return getAccessor().getShort();
   }
 
   @Override
-  public int getInt() {
+  public int getInt() throws SQLException {
     return getAccessor().getInt();
   }
 
   @Override
-  public long getLong() {
+  public long getLong() throws SQLException {
     return getAccessor().getLong();
   }
 
   @Override
-  public float getFloat() {
+  public float getFloat() throws SQLException {
     return getAccessor().getFloat();
   }
 
   @Override
-  public double getDouble() {
+  public double getDouble() throws SQLException {
     return getAccessor().getDouble();
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
+  public BigDecimal getBigDecimal() throws SQLException {
     return getAccessor().getBigDecimal();
   }
 
   @Override
-  public BigDecimal getBigDecimal(int i) {
+  public BigDecimal getBigDecimal(int i) throws SQLException {
     return getAccessor().getBigDecimal(i);
   }
 
   @Override
-  public byte[] getBytes() {
+  public byte[] getBytes() throws SQLException {
     return getAccessor().getBytes();
   }
 
   @Override
-  public InputStream getAsciiStream() {
+  public InputStream getAsciiStream() throws SQLException {
     return getAccessor().getAsciiStream();
   }
 
   @Override
-  public InputStream getUnicodeStream() {
+  public InputStream getUnicodeStream() throws SQLException {
     return getAccessor().getUnicodeStream();
   }
 
   @Override
-  public InputStream getBinaryStream() {
+  public InputStream getBinaryStream() throws SQLException {
     return getAccessor().getBinaryStream();
   }
 
   @Override
-  public Object getObject() {
+  public Object getObject() throws SQLException {
     return getAccessor().getObject();
   }
 
   @Override
-  public Reader getCharacterStream() {
+  public Reader getCharacterStream() throws SQLException {
     return getAccessor().getCharacterStream();
   }
 
   @Override
-  public Object getObject(Map<String, Class<?>> map) {
+  public Object getObject(Map<String, Class<?>> map) throws SQLException {
     return getAccessor().getObject(map);
   }
 
   @Override
-  public Ref getRef() {
+  public Ref getRef() throws SQLException {
     return getAccessor().getRef();
   }
 
   @Override
-  public Blob getBlob() {
+  public Blob getBlob() throws SQLException {
     return getAccessor().getBlob();
   }
 
   @Override
-  public Clob getClob() {
+  public Clob getClob() throws SQLException {
     return getAccessor().getClob();
   }
 
   @Override
-  public Array getArray() {
+  public Array getArray() throws SQLException {
     return getAccessor().getArray();
   }
 
   @Override
-  public Struct getStruct() {
+  public Struct getStruct() throws SQLException {
     return getAccessor().getStruct();
   }
 
@@ -228,32 +228,32 @@ public abstract class AbstractArrowFlightJdbcUnionVectorAccessor extends ArrowFl
   }
 
   @Override
-  public URL getURL() {
+  public URL getURL() throws SQLException {
     return getAccessor().getURL();
   }
 
   @Override
-  public NClob getNClob() {
+  public NClob getNClob() throws SQLException {
     return getAccessor().getNClob();
   }
 
   @Override
-  public SQLXML getSQLXML() {
+  public SQLXML getSQLXML() throws SQLException {
     return getAccessor().getSQLXML();
   }
 
   @Override
-  public String getNString() {
+  public String getNString() throws SQLException {
     return getAccessor().getNString();
   }
 
   @Override
-  public Reader getNCharacterStream() {
+  public Reader getNCharacterStream() throws SQLException {
     return getAccessor().getNCharacterStream();
   }
 
   @Override
-  public <T> T getObject(Class<T> type) {
+  public <T> T getObject(Class<T> type) throws SQLException {
     return getAccessor().getObject(type);
   }
 }

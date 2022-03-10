@@ -68,7 +68,7 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public String getString() {
+  public String getString() throws SQLException {
     final Object object = getObject();
     if (object == null) {
       return null;
@@ -78,107 +78,107 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public boolean getBoolean() {
+  public boolean getBoolean() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public byte getByte() {
+  public byte getByte() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public short getShort() {
+  public short getShort() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public int getInt() {
+  public int getInt() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public long getLong() {
+  public long getLong() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public float getFloat() {
+  public float getFloat() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public double getDouble() {
+  public double getDouble() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
+  public BigDecimal getBigDecimal() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public BigDecimal getBigDecimal(final int i) {
+  public BigDecimal getBigDecimal(final int i) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public byte[] getBytes() {
+  public byte[] getBytes() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getAsciiStream() {
+  public InputStream getAsciiStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getUnicodeStream() {
+  public InputStream getUnicodeStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public InputStream getBinaryStream() {
+  public InputStream getBinaryStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Object getObject() {
+  public Object getObject() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getCharacterStream() {
+  public Reader getCharacterStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Object getObject(final Map<String, Class<?>> map) {
+  public Object getObject(final Map<String, Class<?>> map) throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Ref getRef() {
+  public Ref getRef() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Blob getBlob() {
+  public Blob getBlob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Clob getClob() {
+  public Clob getClob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Array getArray() {
+  public Array getArray() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Struct getStruct() {
+  public Struct getStruct() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
@@ -198,34 +198,33 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
   }
 
   @Override
-  public URL getURL() {
+  public URL getURL() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public NClob getNClob() {
+  public NClob getNClob() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public SQLXML getSQLXML() {
+  public SQLXML getSQLXML() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public String getNString() {
+  public String getNString() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public Reader getNCharacterStream() {
+  public Reader getNCharacterStream() throws SQLException {
     throw getOperationNotSupported(this.getClass());
   }
 
   @Override
-  public <T> T getObject(final Class<T> type) {
+  public <T> T getObject(final Class<T> type) throws SQLException {
     final Object value;
-
     if (type == Byte.class) {
       value = getByte();
     } else if (type == Short.class) {
@@ -249,7 +248,6 @@ public abstract class ArrowFlightJdbcAccessor implements Accessor {
     } else {
       value = getObject();
     }
-
     return !type.isPrimitive() && wasNull ? null : type.cast(value);
   }
 }

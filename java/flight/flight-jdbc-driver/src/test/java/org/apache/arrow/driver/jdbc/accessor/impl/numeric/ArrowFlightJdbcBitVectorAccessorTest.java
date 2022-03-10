@@ -21,7 +21,6 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 
 import java.math.BigDecimal;
-import java.util.function.Function;
 
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
@@ -64,7 +63,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(final Function<ArrowFlightJdbcBitVectorAccessor, T> function,
+  private <T> void iterate(final AccessorTestUtils.CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
                            final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
