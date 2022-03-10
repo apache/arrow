@@ -92,8 +92,9 @@ Status FromProto(const pb::Location& pb_location, Location* location) {
   return Location::Parse(pb_location.uri(), location);
 }
 
-void ToProto(const Location& location, pb::Location* pb_location) {
+Status ToProto(const Location& location, pb::Location* pb_location) {
   pb_location->set_uri(location.ToString());
+  return Status::OK();
 }
 
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth) {
@@ -109,8 +110,9 @@ Status FromProto(const pb::Ticket& pb_ticket, Ticket* ticket) {
   return Status::OK();
 }
 
-void ToProto(const Ticket& ticket, pb::Ticket* pb_ticket) {
+Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket) {
   pb_ticket->set_ticket(ticket.ticket);
+  return Status::OK();
 }
 
 // FlightData
@@ -139,12 +141,13 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
   return Status::OK();
 }
 
-void ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) {
-  ToProto(endpoint.ticket, pb_endpoint->mutable_ticket());
+Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) {
+  RETURN_NOT_OK(ToProto(endpoint.ticket, pb_endpoint->mutable_ticket()));
   pb_endpoint->clear_location();
   for (const Location& location : endpoint.locations) {
-    ToProto(location, pb_endpoint->add_location());
+    RETURN_NOT_OK(ToProto(location, pb_endpoint->add_location()));
   }
+  return Status::OK();
 }
 
 // FlightDescriptor
@@ -228,7 +231,7 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
   // endpoints
   for (const FlightEndpoint& endpoint : info.endpoints()) {
-    ToProto(endpoint, pb_info->add_endpoint());
+    RETURN_NOT_OK(ToProto(endpoint, pb_info->add_endpoint()));
   }
 
   pb_info->set_total_records(info.total_records());

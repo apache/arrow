@@ -853,7 +853,7 @@ class GrpcClientImpl : public internal::ClientTransport {
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<internal::ClientDataStream>* out) override {
     pb::Ticket pb_ticket;
-    internal::ToProto(ticket, &pb_ticket);
+    RETURN_NOT_OK(internal::ToProto(ticket, &pb_ticket));
 
     auto rpc = std::make_shared<ClientRpc>(options);
     RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));

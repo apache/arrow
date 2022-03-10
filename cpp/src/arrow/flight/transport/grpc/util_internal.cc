@@ -74,7 +74,7 @@ static Status StatusCodeFromString(const ::grpc::string_ref& code_ref, StatusCod
 /// Try to extract a status from gRPC trailers.
 /// Return Status::OK if found, an error otherwise.
 static Status FromGrpcContext(const ::grpc::ClientContext& ctx, Status* status,
-                              std::shared_ptr<FlightStatusDetail> flightStatusDetail) {
+                              std::shared_ptr<FlightStatusDetail> flight_status_detail) {
   const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
   const auto code_val = trailers.find(kGrpcStatusCodeHeader);
@@ -103,13 +103,13 @@ static Status FromGrpcContext(const ::grpc::ClientContext& ctx, Status* status,
   if (grpc_detail_val != trailers.end()) {
     const ::grpc::string_ref detail_ref = grpc_detail_val->second;
     std::string bin_detail = std::string(detail_ref.data(), detail_ref.size());
-    if (!flightStatusDetail) {
-      flightStatusDetail =
+    if (!flight_status_detail) {
+      flight_status_detail =
           std::make_shared<FlightStatusDetail>(FlightStatusCode::Internal);
     }
-    flightStatusDetail->set_extra_info(bin_detail);
+    flight_status_detail->set_extra_info(bin_detail);
   }
-  *status = Status(code, message, flightStatusDetail);
+  *status = Status(code, message, flight_status_detail);
   return Status::OK();
 }
 
