@@ -648,7 +648,25 @@ register_bindings_datetime_parsers <- function() {
     if (opts$unit == 7L) {
       arrow_not_supported("Date/time rounding to week units")
     }
-    Expression$create("ceil_temporal", x, options = opts)
+
+    # ceil_temporal and ceiling_date are equivalent when change_on_boundary = FALSE
+    if (change_on_boundary == FALSE) {
+      return(Expression$create("ceil_temporal", x, options = opts))
+    }
+
+    if (change_on_boundary == TRUE) {
+      ceiling_base <- Expression$create("ceil_temporal", x, options = opts)
+      one_unit <- Expression$scalar(Scalar$create(as.difftime("24:00:00"), type = duration()))
+      no_units <- Expression$scalar(Scalar$create(as.difftime("00:00:00"), type = duration()))
+      is_boundary <- Expression$create("equal", x, ceiling_base)
+      return(
+        call_binding("if_else", is_boundary, ceiling_base + one_unit, ceiling_base + no_units)
+      )
+    }
+
+    # for NULL change_on_boundary
+    return(Expression$create("ceil_temporal", x, options = opts))
+
   })
 
   register_binding("leap_year", function(date) {

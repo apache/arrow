@@ -2564,9 +2564,27 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
   )
 })
 
+
+# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
+# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
+# I'm not 100% sold on this implementation, but it's not obviously terrible.
+# The bigger concern is that it introduces minor discrepancies between arrow and
+# lubridate in some edge cases with ceiling_date()
+
 test_that("change_on_boundary is respected in ceiling_time", {
 
-  # insert tests here
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = ceiling_date(datetime, "day", change_on_boundary = FALSE),
+        out_2 = ceiling_date(datetime, "day", change_on_boundary = TRUE)
+    #    out_3 = ceiling_date(datetime, "day", change_on_boundary = NULL)
+      ) %>%
+      collect(),
+    tibble::tibble(datetime = as.POSIXct(strptime(c(
+      "2022-03-10 00:00:00", "2022-03-10 00:00:01"
+    ), tz="UTC", format = "%F %T")))
+  )
 
 })
 
@@ -2594,12 +2612,6 @@ test_that("do not attempt to round to week units", {
 # there are edge cases where the arrow dplyr binding will not precisely mirror
 # the lubridate original. with that in mind, all tests for date32 rounding coerce
 # the lubridate equivalent back to Date
-
-# NOTE: arrow dplyr binding for ceiling_date() does not force dates up to the
-# next date. the logic mirrors lubridate prior to v1.6.0 (change_on_boundary = FALSE).
-# I'm not 100% sold on this implementation, but it's not obviously terrible.
-# The bigger concern is that it introduces minor discrepancies between arrow and
-# lubridate in some edge cases with ceiling_date()
 
 test_that("round/floor/ceiling on dates (to nearest day)", {
 
