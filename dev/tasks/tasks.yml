@@ -1149,8 +1149,10 @@ tasks:
     params:
       env:
         PYTHON: 3.8
+        HYPOTHESIS_PROFILE: ci
+        PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
-        PYTEST_ARGS: "-m hypothesis --enable-hypothesis --hypothesis-profile=ci"
+        PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
   test-debian-11-python-3:
