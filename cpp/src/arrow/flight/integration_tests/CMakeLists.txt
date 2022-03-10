@@ -23,14 +23,10 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
       arrow_flight_testing_static
       arrow_flight_sql_static
       ${ARROW_FLIGHT_STATIC_LINK_LIBS}
-      ${ARROW_TEST_LINK_LIBS})
+      ${ARROW_FLIGHT_TEST_LINK_LIBS})
 else()
-  set(ARROW_FLIGHT_TEST_LINK_LIBS
-      arrow_flight_shared
-      arrow_flight_testing_shared
-      arrow_flight_sql_shared
-      ${ARROW_TEST_LINK_LIBS}
-      ${ARROW_FLIGHT_SQL_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
+                                  arrow_flight_sql_shared ${ARROW_FLIGHT_TEST_LINK_LIBS})
 endif()
 
 add_executable(flight-test-integration-server test_integration_server.cc

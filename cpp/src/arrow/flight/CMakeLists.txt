@@ -59,6 +59,11 @@ else()
   endif()
 endif()
 
+# Needed for Flight SQL and integration
+set(ARROW_FLIGHT_TEST_LINK_LIBS
+    ${ARROW_FLIGHT_TEST_LINK_LIBS}
+    PARENT_SCOPE)
+
 # TODO(wesm): Protobuf shared vs static linking
 
 set(FLIGHT_PROTO_PATH "${ARROW_SOURCE_DIR}/../format")
