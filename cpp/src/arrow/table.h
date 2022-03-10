@@ -245,6 +245,7 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
   /// \brief Construct a TableBatchReader for the given table
   explicit TableBatchReader(const Table& table);
+  explicit TableBatchReader(std::shared_ptr<Table> table);
 
   std::shared_ptr<Schema> schema() const override;
 
@@ -258,6 +259,7 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
 
  private:
   const Table& table_;
+  std::shared_ptr<Table> owned_table_;
   std::vector<ChunkedArray*> column_data_;
   std::vector<int> chunk_numbers_;
   std::vector<int64_t> chunk_offsets_;

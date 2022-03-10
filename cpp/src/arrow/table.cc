@@ -591,6 +591,7 @@ Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* poo
 
 TableBatchReader::TableBatchReader(const Table& table)
     : table_(table),
+      owned_table_(nullptr),
       column_data_(table.num_columns()),
       chunk_numbers_(table.num_columns(), 0),
       chunk_offsets_(table.num_columns(), 0),
@@ -598,6 +599,19 @@ TableBatchReader::TableBatchReader(const Table& table)
       max_chunksize_(std::numeric_limits<int64_t>::max()) {
   for (int i = 0; i < table.num_columns(); ++i) {
     column_data_[i] = table.column(i).get();
+  }
+}
+
+TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
+    : table_(*table.get()),
+      owned_table_(std::move(table)),
+      column_data_(table.get()->num_columns()),
+      chunk_numbers_(table.get()->num_columns(), 0),
+      chunk_offsets_(table.get()->num_columns(), 0),
+      absolute_row_position_(0),
+      max_chunksize_(std::numeric_limits<int64_t>::max()) {
+  for (int i = 0; i < table.get()->num_columns(); ++i) {
+    column_data_[i] = table.get()->column(i).get();
   }
 }
 
