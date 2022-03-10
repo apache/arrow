@@ -95,6 +95,9 @@ All participation in the Apache Arrow project is governed by the ASF's
    thoughtful in their responses, and they help developers who are spread across
    many timezones to participate more equally.
 
+   Read more on the `Apache Arrow Community <https://arrow.apache.org/community/>`_
+   page.
+
 .. dropdown:: :fa:`pencil` Improve documentation
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
@@ -138,23 +141,23 @@ All participation in the Apache Arrow project is governed by the ASF's
 
          New Contributor's guide
 
-   .. grid-item-card:: Advanced
+   .. grid-item-card:: Overview
       :img-top: /developers/images/code-solid.svg
       :class-card: contrib-card
       :shadow: md
 
-      Additional information you might need if you are not
-      new to the contributing process in general but want to
-      check the workflow we use at Apache Arrow.
+      A short overview of the contributing process we follow
+      and some additional information you might need if you are not
+      new to the contributing process in general.
       +++
 
-      .. button-ref:: advanced_contrib
+      .. button-ref:: contrib-overview
          :ref-type: ref
          :click-parent:
          :color: secondary
          :expand:
 
-         Advanced Code Contribution
+         Contributing overview
 
 Language specific
 =================

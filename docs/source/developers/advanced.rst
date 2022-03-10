@@ -15,11 +15,11 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. _advanced_contrib:
+.. _contrib-overview:
 
-**************************
-Advanced Code Contribution
-**************************
+*********************
+Contributing Overview
+*********************
 
 .. _git-conventions:
 
