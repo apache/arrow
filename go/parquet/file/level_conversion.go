@@ -70,11 +70,6 @@ type LevelInfo struct {
 	RepeatedAncestorDefLevel int16
 }
 
-//lint:ignore U1000 newDefaultLevelInfo
-func newDefaultLevelInfo() *LevelInfo {
-	return &LevelInfo{NullSlotUsage: 1}
-}
-
 func (l *LevelInfo) Equal(rhs *LevelInfo) bool {
 	return l.NullSlotUsage == rhs.NullSlotUsage &&
 		l.DefLevel == rhs.DefLevel &&
