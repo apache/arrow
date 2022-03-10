@@ -109,7 +109,8 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
   };
 
   // lambda function
-  cp::ScalarKernel kernel(this->input_types(), this->output_type(), call_back_lambda);
+  cp::ScalarKernel kernel(cp::KernelSignature::Make(this->input_types(), this->output_type(),
+   this->arity().is_varargs), call_back_lambda);
   kernel.mem_allocation = this->mem_allocation();
   kernel.null_handling = this->null_handling();
   st = func->AddKernel(std::move(kernel));
