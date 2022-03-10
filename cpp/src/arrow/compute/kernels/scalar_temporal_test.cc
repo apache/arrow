@@ -1889,12 +1889,12 @@ TEST_F(ScalarTemporalTest, PlatformLocale) {
   }
   using namespace std::chrono;
   using namespace arrow_vendored::date;
-  zoned_time<std::chrono::seconds> d{"America/New_York", local_days{August/18/2021}};
+  zoned_time<std::chrono::seconds> d{"America/New_York", local_days{August / 18 / 2021}};
   auto locale_str = "fr_FR.UTF-8";
   std::locale loc(locale_str);
   std::ostringstream oss;
   oss.imbue(loc);
-  oss << format("%d %B %Y", d);
+  to_stream(oss, "%d %B %Y", d);
   oss.clear();
   const auto s = oss.str();
   EXPECT_EQ(s, "18 août 2021");

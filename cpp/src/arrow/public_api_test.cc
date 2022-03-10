@@ -108,6 +108,9 @@ TEST(Misc, SetTimzoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
 #else
+#ifndef ARROW_FILESYSTEM
+  GTEST_SKIP() << "Need filesystem support to test timezone config.";
+#else
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
   auto home_raw = std::getenv("USERPROFILE");
   std::string home = home_raw == nullptr ? "~" : std::string(home_raw);
@@ -133,6 +136,7 @@ TEST(Misc, SetTimzoneConfig) {
 
   // Validate that tzdb is working
   ASSERT_OK(arrow::Initialize(options));
+#endif  // ARROW_FILESYSTEM
 #endif  // _WIN32
 }
 
