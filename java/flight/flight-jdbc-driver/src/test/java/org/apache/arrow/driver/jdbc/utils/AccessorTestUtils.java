@@ -120,7 +120,7 @@ public class AccessorTestUtils {
       });
     }
 
-    public <R> void assertAccessorGetterForException(ValueVector vector, CheckedFunction<T, R> getter)
+    public <R> void assertAccessorGetterThrowingException(ValueVector vector, CheckedFunction<T, R> getter)
         throws Exception {
       iterate(vector, (accessor, currentRow) ->
           collector.checkThrows(SQLException.class, () -> getter.apply(accessor)));

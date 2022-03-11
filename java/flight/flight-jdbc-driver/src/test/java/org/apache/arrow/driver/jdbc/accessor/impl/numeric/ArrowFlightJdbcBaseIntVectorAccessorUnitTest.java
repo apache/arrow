@@ -135,13 +135,13 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromIntVectorThrowSqlException() throws Exception {
-    accessorIterator.assertAccessorGetterForException(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
+  public void testShouldGetBytesFromIntVectorThrowsSqlException() throws Exception {
+    accessorIterator.assertAccessorGetterThrowingException(intVector, ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
 
   @Test
-  public void testShouldGetBytesFromIntVectorWithNullThrowSqlException() throws Exception {
-    accessorIterator.assertAccessorGetterForException(intVectorWithNull,
+  public void testShouldGetBytesFromIntVectorWithNullThrowsSqlException() throws Exception {
+    accessorIterator.assertAccessorGetterThrowingException(intVectorWithNull,
         ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
 
@@ -200,21 +200,21 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromSmallVectorThrowSqlException() throws Exception {
-    accessorIterator.assertAccessorGetterForException(smallIntVector,
+  public void testShouldGetBytesFromSmallVectorThrowsSqlException() throws Exception {
+    accessorIterator.assertAccessorGetterThrowingException(smallIntVector,
         ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
 
   @Test
-  public void testShouldGetBytesFromTinyIntVectorThrowSqlException() throws Exception {
-    accessorIterator.assertAccessorGetterForException(tinyIntVector,
+  public void testShouldGetBytesFromTinyIntVectorThrowsSqlException() throws Exception {
+    accessorIterator.assertAccessorGetterThrowingException(tinyIntVector,
         ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
 
   @Test
-  public void testShouldGetBytesFromBigIntVectorThrowSqlException() throws Exception {
+  public void testShouldGetBytesFromBigIntVectorThrowsSqlException() throws Exception {
 
-    accessorIterator.assertAccessorGetterForException(bigIntVector,
+    accessorIterator.assertAccessorGetterThrowingException(bigIntVector,
         ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
 }
