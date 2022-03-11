@@ -199,17 +199,16 @@ register_bindings_datetime <- function() {
     }
 
     # for time32() we do not need to worry about timezone
-    if (call_binding("is.instant", time1) & call_binding("is.instant", time1)) {
+    if (call_binding("is.instant", time1) & call_binding("is.instant", time2)) {
       if (missing(tz)) {
         time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(unit = "s")))
         time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(unit = "s")))
-      } else {
-        time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
-        time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
       }
+      time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
+      time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
     }
 
-    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
+    time1 - time2
   })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
