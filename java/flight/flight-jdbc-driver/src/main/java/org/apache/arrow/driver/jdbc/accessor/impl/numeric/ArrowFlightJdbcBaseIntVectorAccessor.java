@@ -158,7 +158,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
 
   @Override
   public byte[] getBytes() throws SQLException {
-    throw new SQLException();
+    throw new SQLException("Is not possible to get bytes: ");
   }
 
   @Override
