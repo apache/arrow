@@ -228,10 +228,7 @@ Result<EnumeratedRecordBatchGenerator> FragmentToBatches(
                           MakeArrayOfNull(field->type(), /*length=*/0, options->pool));
     columns.push_back(std::move(array));
   }
-#ifdef ARROW_WITH_OPENTELEMETRY
-  batch_gen =
-      arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(batch_gen), span);
-#endif
+  TIE_SPAN_TO_GENERATOR(batch_gen);
   batch_gen = MakeDefaultIfEmptyGenerator(
       std::move(batch_gen),
       RecordBatch::Make(options->dataset_schema, /*num_rows=*/0, std::move(columns)));
@@ -253,10 +250,7 @@ Result<AsyncGenerator<EnumeratedRecordBatchGenerator>> FragmentsToBatches(
                           [=](const Enumerated<std::shared_ptr<Fragment>>& fragment) {
                             return FragmentToBatches(fragment, options);
                           });
-#ifdef ARROW_WITH_OPENTELEMETRY
-  batch_gen_gen = arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(
-      std::move(batch_gen_gen));
-#endif
+  PROPAGATE_SPAN_TO_GENERATOR(std::move(batch_gen_gen));
   return batch_gen_gen;
 }
 

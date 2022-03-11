@@ -275,6 +275,7 @@ class FileReaderImpl : public FileReader {
     }
 #ifdef ARROW_WITH_OPENTELEMETRY
     std::string column_name = reader_->metadata()->schema()->Column(i)->name();
+    std::string phys_type = TypeToString(reader_->metadata()->schema()->Column(i)->physical_type());
     auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
     ::arrow::util::tracing::Span childspan;
     ::arrow::util::tracing::Span parentspan;
@@ -283,6 +284,7 @@ class FileReaderImpl : public FileReader {
                            "parquet::arrow::read_column",
                            {{"parquet.arrow.columnindex", i},
                             {"parquet.arrow.columnname", column_name},
+                             {"parquet.arrow.physicaltype", phys_type},
                             {"parquet.arrow.records_to_read", records_to_read}});
 #endif
     return reader->NextBatch(records_to_read, out);
@@ -1076,13 +1078,9 @@ class RowGroupGenerator {
     auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
     if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-#endif
+    GET_CURRENT_SPAN(span);
     return ready.Then([=]() mutable -> ::arrow::Future<RecordBatchGenerator> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-#endif
+      SET_SPAN_SCOPE(scope, span);
       return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
     });
   }
@@ -1147,11 +1145,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
     row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
                                                           row_group_readahead);
   }
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-  row_group_generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(
-      std::move(row_group_generator), span);
-#endif
+  TIE_SPAN_TO_GENERATOR(std::move(row_group_generator));
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 
@@ -1200,15 +1194,11 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-#endif
+  GET_CURRENT_SPAN(span);
   auto read_column = [row_groups, self, span, this](
                          size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-#endif
+    SET_SPAN_SCOPE(scope, span);
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
     return column;

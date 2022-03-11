@@ -137,6 +137,15 @@ AsyncGenerator<T> TieSpanToAsyncGenerator(
   };
 }
 
+/// \brief End the given span when the given async generator ends.
+///
+/// The span will be made the active span each time the generator is called.
+template <typename T>
+AsyncGenerator<T> TieSpanToAsyncGenerator(AsyncGenerator<T> wrapped) {
+  auto span = GetTracer()->GetCurrentSpan();
+  return TieSpanToAsyncGenerator(wrapped, span);
+}
+
 /// \brief Activate the given span on each invocation of an async generator.
 template <typename T>
 AsyncGenerator<T> PropagateSpanThroughAsyncGenerator(
@@ -201,6 +210,19 @@ opentelemetry::trace::StartSpanOptions SpanOptionsWithParent(
         return st;                                                                \
       })
 
+#define GET_CURRENT_SPAN(span) \
+  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()
+
+#define SET_SPAN_SCOPE(scope, span) \
+  auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span)
+
+#define TIE_SPAN_TO_GENERATOR(generator) \
+        generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(generator)
+
+#define PROPAGATE_SPAN_TO_GENERATOR(generator) \
+        generator = \
+            ::arrow::internal::tracing::PropagateSpanThroughAsyncGenerator(generator)
+
 #else
 
 class SpanImpl {};
@@ -211,6 +233,10 @@ class SpanImpl {};
 #define EVENT(target_span, ...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future, target_capture)
+#define GET_CURRENT_SPAN(span)
+#define SET_SPAN_SCOPE(scope, span)
+#define TIE_SPAN_TO_GENERATOR(generator)
+#define PROPAGATE_SPAN_TO_GENERATOR(generator)
 
 #endif
 
