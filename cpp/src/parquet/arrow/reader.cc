@@ -46,6 +46,8 @@
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 
+#include "arrow/util/tracing_internal.h"
+
 using arrow::Array;
 using arrow::ArrayData;
 using arrow::BooleanArray;
@@ -66,6 +68,7 @@ using arrow::TimestampArray;
 
 using arrow::internal::checked_cast;
 using arrow::internal::Iota;
+
 
 // Help reduce verbosity
 using ParquetReader = parquet::ParquetFileReader;
@@ -1060,7 +1063,14 @@ class RowGroupGenerator {
     }
     auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
     if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-    return ready.Then([=]() -> ::arrow::Future<RecordBatchGenerator> {
+
+#ifdef ARROW_WITH_OPENTELEMETRY
+    auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+#endif
+    return ready.Then([=]() mutable -> ::arrow::Future<RecordBatchGenerator> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
+#endif
       return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
     });
   }
@@ -1125,6 +1135,11 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
     row_group_generator = ::arrow::MakeReadaheadGenerator(std::move(row_group_generator),
                                                           row_group_readahead);
   }
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+  row_group_generator =
+          ::arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(row_group_generator), span);
+#endif
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
 
@@ -1173,11 +1188,16 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
-  auto read_column = [row_groups, self, this](size_t i,
-                                              std::shared_ptr<ColumnReaderImpl> reader)
+  auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+  auto read_column = [row_groups, self, span, this](size_t i,
+                                              std::shared_ptr<ColumnReaderImpl> reader) mutable // need to add mutable to prevent thread_span constness
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
+    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
+    auto newspan =  ::arrow::internal::tracing::GetTracer()->StartSpan(
+            std::string("arrow::parquet::DecodeRowGroups - read_column"));
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
+    newspan->End();
     return column;
   };
   auto make_table = [result_schema, row_groups, self,
