@@ -101,7 +101,9 @@ Result<compute::Declaration> FromProto(const substrait::Rel& rel,
         if (item.format() ==
             substrait::ReadRel::LocalFiles::FileOrFiles::FILE_FORMAT_PARQUET) {
           format = std::make_shared<dataset::ParquetFileFormat>();
-	} else if (util::string_view{item.uri_file()}.ends_with(".feather")) {
+        } else if (util::string_view{item.uri_file()}.ends_with(".arrow")) {
+          format = std::make_shared<dataset::IpcFileFormat>();
+        } else if (util::string_view{item.uri_file()}.ends_with(".feather")) {
           format = std::make_shared<dataset::IpcFileFormat>();
         } else {
           return Status::NotImplemented(
