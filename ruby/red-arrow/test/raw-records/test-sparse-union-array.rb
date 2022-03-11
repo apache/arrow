@@ -349,6 +349,15 @@ module RawRecordsSparseUnionArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_interval
+    records = [
+      [{"0" => 1}],
+      [{"1" => nil}],
+    ]
+    target = build(:month_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"0" => [true, nil, false]}],

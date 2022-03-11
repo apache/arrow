@@ -344,6 +344,16 @@ module RawRecordsStructArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_interval
+    records = [
+      [{"field" => 1}],
+      [nil],
+      [{"field" => nil}],
+    ]
+    target = build(:month_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"field" => [true, nil, false]}],

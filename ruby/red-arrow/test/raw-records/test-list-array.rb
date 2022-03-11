@@ -399,6 +399,15 @@ module RawRecordsListArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_interval
+    records = [
+      [[1, nil, 12]],
+      [nil],
+    ]
+    target = build(:month_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [
