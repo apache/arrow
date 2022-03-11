@@ -1137,8 +1137,8 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
   }
 #ifdef ARROW_WITH_OPENTELEMETRY
   auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
-  row_group_generator =
-          ::arrow::internal::tracing::TieSpanToAsyncGenerator(std::move(row_group_generator), span);
+  row_group_generator = ::arrow::internal::tracing::TieSpanToAsyncGenerator(
+      std::move(row_group_generator), span);
 #endif
   return ::arrow::MakeConcatenatedGenerator(std::move(row_group_generator));
 }
@@ -1191,15 +1191,16 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
 #ifdef ARROW_WITH_OPENTELEMETRY
   auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
 #endif
-  auto read_column = [row_groups, self, span, this](size_t i,
-                                              std::shared_ptr<ColumnReaderImpl> reader) mutable
+  auto read_column = [row_groups, self, span, this](
+                         size_t i, std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-      ::arrow::util::tracing::Span childspan;
-      ::arrow::util::tracing::Span parentspan;
-      parentspan.Set(::arrow::util::tracing::Span::Impl{span});
-      START_SPAN_WITH_PARENT(childspan, parentspan, "arrow::parquet::DecodeRowGroups - read_column");
+    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
+    ::arrow::util::tracing::Span childspan;
+    ::arrow::util::tracing::Span parentspan;
+    parentspan.Set(::arrow::util::tracing::Span::Impl{span});
+    START_SPAN_WITH_PARENT(childspan, parentspan,
+                           "arrow::parquet::DecodeRowGroups - read_column");
 #endif
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
