@@ -147,6 +147,7 @@ namespace arrow
         };
         static constexpr size_t kNumTerminators = sizeof(Terminators) / sizeof(Terminators[0]);
 
+
         // The spec says to generate a 300 MB string according to a grammar. This is a
         // concurrent implementation of the generator. Each thread generates the text in
         // (up to) 8KB chunks of text. The generator maintains a cursor into the
@@ -182,7 +183,8 @@ namespace arrow
 
             bool GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr);
 
-            std::atomic<int64_t> generated_offset_ = { 0 };
+            std::atomic<bool> done_ = { false };
+            int64_t generated_offset_{0};
             std::mutex text_guard_;
             std::unique_ptr<Buffer> text_;
             static constexpr int64_t kChunkSize = 8192;
@@ -193,7 +195,7 @@ namespace arrow
 
         Status TpchPseudotext::EnsureInitialized(random::pcg32_fast &rng)
         {
-            if(generated_offset_.load() >= kTextBytes)
+            if(done_.load())
                 return Status::OK();
 
             {
@@ -205,19 +207,30 @@ namespace arrow
             }
             char *out = reinterpret_cast<char *>(text_->mutable_data());
             char temp_buff[kChunkSize];
-            while(generated_offset_.load() < kTextBytes)
+
+            while(!done_.load())
             {
                 int64_t known_valid_offset = 0;
                 int64_t try_offset = 0;
                 while(GenerateSentence(try_offset, rng, temp_buff))
                     known_valid_offset = try_offset;
 
-                int64_t offset = generated_offset_.fetch_add(known_valid_offset);
-                if(offset >= kTextBytes)
-                    return Status::OK();
-                int64_t bytes_remaining = kTextBytes - offset;
-                int64_t memcpy_size = std::min(known_valid_offset, bytes_remaining);
+                bool last_one;
+                int64_t offset;
+                int64_t memcpy_size;
+                {
+                    std::lock_guard<std::mutex> lock(text_guard_);
+                    if(done_.load())
+                        return Status::OK();
+                    int64_t bytes_remaining = kTextBytes - generated_offset_;
+                    memcpy_size = std::min(known_valid_offset, bytes_remaining);
+                    offset = generated_offset_;
+                    generated_offset_ += memcpy_size;
+                    last_one = generated_offset_ == kTextBytes;
+                }
                 std::memcpy(out + offset, temp_buff, memcpy_size);
+                if(last_one)
+                    done_.store(true);
             }
             return Status::OK();
         }
