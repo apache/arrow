@@ -193,10 +193,10 @@ print(a5_2)
 print("=" * 80)
 print("Example 6: Scalar Binary")
 print("=" * 80)
-arity_7 = Arity.binary()
-func_name_7 = "scalar_udf_binary_add"
-in_types_7 = [InputType.scalar(pa.int64()), InputType.scalar(pa.int64())]
-out_type_7 = pa.int64()
+arity_6 = Arity.binary()
+func_name_6 = "scalar_udf_binary_add"
+in_types_6 = [InputType.scalar(pa.int64()), InputType.scalar(pa.int64())]
+out_type_6 = pa.int64()
 scalar_binary_add_function_doc = get_function_doc("scalar bin add function", 
                                                   "test scalar bin add function",
                                        ["scalar_value1", "scalar_value2"], "None")
@@ -204,29 +204,29 @@ scalar_binary_add_function_doc = get_function_doc("scalar bin add function",
 def binary_scalar_function(scalar1, scalar2):
     return pc.call_function("add", [scalar1, scalar2])
 
-register_function(func_name_7, arity_7, scalar_binary_add_function_doc,
-                  in_types_7, out_type_7, binary_scalar_function) 
+register_function(func_name_6, arity_6, scalar_binary_add_function_doc,
+                  in_types_6, out_type_6, binary_scalar_function) 
 
-func7 = pc.get_function(func_name_7)
+func6 = pc.get_function(func_name_6)
 
-a7_1 = pc.call_function(func_name_7, [pa.scalar(10), pa.scalar(20)])
+a6_1 = pc.call_function(func_name_6, [pa.scalar(10), pa.scalar(20)])
 
-print(a7_1)
+print(a6_1)
 
-a7_2 = pc.call_function(func_name_7, [pa.scalar(50), pa.scalar(30)])
+a6_2 = pc.call_function(func_name_6, [pa.scalar(50), pa.scalar(30)])
 
-print(a7_2)
+print(a6_2)
 
 # Example 8: Scalar Ternary
 print("=" * 80)
-print("Example 8: Scalar Ternary")
+print("Example 7: Scalar Ternary")
 print("=" * 80)
-arity_8 = Arity.ternary()
-func_name_8 = "scalar_udf_ternary_add"
-in_types_8 = [InputType.scalar(pa.int64()),
+arity_7 = Arity.ternary()
+func_name_7 = "scalar_udf_ternary_add"
+in_types_7 = [InputType.scalar(pa.int64()),
               InputType.scalar(pa.int64()),
               InputType.scalar(pa.int64())]
-out_type_8 = pa.int64()
+out_type_7 = pa.int64()
 scalar_ternary_add_function_doc = get_function_doc("scalar ternary add function", 
                                                   "test scalar ternary add function",
                                        ["scalar_value1", "scalar_value2",
@@ -235,52 +235,50 @@ scalar_ternary_add_function_doc = get_function_doc("scalar ternary add function"
 def ternary_scalar_function(scalar1, scalar2, scalar3):
     return pc.call_function("add", [pc.call_function("add", [scalar1, scalar2]), scalar3])
 
-register_function(func_name_8, arity_8, scalar_ternary_add_function_doc,
-                  in_types_8, out_type_8, ternary_scalar_function) 
+register_function(func_name_7, arity_7, scalar_ternary_add_function_doc,
+                  in_types_7, out_type_7, ternary_scalar_function) 
 
-func8 = pc.get_function(func_name_8)
+func7 = pc.get_function(func_name_7)
 
-a8_1 = pc.call_function(func_name_8, [pa.scalar(10), pa.scalar(20), pa.scalar(30)])
+a7_1 = pc.call_function(func_name_7, [pa.scalar(10), pa.scalar(20), pa.scalar(30)])
 
-print(a8_1)
+print(a7_1)
 
-a8_2 = pc.call_function(func_name_8, [pa.scalar(1), pa.scalar(2), pa.scalar(3)])
+a7_2 = pc.call_function(func_name_7, [pa.scalar(1), pa.scalar(2), pa.scalar(3)])
 
-print(a8_2)
+print(a7_2)
 
 
 # Example 8: Scalar VarArgs
 print("=" * 80)
 print("Example 8: Scalar VarArgs")
 print("=" * 80)
-arity_8 = Arity.ternary()
-func_name_8 = "scalar_udf_ternary_add"
+arity_8 = Arity.varargs(4)
+func_name_8 = "scalar_udf_varargs_add"
 in_types_8 = [InputType.scalar(pa.int64()),
+              InputType.scalar(pa.int64()),
               InputType.scalar(pa.int64()),
               InputType.scalar(pa.int64())]
 out_type_8 = pa.int64()
 scalar_ternary_add_function_doc = get_function_doc("scalar ternary add function", 
                                                   "test scalar ternary add function",
                                        ["scalar_value1", "scalar_value2",
-                                        "scalar_value3"], "None")
+                                        "scalar_value3", "scalar_value4"], "None")
 
-def ternary_scalar_function(scalar1, scalar2, scalar3):
-    return pc.call_function("add", [pc.call_function("add", [scalar1, scalar2]), scalar3])
+def ternary_scalar_function(scalar1, scalar2, scalar3, scalar4):
+    return pc.call_function("add", [pc.call_function("add", 
+                                                     [pc.call_function("add", [scalar1, scalar2]),
+                                                      scalar3]), scalar4])
 
 register_function(func_name_8, arity_8, scalar_ternary_add_function_doc,
                   in_types_8, out_type_8, ternary_scalar_function) 
 
 func8 = pc.get_function(func_name_8)
 
-a8_1 = pc.call_function(func_name_8, [pa.scalar(10), pa.scalar(20), pa.scalar(30)])
+a8_1 = pc.call_function(func_name_8, [pa.scalar(10), pa.scalar(20), pa.scalar(30), pa.scalar(40)])
 
 print(a8_1)
 
-a8_2 = pc.call_function(func_name_8, [pa.scalar(1), pa.scalar(2), pa.scalar(3)])
+a8_2 = pc.call_function(func_name_8, [pa.scalar(1), pa.scalar(2), pa.scalar(3), pa.scalar(4)])
 
 print(a8_2)
-
-
-
-
-
