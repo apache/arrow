@@ -1870,6 +1870,9 @@ TEST_F(ScalarTemporalTest, StrftimeCLocale) {
 }
 
 TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
+#ifdef WIN32
+  GTEST_SKIP() << "There is a known bug in strftime for locales on Windows (ARROW-15922)";
+#endif
   if (!LocaleExists("fr_FR.UTF-8")) {
     GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
   }
@@ -1881,23 +1884,6 @@ TEST_F(ScalarTemporalTest, StrftimeOtherLocale) {
       ["01 janvier 1970 00:00:59,123", "18 août 2021 15:11:50,456", null])";
   CheckScalarUnary("strftime", timestamp(TimeUnit::MILLI, "UTC"), milliseconds, utf8(),
                    expected, &options);
-}
-
-TEST_F(ScalarTemporalTest, PlatformLocale) {
-  if (!LocaleExists("fr_FR.UTF-8")) {
-    GTEST_SKIP() << "locale 'fr_FR.UTF-8' doesn't exist on this system";
-  }
-  using namespace std::chrono;
-  using namespace arrow_vendored::date;
-  zoned_time<std::chrono::seconds> d{"America/New_York", local_days{August / 18 / 2021}};
-  auto locale_str = "fr_FR.UTF-8";
-  std::locale loc(locale_str);
-  std::ostringstream oss;
-  oss.imbue(loc);
-  to_stream(oss, "%d %B %Y", d);
-  oss.clear();
-  const auto s = oss.str();
-  EXPECT_EQ(s, "18 août 2021");
 }
 
 TEST_F(ScalarTemporalTest, StrftimeInvalidLocale) {
