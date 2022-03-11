@@ -92,8 +92,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorTest {
       };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
