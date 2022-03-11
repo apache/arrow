@@ -197,6 +197,36 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+
+  register_binding("dminutes", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 60, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
+
+  register_binding("dhours", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 3600, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
+
+  register_binding("ddays", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 86400, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
+
+  register_binding("dweeks", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 604800, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
+
+  register_binding("dmonths", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 2629800, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
+
+  register_binding("dyears", function(x=1) {
+    ddays_int64 <- Expression$create("cast", x * 31557600, options = cast_options(to_type = int64()))
+    build_expr("cast", ddays_int64, options = list(to_type = duration(unit = "s")))
+  })
 }
 
 register_bindings_duration <- function() {
