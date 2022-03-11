@@ -140,12 +140,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   }
 
   @Test
-  public void testShouldGetBytesFromIntVectorWithNullThrowsSqlException() throws Exception {
-    accessorIterator.assertAccessorGetterThrowingException(intVectorWithNull,
-        ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
-  }
-
-  @Test
   public void testShouldGetStringFromIntVectorWithNull() throws Exception {
     accessorIterator.assertAccessorGetter(intVectorWithNull,
         ArrowFlightJdbcBaseIntVectorAccessor::getString, CoreMatchers.nullValue());
