@@ -558,7 +558,6 @@ test_that("extract week from date", {
   )
 })
 
-# Duplicate?
 test_that("extract month from date", {
   compare_dplyr_binding(
     .input %>%
@@ -584,7 +583,6 @@ test_that("extract month from date", {
     ignore_attr = TRUE
   )
 })
-
 
 test_that("extract day from date", {
   compare_dplyr_binding(

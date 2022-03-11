@@ -66,9 +66,10 @@ struct RuntimeInfo {
   std::string detected_simd_level;
 
   /// Whether using the OS-based timezone database
+  /// This is set at compile-time.
   bool using_os_timezone_db;
 
-  /// The path to the timezone database; is None
+  /// The path to the timezone database; by default None.
   util::optional<std::string> timezone_db_path;
 };
 
@@ -91,8 +92,6 @@ struct ArrowGlobalOptions {
   util::optional<std::string> tz_db_path;
 };
 
-// TODO: We need to tell users to run this before using timezones on Windows
-// TODO: We need to run this before C++ unit tests on Windows
 ARROW_EXPORT
 Status Initialize(const ArrowGlobalOptions& options) noexcept;
 
