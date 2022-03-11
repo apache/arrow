@@ -217,7 +217,6 @@ namespace red_arrow {
       rb_hash_aset(value,
                    red_arrow::symbols::millisecond,
                    INT2NUM(arrow_value.milliseconds));
-
       return value;
     }
 
