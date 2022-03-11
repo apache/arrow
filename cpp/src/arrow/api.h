@@ -32,6 +32,7 @@
 #include "arrow/pretty_print.h"             // IYWU pragma: export
 #include "arrow/record_batch.h"             // IYWU pragma: export
 #include "arrow/result.h"                   // IYWU pragma: export
+#include "arrow/row_conversion.h"           // IYWU pragma: export
 #include "arrow/status.h"                   // IYWU pragma: export
 #include "arrow/table.h"                    // IYWU pragma: export
 #include "arrow/table_builder.h"            // IYWU pragma: export

@@ -57,6 +57,15 @@ Compression
 .. doxygenclass:: arrow::util::Decompressor
    :members:
 
+Row Conversion
+==============
+
+.. doxygenclass:: arrow::ToRowConverter
+   :members:
+
+.. doxygenclass:: arrow::FromRowConverter
+   :members:
+
 Visitors
 ========
 
