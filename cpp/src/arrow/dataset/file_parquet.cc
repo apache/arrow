@@ -334,10 +334,6 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
-#ifdef ARROW_WITH_OPENTELEMETRY
-  auto tracer = arrow::internal::tracing::GetTracer();
-  auto span = tracer->StartSpan("arrow::dataset::ParquetFileFormat::GetReaderAsync");
-#endif
   ARROW_ASSIGN_OR_RAISE(
       auto parquet_scan_options,
       GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
@@ -370,17 +366,9 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
                                                        std::move(arrow_properties),
                                                        &arrow_reader));
-#ifdef ARROW_WITH_OPENTELEMETRY
-        span->SetStatus(opentelemetry::trace::StatusCode::kOk);
-        span->End();
-#endif
         return std::move(arrow_reader);
       },
       [=](const Status& status) -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-#ifdef ARROW_WITH_OPENTELEMETRY
-        arrow::internal::tracing::MarkSpan(status, span.get());
-        span->End();
-#endif
         return WrapSourceError(status, path);
       });
 }

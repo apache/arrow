@@ -1188,16 +1188,21 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
   // OptionalParallelForAsync requires an executor
   if (!cpu_executor) cpu_executor = ::arrow::internal::GetCpuThreadPool();
 
+#ifdef ARROW_WITH_OPENTELEMETRY
   auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+#endif
   auto read_column = [row_groups, self, span, this](size_t i,
-                                              std::shared_ptr<ColumnReaderImpl> reader) mutable // need to add mutable to prevent thread_span constness
+                                              std::shared_ptr<ColumnReaderImpl> reader) mutable
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
-    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-    auto newspan =  ::arrow::internal::tracing::GetTracer()->StartSpan(
-            std::string("arrow::parquet::DecodeRowGroups - read_column"));
+#ifdef ARROW_WITH_OPENTELEMETRY
+      auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
+      ::arrow::util::tracing::Span childspan;
+      ::arrow::util::tracing::Span parentspan;
+      parentspan.Set(::arrow::util::tracing::Span::Impl{span});
+      START_SPAN_WITH_PARENT(childspan, parentspan, "arrow::parquet::DecodeRowGroups - read_column");
+#endif
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
-    newspan->End();
     return column;
   };
   auto make_table = [result_schema, row_groups, self,
