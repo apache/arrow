@@ -65,7 +65,7 @@ namespace arrow
             {}
 
             template <typename Generator>
-            Result<ExecNode *> CreateNode(std::vector<std::string> columns);
+            Result<ExecNode *> CreateNode(const char *name, std::vector<std::string> columns);
 
             ExecPlan *plan_;
             float scale_factor_;

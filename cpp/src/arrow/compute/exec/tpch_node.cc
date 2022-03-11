@@ -3641,15 +3641,17 @@ namespace arrow
         {
         public:
             TpchNode(ExecPlan *plan,
+                     const char *name,
                      std::unique_ptr<TpchTableGenerator> generator)
                 : ExecNode(plan, {}, {}, generator->schema(), /*num_outputs=*/1),
+                  name_(name),
                   generator_(std::move(generator))
             {
             }
 
             const char *kind_name() const override
             {
-                return "TpchNode";
+                return name_;
             }
 
             [[noreturn]]
@@ -3699,12 +3701,12 @@ namespace arrow
             void StopProducing() override
             {
                 if(generator_->Abort())
-                    this->finished_.MarkFinished();
+                    std::ignore = task_group_.End();
             }
 
             Future<> finished() override
             {
-                return finished_;
+                return task_group_.OnFinished();
             }
 
         private:
@@ -3716,7 +3718,7 @@ namespace arrow
             void FinishedCallback(int64_t total_num_batches)
             {
                 outputs_[0]->InputFinished(this, static_cast<int>(total_num_batches));
-                finished_.MarkFinished();
+                std::ignore = task_group_.End();
             }
 
             Status ScheduleTaskCallback(std::function<Status(size_t)> func)
@@ -3724,16 +3726,19 @@ namespace arrow
                 auto executor = plan_->exec_context()->executor();
                 if (executor)
                 {
-                    RETURN_NOT_OK(executor->Spawn([this, func]
+                    RETURN_NOT_OK(task_group_.AddTask([&]
                     {
-                        size_t thread_index = thread_indexer_();
-                        Status status = func(thread_index);
-                        if (!status.ok())
+                        return executor->Submit([this, func]
                         {
-                            StopProducing();
-                            ErrorIfNotOk(status);
-                            return;
-                        }
+                            size_t thread_index = thread_indexer_();
+                            Status status = func(thread_index);
+                            if (!status.ok())
+                            {
+                                StopProducing();
+                                ErrorIfNotOk(status);
+                                return;
+                            }
+                        });
                     }));
                 }
                 else
@@ -3743,9 +3748,10 @@ namespace arrow
                 return Status::OK();
             }
 
+            const char *name_;
             std::unique_ptr<TpchTableGenerator> generator_;
 
-            Future<> finished_ = Future<>::MakeFinished();
+            util::AsyncTaskGroup task_group_;
             ThreadIndexer thread_indexer_;
         };
 
@@ -3756,16 +3762,16 @@ namespace arrow
         }
 
         template <typename Generator>
-        Result<ExecNode *> TpchGen::CreateNode(std::vector<std::string> columns)
+        Result<ExecNode *> TpchGen::CreateNode(const char *name, std::vector<std::string> columns)
         {
             std::unique_ptr<Generator> generator = arrow::internal::make_unique<Generator>();
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
-            return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
+            return plan_->EmplaceNode<TpchNode>(plan_, name, std::move(generator));
         }
 
         Result<ExecNode *> TpchGen::Supplier(std::vector<std::string> columns)
         {
-            return CreateNode<SupplierGenerator>(std::move(columns));
+            return CreateNode<SupplierGenerator>("Supplier", std::move(columns));
         }
 
         Result<ExecNode *> TpchGen::Part(std::vector<std::string> columns)
@@ -3776,7 +3782,7 @@ namespace arrow
             }
             std::unique_ptr<PartGenerator> generator = arrow::internal::make_unique<PartGenerator>(part_and_part_supp_generator_);
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
-            return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
+            return plan_->EmplaceNode<TpchNode>(plan_, "Part", std::move(generator));
         }
 
         Result<ExecNode *> TpchGen::PartSupp(std::vector<std::string> columns)
@@ -3787,12 +3793,12 @@ namespace arrow
             }
             std::unique_ptr<PartSuppGenerator> generator = arrow::internal::make_unique<PartSuppGenerator>(part_and_part_supp_generator_);
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
-            return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
+            return plan_->EmplaceNode<TpchNode>(plan_, "PartSupp", std::move(generator));
         }
 
         Result<ExecNode *> TpchGen::Customer(std::vector<std::string> columns)
         {
-            return CreateNode<CustomerGenerator>(std::move(columns));
+            return CreateNode<CustomerGenerator>("Customer", std::move(columns));
         }
 
         Result<ExecNode *> TpchGen::Orders(std::vector<std::string> columns)
@@ -3803,7 +3809,7 @@ namespace arrow
             }
             std::unique_ptr<OrdersGenerator> generator = arrow::internal::make_unique<OrdersGenerator>(orders_and_line_item_generator_);
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
-            return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
+            return plan_->EmplaceNode<TpchNode>(plan_, "Orders", std::move(generator));
         }
 
         Result<ExecNode *> TpchGen::Lineitem(std::vector<std::string> columns)
@@ -3814,17 +3820,17 @@ namespace arrow
             }
             std::unique_ptr<LineitemGenerator> generator = arrow::internal::make_unique<LineitemGenerator>(orders_and_line_item_generator_);
             RETURN_NOT_OK(generator->Init(std::move(columns), scale_factor_, batch_size_));
-            return plan_->EmplaceNode<TpchNode>(plan_, std::move(generator));
+            return plan_->EmplaceNode<TpchNode>(plan_, "Lineitem", std::move(generator));
         }
 
         Result<ExecNode *> TpchGen::Nation(std::vector<std::string> columns)
         {
-            return CreateNode<NationGenerator>(std::move(columns));
+            return CreateNode<NationGenerator>("Nation", std::move(columns));
         }
 
         Result<ExecNode *> TpchGen::Region(std::vector<std::string> columns)
         {
-            return CreateNode<RegionGenerator>(std::move(columns));
+            return CreateNode<RegionGenerator>("Region", std::move(columns));
         }
     }
 }
