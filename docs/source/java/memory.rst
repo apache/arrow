@@ -19,7 +19,7 @@
 Memory Management
 =================
 
-The memory management package contains all the memory allocation related items that Arrow uses to manage memory.
+The memory modules contain all the functionality that Arrow uses to manage memory (allocation and deallocation).
 This section will introduce you to the major concepts in Java’s memory management:
 
 * Allocator
