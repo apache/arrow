@@ -2575,6 +2575,7 @@ test_that("change_on_boundary is respected in ceiling_time", {
 
   boundary_times <- tibble::tibble(
     datetime = as.POSIXct(strptime(c(
+      "2022-05-10 00:00:00", # boundary for week (Sunday / week_start = 7)
       "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
       "2022-03-10 00:00:01", # boundary for: second, millisecond
       "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
@@ -2608,6 +2609,17 @@ test_that("change_on_boundary is respected in ceiling_time", {
       ) %>%
       collect(),
     boundary_times
+  )
+
+  boundary_date <- tibble::tibble(date = as.Date("2022-05-10"))
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = ceiling_date(date, "day", change_on_boundary = FALSE),
+        out_2 = ceiling_date(date, "day", change_on_boundary = TRUE)
+      ) %>%
+      collect(),
+    boundary_date
   )
 
 })
