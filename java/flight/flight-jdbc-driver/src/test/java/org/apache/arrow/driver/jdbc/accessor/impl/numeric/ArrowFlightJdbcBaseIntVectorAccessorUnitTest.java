@@ -62,28 +62,28 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
         };
         if (vector instanceof UInt1Vector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((UInt1Vector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof UInt2Vector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((UInt2Vector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof UInt4Vector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((UInt4Vector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof UInt8Vector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((UInt8Vector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof TinyIntVector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((TinyIntVector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof SmallIntVector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((SmallIntVector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof IntVector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((IntVector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         } else if (vector instanceof BigIntVector) {
           return new ArrowFlightJdbcBaseIntVectorAccessor((BigIntVector) vector, getCurrentRow,
-          noOpWasNullConsumer);
+            noOpWasNullConsumer);
         }
         return null;
       };
