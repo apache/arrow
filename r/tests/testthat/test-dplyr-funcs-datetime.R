@@ -2573,17 +2573,41 @@ test_that("datetime round/floor/ceil to month/quarter/year", {
 
 test_that("change_on_boundary is respected in ceiling_time", {
 
+  boundary_times <- tibble::tibble(
+    datetime = as.POSIXct(strptime(c(
+      "2022-03-10 00:00:00", # boundary for: day, hour, minute, second, millisecond
+      "2022-03-10 00:00:01", # boundary for: second, millisecond
+      "2022-03-10 00:01:00", # boundary for: second, millisecond, minute
+      "2022-03-10 01:00:00"  # boundary for: second, millisecond, minute, hour
+    ), tz="UTC", format = "%F %T"))
+  )
+
+  cob <- FALSE
   compare_dplyr_binding(
     .input %>%
       mutate(
-        out_1 = ceiling_date(datetime, "day", change_on_boundary = FALSE),
-        out_2 = ceiling_date(datetime, "day", change_on_boundary = TRUE)
-    #    out_3 = ceiling_date(datetime, "day", change_on_boundary = NULL)
+        out_1 = ceiling_date(datetime, "day", change_on_boundary = cob),
+        out_2 = ceiling_date(datetime, "hour", change_on_boundary = cob),
+        out_3 = ceiling_date(datetime, "minute", change_on_boundary = cob),
+        out_4 = ceiling_date(datetime, "second", change_on_boundary = cob),
+        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = cob)
       ) %>%
       collect(),
-    tibble::tibble(datetime = as.POSIXct(strptime(c(
-      "2022-03-10 00:00:00", "2022-03-10 00:00:01"
-    ), tz="UTC", format = "%F %T")))
+    boundary_times
+  )
+
+  cob <- TRUE
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        out_1 = ceiling_date(datetime, "day", change_on_boundary = cob),
+        out_2 = ceiling_date(datetime, "hour", change_on_boundary = cob),
+        out_3 = ceiling_date(datetime, "minute", change_on_boundary = cob),
+        out_4 = ceiling_date(datetime, "second", change_on_boundary = cob),
+        out_5 = ceiling_date(datetime, ".001 second", change_on_boundary = cob)
+      ) %>%
+      collect(),
+    boundary_times
   )
 
 })

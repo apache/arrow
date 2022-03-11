@@ -216,7 +216,6 @@ is_compressed <- function(compression) {
   !identical(compression, "uncompressed")
 }
 
-
 parse_period_unit <- function(x) {
 
   # the regexp matches against fractional units, but per lubridate
@@ -287,3 +286,23 @@ parse_period_unit <- function(x) {
 
   return(list(unit = unit, multiple = multiple))
 }
+
+create_unit_duration <- function(opts, zero = FALSE) {
+  if(zero) opts$multiple <- 0
+  opts$multiple <- as.double(opts$multiple)
+
+  # as.difftime only accepts units = secs, mins, hours, days, weeks.
+  diff <- NULL
+  if(opts$unit == 0L) diff <- as.difftime(opts$multiple * 10^-9, units = "secs")  # nanoseconds
+  if(opts$unit == 1L) diff <- as.difftime(opts$multiple * 10^-6, units = "secs")  # microseconds
+  if(opts$unit == 2L) diff <- as.difftime(opts$multiple * 10^-3, units = "secs")  # milliseconds
+  if(opts$unit == 3L) diff <- as.difftime(opts$multiple, units = "secs")  # seconds
+  if(opts$unit == 4L) diff <- as.difftime(opts$multiple, units = "mins")  # minutes
+  if(opts$unit == 5L) diff <- as.difftime(opts$multiple, units = "hours")  # hours
+  if(opts$unit == 6L) diff <- as.difftime(opts$multiple, units = "days")  # days
+  if(opts$unit == 7L) diff <- as.difftime(opts$multiple, units = "weeks")
+  if(is.null(diff)) arrow_not_supported("Cannot change_on_boundary for this unit type")
+
+  Expression$scalar(Scalar$create(diff, type = duration()))
+}
+

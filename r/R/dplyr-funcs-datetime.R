@@ -649,23 +649,34 @@ register_bindings_datetime_parsers <- function() {
       arrow_not_supported("Date/time rounding to week units")
     }
 
-    # ceil_temporal and ceiling_date are equivalent when change_on_boundary = FALSE
+    # ceil_temporal and ceiling_date are equivalent when
+    # change_on_boundary = FALSE: any dates and datetimes at the boundary
+    # will stay where they are and not round up
     if (change_on_boundary == FALSE) {
       return(Expression$create("ceil_temporal", x, options = opts))
     }
 
+    # TRUE and NULL require us to detect boundary times and
+    # make adjustments to the "base" behaviour of ceil_temporal
+    ceiling_base <- Expression$create("ceil_temporal", x, options = opts)
+    is_boundary <- Expression$create("equal", x, ceiling_base)
+
+    unit_duration <- create_unit_duration(opts)
+    zero_duration <- create_unit_duration(opts, zero = TRUE)
+
     if (change_on_boundary == TRUE) {
-      ceiling_base <- Expression$create("ceil_temporal", x, options = opts)
-      one_unit <- Expression$scalar(Scalar$create(as.difftime("24:00:00"), type = duration()))
-      no_units <- Expression$scalar(Scalar$create(as.difftime("00:00:00"), type = duration()))
-      is_boundary <- Expression$create("equal", x, ceiling_base)
       return(
-        call_binding("if_else", is_boundary, ceiling_base + one_unit, ceiling_base + no_units)
+        call_binding(
+          "if_else",
+          is_boundary,
+          ceiling_base + unit_duration,
+          ceiling_base + zero_duration
+        )
       )
     }
 
     # for NULL change_on_boundary
-    return(Expression$create("ceil_temporal", x, options = opts))
+    return(ceiling_base)
 
   })
 
