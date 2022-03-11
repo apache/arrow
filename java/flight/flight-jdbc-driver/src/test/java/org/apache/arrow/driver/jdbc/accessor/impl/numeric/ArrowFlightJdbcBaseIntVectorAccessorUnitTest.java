@@ -207,7 +207,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
   @Test
   public void testShouldGetBytesFromBigIntVectorThrowsSqlException() throws Exception {
-
     accessorIterator.assertAccessorGetterThrowingException(bigIntVector,
         ArrowFlightJdbcBaseIntVectorAccessor::getBytes);
   }
