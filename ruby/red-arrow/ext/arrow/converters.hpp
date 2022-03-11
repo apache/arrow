@@ -209,7 +209,6 @@ namespace red_arrow {
 
     inline VALUE convert(const arrow::DayTimeIntervalArray& array,
                          const int64_t i) {
-
       auto value = rb_hash_new();
       auto arrow_value = array.Value(i);
       rb_hash_aset(value,
