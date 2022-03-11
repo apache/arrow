@@ -13,11 +13,24 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
+// under the License.
+
+// gRPC-based transport for Flight.
 
 #pragma once
 
-// This addresses platform-specific defines, e.g. on Windows
-#include "arrow/flight/platform.h"  // IWYU pragma: keep
+#include "arrow/flight/visibility.h"
 
-// This header holds the Flight Protobuf definitions.
-#include "arrow/flight/Flight.pb.h"  // IWYU pragma: export
+namespace arrow {
+namespace flight {
+namespace transport {
+namespace grpc {
+
+/// \brief Register the gRPC transport implementation. Idempotent.
+ARROW_FLIGHT_EXPORT
+void InitializeFlightGrpcClient();
+
+}  // namespace grpc
+}  // namespace transport
+}  // namespace flight
+}  // namespace arrow

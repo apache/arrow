@@ -92,7 +92,7 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   std::unique_ptr<FlightStreamWriter> writer;
   std::unique_ptr<FlightMetadataReader> reader;
 
-  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, NULLPTR, &writer, &reader));
+  ARROW_RETURN_NOT_OK(DoPut(options, descriptor, arrow::schema({}), &writer, &reader));
 
   std::shared_ptr<Buffer> metadata;
 

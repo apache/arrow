@@ -18,7 +18,7 @@
 #include <signal.h>
 #include <utility>
 
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/python/flight.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"

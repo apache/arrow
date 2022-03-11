@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/flight/platform.h"
+#include "arrow/flight/type_fwd.h"
 #include "arrow/util/config.h"
 
 // Silence protobuf warnings
@@ -55,29 +56,26 @@ class ByteBuffer;
 namespace arrow {
 namespace flight {
 
-struct FlightPayload;
-
-namespace internal {
-
-struct FlightData;
-
-// Those two functions are defined in serialization-internal.cc
-
-// Write FlightData to a grpc::ByteBuffer without extra copying
-grpc::Status FlightDataSerialize(const FlightPayload& msg, grpc::ByteBuffer* out,
-                                 bool* own_buffer);
-
-// Read internal::FlightData from grpc::ByteBuffer containing FlightData
-// protobuf without copying
-grpc::Status FlightDataDeserialize(grpc::ByteBuffer* buffer, FlightData* out);
-
-}  // namespace internal
-
 namespace protocol {
 
 class FlightData;
 
 }  // namespace protocol
+
+namespace transport {
+namespace grpc {
+// Those two functions are defined in serialization_internal.cc
+
+// Write FlightData to a grpc::ByteBuffer without extra copying
+::grpc::Status FlightDataSerialize(const arrow::flight::FlightPayload& msg,
+                                   ::grpc::ByteBuffer* out, bool* own_buffer);
+
+// Read internal::FlightData from grpc::ByteBuffer containing FlightData
+// protobuf without copying
+::grpc::Status FlightDataDeserialize(::grpc::ByteBuffer* buffer,
+                                     arrow::flight::internal::FlightData* out);
+}  // namespace grpc
+}  // namespace transport
 }  // namespace flight
 }  // namespace arrow
 
@@ -95,12 +93,12 @@ class SerializationTraits<arrow::flight::protocol::FlightData> {
   // In the functions below, we cast back the Message argument to its real
   // type (see ReadPayload() and WritePayload() for the initial cast).
   static Status Serialize(const MessageType& msg, ByteBuffer* bb, bool* own_buffer) {
-    return arrow::flight::internal::FlightDataSerialize(
+    return arrow::flight::transport::grpc::FlightDataSerialize(
         *reinterpret_cast<const arrow::flight::FlightPayload*>(&msg), bb, own_buffer);
   }
 
   static Status Deserialize(ByteBuffer* buffer, MessageType* msg) {
-    return arrow::flight::internal::FlightDataDeserialize(
+    return arrow::flight::transport::grpc::FlightDataDeserialize(
         buffer, reinterpret_cast<arrow::flight::internal::FlightData*>(msg));
   }
 };

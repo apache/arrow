@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/flight/platform.h"
+#include "arrow/flight/test_util.h"
 
 #ifdef __APPLE__
 #include <limits.h>
@@ -26,13 +26,15 @@
 #include <cstdlib>
 #include <sstream>
 
+// We need Windows fixes before including Boost
+#include "arrow/util/windows_compatibility.h"
+
 #include <boost/filesystem.hpp>
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
 // boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
 // cpp/cmake_modules/BuildUtils.cmake for details.
-#include <boost/process.hpp>
-
 #include <gtest/gtest.h>
+#include <boost/process.hpp>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
@@ -43,8 +45,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/api.h"
-#include "arrow/flight/internal.h"
-#include "arrow/flight/test_util.h"
+#include "arrow/flight/serialization_internal.h"
 
 namespace arrow {
 namespace flight {
@@ -189,7 +190,7 @@ class FlightTestServer : public FlightServerBase {
 
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* out) override {
-    // Test that Arrow-C++ status codes can make it through gRPC
+    // Test that Arrow-C++ status codes make it through the transport
     if (request.type == FlightDescriptor::DescriptorType::CMD &&
         request.cmd == "status-outofmemory") {
       return Status::OutOfMemory("Sentinel");

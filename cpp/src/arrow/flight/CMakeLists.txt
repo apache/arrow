@@ -41,20 +41,28 @@ if(NOT ARROW_GRPC_USE_SHARED)
       PARENT_SCOPE)
 endif()
 
+set(ARROW_FLIGHT_TEST_INTERFACE_LIBS)
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_TEST_LINK_LIBS
       arrow_flight_static arrow_flight_testing_static ${ARROW_FLIGHT_STATIC_LINK_LIBS}
       ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_static)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_static)
   endif()
 else()
   set(ARROW_FLIGHT_TEST_LINK_LIBS arrow_flight_shared arrow_flight_testing_shared
                                   ${ARROW_TEST_LINK_LIBS})
   if(ARROW_CUDA)
+    list(APPEND ARROW_FLIGHT_TEST_INTERFACE_LIBS arrow_cuda_shared)
     list(APPEND ARROW_FLIGHT_TEST_LINK_LIBS arrow_cuda_shared)
   endif()
 endif()
+
+# Needed for Flight SQL and integration
+set(ARROW_FLIGHT_TEST_LINK_LIBS
+    ${ARROW_FLIGHT_TEST_LINK_LIBS}
+    PARENT_SCOPE)
 
 # TODO(wesm): Protobuf shared vs static linking
 
@@ -162,20 +170,39 @@ endif()
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 
-# Note, we do not compile the generated Protobuf sources directly, instead
+# Note, we do not compile the generated gRPC sources directly, instead
 # compiling them via protocol_internal.cc which contains some gRPC template
 # overrides to enable Flight-specific optimizations. See comments in
 # protocol_internal.cc
 set(ARROW_FLIGHT_SRCS
+    "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
     client.cc
     client_cookie_middleware.cc
-    client_header_internal.cc
-    internal.cc
-    protocol_internal.cc
+    cookie_internal.cc
     serialization_internal.cc
     server.cc
     server_auth.cc
+    transport.cc
+    transport_server.cc
+    # Bundle the gRPC impl with libarrow_flight
+    transport/grpc/grpc_client.cc
+    transport/grpc/grpc_server.cc
+    transport/grpc/serialization_internal.cc
+    transport/grpc/protocol_grpc_internal.cc
+    transport/grpc/util_internal.cc
     types.cc)
+
+if(MSVC)
+  # Protobuf generated files trigger spurious warnings on MSVC.
+  foreach(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"
+                           "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.h")
+    # Suppress missing dll-interface warning
+    set_source_files_properties("${GENERATED_SOURCE}"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                           GENERATED TRUE
+                                           SKIP_UNITY_BUILD_INCLUSION TRUE)
+  endforeach()
+endif()
 
 add_arrow_lib(arrow_flight
               CMAKE_PACKAGE_NAME
@@ -226,10 +253,12 @@ if(ARROW_TESTING)
                 ${BOOST_FILESYSTEM_LIBRARY}
                 ${BOOST_SYSTEM_LIBRARY}
                 GTest::gtest
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
                 arrow_static
                 arrow_flight_static
-                arrow_testing_static)
+                arrow_testing_static
+                ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
@@ -261,14 +290,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   endif()
 
   add_dependencies(arrow_flight flight-test-server)
-endif()
-
-if(ARROW_CUDA AND ARROW_BUILD_TESTS)
-  add_arrow_test(flight_cuda_test
-                 STATIC_LINK_LIBS
-                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
-                 LABELS
-                 "arrow_flight")
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)

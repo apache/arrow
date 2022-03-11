@@ -15,29 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces for defining middleware for Flight clients. Currently
-// experimental.
+// Utilities for working with HTTP cookies.
 
 #pragma once
+
+#include <chrono>
+#include <mutex>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 #include "arrow/flight/client_middleware.h"
 #include "arrow/result.h"
 #include "arrow/util/optional.h"
-
-#ifdef GRPCPP_PP_INCLUDE
-#include <grpcpp/grpcpp.h>
-#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-#include <grpcpp/security/tls_credentials_options.h>
-#endif
-#else
-#include <grpc++/grpc++.h>
-#endif
-
-#include <chrono>
-#include <functional>
-#include <mutex>
-#include <string>
-#include <unordered_map>
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace flight {
@@ -63,7 +54,7 @@ class ARROW_FLIGHT_EXPORT Cookie {
   /// \brief Parse function to parse a cookie header value and return a Cookie object.
   ///
   /// \return Cookie object based on cookie header value.
-  static Cookie parse(const arrow::util::string_view& cookie_header_value);
+  static Cookie Parse(const arrow::util::string_view& cookie_header_value);
 
   /// \brief Parse a cookie header string beginning at the given start_pos and identify
   /// the name and value of an attribute.
@@ -129,22 +120,6 @@ class ARROW_FLIGHT_EXPORT CookieCache {
   std::unordered_map<std::string, Cookie, CaseInsensitiveHash, CaseInsensitiveComparator>
       cookies;
 };
-
-/// \brief Add basic authentication header key value pair to context.
-///
-/// \param context grpc context variable to add header to.
-/// \param username username to encode into header.
-/// \param password password to to encode into header.
-void ARROW_FLIGHT_EXPORT AddBasicAuthHeaders(grpc::ClientContext* context,
-                                             const std::string& username,
-                                             const std::string& password);
-
-/// \brief Get bearer token from incoming headers.
-///
-/// \param context context that contains headers which hold the bearer token.
-/// \return Bearer token, parsed from headers, empty if one is not present.
-arrow::Result<std::pair<std::string, std::string>> ARROW_FLIGHT_EXPORT
-GetBearerTokenHeader(grpc::ClientContext& context);
 
 }  // namespace internal
 }  // namespace flight

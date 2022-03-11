@@ -14,10 +14,12 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 
-#pragma once
+#include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 
-// This addresses platform-specific defines, e.g. on Windows
-#include "arrow/flight/platform.h"  // IWYU pragma: keep
-
-// This header holds the Flight Protobuf definitions.
-#include "arrow/flight/Flight.pb.h"  // IWYU pragma: export
+// NOTE(wesm): Including .cc files in another .cc file would ordinarily be a
+// no-no. We have customized the serialization path for FlightData, which is
+// currently only possible through some pre-processor commands that need to be
+// included before either of these files is compiled. Because we don't want to
+// edit the generated C++ files, we include them here and do our gRPC
+// customizations in protocol_grpc_internal.h
+#include "arrow/flight/Flight.grpc.pb.cc"  // NOLINT

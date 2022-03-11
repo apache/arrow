@@ -44,8 +44,15 @@
 #error "gRPC headers should not be in public API"
 #endif
 
-#include "arrow/flight/internal.h"
-#include "arrow/flight/middleware_internal.h"
+#ifdef GRPCPP_PP_INCLUDE
+#include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
+
+// Include before test_util.h (boost), contains Windows fixes
+#include "arrow/flight/platform.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/test_definitions.h"
 #include "arrow/flight/test_util.h"
 
@@ -100,17 +107,16 @@ class GrpcDoPutTest : public DoPutTest {
   std::string transport() const override { return "grpc"; }
 };
 TEST_F(GrpcDoPutTest, TestInts) { TestInts(); }
-TEST_F(GrpcDoPutTest, TestDoPutFloats) { TestDoPutFloats(); }
-TEST_F(GrpcDoPutTest, TestDoPutEmptyBatch) { TestDoPutEmptyBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutDicts) { TestDoPutDicts(); }
-TEST_F(GrpcDoPutTest, TestDoPutLargeBatch) { TestDoPutLargeBatch(); }
-TEST_F(GrpcDoPutTest, TestDoPutSizeLimit) { TestDoPutSizeLimit(); }
+TEST_F(GrpcDoPutTest, TestFloats) { TestFloats(); }
+TEST_F(GrpcDoPutTest, TestEmptyBatch) { TestEmptyBatch(); }
+TEST_F(GrpcDoPutTest, TestDicts) { TestDicts(); }
+TEST_F(GrpcDoPutTest, TestLargeBatch) { TestLargeBatch(); }
+TEST_F(GrpcDoPutTest, TestSizeLimit) { TestSizeLimit(); }
 
 class GrpcAppMetadataTest : public AppMetadataTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-
 TEST_F(GrpcAppMetadataTest, TestDoGet) { TestDoGet(); }
 TEST_F(GrpcAppMetadataTest, TestDoGetDictionaries) { TestDoGetDictionaries(); }
 TEST_F(GrpcAppMetadataTest, TestDoPut) { TestDoPut(); }
@@ -121,7 +127,6 @@ class GrpcIpcOptionsTest : public IpcOptionsTest {
  protected:
   std::string transport() const override { return "grpc"; }
 };
-
 TEST_F(GrpcIpcOptionsTest, TestDoGetReadOptions) { TestDoGetReadOptions(); }
 TEST_F(GrpcIpcOptionsTest, TestDoPutWriteOptions) { TestDoPutWriteOptions(); }
 TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptions) {
@@ -133,6 +138,14 @@ TEST_F(GrpcIpcOptionsTest, TestDoExchangeClientWriteOptionsBegin) {
 TEST_F(GrpcIpcOptionsTest, TestDoExchangeServerWriteOptions) {
   TestDoExchangeServerWriteOptions();
 }
+
+class GrpcCudaDataTest : public CudaDataTest {
+ protected:
+  std::string transport() const override { return "grpc"; }
+};
+TEST_F(GrpcCudaDataTest, TestDoGet) { TestDoGet(); }
+TEST_F(GrpcCudaDataTest, TestDoPut) { TestDoPut(); }
+TEST_F(GrpcCudaDataTest, TestDoExchange) { TestDoExchange(); }
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -1606,10 +1619,12 @@ TEST_F(TestCancel, DoExchange) {
   std::shared_ptr<Table> table;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
                                   stream->ReadAll(&table));
+  ARROW_UNUSED(writer->Close());
 
   ASSERT_OK(client_->DoExchange(FlightDescriptor::Command(""), &writer, &stream));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Cancelled, ::testing::HasSubstr("StopSource"),
                                   stream->ReadAll(&table, options.stop_token));
+  ARROW_UNUSED(writer->Close());
 }
 
 }  // namespace flight
