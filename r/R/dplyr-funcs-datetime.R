@@ -189,3 +189,23 @@ register_bindings_datetime <- function() {
     build_expr("cast", x, options = list(to_type = date32()))
   })
 }
+
+binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
+  if (usetz) {
+    format <- paste(format, "%Z")
+  }
+
+  if (call_binding("is.POSIXct", x)) {
+    # the casting part might not be required once
+    # https://issues.apache.org/jira/browse/ARROW-14442 is solved
+    # TODO revisit the steps below once the PR for that issue is merged
+    if (tz == "" && x$type()$timezone() != "") {
+      tz <- x$type()$timezone()
+    } else if (tz == "") {
+      tz <- Sys.timezone()
+    }
+    x <- build_expr("cast", x, options = cast_options(to_type = timestamp(x$type()$unit(), tz)))
+  }
+
+  build_expr("strftime", x, options = list(format = format, locale = Sys.getlocale("LC_TIME")))
+}
