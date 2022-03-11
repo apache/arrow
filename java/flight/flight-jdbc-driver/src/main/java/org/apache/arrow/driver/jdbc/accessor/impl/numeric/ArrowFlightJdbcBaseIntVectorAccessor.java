@@ -22,7 +22,6 @@ import static org.apache.arrow.driver.jdbc.accessor.impl.numeric.ArrowFlightJdbc
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.SQLException;
 import java.util.function.IntSupplier;
 
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
@@ -154,11 +153,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public double getDouble() {
     return (double) getLong();
-  }
-
-  @Override
-  public byte[] getBytes() throws SQLException {
-    throw new SQLException("Is not possible to get bytes: ");
   }
 
   @Override
