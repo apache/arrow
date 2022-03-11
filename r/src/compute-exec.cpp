@@ -418,17 +418,9 @@ void Tpch_Dbgen_Write(
 
   StopIfNotOk(plan->StartProducing());
 
-  // If the generator is destroyed before being completely drained, inform plan
-  std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-    bool not_finished_yet =
-      plan->finished().TryAddCallback([&plan] {
-        return [plan](const arrow::Status&) {};
-      });
+  cpp11::message("Just after start");
 
-    if (not_finished_yet) {
-      plan->StopProducing();
-    }
-  }};
+  StopIfNotOk(plan->finished().status());
 }
 
 #endif
