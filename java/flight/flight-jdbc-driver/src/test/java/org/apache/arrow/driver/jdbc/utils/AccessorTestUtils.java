@@ -39,7 +39,6 @@ public class AccessorTestUtils {
   }
 
   public static class Cursor {
-
     int currentRow = 0;
     int limit;
 
@@ -119,6 +118,12 @@ public class AccessorTestUtils {
         collector.checkThat(object, matcherGetter.get(accessor, currentRow));
         collector.checkThat(wasNull, is(accessor.getObject() == null));
       });
+    }
+
+    public <R> void assertAccessorGetterForException(ValueVector vector, CheckedFunction<T, R> getter)
+        throws Exception {
+      iterate(vector, (accessor, currentRow) ->
+          collector.checkThrows(SQLException.class, () -> getter.apply(accessor)));
     }
 
     public <R> void assertAccessorGetter(ValueVector vector, CheckedFunction<T, R> getter,
