@@ -34,22 +34,16 @@ namespace py {
   Status exec_function_##FUNCTION_SUFFIX(const cp::ExecBatch& batch, PyObject* function, \
                                          int num_args, Datum* out) {                     \
     std::shared_ptr<TYPE_NAME> c_res_data;                                               \
-    PyObject* result = NULLPTR;                                                          \
-    PyObject* data = NULLPTR;                                                            \
-    PyObject* arg_tuple = NULLPTR;                                                       \
-    Py_XINCREF(data);                                                                    \
-    Py_XINCREF(arg_tuple);                                                               \
-    Py_XINCREF(result);                                                                  \
-    arg_tuple = PyTuple_New(num_args);                                                   \
+    PyObject* arg_tuple = PyTuple_New(num_args);                                         \
     for (int arg_id = 0; arg_id < num_args; arg_id++) {                                  \
       if (!batch[arg_id].is_##FUNCTION_SUFFIX()) {                                       \
         return Status::Invalid("Input type and data type doesn't match");                \
       }                                                                                  \
       auto c_data = batch[arg_id].CONVERT_SUFFIX();                                      \
-      data = wrap_##FUNCTION_SUFFIX(c_data);                                             \
+      PyObject* data = wrap_##FUNCTION_SUFFIX(c_data);                                   \
       PyTuple_SetItem(arg_tuple, arg_id, data);                                          \
     }                                                                                    \
-    result = PyObject_CallObject(function, arg_tuple);                                   \
+    PyObject* result = PyObject_CallObject(function, arg_tuple);                         \
     if (result == NULL) {                                                                \
       return Status::ExecutionError("Error occured in computation");                     \
     }                                                                                    \
@@ -60,9 +54,6 @@ namespace py {
     c_res_data = res.ValueOrDie();                                                       \
     auto datum = new Datum(c_res_data);                                                  \
     *out = *datum;                                                                       \
-    Py_XDECREF(data);                                                                    \
-    Py_XDECREF(arg_tuple);                                                               \
-    Py_XDECREF(result);                                                                  \
     return Status::OK();                                                                 \
   }
 
@@ -70,6 +61,32 @@ DEFINE_CALL_UDF(Scalar, scalar, scalar)
 DEFINE_CALL_UDF(Array, array, make_array)
 
 #undef DEFINE_CALL_UDF
+
+// Status exec_function_scalar(const cp::ExecBatch& batch, PyObject* function,
+//                                          int num_args, Datum* out) {
+//     std::shared_ptr<Scalar> c_res_data;
+//     PyObject* arg_tuple = PyTuple_New(num_args);
+//     for (int arg_id = 0; arg_id < num_args; arg_id++) {
+//       if (!batch[arg_id].is_scalar()) {
+//         return Status::Invalid("Input type and data type doesn't match");
+//       }
+//       auto c_data = batch[arg_id].scalar();
+//       PyObject* data = wrap_scalar(c_data);
+//       PyTuple_SetItem(arg_tuple, arg_id, data);
+//     }
+//     PyObject* result = PyObject_CallObject(function, arg_tuple);
+//     if (result == NULL) {
+//       return Status::ExecutionError("Error occured in computation");
+//     }
+//     auto res = unwrap_scalar(result);
+//     if (!res.status().ok()) {
+//       return res.status();
+//     }
+//     c_res_data = res.ValueOrDie();
+//     auto datum = new Datum(c_res_data);
+//     *out = *datum;
+//     return Status::OK();
+//   }
 
 Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
   bool match = (uint64_t)arity.num_args == batch.values.size();
@@ -109,8 +126,10 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
   };
 
   // lambda function
-  cp::ScalarKernel kernel(cp::KernelSignature::Make(this->input_types(), this->output_type(),
-   this->arity().is_varargs), call_back_lambda);
+  cp::ScalarKernel kernel(
+      cp::KernelSignature::Make(this->input_types(), this->output_type(),
+                                this->arity().is_varargs),
+      call_back_lambda);
   kernel.mem_allocation = this->mem_allocation();
   kernel.null_handling = this->null_handling();
   st = func->AddKernel(std::move(kernel));
