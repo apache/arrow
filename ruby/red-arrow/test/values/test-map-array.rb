@@ -319,14 +319,7 @@ module ValuesMapArrayTests
       },
       nil,
     ]
-    inputs = [
-      {
-        "key1" => Arrow::DayMillisecond.new(1, 100),
-        "key2" => nil,
-      },
-      nil,
-    ]
-    target = build(:day_time_interval, inputs)
+    target = build(:day_time_interval, values)
     assert_equal(values, target.values)
   end
 

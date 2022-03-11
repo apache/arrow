@@ -338,11 +338,7 @@ module ValuesSparseUnionArrayTests
       {"0" => {day: 1, millisecond: 100}},
       {"1" => nil},
     ]
-    inputs = [
-      {"0" => Arrow::DayMillisecond.new(1, 100)},
-      {"1" => nil},
-    ]
-    target = build(:day_time_interval, inputs)
+    target = build(:day_time_interval, values)
     assert_equal(values, target.values)
   end
 

@@ -59,6 +59,7 @@ module Arrow
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
       require "arrow/datum"
+      require "arrow/day-time-interval-array-builder"
       require "arrow/decimal128"
       require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
