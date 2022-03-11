@@ -126,10 +126,12 @@ AsyncGenerator<T> TieSpanToAsyncGenerator(
     return wrapped().Then(
         [span](const T& result) -> Result<T> {
           span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+          span->End();
           return result;
         },
         [span](const Status& status) -> Result<T> {
           MarkSpan(status, span.get());
+          span->End();
           return status;
         });
   };
