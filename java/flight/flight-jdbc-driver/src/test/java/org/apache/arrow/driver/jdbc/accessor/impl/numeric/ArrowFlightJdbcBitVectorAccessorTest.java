@@ -24,7 +24,7 @@ import java.math.BigDecimal;
 
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.AccessorIterator;
-import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.AccessorIterator.CheckedFunction;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.CheckedFunction;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BitVector;
 import org.junit.After;
