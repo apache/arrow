@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
@@ -2888,7 +2889,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
               const FunctionOptions* options) override {
     ctx_ = ctx;
-    allocator_ = Allocator(ctx->memory_pool());
+    allocator_ = Allocator(ctx_->memory_pool());
     // out_type_ initialized by GroupedListInit
     groups_ = TypedBufferBuilder<uint32_t>(ctx_->memory_pool());
     values_bitmap_ = TypedBufferBuilder<bool>(ctx_->memory_pool());
@@ -3038,6 +3039,65 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   std::shared_ptr<DataType> out_type_;
 };
 
+struct GroupedNullListImpl : public GroupedAggregator {
+  Status Init(ExecContext* ctx, const std::vector<ValueDescr>&,
+              const FunctionOptions* options) override {
+    ctx_ = ctx;
+    counts_ = TypedBufferBuilder<int64_t>(ctx_->memory_pool());
+    return Status::OK();
+  }
+
+  Status Resize(int64_t new_num_groups) override {
+    auto added_groups = new_num_groups - num_groups_;
+    num_groups_ = new_num_groups;
+    return counts_.Append(added_groups, 0);
+  }
+
+  Status Consume(const ExecBatch& batch) override {
+    int64_t* counts = counts_.mutable_data();
+    const auto* g_begin = batch[1].array()->GetValues<uint32_t>(1);
+    for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
+      counts[*g_begin] += 1;
+    }
+    return Status::OK();
+  }
+
+  Status Merge(GroupedAggregator&& raw_other,
+               const ArrayData& group_id_mapping) override {
+    auto other = checked_cast<GroupedNullListImpl*>(&raw_other);
+
+    int64_t* counts = counts_.mutable_data();
+    const int64_t* other_counts = other->counts_.data();
+
+    const auto* g = group_id_mapping.GetValues<uint32_t>(1);
+    for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
+      counts[*g] += other_counts[other_g];
+    }
+
+    return Status::OK();
+  }
+
+  Result<Datum> Finalize() override {
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx_->memory_pool(), list(null()), &builder));
+    auto list_builder = checked_cast<ListBuilder*>(builder.get());
+    auto value_builder = checked_cast<NullBuilder*>(list_builder->value_builder());
+    const int64_t* counts = counts_.data();
+
+    for (int64_t group = 0; group < num_groups_; ++group) {
+      RETURN_NOT_OK(list_builder->Append(true));
+      RETURN_NOT_OK(value_builder->AppendNulls(counts[group]));
+    }
+    return list_builder->Finish();
+  }
+
+  std::shared_ptr<DataType> out_type() const override { return list(null()); }
+
+  ExecContext* ctx_;
+  int64_t num_groups_ = 0;
+  TypedBufferBuilder<int64_t> counts_;
+};
+
 template <typename T>
 Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
                                                      const KernelInitArgs& args) {
@@ -3082,11 +3142,11 @@ struct GroupedListFactory {
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<BooleanType>);
     return Status::OK();
   }
-  //
-  //  Status Visit(const NullType&) {
-  //    kernel = MakeKernel(std::move(argument_type),
-  //    HashAggregateInit<GroupedNullListImpl>); return Status::OK();
-  //  }
+
+  Status Visit(const NullType&) {
+    kernel = MakeKernel(std::move(argument_type), HashAggregateInit<GroupedNullListImpl>);
+    return Status::OK();
+  }
 
   Status Visit(const HalfFloatType& type) {
     return Status::NotImplemented("Outputting one of data of type ", type);
@@ -3681,10 +3741,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
     DCHECK_OK(AddHashAggKernels(NumericTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(TemporalTypes(), GroupedListFactory::Make, func.get()));
     DCHECK_OK(AddHashAggKernels(BaseBinaryTypes(), GroupedListFactory::Make, func.get()));
-    DCHECK_OK(
-        AddHashAggKernels({/*null(),*/ boolean(), decimal128(1, 1), decimal256(1, 1),
-                           month_interval(), fixed_size_binary(1)},
-                          GroupedListFactory::Make, func.get()));
+    DCHECK_OK(AddHashAggKernels({null(), boolean(), decimal128(1, 1), decimal256(1, 1),
+                                 month_interval(), fixed_size_binary(1)},
+                                GroupedListFactory::Make, func.get()));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 }
