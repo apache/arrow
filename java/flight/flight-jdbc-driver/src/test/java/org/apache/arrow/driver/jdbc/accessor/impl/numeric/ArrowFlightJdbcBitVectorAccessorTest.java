@@ -23,6 +23,8 @@ import static org.hamcrest.CoreMatchers.is;
 import java.math.BigDecimal;
 
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.AccessorIterator;
+import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils.AccessorIterator.CheckedFunction;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.BitVector;
 import org.junit.After;
@@ -43,9 +45,9 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
           (vector, getCurrentRow) -> new ArrowFlightJdbcBitVectorAccessor((BitVector) vector,
               getCurrentRow, (boolean wasNull) -> {
           });
-  private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBitVectorAccessor>
+  private final AccessorIterator<ArrowFlightJdbcBitVectorAccessor>
       accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      new AccessorIterator<>(collector, accessorSupplier);
   private BitVector vector;
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;
@@ -63,8 +65,7 @@ public class ArrowFlightJdbcBitVectorAccessorTest {
     this.vectorWithNull.close();
   }
 
-  private <T> void iterate(final AccessorTestUtils
-      .AccessorIterator.CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
+  private <T> void iterate(final CheckedFunction<ArrowFlightJdbcBitVectorAccessor, T> function,
                            final T result,
                            final T resultIfFalse, final BitVector vector) throws Exception {
     accessorIterator.assertAccessorGetter(vector, function,
