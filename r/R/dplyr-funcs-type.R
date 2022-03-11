@@ -145,10 +145,14 @@ register_bindings_type_cast <- function() {
     # intermediate step
     # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862 done
     if (call_binding("is.integer", x)) {
-      x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
-      y <- build_expr("cast", 0L, options = cast_options(to_type = time32(unit = "s")))
-      diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
-      return(diff_x_y)
+      # x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
+      # y <- build_expr("cast", 0L, options = cast_options(to_type = time32(unit = "s")))
+      # diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
+      # return(diff_x_y)
+      # or we could go via int64()
+      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
+      x <- build_expr("cast", x, options = cast_options(to_type = duration("s")))
+      return(x)
     }
 
     if (call_binding("is.double")) {
