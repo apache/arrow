@@ -2009,6 +2009,19 @@ cdef class Table(_PandasConvertible):
             result.append(pyarrow_wrap_batch(batch))
 
         return result
+    
+    def to_reader(self):
+        """
+        Convert a Table to RecordBatchReader
+        
+        Returns
+        -------
+        RecordBatchReader        
+        """
+        cdef:
+            shared_ptr[CRecordBatchReader] c_reader
+        c_reader.reset(new CRecordBatchReader(self.table))
+        return RecordBatchReader(c_reader)
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
