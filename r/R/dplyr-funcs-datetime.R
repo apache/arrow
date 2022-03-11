@@ -208,7 +208,7 @@ register_bindings_datetime <- function() {
       time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
     }
 
-    time1 - time2
+    build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
   })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
