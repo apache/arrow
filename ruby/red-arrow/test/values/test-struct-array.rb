@@ -351,6 +351,21 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_day_time_interval
+    values = [
+      {"field" => {day: 1, millisecond: 100}},
+      nil,
+      {"field" => nil},
+    ]
+    inputs = [
+      {"field" => Arrow::DayMillisecond.new(1, 100)},
+      nil,
+      {"field" => nil},
+    ]
+    target = build(:day_time_interval, inputs)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"field" => [true, nil, false]},

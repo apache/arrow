@@ -36,6 +36,11 @@ namespace red_arrow {
   ID id_jd;
   ID id_new;
   ID id_to_datetime;
+
+  namespace symbols {
+    VALUE day;
+    VALUE millisecond;
+  }
 }
 
 extern "C" void Init_arrow() {
@@ -81,4 +86,7 @@ extern "C" void Init_arrow() {
   red_arrow::id_to_datetime = rb_intern("to_datetime");
 
   red_arrow::memory_view::init(mArrow);
+
+  red_arrow::symbols::day = ID2SYM(rb_intern("day"));
+  red_arrow::symbols::millisecond = ID2SYM(rb_intern("millisecond"));
 }

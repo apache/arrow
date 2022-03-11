@@ -311,6 +311,25 @@ module ValuesMapArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_day_time_interval
+    values = [
+      {
+        "key1" => {day: 1, millisecond: 100},
+        "key2" => nil,
+      },
+      nil,
+    ]
+    inputs = [
+      {
+        "key1" => Arrow::DayMillisecond.new(1, 100),
+        "key2" => nil,
+      },
+      nil,
+    ]
+    target = build(:day_time_interval, inputs)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"key1" => [true, nil, false], "key2" => nil},

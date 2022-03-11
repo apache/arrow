@@ -207,6 +207,19 @@ namespace red_arrow {
       return INT2NUM(array.Value(i));
     }
 
+    inline VALUE convert(const arrow::DayTimeIntervalArray& array,
+                         const int64_t i) {
+      auto value = rb_hash_new();
+      auto arrow_value = array.Value(i);
+      rb_hash_aset(value,
+                   red_arrow::symbols::day,
+                   INT2NUM(arrow_value.days));
+      rb_hash_aset(value,
+                   red_arrow::symbols::millisecond,
+                   INT2NUM(arrow_value.milliseconds));
+      return value;
+    }
+
     VALUE convert(const arrow::ListArray& array,
                   const int64_t i);
 
@@ -306,6 +319,7 @@ namespace red_arrow {
     // TODO
     // VISIT(Interval)
     VISIT(MonthInterval)
+    VISIT(DayTimeInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -413,6 +427,7 @@ namespace red_arrow {
     // TODO
     // VISIT(Interval)
     VISIT(MonthInterval)
+    VISIT(DayTimeInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -516,6 +531,7 @@ namespace red_arrow {
     // TODO
     // VISIT(Interval)
     VISIT(MonthInterval)
+    VISIT(DayTimeInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -620,6 +636,7 @@ namespace red_arrow {
     // TODO
     // VISIT(Interval)
     VISIT(MonthInterval)
+    VISIT(DayTimeInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
