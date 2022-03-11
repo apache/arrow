@@ -273,6 +273,18 @@ class FileReaderImpl : public FileReader {
       records_to_read +=
           reader_->metadata()->RowGroup(row_group)->ColumnChunk(i)->num_values();
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    std::string column_name = reader_->metadata()->schema()->Column(i)->name();
+    auto span = ::arrow::internal::tracing::GetTracer()->GetCurrentSpan();
+    ::arrow::util::tracing::Span childspan;
+    ::arrow::util::tracing::Span parentspan;
+    parentspan.Set(::arrow::util::tracing::Span::Impl{span});
+    START_SPAN_WITH_PARENT(childspan, parentspan,
+                           "parquet::arrow::read_column",
+                           {{"parquet.arrow.columnindex", i},
+                            {"parquet.arrow.columnname", column_name},
+                            {"parquet.arrow.records_to_read", records_to_read}});
+#endif
     return reader->NextBatch(records_to_read, out);
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -1196,11 +1208,6 @@ Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
       -> ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> {
 #ifdef ARROW_WITH_OPENTELEMETRY
     auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(span);
-    ::arrow::util::tracing::Span childspan;
-    ::arrow::util::tracing::Span parentspan;
-    parentspan.Set(::arrow::util::tracing::Span::Impl{span});
-    START_SPAN_WITH_PARENT(childspan, parentspan,
-                           "arrow::parquet::DecodeRowGroups - read_column");
 #endif
     std::shared_ptr<::arrow::ChunkedArray> column;
     RETURN_NOT_OK(ReadColumn(static_cast<int>(i), row_groups, reader.get(), &column));
