@@ -33,9 +33,17 @@ namespace arrow
         class OrdersAndLineItemGenerator;
         class PartAndPartSupplierGenerator;
 
+
         class TpchGen
         {
         public:
+            /*
+             * \brief Create a factory for nodes that generate TPC-H data
+             *
+             * Note: Individual tables will reference each other.  It is important that you only create a single TpchGen
+             *          instance for each plan and then you can create nodes for each table from that single TpchGen instance.
+             * Note: Every batch will be scheduled as a new task using the ExecPlan's scheduler.
+             */
             static Result<TpchGen> Make(ExecPlan *plan, float scale_factor = 1.0f, int64_t batch_size = 4096);
 
             Result<ExecNode *> Supplier(std::vector<std::string> columns = {});
@@ -52,6 +60,7 @@ namespace arrow
                 : plan_(plan),
                   scale_factor_(scale_factor),
                   batch_size_(batch_size),
+                  part_and_part_supp_generator_(nullptr),
                   orders_and_line_item_generator_(nullptr)
             {}
 

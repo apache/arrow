@@ -19,297 +19,6 @@ namespace arrow
 
     namespace compute
     {
-        class TpchText
-        {
-        public:
-            Status InitIfNeeded(random::pcg32_fast &rng);
-            Result<Datum> GenerateComments(
-                size_t num_comments,
-                size_t min_length,
-                size_t max_length,
-                random::pcg32_fast &rng);
-
-        private:
-            bool GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices);
-            bool GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr);
-
-            bool GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
-            bool GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
-
-            bool GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr);
-
-            std::atomic<bool> done_ = { false };
-            int64_t generated_offset_ = 0;
-            std::mutex text_guard_;
-            std::unique_ptr<Buffer> text_;
-            static constexpr int64_t kChunkSize = 8192;
-            static constexpr int64_t kTextBytes = 300 * 1024 * 1024; // 300 MB
-        };
-
-        class TpchTableGenerator
-        {
-        public:
-            using OutputBatchCallback = std::function<void(ExecBatch)>;
-            using FinishedCallback = std::function<void(int64_t)>;
-            using GenerateFn = std::function<Status(size_t)>;
-            using ScheduleCallback = std::function<Status(GenerateFn)>;
-            using AbortCallback = std::function<void()>;
-
-            virtual Status Init(
-                std::vector<std::string> columns,
-                float scale_factor,
-                int64_t batch_size) = 0;
-
-            virtual Status StartProducing(
-                size_t num_threads,
-                OutputBatchCallback output_callback,
-                FinishedCallback finished_callback,
-                ScheduleCallback schedule_callback) = 0;
-
-            void Abort(AbortCallback abort_callback)
-            {
-                bool expected = false;
-                if(done_.compare_exchange_strong(expected, true))
-                {
-                    abort_callback();
-                }
-            }
-
-            virtual std::shared_ptr<Schema> schema() const = 0;
-
-            virtual ~TpchTableGenerator() = default;
-
-        protected:
-            std::atomic<bool> done_ = { false };
-            std::atomic<int64_t> batches_outputted_ = { 0 };
-        };
-
-        int GetNumDigits(int64_t x)
-        {
-            // This if statement chain is for MAXIMUM SPEED
-            /*
-              .,
-              .      _,'f----.._
-              |\ ,-'"/  |     ,'
-              |,_  ,--.      /
-              /,-. ,'`.     (_
-              f  o|  o|__     "`-.
-              ,-._.,--'_ `.   _.,-`
-              `"' ___.,'` j,-'
-              `-.__.,--'
-             */
-            // Source: https://stackoverflow.com/questions/1068849/how-do-i-determine-the-number-of-digits-of-an-integer-in-c
-            ARROW_DCHECK(x >= 0);
-            if(x < 10ll) return 1;
-            if(x < 100ll) return 2;
-            if(x < 1000ll) return 3;
-            if(x < 10000ll) return 4;
-            if(x < 100000ll) return 5;
-            if(x < 1000000ll) return 6;
-            if(x < 10000000ll) return 7;
-            if(x < 100000000ll) return 8;
-            if(x < 1000000000ll) return 9;
-            if(x < 10000000000ll) return 10;
-            if(x < 100000000000ll) return 11;
-            if(x < 1000000000000ll) return 12;
-            if(x < 10000000000000ll) return 13;
-            if(x < 100000000000000ll) return 14;
-            if(x < 1000000000000000ll) return 15;
-            if(x < 10000000000000000ll) return 16;
-            if(x < 100000000000000000ll) return 17;
-            if(x < 1000000000000000000ll) return 18;
-            return -1;
-        }
-
-        void AppendNumberPaddedToNineDigits(char *out, int64_t x)
-        {
-            // We do all of this to avoid calling snprintf, which does a lot of crazy
-            // locale stuff. On Windows and MacOS this can get suuuuper slow
-            int num_digits = GetNumDigits(x);
-            int num_padding_zeros = std::max(9 - num_digits, 0);
-            std::memset(out, '0', static_cast<size_t>(num_padding_zeros));
-            while(x > 0)
-            {
-                *(out + num_padding_zeros + num_digits - 1) = ('0' + x % 10);
-                num_digits -= 1;
-                x /= 10;
-            }
-        }
-
-        Result<std::shared_ptr<Schema>> SetOutputColumns(
-            const std::vector<std::string> &columns,
-            const std::vector<std::shared_ptr<DataType>> &types,
-            const std::unordered_map<std::string, int> &name_map,
-            std::vector<int> &gen_list)
-        {
-            gen_list.clear();
-            std::vector<std::shared_ptr<Field>> fields;
-            if(columns.empty())
-            {
-                fields.resize(name_map.size());
-                gen_list.resize(name_map.size());
-                for(auto pair : name_map)
-                {
-                    int col_idx = pair.second;
-                    fields[col_idx] = field(pair.first, types[col_idx]);
-                    gen_list[col_idx] = col_idx;
-                }
-                return schema(std::move(fields));
-            }
-            else
-            {
-                for(const std::string &col : columns)
-                {
-                    auto entry = name_map.find(col);
-                    if(entry == name_map.end())
-                        return Status::Invalid("Not a valid column name");
-                    int col_idx = static_cast<int>(entry->second);
-                    fields.push_back(field(col, types[col_idx]));
-                    gen_list.push_back(col_idx);
-                }
-                return schema(std::move(fields));
-            }
-        }
-
-        static TpchText g_text;
-
-        Status TpchText::InitIfNeeded(random::pcg32_fast &rng)
-        {
-            if(done_.load())
-                return Status::OK();
-
-            {
-                std::lock_guard<std::mutex> lock(text_guard_);
-                if(!text_)
-                {
-                    ARROW_ASSIGN_OR_RAISE(text_, AllocateBuffer(kTextBytes));
-                }
-            }
-            char *out = reinterpret_cast<char *>(text_->mutable_data());
-            char temp_buff[kChunkSize];
-            while(done_.load() == false)
-            {
-                int64_t known_valid_offset = 0;
-                int64_t try_offset = 0;
-                while(GenerateSentence(try_offset, rng, temp_buff))
-                    known_valid_offset = try_offset;
-
-                {
-                    std::lock_guard<std::mutex> lock(text_guard_);
-                    if(done_.load())
-                        return Status::OK();
-                    int64_t bytes_remaining = kTextBytes - generated_offset_;
-                    int64_t memcpy_size = std::min(known_valid_offset, bytes_remaining);
-                    std::memcpy(out + generated_offset_, temp_buff, memcpy_size);
-                    generated_offset_ += memcpy_size;
-                    if(generated_offset_ == kTextBytes)
-                        done_.store(true);
-                }
-            }
-            return Status::OK();
-        }
-
-        Result<Datum> TpchText::GenerateComments(
-            size_t num_comments,
-            size_t min_length,
-            size_t max_length,
-            random::pcg32_fast &rng)
-        {
-            RETURN_NOT_OK(InitIfNeeded(rng));
-            std::uniform_int_distribution<size_t> length_dist(min_length, max_length);
-            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buffer, AllocateBuffer(sizeof(int32_t) * (num_comments + 1)));
-            int32_t *offsets = reinterpret_cast<int32_t *>(offset_buffer->mutable_data());
-            offsets[0] = 0;
-            for(size_t i = 1; i <= num_comments; i++)
-                offsets[i] = offsets[i - 1] + length_dist(rng);
-
-            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> comment_buffer, AllocateBuffer(offsets[num_comments]));
-            char *comments = reinterpret_cast<char *>(comment_buffer->mutable_data());
-            for(size_t i = 0; i < num_comments; i++)
-            {
-                size_t length = offsets[i + 1] - offsets[i];
-                std::uniform_int_distribution<size_t> offset_dist(0, kTextBytes - length);
-                size_t offset_in_text = offset_dist(rng);
-                std::memcpy(comments + offsets[i], text_->data() + offset_in_text, length);
-            }
-            ArrayData ad(utf8(), num_comments, { nullptr, std::move(offset_buffer), std::move(comment_buffer) });
-            return std::move(ad);
-        }
-
-        Result<Datum> RandomVString(
-            random::pcg32_fast &rng,
-            int64_t num_rows,
-            int32_t min_length,
-            int32_t max_length)
-        {
-            std::uniform_int_distribution<int32_t> length_dist(min_length, max_length);
-            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buff, AllocateBuffer((num_rows + 1) * sizeof(int32_t)));
-            int32_t *offsets = reinterpret_cast<int32_t *>(offset_buff->mutable_data());
-            offsets[0] = 0;
-            for(int64_t i = 1; i <= num_rows; i++)
-                offsets[i] = offsets[i - 1] + length_dist(rng);
-            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> str_buff, AllocateBuffer(offsets[num_rows]));
-            char *str = reinterpret_cast<char *>(str_buff->mutable_data());
-
-            // Spec says to pick random alphanumeric characters from a set of at least
-            // 64 symbols. Now, let's think critically here: 26 letters in the alphabet,
-            // so 52 total for upper and lower case, and 10 possible digits gives 62
-            // characters...
-            // dbgen solves this by including a space and a comma as well, so we'll
-            // copy that.
-            const char alpha_numerics[65] =
-                "0123456789abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ,";
-            std::uniform_int_distribution<int> char_dist(0, 63);
-            for(int32_t i = 0; i < offsets[num_rows]; i++)
-                str[i] = alpha_numerics[char_dist(rng)];
-
-            ArrayData ad(utf8(), num_rows, { nullptr, std::move(offset_buff), std::move(str_buff) });
-            return std::move(ad);
-        }
-
-        void AppendNumber(char *&out, int num_digits, int32_t x)
-        {
-            out += (num_digits - 1);
-            while(x > 0)
-            {
-                *out-- = '0' + (x % 10);
-                x /= 10;
-            }
-            out += (num_digits + 1);
-        }
-
-        void GeneratePhoneNumber(
-            char *out,
-            random::pcg32_fast &rng,
-            int32_t country)
-        {
-            std::uniform_int_distribution<int32_t> three_digit(100, 999);
-            std::uniform_int_distribution<int32_t> four_digit(1000, 9999);
-
-            int32_t country_code = country + 10;
-            int32_t l1 = three_digit(rng);
-            int32_t l2 = three_digit(rng);
-            int32_t l3 = four_digit(rng);
-            AppendNumber(out, 2, country_code);
-            *out++ = '-';
-            AppendNumber(out, 3, l1);
-            *out++ = '-';
-            AppendNumber(out, 3, l2);
-            *out++ = '-';
-            AppendNumber(out, 4, l3);
-        }
-
-        static constexpr uint32_t STARTDATE = 8035; // January 1, 1992 is 8035 days after January 1, 1970
-        static constexpr uint32_t CURRENTDATE = 9298; // June 17, 1995 is 9298 days after January 1, 1970
-        static constexpr uint32_t ENDDATE = 10591; // December 12, 1998 is 10591 days after January 1, 1970
-
         const char *NameParts[] =
         {
             "almond", "antique", "aquamarine", "azure", "beige", "bisque", "black", "blanched", "blue",
@@ -438,7 +147,109 @@ namespace arrow
         };
         static constexpr size_t kNumTerminators = sizeof(Terminators) / sizeof(Terminators[0]);
 
-        bool TpchText::GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices)
+        // The spec says to generate a 300 MB string according to a grammar. This is a
+        // concurrent implementation of the generator. Each thread generates the text in
+        // (up to) 8KB chunks of text. The generator maintains a cursor into the
+        // 300 MB buffer. After generating the chunk, the cursor is incremented
+        // to reserve space, and the chunk is memcpy-d in. 
+        // This text is used to generate the COMMENT columns. To generate a comment, the spec
+        // says to pick a random length and a random offset into the 300 MB buffer (it does
+        // not specify it should be word/sentence aligned), and that slice of text becomes
+        // the comment.
+        class TpchPseudotext
+        {
+        public:
+            Status EnsureInitialized(random::pcg32_fast &rng);
+            Result<Datum> GenerateComments(
+                size_t num_comments,
+                size_t min_length,
+                size_t max_length,
+                random::pcg32_fast &rng);
+
+        private:
+            bool GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices);
+            bool GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr);
+
+            bool GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
+            bool GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr);
+
+            bool GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr);
+
+            std::atomic<int64_t> generated_offset_ = { 0 };
+            std::mutex text_guard_;
+            std::unique_ptr<Buffer> text_;
+            static constexpr int64_t kChunkSize = 8192;
+            static constexpr int64_t kTextBytes = 300 * 1024 * 1024; // 300 MB
+        };
+
+        static TpchPseudotext g_text;
+
+        Status TpchPseudotext::EnsureInitialized(random::pcg32_fast &rng)
+        {
+            if(generated_offset_.load() >= kTextBytes)
+                return Status::OK();
+
+            {
+                std::lock_guard<std::mutex> lock(text_guard_);
+                if(!text_)
+                {
+                    ARROW_ASSIGN_OR_RAISE(text_, AllocateBuffer(kTextBytes));
+                }
+            }
+            char *out = reinterpret_cast<char *>(text_->mutable_data());
+            char temp_buff[kChunkSize];
+            while(generated_offset_.load() < kTextBytes)
+            {
+                int64_t known_valid_offset = 0;
+                int64_t try_offset = 0;
+                while(GenerateSentence(try_offset, rng, temp_buff))
+                    known_valid_offset = try_offset;
+
+                int64_t offset = generated_offset_.fetch_add(known_valid_offset);
+                if(offset >= kTextBytes)
+                    return Status::OK();
+                int64_t bytes_remaining = kTextBytes - offset;
+                int64_t memcpy_size = std::min(known_valid_offset, bytes_remaining);
+                std::memcpy(out + offset, temp_buff, memcpy_size);
+            }
+            return Status::OK();
+        }
+
+        Result<Datum> TpchPseudotext::GenerateComments(
+            size_t num_comments,
+            size_t min_length,
+            size_t max_length,
+            random::pcg32_fast &rng)
+        {
+            RETURN_NOT_OK(EnsureInitialized(rng));
+            std::uniform_int_distribution<size_t> length_dist(min_length, max_length);
+            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buffer, AllocateBuffer(sizeof(int32_t) * (num_comments + 1)));
+            int32_t *offsets = reinterpret_cast<int32_t *>(offset_buffer->mutable_data());
+            offsets[0] = 0;
+            for(size_t i = 1; i <= num_comments; i++)
+                offsets[i] = offsets[i - 1] + length_dist(rng);
+
+            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> comment_buffer, AllocateBuffer(offsets[num_comments]));
+            char *comments = reinterpret_cast<char *>(comment_buffer->mutable_data());
+            for(size_t i = 0; i < num_comments; i++)
+            {
+                size_t length = offsets[i + 1] - offsets[i];
+                std::uniform_int_distribution<size_t> offset_dist(0, kTextBytes - length);
+                size_t offset_in_text = offset_dist(rng);
+                std::memcpy(comments + offsets[i], text_->data() + offset_in_text, length);
+            }
+            ArrayData ad(utf8(), num_comments, { nullptr, std::move(offset_buffer), std::move(comment_buffer) });
+            return std::move(ad);
+        }
+
+        bool TpchPseudotext::GenerateWord(int64_t &offset, random::pcg32_fast &rng, char *arr, const char **words, size_t num_choices)
         {
             std::uniform_int_distribution<size_t> dist(0, num_choices - 1);
             const char *word = words[dist(rng)];
@@ -450,37 +261,37 @@ namespace arrow
             return true;
         }
 
-        bool TpchText::GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateNoun(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Nouns, kNumNouns);
         }
 
-        bool TpchText::GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateVerb(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Verbs, kNumVerbs);
         }
 
-        bool TpchText::GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateAdjective(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Adjectives, kNumAdjectives);
         }
 
-        bool TpchText::GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateAdverb(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Adverbs, kNumAdverbs);
         }
 
-        bool TpchText::GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GeneratePreposition(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Prepositions, kNumPrepositions);
         }
 
-        bool TpchText::GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateAuxiliary(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             return GenerateWord(offset, rng, arr, Auxiliaries, kNumAuxiliaries);
         }
 
-        bool TpchText::GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateTerminator(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             bool result = GenerateWord(offset, rng, arr, Terminators, kNumTerminators);
             // Swap the space with the terminator
@@ -489,7 +300,7 @@ namespace arrow
             return result;
         }
 
-        bool TpchText::GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateNounPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 3);
             const char *comma_space = ", ";
@@ -510,9 +321,9 @@ namespace arrow
                 success &= GenerateNoun(offset, rng, arr);
                 break;
             case 3:
-                GenerateAdverb(offset, rng, arr);
-                GenerateAdjective(offset, rng, arr);
-                GenerateNoun(offset, rng, arr);
+                success &= GenerateAdverb(offset, rng, arr);
+                success &= GenerateAdjective(offset, rng, arr);
+                success &= GenerateNoun(offset, rng, arr);
                 break;
             default:
                 Unreachable("Random number should be between 0 and 3 inclusive");
@@ -521,7 +332,7 @@ namespace arrow
             return success;
         }
 
-        bool TpchText::GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateVerbPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 3);
             bool success = true;
@@ -550,7 +361,7 @@ namespace arrow
             return success;
         }
 
-        bool TpchText::GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GeneratePrepositionalPhrase(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             const char *the_space = "the ";
             bool success = true;
@@ -560,7 +371,7 @@ namespace arrow
             return success;
         }
 
-        bool TpchText::GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr)
+        bool TpchPseudotext::GenerateSentence(int64_t &offset, random::pcg32_fast &rng, char *arr)
         {
             std::uniform_int_distribution<size_t> dist(0, 4);
             bool success = true;
@@ -585,18 +396,12 @@ namespace arrow
                 break;
             case 3:
                 success &= GenerateNounPhrase(offset, rng, arr);
-                success &= GenerateVerbPhrase(offset, rng, arr);
-                success &= GenerateNounPhrase(offset, rng, arr);
-                success &= GenerateTerminator(offset, rng, arr);
-                break;
-            case 4:
-                success &= GenerateNounPhrase(offset, rng, arr);
                 success &= GeneratePrepositionalPhrase(offset, rng, arr);
                 success &= GenerateVerbPhrase(offset, rng, arr);
                 success &= GenerateNounPhrase(offset, rng, arr);
                 success &= GenerateTerminator(offset, rng, arr);
                 break;
-            case 5:
+            case 4:
                 success &= GenerateNounPhrase(offset, rng, arr);
                 success &= GeneratePrepositionalPhrase(offset, rng, arr);
                 success &= GenerateVerbPhrase(offset, rng, arr);
@@ -609,6 +414,184 @@ namespace arrow
             }
             return success;
         }
+
+        class TpchTableGenerator
+        {
+        public:
+            using OutputBatchCallback = std::function<void(ExecBatch)>;
+            using FinishedCallback = std::function<void(int64_t)>;
+            using GenerateFn = std::function<Status(size_t)>;
+            using ScheduleCallback = std::function<Status(GenerateFn)>;
+            using AbortCallback = std::function<void()>;
+
+            virtual Status Init(
+                std::vector<std::string> columns,
+                float scale_factor,
+                int64_t batch_size) = 0;
+
+            virtual Status StartProducing(
+                size_t num_threads,
+                OutputBatchCallback output_callback,
+                FinishedCallback finished_callback,
+                ScheduleCallback schedule_callback) = 0;
+
+            bool Abort()
+            {
+                bool expected = false;
+                return done_.compare_exchange_strong(expected, true);
+            }
+
+            virtual std::shared_ptr<Schema> schema() const = 0;
+
+            virtual ~TpchTableGenerator() = default;
+
+        protected:
+            std::atomic<bool> done_ = { false };
+            std::atomic<int64_t> batches_outputted_ = { 0 };
+        };
+
+        int GetNumDigits(int64_t x)
+        {
+            // This if statement chain is for MAXIMUM SPEED
+            // Source: https://stackoverflow.com/questions/1068849/how-do-i-determine-the-number-of-digits-of-an-integer-in-c
+            ARROW_DCHECK(x >= 0);
+            if(x < 10ll) return 1;
+            if(x < 100ll) return 2;
+            if(x < 1000ll) return 3;
+            if(x < 10000ll) return 4;
+            if(x < 100000ll) return 5;
+            if(x < 1000000ll) return 6;
+            if(x < 10000000ll) return 7;
+            if(x < 100000000ll) return 8;
+            if(x < 1000000000ll) return 9;
+            if(x < 10000000000ll) return 10;
+            if(x < 100000000000ll) return 11;
+            if(x < 1000000000000ll) return 12;
+            if(x < 10000000000000ll) return 13;
+            if(x < 100000000000000ll) return 14;
+            if(x < 1000000000000000ll) return 15;
+            if(x < 10000000000000000ll) return 16;
+            if(x < 100000000000000000ll) return 17;
+            if(x < 1000000000000000000ll) return 18;
+            return -1;
+        }
+
+        void AppendNumberPaddedToNineDigits(char *out, int64_t x)
+        {
+            // We do all of this to avoid calling snprintf, which needs to handle locale,
+            // which can be slow, especially on Mac and Windows.
+            int num_digits = GetNumDigits(x);
+            int num_padding_zeros = std::max(9 - num_digits, 0);
+            std::memset(out, '0', static_cast<size_t>(num_padding_zeros));
+            while(x > 0)
+            {
+                *(out + num_padding_zeros + num_digits - 1) = ('0' + x % 10);
+                num_digits -= 1;
+                x /= 10;
+            }
+        }
+
+        Result<std::shared_ptr<Schema>> SetOutputColumns(
+            const std::vector<std::string> &columns,
+            const std::vector<std::shared_ptr<DataType>> &types,
+            const std::unordered_map<std::string, int> &name_map,
+            std::vector<int> &gen_list)
+        {
+            gen_list.clear();
+            std::vector<std::shared_ptr<Field>> fields;
+            if(columns.empty())
+            {
+                fields.resize(name_map.size());
+                gen_list.resize(name_map.size());
+                for(auto pair : name_map)
+                {
+                    int col_idx = pair.second;
+                    fields[col_idx] = field(pair.first, types[col_idx]);
+                    gen_list[col_idx] = col_idx;
+                }
+                return schema(std::move(fields));
+            }
+            else
+            {
+                for(const std::string &col : columns)
+                {
+                    auto entry = name_map.find(col);
+                    if(entry == name_map.end())
+                        return Status::Invalid("Not a valid column name");
+                    int col_idx = static_cast<int>(entry->second);
+                    fields.push_back(field(col, types[col_idx]));
+                    gen_list.push_back(col_idx);
+                }
+                return schema(std::move(fields));
+            }
+        }
+
+        Result<Datum> RandomVString(
+            random::pcg32_fast &rng,
+            int64_t num_rows,
+            int32_t min_length,
+            int32_t max_length)
+        {
+            std::uniform_int_distribution<int32_t> length_dist(min_length, max_length);
+            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buff, AllocateBuffer((num_rows + 1) * sizeof(int32_t)));
+            int32_t *offsets = reinterpret_cast<int32_t *>(offset_buff->mutable_data());
+            offsets[0] = 0;
+            for(int64_t i = 1; i <= num_rows; i++)
+                offsets[i] = offsets[i - 1] + length_dist(rng);
+            ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> str_buff, AllocateBuffer(offsets[num_rows]));
+            char *str = reinterpret_cast<char *>(str_buff->mutable_data());
+
+            // Spec says to pick random alphanumeric characters from a set of at least
+            // 64 symbols. Now, let's think critically here: 26 letters in the alphabet,
+            // so 52 total for upper and lower case, and 10 possible digits gives 62
+            // characters...
+            // dbgen solves this by including a space and a comma as well, so we'll
+            // copy that.
+            const char alpha_numerics[65] =
+                "0123456789abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ,";
+            std::uniform_int_distribution<int> char_dist(0, 63);
+            for(int32_t i = 0; i < offsets[num_rows]; i++)
+                str[i] = alpha_numerics[char_dist(rng)];
+
+            ArrayData ad(utf8(), num_rows, { nullptr, std::move(offset_buff), std::move(str_buff) });
+            return std::move(ad);
+        }
+
+        void AppendNumber(char *&out, int num_digits, int32_t x)
+        {
+            out += (num_digits - 1);
+            while(x > 0)
+            {
+                *out-- = '0' + (x % 10);
+                x /= 10;
+            }
+            out += (num_digits + 1);
+        }
+
+        void GeneratePhoneNumber(
+            char *out,
+            random::pcg32_fast &rng,
+            int32_t country)
+        {
+            std::uniform_int_distribution<int32_t> three_digit(100, 999);
+            std::uniform_int_distribution<int32_t> four_digit(1000, 9999);
+
+            int32_t country_code = country + 10;
+            int32_t l1 = three_digit(rng);
+            int32_t l2 = three_digit(rng);
+            int32_t l3 = four_digit(rng);
+            AppendNumber(out, 2, country_code);
+            *out++ = '-';
+            AppendNumber(out, 3, l1);
+            *out++ = '-';
+            AppendNumber(out, 3, l2);
+            *out++ = '-';
+            AppendNumber(out, 4, l3);
+        }
+
+        static constexpr uint32_t kStartDate = 8035; // January 1, 1992 is 8035 days after January 1, 1970
+        static constexpr uint32_t kCurrentDate = 9298; // June 17, 1995 is 9298 days after January 1, 1970
+        static constexpr uint32_t kEndDate = 10591; // December 12, 1998 is 10591 days after January 1, 1970
 
         using GenerateColumnFn = std::function<Status(size_t)>;
         class PartAndPartSupplierGenerator
@@ -628,8 +611,8 @@ namespace arrow
                     thread_local_data_.resize(num_threads);
                     for(ThreadLocalData &tld : thread_local_data_)
                     {
-                        // 5 is the maximum number of different strings we need to concatenate
-                        tld.string_indices.resize(5 * batch_size_);
+                        constexpr int kMaxNumDistinctStrings = 5;
+                        tld.string_indices.resize(kMaxNumDistinctStrings * batch_size_);
                     }
                     part_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 200000);
                 }
@@ -648,12 +631,12 @@ namespace arrow
 
             Result<std::shared_ptr<Schema>> SetPartOutputColumns(const std::vector<std::string> &cols)
             {
-                return SetOutputColumns(cols, part_types_, part_name_map_, part_cols_);
+                return SetOutputColumns(cols, kPartTypes, kPartNameMap, part_cols_);
             }
 
             Result<std::shared_ptr<Schema>> SetPartSuppOutputColumns(const std::vector<std::string> &cols)
             {
-                return SetOutputColumns(cols, partsupp_types_, partsupp_name_map_, partsupp_cols_);
+                return SetOutputColumns(cols, kPartsuppTypes, kPartsuppNameMap, partsupp_cols_);
             }
 
             Result<util::optional<ExecBatch>> NextPartBatch()
@@ -662,14 +645,13 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 {
                     std::lock_guard<std::mutex> lock(part_output_queue_mutex_);
-                    bool all_generated = part_rows_generated_ == part_rows_to_generate_;
                     if(!part_output_queue_.empty())
                     {
                         ExecBatch batch = std::move(part_output_queue_.front());
                         part_output_queue_.pop();
                         return std::move(batch);
                     }
-                    else if(all_generated)
+                    else if(part_rows_generated_ == part_rows_to_generate_)
                     {
                         return util::nullopt;
                     }
@@ -692,11 +674,9 @@ namespace arrow
                 RETURN_NOT_OK(InitPartsupp(thread_index));
 
                 for(int col : part_cols_)
-                {
-                    RETURN_NOT_OK(part_generators_[col](thread_index));
-                }
+                    RETURN_NOT_OK(kPartGenerators[col](thread_index));
                 for(int col : partsupp_cols_)
-                    RETURN_NOT_OK(partsupp_generators_[col](thread_index));
+                    RETURN_NOT_OK(kPartsuppGenerators[col](thread_index));
 
                 std::vector<Datum> part_result(part_cols_.size());
                 for(size_t i = 0; i < part_cols_.size(); i++)
@@ -766,9 +746,9 @@ namespace arrow
                 RETURN_NOT_OK(InitPartsupp(thread_index));
 
                 for(int col : part_cols_)
-                    RETURN_NOT_OK(part_generators_[col](thread_index));
+                    RETURN_NOT_OK(kPartGenerators[col](thread_index));
                 for(int col : partsupp_cols_)
-                    RETURN_NOT_OK(partsupp_generators_[col](thread_index));
+                    RETURN_NOT_OK(kPartsuppGenerators[col](thread_index));
                 if(!part_cols_.empty())
                 {
                     std::vector<Datum> part_result(part_cols_.size());
@@ -843,25 +823,25 @@ namespace arrow
 
 #define MAKE_STRING_MAP(col)                            \
             { #col, PART::col },
-            const std::unordered_map<std::string, int> part_name_map_ =
+            const std::unordered_map<std::string, int> kPartNameMap =
             {
                 FOR_EACH_PART_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_STRING_MAP(col)                            \
             { #col, PARTSUPP::col },
-            const std::unordered_map<std::string, int> partsupp_name_map_ =
+            const std::unordered_map<std::string, int> kPartsuppNameMap =
             {
                 FOR_EACH_PARTSUPP_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_FN_ARRAY(col)                                              \
             [this](size_t thread_index) { return this->col(thread_index); },
-            std::vector<GenerateColumnFn> part_generators_ =
+            std::vector<GenerateColumnFn> kPartGenerators =
             {
                 FOR_EACH_PART_COLUMN(MAKE_FN_ARRAY)
             };
-            std::vector<GenerateColumnFn> partsupp_generators_ =
+            std::vector<GenerateColumnFn> kPartsuppGenerators =
             {
                 FOR_EACH_PARTSUPP_COLUMN(MAKE_FN_ARRAY)
             };
@@ -869,7 +849,7 @@ namespace arrow
 #undef FOR_EACH_LINEITEM_COLUMN
 #undef FOR_EACH_ORDERS_COLUMN
 
-            const std::vector<std::shared_ptr<DataType>> part_types_ =
+            const std::vector<std::shared_ptr<DataType>> kPartTypes =
             {
                 int32(),
                 utf8(),
@@ -882,7 +862,7 @@ namespace arrow
                 utf8(),
             };
 
-            const std::vector<std::shared_ptr<DataType>> partsupp_types_ =
+            const std::vector<std::shared_ptr<DataType>> kPartsuppTypes =
             {
                 int32(),
                 int32(),
@@ -895,9 +875,9 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 ARROW_DCHECK(tld.part[column].kind() == Datum::NONE);
-                int32_t byte_width = arrow::internal::GetByteWidth(*part_types_[column]);
+                int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[column]);
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(tld.part_to_generate * byte_width));
-                ArrayData ad(part_types_[column], tld.part_to_generate, { nullptr, std::move(buff) });
+                ArrayData ad(kPartTypes[column], tld.part_to_generate, { nullptr, std::move(buff) });
                 tld.part[column] = std::move(ad);
                 return Status::OK();
             }
@@ -956,7 +936,7 @@ namespace arrow
                             *row++ = ' ';
                         }
                     }
-                    ArrayData ad(part_types_[PART::P_NAME], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
+                    ArrayData ad(kPartTypes[PART::P_NAME], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
                     Datum datum(ad);
                     tld.part[PART::P_NAME] = std::move(datum);
                 }
@@ -973,7 +953,7 @@ namespace arrow
                     const size_t manufacturer_length = std::strlen(manufacturer);
                     RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_MFGR));
                     char *p_mfgr = reinterpret_cast<char *>(tld.part[PART::P_MFGR].array()->buffers[1]->mutable_data());
-                    int32_t byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_MFGR]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
                     for(int64_t irow = 0; irow < tld.part_to_generate; irow++)
                     {
                         std::strncpy(p_mfgr + byte_width * irow, manufacturer, byte_width);
@@ -998,8 +978,8 @@ namespace arrow
                         tld.part[PART::P_MFGR].array()->buffers[1]->data());
                     char *p_brand = reinterpret_cast<char *>(
                         tld.part[PART::P_BRAND].array()->buffers[1]->mutable_data());
-                    int32_t byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_BRAND]);
-                    int32_t mfgr_byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_MFGR]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_BRAND]);
+                    int32_t mfgr_byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_MFGR]);
                     const size_t mfgr_id_offset = std::strlen("Manufacturer#");
                     for(int64_t irow = 0; irow < tld.part_to_generate; irow++)
                     {
@@ -1058,7 +1038,7 @@ namespace arrow
                             row += length;
                         }
                     }
-                    ArrayData ad(part_types_[PART::P_TYPE], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
+                    ArrayData ad(kPartTypes[PART::P_TYPE], tld.part_to_generate, { nullptr, std::move(offset_buff), std::move(string_buffer) });
                     Datum datum(ad);
                     tld.part[PART::P_TYPE] = std::move(datum);
                 }
@@ -1090,7 +1070,7 @@ namespace arrow
                     RETURN_NOT_OK(AllocatePartBatch(thread_index, PART::P_CONTAINER));
                     char *p_container = reinterpret_cast<char *>(
                         tld.part[PART::P_CONTAINER].array()->buffers[1]->mutable_data());
-                    int32_t byte_width = arrow::internal::GetByteWidth(*part_types_[PART::P_CONTAINER]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kPartTypes[PART::P_CONTAINER]);
                     for(int64_t irow = 0; irow < tld.part_to_generate; irow++)
                     {
                         int container1_idx = dist1(tld.rng);
@@ -1164,9 +1144,9 @@ namespace arrow
             Status AllocatePartSuppBatch(size_t thread_index, size_t ibatch, int column)
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
-                int32_t byte_width = arrow::internal::GetByteWidth(*partsupp_types_[column]);
+                int32_t byte_width = arrow::internal::GetByteWidth(*kPartsuppTypes[column]);
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(batch_size_ * byte_width));
-                ArrayData ad(partsupp_types_[column], batch_size_, { nullptr, std::move(buff) });
+                ArrayData ad(kPartsuppTypes[column], batch_size_, { nullptr, std::move(buff) });
                 tld.partsupp[ibatch][column] = std::move(ad);
                 return Status::OK();
             }
@@ -1327,8 +1307,8 @@ namespace arrow
             {
                 std::vector<Datum> part;
                 std::vector<int8_t> string_indices;
-                int64_t part_to_generate;
-                int64_t partkey_start;
+                int64_t part_to_generate{0};
+                int64_t partkey_start{0};
 
                 std::vector<std::vector<Datum>> partsupp;
                 std::bitset<PARTSUPP::kNumCols> generated_partsupp;
@@ -1341,16 +1321,16 @@ namespace arrow
             std::mutex partsupp_output_queue_mutex_;
             std::queue<ExecBatch> part_output_queue_;
             std::queue<ExecBatch> partsupp_output_queue_;
-            int64_t batch_size_;
-            float scale_factor_;
-            int64_t part_rows_to_generate_;
-            int64_t part_rows_generated_;
+            int64_t batch_size_{0};
+            float scale_factor_{0};
+            int64_t part_rows_to_generate_{0};
+            int64_t part_rows_generated_{0};
             std::vector<int> part_cols_;
             std::vector<int> partsupp_cols_;
             ThreadIndexer thread_indexer_;
 
-            std::atomic<size_t> part_batches_generated_ = { 0 };
-            std::atomic<size_t> partsupp_batches_generated_ = { 0 };
+            std::atomic<int64_t> part_batches_generated_ = { 0 };
+            std::atomic<int64_t> partsupp_batches_generated_ = { 0 };
             static constexpr int64_t kPartSuppRowsPerPart = 4;
         };
 
@@ -1390,12 +1370,12 @@ namespace arrow
 
             Result<std::shared_ptr<Schema>> SetOrdersOutputColumns(const std::vector<std::string> &cols)
             {
-                return SetOutputColumns(cols, orders_types_, orders_name_map_, orders_cols_);
+                return SetOutputColumns(cols, kOrdersTypes, kOrdersNameMap, orders_cols_);
             }
 
             Result<std::shared_ptr<Schema>> SetLineItemOutputColumns(const std::vector<std::string> &cols)
             {
-                return SetOutputColumns(cols, lineitem_types_, lineitem_name_map_, lineitem_cols_);
+                return SetOutputColumns(cols, kLineitemTypes, kLineitemNameMap, lineitem_cols_);
             }
 
             Result<util::optional<ExecBatch>> NextOrdersBatch()
@@ -1432,9 +1412,9 @@ namespace arrow
                 tld.generated_lineitem.reset();
 
                 for(int col : orders_cols_)
-                    RETURN_NOT_OK(orders_generators_[col](thread_index));
+                    RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
                 for(int col : lineitem_cols_)
-                    RETURN_NOT_OK(lineitem_generators_[col](thread_index));
+                    RETURN_NOT_OK(kLineitemGenerators[col](thread_index));
 
                 std::vector<Datum> orders_result(orders_cols_.size());
                 for(size_t i = 0; i < orders_cols_.size(); i++)
@@ -1520,9 +1500,9 @@ namespace arrow
                 }
 
                 for(int col : orders_cols_)
-                    RETURN_NOT_OK(orders_generators_[col](thread_index));
+                    RETURN_NOT_OK(kOrdersGenerators[col](thread_index));
                 for(int col : lineitem_cols_)
-                    RETURN_NOT_OK(lineitem_generators_[col](thread_index));
+                    RETURN_NOT_OK(kLineitemGenerators[col](thread_index));
 
                 if(!orders_cols_.empty())
                 {
@@ -1610,25 +1590,25 @@ namespace arrow
 
 #define MAKE_STRING_MAP(col)                            \
             { #col, ORDERS::col },
-            const std::unordered_map<std::string, int> orders_name_map_ =
+            const std::unordered_map<std::string, int> kOrdersNameMap =
             {
                 FOR_EACH_ORDERS_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_STRING_MAP(col)                            \
             { #col, LINEITEM::col },
-            const std::unordered_map<std::string, int> lineitem_name_map_ =
+            const std::unordered_map<std::string, int> kLineitemNameMap =
             {
                 FOR_EACH_LINEITEM_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_FN_ARRAY(col)                                              \
             [this](size_t thread_index) { return this->col(thread_index); },
-            std::vector<GenerateColumnFn> orders_generators_ =
+            const std::vector<GenerateColumnFn> kOrdersGenerators =
             {
                 FOR_EACH_ORDERS_COLUMN(MAKE_FN_ARRAY)
             };
-            std::vector<GenerateColumnFn> lineitem_generators_ =
+            const std::vector<GenerateColumnFn> kLineitemGenerators =
             {
                 FOR_EACH_LINEITEM_COLUMN(MAKE_FN_ARRAY)
             };
@@ -1636,7 +1616,7 @@ namespace arrow
 #undef FOR_EACH_LINEITEM_COLUMN
 #undef FOR_EACH_ORDERS_COLUMN
 
-            const std::vector<std::shared_ptr<DataType>> orders_types_ =
+            const std::vector<std::shared_ptr<DataType>> kOrdersTypes =
             {
                 int32(),
                 int32(),
@@ -1649,7 +1629,7 @@ namespace arrow
                 utf8()
             };
 
-            const std::vector<std::shared_ptr<DataType>> lineitem_types_ =
+            const std::vector<std::shared_ptr<DataType>> kLineitemTypes =
             {
                 int32(),
                 int32(),
@@ -1673,9 +1653,9 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 ARROW_DCHECK(tld.orders[column].kind() == Datum::NONE);
-                int32_t byte_width = arrow::internal::GetByteWidth(*orders_types_[column]);
+                int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[column]);
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(tld.orders_to_generate * byte_width));
-                ArrayData ad(orders_types_[column], tld.orders_to_generate, { nullptr, std::move(buff) });
+                ArrayData ad(kOrdersTypes[column], tld.orders_to_generate, { nullptr, std::move(buff) });
                 tld.orders[column] = std::move(ad);
                 return Status::OK();
             }
@@ -1833,7 +1813,7 @@ namespace arrow
                 {
                     RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_ORDERDATE));
 
-                    std::uniform_int_distribution<uint32_t> dist(STARTDATE, ENDDATE - 151);
+                    std::uniform_int_distribution<uint32_t> dist(kStartDate, kEndDate - 151);
                     uint32_t *o_orderdate = reinterpret_cast<uint32_t *>(
                         tld.orders[ORDERS::O_ORDERDATE].array()->buffers[1]->mutable_data());
                     for(int64_t i = 0; i < tld.orders_to_generate; i++)
@@ -1848,7 +1828,7 @@ namespace arrow
                 if(tld.orders[ORDERS::O_ORDERPRIORITY].kind() == Datum::NONE)
                 {
                     RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_ORDERPRIORITY));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*orders_types_[ORDERS::O_ORDERPRIORITY]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_ORDERPRIORITY]);
                     std::uniform_int_distribution<int32_t> dist(0, kNumPriorities - 1);
                     char *o_orderpriority = reinterpret_cast<char *>(
                         tld.orders[ORDERS::O_ORDERPRIORITY].array()->buffers[1]->mutable_data());
@@ -1867,7 +1847,7 @@ namespace arrow
                 if(tld.orders[ORDERS::O_CLERK].kind() == Datum::NONE)
                 {
                     RETURN_NOT_OK(AllocateOrdersBatch(thread_index, ORDERS::O_CLERK));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*orders_types_[ORDERS::O_CLERK]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kOrdersTypes[ORDERS::O_CLERK]);
                     int64_t max_clerk_id = static_cast<int64_t>(scale_factor_ * 1000);
                     std::uniform_int_distribution<int64_t> dist(1, max_clerk_id);
                     char *o_clerk = reinterpret_cast<char *>(
@@ -1935,9 +1915,9 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.lineitem[ibatch][column].kind() == Datum::NONE)
                 {
-                    int32_t byte_width = arrow::internal::GetByteWidth(*lineitem_types_[column]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[column]);
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(batch_size_ * byte_width));
-                    ArrayData ad(lineitem_types_[column], batch_size_, { nullptr, std::move(buff) });
+                    ArrayData ad(kLineitemTypes[column], batch_size_, { nullptr, std::move(buff) });
                     tld.lineitem[ibatch][column] = std::move(ad);
                     out_batch_offset = 0;
                 }
@@ -2233,7 +2213,7 @@ namespace arrow
 
                         for(int64_t i = 0; i < next_run; i++, batch_offset++)
                         {
-                            if(l_receiptdate[batch_offset] <= CURRENTDATE)
+                            if(l_receiptdate[batch_offset] <= kCurrentDate)
                             {
                                 uint32_t r = dist(tld.rng);
                                 l_returnflag[batch_offset] = (r % 2 == 1) ? 'R' : 'A';
@@ -2272,7 +2252,7 @@ namespace arrow
 
                         for(int64_t i = 0; i < next_run; i++, batch_offset++)
                         {
-                            if(l_shipdate[batch_offset] > CURRENTDATE)
+                            if(l_shipdate[batch_offset] > kCurrentDate)
                                 l_linestatus[batch_offset] = 'O';
                             else
                                 l_linestatus[batch_offset] = 'F';
@@ -2397,7 +2377,7 @@ namespace arrow
                 if(!tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT])
                 {
                     tld.generated_lineitem[LINEITEM::L_SHIPINSTRUCT] = true;
-                    int32_t byte_width = arrow::internal::GetByteWidth(*lineitem_types_[LINEITEM::L_SHIPINSTRUCT]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPINSTRUCT]);
                     size_t ibatch = 0;
                     std::uniform_int_distribution<size_t> dist(0, kNumInstructions - 1);
                     for(int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++)
@@ -2430,7 +2410,7 @@ namespace arrow
                 if(!tld.generated_lineitem[LINEITEM::L_SHIPMODE])
                 {
                     tld.generated_lineitem[LINEITEM::L_SHIPMODE] = true;
-                    int32_t byte_width = arrow::internal::GetByteWidth(*lineitem_types_[LINEITEM::L_SHIPMODE]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kLineitemTypes[LINEITEM::L_SHIPMODE]);
                     size_t ibatch = 0;
                     std::uniform_int_distribution<size_t> dist(0, kNumModes - 1);
                     for(int64_t irow = 0; irow < tld.lineitem_to_generate; ibatch++)
@@ -2530,8 +2510,8 @@ namespace arrow
                 rows_generated_.store(0);
                 ARROW_ASSIGN_OR_RAISE(schema_, SetOutputColumns(
                                           columns,
-                                          types_,
-                                          name_map_,
+                                          kTypes,
+                                          kNameMap,
                                           gen_list_));
 
                 random::pcg32_fast rng;
@@ -2604,21 +2584,21 @@ namespace arrow
 #undef MAKE_ENUM
 #define MAKE_STRING_MAP(col)                    \
             { #col, SUPPLIER::col },
-            const std::unordered_map<std::string, int> name_map_ =
+            const std::unordered_map<std::string, int> kNameMap =
             {
                 FOR_EACH_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_FN_ARRAY(col)                                              \
             [this](size_t thread_index) { return this->col(thread_index); },
-            std::vector<GenerateColumnFn> generators_ =
+            std::vector<GenerateColumnFn> kGenerators =
             {
                 FOR_EACH_COLUMN(MAKE_FN_ARRAY)
             };
 #undef MAKE_FN_ARRAY
 #undef FOR_EACH_COLUMN
 
-            std::vector<std::shared_ptr<DataType>> types_ =
+            std::vector<std::shared_ptr<DataType>> kTypes =
             {
                 int32(),
                 fixed_size_binary(25),
@@ -2644,7 +2624,7 @@ namespace arrow
                 tld.batch.resize(SUPPLIER::kNumCols);
                 std::fill(tld.batch.begin(), tld.batch.end(), Datum());
                 for(int col : gen_list_)
-                    RETURN_NOT_OK(generators_[col](thread_index));
+                    RETURN_NOT_OK(kGenerators[col](thread_index));
 
                 std::vector<Datum> result(gen_list_.size());
                 for(size_t i = 0; i < gen_list_.size(); i++)
@@ -2670,9 +2650,9 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-                int32_t byte_width = arrow::internal::GetByteWidth(*types_[column]);
+                int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(tld.to_generate * byte_width));
-                ArrayData ad(types_[column], tld.to_generate, { nullptr, std::move(buff) });
+                ArrayData ad(kTypes[column], tld.to_generate, { nullptr, std::move(buff) });
                 tld.batch[column] = std::move(ad);
                 return Status::OK();
             }
@@ -2702,7 +2682,7 @@ namespace arrow
                     const int32_t *s_suppkey = reinterpret_cast<const int32_t *>(
                         tld.batch[SUPPLIER::S_SUPPKEY].array()->buffers[1]->data());
                     RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_NAME));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*types_[SUPPLIER::S_NAME]);
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_NAME]);
                     char *s_name = reinterpret_cast<char *>(
                         tld.batch[SUPPLIER::S_NAME].array()->buffers[1]->mutable_data());
                     // Look man, I'm just following the spec ok? Section 4.2.3 as of March 1 2022
@@ -2752,7 +2732,7 @@ namespace arrow
                 {
                     RETURN_NOT_OK(S_NATIONKEY(thread_index));
                     RETURN_NOT_OK(AllocateColumn(thread_index, SUPPLIER::S_PHONE));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*types_[SUPPLIER::S_PHONE]); 
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[SUPPLIER::S_PHONE]); 
                     const int32_t *s_nationkey = reinterpret_cast<const int32_t *>(
                         tld.batch[SUPPLIER::S_NATIONKEY].array()->buffers[1]->data());
                     char *s_phone = reinterpret_cast<char *>(
@@ -3009,8 +2989,8 @@ namespace arrow
                 rows_generated_.store(0);
                 ARROW_ASSIGN_OR_RAISE(schema_, SetOutputColumns(
                                           columns,
-                                          types_,
-                                          name_map_,
+                                          kTypes,
+                                          kNameMap,
                                           gen_list_));
                 return Status::OK();
             }
@@ -3058,21 +3038,21 @@ namespace arrow
 #undef MAKE_ENUM
 #define MAKE_STRING_MAP(col)                    \
             { #col, CUSTOMER::col },
-            const std::unordered_map<std::string, int> name_map_ =
+            const std::unordered_map<std::string, int> kNameMap =
             {
                 FOR_EACH_COLUMN(MAKE_STRING_MAP)
             };
 #undef MAKE_STRING_MAP
 #define MAKE_FN_ARRAY(col)                                              \
             [this](size_t thread_index) { return this->col(thread_index); },
-            std::vector<GenerateColumnFn> generators_ =
+            std::vector<GenerateColumnFn> kGenerators =
             {
                 FOR_EACH_COLUMN(MAKE_FN_ARRAY)
             };
 #undef MAKE_FN_ARRAY
 #undef FOR_EACH_COLUMN
 
-            std::vector<std::shared_ptr<DataType>> types_ =
+            std::vector<std::shared_ptr<DataType>> kTypes =
             {
                 int32(),
                 utf8(),
@@ -3099,7 +3079,7 @@ namespace arrow
                 tld.batch.resize(CUSTOMER::kNumCols);
                 std::fill(tld.batch.begin(), tld.batch.end(), Datum());
                 for(int col : gen_list_)
-                    RETURN_NOT_OK(generators_[col](thread_index));
+                    RETURN_NOT_OK(kGenerators[col](thread_index));
 
                 std::vector<Datum> result(gen_list_.size());
                 for(size_t i = 0; i < gen_list_.size(); i++)
@@ -3128,9 +3108,9 @@ namespace arrow
             {
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 ARROW_DCHECK(tld.batch[column].kind() == Datum::NONE);
-                int32_t byte_width = arrow::internal::GetByteWidth(*types_[column]);
+                int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[column]);
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> buff, AllocateBuffer(tld.to_generate * byte_width));
-                ArrayData ad(types_[column], tld.to_generate, { nullptr, std::move(buff) });
+                ArrayData ad(kTypes[column], tld.to_generate, { nullptr, std::move(buff) });
                 tld.batch[column] = std::move(ad);
                 return Status::OK();
             }
@@ -3218,7 +3198,7 @@ namespace arrow
                 {
                     RETURN_NOT_OK(C_NATIONKEY(thread_index));
                     RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_PHONE));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*types_[CUSTOMER::C_PHONE]); 
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_PHONE]); 
                     const int32_t *c_nationkey = reinterpret_cast<const int32_t *>(
                         tld.batch[CUSTOMER::C_NATIONKEY].array()->buffers[1]->data());
                     char *c_phone = reinterpret_cast<char *>(
@@ -3255,7 +3235,7 @@ namespace arrow
                 if(tld.batch[CUSTOMER::C_MKTSEGMENT].kind() == Datum::NONE)
                 {
                     RETURN_NOT_OK(AllocateColumn(thread_index, CUSTOMER::C_MKTSEGMENT));
-                    int32_t byte_width = arrow::internal::GetByteWidth(*types_[CUSTOMER::C_MKTSEGMENT]); 
+                    int32_t byte_width = arrow::internal::GetByteWidth(*kTypes[CUSTOMER::C_MKTSEGMENT]); 
                     char *c_mktsegment = reinterpret_cast<char *>(
                         tld.batch[CUSTOMER::C_MKTSEGMENT].array()->buffers[1]->mutable_data());
                     std::uniform_int_distribution<int32_t> dist(0, kNumSegments - 1);
@@ -3291,10 +3271,10 @@ namespace arrow
             OutputBatchCallback output_callback_;
             FinishedCallback finished_callback_;
             ScheduleCallback schedule_callback_;
-            int64_t rows_to_generate_;
-            std::atomic<int64_t> rows_generated_;
-            float scale_factor_;
-            int64_t batch_size_;
+            int64_t rows_to_generate_{0};
+            std::atomic<int64_t> rows_generated_ = { 0 };
+            float scale_factor_{0};
+            int64_t batch_size_{0};
             std::vector<int> gen_list_;
             std::shared_ptr<Schema> schema_;
         };
@@ -3457,8 +3437,8 @@ namespace arrow
                 ARROW_ASSIGN_OR_RAISE(schema_,
                                       SetOutputColumns(
                                           columns,
-                                          types_,
-                                          name_map_,
+                                          kTypes,
+                                          kNameMap,
                                           column_indices_));
                 return Status::OK();
             }
@@ -3469,16 +3449,16 @@ namespace arrow
                 FinishedCallback finished_callback,
                 ScheduleCallback /*schedule_task_callback*/) override
             {
-                std::shared_ptr<Buffer> N_NATIONKEY_buffer = Buffer::Wrap(N_NATIONKEY, sizeof(N_NATIONKEY));
+                std::shared_ptr<Buffer> N_NATIONKEY_buffer = Buffer::Wrap(kNationKey, sizeof(kNationKey));
                 ArrayData N_NATIONKEY_arraydata(int32(), kRowCount, { nullptr, std::move(N_NATIONKEY_buffer) });
 
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> N_NAME_buffer, AllocateBuffer(kRowCount * kNameByteWidth));
                 char *N_NAME = reinterpret_cast<char *>(N_NAME_buffer->mutable_data());
                 for(size_t i = 0; i < kRowCount; i++)
-                    std::strncpy(N_NAME + kNameByteWidth * i, country_names_[i], kNameByteWidth);
+                    std::strncpy(N_NAME + kNameByteWidth * i, kCountryNames[i], kNameByteWidth);
                 ArrayData N_NAME_arraydata(fixed_size_binary(kNameByteWidth), kRowCount, { nullptr, std::move(N_NAME_buffer) });
 
-                std::shared_ptr<Buffer> N_REGIONKEY_buffer = Buffer::Wrap(N_REGIONKEY, sizeof(N_REGIONKEY));
+                std::shared_ptr<Buffer> N_REGIONKEY_buffer = Buffer::Wrap(kRegionKey, sizeof(kRegionKey));
                 ArrayData N_REGIONKEY_arraydata(int32(), kRowCount, { nullptr, std::move(N_REGIONKEY_buffer) });
 
                 ARROW_ASSIGN_OR_RAISE(Datum N_COMMENT_datum, g_text.GenerateComments(kRowCount, 31, 114, rng_));
@@ -3510,8 +3490,8 @@ namespace arrow
 
             static constexpr size_t kRowCount = 25;
             static constexpr int32_t kNameByteWidth = 25;
-            const int32_t N_NATIONKEY[kRowCount] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 };
-            const char *country_names_[kRowCount] =
+            const int32_t kNationKey[kRowCount] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24 };
+            const char *kCountryNames[kRowCount] =
             {
                 "ALGERIA", "ARGENTINA", "BRAZIL",
                 "CANADA", "EGYPT", "ETHIOPIA",
@@ -3523,7 +3503,7 @@ namespace arrow
                 "VIETNAM", "RUSSIA", "UNITED KINGDOM",
                 "UNITED STATES"
             };
-            const int32_t N_REGIONKEY[kRowCount] = { 0, 1, 1, 1, 4, 0, 3, 3, 2, 2, 4, 4, 2, 4, 0, 0, 0, 1, 2, 3, 4, 2, 3, 3, 1 };
+            const int32_t kRegionKey[kRowCount] = { 0, 1, 1, 1, 4, 0, 3, 3, 2, 2, 4, 4, 2, 4, 0, 0, 0, 1, 2, 3, 4, 2, 3, 3, 1 };
 
             struct NATION
             {
@@ -3536,7 +3516,7 @@ namespace arrow
                 };
             };
 
-            const std::unordered_map<std::string, int> name_map_ =
+            const std::unordered_map<std::string, int> kNameMap =
             {
                 { "N_NATIONKEY", NATION::N_NATIONKEY },
                 { "N_NAME", NATION::N_NAME },
@@ -3544,7 +3524,7 @@ namespace arrow
                 { "N_COMMENT", NATION::N_COMMENT },
             };
 
-            std::vector<std::shared_ptr<DataType>> types_ =
+            std::vector<std::shared_ptr<DataType>> kTypes =
             {
                 int32(),
                 fixed_size_binary(kNameByteWidth),
@@ -3567,8 +3547,8 @@ namespace arrow
                 ARROW_ASSIGN_OR_RAISE(schema_,
                                       SetOutputColumns(
                                           columns,
-                                          types_,
-                                          name_map_,
+                                          kTypes,
+                                          kNameMap,
                                           column_indices_));
                 return Status::OK();
             }
@@ -3579,14 +3559,14 @@ namespace arrow
                 FinishedCallback finished_callback,
                 ScheduleCallback /*schedule_task_callback*/) override
             {
-                std::shared_ptr<Buffer> R_REGIONKEY_buffer = Buffer::Wrap(R_REGIONKEY, sizeof(R_REGIONKEY));
+                std::shared_ptr<Buffer> R_REGIONKEY_buffer = Buffer::Wrap(kRegionKey, sizeof(kRegionKey));
                 ArrayData R_REGIONKEY_arraydata(int32(), kRowCount, { nullptr, std::move(R_REGIONKEY_buffer) });
 
                 ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> R_NAME_buffer, AllocateBuffer(kRowCount * kNameByteWidth));
                 char *R_NAME_data = reinterpret_cast<char *>(R_NAME_buffer->mutable_data());
                 for(size_t i = 0; i < kRowCount; i++)
-                    std::strncpy(R_NAME_data + kNameByteWidth * i, region_names_[i], kNameByteWidth);
-                ArrayData R_NAME_arraydata(types_[static_cast<int>(REGION::R_NAME)], kRowCount, { nullptr, std::move(R_NAME_buffer) });
+                    std::strncpy(R_NAME_data + kNameByteWidth * i, kRegionNames[i], kNameByteWidth);
+                ArrayData R_NAME_arraydata(kTypes[static_cast<int>(REGION::R_NAME)], kRowCount, { nullptr, std::move(R_NAME_buffer) });
 
                 ARROW_ASSIGN_OR_RAISE(Datum R_COMMENT_datum, g_text.GenerateComments(kRowCount, 31, 115, rng_));
 
@@ -3609,8 +3589,8 @@ namespace arrow
 
             static constexpr size_t kRowCount = 5;
             static constexpr int32_t kNameByteWidth = 25;
-            const int32_t R_REGIONKEY[kRowCount] = { 0, 1, 2, 3, 4 };
-            const char *region_names_[kRowCount] =
+            const int32_t kRegionKey[kRowCount] = { 0, 1, 2, 3, 4 };
+            const char *kRegionNames[kRowCount] =
             {
                 "AFRICA", "AMERICA", "ASIA", "EUROPE", "MIDDLE EAST"
             };
@@ -3626,14 +3606,14 @@ namespace arrow
                 };
             };
 
-            const std::unordered_map<std::string, int> name_map_ =
+            const std::unordered_map<std::string, int> kNameMap =
             {
                 { "R_REGIONKEY", REGION::R_REGIONKEY },
                 { "R_NAME", REGION::R_NAME },
                 { "R_COMMENT", REGION::R_COMMENT },
             };
 
-            const std::vector<std::shared_ptr<DataType>> types_ =
+            const std::vector<std::shared_ptr<DataType>> kTypes =
             {
                 int32(),
                 fixed_size_binary(kNameByteWidth),
@@ -3705,7 +3685,8 @@ namespace arrow
 
             void StopProducing() override
             {
-                generator_->Abort([this]() { this->finished_.MarkFinished(); });
+                if(generator_->Abort())
+                    this->finished_.MarkFinished();
             }
 
             Future<> finished() override

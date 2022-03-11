@@ -40,9 +40,8 @@ namespace arrow
 {
     namespace compute
     {
-        static constexpr uint32_t STARTDATE = 8035; // January 1, 1992 is 8035 days after January 1, 1970
-        static constexpr uint32_t CURRENTDATE = 9298; // June 17, 1995 is 9298 days after January 1, 1970
-        static constexpr uint32_t ENDDATE = 10591; // December 12, 1998 is 10591 days after January 1, 1970
+        static constexpr uint32_t kStartDate = 8035; // January 1, 1992 is 8035 days after January 1, 1970
+        static constexpr uint32_t kEndDate = 10591; // December 12, 1998 is 10591 days after January 1, 1970
 
         void ValidateBatch(const ExecBatch &batch)
         {
@@ -60,10 +59,9 @@ namespace arrow
             int64_t num_keys = d.length();
             for(int64_t i = 0; i < num_keys; i++)
             {
-                ASSERT_TRUE(seen.find(keys[i]) == seen.end());
+                ASSERT_TRUE(seen.insert(keys[i]).second);
                 ASSERT_LE(keys[i], max);
                 ASSERT_GE(keys[i], min);
-                seen.insert(keys[i]);
             }
         }
 
@@ -170,9 +168,9 @@ namespace arrow
             {
                 int32_t start = off[i];
                 int32_t end = off[i + 1];
-                int32_t length = end - start;
-                ASSERT_LE(length, max_length);
-                ASSERT_GE(length, min_length);
+                int32_t str_len = end - start;
+                ASSERT_LE(str_len, max_length);
+                ASSERT_GE(str_len, min_length);
                 for(int32_t i = start; i < end; i++)
                 {
                     bool is_valid = std::isdigit(str[i]) || std::isalpha(str[i]) || str[i] == ',' || str[i] == ' ';
@@ -366,6 +364,26 @@ namespace arrow
                         bad_count++;
                 }
             }
+        }
+
+        TEST(TpchNode, ScaleFactor)
+        {
+            ExecContext ctx(default_memory_pool(), arrow::internal::GetCpuThreadPool());
+            std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(&ctx);
+            TpchGen gen = *TpchGen::Make(plan.get(), 0.25f);
+            ExecNode *table = *gen.Supplier();
+            AsyncGenerator<util::optional<ExecBatch>> sink_gen;
+            Declaration sink("sink", { Declaration::Input(table) }, SinkNodeOptions{&sink_gen});
+            std::ignore = *sink.AddToPlan(plan.get());
+            auto fut = StartAndCollect(plan.get(), sink_gen);
+            auto res = *fut.MoveResult();
+
+            int64_t kExpectedRows = 2500;
+            int64_t num_rows = 0;
+            for(auto &batch : res)
+                num_rows += batch.length;
+            ASSERT_EQ(num_rows, kExpectedRows);
+            arrow::internal::GetCpuThreadPool()->WaitForIdle();
         }
 
         TEST(TpchNode, Supplier)
@@ -565,7 +583,7 @@ namespace arrow
                 VerifyAllBetween(batch[1], /*min=*/1, /*max=*/static_cast<int32_t>(kExpectedRows));
                 VerifyModuloBetween(batch[1], /*min=*/1, /*max=*/2, /*mod=*/3);
                 VerifyOneOf(batch[2], { 'F', 'O', 'P' });
-                VerifyAllBetween(batch[4], STARTDATE, ENDDATE - 151);
+                VerifyAllBetween(batch[4], kStartDate, kEndDate - 151);
                 VerifyOneOf(batch[5],
                             /*byte_width=*/15,
                             {
@@ -608,9 +626,9 @@ namespace arrow
                 VerifyDecimalsBetween(batch[7], /*min=*/0, /*max=*/8);
                 VerifyOneOf(batch[8], { 'R', 'A', 'N' });
                 VerifyOneOf(batch[9], { 'O', 'F' });
-                VerifyAllBetween(batch[10], STARTDATE + 1, ENDDATE - 151 + 121);
-                VerifyAllBetween(batch[11], STARTDATE + 30, ENDDATE - 151 + 90);
-                VerifyAllBetween(batch[12], STARTDATE + 2, ENDDATE - 151 + 121 + 30);
+                VerifyAllBetween(batch[10], kStartDate + 1, kEndDate - 151 + 121);
+                VerifyAllBetween(batch[11], kStartDate + 30, kEndDate - 151 + 90);
+                VerifyAllBetween(batch[12], kStartDate + 2, kEndDate - 151 + 121 + 30);
                 VerifyOneOf(
                     batch[13],
                     /*byte_width=*/25,

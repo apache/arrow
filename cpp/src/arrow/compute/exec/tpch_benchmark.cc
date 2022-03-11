@@ -28,7 +28,7 @@ namespace arrow
 namespace compute
 {
 
-std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>> &sink_gen, int scale_factor)
+std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>> *sink_gen, int scale_factor)
 {
     ExecContext *ctx = default_exec_context();
     *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
@@ -132,7 +132,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>> &sin
     SortKey l_returnflag_key("L_RETURNFLAG");
     SortKey l_linestatus_key("L_LINESTATUS");
     SortOptions sort_opts({ l_returnflag_key, l_linestatus_key });
-    OrderBySinkNodeOptions order_by_opts(sort_opts, &sink_gen);
+    OrderBySinkNodeOptions order_by_opts(sort_opts, sink_gen);
 
     Declaration filter_decl("filter", { Declaration::Input(lineitem) }, filter_opts);
     Declaration project_decl("project", project_opts);
@@ -156,21 +156,14 @@ static void BM_Tpch_Q1(benchmark::State &st)
     {
         st.PauseTiming();
         AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-        std::shared_ptr<ExecPlan> plan = Plan_Q1(sink_gen, st.range(0));
+        std::shared_ptr<ExecPlan> plan = Plan_Q1(&sink_gen, st.range(0));
         st.ResumeTiming();
         auto fut = StartAndCollect(plan.get(), sink_gen);
         auto res = *fut.MoveResult();
-#ifndef NDEBUG
-        st.PauseTiming();
-        for(auto &batch : res)
-            std::cout << batch.ToString() << std::endl;
-        st.ResumeTiming();
-#endif
     }
 }
 
-//BENCHMARK(BM_Tpch_Q1)->RangeMultiplier(10)->Range(1, 1000)->ArgNames({ "SF" });
-//BENCHMARK(BM_Tpch_Q1)->RangeMultiplier(10)->Range(1, 10)->ArgNames({ "SF" });
 BENCHMARK(BM_Tpch_Q1)->Args({1})->ArgNames({ "SF" });
+
 }
 }
