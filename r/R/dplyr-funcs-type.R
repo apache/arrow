@@ -121,46 +121,6 @@ register_bindings_type_cast <- function() {
     }
     build_expr("cast", x, options = cast_options(to_type = date32()))
   })
-  register_binding("as.difftime", function(x,
-                                           format = "%X",
-                                           units = "auto",
-                                           tz = "UTC") {
-    # windows doesn't seem to like "%X"
-    if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
-      format <- "%H:%M:%S"
-    }
-
-    if (units != "secs") {
-      abort("`as.difftime()` with units other than seconds not supported in Arrow")
-    }
-
-    if (call_binding("is.character", x)) {
-      x <- build_expr("strptime", x, options = list(format = format, tz = tz, unit = 0L))
-      y <- build_expr("strptime", "0:0:0", options = list(format = "%H:%M:%S", tz = tz, unit = 0L))
-      diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
-      return(diff_x_y)
-    }
-
-    # numeric -> duration not supported in Arrow yet so we use time32() as
-    # intermediate step
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862 done
-    if (call_binding("is.integer", x)) {
-      # x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
-      # y <- build_expr("cast", 0L, options = cast_options(to_type = time32(unit = "s")))
-      # diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
-      # return(diff_x_y)
-      # or we could go via int64()
-      x <- build_expr("cast", x, options = cast_options(to_type = int64()))
-      x <- build_expr("cast", x, options = cast_options(to_type = duration("s")))
-      return(x)
-    }
-
-    if (call_binding("is.double")) {
-      abort("`as.difftime()` with double/float inputs not supported in Arrow ")
-    }
-
-    build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
-  })
 
   register_binding("is", function(object, class2) {
     if (is.string(class2)) {

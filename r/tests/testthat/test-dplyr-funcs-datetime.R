@@ -1187,3 +1187,54 @@ test_that("difftime works correctly", {
     test_df_with_tz
   )
 })
+
+test_that("as.difftime() works properly", {
+  test_df <- tibble(
+    hms_string = c("0:7:45", "12:34:56"),
+    hm_string = c("7:45", "12:34"),
+    int = c(30L, 75L),
+    dbl = c(31, 76)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(hms_difftime = as.difftime(hms_string, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  # TODO add test with `format` mismatch returning NA once
+  # https://issues.apache.org/jira/browse/ARROW-15659 is solved
+  # for example: as.difftime("07:", format = "%H:%M") should return NA
+  compare_dplyr_binding(
+    .input %>%
+      mutate(hm_difftime = as.difftime(hm_string, units = "secs", format = "%H:%M")) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(int_difftime = as.difftime(int, units = "secs")) %>%
+      collect(),
+    test_df
+  )
+
+  # coercing doubles to difftime/duration is not supported in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+
+  # "mins" or other values for units cannot be handled in Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(int_difftime = as.difftime(int, units = "mins")) %>%
+      collect(),
+    test_df,
+    warning = TRUE
+  )
+})
