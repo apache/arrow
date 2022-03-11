@@ -714,7 +714,7 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
     fields.push_back(aug_field);
   }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                          Schema(fields));
+                                          Schema(fields, dataset_schema.metadata()));
 }
 
 Result<ProjectionDescr> ProjectionDescr::Default(const Schema& dataset_schema) {
