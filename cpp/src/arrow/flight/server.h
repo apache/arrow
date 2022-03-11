@@ -59,7 +59,7 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
 };
 
 /// \brief A basic implementation of FlightDataStream that will provide
-/// a sequence of FlightData messages to be written to a gRPC stream
+/// a sequence of FlightData messages to be written to a stream
 class ARROW_FLIGHT_EXPORT RecordBatchStream : public FlightDataStream {
  public:
   /// \param[in] reader produces a sequence of record batches

@@ -75,10 +75,10 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 // (1) Adapting it to the Flight message format
 // (2) Allowing pure-metadata messages before data is sent
 // (3) Reusing the reader implementation between DoGet and DoExchange.
-// To do this, we wrap the gRPC reader in a peekable iterator.
-// The Flight reader can then peek at the message to determine whether
-// it has application metadata or not, and pass the message to
-// RecordBatchStreamReader as appropriate.
+// To do this, we wrap the transport-level reader in a peekable
+// iterator.  The Flight reader can then peek at the message to
+// determine whether it has application metadata or not, and pass the
+// message to RecordBatchStreamReader as appropriate.
 class PeekableFlightDataReader {
  public:
   explicit PeekableFlightDataReader(TransportDataStream* stream)

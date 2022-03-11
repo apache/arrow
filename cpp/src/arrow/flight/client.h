@@ -173,7 +173,7 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
   virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
 
-/// \brief Client class for Arrow Flight RPC services (gRPC-based).
+/// \brief Client class for Arrow Flight RPC services.
 /// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:

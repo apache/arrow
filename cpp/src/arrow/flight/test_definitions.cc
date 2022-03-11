@@ -496,9 +496,9 @@ void DataTest::TestDoExchangeError() {
   }
   // writer->Begin isn't tested here because, as noted in client.cc,
   // OpenRecordBatchWriter lazily writes the initial message - hence
-  // Begin() won't fail. Additionally, it appears gRPC may buffer
-  // writes - a write won't immediately fail even when the server
-  // immediately fails.
+  // Begin() won't fail. Additionally, transports are allowed to
+  // buffer writes - a write won't immediately fail even if the server
+  // would immediately return an error.
 }
 void DataTest::TestIssue5095() {
   // Make sure the server-side error message is reflected to the
@@ -814,9 +814,10 @@ void AppMetadataTest::TestDoPut() {
     ASSERT_OK(writer->WriteWithMetadata(*expected_batches[i],
                                         Buffer::FromString(std::to_string(i))));
   }
-  // This eventually calls grpc::ClientReaderWriter::Finish which can
-  // hang if there are unread messages. So make sure our wrapper
-  // around this doesn't hang (because it drains any unread messages)
+  // Transports may behave unpredictably if streams are not
+  // drained. So explicitly close to see if the transport misbehaves
+  // (e.g. gRPC will hang if the Flight transport layer doesn't drain
+  // messages)
   ASSERT_OK(writer->Close());
 }
 // Test DoPut() with dictionaries. This tests a corner case in the

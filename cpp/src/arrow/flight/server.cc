@@ -69,7 +69,7 @@ using ::arrow::internal::SignalHandler;
 #endif
 
 /// RAII guard that manages a self-pipe and a thread that listens on
-/// the self-pipe, shutting down the gRPC server when a signal handler
+/// the self-pipe, shutting down the server when a signal handler
 /// writes to the pipe.
 class ServerSignalHandler {
  public:
@@ -139,7 +139,7 @@ struct FlightServerBase::Impl {
   // wouldn't make sense.  This means only a single instance can receive signals.
   static std::atomic<Impl*> running_instance_;
   // We'll use the self-pipe trick to notify a thread from the signal
-  // handler. The thread will then shut down the gRPC server.
+  // handler. The thread will then shut down the server.
   int self_pipe_wfd_;
 
   // Signal handling
@@ -363,7 +363,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
     RETURN_NOT_OK(reader_->ReadNext(&current_batch_));
 
-    // TODO(wesm): Delta dictionaries
+    // TODO(ARROW-10787): Delta dictionaries
     if (!current_batch_) {
       // Signal that iteration is over
       payload->ipc_message.metadata = nullptr;

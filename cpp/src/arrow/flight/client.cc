@@ -334,7 +334,8 @@ class ClientStreamWriter : public FlightStreamWriter {
 
   ~ClientStreamWriter() {
     if (closed_) return;
-    // gRPC implicitly Close()s on destruction so we should too
+    // Implicitly Close() on destruction, though it's best if the
+    // application closes explicitly
     auto status = Close();
     if (!status.ok()) {
       ARROW_LOG(WARNING) << "Close() failed: " << status.ToString();

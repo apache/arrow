@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Internal header.  Platform-specific definitions for gRPC.
+// Internal header. Platform-specific definitions for Flight.
 
 #pragma once
 
