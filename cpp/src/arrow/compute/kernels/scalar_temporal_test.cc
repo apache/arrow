@@ -1070,6 +1070,9 @@ TEST_F(ScalarTemporalTest, TestTemporalAddDateAndDuration) {
         ArrayFromJSON(timestamp(TimeUnit::MICRO), times_seconds_precision);
     CheckScalarBinary(op, dates32, durations_us, timestamps_us);
     CheckScalarBinary(op, dates64, durations_us, timestamps_us);
+
+    CheckScalarBinary(op, durations_us, dates32, timestamps_us);
+    CheckScalarBinary(op, durations_us, dates64, timestamps_us);
   }
 }
 
@@ -1153,6 +1156,10 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimestampAndDuration) {
                         ArrayFromJSON(timestamp_unit_us, times_seconds_precision2));
       CheckScalarBinary(op, ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
                         ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
+
+      CheckScalarBinary(op, ArrayFromJSON(duration_unit_ns, nanoseconds_between),
+                        ArrayFromJSON(timestamp_unit_ns, times_seconds_precision),
                         ArrayFromJSON(timestamp_unit_ns, times_seconds_precision2));
     }
 
@@ -1341,6 +1348,9 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
     CheckScalarBinary(op, arr_ns,
                       ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
                       arr_ns2);
+    CheckScalarBinary(op,
+                      ArrayFromJSON(duration(TimeUnit::NANO), nanoseconds_between_time),
+                      arr_ns, arr_ns2);
 
     auto seconds_1 = ArrayFromJSON(time32(TimeUnit::SECOND), R"([1, null])");
     auto milliseconds_2k = ArrayFromJSON(duration(TimeUnit::MILLI), R"([2000, null])");
@@ -1352,6 +1362,10 @@ TEST_F(ScalarTemporalTest, TestTemporalAddTimeAndDuration) {
     CheckScalarBinary(op, seconds_1, milliseconds_2k, milliseconds_3k);
     CheckScalarBinary(op, nanoseconds_1G, microseconds_2M, nanoseconds_3M);
     CheckScalarBinary(op, seconds_1, microseconds_2M, microseconds_3M);
+
+    CheckScalarBinary(op, milliseconds_2k, seconds_1, milliseconds_3k);
+    CheckScalarBinary(op, microseconds_2M, nanoseconds_1G, nanoseconds_3M);
+    CheckScalarBinary(op, microseconds_2M, seconds_1, microseconds_3M);
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
