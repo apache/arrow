@@ -45,7 +45,7 @@ class MemoryPool;
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
     : chunks_(std::move(chunks)),
       type_(std::move(type)),
-      resolver_{compute::internal::ChunkResolver::FromChunks(chunks_)} {
+      resolver_{internal::ChunkResolver::FromChunks(chunks_)} {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";

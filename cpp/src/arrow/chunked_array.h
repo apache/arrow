@@ -183,7 +183,7 @@ class ARROW_EXPORT ChunkedArray {
   std::shared_ptr<DataType> type_;
 
  private:
-  compute::internal::ChunkResolver resolver_;
+  internal::ChunkResolver resolver_;
   ARROW_DISALLOW_COPY_AND_ASSIGN(ChunkedArray);
 };
 

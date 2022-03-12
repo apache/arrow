@@ -61,23 +61,23 @@ struct ResolvedChunk<Array> {
   bool IsNull() const { return array->IsNull(index); }
 };
 
-struct ChunkedArrayResolver : protected ChunkResolver {
+struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
-      : ChunkResolver{FromArrayPointers(chunks)}, chunks_(chunks) {}
+      : ::arrow::internal::ChunkResolver{FromArrayPointers(chunks)}, chunks_(chunks) {}
 
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
-    const auto loc = ChunkResolver::Resolve(index);
+    const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
     return ResolvedChunk<ArrayType>(
         checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
   }
 
  protected:
-  static ChunkResolver FromArrayPointers(const std::vector<const Array*>& chunks) {
+  static ::arrow::internal::ChunkResolver FromArrayPointers(const std::vector<const Array*>& chunks) {
     std::vector<int64_t> lengths(chunks.size());
     std::transform(chunks.begin(), chunks.end(), lengths.begin(),
                    [](const Array* arr) { return arr->length(); });
-    return ChunkResolver(std::move(lengths));
+    return ::arrow::internal::ChunkResolver(std::move(lengths));
   }
 
   const std::vector<const Array*> chunks_;
