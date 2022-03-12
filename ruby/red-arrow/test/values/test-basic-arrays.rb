@@ -296,6 +296,16 @@ module ValuesBasicArraysTests
     target = build(Arrow::DayTimeIntervalArray.new(values))
     assert_equal(values, target.values)
   end
+
+  def test_month_day_nano_interval
+    values = [
+      {month: 1, day: 1, nanosecond: 100},
+      nil,
+      {month: 2, day: 3, nanosecond: 400},
+    ]
+    target = build(Arrow::MonthDayNanoIntervalArray.new(values))
+    assert_equal(values, target.values)
+  end
 end
 
 class ValuesArrayBasicArraysTest < Test::Unit::TestCase
