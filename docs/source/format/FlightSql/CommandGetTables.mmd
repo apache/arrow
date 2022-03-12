@@ -1,0 +1,9 @@
+sequenceDiagram
+autonumber
+
+participant Client
+participant Server
+Client->>Server: GetFlightInfo(CommandGetTables)
+Server->>Client: FlightInfo{…Ticket…}
+Client->>Server: DoGet(Ticket)
+Server->>Client: stream of FlightData

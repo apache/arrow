@@ -1,0 +1,11 @@
+sequenceDiagram
+autonumber
+
+participant Client
+participant Server
+Client->>Server: GetFlightInfo(CommandStatementQuery)
+Server->>Client: FlightInfo{…Ticket…}
+loop for each Ticket in FlightInfo
+    Client->>Server: DoGet(Ticket)
+    Server->>Client: stream of FlightData
+end

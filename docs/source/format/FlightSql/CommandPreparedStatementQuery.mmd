@@ -1,0 +1,19 @@
+sequenceDiagram
+autonumber
+
+participant Client
+participant Server
+Client->>Server: DoAction(ActionCreatePreparedStatementRequest)
+Server->>Client: ActionCreatePreparedStatementResult{handle}
+loop for each invocation of the prepared statement
+Client->>Server: DoPut(CommandPreparedStatementQuery)
+Client->>Server: stream of FlightData
+Client->>Server: GetFlightInfo(CommandPreparedStatementQuery)
+Server->>Client: FlightInfo{…Ticket…}
+    loop for each Ticket in FlightInfo
+        Client->>Server: DoGet(Ticket)
+        Server->>Client: stream of FlightData
+    end
+end
+Client->>Server: DoAction(ActionClosePreparedStatementRequest)
+Server->>Client: ActionClosePreparedStatementRequest{}
