@@ -34,8 +34,11 @@ struct ChunkLocation {
 struct ChunkResolver {
   explicit ChunkResolver(std::vector<int64_t> lengths)
       : num_chunks_(static_cast<int64_t>(lengths.size())),
-        offsets_(MakeEndOffsets(std::move(lengths))),
-        cached_chunk_(0) {}
+        offsets_(MakeEndOffsets(std::move(lengths))) {}
+
+  explicit ChunkResolver(const ArrayVector& chunks);
+
+  explicit ChunkResolver(const RecordBatchVector& batches);
 
   inline ChunkLocation Resolve(int64_t index) const {
     // It is common for the algorithms below to make consecutive accesses at
@@ -52,10 +55,6 @@ struct ChunkResolver {
       return ResolveMissBisect(index);
     }
   }
-
-  static ChunkResolver FromChunks(const ArrayVector& chunks);
-
-  static ChunkResolver FromBatches(const RecordBatchVector& batches);
 
  protected:
   inline ChunkLocation ResolveMissBisect(int64_t index) const {
@@ -90,7 +89,7 @@ struct ChunkResolver {
 
   int64_t num_chunks_;
   std::vector<int64_t> offsets_;
-  mutable int64_t cached_chunk_;
+  mutable int64_t cached_chunk_ = 0;
 };
 
 }  // namespace internal

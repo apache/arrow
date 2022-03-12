@@ -29,19 +29,21 @@
 namespace arrow {
 namespace internal {
 
-ChunkResolver ChunkResolver::FromChunks(const ArrayVector& chunks) {
+ChunkResolver::ChunkResolver(const ArrayVector& chunks) {
   std::vector<int64_t> lengths(chunks.size());
   std::transform(chunks.begin(), chunks.end(), lengths.begin(),
                  [](const std::shared_ptr<Array>& arr) { return arr->length(); });
-  return ChunkResolver(std::move(lengths));
+  num_chunks_ = static_cast<int64_t>(lengths.size());
+  offsets_ = MakeEndOffsets(std::move(lengths));
 }
 
-ChunkResolver ChunkResolver::FromBatches(const RecordBatchVector& batches) {
+ChunkResolver::ChunkResolver(const RecordBatchVector& batches) {
   std::vector<int64_t> lengths(batches.size());
   std::transform(
       batches.begin(), batches.end(), lengths.begin(),
       [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows(); });
-  return ChunkResolver(std::move(lengths));
+  num_chunks_ = static_cast<int64_t>(lengths.size());
+  offsets_ = MakeEndOffsets(std::move(lengths));
 }
 
 }  // namespace internal

@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 
@@ -43,9 +44,7 @@ class MemoryPool;
 // ChunkedArray methods
 
 ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
-    : chunks_(std::move(chunks)),
-      type_(std::move(type)),
-      resolver_{internal::ChunkResolver::FromChunks(chunks_)} {
+    : chunks_(std::move(chunks)), type_(std::move(type)) {
   if (type_ == nullptr) {
     ARROW_CHECK_GT(chunks_.size(), 0)
         << "cannot construct ChunkedArray from empty vector and omitted type";
@@ -149,7 +148,10 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  const auto loc = resolver_.Resolve(index);
+  if (!resolver_) {
+    resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
+  }
+  const auto loc = resolver_->Resolve(index);
   return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }
 
