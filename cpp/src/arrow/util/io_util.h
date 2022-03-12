@@ -339,6 +339,9 @@ Status SendSignalToThread(int signum, uint64_t thread_id);
 ARROW_EXPORT
 int64_t GetRandomSeed();
 
+/// \brief A value that should never be returned by GetThreadId
+static constexpr uint64_t kUnlikelyThreadId{std::numeric_limits<uint64_t>::max()};
+
 /// \brief Get the current thread id
 ///
 /// In addition to having the same properties as std::thread, the returned value

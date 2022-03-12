@@ -178,6 +178,51 @@ TEST_P(TestRunSynchronously, SimpleRun) {
   EXPECT_TRUE(task_ran);
 }
 
+TEST_P(TestRunSynchronously, OwnsThisThread) {
+  if (UseThreads()) {
+    // This case is tested in TestThreadPool::OwnsCurrentThread
+    return;
+  }
+  ASSERT_OK_AND_ASSIGN(auto mock_io_pool, ThreadPool::Make(1));
+  // Simulate typical serial executor use case of
+  // main thread -> I/O thread -> continuation on main thread
+  auto top_level_task = [&](Executor* executor) {
+    EXPECT_TRUE(executor->OwnsThisThread());
+    return DeferNotOk(mock_io_pool->Submit(
+                          [executor] { ASSERT_FALSE(executor->OwnsThisThread()); }))
+        .Then([executor] {
+          return DeferNotOk(
+              executor->Submit([executor] { ASSERT_TRUE(executor->OwnsThisThread()); }));
+        });
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+}
+
+TEST_P(TestRunSynchronously, ThreadLocalState) {
+  constexpr int kNumTasks = 100;
+  if (UseThreads()) {
+    // This case is tested in TestThreadPool::ThreadLocalState
+    return;
+  }
+  std::shared_ptr<ThreadLocalState<int>> tls;
+  auto top_level_task = [&](Executor* executor) -> Future<int> {
+    tls.reset(new ThreadLocalState<int>(executor));
+    EXPECT_TRUE(executor->OwnsThisThread());
+    std::vector<Future<>> tasks(kNumTasks);
+    for (int i = 0; i < kNumTasks; i++) {
+      tasks[i] = DeferNotOk(executor->Submit([tls] {
+        ASSERT_OK_AND_ASSIGN(auto* state, tls->Get());
+        (*state)++;
+      }));
+    }
+    return All(std::move(tasks)).Then([tls]() -> Result<int> {
+      EXPECT_OK_AND_ASSIGN(auto* state, tls->Get());
+      return *state;
+    });
+  };
+  ASSERT_OK_AND_EQ(kNumTasks, Run<int>(std::move(top_level_task)));
+}
+
 TEST_P(TestRunSynchronously, SpawnNested) {
   bool nested_ran = false;
   auto top_level_task = [&](Executor* executor) {
@@ -400,7 +445,7 @@ TEST(SerialExecutor, FailingIteratorWithCleanup) {
 class TransferTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }
-  int spawn_count() { return mock_executor->spawn_count; }
+  int spawn_count() { return mock_executor->spawn_count(); }
 
   std::function<void(const Status&)> callback = [](const Status&) {};
   std::shared_ptr<MockExecutor> mock_executor = std::make_shared<MockExecutor>();
@@ -742,6 +787,45 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
     ASSERT_GT(n_success, 0);
     ASSERT_GT(n_cancelled, 0);
   }
+}
+
+struct MyState {
+  int counter = 0;
+};
+
+TEST_F(TestThreadPool, ThreadLocalState) {
+  constexpr int kNumTasks = 1000;
+  auto pool = this->MakeThreadPool(10);
+  ThreadLocalState<MyState> tls(pool.get());
+  auto task = [&tls] {
+    ASSERT_OK_AND_ASSIGN(MyState * state, tls.Get());
+    state->counter++;
+  };
+  for (int i = 0; i < kNumTasks; i++) {
+    ASSERT_OK(pool->Spawn(task));
+  }
+  pool->WaitForIdle();
+  std::vector<MyState> states = tls.Finish();
+  int sum = 0;
+  for (const auto& state : states) {
+    sum += state.counter;
+  }
+  // There should be no race conditions on counter increments
+  ASSERT_EQ(kNumTasks, sum);
+}
+
+TEST_F(TestThreadPool, ThreadLocalStateInvalidUse) {
+  auto pool = this->MakeThreadPool(1);
+  ThreadLocalState<MyState> tls(pool.get());
+  ASSERT_RAISES(Invalid, tls.Get());
+  tls.Finish();
+  bool task_run = false;
+  ASSERT_OK(pool->Spawn([&tls, &task_run] {
+    ASSERT_RAISES(Invalid, tls.Get());
+    task_run = true;
+  }));
+  pool->WaitForIdle();
+  ASSERT_TRUE(task_run);
 }
 
 // Test fork safety on Unix

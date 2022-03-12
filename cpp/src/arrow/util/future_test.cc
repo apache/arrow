@@ -958,7 +958,7 @@ class FutureSchedulingTest : public testing::Test {
  public:
   internal::Executor* executor() { return mock_executor.get(); }
 
-  int spawn_count() { return static_cast<int>(mock_executor->captured_tasks.size()); }
+  int spawn_count() { return static_cast<int>(mock_executor->captured_tasks()->size()); }
 
   void AssertRunSynchronously(const std::vector<int>& ids) { AssertIds(ids, true); }
 
@@ -1057,7 +1057,9 @@ TEST_F(FutureSchedulingTest, ScheduleIfDifferentExecutor) {
   struct : internal::Executor {
     int GetCapacity() override { return pool_->GetCapacity(); }
 
-    bool OwnsThisThread() override { return pool_->OwnsThisThread(); }
+    bool OwnsThisThread() const override { return pool_->OwnsThisThread(); }
+
+    int GetThreadIndex() const override { return pool_->GetThreadIndex(); }
 
     Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task,
                      StopToken stop_token, StopCallback&& stop_callback) override {
@@ -1115,7 +1117,7 @@ TEST_F(FutureSchedulingTest, ScheduleAlwaysKeepsFutureAliveUntilCallback) {
     fut.AddCallback([](const Result<int> val) { ASSERT_EQ(7, *val); }, options);
     fut.MarkFinished(7);
   }
-  std::move(mock_executor->captured_tasks[0])();
+  std::move((*mock_executor->captured_tasks())[0])();
 }
 
 TEST(FutureAllTest, Empty) {

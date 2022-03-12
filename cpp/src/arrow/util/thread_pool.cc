@@ -45,9 +45,37 @@ struct Task {
   Executor::StopCallback stop_callback;
 };
 
+// As capacity changes a thread's position in the thread pool's
+// worker list may change so we can't rely on that being a stable
+// index.  Instead each worker checks out an index when they start
+// and releases it when they finish.
+//
+// This class is not thread safe and should be protected by a mutex
+class IndexCheckout {
+ public:
+  // Checks out a free index or allocates a new one
+  int CheckoutIndex() {
+    for (std::size_t i = 0; i < taken_.size(); i++) {
+      if (!taken_[i]) {
+        taken_[i] = true;
+        return static_cast<int>(i);
+      }
+    }
+    taken_.push_back(true);
+    return taken_.size() - 1;
+  }
+
+  // Releases an index to be reused by future threads
+  void Release(int index) { taken_[index] = false; }
+
+ private:
+  std::vector<bool> taken_;
+};
+
 }  // namespace
 
 struct SerialExecutor::State {
+  std::thread::id worker_id;
   std::deque<Task> task_queue;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
@@ -140,10 +168,14 @@ void SerialExecutor::Unpause() {
   }
 }
 
+void SerialExecutor::InitTls() { state_->worker_id = std::this_thread::get_id(); }
+void SerialExecutor::ClearTls() { state_->worker_id = {}; }
+
 void SerialExecutor::RunLoop() {
   // This is called from the SerialExecutor's main thread, so the
   // state is guaranteed to be kept alive.
   std::unique_lock<std::mutex> lk(state_->mutex);
+  state_->worker_id = std::this_thread::get_id();
 
   // If paused we break out immediately.  If finished we only break out
   // when all work is done.
@@ -173,8 +205,16 @@ void SerialExecutor::RunLoop() {
       return state_->paused || state_->finished || !state_->task_queue.empty();
     });
   }
+  state_->worker_id = {};
 }
 
+bool SerialExecutor::OwnsThisThread() const {
+  return state_->worker_id == std::this_thread::get_id();
+}
+
+// The thread index will always be 0 even though the calling thread may change
+// during the iteration of an async generator.
+int SerialExecutor::GetThreadIndex() const { return OwnsThisThread() ? 0 : -1; }
 struct ThreadPool::State {
   State() = default;
 
@@ -200,13 +240,30 @@ struct ThreadPool::State {
   // Are we shutting down?
   bool please_shutdown_ = false;
   bool quick_shutdown_ = false;
+
+  IndexCheckout index_checkout_;
 };
+
+thread_local ThreadPool* tl_current_thread_pool_ = nullptr;
+thread_local int tl_current_worker_index = -1;
+
+bool ThreadPool::OwnsThisThread() const { return tl_current_thread_pool_ == this; }
+
+int ThreadPool::GetThreadIndex() const {
+  if (ARROW_PREDICT_TRUE(OwnsThisThread())) {
+    return tl_current_worker_index;
+  } else {
+    return -1;
+  }
+}
 
 // The worker loop is an independent function so that it can keep running
 // after the ThreadPool is destroyed.
 static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
                        std::list<std::thread>::iterator it) {
   std::unique_lock<std::mutex> lock(state->mutex_);
+
+  tl_current_worker_index = state->index_checkout_.CheckoutIndex();
 
   // Since we hold the lock, `it` now points to the correct thread object
   // (LaunchWorkersUnlocked has exited)
@@ -258,6 +315,8 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     state->cv_.wait(lock);
   }
   DCHECK_GE(state->tasks_queued_or_running_, 0);
+  state->index_checkout_.Release(tl_current_worker_index);
+  tl_current_worker_index = -1;
 
   // We're done.  Move our thread object to the trashcan of finished
   // workers.  This has two motivations:
@@ -396,10 +455,6 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   state_->finished_workers_.clear();
 }
 
-thread_local ThreadPool* current_thread_pool_ = nullptr;
-
-bool ThreadPool::OwnsThisThread() { return current_thread_pool_ == this; }
-
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
 
@@ -407,8 +462,9 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
     *it = std::thread([this, state, it] {
-      current_thread_pool_ = this;
+      tl_current_thread_pool_ = this;
       WorkerLoop(state, it);
+      tl_current_thread_pool_ = nullptr;
     });
   }
 }

@@ -1622,8 +1622,6 @@ class BackgroundGenerator {
   }
 
  protected:
-  static constexpr uint64_t kUnlikelyThreadId{std::numeric_limits<uint64_t>::max()};
-
   struct State {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
@@ -1695,7 +1693,7 @@ class BackgroundGenerator {
     const int max_q;
     const int q_restart;
     Iterator<T> it;
-    std::atomic<uint64_t> worker_thread_id{kUnlikelyThreadId};
+    std::atomic<uint64_t> worker_thread_id{internal::kUnlikelyThreadId};
 
     // If true, the task is actively pumping items from the queue and does not need a
     // restart
@@ -1795,7 +1793,7 @@ class BackgroundGenerator {
       // reference it.  We can safely transition to idle now.
       task_finished = state->task_finished;
       state->task_finished = Future<>();
-      state->worker_thread_id.store(kUnlikelyThreadId);
+      state->worker_thread_id.store(internal::kUnlikelyThreadId);
     }
     task_finished.MarkFinished();
   }

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/util/io_util.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -28,12 +29,23 @@ class MockExecutor : public internal::Executor {
 
   Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task, StopToken,
                    StopCallback&&) override {
-    spawn_count++;
+    spawn_count_++;
+    current_thread_id_ = internal::GetThreadId();
     std::move(task)();
+    current_thread_id_ = internal::kUnlikelyThreadId;
     return Status::OK();
   }
 
-  int spawn_count = 0;
+  bool OwnsThisThread() const override {
+    return internal::GetThreadId() == current_thread_id_;
+  }
+
+  int GetThreadIndex() const override { return OwnsThisThread() ? 0 : -1; }
+  int spawn_count() const { return spawn_count_; }
+
+ private:
+  int spawn_count_ = 0;
+  uint64_t current_thread_id_ = -1;
 };
 
 /// An executor which does not actually run the task.  Can be used to simulate situations
@@ -43,13 +55,20 @@ class DelayedExecutor : public internal::Executor {
  public:
   int GetCapacity() override { return 0; }
 
+  bool OwnsThisThread() const override { return false; }
+
+  int GetThreadIndex() const override { return -1; }
+
   Status SpawnReal(internal::TaskHints hints, internal::FnOnce<void()> task, StopToken,
                    StopCallback&&) override {
-    captured_tasks.push_back(std::move(task));
+    captured_tasks_.push_back(std::move(task));
     return Status::OK();
   }
 
-  std::vector<internal::FnOnce<void()>> captured_tasks;
+  std::vector<internal::FnOnce<void()>>* captured_tasks() { return &captured_tasks_; }
+
+ private:
+  std::vector<internal::FnOnce<void()>> captured_tasks_;
 };
 
 }  // namespace arrow

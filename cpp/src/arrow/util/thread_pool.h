@@ -200,7 +200,21 @@ class ARROW_EXPORT Executor {
 
   // Return true if the thread from which this function is called is owned by this
   // Executor. Returns false if this Executor does not support this property.
-  virtual bool OwnsThisThread() { return false; }
+  virtual bool OwnsThisThread() const = 0;
+
+  // Get a thread index which should be a number between 0 and GetCapacity()
+  //
+  // Will return -1 if OwnsThisThread() == false
+  //
+  // Note: Thread index is not a thread id.  It is possible that two different
+  // threads call GetThreadIndex and get back the same value (just not at the same
+  // time)
+  //
+  // The guarantee offered is this:
+  //
+  // If a thread running task A gets thread index 'x' then no other thread will get
+  // thread index 'x' until task A has completed.
+  virtual int GetThreadIndex() const = 0;
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
@@ -261,6 +275,8 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   int GetCapacity() override { return 1; };
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
+  bool OwnsThisThread() const override;
+  int GetThreadIndex() const override;
 
   /// \brief Runs the TopLevelTask and any scheduled tasks
   ///
@@ -289,7 +305,9 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   static Iterator<T> IterateGenerator(
       internal::FnOnce<Result<std::function<Future<T>()>>(Executor*)> initial_task) {
     auto serial_executor = std::unique_ptr<SerialExecutor>(new SerialExecutor());
+    serial_executor->InitTls();
     auto maybe_generator = std::move(initial_task)(serial_executor.get());
+    serial_executor->ClearTls();
     if (!maybe_generator.ok()) {
       return MakeErrorIterator<T>(maybe_generator.status());
     }
@@ -371,14 +389,73 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   // and we have received an item that we can deliver.
   void Pause();
   void Unpause();
+  // Helper functions to establish thread-local state when running
+  // the top-level task
+  void InitTls();
+  void ClearTls();
 
   template <typename T, typename FTSync = typename Future<T>::SyncType>
   Future<T> Run(TopLevelTask<T> initial_task) {
+    InitTls();
     auto final_fut = std::move(initial_task)(this);
+    ClearTls();
     final_fut.AddCallback([this](const FTSync&) { Finish(); });
     RunLoop();
     return final_fut;
   }
+};
+
+/// \brief A container to safely declare and guard a thread local state object
+template <typename T>
+class ThreadLocalState {
+ public:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ThreadLocalState);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ThreadLocalState);
+
+  /// \brief Create an instance bound to the given executor
+  ///
+  /// When this is called executor->GetCapacity() copies of T will be
+  /// default-inserted into the backing vector
+  explicit ThreadLocalState(Executor* executor)
+      : executor_(executor), states_(executor->GetCapacity()) {}
+  /// \brief Access the state for the current thread
+  ///
+  /// Will return an error if called from a thread that is not owned by the Executor this
+  /// object was created with.
+  ///
+  /// May return an error if the executor was resized after this state object was
+  /// constructed.
+  Result<T*> Get() {
+    if (ARROW_PREDICT_FALSE(!executor_->OwnsThisThread())) {
+      return Status::Invalid(
+          "There was an attempt to use ThreadLocalState from outside the executor used "
+          "to initialize the state");
+    }
+    int thread_index = executor_->GetThreadIndex();
+    if (ARROW_PREDICT_FALSE(thread_index >= static_cast<int>(states_.size()))) {
+      if (states_.empty()) {
+        return Status::Invalid(
+            "Attempt to use ThreadLocalState after it was invalidated via Finish()");
+      }
+      return Status::Invalid(
+          "Executor capacity was changed while an operation was running.  The "
+          "operation's thread local state is corrupt and will be aborted");
+    }
+    return &states_[thread_index];
+  }
+
+  /// \brief Return states and invalidate this object
+  ///
+  /// This does not need to be called but can be useful in map-reduce style tasks
+  /// where the last thread needs to aggregate the states.
+  ///
+  /// This should only be called when all other threads have finished using this
+  /// object.
+  std::vector<T> Finish() { return std::move(states_); }
+
+ private:
+  Executor* executor_;
+  std::vector<T> states_;
 };
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -404,7 +481,9 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // match this value.
   int GetCapacity() override;
 
-  bool OwnsThisThread() override;
+  bool OwnsThisThread() const override;
+
+  int GetThreadIndex() const override;
 
   // Return the number of tasks either running or in the queue.
   int GetNumTasks();
