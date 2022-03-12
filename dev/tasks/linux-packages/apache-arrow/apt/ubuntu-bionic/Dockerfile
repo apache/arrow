@@ -55,7 +55,7 @@ RUN \
     llvm-10-dev \
     lsb-release \
     ninja-build \
-    nlohmann-json3-dev \
+    nlohmann-json-dev \
     pkg-config \
     python3-dev \
     python3-numpy \
