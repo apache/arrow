@@ -293,12 +293,7 @@ module ValuesBasicArraysTests
       nil,
       {day: 2, millisecond: 300},
     ]
-    inputs = [
-      Arrow::DayMillisecond.new(1, 100),
-      nil,
-      Arrow::DayMillisecond.new(2, 300),
-    ]
-    target = build(Arrow::DayTimeIntervalArray.new(inputs))
+    target = build(Arrow::DayTimeIntervalArray.new(values))
     assert_equal(values, target.values)
   end
 end

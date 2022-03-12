@@ -357,12 +357,7 @@ module ValuesStructArrayTests
       nil,
       {"field" => nil},
     ]
-    inputs = [
-      {"field" => Arrow::DayMillisecond.new(1, 100)},
-      nil,
-      {"field" => nil},
-    ]
-    target = build(:day_time_interval, inputs)
+    target = build(:day_time_interval, values)
     assert_equal(values, target.values)
   end
 

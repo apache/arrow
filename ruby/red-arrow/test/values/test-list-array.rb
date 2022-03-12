@@ -394,15 +394,7 @@ module ValuesListArrayTests
       ],
       nil,
     ]
-    inputs = [
-      [
-        Arrow::DayMillisecond.new(1, 100),
-        nil,
-        Arrow::DayMillisecond.new(2, 300),
-      ],
-      nil,
-    ]
-    target = build(:day_time_interval, inputs)
+    target = build(:day_time_interval, values)
     assert_equal(values, target.values)
   end
 
