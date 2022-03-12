@@ -408,6 +408,21 @@ module RawRecordsListArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_day_time_interval
+    records = [
+      [
+        [
+          {day: 1, millisecond: 100},
+          nil,
+          {day: 2, millisecond: 300},
+        ]
+      ],
+      [nil],
+    ]
+    target = build(:day_time_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [

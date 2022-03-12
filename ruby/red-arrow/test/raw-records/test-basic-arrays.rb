@@ -330,16 +330,6 @@ module RawRecordsBasicArraysTests
     assert_equal(records, target.raw_records)
   end
 
-  def test_month_interval
-    records = [
-      [1],
-      [nil],
-      [12],
-    ]
-    target = build({column: :month_interval}, records)
-    assert_equal(records, target.raw_records)
-  end
-
   def test_decimal256
     records = [
       [BigDecimal("92.92")],
@@ -354,6 +344,26 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_month_interval
+    records = [
+      [1],
+      [nil],
+      [12],
+    ]
+    target = build({column: :month_interval}, records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_day_time_interval
+    records = [
+      [{day: 1, millisecond: 100}],
+      [nil],
+      [{day: 2, millisecond: 300}],
+    ]
+    target = build({column: :day_time_interval}, records)
     assert_equal(records, target.raw_records)
   end
 end

@@ -319,6 +319,20 @@ module RawRecordsMapArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_day_time_interval
+    records = [
+      [
+        {
+          "key1" => {day: 1, millisecond: 100},
+          "key2" => nil,
+        },
+      ],
+      [nil],
+    ]
+    target = build(:day_time_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"key1" => [true, nil, false], "key2" => nil}],
