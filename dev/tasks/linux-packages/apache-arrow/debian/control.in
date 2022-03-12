@@ -139,6 +139,7 @@ Depends:
 @USE_SYSTEM_THRIFT@  libthrift-dev,
 @USE_SYSTEM_UTF8PROC@  libutf8proc-dev,
 @USE_SYSTEM_ZSTD@  libzstd-dev,
+  nlohmann-json-dev | nlohmann-json3-dev,
 @USE_SYSTEM_GRPC@  protobuf-compiler-grpc,
   zlib1g-dev
 Description: Apache Arrow is a data processing library for analysis
