@@ -73,7 +73,8 @@ struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   }
 
  protected:
-  static ::arrow::internal::ChunkResolver FromArrayPointers(const std::vector<const Array*>& chunks) {
+  static ::arrow::internal::ChunkResolver FromArrayPointers(
+      const std::vector<const Array*>& chunks) {
     std::vector<int64_t> lengths(chunks.size());
     std::transform(chunks.begin(), chunks.end(), lengths.begin(),
                    [](const Array* arr) { return arr->length(); });
