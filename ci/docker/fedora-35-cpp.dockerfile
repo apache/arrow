@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch
-FROM ${arch}/fedora:33
+FROM ${arch}/fedora:35
 ARG arch
 
 # install dependencies
@@ -54,6 +54,7 @@ RUN dnf update -y && \
         openssl-devel \
         protobuf-devel \
         python \
+        python-devel \
         python-pip \
         rapidjson-devel \
         re2-devel \

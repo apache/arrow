@@ -1083,12 +1083,12 @@ tasks:
       image: debian-cpp
 {% endfor %}
 
-  test-fedora-33-cpp:
+  test-fedora-35-cpp:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
@@ -1170,12 +1170,12 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-python
 
-  test-fedora-33-python-3:
+  test-fedora-35-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        FEDORA: 33
+        FEDORA: 35
       image: fedora-python
 
   test-r-linux-valgrind:
