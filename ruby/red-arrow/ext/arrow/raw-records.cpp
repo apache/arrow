@@ -99,6 +99,7 @@ namespace red_arrow {
       // TODO
       // VISIT(Interval)
       VISIT(MonthInterval)
+      VISIT(DayTimeInterval)
       VISIT(List)
       VISIT(Struct)
       VISIT(Map)

@@ -358,6 +358,15 @@ module RawRecordsSparseUnionArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_day_time_interval
+    records = [
+      [{"0" => {day: 1, millisecond: 100}}],
+      [{"1" => nil}],
+    ]
+    target = build(:day_time_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"0" => [true, nil, false]}],

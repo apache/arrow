@@ -354,6 +354,16 @@ module RawRecordsStructArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_day_time_interval
+    records = [
+      [{"field" => {day: 1, millisecond: 100}}],
+      [nil],
+      [{"field" => nil}],
+    ]
+    target = build(:day_time_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"field" => [true, nil, false]}],
