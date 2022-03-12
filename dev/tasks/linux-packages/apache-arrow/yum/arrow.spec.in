@@ -88,6 +88,9 @@ BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
 BuildRequires:	glog-devel
+%if %{use_gcs}
+BuildRequires:	json-devel
+%endif
 %if %{have_zstd}
 BuildRequires:	libzstd-devel
 %endif
@@ -238,6 +241,9 @@ Requires:	brotli-devel
 Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
+%endif
+%if %{use_gcs}
+Requires:	json-devel
 %endif
 %if %{have_zstd}
 Requires:	libzstd-devel
