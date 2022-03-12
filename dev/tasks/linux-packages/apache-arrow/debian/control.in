@@ -28,6 +28,7 @@ Build-Depends:
 @USE_SYSTEM_UTF8PROC@  libutf8proc-dev,
 @USE_SYSTEM_ZSTD@  libzstd-dev,
   ninja-build,
+  nlohmann-json3-dev,
   nvidia-cuda-toolkit [!arm64],
   pkg-config,
 @USE_SYSTEM_GRPC@  protobuf-compiler-grpc,

@@ -79,9 +79,7 @@ BuildRequires:	bzip2-devel
 BuildRequires:	c-ares-devel
 %endif
 BuildRequires:	cmake%{cmake_version}
-%if %{use_s3}
 BuildRequires:	curl-devel
-%endif
 BuildRequires:	flex
 BuildRequires:	gcc-c++
 %if %{use_gflags}
@@ -139,6 +137,7 @@ cd cpp/build
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
 %endif
+  -DARROW_GCS=ON \
   -DARROW_HDFS=ON \
   -DARROW_JSON=ON \
 %if %{use_mimalloc}
