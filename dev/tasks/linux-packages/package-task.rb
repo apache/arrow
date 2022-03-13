@@ -234,7 +234,8 @@ class PackageTask
 
   def split_target(target)
     components = target.split("-")
-    if components[0, 2] == ["amazon", "linux"]
+    case components[0, 2]
+    when ["amazon", "linux"]
       components[0, 2] = components[0, 2].join("-")
     end
     if components.size >= 3
@@ -412,6 +413,8 @@ VERSION=#{@deb_upstream_version}
       # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
+      "centos-8-stream-8",
+      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]
