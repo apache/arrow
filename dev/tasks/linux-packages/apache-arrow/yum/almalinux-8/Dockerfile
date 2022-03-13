@@ -40,6 +40,7 @@ RUN \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    json-devel \
     libarchive \
     libzstd-devel \
     llvm-devel \
