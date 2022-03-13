@@ -332,8 +332,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
@@ -441,8 +439,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
@@ -546,8 +542,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
@@ -652,8 +646,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
@@ -781,8 +773,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
