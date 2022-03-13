@@ -17,11 +17,15 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
-#include "arrow/type_fwd.h"
+#include "arrow/array.h"
+#include "arrow/record_batch.h"
+#include "arrow/util/bisect.h"
 
 namespace arrow {
 namespace internal {
@@ -33,12 +37,29 @@ struct ChunkLocation {
 // An object that resolves an array chunk depending on the index.
 struct ChunkResolver {
   explicit ChunkResolver(std::vector<int64_t> lengths)
-      : num_chunks_(static_cast<int64_t>(lengths.size())),
-        offsets_(MakeEndOffsets(std::move(lengths))) {}
+      : offsets_(ConvertLengthsToOffsets(std::move(lengths))) {}
 
-  explicit ChunkResolver(const ArrayVector& chunks);
+  explicit ChunkResolver(const ArrayVector& chunks) {
+    std::vector<int64_t> lengths(chunks.size());
+    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
+                   [](const std::shared_ptr<Array>& arr) { return arr->length(); });
+    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
+  }
 
-  explicit ChunkResolver(const RecordBatchVector& batches);
+  explicit ChunkResolver(const std::vector<const Array*>& chunks) {
+    std::vector<int64_t> lengths(chunks.size());
+    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
+                   [](const Array* arr) { return arr->length(); });
+    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
+  }
+
+  explicit ChunkResolver(const RecordBatchVector& batches) {
+    std::vector<int64_t> lengths(batches.size());
+    std::transform(
+        batches.begin(), batches.end(), lengths.begin(),
+        [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows(); });
+    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
+  }
 
   inline ChunkLocation Resolve(int64_t index) const {
     // It is common for the algorithms below to make consecutive accesses at
@@ -52,42 +73,13 @@ struct ChunkResolver {
     if (ARROW_PREDICT_TRUE(cache_hit)) {
       return {cached_chunk_, index - offsets_[cached_chunk_]};
     } else {
-      return ResolveMissBisect(index);
+      auto chunk_index = Bisect(index, offsets_);
+      cached_chunk_ = chunk_index;
+      return {chunk_index, index - offsets_[chunk_index]};
     }
   }
 
  protected:
-  inline ChunkLocation ResolveMissBisect(int64_t index) const {
-    // Like std::upper_bound(), but hand-written as it can help the compiler.
-    const int64_t* raw_offsets = offsets_.data();
-    // Search [lo, lo + n)
-    int64_t lo = 0, n = num_chunks_;
-    while (n > 1) {
-      int64_t m = n >> 1;
-      int64_t mid = lo + m;
-      if (index >= raw_offsets[mid]) {
-        lo = mid;
-        n -= m;
-      } else {
-        n = m;
-      }
-    }
-    cached_chunk_ = lo;
-    return {lo, index - offsets_[lo]};
-  }
-
-  static inline std::vector<int64_t> MakeEndOffsets(std::vector<int64_t> lengths) {
-    int64_t offset = 0;
-    for (auto& v : lengths) {
-      const auto this_length = v;
-      v = offset;
-      offset += this_length;
-    }
-    lengths.push_back(offset);
-    return lengths;
-  }
-
-  int64_t num_chunks_;
   std::vector<int64_t> offsets_;
   mutable int64_t cached_chunk_ = 0;
 };

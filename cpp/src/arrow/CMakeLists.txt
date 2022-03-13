@@ -158,7 +158,6 @@ set(ARROW_SRCS
     builder.cc
     buffer.cc
     chunked_array.cc
-    chunk_resolver.cc
     compare.cc
     config.cc
     datum.cc

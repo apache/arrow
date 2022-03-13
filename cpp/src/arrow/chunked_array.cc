@@ -152,6 +152,10 @@ Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
     resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
   }
   const auto loc = resolver_->Resolve(index);
+  if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
+    return Status::IndexError("tried to refer to chunk ", loc.chunk_index,
+                              " but ChunkedArray is only ", chunks_.size(), " long");
+  }
   return chunks_[loc.chunk_index]->GetScalar(loc.index_in_chunk);
 }
 

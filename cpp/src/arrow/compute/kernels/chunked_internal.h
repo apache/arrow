@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 
 namespace arrow {
@@ -33,8 +34,8 @@ namespace internal {
 // The target chunk in a chunked array.
 template <typename ArrayType>
 struct ResolvedChunk {
-  using V = GetViewType<typename ArrayType::TypeClass>;
-  using LogicalValueType = typename V::T;
+  using ViewType = GetViewType<typename ArrayType::TypeClass>;
+  using LogicalValueType = typename ViewType::T;
 
   // The target array in chunked array.
   const ArrayType* array;
@@ -45,7 +46,7 @@ struct ResolvedChunk {
 
   bool IsNull() const { return array->IsNull(index); }
 
-  LogicalValueType Value() const { return V::LogicalValue(array->GetView(index)); }
+  LogicalValueType Value() const { return ViewType::LogicalValue(array->GetView(index)); }
 };
 
 // ResolvedChunk specialization for untyped arrays when all is needed is null lookup
@@ -63,24 +64,19 @@ struct ResolvedChunk<Array> {
 
 struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   explicit ChunkedArrayResolver(const std::vector<const Array*>& chunks)
-      : ::arrow::internal::ChunkResolver{FromArrayPointers(chunks)}, chunks_(chunks) {}
+      : ::arrow::internal::ChunkResolver(chunks), chunks_(chunks) {}
 
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
     const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
-    return ResolvedChunk<ArrayType>(
-        checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk);
+    // if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
+    //   return Status::IndexError("tried to refer to chunk ", loc.chunk_index,
+    //                             " but ChunkedArray is only ", chunks_.size(), " long");
+    // }
+    return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
   }
 
  protected:
-  static ::arrow::internal::ChunkResolver FromArrayPointers(
-      const std::vector<const Array*>& chunks) {
-    std::vector<int64_t> lengths(chunks.size());
-    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
-                   [](const Array* arr) { return arr->length(); });
-    return ::arrow::internal::ChunkResolver(std::move(lengths));
-  }
-
   const std::vector<const Array*> chunks_;
 };
 
