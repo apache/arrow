@@ -603,12 +603,12 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetBooleanThrowForInvalidValue() {
+  public void testShouldGetBooleanThrowsSQLExceptionForInvalidValue() {
     assertGetBooleanForSQLException(new Text("anything"));
   }
 
   @Test
-  public void testShouldGetBooleanThrowForEmpty() throws Exception {
+  public void testShouldGetBooleanThrowsSQLExceptionForEmpty() throws Exception {
     assertGetBooleanForSQLException(new Text(""));
   }
 
