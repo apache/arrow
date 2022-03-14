@@ -200,29 +200,30 @@ FunctionDoc = namedtuple(
     ("summary", "description", "arg_names", "options_class",
      "options_required"))
 
+
 cdef wrap_arity(const CArity c_arity):
+    """
+    Wrap a C++ Arity in an Arity object
+    """
     cdef Arity arity = Arity.__new__(Arity)
     arity.init(c_arity)
     return arity
 
+
 cdef wrap_input_type(const CInputType c_input_type):
+    """
+    Wrap a C++ InputType in an InputType object
+    """
     cdef InputType input_type = InputType.__new__(InputType)
     input_type.init(c_input_type)
     return input_type
 
-# cdef class FunctionDoc(_Weakrefable):
-
-#     def __init__(self):
-#         raise TypeError("Cannot use constructor to initialize FunctionDoc")
-
-#     cdef void init(self, const CFunctionDoc &function_doc):
-#         self.function_doc = function_doc
-
-#     @staticmethod
-#     def create(self):
-#         pass
 
 cdef class InputType(_Weakrefable):
+    """
+    An interface for defining input-types for streaming execution engine
+    applications. 
+    """
 
     def __init__(self):
         raise TypeError("Cannot use constructor to initialize InputType")
@@ -232,6 +233,21 @@ cdef class InputType(_Weakrefable):
 
     @staticmethod
     def scalar(data_type):
+        """
+        create a scalar input type of the given data type
+
+        Parameter
+        ---------
+        data_type: DataType
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> from pyarrow.compute import InputType
+        >>> in_type = InputType.scalar(pa.int32())
+        <pyarrow._compute.InputType object at 0x1029fdcb0>
+        """
         cdef:
             shared_ptr[CDataType] c_data_type
             CInputType c_input_type
@@ -241,6 +257,21 @@ cdef class InputType(_Weakrefable):
 
     @staticmethod
     def array(data_type):
+        """
+        create an array input type of the given data type
+
+        Parameter
+        ---------
+        data_type: DataType
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> from pyarrow.compute import InputType
+        >>> in_type = InputType.array(pa.int32())
+        <pyarrow._compute.InputType object at 0x102ba4850>
+        """
         cdef:
             shared_ptr[CDataType] c_data_type
             CInputType c_input_type
@@ -250,6 +281,9 @@ cdef class InputType(_Weakrefable):
 
 
 cdef class Arity(_Weakrefable):
+    """
+    An Arity object. 
+    """
 
     def __init__(self):
         raise TypeError("Cannot use constructor to initialize Arity")
@@ -259,21 +293,39 @@ cdef class Arity(_Weakrefable):
 
     @staticmethod
     def unary():
+        """
+        create a unary arity object
+        """
         cdef CArity c_arity = CArity.Unary()
         return wrap_arity(c_arity)
-    
+
     @staticmethod
     def binary():
+        """
+        create a binary arity object
+        """
         cdef CArity c_arity = CArity.Binary()
         return wrap_arity(c_arity)
 
     @staticmethod
     def ternary():
+        """
+        create a ternary arity object
+        """
         cdef CArity c_arity = CArity.Ternary()
         return wrap_arity(c_arity)
 
     @staticmethod
     def varargs(int num_args):
+        """
+        create a varargs arity object with defined number of arguments
+
+        Parameter
+        ---------
+
+        num_args: int 
+            number of arguments 
+        """
         cdef CArity c_arity = CArity.VarArgs(num_args)
         return wrap_arity(c_arity)
 
@@ -2358,44 +2410,50 @@ cdef CExpression _bind(Expression filter, Schema schema) except *:
     return GetResultValue(filter.unwrap().Bind(
         deref(pyarrow_unwrap_schema(schema).get())))
 
+
 cdef CFunctionDoc _make_function_doc(func_doc):
+    """
+    Helper function to generate the FunctionDoc
+    """
     cdef:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
     if isinstance(func_doc, dict):
-        if func_doc["summary"] and isinstance(func_doc["summary"], str): 
-            f_doc.summary = func_doc["summary"].encode() 
-        else: 
+        if func_doc["summary"] and isinstance(func_doc["summary"], str):
+            f_doc.summary = func_doc["summary"].encode()
+        else:
             raise ValueError("key `summary` cannot be None")
-        
-        if func_doc["description"] and isinstance(func_doc["description"], str): 
-            f_doc.description = func_doc["description"].encode() 
-        else: 
+
+        if func_doc["description"] and isinstance(func_doc["description"], str):
+            f_doc.description = func_doc["description"].encode()
+        else:
             raise ValueError("key `description` cannot be None")
-        
-        if func_doc["arg_names"] and isinstance(func_doc["arg_names"], list): 
+
+        if func_doc["arg_names"] and isinstance(func_doc["arg_names"], list):
             for arg_name in func_doc["arg_names"]:
                 if isinstance(arg_name, str):
                     c_arg_names.push_back(arg_name.encode())
                 else:
-                    raise ValueError("key `arg_names` must be a list of strings")
+                    raise ValueError(
+                        "key `arg_names` must be a list of strings")
             f_doc.arg_names = c_arg_names
-        else: 
+        else:
             raise ValueError("key `arg_names` cannot be None")
-        
-        if func_doc["options_class"] and isinstance(func_doc["options_class"], str): 
+
+        if func_doc["options_class"] and isinstance(func_doc["options_class"], str):
             f_doc.options_class = func_doc["options_class"].encode()
-        else: 
+        else:
             raise ValueError("key `options_class` cannot be None")
-        
-        if isinstance(func_doc["options_required"], bool): 
+
+        if isinstance(func_doc["options_required"], bool):
             f_doc.options_required = func_doc["options_required"]
-        else: 
+        else:
             raise ValueError("key `options_required` cannot must be bool")
 
         return f_doc
     else:
         raise TypeError(f"func_doc must be a dictionary")
+
 
 cdef class UDFError(Exception):
     cdef dict __dict__
@@ -2408,71 +2466,111 @@ cdef class UDFError(Exception):
         message = tobytes("UDF error: {}".format(str(self)))
         return CStatus_UnknownError(message)
 
+
 cdef class UDFRegistrationError(UDFError):
-    
+
     def __init__(self, message='', extra_info=b''):
         super().__init__(message, extra_info)
 
     cdef CStatus to_status(self):
         message = tobytes("UDF Registration error: {}".format(str(self)))
         return CStatus_UnknownError(message)
-    
+
 
 def register_function(func_name, arity, function_doc, in_types,
- out_type, callback, mem_allocation="no_preallocate", null_handling="computed_no_preallocate"):
-        cdef:
-            c_string c_func_name
-            CArity c_arity
-            CFunctionDoc c_func_doc
-            CInputType in_tmp
-            vector[CInputType] c_in_types
-            PyObject* c_callback
-            shared_ptr[CDataType] c_type
-            COutputType* c_out_type
-            CScalarUdfBuilder* c_sc_builder
-            MemAllocation c_mem_allocation
-            NullHandling c_null_handling
-            CStatus st
-            object obj
+                      out_type, callback, mem_allocation="no_preallocate",
+                      null_handling="computed_no_preallocate"):
+    """
+    Register a user-defined-function (function) 
 
-        _mem_allocation_map = {
-            "preallocate": MemAllocation_PREALLOCATE,
-            "no_preallocate": MemAllocation_NO_PREALLOCATE    
-        }
+    Parameters
+    ----------
 
-        _null_handling_map = {
-            "intersect": NullHandling_INTERSECTION,
-            "computed_preallocate": NullHandling_COMPUTED_PREALLOCATE,
-            "computed_no_preallocate": NullHandling_COMPUTED_NO_PREALLOCATE,
-            "output_not_null": NullHandling_OUTPUT_NOT_NULL
-        }
+    func_name: str
+        function name 
+    arity: Arity
+        arity of the function
+    function_doc: dict
+        a dictionary object with keys 
+        ("summary", 
+        "description", 
+        "arg_names", 
+        "options_class", (not supported yet)
+        "options_required" (not supported yet)
+        )
+    in_types: List[InputType]
+        list of InputType objects which defines the input 
+        types for the function
+    out_type: DataType
+        output type of the function
+    callback: callable
+        user defined function 
+    mem_allocation: str
+        memory allocation mode 
+        "preallocate" or "no_preallocate"
+    null_handling: str
+        null handling mode
+        one of "intersect", "computed_preallocate",
+        "computed_no_preallocate", 
+        "output_not_null"
+    """
+    cdef:
+        c_string c_func_name
+        CArity c_arity
+        CFunctionDoc c_func_doc
+        CInputType in_tmp
+        vector[CInputType] c_in_types
+        PyObject* c_callback
+        shared_ptr[CDataType] c_type
+        COutputType* c_out_type
+        CScalarUdfBuilder* c_sc_builder
+        MemAllocation c_mem_allocation
+        NullHandling c_null_handling
+        CStatus st
+        object obj
 
-        if func_name and isinstance(func_name, str):
-            c_func_name = func_name.encode()
-        else:
-            raise ValueError("func_name should be str")
-        
-        if arity and isinstance(arity, Arity):
-            c_arity = (<Arity> arity).arity
-        else:
-            raise ValueError("arity must be an instance of Arity")
-        
-        c_func_doc = _make_function_doc(function_doc)
+    _mem_allocation_map = {
+        "preallocate": MemAllocation_PREALLOCATE,
+        "no_preallocate": MemAllocation_NO_PREALLOCATE
+    }
 
-        if in_types and isinstance(in_types, list):
-            for in_type in in_types:
-                in_tmp = (<InputType> in_type).input_type
-                c_in_types.push_back(in_tmp)
+    _null_handling_map = {
+        "intersect": NullHandling_INTERSECTION,
+        "computed_preallocate": NullHandling_COMPUTED_PREALLOCATE,
+        "computed_no_preallocate": NullHandling_COMPUTED_NO_PREALLOCATE,
+        "output_not_null": NullHandling_OUTPUT_NOT_NULL
+    }
 
-        c_type = pyarrow_unwrap_data_type(out_type)
-        c_callback = <PyObject*>callback
+    if func_name and isinstance(func_name, str):
+        c_func_name = func_name.encode()
+    else:
+        raise ValueError("func_name should be str")
 
-        c_out_type = new COutputType(c_type)
-        c_mem_allocation = <MemAllocation>_mem_allocation_map[mem_allocation]
-        c_null_handling = <NullHandling>_null_handling_map[null_handling]
-        c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc,
-         c_in_types, deref(c_out_type), c_mem_allocation, c_null_handling)
-        st = c_sc_builder.MakeFunction(c_callback)
-        if not st.ok():
-            error_msg = st.message().decode()
-            raise UDFRegistrationError(message = error_msg)
+    if arity and isinstance(arity, Arity):
+        c_arity = (<Arity> arity).arity
+    else:
+        raise ValueError("arity must be an instance of Arity")
+
+    c_func_doc = _make_function_doc(function_doc)
+
+    if in_types and isinstance(in_types, list):
+        for in_type in in_types:
+            in_tmp = (<InputType> in_type).input_type
+            c_in_types.push_back(in_tmp)
+
+    c_type = pyarrow_unwrap_data_type(out_type)
+    c_callback = <PyObject*>callback
+
+    c_out_type = new COutputType(c_type)
+    c_mem_allocation = <MemAllocation>_mem_allocation_map[mem_allocation]
+    c_null_handling = <NullHandling>_null_handling_map[null_handling]
+    # Note: The VectorUDF, TableUDF and AggregatorUDFs will be defined
+    # when they are implemented. Only ScalarUDFBuilder is supported at the
+    # moment.
+    c_sc_builder = new CScalarUdfBuilder(c_func_name, c_arity, &c_func_doc,
+                                         c_in_types, deref(c_out_type),
+                                         c_mem_allocation, c_null_handling)
+    st = c_sc_builder.MakeFunction(c_callback)
+    if not st.ok():
+        error_msg = st.message().decode()
+        raise UDFRegistrationError(message=error_msg)

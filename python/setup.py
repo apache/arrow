@@ -287,9 +287,6 @@ class build_ext(_build_ext):
 
             cmake_options.append('-DCMAKE_BUILD_TYPE={0}'
                                  .format(self.build_type.lower()))
-            
-            cmake_options.append('-DCMAKE_C_COMPILER={0}'.format(os.environ['CC']))
-            cmake_options.append('-DCMAKE_CXX_COMPILER={0}'.format(os.environ['CXX']))
 
             if self.boost_namespace != 'boost':
                 cmake_options.append('-DBoost_NAMESPACE={}'

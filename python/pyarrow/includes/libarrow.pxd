@@ -1809,18 +1809,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CExecutor* executor()
 
     cdef cppclass CExecBatch" arrow::compute::ExecBatch":
-        CExecBatch(const CRecordBatch& batch);
+        CExecBatch(const CRecordBatch& batch)
 
-        
         @staticmethod
         CResult[CExecBatch] Make(vector[CDatum] values)
         CResult[shared_ptr[CRecordBatch]] ToRecordBatch(
             shared_ptr[CSchema] schema, CMemoryPool* pool) const
 
-        #inline const CDatum& operator[](i) const
+        # inline const CDatum& operator[](i) const
         vector[CDatum] values
         c_string ToString() const
-
 
     cdef cppclass CKernelContext" arrow::compute::KernelContext":
         CKernelContext(CExecContext* exec_ctx)
@@ -1851,7 +1849,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CArity" arrow::compute::Arity":
         int num_args
         c_bool is_varargs
-        
+
         @staticmethod
         CArity Nullary()
 
@@ -2726,11 +2724,10 @@ cdef extern from "arrow/compute/kernel.h" namespace "arrow::compute" nogil:
 cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     cdef cppclass CUdfBuilder" arrow::py::UdfBuilder":
         CUdfBuilder(c_string func_name, FunctionKind kind, CArity arity, CFunctionDoc* func_doc,
-            vector[CInputType] in_types, COutputType out_type,
-            MemAllocation mem_allocation, NullHandling null_handling)
+                    vector[CInputType] in_types, COutputType out_type,
+                    MemAllocation mem_allocation, NullHandling null_handling)
     cdef cppclass CScalarUdfBuilder" arrow::py::ScalarUdfBuilder"(CUdfBuilder):
         CScalarUdfBuilder(c_string func_name, CArity arity, CFunctionDoc* func_doc,
-            vector[CInputType] in_types, COutputType out_type,
-            MemAllocation mem_allocation, NullHandling null_handling)
+                          vector[CInputType] in_types, COutputType out_type,
+                          MemAllocation mem_allocation, NullHandling null_handling)
         CStatus MakeFunction(PyObject* function)
-        

@@ -24,21 +24,16 @@ from pyarrow.includes.libarrow cimport *
 cdef class Arity(_Weakrefable):
     cdef:
         CArity arity
-    
+
     cdef void init(self, const CArity &arity)
 
 
 cdef class InputType(_Weakrefable):
     cdef:
         CInputType input_type
-    
+
     cdef void init(self, const CInputType &input_type)
 
-# cdef class FunctionDoc(_Weakrefable):
-#     cdef:
-#         CFunctionDoc function_doc
-    
-#     cdef void init(self, const CFunctionDoc &function_doc)
 
 cdef class FunctionOptions(_Weakrefable):
     cdef:

@@ -62,32 +62,6 @@ DEFINE_CALL_UDF(Array, array, make_array)
 
 #undef DEFINE_CALL_UDF
 
-// Status exec_function_scalar(const cp::ExecBatch& batch, PyObject* function,
-//                                          int num_args, Datum* out) {
-//     std::shared_ptr<Scalar> c_res_data;
-//     PyObject* arg_tuple = PyTuple_New(num_args);
-//     for (int arg_id = 0; arg_id < num_args; arg_id++) {
-//       if (!batch[arg_id].is_scalar()) {
-//         return Status::Invalid("Input type and data type doesn't match");
-//       }
-//       auto c_data = batch[arg_id].scalar();
-//       PyObject* data = wrap_scalar(c_data);
-//       PyTuple_SetItem(arg_tuple, arg_id, data);
-//     }
-//     PyObject* result = PyObject_CallObject(function, arg_tuple);
-//     if (result == NULL) {
-//       return Status::ExecutionError("Error occured in computation");
-//     }
-//     auto res = unwrap_scalar(result);
-//     if (!res.status().ok()) {
-//       return res.status();
-//     }
-//     c_res_data = res.ValueOrDie();
-//     auto datum = new Datum(c_res_data);
-//     *out = *datum;
-//     return Status::OK();
-//   }
-
 Status VerifyArityAndInput(cp::Arity arity, const cp::ExecBatch& batch) {
   bool match = (uint64_t)arity.num_args == batch.values.size();
   if (!match) {
@@ -101,21 +75,23 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
   Status st;
   auto func =
       std::make_shared<cp::ScalarFunction>(this->name(), this->arity(), &this->doc());
+  // creating a copy of objects for the lambda function
+  auto py_function = function;
+  auto arity = this->arity();
   // lambda function
-  auto call_back_lambda = [function, this](cp::KernelContext* ctx,
-                                           const cp::ExecBatch& batch,
-                                           Datum* out) -> Status {
+  auto call_back_lambda = [py_function, arity](cp::KernelContext* ctx,
+                                               const cp::ExecBatch& batch,
+                                               Datum* out) -> Status {
     PyAcquireGIL lock;
-    if (function == NULL) {
+    if (py_function == NULL) {
       return Status::ExecutionError("python function cannot be null");
     }
-
-    if (PyCallable_Check(function)) {
-      RETURN_NOT_OK(VerifyArityAndInput(this->arity(), batch));
+    if (PyCallable_Check(py_function)) {
+      RETURN_NOT_OK(VerifyArityAndInput(arity, batch));
       if (batch[0].is_array()) {  // checke 0-th element to select array callable
-        RETURN_NOT_OK(exec_function_array(batch, function, this->arity().num_args, out));
+        RETURN_NOT_OK(exec_function_array(batch, py_function, arity.num_args, out));
       } else if (batch[0].is_scalar()) {  // check 0-th element to select scalar callable
-        RETURN_NOT_OK(exec_function_scalar(batch, function, this->arity().num_args, out));
+        RETURN_NOT_OK(exec_function_scalar(batch, py_function, arity.num_args, out));
       } else {
         return Status::Invalid("Unexpected input type, scalar or array type expected.");
       }
@@ -123,9 +99,8 @@ Status ScalarUdfBuilder::MakeFunction(PyObject* function) {
       return Status::ExecutionError("Expected a callable python object.");
     }
     return Status::OK();
-  };
+  };  // lambda function
 
-  // lambda function
   cp::ScalarKernel kernel(
       cp::KernelSignature::Make(this->input_types(), this->output_type(),
                                 this->arity().is_varargs),
