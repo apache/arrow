@@ -18,6 +18,7 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <utility>
