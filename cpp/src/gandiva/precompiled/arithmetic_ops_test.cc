@@ -294,6 +294,16 @@ TEST(TestArithmeticOps, TestIsTrueFalse) {
   EXPECT_EQ(isfalse_boolean(true, false), false);
   EXPECT_EQ(isfalse_boolean(false, false), false);
 
+  EXPECT_EQ(isnottrue_boolean(true, true), false);
+  EXPECT_EQ(isnottrue_boolean(false, true), true);
+  EXPECT_EQ(isnotfalse_boolean(true, true), true);
+  EXPECT_EQ(isnotfalse_boolean(false, true), false);
+
+  EXPECT_EQ(isnottrue_boolean(true, false), true);
+  EXPECT_EQ(isnottrue_boolean(false, false), true);
+  EXPECT_EQ(isnotfalse_boolean(true, false), true);
+  EXPECT_EQ(isnotfalse_boolean(false, false), true);
+
   EXPECT_EQ(istrue_int32(10, true), true);
   EXPECT_EQ(istrue_int32(0, true), false);
   EXPECT_EQ(isfalse_int32(10, true), false);
