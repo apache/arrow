@@ -621,11 +621,13 @@ namespace arrow
                     batch_size_ = batch_size;
                     scale_factor_ = scale_factor;
 
+                    arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seq;
                     thread_local_data_.resize(num_threads);
                     for(ThreadLocalData &tld : thread_local_data_)
                     {
                         constexpr int kMaxNumDistinctStrings = 5;
                         tld.string_indices.resize(kMaxNumDistinctStrings * batch_size_);
+                        tld.rng.seed(seq);
                     }
                     part_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 200000);
                 }
@@ -1361,10 +1363,12 @@ namespace arrow
                     batch_size_ = batch_size;
                     scale_factor_ = scale_factor;
 
+                    arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seq;
                     thread_local_data_.resize(num_threads);
                     for(ThreadLocalData &tld : thread_local_data_)
                     {
                         tld.items_per_order.resize(batch_size_);
+                        tld.rng.seed(seq);
                     }
                     orders_rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 150000 * 10);
                 }
@@ -2561,7 +2565,11 @@ namespace arrow
                 FinishedCallback finished_callback,
                 ScheduleCallback schedule_callback) override
             {
+                arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seq;
                 thread_local_data_.resize(num_threads);
+                for(ThreadLocalData &tld : thread_local_data_)
+                    tld.rng.seed(seq);
+
                 output_callback_ = std::move(output_callback);
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
@@ -3014,7 +3022,11 @@ namespace arrow
                 FinishedCallback finished_callback,
                 ScheduleCallback schedule_callback) override
             {
+                arrow_vendored::pcg_extras::seed_seq_from<std::random_device> seq;
                 thread_local_data_.resize(num_threads);
+                for(ThreadLocalData &tld : thread_local_data_)
+                    tld.rng.seed(seq);
+
                 output_callback_ = std::move(output_callback);
                 finished_callback_ = std::move(finished_callback);
                 schedule_callback_ = std::move(schedule_callback);
@@ -3453,6 +3465,7 @@ namespace arrow
                                           kTypes,
                                           kNameMap,
                                           column_indices_));
+                rng_.seed(arrow_vendored::pcg_extras::seed_seq_from<std::random_device>{});
                 return Status::OK();
             }
 
@@ -3563,6 +3576,7 @@ namespace arrow
                                           kTypes,
                                           kNameMap,
                                           column_indices_));
+                rng_.seed(arrow_vendored::pcg_extras::seed_seq_from<std::random_device>{});
                 return Status::OK();
             }
 

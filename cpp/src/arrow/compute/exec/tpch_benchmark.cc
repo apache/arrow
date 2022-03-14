@@ -156,7 +156,7 @@ static void BM_Tpch_Q1(benchmark::State &st)
     {
         st.PauseTiming();
         AsyncGenerator<util::optional<ExecBatch>> sink_gen;
-        std::shared_ptr<ExecPlan> plan = Plan_Q1(&sink_gen, st.range(0));
+        std::shared_ptr<ExecPlan> plan = Plan_Q1(&sink_gen, static_cast<int>(st.range(0)));
         st.ResumeTiming();
         auto fut = StartAndCollect(plan.get(), sink_gen);
         auto res = *fut.MoveResult();
