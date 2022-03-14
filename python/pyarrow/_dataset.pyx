@@ -2427,7 +2427,12 @@ cdef class Scanner(_Weakrefable):
         return GetResultValue(result)
 
     def to_reader(self):
-        """Consume this scanner as a RecordBatchReader."""
+        """Consume this scanner as a RecordBatchReader.
+        
+        Returns
+        -------
+        pyarrow.lib.RecordBatchReader
+        """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = GetResultValue(self.scanner.ToRecordBatchReader())

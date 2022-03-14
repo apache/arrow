@@ -530,7 +530,7 @@ class _ReadPandasMixin:
         Parameters
         ----------
         **options
-            Arguments to forward to Table.to_pandas.
+            Arguments to forward to :meth:`Table.to_pandas`.
 
         Returns
         -------
@@ -560,6 +560,10 @@ cdef class RecordBatchReader(_Weakrefable):
     def schema(self):
         """
         Shared schema of the record batches in the stream.
+
+        Returns
+        -------
+        pyarrow.Schema
         """
         cdef shared_ptr[CSchema] c_schema
 
@@ -569,6 +573,9 @@ cdef class RecordBatchReader(_Weakrefable):
         return pyarrow_wrap_schema(c_schema)
 
     def get_next_batch(self):
+        """DEPRECATED: return the next record batch.
+        
+        Use read_next_batch instead."""
         import warnings
         warnings.warn('Please use read_next_batch instead of '
                       'get_next_batch', FutureWarning)
@@ -582,6 +589,10 @@ cdef class RecordBatchReader(_Weakrefable):
         ------
         StopIteration:
             At end of stream.
+        
+        Returns
+        -------
+        RecordBatch
         """
         cdef shared_ptr[CRecordBatch] batch
 
@@ -596,6 +607,10 @@ cdef class RecordBatchReader(_Weakrefable):
     def read_all(self):
         """
         Read all record batches as a pyarrow.Table.
+
+        Returns
+        -------
+        pyarrow.Table
         """
         cdef shared_ptr[CTable] table
         with nogil:
