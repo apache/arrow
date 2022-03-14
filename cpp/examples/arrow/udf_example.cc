@@ -186,8 +186,11 @@ arrow::Status Execute() {
 
   auto options = std::make_shared<UDFOptions>();
   cp::ScalarKernel kernel(
-      {cp::InputType::Array(arrow::int64()), cp::InputType::Array(arrow::int64()),
-       cp::InputType::Array(arrow::int64())},
+      {
+        cp::InputType::Array(arrow::int64()),
+        cp::InputType::Array(arrow::int64()),
+        cp::InputType::Array(arrow::int64())
+       },
       arrow::int64(), exec_func);
 
   kernel.mem_allocation = cp::MemAllocation::NO_PREALLOCATE;

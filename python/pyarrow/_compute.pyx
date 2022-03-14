@@ -317,7 +317,7 @@ cdef class Arity(_Weakrefable):
         return wrap_arity(c_arity)
 
     @staticmethod
-    def varargs(int num_args):
+    def varargs(num_args):
         """
         create a varargs arity object with defined number of arguments
 
@@ -2519,6 +2519,7 @@ def register_function(func_name, arity, function_doc, in_types,
 
     Example
     -------
+
     >>> from pyarrow import compute as pc
     >>> from pyarrow.compute import register_function
     >>> from pyarrow.compute import Arity, InputType
