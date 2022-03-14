@@ -24,9 +24,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/buffer_builder.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec/key_compare.h"
@@ -39,6 +39,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
@@ -2797,21 +2798,29 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    int64_t num_values = batch[0].array()->length;
-    int64_t offset = batch[0].array()->offset;
+    const auto values_array_data = batch[0].array();
+    int64_t num_values = values_array_data->length;
 
-    const auto* groups = batch[1].array()->GetValues<uint32_t>(1, 0);
+    const auto groups_array_data = batch[1].array();
+    DCHECK_EQ(groups_array_data->offset, 0);
+    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
-    const uint8_t* values = batch[0].array()->buffers[1]->data();
+    int64_t offset = values_array_data->offset;
+    const uint8_t* values = values_array_data->buffers[1]->data();
     RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, offset, num_values));
+    //    RETURN_NOT_OK(values_.Resize(num_args_ + num_values));
+    //    CopyDataUtils<Type>::CopyData(*batch[0].type(), *values_array_data, offset,
+    //                                  values_.bytes_builder()->mutable_data(),
+    //                                  values_.length(), num_values);
+    //    values_.bytes_builder()->UnsafeAdvance(num_values * sizeof(CType));
 
     if (batch[0].null_count() > 0) {
       if (!has_nulls_) {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
       }
-      const uint8_t* values_bitmap = batch[0].array()->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     } else if (has_nulls_) {
@@ -2902,19 +2911,29 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecBatch& batch) override {
-    int64_t num_values = batch[0].array()->length;
-    int64_t offset = batch[0].array()->offset;
+    const auto values_array_data = batch[0].array();
+    int64_t num_values = values_array_data->length;
+    int64_t offset = values_array_data->offset;
 
-    const auto* groups = batch[1].array()->GetValues<uint32_t>(1, 0);
+    const auto groups_array_data = batch[1].array();
+    DCHECK_EQ(groups_array_data->offset, 0);
+    const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
     if (batch[0].null_count() == 0) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     } else {
-      const uint8_t* values_bitmap = batch[0].array()->buffers[0]->data();
+      const uint8_t* values_bitmap = values_array_data->buffers[0]->data();
       RETURN_NOT_OK(GroupedValueTraits<BooleanType>::AppendBuffers(
           &values_bitmap_, values_bitmap, offset, num_values));
     }
+    return AppendBuffers<Type>(batch);
+  }
+
+  template <typename T = Type>
+  enable_if_t<is_base_binary_type<T>::value, Status> AppendBuffers(
+      const ExecBatch& batch) {
+    int64_t num_values = batch[0].array()->length;
     num_args_ += num_values;
     return VisitGroupedValues<Type>(
         batch,
@@ -2926,6 +2945,26 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
           values_.emplace_back("");
           return Status::OK();
         });
+  }
+
+  template <typename T = Type>
+  enable_if_t<std::is_same<T, FixedSizeBinaryType>::value, Status> AppendBuffers(
+      const ExecBatch& batch) {
+    const auto values_array_data = batch[0].array();
+    int64_t num_values = values_array_data->length;
+
+    std::string str(
+        checked_cast<const FixedSizeBinaryType&>(*batch[0].type()).byte_width(), '0');
+    StringType s(str.data(), str.size(), allocator_);
+
+    //    values_.reserve(num_values * checked_cast<const
+    //    FixedSizeBinaryType&>(*batch[0].type()).byte_width());
+    values_.resize(values_.size() + num_values, s);
+    CopyDataUtils<FixedSizeBinaryType>::CopyData(
+        *batch[0].type(), *values_array_data, values_array_data->offset,
+        reinterpret_cast<uint8_t*>(values_.data()), num_args_, num_values);
+    num_args_ += num_values;
+    return Status::OK();
   }
 
   Status Merge(GroupedAggregator&& raw_other,
