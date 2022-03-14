@@ -524,7 +524,7 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 Struct Validity
 ~~~~~~~~~~~~~~~
 
-A struct array has its own validity bitmap in addition to each of its
+A struct array has its own validity bitmap that is independent of its
 child arrays' own validity bitmap. This implies that, for a particular struct
 array slot, the validity bitmap for the struct array might indicate a null
 when one or more of its child arrays has a non-null value in their corresponding
