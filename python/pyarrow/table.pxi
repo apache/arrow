@@ -2019,8 +2019,8 @@ cdef class Table(_PandasConvertible):
         RecordBatchReader        
         """
         cdef:
-            shared_ptr[CRecordBatchReader] c_reader
-        c_reader.reset(new CRecordBatchReader(self.table))
+             shared_ptr[CRecordBatchReader] c_reader
+        c_reader.reset(new TableBatchReader(make_shared[CTable](self.table)))
         return RecordBatchReader(c_reader)
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,

@@ -856,7 +856,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass TableBatchReader(CRecordBatchReader):
         TableBatchReader(const CTable& table)
-        TableBatchReader(CTable *)
+        TableBatchReader(shared_ptr[CTable] table)
         void set_chunksize(int64_t chunksize)
 
     cdef cppclass CTensor" arrow::Tensor":
