@@ -104,7 +104,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
     StringBuilder stringBuilder = this.stringBuilderGetter.get(getCurrentRow());
 
     this.wasNull = stringBuilder == null;
-    this.wasNullConsumer.setWasNull(wasNull);
+    this.wasNullConsumer.setWasNull(this.wasNull);
     if (stringBuilder == null) {
       return null;
     }
