@@ -115,10 +115,10 @@ public class ArrowFlightJdbcFloat8VectorAccessor extends ArrowFlightJdbcAccessor
   }
 
   @Override
-  public BigDecimal getBigDecimal() {
+  public BigDecimal getBigDecimal() throws SQLException {
     final double value = this.getDouble();
     if (Double.isInfinite(value) || Double.isNaN(value)) {
-      throw new UnsupportedOperationException("BigDecimal doesn't support Infinite/NaN.");
+      throw new SQLException("BigDecimal doesn't support Infinite/NaN.");
     }
     return this.wasNull ? null : BigDecimal.valueOf(value);
   }
