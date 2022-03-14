@@ -149,7 +149,7 @@ class LocalBinaryTask < BinaryTask
       verify_command_line.concat(["--attach", "STDERR"])
     end
     platform, docker_image = resolve_docker_image(target)
-    verify_command_line.concat("--platform", platform) if platform
+    verify_command_line.concat(["--platform", platform]) if platform
     verify_command_line << docker_image
     case target
     when /\Adebian-/, /\Aubuntu-/
