@@ -230,6 +230,7 @@ test_yum() {
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
+                "quay.io/centos/centos:stream8" \
                 "centos:7"; do
     case "${target}" in
       arm64v8/*)
