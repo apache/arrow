@@ -183,7 +183,10 @@ class PackageTask
       when ["--platform=linux/arm64"]
         docker_info = JSON.parse(`docker info --format '{{json .}}'`)
         pp docker_info
-        unless docker_info["Architecture"] == "arm64"
+        case docker_info["Architecture"]
+        when "aarch64"
+          # Do nothing
+        else
           # docker build ... -> docker buildx build ...
           build_command_line[1, 0] = "buildx"
           build_command_line.concat(build_arguments)
