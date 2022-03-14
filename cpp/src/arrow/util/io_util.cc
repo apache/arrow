@@ -230,6 +230,31 @@ class ErrnoDetail : public StatusDetail {
 #if _WIN32
 const char kWinErrorDetailTypeId[] = "arrow::WinErrorDetail";
 
+// Map from a Windows error code to a `errno` value
+int WinErrorToErrno(int errnum) {
+  // NOTE there's a more complete mapping in the UCRT source code
+  // (in misc/errno.cpp) but it's not under an open source license
+  switch (errnum) {
+    case ERROR_FILE_NOT_FOUND:
+    case ERROR_PATH_NOT_FOUND:
+    case ERROR_INVALID_DRIVE:
+      return ENOENT;
+    case ERROR_ACCESS_DENIED:
+      return EACCES;
+    case ERROR_INVALID_PARAMETER:
+      return EINVAL;
+    case ERROR_NOT_ENOUGH_MEMORY:
+      return ENOMEM;
+    case ERROR_ALREADY_EXISTS:
+    case ERROR_FILE_EXISTS:
+      return EEXIST;
+    case ERROR_DISK_FULL:
+      return ENOSPC;
+    default:
+      return 0;
+  }
+}
+
 class WinErrorDetail : public StatusDetail {
  public:
   explicit WinErrorDetail(int errnum) : errnum_(errnum) {}
@@ -243,6 +268,8 @@ class WinErrorDetail : public StatusDetail {
   }
 
   int errnum() const { return errnum_; }
+
+  int equivalent_errno() const { return WinErrorToErrno(errnum_); }
 
  protected:
   int errnum_;
@@ -287,8 +314,15 @@ std::shared_ptr<StatusDetail> StatusDetailFromSignal(int signum) {
 
 int ErrnoFromStatus(const Status& status) {
   const auto detail = status.detail();
-  if (detail != nullptr && detail->type_id() == kErrnoDetailTypeId) {
-    return checked_cast<const ErrnoDetail&>(*detail).errnum();
+  if (detail != nullptr) {
+    if (detail->type_id() == kErrnoDetailTypeId) {
+      return checked_cast<const ErrnoDetail&>(*detail).errnum();
+    }
+#if _WIN32
+    if (detail->type_id() == kWinErrorDetailTypeId) {
+      return checked_cast<const WinErrorDetail&>(*detail).equivalent_errno();
+    }
+#endif
   }
   return 0;
 }
