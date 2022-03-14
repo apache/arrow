@@ -121,9 +121,10 @@ if "%ARROW_S3%" == "ON" (
 @rem Download IANA Timezone Database for unit tests
 @rem
 @rem (Doc section: Download timezone database)
-curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output %USERPROFILE%\Downloads\tzdata2021e.tar.gz
-mkdir %USERPROFILE%\Downloads\tzdata
-tar --extract --file %USERPROFILE%\Downloads\tzdata2021e.tar.gz --directory %USERPROFILE%\Downloads\tzdata
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+mkdir tzdata
+tar --extract --file tzdata.tar.gz --directory tzdata
+move tzdata %USERPROFILE%\Downloads\tzdata
 @rem Also need Windows timezone mapping
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
   --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
