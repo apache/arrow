@@ -100,9 +100,15 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   }
 
   @Override
-  public boolean getBoolean() {
+  public boolean getBoolean() throws SQLException {
     String value = getString();
-    return value != null && !value.isEmpty() && !value.equals("false") && !value.equals("0");
+    if (value == null || value.equalsIgnoreCase("false") || value.equals("0")) {
+      return false;
+    } else if (value.equalsIgnoreCase("true") || value.equals("1")) {
+      return true;
+    } else {
+      throw new SQLException("It is not possible to convert this value to boolean: " + value);
+    }
   }
 
   @Override
