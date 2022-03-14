@@ -17,15 +17,11 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
-#include <memory>
-#include <utility>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/record_batch.h"
-#include "arrow/util/bisect.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace internal {
@@ -34,53 +30,63 @@ struct ChunkLocation {
   int64_t chunk_index, index_in_chunk;
 };
 
-// An object that resolves an array chunk depending on the index.
+/// \class ChunkResolver
+/// \brief An object that resolves an array chunk depending on the index
 struct ChunkResolver {
-  explicit ChunkResolver(std::vector<int64_t> lengths)
-      : offsets_(ConvertLengthsToOffsets(std::move(lengths))) {}
+  /// \brief Construct a ChunkResolver from a vector of Arrays
+  explicit ChunkResolver(const ArrayVector& chunks);
 
-  explicit ChunkResolver(const ArrayVector& chunks) {
-    std::vector<int64_t> lengths(chunks.size());
-    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
-                   [](const std::shared_ptr<Array>& arr) { return arr->length(); });
-    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
-  }
+  /// \brief Construct a ChunkResolver from a vector of C-style Array pointers
+  explicit ChunkResolver(const std::vector<const Array*>& chunks);
 
-  explicit ChunkResolver(const std::vector<const Array*>& chunks) {
-    std::vector<int64_t> lengths(chunks.size());
-    std::transform(chunks.begin(), chunks.end(), lengths.begin(),
-                   [](const Array* arr) { return arr->length(); });
-    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
-  }
+  /// \brief Construct a ChunkResolver from a vector of RecordBatches
+  explicit ChunkResolver(const RecordBatchVector& batches);
 
-  explicit ChunkResolver(const RecordBatchVector& batches) {
-    std::vector<int64_t> lengths(batches.size());
-    std::transform(
-        batches.begin(), batches.end(), lengths.begin(),
-        [](const std::shared_ptr<RecordBatch>& batch) { return batch->num_rows(); });
-    offsets_ = ConvertLengthsToOffsets(std::move(lengths));
-  }
-
-  inline ChunkLocation Resolve(int64_t index) const {
+  /// \brief Return a ChunkLocation containing the chunk index and in-chunk value index of
+  /// the chunked array at logical index
+  inline ChunkLocation Resolve(const int64_t index) const {
     // It is common for the algorithms below to make consecutive accesses at
     // a relatively small distance from each other, hence often falling in
     // the same chunk.
     // This is trivial when merging (assuming each side of the merge uses
     // its own resolver), but also in the inner recursive invocations of
     // partitioning.
+    if (offsets_.size() <= 1) {
+      return {0, index};
+    }
     const bool cache_hit =
         (index >= offsets_[cached_chunk_] && index < offsets_[cached_chunk_ + 1]);
     if (ARROW_PREDICT_TRUE(cache_hit)) {
       return {cached_chunk_, index - offsets_[cached_chunk_]};
-    } else {
-      auto chunk_index = Bisect(index, offsets_);
-      cached_chunk_ = chunk_index;
-      return {chunk_index, index - offsets_[chunk_index]};
     }
+    auto chunk_index = Bisect(index);
+    cached_chunk_ = chunk_index;
+    return {cached_chunk_, index - offsets_[cached_chunk_]};
   }
 
  protected:
-  std::vector<int64_t> offsets_;
+  /// \brief Find the chunk index corresponding to a value index using binary search
+  /// (bisect) algorithm
+  inline int64_t Bisect(const int64_t index) const {
+    // Like std::upper_bound(), but hand-written as it can help the compiler.
+    // Search [lo, lo + n)
+    int64_t lo = 0;
+    auto n = static_cast<int64_t>(offsets_.size());
+    while (n > 1) {
+      const int64_t m = n >> 1;
+      const int64_t mid = lo + m;
+      if (static_cast<int64_t>(index) >= offsets_[mid]) {
+        lo = mid;
+        n -= m;
+      } else {
+        n = m;
+      }
+    }
+    return lo;
+  }
+
+ private:
+  const std::vector<int64_t> offsets_;
   mutable int64_t cached_chunk_ = 0;
 };
 

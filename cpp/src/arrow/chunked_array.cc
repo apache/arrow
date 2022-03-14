@@ -148,10 +148,10 @@ bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {
-  if (!resolver_) {
-    resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
+  if (!chunk_resolver_) {
+    chunk_resolver_ = internal::make_unique<internal::ChunkResolver>(chunks_);
   }
-  const auto loc = resolver_->Resolve(index);
+  const auto loc = chunk_resolver_->Resolve(index);
   if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
     return Status::IndexError("tried to refer to chunk ", loc.chunk_index,
                               " but ChunkedArray is only ", chunks_.size(), " long");
