@@ -2020,8 +2020,13 @@ cdef class Table(_PandasConvertible):
         """
         cdef:
              shared_ptr[CRecordBatchReader] c_reader
-        c_reader.reset(new TableBatchReader(make_shared[CTable](self.table)))
-        return RecordBatchReader(c_reader)
+             RecordBatchReader reader
+             shared_ptr[TableBatchReader] t_reader
+        t_reader = make_shared[TableBatchReader](self.sp_table)
+        c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](t_reader)
+        reader = RecordBatchReader.__new__(RecordBatchReader)
+        reader.reader = c_reader
+        return reader
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
