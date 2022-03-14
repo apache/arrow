@@ -372,11 +372,10 @@ the following section of the `ci/appveyor-setup.bat
 <https://github.com/apache/arrow/blob/master/ci/appveyor-cpp-setup.bat>`_
 script:
 
-.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
-   :language: cpp
+.. literalinclude:: ../../../../ci/appveyor-cpp-setup.bat
+   :language: cmd
    :start-after: @rem (Doc section: Download timezone database)
    :end-before: @rem (Doc section: Download timezone database)
-   :linenos:
 
 Replicating Appveyor Builds
 ===========================
