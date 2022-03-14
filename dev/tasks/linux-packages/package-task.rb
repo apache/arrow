@@ -182,7 +182,6 @@ class PackageTask
       case build_arguments
       when ["--platform=linux/arm64"]
         docker_info = JSON.parse(`docker info --format '{{json .}}'`)
-        pp docker_info
         case docker_info["Architecture"]
         when "aarch64"
           # Do nothing
