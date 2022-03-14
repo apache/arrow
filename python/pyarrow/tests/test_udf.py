@@ -91,6 +91,7 @@ def varargs_function(a, x, b, y, c):
 @pytest.fixture
 def function_input_types():
     return [
+        # scalar data input types
         [
             InputType.scalar(pa.int64())
         ],
@@ -110,6 +111,7 @@ def function_input_types():
             InputType.scalar(pa.int64()),
             InputType.scalar(pa.int64())
         ],
+        # array data input types
         [
             InputType.array(pa.int64())
         ],
@@ -145,7 +147,7 @@ def function_output_types():
 @pytest.fixture
 def function_names():
     return [
-        # scalar data function
+        # scalar data function names
         "scalar_y=x+k",
         "scalar_y=mx",
         "scalar_y=mx+c",
@@ -237,12 +239,12 @@ def function_inputs():
 @pytest.fixture
 def expected_outputs():
     return [
-        # scalar data
+        # scalar output data
         pa.scalar(11, pa.int64()),  # 10 + 1
         pa.scalar(20, pa.int64()),  # 10 * 2
         pa.scalar(25, pa.int64()),  # 10 * 2 + 5
         pa.scalar(85, pa.int64()),  # (2 * 10) + (3 * 20) + 5
-        # array data
+        # array output data
         pa.array([11, 21], pa.int64()),  # [10 + 1, 20 + 1]
         pa.array([20, 80], pa.int64()),  # [10 * 2, 20 * 4]
         pa.array([25, 90], pa.int64()),  # [(10 * 2) + 5, (20 * 4) + 10]
@@ -251,7 +253,7 @@ def expected_outputs():
     ]
 
 
-def test_udf_function_with_scalar_data(function_names,
+def test_scalar_udf_function_with_scalar_data(function_names,
                                        function_arities,
                                        function_input_types,
                                        function_output_types,
