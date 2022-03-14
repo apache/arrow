@@ -247,7 +247,7 @@ namespace arrow
             int32_t *offsets = reinterpret_cast<int32_t *>(offset_buffer->mutable_data());
             offsets[0] = 0;
             for(size_t i = 1; i <= num_comments; i++)
-                offsets[i] = offsets[i - 1] + length_dist(rng);
+                offsets[i] = offsets[i - 1] + static_cast<int32_t>(length_dist(rng));
 
             ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> comment_buffer, AllocateBuffer(offsets[num_comments]));
             char *comments = reinterpret_cast<char *>(comment_buffer->mutable_data());
@@ -905,7 +905,7 @@ namespace arrow
                         tld.part[PART::P_PARTKEY].array()->buffers[1]->mutable_data());
                     for(int64_t i = 0; i < tld.part_to_generate; i++)
                     {
-                        p_partkey[i] = (tld.partkey_start + i + 1);
+                        p_partkey[i] = static_cast<int32_t>(tld.partkey_start + i + 1);
                         ARROW_DCHECK(1 <= p_partkey[i] && p_partkey[i] <= part_rows_to_generate_);
                     }
                 }
@@ -917,7 +917,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.part[PART::P_NAME].kind() == Datum::NONE)
                 {
-                    std::uniform_int_distribution<uint8_t> dist(0, static_cast<uint8_t>(kNumNameParts - 1));
+                    std::uniform_int_distribution<int32_t> dist(0, static_cast<uint8_t>(kNumNameParts - 1));
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> offset_buff, AllocateBuffer((tld.part_to_generate + 1) * sizeof(int32_t)));
                     int32_t *offsets = reinterpret_cast<int32_t *>(offset_buff->mutable_data());
                     offsets[0] = 0;
@@ -926,12 +926,12 @@ namespace arrow
                         size_t string_length = 0;
                         for(int ipart = 0; ipart < 5; ipart++)
                         {
-                            uint8_t name_part_index = dist(tld.rng);
+                            uint8_t name_part_index = static_cast<uint8_t>(dist(tld.rng));
                             tld.string_indices[irow * 5 + ipart] = name_part_index;
                             string_length += std::strlen(NameParts[name_part_index]);
                         }
                         // Add 4 because there is a space between each word (i.e. four spaces)
-                        offsets[irow + 1] = offsets[irow] + string_length + 4;
+                        offsets[irow + 1] = static_cast<int32_t>(offsets[irow] + string_length + 4);
                     }
                     // Add an extra byte for the space after in the very last string.
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer, AllocateBuffer(offsets[tld.part_to_generate] + 1));
@@ -1013,7 +1013,7 @@ namespace arrow
                 ThreadLocalData &tld = thread_local_data_[thread_index];
                 if(tld.part[PART::P_TYPE].kind() == Datum::NONE)
                 {
-                    using D = std::uniform_int_distribution<uint8_t>;
+                    using D = std::uniform_int_distribution<uint32_t>;
                     D dists[] =
                     {
                         D{ 0, static_cast<uint8_t>(kNumTypes_1 - 1) },
@@ -1031,11 +1031,11 @@ namespace arrow
                         size_t string_length = 0;
                         for(int ipart = 0; ipart < 3; ipart++)
                         {
-                            uint8_t name_part_index = dists[ipart](tld.rng);
+                            uint8_t name_part_index = static_cast<uint8_t>(dists[ipart](tld.rng));
                             tld.string_indices[irow * 3 + ipart] = name_part_index;
                             string_length += std::strlen(types[ipart][name_part_index]);
                         }
-                        offsets[irow + 1] = offsets[irow] + string_length;
+                        offsets[irow + 1] = static_cast<int32_t>(offsets[irow] + string_length);
                     }
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> string_buffer, AllocateBuffer(offsets[tld.part_to_generate]));
                     char *strings = reinterpret_cast<char *>(string_buffer->mutable_data());
@@ -1683,7 +1683,7 @@ namespace arrow
                         tld.orders[ORDERS::O_ORDERKEY].array()->buffers[1]->mutable_data());
                     for(int64_t i = 0; i < tld.orders_to_generate; i++)
                     {
-                        int32_t orderkey_index = tld.orderkey_start + i;
+                        int32_t orderkey_index = static_cast<int32_t>(tld.orderkey_start + i);
                         int32_t index_of_run = orderkey_index / 8;
                         int32_t index_in_run = orderkey_index % 8;
                         o_orderkey[i] = (index_of_run * 32 + index_in_run + 1);
@@ -1909,7 +1909,7 @@ namespace arrow
                 tld.items_per_order.clear();
                 for(int64_t i = 0; i < tld.orders_to_generate; i++)
                 {
-                    int64_t length = length_dist(tld.rng);
+                    int length = length_dist(tld.rng);
                     tld.items_per_order.push_back(length);
                     tld.lineitem_to_generate += length;
                 }
@@ -2680,7 +2680,7 @@ namespace arrow
                         tld.batch[SUPPLIER::S_SUPPKEY].array()->buffers[1]->mutable_data());
                     for(int64_t irow = 0; irow < tld.to_generate; irow++)
                     {
-                        s_suppkey[irow] = (tld.suppkey_start + irow + 1);
+                        s_suppkey[irow] = static_cast<int32_t>(tld.suppkey_start + irow + 1);
                     }
                 }
                 return Status::OK();
@@ -2799,8 +2799,8 @@ namespace arrow
                 char *str = reinterpret_cast<char *>(
                     tld.batch[SUPPLIER::S_COMMENT].array()->buffers[2]->mutable_data());
                 const char *customer = "Customer";
-                const size_t customer_length = std::strlen(customer);
-                const size_t review_length = std::strlen(review);
+                const int32_t customer_length = static_cast<int32_t>(std::strlen(customer));
+                const int32_t review_length = static_cast<int32_t>(std::strlen(review));
 
                 auto it = std::lower_bound(indices.begin(), indices.end(), tld.suppkey_start);
                 for(; it != indices.end() && *it < tld.suppkey_start + tld.to_generate; it++)
@@ -2998,7 +2998,7 @@ namespace arrow
             {
                 scale_factor_ = scale_factor;
                 batch_size_ = batch_size;
-                rows_to_generate_ = scale_factor_ * 150000;
+                rows_to_generate_ = static_cast<int64_t>(scale_factor_ * 150000);
                 rows_generated_.store(0);
                 ARROW_ASSIGN_OR_RAISE(schema_, SetOutputColumns(
                                           columns,
@@ -3138,7 +3138,7 @@ namespace arrow
                         tld.batch[CUSTOMER::C_CUSTKEY].array()->buffers[1]->mutable_data());
                     for(int64_t irow = 0; irow < tld.to_generate; irow++)
                     {
-                        c_custkey[irow] = (tld.custkey_start + irow + 1);
+                        c_custkey[irow] = static_cast<int32_t>(tld.custkey_start + irow + 1);
                     }
                 }
                 return Status::OK();
@@ -3161,7 +3161,7 @@ namespace arrow
                     {
                         int num_digits = GetNumDigits(c_custkey[irow]);
                         int num_chars = std::max(num_digits, 9);
-                        offsets[irow + 1] = offsets[irow] + num_chars + customer_length;
+                        offsets[irow + 1] = static_cast<int32_t>(offsets[irow] + num_chars + customer_length);
                     }
                     ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> str_buff, AllocateBuffer(offsets[tld.to_generate]));
                     char *str = reinterpret_cast<char *>(str_buff->mutable_data());
