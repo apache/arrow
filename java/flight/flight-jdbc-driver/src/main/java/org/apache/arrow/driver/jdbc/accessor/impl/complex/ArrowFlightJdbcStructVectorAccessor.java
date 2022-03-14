@@ -28,6 +28,8 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.calcite.avatica.util.StructImpl;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Accessor for the Arrow type {@link StructVector}.
  */
@@ -35,6 +37,7 @@ public class ArrowFlightJdbcStructVectorAccessor extends ArrowFlightJdbcAccessor
 
   private final StructVector vector;
 
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcStructVectorAccessor(StructVector vector, IntSupplier currentRowSupplier,
                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);

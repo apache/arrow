@@ -24,6 +24,8 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Accessor for the Arrow type {@link FixedSizeListVector}.
  */
@@ -32,6 +34,7 @@ public class ArrowFlightJdbcFixedSizeListVectorAccessor
 
   private final FixedSizeListVector vector;
 
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcFixedSizeListVectorAccessor(FixedSizeListVector vector,
                                                     IntSupplier currentRowSupplier,
                                                     ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {

@@ -25,6 +25,8 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Accessor for the Arrow type {@link ListVector}.
  */
@@ -32,6 +34,7 @@ public class ArrowFlightJdbcListVectorAccessor extends AbstractArrowFlightJdbcLi
 
   private final ListVector vector;
 
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcListVectorAccessor(ListVector vector, IntSupplier currentRowSupplier,
                                            ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
