@@ -50,6 +50,7 @@ class ARROW_FLIGHT_EXPORT ConnectivityTest : public FlightTest {
   void TestBuilderHook();
   void TestShutdown();
   void TestShutdownWithDeadline();
+  void TestBrokenConnection();
 };
 
 /// Common tests of data plane methods
@@ -74,6 +75,8 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   void TestDoExchangeEcho();
   void TestDoExchangeTotal();
   void TestDoExchangeError();
+  void TestDoExchangeConcurrency();
+  void TestDoExchangeUndrained();
   void TestIssue5095();
 
  private:
@@ -103,6 +106,7 @@ class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
   void TestDicts();
   void TestLargeBatch();
   void TestSizeLimit();
+  void TestUndrained();
 
  private:
   std::unique_ptr<FlightClient> client_;

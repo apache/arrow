@@ -81,6 +81,7 @@ TEST_F(GrpcConnectivityTest, GetPort) { TestGetPort(); }
 TEST_F(GrpcConnectivityTest, BuilderHook) { TestBuilderHook(); }
 TEST_F(GrpcConnectivityTest, Shutdown) { TestShutdown(); }
 TEST_F(GrpcConnectivityTest, ShutdownWithDeadline) { TestShutdownWithDeadline(); }
+TEST_F(GrpcConnectivityTest, BrokenConnection) { TestBrokenConnection(); }
 
 class GrpcDataTest : public DataTest {
  protected:
@@ -100,6 +101,8 @@ TEST_F(GrpcDataTest, TestDoExchangePut) { TestDoExchangePut(); }
 TEST_F(GrpcDataTest, TestDoExchangeEcho) { TestDoExchangeEcho(); }
 TEST_F(GrpcDataTest, TestDoExchangeTotal) { TestDoExchangeTotal(); }
 TEST_F(GrpcDataTest, TestDoExchangeError) { TestDoExchangeError(); }
+TEST_F(GrpcDataTest, TestDoExchangeConcurrency) { TestDoExchangeConcurrency(); }
+TEST_F(GrpcDataTest, TestDoExchangeUndrained) { TestDoExchangeUndrained(); }
 TEST_F(GrpcDataTest, TestIssue5095) { TestIssue5095(); }
 
 class GrpcDoPutTest : public DoPutTest {
@@ -112,6 +115,7 @@ TEST_F(GrpcDoPutTest, TestEmptyBatch) { TestEmptyBatch(); }
 TEST_F(GrpcDoPutTest, TestDicts) { TestDicts(); }
 TEST_F(GrpcDoPutTest, TestLargeBatch) { TestLargeBatch(); }
 TEST_F(GrpcDoPutTest, TestSizeLimit) { TestSizeLimit(); }
+TEST_F(GrpcDoPutTest, TestUndrained) { TestUndrained(); }
 
 class GrpcAppMetadataTest : public AppMetadataTest {
  protected:
