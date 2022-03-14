@@ -113,7 +113,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
     final float value = this.getFloat();
 
     if (Float.isInfinite(value) || Float.isNaN(value)) {
-      throw new UnsupportedOperationException("BigDecimal doesn't support Infinite/NaN.");
+      throw new SQLException("BigDecimal doesn't support Infinite/NaN.");
     }
 
     return this.wasNull ? null : BigDecimal.valueOf(value);
