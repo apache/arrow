@@ -216,7 +216,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      */
 
     if (!url.startsWith("jdbc:")) {
-      throw new SQLException("Must start with 'jdbc:'");
+      throw new SQLException("Connection string must start with 'jdbc:'");
     }
 
     // It's necessary to use a string without "jdbc:" at the beginning to be parsed as a valid URL.
@@ -231,7 +231,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     }
 
     if (!Objects.equals(uri.getScheme(), "arrow-flight")) {
-      throw new SQLException("Scheme must be 'arrow-flight'");
+      throw new SQLException("URL Scheme must be 'arrow-flight'");
     }
 
 

@@ -100,11 +100,11 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
   }
 
   @Override
-  public String getString() throws SQLException {
-    Object object = getObject();
+  public String getString() {
+    StringBuilder stringBuilder = this.stringBuilderGetter.get(getCurrentRow());
 
-    wasNull = stringBuilder == null;
-    wasNullConsumer.setWasNull(wasNull);
+    this.wasNull = stringBuilder == null;
+    this.wasNullConsumer.setWasNull(wasNull);
     if (stringBuilder == null) {
       return null;
     }
