@@ -91,3 +91,52 @@ test_that("extension type subclasses work", {
 
   expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
 })
+
+test_that("extension subclasses can override the ExtensionEquals method", {
+  SomeExtensionTypeSubclass <- R6Class(
+    "SomeExtensionTypeSubclass", inherit = ExtensionType,
+    public = list(
+      field_values = NULL,
+
+      .Deserialize = function(storage_type, extension_name, extension_metadata) {
+        self$field_values <- unserialize(extension_metadata)
+      },
+
+      .ExtensionEquals = function(other) {
+        if (!inherits(other, "SomeExtensionTypeSubclass")) {
+          return(FALSE)
+        }
+
+        setequal(names(other$field_values), names(self$field_values)) &&
+          identical(
+            other$field_values[names(self$field_values)],
+            self$field_values
+          )
+      }
+    )
+  )
+
+  type <- MakeExtensionType(
+    int32(),
+    "some_extension_subclass",
+    serialize(list(field1 = "value1", field2 = "value2"), NULL),
+    type_class = SomeExtensionTypeSubclass
+  )
+
+  RegisterExtensionType(type)
+
+  expect_true(type$.ExtensionEquals(type))
+  expect_true(type$Equals(type))
+
+  type2 <- MakeExtensionType(
+    int32(),
+    "some_extension_subclass",
+    serialize(list(field2 = "value2", field1 = "value1"), NULL),
+    type_class = SomeExtensionTypeSubclass
+  )
+
+  expect_true(type$.ExtensionEquals(type2))
+  expect_true(type$Equals(type2))
+
+  UnregisterExtensionType("some_extension_subclass")
+})

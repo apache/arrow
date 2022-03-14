@@ -92,6 +92,13 @@ ExtensionType <- R6Class("ExtensionType",
     .Deserialize = function(storage_type, extension_name, extension_metadata) {
       # Do nothing by default but allow other classes to override this method
       # to populate R6 class members.
+    },
+
+    .ExtensionEquals = function(other) {
+      # note that this must not call to C++ (because C++ might call here)
+      inherits(other, "ExtensionType") &&
+        identical(other$extension_name(), self$extension_name()) &&
+        identical(other$Serialize(), self$Serialize())
     }
   ),
 
@@ -114,7 +121,7 @@ ExtensionType$new <- function(xp) {
 
 
 MakeExtensionType <- function(storage_type,
-                              extension_name, 
+                              extension_name,
                               extension_metadata,
                               type_class = ExtensionType,
                               array_class = ExtensionArray) {

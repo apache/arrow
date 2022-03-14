@@ -36,14 +36,20 @@ class RExtensionType : public arrow::ExtensionType {
         r6_array_generator_(r6_array_generator) {}
 
   std::string extension_name() const { return extension_name_; }
+
   bool ExtensionEquals(const arrow::ExtensionType& other) const;
+
   std::shared_ptr<arrow::Array> MakeArray(std::shared_ptr<arrow::ArrayData> data) const;
+
   arrow::Result<std::shared_ptr<arrow::DataType>> Deserialize(
       std::shared_ptr<arrow::DataType> storage_type,
       const std::string& serialized_data) const;
+
   std::string Serialize() const { return extension_metadata_; }
 
   std::shared_ptr<RExtensionType> Clone() const;
+
+  cpp11::environment to_r6() const;
 
  private:
   std::string extension_name_;
@@ -53,15 +59,27 @@ class RExtensionType : public arrow::ExtensionType {
 };
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
+  // Avoid materializing the R6 type if at all possible, since this is slow
+  // and in some cases not possible due to threading
   if (other.extension_name() != extension_name()) {
     return false;
   }
 
-  if (other.Serialize() != Serialize()) {
-    return false;
+  if (other.Serialize() == Serialize()) {
+    return true;
   }
 
-  return true;
+  // With any ambiguity, we need to materialize the R6 type and call its
+  // ExtensionEquals method.
+  cpp11::environment instance = to_r6();
+  cpp11::function instance_ExtensionEquals(instance[".ExtensionEquals"]);
+
+  std::shared_ptr<DataType> other_shared =
+      ValueOrStop(other.Deserialize(other.storage_type(), other.Serialize()));
+  cpp11::sexp other_r6 = cpp11::to_r6<DataType>(other_shared, "ExtensionType");
+
+  cpp11::logicals result(instance_ExtensionEquals(other_r6));
+  return cpp11::as_cpp<bool>(result);
 }
 
 std::shared_ptr<arrow::Array> RExtensionType::MakeArray(
@@ -75,14 +93,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
     std::shared_ptr<arrow::DataType> storage_type,
     const std::string& serialized_data) const {
   try {
-    cpp11::function make_extension_type(cpp11::package("arrow")["MakeExtensionType"]);
-    cpp11::sexp storage_type_r6 = cpp11::to_r6<arrow::DataType>(storage_type);
-    cpp11::writable::raws serialized_data_raw(serialized_data);
-
-    cpp11::sexp result =
-        make_extension_type(storage_type_r6, extension_name(), serialized_data_raw,
-                            r6_type_generator_, r6_array_generator_);
-
+    cpp11::environment result = to_r6();
     auto ptr = arrow::r::r6_to_pointer<std::shared_ptr<arrow::DataType>*>(result);
     return *ptr;
   } catch (std::exception& e) {
@@ -94,6 +105,18 @@ std::shared_ptr<RExtensionType> RExtensionType::Clone() const {
   return std::make_shared<RExtensionType>(storage_type(), extension_name_,
                                           extension_metadata_, r6_type_generator_,
                                           r6_array_generator_);
+}
+
+cpp11::environment RExtensionType::to_r6() const {
+  cpp11::function make_extension_type(cpp11::package("arrow")["MakeExtensionType"]);
+  cpp11::sexp storage_type_r6 = cpp11::to_r6<arrow::DataType>(storage_type());
+  cpp11::writable::raws serialized_data_raw(Serialize());
+
+  cpp11::sexp result =
+      make_extension_type(storage_type_r6, extension_name(), serialized_data_raw,
+                          r6_type_generator_, r6_array_generator_);
+
+  return result;
 }
 
 // [[arrow::export]]
