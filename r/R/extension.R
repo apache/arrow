@@ -114,7 +114,8 @@ ExtensionType$new <- function(xp) {
 
 
 MakeExtensionType <- function(storage_type,
-                              extension_name, extension_metadata,
+                              extension_name, 
+                              extension_metadata,
                               type_class = ExtensionType,
                               array_class = ExtensionArray) {
   assert_that(is.string(extension_name), is.raw(extension_metadata))
