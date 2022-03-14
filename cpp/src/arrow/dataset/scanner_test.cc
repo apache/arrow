@@ -129,15 +129,12 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
   }
 
   void AssertScanForAugmentedFields(std::shared_ptr<Scanner> scanner) {
-    auto result = scanner.get()->ToTable();
-    if (result.ok()) {
-      auto table = result.ValueOrDie();
-      auto columns = table.get()->ColumnNames();
-      EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
-        return x == "__fragment_index" || x == "__batch_index" ||
-               x == "__last_in_fragment" || x == "__filename";
-      }));
-    }
+    ASSERT_OK_AND_ASSIGN(auto table, scanner.get()->ToTable());
+    auto columns = table.get()->ColumnNames();
+    EXPECT_TRUE(std::none_of(columns.begin(), columns.end(), [](std::string& x) {
+      return x == "__fragment_index" || x == "__batch_index" ||
+             x == "__last_in_fragment" || x == "__filename";
+    }));
   }
 
   void AssertScanBatchesUnorderedEqualRepetitionsOf(
