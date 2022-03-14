@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "json"
 require "open-uri"
 require "time"
 
@@ -178,10 +179,14 @@ class PackageTask
       from_components = from.chomp.split
       from = from_components.pop
       build_arguments = from_components
-      unless build_arguments.empty?
-        # docker build ... -> docker buildx build ...
-        build_command_line[1, 0] = "buildx"
-        build_command_line.concat(build_arguments)
+      case build_arguments
+      when ["--platform=linux/arm64"]
+        docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+        unless docker_info["Architecture"] == "arm64"
+          # docker build ... -> docker buildx build ...
+          build_command_line[1, 0] = "buildx"
+          build_command_line.concat(build_arguments)
+        end
       end
       build_command_line.concat(["--build-arg", "FROM=#{from}"])
       docker_context = os
