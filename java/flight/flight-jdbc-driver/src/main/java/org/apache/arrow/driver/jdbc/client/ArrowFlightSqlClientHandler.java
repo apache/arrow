@@ -50,6 +50,8 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.Meta.StatementType;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * A {@link FlightSqlClient} handler.
  */
@@ -465,6 +467,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @param allocator the allocator.
      * @return this instance.
      */
+    @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of BufferAllocator")
     public Builder withBufferAllocator(final BufferAllocator allocator) {
       this.allocator = allocator
           .newChildAllocator("ArrowFlightSqlClientHandler", 0, allocator.getLimit());

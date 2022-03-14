@@ -40,12 +40,15 @@ import java.util.concurrent.Executor;
 
 import org.apache.arrow.driver.jdbc.ArrowFlightJdbcPooledConnection;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Auxiliary wrapper class for {@link Connection}, used on {@link ArrowFlightJdbcPooledConnection}.
  */
 public class ConnectionWrapper implements Connection {
   private final Connection realConnection;
 
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of java.sql.Connection")
   public ConnectionWrapper(final Connection connection) {
     realConnection = checkNotNull(connection);
   }

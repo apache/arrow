@@ -27,6 +27,8 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Accessor for the Float4Vector.
  */
@@ -42,6 +44,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
    * @param currentRowSupplier the supplier to track the lines.
    * @param setCursorWasNull   the consumer to set if value was null.
    */
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of vectors")
   public ArrowFlightJdbcFloat4VectorAccessor(Float4Vector vector,
                                              IntSupplier currentRowSupplier,
                                              ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
@@ -110,7 +113,7 @@ public class ArrowFlightJdbcFloat4VectorAccessor extends ArrowFlightJdbcAccessor
     final float value = this.getFloat();
 
     if (Float.isInfinite(value) || Float.isNaN(value)) {
-      throw new SQLException("BigDecimal doesn't support Infinite/NaN.");
+      throw new UnsupportedOperationException("BigDecimal doesn't support Infinite/NaN.");
     }
 
     return this.wasNull ? null : BigDecimal.valueOf(value);
