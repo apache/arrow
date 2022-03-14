@@ -974,3 +974,26 @@ test_that("date() errors with unsupported inputs", {
     regexp = "Unsupported cast from double to date32 using function cast_date32"
   )
 })
+
+test_that("make_date", {
+  set.seed(12345)
+  test_df <- tibble(
+    year = sample(1969:2069, 12),
+    month = 1:12,
+    day = sample(1:28, 12, replace = TRUE)
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_date = make_date(year, month, day)) %>%
+      collect(),
+    test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(cd_r_obj = make_date(1999, 12, 31)) %>%
+      collect(),
+    test_df
+  )
+})
