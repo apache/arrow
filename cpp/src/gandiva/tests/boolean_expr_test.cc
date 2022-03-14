@@ -140,11 +140,11 @@ TEST_F(TestBooleanExpr, IsTrueFalse) {
 
   auto expa = MakeArrowArrayBool({true, false, false, true, false, false},
                                  {true, true, true, true, true, true});
-  auto expb = MakeArrowArrayBool({true, false, false, true, false, false},
+  auto expb = MakeArrowArrayBool({true, false, false, true, true, true},
                                  {true, true, true, true, true, true});
   auto expc = MakeArrowArrayBool({false, true, true, false, false, false},
                                  {true, true, true, true, true, true});
-  auto expd = MakeArrowArrayBool({false, true, true, false, false, false},
+  auto expd = MakeArrowArrayBool({false, true, true, false, true, true},
                                  {true, true, true, true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {in_a});
