@@ -2042,9 +2042,12 @@ cdef class Scanner(_Weakrefable):
     dataset : Dataset
         Dataset to scan.
     columns : list of str or dict, default None
-        The columns to project. This can be a list of column names to include
-        (order and duplicates will be preserved), or a dictionary with
-        {new_column_name: expression} values for more advanced projections.
+        The columns to project. This can be a list of column names to
+        include (order and duplicates will be preserved) which may contain the
+        augmented fields such as `batch_index`, `fragment_index`, 
+        `last_in_fragment` and `filename`, or a dictionary
+        with {new_column_name: expression} values for more advanced
+        projections.
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
