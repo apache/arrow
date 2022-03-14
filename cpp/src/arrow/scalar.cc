@@ -18,6 +18,7 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -1024,5 +1025,7 @@ Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) con
   }
   return out;
 }
+
+void PrintTo(const Scalar& scalar, std::ostream* os) { *os << scalar.ToString(); }
 
 }  // namespace arrow
