@@ -1276,6 +1276,10 @@ io___RandomAccessFile__ReadAt <- function(x, position, nbytes) {
   .Call(`_arrow_io___RandomAccessFile__ReadAt`, x, position, nbytes)
 }
 
+io___RandomAccessFile__ReadMetadata <- function(x) {
+  .Call(`_arrow_io___RandomAccessFile__ReadMetadata`, x)
+}
+
 io___MemoryMappedFile__Create <- function(path, size) {
   .Call(`_arrow_io___MemoryMappedFile__Create`, path, size)
 }
