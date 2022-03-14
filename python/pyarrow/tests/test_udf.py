@@ -285,5 +285,5 @@ def test_scalar_udf_function_with_scalar_data(function_names,
         func = pc.get_function(name)
         assert func.name == name
 
-        result = pc.call_function(name, input)
+        result = pc.call_function(name, input, options=None, memory_pool=None)
         assert result == expected_output
