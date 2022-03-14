@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-find_package(Python3Alt REQUIRED)
-
 add_arrow_example(row_wise_conversion_example)
 
 if(ARROW_COMPUTE)
@@ -113,8 +111,6 @@ if(ARROW_FLIGHT)
                       ${GFLAGS_LIBRARIES})
   endif()
 endif()
-
-include_directories(${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 if(ARROW_PARQUET AND ARROW_DATASET)
   if(ARROW_BUILD_SHARED)
