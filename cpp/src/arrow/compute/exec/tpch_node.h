@@ -34,7 +34,7 @@ namespace arrow
         class PartAndPartSupplierGenerator;
 
 
-        class TpchGen
+        class ARROW_EXPORT TpchGen
         {
         public:
             /*
