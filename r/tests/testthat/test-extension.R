@@ -140,3 +140,34 @@ test_that("extension subclasses can override the ExtensionEquals method", {
 
   UnregisterExtensionType("some_extension_subclass")
 })
+
+test_that("vctrs extension type works", {
+  custom_vctr <- vctrs::new_vctr(
+    1:4,
+    attr_key = "attr_val",
+    class = "arrow_custom_test"
+  )
+
+  type <- vctrs_extension_type(custom_vctr)
+  expect_r6_class(type, "VctrsExtensionType")
+  expect_identical(type$ptype(), vctrs::vec_ptype(custom_vctr))
+  expect_true(type$Equals(type))
+  expect_match(type$ToString(), "arrow_custom_test")
+
+  array_in <- VctrsExtensionArray$create(custom_vctr)
+  expect_true(array_in$type$Equals(type))
+  expect_identical(VctrsExtensionArray$create(array_in), array_in)
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(arrow_table(col = array_in), tf)
+  table_out <- read_feather(tf, as_data_frame = FALSE)
+  array_out <- table_out$col
+
+  expect_true(table_out$col$type$Equals(type))
+  expect_identical(
+    table_out$col$as_vector(),
+    custom_vctr
+  )
+})
+

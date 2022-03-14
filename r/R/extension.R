@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
   public = list(
@@ -150,6 +151,24 @@ RegisterExtensionType <- function(type) {
   invisible(type)
 }
 
+ReRegisterExtensionType <- function(type) {
+  extension_name <- type$extension_name()
+  result <- extension_type_registry[[extension_name]]
+  if (!is.null(result)) {
+    UnregisterExtensionType(extension_name)
+  }
+
+  tryCatch(
+    RegisterExtensionType(type),
+    error = function(e) {
+      UnregisterExtensionType(extension_name)
+      RegisterExtensionType(type)
+    }
+  )
+
+  invisible(result)
+}
+
 UnregisterExtensionType <- function(extension_name) {
   arrow__UnregisterRExtensionType(extension_name)
   result <- extension_type_registry[[extension_name]]
@@ -160,3 +179,73 @@ UnregisterExtensionType <- function(extension_name) {
 }
 
 extension_type_registry <- new.env(parent = emptyenv())
+
+
+VctrsExtensionType <- R6Class("VctrsExtensionType",
+  inherit = ExtensionType,
+  public = list(
+    ptype = function() {
+      private$.ptype
+    },
+
+    ToString = function() {
+      tf <- tempfile()
+      on.exit(unlink(tf))
+      sink(tf)
+      print(self$ptype())
+      sink(NULL)
+      paste0(readLines(tf), collapse = "\n")
+    },
+
+    .Deserialize = function(storage_type, extension_name, extension_metadata) {
+      message("Deserialize called")
+      private$.ptype <- unserialize(extension_metadata)
+      message(sprintf("...with ptype class %s", paste0(class(private$.ptype), collapse = " / ")))
+    },
+
+    .ExtensionEquals = function(other) {
+      if (!inherits(other, "VctrsExtensionType")) {
+        return(FALSE)
+      }
+
+      identical(self$ptype(), other$ptype())
+    }
+  ),
+  private = list(
+    .ptype = NULL
+  )
+)
+
+VctrsExtensionArray <- R6Class("VctrsExtensionArray",
+  inherit = ExtensionArray,
+  public = list(
+    to_vector = function() {
+      vctrs::vec_restore(super$to_vector(), self$type$ptype())
+    }
+  )
+)
+
+VctrsExtensionArray$create <- function(x, ptype = vctrs::vec_ptype(x),
+                                       type = NULL) {
+  if (inherits(x, "VctrsExtensionArray")) {
+    return(x)
+  }
+
+  vctrs::vec_assert(x)
+  type <- vctrs_extension_type(ptype)
+  storage <- Array$create(vctrs::vec_data(x), type = type$storage_type())
+  type$WrapArray(storage)
+}
+
+
+vctrs_extension_type <- function(ptype) {
+  ptype <- vctrs::vec_ptype(ptype)
+
+  MakeExtensionType(
+    storage_type = type(vctrs::vec_data(ptype)),
+    extension_name = "arrow.r.vctrs",
+    extension_metadata = serialize(ptype, NULL),
+    type_class = VctrsExtensionType,
+    array_class = VctrsExtensionArray
+  )
+}

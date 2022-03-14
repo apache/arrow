@@ -80,6 +80,9 @@
     }
   }
 
+  # register extension types that we use internally
+  ReRegisterExtensionType(vctrs_extension_type(vctrs::unspecified()))
+
   invisible()
 }
 
@@ -107,6 +110,7 @@
     })
   }
 }
+
 
 #' Is the C++ Arrow library available?
 #'
