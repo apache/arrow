@@ -310,6 +310,15 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("Can set schema on dataset", {
+  ds <- open_dataset(dataset_dir)
+  expected_schema <- schema(x = int32(), y = utf8())
+
+  ds_new <- ds$WithSchema(expected_schema)
+  expect_equal(ds_new$schema, expected_schema)
+  expect_false(ds$schema == expected_schema)
+})
+
 test_that("dim method returns the correct number of rows and columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_identical(dim(ds), c(20L, 7L))
@@ -542,6 +551,30 @@ test_that("Creating UnionDataset", {
 
   # Confirm c() method error handling
   expect_error(c(ds1, 42), "character")
+})
+
+test_that("UnionDataset can merge schemas", {
+  sub_df1 <- arrow_table(x = array(c(1, 2, 3)),
+                         y = array(c("a", "b", "c")))
+  sub_df2 <- arrow_table(x = array(c(4, 5)),
+                         z = array(c("d", "e")))
+
+  path1 <- make_temp_dir()
+  path2 <- make_temp_dir()
+  write_dataset(sub_df1, path1, format="parquet")
+  write_dataset(sub_df2, path2, format="parquet")
+
+  ds1 <- open_dataset(path1, format="parquet")
+  ds2 <- open_dataset(path2, format="parquet")
+
+  ds <- c(ds1, ds2) # c() actually does the same thing
+  ds <- open_dataset(list(ds1, ds2)) # This fails due to mismatch in schema
+  expect_equal(
+    ds %>% collect() %>% arrange(x),
+    union_all(as_tibble(sub_df1), as_tibble(sub_df2))
+  )
+
+  expect_error(open_dataset(list(ds1, ds2), unify_schemas = FALSE))
 })
 
 test_that("map_batches", {
