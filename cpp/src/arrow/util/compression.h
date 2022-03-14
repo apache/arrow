@@ -119,7 +119,7 @@ class ARROW_EXPORT Codec {
   /// \brief Return a string name for compression type
   static const std::string& GetCodecAsString(Compression::type t);
 
-  /// \brief Return compression type for name (all upper case)
+  /// \brief Return compression type for name (all lower case)
   static Result<Compression::type> GetCompressionType(const std::string& name);
 
   /// \brief Create a codec for the given compression algorithm
