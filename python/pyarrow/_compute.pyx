@@ -30,6 +30,7 @@ from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
 
 from cpython.ref cimport PyObject
+from libcpp cimport bool as c_bool
 
 import numpy as np
 
@@ -2418,6 +2419,7 @@ cdef CFunctionDoc _make_function_doc(func_doc):
     cdef:
         CFunctionDoc f_doc
         vector[c_string] c_arg_names
+        c_bool c_options_required
     if isinstance(func_doc, dict):
         if func_doc["summary"] and isinstance(func_doc["summary"], str):
             f_doc.summary = func_doc["summary"].encode()
@@ -2446,9 +2448,10 @@ cdef CFunctionDoc _make_function_doc(func_doc):
             raise ValueError("key `options_class` cannot be None")
 
         if isinstance(func_doc["options_required"], bool):
-            f_doc.options_required = func_doc["options_required"]
+            c_options_required = func_doc["options_required"]
+            f_doc.options_required = c_options_required
         else:
-            raise ValueError("key `options_required` cannot must be bool")
+            raise ValueError("key `options_required` must be bool")
 
         return f_doc
     else:
