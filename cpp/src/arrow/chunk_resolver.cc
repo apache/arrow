@@ -30,7 +30,7 @@ namespace internal {
 
 namespace {
 inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) {
-  std::vector<int64_t> offsets(chunks.size());
+  std::vector<int64_t> offsets(chunks.size() + 1);
   int64_t offset = 0;
   std::transform(chunks.begin(), chunks.end(), offsets.begin(),
                  [&offset](const std::shared_ptr<Array>& arr) {
@@ -38,13 +38,13 @@ inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) {
                    offset += arr->length();
                    return curr_offset;
                  });
-  offsets.push_back(offset);
+  offsets[chunks.size()] = offset;
   return offsets;
 }
 
 inline std::vector<int64_t> MakeArrayPointersOffsets(
     const std::vector<const Array*>& chunks) {
-  std::vector<int64_t> offsets(chunks.size());
+  std::vector<int64_t> offsets(chunks.size() + 1);
   int64_t offset = 0;
   std::transform(chunks.begin(), chunks.end(), offsets.begin(),
                  [&offset](const Array* arr) {
@@ -52,12 +52,12 @@ inline std::vector<int64_t> MakeArrayPointersOffsets(
                    offset += arr->length();
                    return curr_offset;
                  });
-  offsets.push_back(offset);
+  offsets[chunks.size()] = offset;
   return offsets;
 }
 
 inline std::vector<int64_t> MakeRecordBatchesOffsets(const RecordBatchVector& batches) {
-  std::vector<int64_t> offsets(batches.size());
+  std::vector<int64_t> offsets(batches.size() + 1);
   int64_t offset = 0;
   std::transform(batches.begin(), batches.end(), offsets.begin(),
                  [&offset](const std::shared_ptr<RecordBatch>& batch) {
@@ -65,7 +65,7 @@ inline std::vector<int64_t> MakeRecordBatchesOffsets(const RecordBatchVector& ba
                    offset += batch->num_rows();
                    return curr_offset;
                  });
-  offsets.push_back(offset);
+  offsets[batches.size()] = offset;
   return offsets;
 }
 }  // namespace
