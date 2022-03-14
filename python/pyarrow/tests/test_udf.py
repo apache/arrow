@@ -254,13 +254,13 @@ def expected_outputs():
 
 
 def test_scalar_udf_function_with_scalar_data(function_names,
-                                       function_arities,
-                                       function_input_types,
-                                       function_output_types,
-                                       function_docs,
-                                       functions,
-                                       function_inputs,
-                                       expected_outputs):
+                                              function_arities,
+                                              function_input_types,
+                                              function_output_types,
+                                              function_docs,
+                                              functions,
+                                              function_inputs,
+                                              expected_outputs):
 
     # Note: 2 * -> used to duplicate the list
     # Because the values are same irrespective of the type i.e scalar or array

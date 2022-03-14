@@ -2513,6 +2513,40 @@ def register_function(func_name, arity, function_doc, in_types,
         one of "intersect", "computed_preallocate",
         "computed_no_preallocate", 
         "output_not_null"
+
+    Example
+    -------
+    >>> from pyarrow import compute as pc
+    >>> from pyarrow.compute import register_function
+    >>> from pyarrow.compute import Arity, InputType
+    >>> 
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "simple udf"
+    >>> func_doc["description"] = "add a constant to a scalar"
+    >>> func_doc["arg_names"] = ["x"]
+    >>> func_doc["options_class"] = "None"
+    >>> func_doc["options_required"] = False
+    >>> 
+    >>> def add_constant(array):
+    ...     return pc.call_function("add", [array, 1])
+    ... 
+    >>> 
+    >>> func_name = "py_add_func"
+    >>> arity = Arity.unary()
+    >>> in_types = [InputType.array(pa.int64())]
+    >>> out_type = pa.int64()
+    >>> register_function(func_name, arity, func_doc,
+    ...                   in_types, out_type, add_constant)
+    >>> 
+    >>> func = pc.get_function(func_name)
+    >>> func.name
+    'py_add_func'
+    >>> ans = pc.call_function(func_name, [pa.array([20])])
+    >>> ans
+    <pyarrow.lib.Int64Array object at 0x10c22e700>
+    [
+    21
+    ]
     """
     cdef:
         c_string c_func_name
