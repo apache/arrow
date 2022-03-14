@@ -975,12 +975,15 @@ test_that("date() errors with unsupported inputs", {
   )
 })
 
-test_that("make_date", {
+test_that("make_date & make_datetime", {
   set.seed(12345)
   test_df <- tibble(
     year = sample(1969:2069, 12),
     month = 1:12,
-    day = sample(1:28, 12, replace = TRUE)
+    day = sample(1:28, 12, replace = TRUE),
+    hour = sample(0:23, 12, replace = TRUE),
+    min = sample(0:59, 12),
+    sec = sample(0:59, 12)
   )
 
   compare_dplyr_binding(
@@ -992,8 +995,29 @@ test_that("make_date", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(cd_r_obj = make_date(1999, 12, 31)) %>%
+      mutate(composed_date_r_obj = make_date(1999, 12, 31)) %>%
       collect(),
     test_df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(composed_datetime = make_datetime(year, month, day, hour, min, sec)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        composed_datetime_r_obj = make_datetime(1999, 12, 31, 14, 15, 16)) %>%
+      collect(),
+    test_df,
+    # the make_datetime binding uses strptime which does not support tz, hence
+    # a mismatch in tzone attribute (ARROW-12820)
+    ignore_attr = TRUE
   )
 })
