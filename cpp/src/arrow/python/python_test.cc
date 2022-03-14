@@ -39,18 +39,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-#include <arrow/api.h>
-#include <arrow/compute/api.h>
-#include <arrow/compute/exec/exec_plan.h>
-#include <arrow/compute/exec/expression.h>
-#include <arrow/compute/exec/options.h>
-
-#include "arrow/python/udf.h"
-
 namespace arrow {
 
 using internal::checked_cast;
-namespace cp = arrow::compute;
 namespace py {
 
 TEST(OwnedRef, TestMoves) {
