@@ -42,6 +42,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+
 namespace py {
 
 TEST(OwnedRef, TestMoves) {
