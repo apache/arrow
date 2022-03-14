@@ -29,7 +29,7 @@ namespace arrow {
 namespace internal {
 
 namespace {
-static inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) {
+inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) {
   std::vector<int64_t> offsets(chunks.size());
   int64_t offset = 0;
   std::transform(chunks.begin(), chunks.end(), offsets.begin(),
@@ -42,7 +42,7 @@ static inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) 
   return offsets;
 }
 
-static inline std::vector<int64_t> MakeArrayPointersOffsets(
+inline std::vector<int64_t> MakeArrayPointersOffsets(
     const std::vector<const Array*>& chunks) {
   std::vector<int64_t> offsets(chunks.size());
   int64_t offset = 0;
@@ -56,8 +56,7 @@ static inline std::vector<int64_t> MakeArrayPointersOffsets(
   return offsets;
 }
 
-static inline std::vector<int64_t> MakeRecordBatchesOffsets(
-    const RecordBatchVector& batches) {
+inline std::vector<int64_t> MakeRecordBatchesOffsets(const RecordBatchVector& batches) {
   std::vector<int64_t> offsets(batches.size());
   int64_t offset = 0;
   std::transform(batches.begin(), batches.end(), offsets.begin(),

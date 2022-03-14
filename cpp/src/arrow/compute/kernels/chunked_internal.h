@@ -69,10 +69,6 @@ struct ChunkedArrayResolver : protected ::arrow::internal::ChunkResolver {
   template <typename ArrayType>
   ResolvedChunk<ArrayType> Resolve(int64_t index) const {
     const auto loc = ::arrow::internal::ChunkResolver::Resolve(index);
-    // if (loc.chunk_index >= static_cast<int64_t>(chunks_.size())) {
-    //   return Status::IndexError("tried to refer to chunk ", loc.chunk_index,
-    //                             " but ChunkedArray is only ", chunks_.size(), " long");
-    // }
     return {checked_cast<const ArrayType*>(chunks_[loc.chunk_index]), loc.index_in_chunk};
   }
 
