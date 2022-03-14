@@ -1193,7 +1193,8 @@ test_that("as.difftime() works properly", {
     hms_string = c("0:7:45", "12:34:56"),
     hm_string = c("7:45", "12:34"),
     int = c(30L, 75L),
-    dbl = c(31, 76)
+    integerish_dbl = c(31, 76),
+    dbl = c(31.2, 76.4)
   )
 
   compare_dplyr_binding(
@@ -1220,13 +1221,11 @@ test_that("as.difftime() works properly", {
     test_df
   )
 
-  # coercing doubles to difftime/duration is not supported in Arrow
   compare_dplyr_binding(
     .input %>%
-      mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
+      mutate(integerish_dbl_difftime = as.difftime(integerish_dbl, units = "secs")) %>%
       collect(),
-    test_df,
-    warning = TRUE
+    test_df
   )
 
   # "mins" or other values for units cannot be handled in Arrow
@@ -1236,5 +1235,15 @@ test_that("as.difftime() works properly", {
       collect(),
     test_df,
     warning = TRUE
+  )
+
+  # only integer (or integer-like) -> duration supported in Arrow.
+  # double -> duration not supported
+  expect_error(
+    test_df %>%
+      arrow_table() %>%
+      mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
+      collect(),
+    regexp =  "Float value 31.2 was truncated converting to int64"
   )
 })

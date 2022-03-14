@@ -188,6 +188,9 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+}
+
+register_bindings_duration <- function() {
   register_binding("difftime", function(time1,
                                         time2,
                                         tz,
@@ -300,22 +303,19 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
       return(diff_x_y)
     }
 
-    # numeric -> duration not supported in Arrow yet so we use time32() as
+    # numeric -> duration not supported in Arrow yet so we use int64() as an
     # intermediate step
-    # TODO revisit once https://issues.apache.org/jira/browse/ARROW-15862 done
-    if (call_binding("is.integer", x)) {
-      # x <- build_expr("cast", x, options = cast_options(to_type = time32(unit = "s")))
-      # y <- build_expr("cast", 0L, options = cast_options(to_type = time32(unit = "s")))
-      # diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
-      # return(diff_x_y)
-      # or we could go via int64()
+    # TODO revisit if https://issues.apache.org/jira/browse/ARROW-15862 results
+    # in numeric -> duration support
+
+    if (call_binding("is.numeric", x)) {
+      # coerce x to be int64(). it should work for integer-like doubles and fail
+      # for pure doubles
+      # if we abort for all doubles, we risk erroring in cases in which
+      # coercion to int64() would work
       x <- build_expr("cast", x, options = cast_options(to_type = int64()))
       x <- build_expr("cast", x, options = cast_options(to_type = duration("s")))
       return(x)
-    }
-
-    if (call_binding("is.double")) {
-      abort("`as.difftime()` with double/float inputs not supported in Arrow ")
     }
 
     build_expr("cast", x, options = cast_options(to_type = duration(unit = "s")))
