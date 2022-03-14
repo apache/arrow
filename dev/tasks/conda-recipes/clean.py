@@ -44,9 +44,21 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
         builds["py_version"] = builds["build"].str.extract(r'(py\d+)')
         builds["timestamp"] = pd.to_datetime(builds['timestamp'], unit='ms')
         builds["stale"] = builds["timestamp"] < DELETE_BEFORE
+        # Some packages can be present in several "features" (e.g. CUDA),
+        # others miss that column in which case we set a default value.
+        if "track_features" not in builds.columns:
+            if package_name == "arrow-cpp-proc":
+                # XXX arrow-cpp-proc puts the features in the build field...
+                builds["track_features"] = builds["build"]
+            else:
+                builds["track_features"] = 0
 
-        for (subdir, python, stale), group in builds.groupby(
-                ["subdir", "py_version", "stale"], dropna=False):
+        # Detect old builds for each configuration:
+        # a product of (architecture, Python version, features).
+        for (subdir, python, features, stale), group in builds.groupby(
+                ["subdir", "py_version", "track_features", "stale"],
+                dropna=False):
+            del_candidates = []
             if stale:
                 del_candidates = group
             else:
@@ -54,14 +66,15 @@ def builds_to_delete(platform: str, to_delete: Set[str]) -> int:
                 if len(group) > VERSIONS_TO_KEEP:
                     del_candidates = group[VERSIONS_TO_KEEP:]
 
-            to_delete.update(
-                f"arrow-nightlies/{package_name}/"
-                + del_candidates["version"].astype(str)
-                + del_candidates["url"].str.replace(
-                    "https://conda.anaconda.org/arrow-nightlies", "",
-                    regex=False
+            if len(del_candidates):
+                to_delete.update(
+                    f"arrow-nightlies/{package_name}/"
+                    + del_candidates["version"].astype(str)
+                    + del_candidates["url"].str.replace(
+                        "https://conda.anaconda.org/arrow-nightlies", "",
+                        regex=False
+                    )
                 )
-            )
 
     return num_builds
 
