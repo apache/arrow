@@ -33,6 +33,7 @@
 #include "arrow/util/thread_pool.h"
 #include "arrow/array/validate.h"
 
+#include <cctype>
 #include <unordered_set>
 #include <string>
 
@@ -73,7 +74,7 @@ namespace arrow
             int byte_width,
             bool verify_padding)
         {
-            size_t num_offset = std::strlen(prefix);
+            int num_offset = static_cast<int>(std::strlen(prefix));
             ASSERT_EQ(std::memcmp(row, prefix, num_offset), 0) << row << ", prefix=" << prefix << ", i=" << i;
             const char *num_str = row + num_offset;
             int64_t num = 0;
