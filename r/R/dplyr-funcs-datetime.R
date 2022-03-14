@@ -187,6 +187,27 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
+  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
+    x <- call_binding("paste", year, month, day, sep = "-")
+    x <- call_binding("strptime", x, format = "%Y-%m-%d", unit = "s")
+    build_expr("cast", x, options = cast_options(to_type = date32()))
+  })
+  register_binding("make_datetime", function(year = 1970L,
+                                             month = 1L,
+                                             day = 1L,
+                                             hour = 0L,
+                                             min = 0L,
+                                             sec = 0,
+                                             tz = NULL) {
+  x <- call_binding("paste", year, month, day, hour, min, sec, sep = "-")
+  # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
+  # Stop if tz is provided.
+  if (is.character(tz)) {
+    arrow_not_supported("Time zone argument")
+  }
+
+  build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+  })
 }
 
 binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
