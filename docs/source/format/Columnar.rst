@@ -525,7 +525,7 @@ Struct Validity
 ~~~~~~~~~~~~~~~
 
 A struct array has its own validity bitmap that is independent of its
-child arrays' own validity bitmap. This implies that, for a particular struct
+child arrays' validity bitmaps. This implies that, for a particular struct
 array slot, the validity bitmap for the struct array might indicate a null
 when one or more of its child arrays has a non-null value in their corresponding
 slot; or conversely, a child array might have a null in its validity bitmap
