@@ -525,13 +525,13 @@ Struct Validity
 ~~~~~~~~~~~~~~~
 
 A struct array has its own validity bitmap that is independent of its
-child arrays' validity bitmaps. This implies that, for a particular struct
-array slot, the validity bitmap for the struct array might indicate a null
-when one or more of its child arrays has a non-null value in their corresponding
-slot; or conversely, a child array might have a null in its validity bitmap
-while the struct array's validity bitmap shows a non-null value.
+child arrays' validity bitmaps. The validity bitmap for the struct
+array might indicate a null when one or more of its child arrays has
+a non-null value in its corresponding slot; or conversely, a child
+array might have a null in its validity bitmap while the struct array's
+validity bitmap shows a non-null value.
 
-Therefore, to know whether a particular child entry is null, one must
+Therefore, to know whether a particular child entry is valid, one must
 take the logical AND of the corresponding bits in the two validity bitmaps
 (the struct array's and the child array's).
 
