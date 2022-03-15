@@ -67,7 +67,7 @@ struct Configuration {
 
   ds::InspectOptions inspect_options{};
   ds::FinishOptions finish_options{};
-} conf;
+} kConf;
 
 arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(const std::string& uri,
                                                      std::string* path) {
@@ -87,12 +87,12 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
   ARROW_ASSIGN_OR_RAISE(auto factory, ds::FileSystemDatasetFactory::Make(fs, s, format, options));
 
   // Try to infer a common schema for all files.
-  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(conf.inspect_options));
+  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(conf.finish_options));
+  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(kConf.finish_options));
 
-  ds::DatasetVector children{conf.repeat, child};
+  ds::DatasetVector children{kConf.repeat, child};
   ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
@@ -107,13 +107,13 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
       ds::FileSystemDatasetFactory::Make(fs, {file}, format, options));
 
   // Try to infer a common schema for all files.
-  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(conf.inspect_options));
+  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(conf.finish_options));
+  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(kConf.finish_options));
 
   ds::DatasetVector children;
-  children.resize(conf.repeat, child);
+  children.resize(kConf.repeat, child);
   ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
@@ -171,7 +171,7 @@ arrow::Status Main(char **argv) {
   ARROW_ASSIGN_OR_RAISE(auto fs, GetFileSystemFromUri(argv[1], &path));
   ARROW_ASSIGN_OR_RAISE(auto dataset, GetDatasetFromPath(fs, format, path));
   ARROW_ASSIGN_OR_RAISE(auto scanner, GetScannerFromDataset(
-      dataset, conf.projected_columns, conf.filter, conf.use_threads)
+      dataset, kConf.projected_columns, kConf.filter, kConf.use_threads)
   );
   ARROW_ASSIGN_OR_RAISE(auto table, GetTableFromScanner(scanner));
   std::cout << "Table size: " << table->num_rows() << "\n";
