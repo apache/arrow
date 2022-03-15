@@ -84,16 +84,16 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
 
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
-  ARROW_ASSIGN_OR_RASIE(auto factory, ds::FileSystemDatasetFactory::Make(fs, s, format, options));
+  ARROW_ASSIGN_OR_RAISE(auto factory, ds::FileSystemDatasetFactory::Make(fs, s, format, options));
 
   // Try to infer a common schema for all files.
-  ARROW_ASSIGN_OR_RASIE(auto schema, factory->Inspect(conf.inspect_options));
+  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(conf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RASIE(auto child, factory->Finish(conf.finish_options));
+  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(conf.finish_options));
 
   ds::DatasetVector children{conf.repeat, child};
-  ARROW_ASSIGN_OR_RASIE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
 }
@@ -103,18 +103,18 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
     std::string file) {
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
-  ARROW_ASSIGN_OR_RASIE(auto factory,
+  ARROW_ASSIGN_OR_RAISE(auto factory,
       ds::FileSystemDatasetFactory::Make(fs, {file}, format, options));
 
   // Try to infer a common schema for all files.
-  ARROW_ASSIGN_OR_RASIE(auto schema, factory->Inspect(conf.inspect_options));
+  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(conf.inspect_options));
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RASIE(auto child, factory->Finish(conf.finish_options));
+  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(conf.finish_options));
 
   ds::DatasetVector children;
   children.resize(conf.repeat, child);
-  ARROW_ASSIGN_OR_RASIE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
 }
