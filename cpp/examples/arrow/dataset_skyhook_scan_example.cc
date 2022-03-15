@@ -69,12 +69,12 @@ struct Configuration {
   ds::FinishOptions finish_options{};
 } conf;
 
-std::shared_ptr<fs::FileSystem> GetFileSystemFromUri(const std::string& uri,
+Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(const std::string& uri,
                                                      std::string* path) {
-  return fs::FileSystemFromUri(uri, path).ValueOrDie();
+  return fs::FileSystemFromUri(uri, path);
 }
 
-std::shared_ptr<ds::Dataset> GetDatasetFromDirectory(
+Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string dir) {
   // Find all files under `path`
@@ -84,56 +84,56 @@ std::shared_ptr<ds::Dataset> GetDatasetFromDirectory(
 
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
-  auto factory = ds::FileSystemDatasetFactory::Make(fs, s, format, options).ValueOrDie();
+  auto factory = ds::FileSystemDatasetFactory::Make(fs, s, format, options);
 
   // Try to infer a common schema for all files.
-  auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();
+  auto schema = factory->Inspect(conf.inspect_options);
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  auto child = factory->Finish(conf.finish_options).ValueOrDie();
+  auto child = factory->Finish(conf.finish_options);
 
   ds::DatasetVector children{conf.repeat, child};
   auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
-  return dataset.ValueOrDie();
+  return dataset;
 }
 
-std::shared_ptr<ds::Dataset> GetDatasetFromFile(
+Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string file) {
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
   auto factory =
-      ds::FileSystemDatasetFactory::Make(fs, {file}, format, options).ValueOrDie();
+      ds::FileSystemDatasetFactory::Make(fs, {file}, format, options);
 
   // Try to infer a common schema for all files.
-  auto schema = factory->Inspect(conf.inspect_options).ValueOrDie();
+  auto schema = factory->Inspect(conf.inspect_options);
   // Caller can optionally decide another schema as long as it is compatible
   // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  auto child = factory->Finish(conf.finish_options).ValueOrDie();
+  auto child = factory->Finish(conf.finish_options);
 
   ds::DatasetVector children;
   children.resize(conf.repeat, child);
   auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
 
-  return dataset.ValueOrDie();
+  return dataset;
 }
 
-std::shared_ptr<ds::Dataset> GetDatasetFromPath(
+Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string path) {
-  auto info = fs->GetFileInfo(path).ValueOrDie();
+  auto info = fs->GetFileInfo(path);
   if (info.IsDirectory()) {
     return GetDatasetFromDirectory(fs, format, path);
   }
   return GetDatasetFromFile(fs, format, path);
 }
 
-std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
+Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
                                                    cp::Expression filter,
                                                    bool use_threads) {
-  auto scanner_builder = dataset->NewScan().ValueOrDie();
+  auto scanner_builder = dataset->NewScan();
 
   if (!columns.empty()) {
     ABORT_ON_FAILURE(scanner_builder->Project(columns));
@@ -143,14 +143,14 @@ std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> 
 
   ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
 
-  return scanner_builder->Finish().ValueOrDie();
+  return scanner_builder->Finish();
 }
 
-std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
-  return scanner->ToTable().ValueOrDie();
+Result<std::shared_ptr<Table>> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
+  return scanner->ToTable();
 }
 
-std::shared_ptr<skyhook::SkyhookFileFormat> InstantiateSkyhookFormat() {
+Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFormat() {
   std::string ceph_config_path = "/etc/ceph/ceph.conf";
   std::string ceph_data_pool = "cephfs_data";
   std::string ceph_user_name = "client.admin";
@@ -160,28 +160,35 @@ std::shared_ptr<skyhook::SkyhookFileFormat> InstantiateSkyhookFormat() {
       std::make_shared<skyhook::RadosConnCtx>(ceph_config_path, ceph_data_pool,
                                               ceph_user_name, ceph_cluster_name,
                                               ceph_cls_name);
-  auto format = skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet").ValueOrDie();
+  auto format = skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet");
   return format;
 }
 
-int main(int argc, char** argv) {
-  auto format = InstantiateSkyhookFormat();
+arrow::Status Main(char **argv) {
+  ARROW_ASSIGN_OR_RAISE(auto format, InstantiateSkyhookFormat());
+  std::string path;
 
+  ARROW_ASSIGN_OR_RAISE(auto fs, GetFileSystemFromUri(argv[1], &path));
+  ARROW_ASSIGN_OR_RAISE(auto dataset, GetDatasetFromPath(fs, format, path));
+  ARROW_ASSIGN_OR_RAISE(auto scanner, GetScannerFromDataset(
+      dataset, conf.projected_columns, conf.filter, conf.use_threads)
+  );
+  ARROW_ASSIGN_OR_RAISE(auto table, GetTableFromScanner(scanner));
+  std::cout << "Table size: " << table->num_rows() << "\n";
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
   if (argc != 2) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
   }
 
-  std::string path;
-  auto fs = GetFileSystemFromUri(argv[1], &path);
-
-  auto dataset = GetDatasetFromPath(fs, format, path);
-
-  auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
-                                       conf.use_threads);
-
-  auto table = GetTableFromScanner(scanner);
-  std::cout << "Table size: " << table->num_rows() << "\n";
+  arrow::Status s  = Main(argv);
+  if (!s.ok()) {
+    std::cerr << "Error: " << s.ToString() << "\n";
+    return EXIT_FAILURE;
+  }
 
   return EXIT_SUCCESS;
 }
