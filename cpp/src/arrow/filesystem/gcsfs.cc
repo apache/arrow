@@ -92,17 +92,6 @@ struct GcsPath {
   }
 };
 
-Status WrapReadObjectStatus(const GcsStatus& gst, const GcsPath& p) {
-  if (gst.ok()) {
-    return Status::OK();
-  }
-  if (gst.code() == GcsCode::kNotFound) {
-    // This will set the proper errno detail
-    return internal::PathNotFound(p.full_path);
-  }
-  return internal::ToArrowStatus(gst);
-}
-
 class GcsInputStream : public arrow::io::InputStream {
  public:
   explicit GcsInputStream(gcs::ObjectReadStream stream, GcsPath path,
@@ -546,7 +535,7 @@ class GcsFileSystem::Impl {
                                                            gcs::Generation generation,
                                                            gcs::ReadFromOffset offset) {
     auto stream = client_.ReadObject(path.bucket, path.object, generation, offset);
-    RETURN_NOT_OK(WrapReadObjectStatus(stream.status(), path));
+    ARROW_GCS_RETURN_NOT_OK(stream.status());
     return std::make_shared<GcsInputStream>(std::move(stream), path, gcs::Generation(),
                                             offset, client_);
   }
@@ -809,7 +798,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
     const std::string& path) {
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
   auto metadata = impl_->GetObjectMetadata(p);
-  RETURN_NOT_OK(WrapReadObjectStatus(metadata.status(), p));
+  ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
   auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
     return impl->OpenInputStream(p, g, offset);
@@ -830,7 +819,7 @@ Result<std::shared_ptr<io::RandomAccessFile>> GcsFileSystem::OpenInputFile(
   }
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(info.path()));
   auto metadata = impl_->GetObjectMetadata(p);
-  RETURN_NOT_OK(WrapReadObjectStatus(metadata.status(), p));
+  ARROW_GCS_RETURN_NOT_OK(metadata.status());
   auto impl = impl_;
   auto open_stream = [impl, p](gcs::Generation g, gcs::ReadFromOffset offset) {
     return impl->OpenInputStream(p, g, offset);
