@@ -20,6 +20,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor.getTimeUnitForVector;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
 
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -212,6 +213,30 @@ public class ArrowFlightJdbcTimeVectorAccessorTest {
   public void testShouldGetStringBeConsistentWithVarCharAccessorWithCalendar() throws Exception {
     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone(AMERICA_VANCOUVER));
     assertGetStringIsConsistentWithVarCharAccessor(calendar);
+  }
+
+  @Test
+  public void testValidateGetStringTimeZoneConsistency() throws Exception {
+    accessorIterator.iterate(vector, (accessor, currentRow) -> {
+      final TimeZone defaultTz = TimeZone.getDefault();
+      try {
+        final String string = accessor.getString(); // Should always be UTC as no calendar is provided
+
+        // Validate with UTC
+        Time time = accessor.getTime(null);
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+        collector.checkThat(time.toString(), is(string));
+
+        // Validate with different TZ
+        TimeZone.setDefault(TimeZone.getTimeZone(AMERICA_VANCOUVER));
+        collector.checkThat(time.toString(), not(string));
+
+        collector.checkThat(accessor.wasNull(), is(false));
+      } finally {
+        // Set default Tz back
+        TimeZone.setDefault(defaultTz);
+      }
+    });
   }
 
   private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
