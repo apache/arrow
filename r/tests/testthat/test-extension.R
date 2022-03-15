@@ -184,5 +184,12 @@ test_that("vctrs extension type works", {
     array_out$as_vector(),
     custom_vctr
   )
+
+  chunked_array_out <- table_out$col
+  expect_true(chunked_array_out$type$Equals(type))
+  expect_identical(
+    chunked_array_out$as_vector(),
+    custom_vctr
+  )
 })
 
