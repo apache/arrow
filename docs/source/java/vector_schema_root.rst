@@ -32,11 +32,11 @@ Fields
 
 Fields are used to denote the particular columns of a table.
 A field, i.e. an instance of `Field`_, holds together a field name, a data
-type and some optional metadata
+type, and some optional key-value metadata.
 
 .. code-block:: Java
 
-    // Create a column A with utf8 string column and metadata
+    // Create a column "document" of string type with metadata
     import org.apache.arrow.vector.types.pojo.ArrowType;
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
@@ -110,7 +110,7 @@ Here is the example of building a :class:`VectorSchemaRoot`
 
 The vectors within a :class:`VectorSchemaRoot` could be loaded/unloaded via :class:`VectorLoader` and :class:`VectorUnloader`.
 :class:`VectorLoader` and :class:`VectorUnloader` handles converting between :class:`VectorSchemaRoot` and :class:`ArrowRecordBatch` (
-representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message ). Examples as below
+representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below
 
 .. code-block:: Java
 
