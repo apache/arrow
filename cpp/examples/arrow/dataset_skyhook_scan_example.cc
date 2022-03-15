@@ -69,8 +69,8 @@ struct Configuration {
   ds::FinishOptions finish_options{};
 } kConf;
 
-arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(const std::string& uri,
-                                                     std::string* path) {
+arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(
+    const std::string& uri, std::string* path) {
   return fs::FileSystemFromUri(uri, path);
 }
 
@@ -84,7 +84,8 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
 
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
-  ARROW_ASSIGN_OR_RAISE(auto factory, ds::FileSystemDatasetFactory::Make(fs, s, format, options));
+  ARROW_ASSIGN_OR_RAISE(auto factory,
+                        ds::FileSystemDatasetFactory::Make(fs, s, format, options));
 
   // Try to infer a common schema for all files.
   ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
@@ -93,7 +94,8 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
   ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish(kConf.finish_options));
 
   ds::DatasetVector children{kConf.repeat, child};
-  ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset,
+                        ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
 }
@@ -104,7 +106,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
   ds::FileSystemFactoryOptions options;
   // The factory will try to build a child dataset.
   ARROW_ASSIGN_OR_RAISE(auto factory,
-      ds::FileSystemDatasetFactory::Make(fs, {file}, format, options));
+                        ds::FileSystemDatasetFactory::Make(fs, {file}, format, options));
 
   // Try to infer a common schema for all files.
   ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect(kConf.inspect_options));
@@ -114,7 +116,8 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
 
   ds::DatasetVector children;
   children.resize(kConf.repeat, child);
-  ARROW_ASSIGN_OR_RAISE(auto dataset, ds::UnionDataset::Make(std::move(schema), std::move(children)));
+  ARROW_ASSIGN_OR_RAISE(auto dataset,
+                        ds::UnionDataset::Make(std::move(schema), std::move(children)));
 
   return dataset;
 }
@@ -129,10 +132,9 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
   return GetDatasetFromFile(fs, format, path);
 }
 
-arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
-                                                   std::vector<std::string> columns,
-                                                   cp::Expression filter,
-                                                   bool use_threads) {
+arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
+    std::shared_ptr<ds::Dataset> dataset, std::vector<std::string> columns,
+    cp::Expression filter, bool use_threads) {
   ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
 
   if (!columns.empty()) {
@@ -146,7 +148,8 @@ arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_pt
   return scanner_builder->Finish();
 }
 
-arrow::Result<std::shared_ptr<Table>> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
+arrow::Result<std::shared_ptr<Table>> GetTableFromScanner(
+    std::shared_ptr<ds::Scanner> scanner) {
   return scanner->ToTable();
 }
 
@@ -160,19 +163,20 @@ arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFor
       std::make_shared<skyhook::RadosConnCtx>(ceph_config_path, ceph_data_pool,
                                               ceph_user_name, ceph_cluster_name,
                                               ceph_cls_name);
-  ARROW_ASSIGN_OR_RAISE(auto format, skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet"));
+  ARROW_ASSIGN_OR_RAISE(auto format,
+                        skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet"));
   return format;
 }
 
-arrow::Status Main(char **argv) {
+arrow::Status Main(char** argv) {
   ARROW_ASSIGN_OR_RAISE(auto format, InstantiateSkyhookFormat());
   std::string path;
 
   ARROW_ASSIGN_OR_RAISE(auto fs, GetFileSystemFromUri(argv[1], &path));
   ARROW_ASSIGN_OR_RAISE(auto dataset, GetDatasetFromPath(fs, format, path));
-  ARROW_ASSIGN_OR_RAISE(auto scanner, GetScannerFromDataset(
-      dataset, kConf.projected_columns, kConf.filter, kConf.use_threads)
-  );
+  ARROW_ASSIGN_OR_RAISE(
+      auto scanner, GetScannerFromDataset(dataset, kConf.projected_columns, kConf.filter,
+                                          kConf.use_threads));
   ARROW_ASSIGN_OR_RAISE(auto table, GetTableFromScanner(scanner));
   std::cout << "Table size: " << table->num_rows() << "\n";
   return arrow::Status::OK();
