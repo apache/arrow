@@ -1243,7 +1243,6 @@ test_that("as.difftime() works properly", {
     test_df %>%
       arrow_table() %>%
       mutate(dbl_difftime = as.difftime(dbl, units = "secs")) %>%
-      collect(),
-    regexp =  "Float value 31.2 was truncated converting to int64"
+      collect()
   )
 })
