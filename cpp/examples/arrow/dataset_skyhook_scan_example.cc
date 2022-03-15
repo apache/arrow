@@ -144,11 +144,27 @@ arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
 }
 
 arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFormat() {
+  // Path to the Ceph configuration file. It contains cluster wide configuration
+  // and most importantly the connection information to the Ceph cluster.
   std::string ceph_config_path = "/etc/ceph/ceph.conf";
+
+  // Ceph data pool containing the objects to be scanned.
+  // The default data pool is "cephfs_data".
   std::string ceph_data_pool = "cephfs_data";
+
+  // The user accessing the Ceph cluster. The default username is "client.admin".
   std::string ceph_user_name = "client.admin";
+
+  // Cluster name is an unique identifier for a Ceph cluster. It is especially
+  // required when you run multiple Ceph clusters on a multi-site architecture
+  // where the cluster name identifies the Ceph cluster for the
+  // current session. The default cluster name is "ceph".
   std::string ceph_cluster_name = "ceph";
-  std::string ceph_cls_name = "arrow";
+
+  // CLS name is used to identify the shared library that needs to be loaded
+  // in the Ceph OSDs when invoking an object class method. For Skyhook, the
+  // library name is "libcls_skyhook.so", and the object class name is "skyhook".
+  std::string ceph_cls_name = "skyhook";
   std::shared_ptr<skyhook::RadosConnCtx> rados_ctx =
       std::make_shared<skyhook::RadosConnCtx>(ceph_config_path, ceph_data_pool,
                                               ceph_user_name, ceph_cluster_name,
