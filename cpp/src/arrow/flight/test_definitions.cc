@@ -106,7 +106,7 @@ void ConnectivityTest::TestBrokenConnection() {
   ASSERT_OK(server->Wait());
 
   std::unique_ptr<FlightInfo> info;
-  ASSERT_FALSE(client->GetFlightInfo(FlightDescriptor::Command(""), &info).ok());
+  ASSERT_RAISES(IOError, client->GetFlightInfo(FlightDescriptor::Command(""), &info));
 }
 
 //------------------------------------------------------------
