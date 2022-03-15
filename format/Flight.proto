@@ -259,8 +259,9 @@ message FlightInfo {
   FlightDescriptor flight_descriptor = 2;
 
   /*
-   * A list of endpoints associated with the flight. To consume the whole
-   * flight, all endpoints must be consumed.
+   * A list of endpoints associated with the flight. To consume the
+   * whole flight, all endpoints must be consumed. In other words,
+   * multiple endpoints provide partitioning.
    */
   repeated FlightEndpoint endpoint = 3;
 
@@ -280,9 +281,16 @@ message FlightEndpoint {
   Ticket ticket = 1;
 
   /*
-   * A list of URIs where this ticket can be redeemed. If the list is
-   * empty, the expectation is that the ticket can only be redeemed on the
-   * current service where the ticket was generated.
+   * A list of URIs where this ticket can be redeemed.
+   *
+   * If the list is empty, the expectation is that the ticket can only
+   * be redeemed on the current service where the ticket was
+   * generated.
+   *
+   * If the list is not empty, the expectation is that the ticket can
+   * be redeemed at any of the locations, and that the data returned
+   * will be equivalent. In other words, multiple locations provide
+   * redundancy/load balancing.
    */
   repeated Location location = 2;
 }
