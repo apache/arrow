@@ -125,19 +125,6 @@ if(ARROW_PARQUET AND ARROW_DATASET)
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(dataset-parquet-scan-example parquet)
 
-  if (ARROW_SKYHOOK)
-    if (ARROW_BUILD_SHARED)
-      set(DATASET_EXAMPLES_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS}
-                                     arrow_skyhook_client_shared)
-    else()
-      set(DATASET_EXAMPLES_LINK_LIBS ${DATASET_EXAMPLES_LINK_LIBS}
-                                     arrow_skyhook_client_static)
-    endif()
-    add_arrow_example(dataset_skyhook_scan_example EXTRA_LINK_LIBS
-                      ${DATASET_EXAMPLES_LINK_LIBS})
-    add_dependencies(dataset-skyhook-scan-example parquet)
-  endif()
-
   add_arrow_example(dataset_documentation_example EXTRA_LINK_LIBS
                     ${DATASET_EXAMPLES_LINK_LIBS})
   add_dependencies(dataset-documentation-example parquet)
@@ -150,5 +137,16 @@ if(ARROW_PARQUET AND ARROW_DATASET)
   add_dependencies(join-example parquet)
 
   add_arrow_example(udf_example)
+  if (ARROW_SKYHOOK)
+    if (ARROW_BUILD_SHARED)
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_client_shared)
+    else()
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_client_static)
+    endif()
+
+    add_arrow_example(dataset_skyhook_scan_example EXTRA_LINK_LIBS
+                      ${DATASET_EXAMPLES_LINK_LIBS})
+    add_dependencies(dataset-skyhook-scan-example parquet)
+  endif()
 
 endif()
