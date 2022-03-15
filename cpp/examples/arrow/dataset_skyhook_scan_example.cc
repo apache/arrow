@@ -32,6 +32,7 @@ using arrow::field;
 using arrow::int16;
 using arrow::Schema;
 using arrow::Table;
+using arrow::Result;
 
 namespace fs = arrow::fs;
 
