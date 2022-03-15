@@ -55,21 +55,11 @@ test_that("extension type subclasses work", {
     )
   )
 
-  SomeExtensionArraySubclass <- R6Class(
-    "SomeExtensionArraySubclass", inherit = ExtensionArray,
-    public = list(
-      some_custom_method = function() {
-        self$type$some_custom_method()
-      }
-    )
-  )
-
   type <- MakeExtensionType(
     int32(),
     "some_extension_subclass",
     charToRaw("some custom metadata"),
-    type_class = SomeExtensionTypeSubclass,
-    array_class = SomeExtensionArraySubclass
+    type_class = SomeExtensionTypeSubclass
   )
 
   expect_r6_class(type, "SomeExtensionTypeSubclass")
@@ -83,8 +73,7 @@ test_that("extension type subclasses work", {
     float64(),
     "some_extension_subclass",
     charToRaw("some other custom metadata"),
-    type_class = SomeExtensionTypeSubclass,
-    array_class = SomeExtensionArraySubclass
+    type_class = SomeExtensionTypeSubclass
   )
 
   ptr_type <- allocate_arrow_schema()
@@ -98,8 +87,7 @@ test_that("extension type subclasses work", {
   expect_true(type3$storage_type() == type2$storage_type())
 
   array <- type3$WrapArray(Array$create(1:10))
-  expect_r6_class(array, "SomeExtensionArraySubclass")
-  expect_identical(array$some_custom_method(), type3$some_custom_method())
+  expect_r6_class(array, "ExtensionArray")
 
   expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
 })
@@ -166,9 +154,9 @@ test_that("vctrs extension type works", {
   expect_true(type$Equals(type))
   expect_match(type$ToString(), "arrow_custom_test")
 
-  array_in <- VctrsExtensionArray$create(custom_vctr)
+  array_in <- vctrs_extension_array(custom_vctr)
   expect_true(array_in$type$Equals(type))
-  expect_identical(VctrsExtensionArray$create(array_in), array_in)
+  expect_identical(vctrs_extension_array(array_in), array_in)
 
   tf <- tempfile()
   on.exit(unlink(tf))
@@ -177,7 +165,7 @@ test_that("vctrs extension type works", {
   array_out <- table_out$col$chunk(0)
 
   expect_r6_class(array_out$type, "VctrsExtensionType")
-  expect_r6_class(array_out, "VctrsExtensionArray")
+  expect_r6_class(array_out, "ExtensionArray")
 
   expect_true(array_out$type$Equals(type))
   expect_identical(

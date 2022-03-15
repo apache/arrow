@@ -21,24 +21,22 @@ ExtensionArray <- R6Class("ExtensionArray",
   public = list(
     storage = function() {
       ExtensionArray__storage(self)
+    },
+
+    as_vector = function() {
+      self$type$.array_as_vector(self)
     }
   )
 )
 
-ExtensionArray$.default_new <- ExtensionArray$new
-ExtensionArray$new <- function(xp) {
-  superclass <- ExtensionArray$.default_new(xp)
-  registered_type <- extension_type_registry[[superclass$type$extension_name()]]
-  if (is.null(registered_type)) {
-    return(superclass)
+ExtensionArray$create <- function(x, type) {
+  assert_is(type, "ExtensionType")
+  if (inheritx(x, "ExtensionArray") && type$Equals(x$type)) {
+    return(x)
   }
 
-  class <- registered_type$.__enclos_env__$private$array_class
-  if (inherits(superclass, class$classname)) {
-    return(superclass)
-  }
-
-  class$new(xp)
+  storage <- Array$create(x, type = type$storage_type())
+  type$WrapArray(storage)
 }
 
 ExtensionType <- R6Class("ExtensionType",
@@ -53,9 +51,8 @@ ExtensionType <- R6Class("ExtensionType",
       )
     },
 
-    .set_r6_constructors = function(type_class, array_class) {
+    .set_r6_constructors = function(type_class) {
       private$type_class <- type_class
-      private$array_class <- array_class
     },
 
     storage_type = function() {
@@ -100,12 +97,23 @@ ExtensionType <- R6Class("ExtensionType",
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
         identical(other$Serialize(), self$Serialize())
+    },
+
+    .chunked_array_as_vector = function(chunked_array) {
+      storage_arrays <- lapply(
+        seq_len(chunked_array$num_chunks) - 1L,
+        function(i) chunked_array$chunk(i)$storage()
+      )
+      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
+      storage$as_vector()
+    },
+
+    .array_as_vector = function(extension_array) {
+      extension_array$storage()$as_vector()
     }
   ),
-
   private = list(
-    type_class = NULL,
-    array_class = NULL
+    type_class = NULL
   )
 )
 
@@ -124,22 +132,19 @@ ExtensionType$new <- function(xp) {
 MakeExtensionType <- function(storage_type,
                               extension_name,
                               extension_metadata,
-                              type_class = ExtensionType,
-                              array_class = ExtensionArray) {
+                              type_class = ExtensionType) {
   assert_that(is.string(extension_name), is.raw(extension_metadata))
   assert_is(storage_type, "DataType")
   assert_is(type_class, "R6ClassGenerator")
-  assert_is(array_class, "R6ClassGenerator")
 
   type <- ExtensionType__initialize(
     storage_type,
     extension_name,
     extension_metadata,
-    type_class,
-    array_class
+    type_class
   )
 
-  type$.set_r6_constructors(type_class, array_class)
+  type$.set_r6_constructors(type_class)
   type$.Deserialize(storage_type, extension_name, extension_metadata)
   type
 }
@@ -207,6 +212,20 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       }
 
       identical(self$ptype(), other$ptype())
+    },
+
+    .chunked_array_as_vector = function(chunked_array) {
+      vctrs::vec_restore(
+        super$.chunked_array_as_vector(chunked_array),
+        self$ptype()
+      )
+    },
+
+    .array_as_vector = function(extension_array) {
+      vctrs::vec_restore(
+        super$.array_as_vector(extension_array),
+        self$ptype()
+      )
     }
   ),
   private = list(
@@ -214,36 +233,28 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
   )
 )
 
-VctrsExtensionArray <- R6Class("VctrsExtensionArray",
-  inherit = ExtensionArray,
-  public = list(
-    as_vector = function() {
-      vctrs::vec_restore(self$storage()$as_vector(), self$type$ptype())
-    }
-  )
-)
 
-VctrsExtensionArray$create <- function(x, ptype = vctrs::vec_ptype(x),
-                                       type = NULL) {
-  if (inherits(x, "VctrsExtensionArray")) {
+vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
+                                  storage_type = NULL) {
+  if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
     return(x)
   }
 
   vctrs::vec_assert(x)
-  type <- vctrs_extension_type(ptype)
-  storage <- Array$create(vctrs::vec_data(x), type = type$storage_type())
+  storage <- Array$create(vctrs::vec_data(x), type = storage_type)
+  type <- vctrs_extension_type(ptype, storage$type)
   type$WrapArray(storage)
 }
 
 
-vctrs_extension_type <- function(ptype) {
+vctrs_extension_type <- function(ptype,
+                                 storage_type = type(vctrs::vec_data(ptype))) {
   ptype <- vctrs::vec_ptype(ptype)
 
   MakeExtensionType(
-    storage_type = type(vctrs::vec_data(ptype)),
+    storage_type = storage_type,
     extension_name = "arrow.r.vctrs",
     extension_metadata = serialize(ptype, NULL),
-    type_class = VctrsExtensionType,
-    array_class = VctrsExtensionArray
+    type_class = VctrsExtensionType
   )
 }

@@ -4169,19 +4169,18 @@ extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 
 // extension.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_type_generator, cpp11::environment r6_array_generator);
-extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp, SEXP r6_array_generator_sexp){
+cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_type_generator);
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type storage_type(storage_type_sexp);
 	arrow::r::Input<std::string>::type extension_name(extension_name_sexp);
 	arrow::r::Input<cpp11::raws>::type extension_metadata(extension_metadata_sexp);
 	arrow::r::Input<cpp11::environment>::type r6_type_generator(r6_type_generator_sexp);
-	arrow::r::Input<cpp11::environment>::type r6_array_generator(r6_array_generator_sexp);
-	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_type_generator, r6_array_generator));
+	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_type_generator));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp, SEXP r6_array_generator_sexp){
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp){
 	Rf_error("Cannot call ExtensionType__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -8138,7 +8137,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute___expr__ToString", (DL_FUNC) &_arrow_compute___expr__ToString, 1}, 
 		{ "_arrow_compute___expr__type", (DL_FUNC) &_arrow_compute___expr__type, 2}, 
 		{ "_arrow_compute___expr__type_id", (DL_FUNC) &_arrow_compute___expr__type_id, 2}, 
-		{ "_arrow_ExtensionType__initialize", (DL_FUNC) &_arrow_ExtensionType__initialize, 5}, 
+		{ "_arrow_ExtensionType__initialize", (DL_FUNC) &_arrow_ExtensionType__initialize, 4}, 
 		{ "_arrow_ExtensionType__extension_name", (DL_FUNC) &_arrow_ExtensionType__extension_name, 1}, 
 		{ "_arrow_ExtensionType__Serialize", (DL_FUNC) &_arrow_ExtensionType__Serialize, 1}, 
 		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
