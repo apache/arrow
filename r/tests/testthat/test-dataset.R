@@ -554,45 +554,60 @@ test_that("Creating UnionDataset", {
 })
 
 test_that("Union can round trip", {
-  sub_df1 <- arrow_table(x = array(c(1, 2, 3)))
-  sub_df2 <- arrow_table(x = array(c(4, 5)))
+  sub_df1 <- Table$create(x = Array$create(c(1, 2, 3)))
+  sub_df2 <- Table$create(x = Array$create(c(4, 5)))
 
   path1 <- make_temp_dir()
   path2 <- make_temp_dir()
-  write_dataset(sub_df1, path1, format="parquet")
-  write_dataset(sub_df2, path2, format="parquet")
+  write_dataset(sub_df1, path1, format = "parquet")
+  write_dataset(sub_df2, path2, format = "parquet")
 
-  ds1 <- open_dataset(path1, format="parquet")
-  ds2 <- open_dataset(path2, format="parquet")
+  ds1 <- open_dataset(path1, format = "parquet")
+  ds2 <- open_dataset(path2, format = "parquet")
 
   ds <- c(ds1, ds2)
-  actual <- ds %>% collect() %>% arrange(x)
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
   expected <- tibble(x = 1:5)
   expect_equal(actual, expected)
 })
 
 test_that("UnionDataset can merge schemas", {
-  sub_df1 <- arrow_table(x = array(c(1, 2, 3)),
-                         y = array(c("a", "b", "c")))
-  sub_df2 <- arrow_table(x = array(c(4, 5)),
-                         z = array(c("d", "e")))
+  sub_df1 <- Table$create(
+    x = Array$create(c(1, 2, 3)),
+    y = Array$create(c("a", "b", "c"))
+  )
+  sub_df2 <- Table$create(
+    x = Array$create(c(4, 5)),
+    z = Array$create(c("d", "e"))
+  )
 
   path1 <- make_temp_dir()
   path2 <- make_temp_dir()
-  write_dataset(sub_df1, path1, format="parquet")
-  write_dataset(sub_df2, path2, format="parquet")
+  write_dataset(sub_df1, path1, format = "parquet")
+  write_dataset(sub_df2, path2, format = "parquet")
 
-  ds1 <- open_dataset(path1, format="parquet")
-  ds2 <- open_dataset(path2, format="parquet")
+  ds1 <- open_dataset(path1, format = "parquet")
+  ds2 <- open_dataset(path2, format = "parquet")
 
   ds <- c(ds1, ds2)
-  actual <- ds %>% collect() %>% arrange(x)
+  actual <- ds %>%
+    collect() %>%
+    arrange(x)
   expect_equal(
     actual,
     union_all(as_tibble(sub_df1), as_tibble(sub_df2))
   )
 
-  expect_error(open_dataset(list(ds1, ds2), unify_schemas = FALSE))
+  # without unifying schemas, takes the first schema
+  ds <- open_dataset(list(ds1, ds2), unify_schemas = FALSE)
+  expected <- as_tibble(sub_df1) %>%
+    union_all(sub_df2 %>% as_tibble() %>% select(x))
+  expect_equal(
+    ds %>% collect() %>% arrange(x),
+    expected
+  )
 })
 
 test_that("map_batches", {
