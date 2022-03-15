@@ -138,19 +138,14 @@ arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
   ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
 
   if (!columns.empty()) {
-    ABORT_ON_FAILURE(scanner_builder->Project(columns));
+    ARROW_RETURN_NOT_OK(scanner_builder->Project(columns));
   }
 
-  ABORT_ON_FAILURE(scanner_builder->Filter(filter));
+  ARROW_RETURN_NOT_OK(scanner_builder->Filter(filter));
 
-  ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
+  ARROW_RETURN_NOT_OK(scanner_builder->UseThreads(use_threads));
 
   return scanner_builder->Finish();
-}
-
-arrow::Result<std::shared_ptr<Table>> GetTableFromScanner(
-    std::shared_ptr<ds::Scanner> scanner) {
-  return scanner->ToTable();
 }
 
 arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFormat() {
@@ -168,16 +163,16 @@ arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFor
   return format;
 }
 
-arrow::Status Main(char** argv) {
+arrow::Status Main(std::string dataset_root) {
   ARROW_ASSIGN_OR_RAISE(auto format, InstantiateSkyhookFormat());
   std::string path;
 
-  ARROW_ASSIGN_OR_RAISE(auto fs, GetFileSystemFromUri(argv[1], &path));
+  ARROW_ASSIGN_OR_RAISE(auto fs, fs::FileSystemFromUri(dataset_root, &path));
   ARROW_ASSIGN_OR_RAISE(auto dataset, GetDatasetFromPath(fs, format, path));
   ARROW_ASSIGN_OR_RAISE(
       auto scanner, GetScannerFromDataset(dataset, kConf.projected_columns, kConf.filter,
                                           kConf.use_threads));
-  ARROW_ASSIGN_OR_RAISE(auto table, GetTableFromScanner(scanner));
+  ARROW_ASSIGN_OR_RAISE(auto table, scanner->ToTable());
   std::cout << "Table size: " << table->num_rows() << "\n";
   return arrow::Status::OK();
 }
@@ -187,6 +182,6 @@ int main(int argc, char** argv) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
   }
-  ABORT_ON_FAILURE(Main(argv));
+  ABORT_ON_FAILURE(Main(argv[1]));
   return EXIT_SUCCESS;
 }
