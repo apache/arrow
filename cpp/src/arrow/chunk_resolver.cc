@@ -29,55 +29,41 @@ namespace arrow {
 namespace internal {
 
 namespace {
-inline std::vector<int64_t> MakeArraysOffsets(const ArrayVector& chunks) {
+template <typename T>
+constexpr int64_t GetLength(const T& array) {
+  // General case assumes argument is an Array pointer
+  return array->length();
+}
+
+template <>
+constexpr int64_t GetLength<std::shared_ptr<RecordBatch>>(
+    const std::shared_ptr<RecordBatch>& batch) {
+  return batch->num_rows();
+}
+
+template <typename T>
+inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
   std::vector<int64_t> offsets(chunks.size() + 1);
   int64_t offset = 0;
   std::transform(chunks.begin(), chunks.end(), offsets.begin(),
-                 [&offset](const std::shared_ptr<Array>& arr) {
+                 [&offset](const T& chunk) {
                    auto curr_offset = offset;
-                   offset += arr->length();
+                   offset += GetLength(chunk);
                    return curr_offset;
                  });
   offsets[chunks.size()] = offset;
-  return offsets;
-}
-
-inline std::vector<int64_t> MakeArrayPointersOffsets(
-    const std::vector<const Array*>& chunks) {
-  std::vector<int64_t> offsets(chunks.size() + 1);
-  int64_t offset = 0;
-  std::transform(chunks.begin(), chunks.end(), offsets.begin(),
-                 [&offset](const Array* arr) {
-                   auto curr_offset = offset;
-                   offset += arr->length();
-                   return curr_offset;
-                 });
-  offsets[chunks.size()] = offset;
-  return offsets;
-}
-
-inline std::vector<int64_t> MakeRecordBatchesOffsets(const RecordBatchVector& batches) {
-  std::vector<int64_t> offsets(batches.size() + 1);
-  int64_t offset = 0;
-  std::transform(batches.begin(), batches.end(), offsets.begin(),
-                 [&offset](const std::shared_ptr<RecordBatch>& batch) {
-                   auto curr_offset = offset;
-                   offset += batch->num_rows();
-                   return curr_offset;
-                 });
-  offsets[batches.size()] = offset;
   return offsets;
 }
 }  // namespace
 
 ChunkResolver::ChunkResolver(const ArrayVector& chunks)
-    : offsets_(MakeArraysOffsets(chunks)) {}
+    : offsets_(MakeChunksOffsets(chunks)) {}
 
 ChunkResolver::ChunkResolver(const std::vector<const Array*>& chunks)
-    : offsets_(MakeArrayPointersOffsets(chunks)) {}
+    : offsets_(MakeChunksOffsets(chunks)) {}
 
 ChunkResolver::ChunkResolver(const RecordBatchVector& batches)
-    : offsets_(MakeRecordBatchesOffsets(batches)) {}
+    : offsets_(MakeChunksOffsets(batches)) {}
 
 }  // namespace internal
 }  // namespace arrow

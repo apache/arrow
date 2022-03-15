@@ -30,16 +30,12 @@ struct ChunkLocation {
   int64_t chunk_index, index_in_chunk;
 };
 
-/// \class ChunkResolver
-/// \brief An object that resolves an array chunk depending on the index
+// An object that resolves an array chunk depending on the index
 struct ChunkResolver {
-  /// \brief Construct a ChunkResolver from a vector of Arrays
   explicit ChunkResolver(const ArrayVector& chunks);
 
-  /// \brief Construct a ChunkResolver from a vector of C-style Array pointers
   explicit ChunkResolver(const std::vector<const Array*>& chunks);
 
-  /// \brief Construct a ChunkResolver from a vector of RecordBatches
   explicit ChunkResolver(const RecordBatchVector& batches);
 
   /// \brief Return a ChunkLocation containing the chunk index and in-chunk value index of
@@ -65,8 +61,7 @@ struct ChunkResolver {
   }
 
  protected:
-  /// \brief Find the chunk index corresponding to a value index using binary search
-  /// (bisect) algorithm
+  // Find the chunk index corresponding to a value index using binary search
   inline int64_t Bisect(const int64_t index) const {
     // Like std::upper_bound(), but hand-written as it can help the compiler.
     // Search [lo, lo + n)
