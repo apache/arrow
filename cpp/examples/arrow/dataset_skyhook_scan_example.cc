@@ -32,7 +32,6 @@ using arrow::field;
 using arrow::int16;
 using arrow::Schema;
 using arrow::Table;
-using arrow::Result;
 
 namespace fs = arrow::fs;
 
@@ -70,12 +69,12 @@ struct Configuration {
   ds::FinishOptions finish_options{};
 } conf;
 
-Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(const std::string& uri,
+arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(const std::string& uri,
                                                      std::string* path) {
   return fs::FileSystemFromUri(uri, path);
 }
 
-Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
+arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string dir) {
   // Find all files under `path`
@@ -99,7 +98,7 @@ Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
   return dataset;
 }
 
-Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
+arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string file) {
   ds::FileSystemFactoryOptions options;
@@ -120,7 +119,7 @@ Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
   return dataset;
 }
 
-Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
+arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string path) {
   auto info = fs->GetFileInfo(path);
@@ -130,7 +129,7 @@ Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
   return GetDatasetFromFile(fs, format, path);
 }
 
-Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
+arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
                                                    cp::Expression filter,
                                                    bool use_threads) {
@@ -147,11 +146,11 @@ Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_ptr<ds::D
   return scanner_builder->Finish();
 }
 
-Result<std::shared_ptr<Table>> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
+arrow::Result<std::shared_ptr<Table>> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
   return scanner->ToTable();
 }
 
-Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFormat() {
+arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFormat() {
   std::string ceph_config_path = "/etc/ceph/ceph.conf";
   std::string ceph_data_pool = "cephfs_data";
   std::string ceph_user_name = "client.admin";
