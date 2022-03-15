@@ -267,10 +267,11 @@ open_dataset <- function(sources,
 #'
 #' A `Dataset` has the following methods:
 #' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
-#' - `$WithSchema()`: Returns a copy of the dataset with an updated schema.
+#' - `$WithSchema()`: Returns a new Dataset with the specified schema.
 #'   This method currently supports only adding, removing, or reordering
 #'   fields in the schema: you cannot alter or cast the field types.
-#' - `$schema`: Active binding that returns the [Schema] of the Dataset
+#' - `$schema`: Active binding that returns the [Schema] of the Dataset; you
+#'   may also replace the dataset's schema by using `ds$schema <- new_schema`.
 #'
 #' `FileSystemDataset` has the following methods:
 #' - `$files`: Active binding, returns the files of the `FileSystemDataset`
@@ -290,12 +291,22 @@ Dataset <- R6Class("Dataset",
     NewScan = function() dataset___Dataset__NewScan(self),
     ToString = function() self$schema$ToString(),
     WithSchema = function(schema) {
-        assert_is(schema, "Schema")
-        dataset___Dataset__ReplaceSchema(self, schema)
-      }
+      assert_is(schema, "Schema")
+      dataset___Dataset__ReplaceSchema(self, schema)
+    }
   ),
   active = list(
-    schema = function() dataset___Dataset__schema(self),
+    schema = function(schema) {
+      if (missing(schema)) {
+        dataset___Dataset__schema(self)
+      } else {
+        out <- self$WithSchema(schema)
+        # WithSchema returns a new object but we're modifying in place,
+        # so swap in that new C++ object pointer into our R6 object
+        self$set_pointer(out$pointer())
+        self
+      }
+    },
     metadata = function() self$schema$metadata,
     num_rows = function() self$NewScan()$Finish()$CountRows(),
     num_cols = function() length(self$schema),

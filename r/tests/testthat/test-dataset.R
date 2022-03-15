@@ -313,10 +313,10 @@ test_that("Simple interface for datasets", {
 test_that("Can set schema on dataset", {
   ds <- open_dataset(dataset_dir)
   expected_schema <- schema(x = int32(), y = utf8())
-
-  ds_new <- ds$WithSchema(expected_schema)
-  expect_equal(ds_new$schema, expected_schema)
   expect_false(ds$schema == expected_schema)
+
+  ds$schema <- expected_schema
+  expect_equal(ds$schema, expected_schema)
 })
 
 test_that("dim method returns the correct number of rows and columns", {
