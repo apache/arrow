@@ -160,7 +160,7 @@ arrow::Result<std::shared_ptr<skyhook::SkyhookFileFormat>> InstantiateSkyhookFor
       std::make_shared<skyhook::RadosConnCtx>(ceph_config_path, ceph_data_pool,
                                               ceph_user_name, ceph_cluster_name,
                                               ceph_cls_name);
-  auto format = skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet");
+  ARROW_ASSIGN_OR_RAISE(auto format, skyhook::SkyhookFileFormat::Make(rados_ctx, "parquet"));
   return format;
 }
 
@@ -183,12 +183,6 @@ int main(int argc, char** argv) {
     // Fake success for CI purposes.
     return EXIT_SUCCESS;
   }
-
-  arrow::Status s  = Main(argv);
-  if (!s.ok()) {
-    std::cerr << "Error: " << s.ToString() << "\n";
-    return EXIT_FAILURE;
-  }
-
+  ABORT_ON_FAILURE(Main(argv));
   return EXIT_SUCCESS;
 }
