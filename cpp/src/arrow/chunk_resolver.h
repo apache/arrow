@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <vector>
 
@@ -32,6 +33,8 @@ struct ChunkLocation {
 
 // An object that resolves an array chunk depending on the index
 struct ChunkResolver {
+  ChunkResolver(const ChunkResolver& chunks);
+
   explicit ChunkResolver(const ArrayVector& chunks);
 
   explicit ChunkResolver(const std::vector<const Array*>& chunks);
@@ -50,14 +53,15 @@ struct ChunkResolver {
     if (offsets_.size() <= 1) {
       return {0, index};
     }
+    const auto cached_chunk = cached_chunk_.load();
     const bool cache_hit =
-        (index >= offsets_[cached_chunk_] && index < offsets_[cached_chunk_ + 1]);
+        (index >= offsets_[cached_chunk] && index < offsets_[cached_chunk + 1]);
     if (ARROW_PREDICT_TRUE(cache_hit)) {
-      return {cached_chunk_, index - offsets_[cached_chunk_]};
+      return {cached_chunk, index - offsets_[cached_chunk]};
     }
     auto chunk_index = Bisect(index);
-    cached_chunk_ = chunk_index;
-    return {cached_chunk_, index - offsets_[cached_chunk_]};
+    cached_chunk_.store(chunk_index);
+    return {chunk_index, index - offsets_[chunk_index]};
   }
 
  protected:
@@ -82,7 +86,7 @@ struct ChunkResolver {
 
  private:
   const std::vector<int64_t> offsets_;
-  mutable int64_t cached_chunk_ = 0;
+  mutable std::atomic<int64_t> cached_chunk_{0};
 };
 
 }  // namespace internal
