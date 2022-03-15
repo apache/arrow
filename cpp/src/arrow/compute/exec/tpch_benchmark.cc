@@ -33,7 +33,7 @@ std::shared_ptr<ExecPlan> Plan_Q1(AsyncGenerator<util::optional<ExecBatch>> *sin
     ExecContext *ctx = default_exec_context();
     *ctx = ExecContext(default_memory_pool(), arrow::internal::GetCpuThreadPool());
     std::shared_ptr<ExecPlan> plan = *ExecPlan::Make(ctx);
-    TpchGen gen = *TpchGen::Make(plan.get(), scale_factor);
+    TpchGen gen = *TpchGen::Make(plan.get(), static_cast<float>(scale_factor));
 
     ExecNode *lineitem = *gen.Lineitem(
         {
