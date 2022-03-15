@@ -315,6 +315,10 @@ test_that("Can set schema on dataset", {
   expected_schema <- schema(x = int32(), y = utf8())
   expect_false(ds$schema == expected_schema)
 
+  ds_new <- ds$WithSchema(expected_schema)
+  expect_equal(ds_new$schema, expected_schema)
+  expect_false(ds$schema == expected_schema)
+
   ds$schema <- expected_schema
   expect_equal(ds$schema, expected_schema)
 })
