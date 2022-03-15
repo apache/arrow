@@ -624,23 +624,35 @@ Set the maximum number of files opened with the ``max_open_files`` parameter of
 :meth:`write_dataset`.
 
 If  ``max_open_files`` is set greater than 0 then this will limit the maximum 
-number of files that can be left open. If an attempt is made to open too many 
-files then the least recently used file will be closed.  If this setting is set 
-too low you may end up fragmenting your data into many small files.
+number of files that can be left open. This only applies to writing partitioned
+datasets, where rows are dispatched to the appropriate file depending on their
+partition values. If an attempt is made to open too many  files then the least
+recently used file will be closed.  If this setting is set too low you may end
+up fragmenting your data into many small files.
 
-The default value is 900 which also allows some number of files to be open 
-by the scannerbefore hitting the default Linux limit of 1024. Modify this value 
-depending on the nature of write operations associated with the usage. 
+If your process is concurrently using other file handlers, either with a 
+dataset scanner or otherwise, you may hit a system file handler limit. For 
+example, if you are scanning a dataset with 300 files and writing out to
+900 files, the total of 1200 files may be over a system limit. (On Linux,
+this might be a "Too Many Open Files" error.) You can either reduce this
+``max_open_files`` setting or increasing your file handler limit on your
+system. The default value is 900 which also allows some number of files
+to be open by the scanner before hitting the default Linux limit of 1024. 
 
-Another important configuration used in `write_dataset` is ``max_rows_per_file``. 
+Another important configuration used in :meth:`write_dataset` is ``max_rows_per_file``. 
 
-Set the maximum number of files opened with the ``max_rows_per_files`` parameter of
-:meth:`write_dataset`.
+Set the maximum number of rows written in each file with the ``max_rows_per_files``
+parameter of :meth:`write_dataset`.
 
 If ``max_rows_per_file`` is set greater than 0 then this will limit how many 
 rows are placed in any single file. Otherwise there will be no limit and one 
 file will be created in each output directory unless files need to be closed to respect 
-``max_open_files``. 
+``max_open_files``. This setting is the primary way to control file size. 
+For workloads writing a lot of data files can get very large without a 
+row count cap, leading to out-of-memory errors in downstream readers. The 
+relationship between row count and file size depends on the dataset schema
+and how well compressed (if at all) the data is. For most applications,
+it's best to keep file sizes below 1GB.
 
 Configuring rows per group during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
