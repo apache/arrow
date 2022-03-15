@@ -219,8 +219,8 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 VctrsExtensionArray <- R6Class("VctrsExtensionArray",
   inherit = ExtensionArray,
   public = list(
-    to_vector = function() {
-      vctrs::vec_restore(super$to_vector(), self$type$ptype())
+    as_vector = function() {
+      vctrs::vec_restore(self$storage()$as_vector(), self$type$ptype())
     }
   )
 )

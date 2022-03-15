@@ -162,11 +162,14 @@ test_that("vctrs extension type works", {
   on.exit(unlink(tf))
   write_feather(arrow_table(col = array_in), tf)
   table_out <- read_feather(tf, as_data_frame = FALSE)
-  array_out <- table_out$col
+  array_out <- table_out$col$chunk(0)
 
-  expect_true(table_out$col$type$Equals(type))
+  expect_r6_class(array_out$type, "VctrsExtensionType")
+  expect_r6_class(array_out, "VctrsExtensionArray")
+
+  expect_true(array_out$type$Equals(type))
   expect_identical(
-    table_out$col$as_vector(),
+    array_out$as_vector(),
     custom_vctr
   )
 })
