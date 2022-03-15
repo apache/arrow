@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _cpp_env_vars:
+
 =====================
 Environment Variables
 =====================
@@ -33,7 +35,8 @@ that changing their value later will have an effect.
    - ``abort`` exits the processus with a non-zero return value;
    - ``trap`` issues a platform-specific debugger breakpoint / trap instruction;
    - ``warn`` prints a warning on stderr and continues execution;
-   - an empty value disables memory checks.
+
+   If this variable is not set, or has empty an value, memory checks are disabled.
 
    .. note::
       While this functionality can be useful and has little overhead, it
@@ -43,9 +46,9 @@ that changing their value later will have an effect.
 
 .. envvar:: ARROW_DEFAULT_MEMORY_POOL
 
-   The backend to be used for the default :ref:`memory pool <cpp_memory_pool>`.
-   Possible values are among ``jemalloc``, ``mimalloc`` and ``system``,
-   depending on which backends were enabled when
+   Override the backend to be used for the default
+   :ref:`memory pool <cpp_memory_pool>`. Possible values are among ``jemalloc``,
+   ``mimalloc`` and ``system``, depending on which backends were enabled when
    :ref:`building Arrow C++ <building-arrow-cpp>`.
 
 .. envvar:: ARROW_LIBHDFS_DIR
@@ -64,6 +67,8 @@ that changing their value later will have an effect.
      URL is "http://localhost:4318/v1/traces");
    - ``arrow_otlp_stdout``: emit JSON traces to stdout;
    - ``arrow_otlp_stderr``: emit JSON traces to stderr.
+
+   If this variable is not set, no traces are exported.
 
    This environment variable has no effect if Arrow C++ was not built with
    tracing enabled.
@@ -108,7 +113,7 @@ that changing their value later will have an effect.
 
 .. envvar:: JAVA_HOME
 
-   The path to the Java Runtime Environment installation.  This may be
+   Set the path to the Java Runtime Environment installation. This may be
    required for HDFS support if Java is installed in a non-standard location.
 
 .. envvar:: OMP_NUM_THREADS
