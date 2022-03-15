@@ -333,6 +333,20 @@ module RawRecordsMapArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_day_nano_interval
+    records = [
+      [
+        {
+          "key1" => {month: 1, day: 1, nanosecond: 100},
+          "key2" => nil,
+        },
+      ],
+      [nil],
+    ]
+    target = build(:month_day_nano_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"key1" => [true, nil, false], "key2" => nil}],
