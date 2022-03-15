@@ -122,7 +122,7 @@ arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromFile(
 arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromPath(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string path) {
-  auto info = fs->GetFileInfo(path);
+  ARROW_ASSIGN_OR_RAISE(auto info, fs->GetFileInfo(path));
   if (info.IsDirectory()) {
     return GetDatasetFromDirectory(fs, format, path);
   }
@@ -133,7 +133,7 @@ arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(std::shared_pt
                                                    std::vector<std::string> columns,
                                                    cp::Expression filter,
                                                    bool use_threads) {
-  auto scanner_builder = dataset->NewScan();
+  ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
 
   if (!columns.empty()) {
     ABORT_ON_FAILURE(scanner_builder->Project(columns));
