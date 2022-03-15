@@ -1572,7 +1572,7 @@ def test_read_table_schema(tempdir):
 
     # don't allow it with the legacy reader
     with pytest.raises(
-        ValueError, match="The 'schema' keyword is only supported"
+        ValueError, match="The 'schema' argument is only supported"
     ):
         pq.read_table(tempdir / "data.parquet", schema=schema,
                       use_legacy_dataset=True)

@@ -1411,8 +1411,8 @@ coerce_int96_timestamp_unit : str, default None.
                 'using use_legacy_dataset=True')
         if metadata_nthreads is not None:
             warnings.warn(
-                "Specifying the 'metadata_nthreads' keyword is deprecated as "
-                "of pyarrow 8.0.0, and the keyword will be removed in a "
+                "Specifying the 'metadata_nthreads' argument is deprecated as "
+                "of pyarrow 8.0.0, and the argument will be removed in a "
                 "future version",
                 DeprecationWarning, stacklevel=2,
             )
@@ -1459,7 +1459,7 @@ coerce_int96_timestamp_unit : str, default None.
 
         if schema is not None:
             warnings.warn(
-                "Specifying the 'schema' keyword with 'use_legacy_dataset="
+                "Specifying the 'schema' argument with 'use_legacy_dataset="
                 "True' is deprecated as of pyarrow 8.0.0. You can still "
                 "specify it in combination with 'use_legacy_dataet=False', "
                 "but in that case you need to specify a pyarrow.Schema "
@@ -2034,7 +2034,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 )
             if schema is not None:
                 raise ValueError(
-                    "the 'schema' keyword is not supported when the "
+                    "the 'schema' argument is not supported when the "
                     "pyarrow.dataset module is not available"
                 )
             filesystem, path = _resolve_filesystem_and_path(source, filesystem)
@@ -2065,7 +2065,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 
     if schema is not None:
         raise ValueError(
-            "The 'schema' keyword is only supported when "
+            "The 'schema' argument is only supported when "
             "use_legacy_dataset=False")
 
     if _is_path_like(source):
