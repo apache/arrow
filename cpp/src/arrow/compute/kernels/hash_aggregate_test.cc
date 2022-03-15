@@ -3039,8 +3039,8 @@ TEST(GroupBy, ListMiscTypes) {
       field("fixed_binary", fixed_size_binary(3)),
       field("key", int64()),
   });
-  for (bool use_exec_plan : {/*true,*/ false}) {
-    for (bool use_threads : {/*true,*/ false}) {
+  for (bool use_exec_plan : {true, false}) {
+    for (bool use_threads : {true, false}) {
       SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
       SCOPED_TRACE(use_exec_plan ? "with exec_plan" : "without exec_plan");
 
