@@ -553,26 +553,6 @@ test_that("Creating UnionDataset", {
   expect_error(c(ds1, 42), "character")
 })
 
-test_that("Union can round trip", {
-  sub_df1 <- Table$create(x = Array$create(c(1, 2, 3)))
-  sub_df2 <- Table$create(x = Array$create(c(4, 5)))
-
-  path1 <- make_temp_dir()
-  path2 <- make_temp_dir()
-  write_dataset(sub_df1, path1, format = "parquet")
-  write_dataset(sub_df2, path2, format = "parquet")
-
-  ds1 <- open_dataset(path1, format = "parquet")
-  ds2 <- open_dataset(path2, format = "parquet")
-
-  ds <- c(ds1, ds2)
-  actual <- ds %>%
-    collect() %>%
-    arrange(x)
-  expected <- tibble(x = 1:5)
-  expect_equal(actual, expected)
-})
-
 test_that("UnionDataset can merge schemas", {
   sub_df1 <- Table$create(
     x = Array$create(c(1, 2, 3)),
