@@ -24,8 +24,8 @@
 #include <arrow/compute/exec/expression.h>
 #include <arrow/compute/exec/options.h>
 #include <arrow/compute/exec/tpch_node.h>
-// TODO: We probably don't want to add dataset + filesystem here, so instead we'll probably
-// want to move the definition of Tpch_Dbgen_Write if it works
+// TODO: We probably don't want to add dataset + filesystem here, so instead we'll
+// probably want to move the definition of Tpch_Dbgen_Write if it works
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
@@ -303,14 +303,11 @@ std::shared_ptr<compute::ExecNode> ExecNode_TableSourceNode(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    int scale_factor,
-    std::string table_name
-    ) {
-
+    const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
+    std::string table_name) {
   auto gen = ValueOrStop(arrow::compute::TpchGen::Make(plan.get(), scale_factor));
 
-  compute::ExecNode *table;
+  compute::ExecNode* table;
   if (table_name == "part") {
     table = ValueOrStop(gen.Part());
   } else if (table_name == "supplier") {
@@ -333,40 +330,38 @@ std::shared_ptr<arrow::RecordBatchReader> Tpch_Dbgen(
 
   arrow::AsyncGenerator<arrow::util::optional<compute::ExecBatch>> sink_gen;
 
-  MakeExecNodeOrStop("sink", plan.get(), {table},
-                     compute::SinkNodeOptions{&sink_gen});
+  MakeExecNodeOrStop("sink", plan.get(), {table}, compute::SinkNodeOptions{&sink_gen});
 
   StopIfNotOk(plan->Validate());
   StopIfNotOk(plan->StartProducing());
 
   // If the generator is destroyed before being completely drained, inform plan
   std::shared_ptr<void> stop_producing{nullptr, [plan](...) {
-    bool not_finished_yet =
-      plan->finished().TryAddCallback([&plan] {
-        return [plan](const arrow::Status&) {};
-      });
+                                         bool not_finished_yet =
+                                             plan->finished().TryAddCallback([&plan] {
+                                               return [plan](const arrow::Status&) {};
+                                             });
 
-    if (not_finished_yet) {
-      plan->StopProducing();
-    }
-  }};
+                                         if (not_finished_yet) {
+                                           plan->StopProducing();
+                                         }
+                                       }};
 
   return compute::MakeGeneratorReader(
-    table->output_schema(),
-    [stop_producing, plan, sink_gen] { return sink_gen(); }, gc_memory_pool());
+      table->output_schema(), [stop_producing, plan, sink_gen] { return sink_gen(); },
+      gc_memory_pool());
 }
 
 // [[arrow::export]]
-void Tpch_Dbgen_Write(
-    const std::shared_ptr<compute::ExecPlan>& plan,
-    int scale_factor,
-    std::string table_name,
-    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions
-) {
+void Tpch_Dbgen_Write(const std::shared_ptr<compute::ExecPlan>& plan, int scale_factor,
+                      std::string table_name,
+                      const std::shared_ptr<fs::FileSystem>& filesystem,
+                      std::string base_dir,
+                      arrow::dataset::ExistingDataBehavior existing_data_behavior,
+                      int max_partitions) {
   auto gen = ValueOrStop(arrow::compute::TpchGen::Make(plan.get(), scale_factor));
 
-  compute::ExecNode *table;
+  compute::ExecNode* table;
   if (table_name == "part") {
     table = ValueOrStop(gen.Part());
   } else if (table_name == "supplier") {
@@ -388,14 +383,15 @@ void Tpch_Dbgen_Write(
   }
 
   // TODO: unhardcode this once it's working
-  auto base_path =  base_dir + "/parquet_dataset";
+  auto base_path = base_dir + "/parquet_dataset";
   filesystem->CreateDir(base_path);
 
   auto format = std::make_shared<ds::ParquetFileFormat>();
 
   ds::FileSystemDatasetWriteOptions write_options;
   write_options.file_write_options = format->DefaultWriteOptions();
-  write_options.existing_data_behavior = ds::ExistingDataBehavior::kDeleteMatchingPartitions;
+  write_options.existing_data_behavior =
+      ds::ExistingDataBehavior::kDeleteMatchingPartitions;
   write_options.filesystem = filesystem;
   write_options.base_dir = base_path;
   write_options.partitioning = arrow::dataset::Partitioning::Default();
@@ -406,8 +402,7 @@ void Tpch_Dbgen_Write(
   // but I ran into namespace issues when doing it so I took it out to see if it
   // worked, but maybe that's what's causing the sefault?
   const ds::WriteNodeOptions options =
-    ds::WriteNodeOptions{write_options, table->output_schema()};
-
+      ds::WriteNodeOptions{write_options, table->output_schema()};
 
   MakeExecNodeOrStop("consuming_sink", plan.get(), {table}, options);
 

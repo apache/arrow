@@ -17,62 +17,55 @@
 
 #pragma once
 
-#include "arrow/compute/exec/options.h"
+#include <string>
+#include <vector>
 #include "arrow/compute/exec/exec_plan.h"
+#include "arrow/compute/exec/options.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/pcg_random.h"
-#include <vector>
-#include <string>
 
-namespace arrow
-{
-    namespace compute
-    {
-        class OrdersAndLineItemGenerator;
-        class PartAndPartSupplierGenerator;
+namespace arrow {
+namespace compute {
+class OrdersAndLineItemGenerator;
+class PartAndPartSupplierGenerator;
 
+class ARROW_EXPORT TpchGen {
+ public:
+  /*
+   * \brief Create a factory for nodes that generate TPC-H data
+   *
+   * Note: Individual tables will reference each other.  It is important that you only
+   * create a single TpchGen instance for each plan and then you can create nodes for each
+   * table from that single TpchGen instance. Note: Every batch will be scheduled as a new
+   * task using the ExecPlan's scheduler.
+   */
+  static Result<TpchGen> Make(ExecPlan* plan, float scale_factor = 1.0f,
+                              int64_t batch_size = 4096);
 
-        class ARROW_EXPORT TpchGen
-        {
-        public:
-            /*
-             * \brief Create a factory for nodes that generate TPC-H data
-             *
-             * Note: Individual tables will reference each other.  It is important that you only create a single TpchGen
-             *          instance for each plan and then you can create nodes for each table from that single TpchGen instance.
-             * Note: Every batch will be scheduled as a new task using the ExecPlan's scheduler.
-             */
-            static Result<TpchGen> Make(ExecPlan *plan, float scale_factor = 1.0f, int64_t batch_size = 4096);
+  Result<ExecNode*> Supplier(std::vector<std::string> columns = {});
+  Result<ExecNode*> Part(std::vector<std::string> columns = {});
+  Result<ExecNode*> PartSupp(std::vector<std::string> columns = {});
+  Result<ExecNode*> Customer(std::vector<std::string> columns = {});
+  Result<ExecNode*> Orders(std::vector<std::string> columns = {});
+  Result<ExecNode*> Lineitem(std::vector<std::string> columns = {});
+  Result<ExecNode*> Nation(std::vector<std::string> columns = {});
+  Result<ExecNode*> Region(std::vector<std::string> columns = {});
 
-            Result<ExecNode *> Supplier(std::vector<std::string> columns = {});
-            Result<ExecNode *> Part(std::vector<std::string> columns = {});
-            Result<ExecNode *> PartSupp(std::vector<std::string> columns = {});
-            Result<ExecNode *> Customer(std::vector<std::string> columns = {});
-            Result<ExecNode *> Orders(std::vector<std::string> columns = {});
-            Result<ExecNode *> Lineitem(std::vector<std::string> columns = {});
-            Result<ExecNode *> Nation(std::vector<std::string> columns = {});
-            Result<ExecNode *> Region(std::vector<std::string> columns = {});
+ private:
+  TpchGen(ExecPlan* plan, float scale_factor, int64_t batch_size)
+      : plan_(plan), scale_factor_(scale_factor), batch_size_(batch_size) {}
 
-        private:
-            TpchGen(ExecPlan *plan, float scale_factor, int64_t batch_size)
-                : plan_(plan),
-                  scale_factor_(scale_factor),
-                  batch_size_(batch_size),
-                  part_and_part_supp_generator_(nullptr),
-                  orders_and_line_item_generator_(nullptr)
-            {}
+  template <typename Generator>
+  Result<ExecNode*> CreateNode(const char* name, std::vector<std::string> columns);
 
-            template <typename Generator>
-            Result<ExecNode *> CreateNode(const char *name, std::vector<std::string> columns);
+  ExecPlan* plan_;
+  float scale_factor_;
+  int64_t batch_size_;
 
-            ExecPlan *plan_;
-            float scale_factor_;
-            int64_t batch_size_;
-
-            std::shared_ptr<PartAndPartSupplierGenerator> part_and_part_supp_generator_;
-            std::shared_ptr<OrdersAndLineItemGenerator> orders_and_line_item_generator_;
-        };
-    }
-}
+  std::shared_ptr<PartAndPartSupplierGenerator> part_and_part_supp_generator_{};
+  std::shared_ptr<OrdersAndLineItemGenerator> orders_and_line_item_generator_{};
+};
+}  // namespace compute
+}  // namespace arrow
