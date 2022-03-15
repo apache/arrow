@@ -85,6 +85,7 @@ module Arrow
       require "arrow/map-array"
       require "arrow/map-array-builder"
       require "arrow/map-data-type"
+      require "arrow/month-day-nano-interval-array-builder"
       require "arrow/null-array"
       require "arrow/null-array-builder"
       require "arrow/path-extension"

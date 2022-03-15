@@ -398,6 +398,19 @@ module ValuesListArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_day_nano_interval
+    values = [
+      [
+        {month: 1, day: 1, nanosecond: 100},
+        nil,
+        {month: 2, day: 3, nanosecond: 400},
+      ],
+      nil,
+    ]
+    target = build(:month_day_nano_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       [

@@ -220,6 +220,22 @@ namespace red_arrow {
       return value;
     }
 
+    inline VALUE convert(const arrow::MonthDayNanoIntervalArray& array,
+                         const int64_t i) {
+      auto value = rb_hash_new();
+      auto arrow_value = array.Value(i);
+      rb_hash_aset(value,
+                   red_arrow::symbols::month,
+                   INT2NUM(arrow_value.months));
+      rb_hash_aset(value,
+                   red_arrow::symbols::day,
+                   INT2NUM(arrow_value.days));
+      rb_hash_aset(value,
+                   red_arrow::symbols::nanosecond,
+                   INT2NUM(arrow_value.nanoseconds));
+      return value;
+    }
+
     VALUE convert(const arrow::ListArray& array,
                   const int64_t i);
 
@@ -316,10 +332,9 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
+    VISIT(MonthDayNanoInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -424,10 +439,9 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
+    VISIT(MonthDayNanoInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -528,10 +542,9 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
+    VISIT(MonthDayNanoInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -633,10 +646,9 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
+    VISIT(MonthDayNanoInterval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)
@@ -761,8 +773,6 @@ namespace red_arrow {
     VISIT(Time32)
     VISIT(Time64)
     VISIT(Timestamp)
-    // TODO
-    // VISIT(Interval)
     VISIT(List)
     VISIT(Struct)
     VISIT(Map)

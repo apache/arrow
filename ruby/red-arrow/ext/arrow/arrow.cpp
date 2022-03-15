@@ -40,6 +40,8 @@ namespace red_arrow {
   namespace symbols {
     VALUE day;
     VALUE millisecond;
+    VALUE month;
+    VALUE nanosecond;
   }
 }
 
@@ -89,4 +91,6 @@ extern "C" void Init_arrow() {
 
   red_arrow::symbols::day = ID2SYM(rb_intern("day"));
   red_arrow::symbols::millisecond = ID2SYM(rb_intern("millisecond"));
+  red_arrow::symbols::month = ID2SYM(rb_intern("month"));
+  red_arrow::symbols::nanosecond = ID2SYM(rb_intern("nanosecond"));
 }

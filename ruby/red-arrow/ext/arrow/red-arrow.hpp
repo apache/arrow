@@ -50,6 +50,8 @@ namespace red_arrow {
   namespace symbols {
     extern VALUE day;
     extern VALUE millisecond;
+    extern VALUE month;
+    extern VALUE nanosecond;
   }
 
   VALUE array_values(VALUE obj);
