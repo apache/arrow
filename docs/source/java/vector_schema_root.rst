@@ -74,7 +74,7 @@ Tables
 ======
 
 There is not a object or implementation of Table on java side. More close definition
-like a table will be VectorSchemaRoot (see the next section).
+like a table could be VectorSchemaRoot (see the next section).
 
 VectorSchemaRoot
 ================
