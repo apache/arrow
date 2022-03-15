@@ -86,6 +86,8 @@ elif grep -q 'Red Hat Enterprise Linux Server release 7' /etc/system-release 2>/
   %{yum_repository_enable apache-arrow-rhel7}
 elif grep -q 'Red Hat Enterprise Linux' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-rhel}
+elif grep -q 'CentOS Stream' /etc/system-release 2>/dev/null; then
+  %{yum_repository_enable apache-arrow-centos-stream}
 elif grep -q 'CentOS' /etc/system-release 2>/dev/null; then
   %{yum_repository_enable apache-arrow-centos}
 else
