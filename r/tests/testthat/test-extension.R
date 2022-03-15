@@ -181,3 +181,96 @@ test_that("vctrs extension type works", {
   )
 })
 
+test_that("chunked arrays can roundtrip extension types", {
+  custom_vctr1 <- vctrs::new_vctr(1:4, class = "arrow_custom_test")
+  custom_vctr2 <- vctrs::new_vctr(5:8, class = "arrow_custom_test")
+  custom_array1 <- vctrs_extension_array(custom_vctr1)
+  custom_array2 <- vctrs_extension_array(custom_vctr2)
+
+  custom_chunked <- chunked_array(custom_array1, custom_array2)
+  expect_r6_class(custom_chunked$type, "VctrsExtensionType")
+  expect_identical(
+    custom_chunked$as_vector(),
+    vctrs::new_vctr(1:8, class = "arrow_custom_test")
+  )
+})
+
+test_that("RecordBatch can roundtrip extension types", {
+  custom_vctr <- vctrs::new_vctr(1:8, class = "arrow_custom_test")
+  custom_array <- vctrs_extension_array(custom_vctr)
+  normal_vctr <- letters[1:8]
+
+  custom_record_batch <- record_batch(custom = custom_array)
+  expect_identical(
+    custom_record_batch$to_data_frame(),
+    tibble::tibble(
+      custom = custom_vctr
+    )
+  )
+
+  mixed_record_batch <- record_batch(
+    custom = custom_array,
+    normal = normal_vctr
+  )
+  expect_identical(
+    mixed_record_batch$to_data_frame(),
+    tibble::tibble(
+      custom = custom_vctr,
+      normal = normal_vctr
+    )
+  )
+
+  # check both column orders, since column order should stay in the same
+  # order whether the colunns are are extension types or not
+  mixed_record_batch2 <- record_batch(
+    normal = normal_vctr,
+    custom = custom_array
+  )
+  expect_identical(
+    mixed_record_batch2$to_data_frame(),
+    tibble::tibble(
+      normal = normal_vctr,
+      custom = custom_vctr
+    )
+  )
+})
+
+test_that("Table can roundtrip extension types", {
+  custom_vctr <- vctrs::new_vctr(1:8, class = "arrow_custom_test")
+  custom_array <- vctrs_extension_array(custom_vctr)
+  normal_vctr <- letters[1:8]
+
+  custom_table <- arrow_table(custom = custom_array)
+  expect_identical(
+    custom_table$to_data_frame(),
+    tibble::tibble(
+      custom = custom_vctr
+    )
+  )
+
+  mixed_table <- arrow_table(
+    custom = custom_array,
+    normal = normal_vctr
+  )
+  expect_identical(
+    mixed_table$to_data_frame(),
+    tibble::tibble(
+      custom = custom_vctr,
+      normal = normal_vctr
+    )
+  )
+
+  # check both column orders, since column order should stay in the same
+  # order whether the colunns are are extension types or not
+  mixed_table2 <- arrow_table(
+    normal = normal_vctr,
+    custom = custom_array
+  )
+  expect_identical(
+    mixed_table2$to_data_frame(),
+    tibble::tibble(
+      normal = normal_vctr,
+      custom = custom_vctr
+    )
+  )
+})

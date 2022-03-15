@@ -114,7 +114,10 @@ RecordBatch <- R6Class("RecordBatch",
     # Take, Filter, and SortIndices are methods on ArrowTabular
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     to_data_frame = function() {
-      RecordBatch__to_dataframe(self, use_threads = option_use_threads())
+      tabular_as_data_frame_common(
+        self,
+        RecordBatch__to_dataframe
+      )
     },
     cast = function(target_schema, safe = TRUE, ..., options = cast_options(safe, ...)) {
       assert_is(target_schema, "Schema")

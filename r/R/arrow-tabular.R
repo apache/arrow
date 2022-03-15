@@ -98,6 +98,40 @@ ArrowTabular <- R6Class("ArrowTabular",
   )
 )
 
+tabular_as_data_frame_common <- function(x, base) {
+  x_cols <- names(x)
+  col_is_extension <- vapply(
+    x_cols,
+    function(col) inherits(x$schema[[col]]$type, "ExtensionType"),
+    logical(1)
+  )
+
+  if (!any(col_is_extension)) {
+    return(base(x, option_use_threads()))
+  }
+
+  extension_cols <- x_cols[col_is_extension]
+
+  if (all(col_is_extension)) {
+    tibble_no_extension_types <- NULL
+  } else {
+    tibble_no_extension_types <- base(
+      x[setdiff(x_cols, extension_cols)],
+      option_use_threads()
+    )
+  }
+
+  extension_vectors <- lapply(
+    extension_cols,
+    function(col) x[[col]]$as_vector()
+  )
+
+  names(extension_vectors) <- extension_cols
+
+  all_vectors <- c(extension_vectors, tibble_no_extension_types)[x_cols]
+  tibble::new_tibble(all_vectors, nrow = nrow(x))
+}
+
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
   df <- x$to_data_frame()
