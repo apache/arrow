@@ -141,9 +141,9 @@ if(ARROW_PARQUET AND ARROW_DATASET)
     if (ARROW_BUILD_SHARED)
   if(ARROW_SKYHOOK)
     if(ARROW_BUILD_SHARED)
-      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_client_shared)
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_shared)
     else()
-      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_client_static)
+      list(APPEND DATASET_EXAMPLES_LINK_LIBS arrow_skyhook_static)
     endif()
 
     add_arrow_example(dataset_skyhook_scan_example EXTRA_LINK_LIBS
