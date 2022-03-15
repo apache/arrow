@@ -69,11 +69,6 @@ struct Configuration {
   ds::FinishOptions finish_options{};
 } kConf;
 
-arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(
-    const std::string& uri, std::string* path) {
-  return fs::FileSystemFromUri(uri, path);
-}
-
 arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
     std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::FileFormat> format,
     std::string dir) {
