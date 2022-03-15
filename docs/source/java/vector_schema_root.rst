@@ -50,9 +50,8 @@ type, and some optional key-value metadata.
 Schemas
 =======
 
-A `Schema`_ describes the overall structure of a two-dimensional dataset such
-as a table.  It holds a sequence of fields together with some optional
-schema-wide metadata (in addition to per-field metadata).
+A `Schema`_ describes the overall structure consisting of any number of columns. It holds a sequence of fields together
+with some optional schema-wide metadata (in addition to per-field metadata).
 
 .. code-block:: Java
 
@@ -62,22 +61,22 @@ schema-wide metadata (in addition to per-field metadata).
     import org.apache.arrow.vector.types.pojo.Field;
     import org.apache.arrow.vector.types.pojo.FieldType;
     import org.apache.arrow.vector.types.pojo.Schema;
+    import static java.util.Arrays.asList;
 
     Map<String, String> metadata = new HashMap<>();
     metadata.put("K1", "V1");
     metadata.put("K2", "V2");
     Field a = new Field("A", FieldType.nullable(new ArrowType.Int(32, true)), null);
     Field b = new Field("B", FieldType.nullable(new ArrowType.Utf8()), null);
-    Schema schema = new Schema(java.util.Arrays.asList(a, b), metadata);
-
-Tables
-======
-
-There is not a object or implementation of Table on java side. More close definition
-like a table could be VectorSchemaRoot (see the next section).
+    Schema schema = new Schema(asList(a, b), metadata);
 
 VectorSchemaRoot
 ================
+
+.. note::
+
+    VectorSchemaRoot is somewhat analogous to tables and record batches in the other Arrow implementations
+    in that they all are 2D datasets, but the usage is different.
 
 A :class:`VectorSchemaRoot` is a container that can hold batches, batches flow through :class:`VectorSchemaRoot`
 as part of a pipeline. Note this is different from other implementations (i.e. in C++ and Python,
@@ -133,4 +132,4 @@ A new :class:`VectorSchemaRoot` could be sliced from an existing instance with z
 
 .. _`Field`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Field.html
 .. _`Schema`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/vector/types/pojo/Schema.html
-.. _`Flight`: https://github.com/apache/arrow/tree/master/java/flight/flight-core/src/main/java/org/apache/arrow/flight
+.. _`Flight`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/flight/package-summary.html
