@@ -2431,7 +2431,7 @@ cdef class Scanner(_Weakrefable):
         
         Returns
         -------
-        pyarrow.lib.RecordBatchReader
+        RecordBatchReader
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)

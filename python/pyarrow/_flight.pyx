@@ -868,7 +868,7 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
         Returns
         -------
-        pyarrow.lib.RecordBatchReader
+        RecordBatchReader
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
