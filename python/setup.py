@@ -421,7 +421,8 @@ class build_ext(_build_ext):
     def _failure_permitted(self, name):
         if name == '_parquet' and not self.with_parquet:
             return True
-        if name == '_parquet_encryption' and not self.with_parquet_encryption:
+        if name == '_parquet_encryption' and \
+                not (self.with_parquet and self.with_parquet_encryption):
             return True
         if name == '_plasma' and not self.with_plasma:
             return True
