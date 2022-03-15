@@ -364,6 +364,16 @@ module RawRecordsStructArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_day_nano_interval
+    records = [
+      [{"field" => {month: 1, day: 1, nanosecond: 100}}],
+      [nil],
+      [{"field" => nil}],
+    ]
+    target = build(:month_day_nano_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"field" => [true, nil, false]}],

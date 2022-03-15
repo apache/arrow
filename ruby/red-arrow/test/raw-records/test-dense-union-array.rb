@@ -377,6 +377,15 @@ module RawRecordsDenseUnionArrayTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_month_day_nano_interval
+    records = [
+      [{"0" => {month: 1, day: 1, nanosecond: 100}}],
+      [{"1" => nil}],
+    ]
+    target = build(:month_day_nano_interval, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_list
     records = [
       [{"0" => [true, nil, false]}],
