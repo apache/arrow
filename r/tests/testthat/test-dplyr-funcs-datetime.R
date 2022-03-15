@@ -976,15 +976,25 @@ test_that("date() errors with unsupported inputs", {
 })
 
 test_that("make_date & make_datetime", {
-  set.seed(12345)
-  test_df <- tibble(
-    year = sample(1969:2069, 12),
-    month = 1:12,
-    day = sample(1:28, 12, replace = TRUE),
-    hour = sample(0:23, 12, replace = TRUE),
-    min = sample(0:59, 12),
-    sec = sample(0:59, 12)
-  )
+  # test_df <- expand.grid(
+  #   year = c(1999, 1969, 2069, NA),
+  #   month = c(1, 7, 11, 12, NA),
+  #   day = c(1, 9, 13, 28, NA),
+  #   hour = c(0, 7, 23, NA),
+  #   min = c(0, 59, NA),
+  #   sec = c(0, 59, NA)
+  # ) %>%
+  #   tibble()
+
+  test_df <-  expand.grid(
+    year = c(1999, 1969, 2069),
+    month = c(1, 7, 11, 12),
+    day = c(1, 9, 13, 28),
+    hour = c(0, 7, 23),
+    min = c(0, 59),
+    sec = c(0, 59)
+  ) %>%
+    tibble()
 
   compare_dplyr_binding(
     .input %>%
