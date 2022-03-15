@@ -177,7 +177,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     String timezoneName = arrowType.getTimezone();
     if (timezoneName == null) {
-      return TimeZone.getDefault();
+      return TimeZone.getTimeZone("UTC");
     }
 
     return TimeZone.getTimeZone(timezoneName);
