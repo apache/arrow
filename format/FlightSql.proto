@@ -938,7 +938,7 @@ message CommandGetDbSchemas {
  *  - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *  - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
  *  - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
- *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits
+ *  - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *  - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
  *  - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
@@ -1277,7 +1277,7 @@ message ActionClosePreparedStatementRequest {
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
- *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
@@ -1311,7 +1311,7 @@ message TicketStatementQuery {
  *    - ARROW:FLIGHT:SQL:DB_SCHEMA_NAME    - Database schema name
  *    - ARROW:FLIGHT:SQL:TABLE_NAME        - Table name
  *    - ARROW:FLIGHT:SQL:PRECISION         - Column precision/size
- *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits
+ *    - ARROW:FLIGHT:SQL:SCALE             - Column scale/decimal digits if applicable
  *    - ARROW:FLIGHT:SQL:IS_AUTO_INCREMENT - "1" indicates if the column is auto incremented, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_CASE_SENSITIVE - "1" indicates if the column is case sensitive, "0" otherwise.
  *    - ARROW:FLIGHT:SQL:IS_READ_ONLY      - "1" indicates if the column is read only, "0" otherwise.
