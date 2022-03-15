@@ -34,6 +34,7 @@ on:
       - 'ci/scripts/java_*'
       - 'cpp/**'
       - 'java/**'
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
