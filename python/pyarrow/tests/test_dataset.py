@@ -2098,7 +2098,7 @@ def test_scan_iterator(use_threads):
     # When constructed from readers/iterators, should be one-shot
     match = "OneShotFragment was already scanned"
     for factory, schema in (
-            (lambda: pa.ipc.RecordBatchReader.from_batches(
+            (lambda: pa.RecordBatchReader.from_batches(
                 batch.schema, [batch]), None),
             (lambda: (batch for _ in range(1)), batch.schema),
     ):
@@ -3972,8 +3972,8 @@ def test_write_iterable(tempdir):
     assert result.equals(table)
 
     base_dir = tempdir / 'inmemory_reader'
-    reader = pa.ipc.RecordBatchReader.from_batches(table.schema,
-                                                   table.to_batches())
+    reader = pa.RecordBatchReader.from_batches(table.schema,
+                                               table.to_batches())
     ds.write_dataset(reader, base_dir,
                      basename_template='dat_{i}.arrow', format="feather")
     result = ds.dataset(base_dir, format="ipc").to_table()
