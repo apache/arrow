@@ -602,7 +602,7 @@ cdef class RecordBatchReader(_Weakrefable):
 
     def get_next_batch(self):
         """DEPRECATED: return the next record batch.
-        
+
         Use read_next_batch instead."""
         import warnings
         warnings.warn('Please use read_next_batch instead of '
@@ -617,7 +617,7 @@ cdef class RecordBatchReader(_Weakrefable):
         ------
         StopIteration:
             At end of stream.
-        
+
         Returns
         -------
         RecordBatch

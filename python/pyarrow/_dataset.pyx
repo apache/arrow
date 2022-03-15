@@ -2430,7 +2430,7 @@ cdef class Scanner(_Weakrefable):
 
     def to_reader(self):
         """Consume this scanner as a RecordBatchReader.
-        
+
         Returns
         -------
         RecordBatchReader
