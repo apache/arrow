@@ -19,6 +19,7 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <arrow/io/concurrency.h>
 #include <arrow/util/parallel.h>
 
 //' View and manage the capacity of the global thread pool
@@ -48,12 +49,25 @@ void SetCpuThreadPoolCapacity(int threads) {
   StopIfNotOk(arrow::SetCpuThreadPoolCapacity(threads));
 }
 
+// This is clearly not how this should be done...maybe we need to
+// expose something like Get/SetIOThreadPoolCapacity from C++?
+// Or maybe there's a reason it's not exposed?
+namespace arrow {
+namespace io {
+namespace internal {
+arrow::internal::ThreadPool* GetIOThreadPool();
+}
+}  // namespace io
+}  // namespace arrow
+
 // [[arrow::export]]
-int GetIOThreadPoolCapacity() { return arrow::GetCpuThreadPoolCapacity(); }
+int GetIOThreadPoolCapacity() {
+  return arrow::io::internal::GetIOThreadPool()->GetCapacity();
+}
 
 // [[arrow::export]]
 void SetIOThreadPoolCapacity(int threads) {
-  StopIfNotOk(arrow::SetCpuThreadPoolCapacity(threads));
+  StopIfNotOk(arrow::io::internal::GetIOThreadPool()->SetCapacity(threads));
 }
 
 #endif
