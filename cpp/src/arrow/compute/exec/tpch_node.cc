@@ -2660,8 +2660,9 @@ namespace arrow
                 output_callback_(std::move(eb));
                 if(is_last_batch)
                 {
-                    done_.store(true);
-                    finished_callback_(batches_outputted_.load());
+                    bool expected = false;
+                    if(done_.compare_exchange_strong(expected, true))
+                        finished_callback_(batches_outputted_.load());
                     return Status::OK();
                 }
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
@@ -3121,9 +3122,7 @@ namespace arrow
                 {
                     bool expected = false;
                     if(done_.compare_exchange_strong(expected, true))
-                    {
                         finished_callback_(batches_outputted_.load());
-                    }
                     return Status::OK();
                 }
                 return schedule_callback_([this](size_t thread_index) { return this->ProduceCallback(thread_index); });
@@ -3694,7 +3693,6 @@ namespace arrow
 
             Status StartProducing() override
             {
-                finished_ = Future<>::Make();
                 return generator_->StartProducing(
                     thread_indexer_.Capacity(),
                     [this](ExecBatch batch) { this->OutputBatchCallback(std::move(batch)); },
