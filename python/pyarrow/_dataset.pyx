@@ -1946,8 +1946,10 @@ class TaggedRecordBatch(collections.namedtuple(
 
     Parameters
     ----------
-    record_batch : The record batch.
-    fragment : fragment of the record batch.
+    record_batch : RecordBatch
+        The record batch.
+    fragment : Fragment
+        Fragment of the record batch.
     """
 
 
