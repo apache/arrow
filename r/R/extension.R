@@ -198,9 +198,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
     },
 
     .Deserialize = function(storage_type, extension_name, extension_metadata) {
-      message("Deserialize called")
       private$.ptype <- unserialize(extension_metadata)
-      message(sprintf("...with ptype class %s", paste0(class(private$.ptype), collapse = " / ")))
     },
 
     .ExtensionEquals = function(other) {

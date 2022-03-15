@@ -77,17 +77,29 @@ test_that("extension type subclasses work", {
 
   RegisterExtensionType(type)
 
+  # create a new type instance with storage/metadata not identical
+  # to the registered type
+  type2 <- MakeExtensionType(
+    float64(),
+    "some_extension_subclass",
+    charToRaw("some other custom metadata"),
+    type_class = SomeExtensionTypeSubclass,
+    array_class = SomeExtensionArraySubclass
+  )
+
   ptr_type <- allocate_arrow_schema()
-  type$export_to_c(ptr_type)
-  type2 <- DataType$import_from_c(ptr_type)
+  type2$export_to_c(ptr_type)
+  type3 <- DataType$import_from_c(ptr_type)
   delete_arrow_schema(ptr_type)
 
-  expect_identical(type2$extension_name(), "some_extension_subclass")
-  expect_identical(type2$some_custom_method(), type$some_custom_method())
+  expect_identical(type3$extension_name(), "some_extension_subclass")
+  expect_identical(type3$some_custom_method(), type2$some_custom_method())
+  expect_identical(type3$Serialize(), type2$Serialize())
+  expect_true(type3$storage_type() == type2$storage_type())
 
-  array <- type$WrapArray(Array$create(1:10))
+  array <- type3$WrapArray(Array$create(1:10))
   expect_r6_class(array, "SomeExtensionArraySubclass")
-  expect_identical(array$some_custom_method(), type$some_custom_method())
+  expect_identical(array$some_custom_method(), type3$some_custom_method())
 
   expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
 })

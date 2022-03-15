@@ -49,7 +49,8 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::shared_ptr<RExtensionType> Clone() const;
 
-  cpp11::environment to_r6() const;
+  cpp11::environment to_r6(std::shared_ptr<arrow::DataType> storage_type,
+                           const std::string& serialized_data) const;
 
  private:
   std::string extension_name_;
@@ -71,7 +72,7 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
 
   // With any ambiguity, we need to materialize the R6 type and call its
   // ExtensionEquals method.
-  cpp11::environment instance = to_r6();
+  cpp11::environment instance = to_r6(storage_type(), Serialize());
   cpp11::function instance_ExtensionEquals(instance[".ExtensionEquals"]);
 
   std::shared_ptr<DataType> other_shared =
@@ -93,7 +94,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
     std::shared_ptr<arrow::DataType> storage_type,
     const std::string& serialized_data) const {
   try {
-    cpp11::environment result = to_r6();
+    cpp11::environment result = to_r6(storage_type, serialized_data);
     auto ptr = arrow::r::r6_to_pointer<std::shared_ptr<arrow::DataType>*>(result);
     return *ptr;
   } catch (std::exception& e) {
@@ -107,10 +108,11 @@ std::shared_ptr<RExtensionType> RExtensionType::Clone() const {
                                           r6_array_generator_);
 }
 
-cpp11::environment RExtensionType::to_r6() const {
+cpp11::environment RExtensionType::to_r6(std::shared_ptr<arrow::DataType> storage_type,
+                                         const std::string& serialized_data) const {
   cpp11::function make_extension_type(cpp11::package("arrow")["MakeExtensionType"]);
-  cpp11::sexp storage_type_r6 = cpp11::to_r6<arrow::DataType>(storage_type());
-  cpp11::writable::raws serialized_data_raw(Serialize());
+  cpp11::sexp storage_type_r6 = cpp11::to_r6<arrow::DataType>(storage_type);
+  cpp11::writable::raws serialized_data_raw(serialized_data);
 
   cpp11::sexp result =
       make_extension_type(storage_type_r6, extension_name(), serialized_data_raw,
