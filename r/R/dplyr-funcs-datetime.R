@@ -198,13 +198,14 @@ register_bindings_datetime <- function() {
                                              min = 0L,
                                              sec = 0,
                                              tz = "UTC") {
-    x <- call_binding("paste", year, month, day, hour, min, sec, sep = "-")
+
     # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
     # Stop if tz other than 'UTC' is provided.
     if (tz != "UTC") {
       arrow_not_supported("Time zone other than 'UTC'")
     }
 
+    x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
     build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
   })
 }
