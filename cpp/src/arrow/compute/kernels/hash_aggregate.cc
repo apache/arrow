@@ -39,7 +39,6 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/aggregate_var_std_internal.h"
 #include "arrow/compute/kernels/common.h"
-#include "arrow/compute/kernels/copy_data_internal.h"
 #include "arrow/compute/kernels/row_encoder.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/record_batch.h"
@@ -2798,10 +2797,10 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecBatch& batch) override {
-    const auto values_array_data = batch[0].array();
+    const auto& values_array_data = batch[0].array();
     int64_t num_values = values_array_data->length;
 
-    const auto groups_array_data = batch[1].array();
+    const auto& groups_array_data = batch[1].array();
     const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
     DCHECK_EQ(groups_array_data->offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
@@ -2906,11 +2905,11 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecBatch& batch) override {
-    const auto values_array_data = batch[0].array();
+    const auto& values_array_data = batch[0].array();
     int64_t num_values = values_array_data->length;
     int64_t offset = values_array_data->offset;
 
-    const auto groups_array_data = batch[1].array();
+    const auto& groups_array_data = batch[1].array();
     const auto* groups = groups_array_data->GetValues<uint32_t>(1, 0);
     DCHECK_EQ(groups_array_data->offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
@@ -3156,11 +3155,11 @@ struct GroupedListFactory {
   }
 
   Status Visit(const HalfFloatType& type) {
-    return Status::NotImplemented("Outputting one of data of type ", type);
+    return Status::NotImplemented("Outputting list of data of type ", type);
   }
 
   Status Visit(const DataType& type) {
-    return Status::NotImplemented("Outputting one of data of type ", type);
+    return Status::NotImplemented("Outputting list of data of type ", type);
   }
 
   static Result<HashAggregateKernel> Make(const std::shared_ptr<DataType>& type) {
