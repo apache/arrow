@@ -34,7 +34,7 @@ Getting Started
 Arrow's memory management is built around the needs of the columnar format and using off-heap memory.
 Also, it is its own independent implementation, and does not wrap the C++ implementation.
 
-Arrow offer a high level of abstraction providing several access APIs to read/write data into a direct memory.
+Arrow offers a high level of abstraction providing several access APIs to read/write data into a direct memory.
 
 Arrow provides multiple modules, but users only need two of them:
 
@@ -81,8 +81,8 @@ Allocators
 One of the interfaces defined by memory-core is BufferAllocator. This interface collect all the definitions for deal
 with byte buffer allocation.
 
-The concrete implementation of the allocator is Root Allocator. Applications should generally
-create one allocator at the start of the program..
+The concrete implementation of the allocator is RootAllocator. Applications should generally
+create one allocator at the start of the program, and use it through the BufferAllocator interface.
 
 Arrow provides a tree-based model for memory allocation. The RootAllocator is created first,
 then all allocators are created as children of that allocator. The RootAllocator is responsible
@@ -100,7 +100,7 @@ Development Guidelines
 ======================
 
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Applications should generally create one allocator at the start of the program.
+* Applications should generally create one RootAllocator at the start of the program.
 * Remember to close() allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 * Allocators will check for outstanding memory allocations when closed, and throw an exception if there are allocated buffers, this helps detect memory leaks.
 * Allocators have a debug mode, that makes it easier to figure out where a leak originated (Consider to add this parameter to your application: -Darrow.memory.debug.allocator=true)
