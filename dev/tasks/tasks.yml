@@ -1154,6 +1154,12 @@ tasks:
         PYTEST_ARGS: "-m hypothesis"
       image: conda-python-pandas
 
+  test-conda-python-java-integration:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: conda-python-java-integration
+
   test-debian-11-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml
