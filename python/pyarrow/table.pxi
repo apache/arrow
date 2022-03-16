@@ -2032,7 +2032,6 @@ cdef class Table(_PandasConvertible):
         reader.reader = c_reader
         return reader
 
-
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):
         from pyarrow.pandas_compat import table_to_blockmanager
