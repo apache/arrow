@@ -15,7 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
+#' @include arrow-package.R
+#' @title class arrow::ExtensionArray
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' The `ExtensionArray` class inherits from `Array`, but also provides
+#' access to the underlying storage of the extension.
+#'
+#' - `$storage()`: Returns the underlying [Array] used to store
+#'   values.
+#'
+#' The `ExtensionArray` is not intended to be subclassed for extension
+#' types.
+#'
+#' @rdname ExtensionArray
+#' @name ExtensionArray
 ExtensionArray <- R6Class("ExtensionArray",
   inherit = Array,
   public = list(
@@ -39,6 +58,55 @@ ExtensionArray$create <- function(x, type) {
   type$WrapArray(storage)
 }
 
+#' @include arrow-package.R
+#' @title class arrow::ExtensionType
+#'
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#'
+#' @section Methods:
+#'
+#' The `ExtensionType` class inherits from `DataType`, but also defines
+#' extra methods specific to extension types:
+#'
+#' - `$storage_type()`: Returns the underlying [DataType] used to store
+#'   values.
+#' - `$storage_id()`: Returns the [Type] identifier corresponding to the
+#'   `$storage_type()`.
+#' - `$extension_name()`: Returns the extension name.
+#' - `$Serialize()`: Returns the serialized version of the extension metadata
+#'   as a [raw()] vector.
+#' - `$WrapArray(array)`: Wraps a storage [Array] into an [ExtensionArray]
+#'   with this extension type.
+#'
+#' In addition, subclasses may override the following methos to customize
+#' the behaviour of extension classes.
+#'
+#' - `$.Deserialize(storage_type, extension_name, extension_metadata)`
+#'   This method is called when a new [ExtensionType]
+#'   is initialized and is responsible for parsing and validating
+#'   the serialized `extension_metadata` (a [raw()] vector)
+#'   such that its contents can be inspected by fields and/or methods
+#'   of the R6 ExtensionType subclass. Implementations must also check the
+#'   `storage_type` to make sure it is compatible with the extension type.
+#' - `$.array_as_vector(extension_array)`: Convert an [Array] to an R
+#'   vector. This method is called by [as.vector()] on [ExtensionArray]
+#'   objects or when a [RecordBatch] containing an [ExtensionArray] is
+#'   converted to a [data.frame()]. The default method returns the converted
+#'   storage array.
+#' - `$.chunked_array_as_vector(chunked_array)`: Convert a [ChunkedArray]
+#'   to an R vector. This method is called by [as.vector()] on a [ChunkedArray]
+#'   whose type matches this extension type or when a [Table] containing
+#'   such a column is converted to a [data.frame()]. The default method
+#'   returns the converted version of the equivalent storage arrays
+#'   as a [ChunkedArray].
+#' - `$.ToString()` Return a string representation that will be printed
+#'   to the console when this type or an Array of this type is printed.
+#'
+#' @rdname ExtensionType
+#' @name ExtensionType
+#' @export
 ExtensionType <- R6Class("ExtensionType",
   inherit = DataType,
   public = list(
@@ -90,7 +158,29 @@ ExtensionType <- R6Class("ExtensionType",
       self$MakeArray(array$data())
     },
 
-    # ExtensionType subclasses can reimplement the following methods:
+    .Deserialize = function(storage_type, extension_name, extension_metadata) {
+      # Do nothing by default but allow other classes to override this method
+      # to populate R6 class members.
+    },
+
+    .ExtensionEquals = function(other) {
+      inherits(other, "ExtensionType") &&
+        identical(other$extension_name(), self$extension_name()) &&
+        identical(other$Serialize(), self$Serialize())
+    },
+
+    .array_as_vector = function(extension_array) {
+      extension_array$storage()$as_vector()
+    },
+
+    .chunked_array_as_vector = function(chunked_array) {
+      storage_arrays <- lapply(
+        seq_len(chunked_array$num_chunks) - 1L,
+        function(i) chunked_array$chunk(i)$storage()
+      )
+      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
+      storage$as_vector()
+    },
 
     .ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
@@ -118,34 +208,9 @@ ExtensionType <- R6Class("ExtensionType",
         Encoding(metadata_utf8) <- "UTF-8"
         paste0(class(self)[1], " <", metadata_utf8, ">")
       }
-    },
-
-    .Deserialize = function(storage_type, extension_name, extension_metadata) {
-      # Do nothing by default but allow other classes to override this method
-      # to populate R6 class members.
-    },
-
-    .ExtensionEquals = function(other) {
-      inherits(other, "ExtensionType") &&
-        identical(other$extension_name(), self$extension_name()) &&
-        identical(other$Serialize(), self$Serialize())
-    },
-
-    .chunked_array_as_vector = function(chunked_array) {
-      storage_arrays <- lapply(
-        seq_len(chunked_array$num_chunks) - 1L,
-        function(i) chunked_array$chunk(i)$storage()
-      )
-      storage <- chunked_array(!!! storage_arrays, type = self$storage_type())
-      storage$as_vector()
-    },
-
-    .array_as_vector = function(extension_array) {
-      extension_array$storage()$as_vector()
     }
   )
 )
-
 
 # ExtensionType$new() is what gets used by the generated wrapper code to
 # create an R6 object when a shared_ptr<DataType> is returned to R and
@@ -165,10 +230,10 @@ ExtensionType$new <- function(xp) {
 }
 
 
-MakeExtensionType <- function(storage_type,
-                              extension_name,
-                              extension_metadata,
-                              type_class = ExtensionType) {
+new_extension_type <- function(storage_type,
+                               extension_name,
+                               extension_metadata,
+                               type_class = ExtensionType) {
   assert_that(is.string(extension_name), is.raw(extension_metadata))
   assert_is(storage_type, "DataType")
   assert_is(type_class, "R6ClassGenerator")
@@ -181,24 +246,28 @@ MakeExtensionType <- function(storage_type,
   )
 }
 
-RegisterExtensionType <- function(extension_type) {
+new_extension_array <- function(storage_array, extension_type) {
+  ExtensionArray$create(storage_array, extension_type)
+}
+
+register_extension_type <- function(extension_type) {
   assert_is(extension_type, "ExtensionType")
   arrow__RegisterRExtensionType(extension_type)
   extension_type_registry[[extension_type$extension_name()]] <- extension_type
   invisible(extension_type)
 }
 
-ReRegisterExtensionType <- function(extension_type) {
+reregister_extension_type <- function(extension_type) {
   tryCatch(
-    RegisterExtensionType(extension_type),
+    register_extension_type(extension_type),
     error = function(e) {
-      UnregisterExtensionType(extension_type$extension_name())
-      RegisterExtensionType(extension_type)
+      unregister_extension_type(extension_type$extension_name())
+      register_extension_type(extension_type)
     }
   )
 }
 
-UnregisterExtensionType <- function(extension_name) {
+unregister_extension_type <- function(extension_name) {
   arrow__UnregisterRExtensionType(extension_name)
   result <- extension_type_registry[[extension_name]]
   if (!is.null(result)) {
@@ -262,7 +331,7 @@ vctrs_extension_type <- function(ptype,
                                  storage_type = type(vctrs::vec_data(ptype))) {
   ptype <- vctrs::vec_ptype(ptype)
 
-  MakeExtensionType(
+  new_extension_type(
     storage_type = storage_type,
     extension_name = "arrow.r.vctrs",
     extension_metadata = serialize(ptype, NULL),

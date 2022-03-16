@@ -16,7 +16,7 @@
 # under the License.
 
 test_that("extension types can be created", {
-  type <- MakeExtensionType(
+  type <- new_extension_type(
     int32(),
     "arrow_r.simple_extension",
     charToRaw("some custom metadata"),
@@ -55,7 +55,7 @@ test_that("extension type subclasses work", {
     )
   )
 
-  type <- MakeExtensionType(
+  type <- new_extension_type(
     int32(),
     "some_extension_subclass",
     charToRaw("some custom metadata"),
@@ -65,11 +65,11 @@ test_that("extension type subclasses work", {
   expect_r6_class(type, "SomeExtensionTypeSubclass")
   expect_identical(type$some_custom_method(), charToRaw("some "))
 
-  RegisterExtensionType(type)
+  register_extension_type(type)
 
   # create a new type instance with storage/metadata not identical
   # to the registered type
-  type2 <- MakeExtensionType(
+  type2 <- new_extension_type(
     float64(),
     "some_extension_subclass",
     charToRaw("some other custom metadata"),
@@ -89,7 +89,7 @@ test_that("extension type subclasses work", {
   array <- type3$WrapArray(Array$create(1:10))
   expect_r6_class(array, "ExtensionArray")
 
-  expect_identical(UnregisterExtensionType("some_extension_subclass"), type)
+  expect_identical(unregister_extension_type("some_extension_subclass"), type)
 })
 
 test_that("extension subclasses can override the ExtensionEquals method", {
@@ -116,19 +116,19 @@ test_that("extension subclasses can override the ExtensionEquals method", {
     )
   )
 
-  type <- MakeExtensionType(
+  type <- new_extension_type(
     int32(),
     "some_extension_subclass",
     serialize(list(field1 = "value1", field2 = "value2"), NULL),
     type_class = SomeExtensionTypeSubclass
   )
 
-  RegisterExtensionType(type)
+  register_extension_type(type)
 
   expect_true(type$.ExtensionEquals(type))
   expect_true(type$Equals(type))
 
-  type2 <- MakeExtensionType(
+  type2 <- new_extension_type(
     int32(),
     "some_extension_subclass",
     serialize(list(field2 = "value2", field1 = "value1"), NULL),
@@ -138,7 +138,7 @@ test_that("extension subclasses can override the ExtensionEquals method", {
   expect_true(type$.ExtensionEquals(type2))
   expect_true(type$Equals(type2))
 
-  UnregisterExtensionType("some_extension_subclass")
+  unregister_extension_type("some_extension_subclass")
 })
 
 test_that("vctrs extension type works", {
