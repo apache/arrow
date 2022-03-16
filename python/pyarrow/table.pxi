@@ -2010,10 +2010,9 @@ cdef class Table(_PandasConvertible):
 
         return result
 
-    def to_reader(self, max_chunksize=None, **kwargs):
+    def to_reader(self, max_chunksize=None):
         """
         Convert a Table to RecordBatchReader
-
         Returns
         -------
         RecordBatchReader        
@@ -2024,22 +2023,15 @@ cdef class Table(_PandasConvertible):
             shared_ptr[TableBatchReader] t_reader
         t_reader = make_shared[TableBatchReader](self.sp_table)
 
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for '
-                   'pyarrow.Table.to_batches as of 0.15, please use '
-                   'the parameter max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
-
         if max_chunksize is not None:
-            c_max_chunksize = max_chunksize
-            t_reader.get().set_chunksize(c_max_chunksize)
+            t_reader.get().set_chunksize(max_chunksize)
 
         c_reader = dynamic_pointer_cast[CRecordBatchReader, TableBatchReader](
             t_reader)
         reader = RecordBatchReader.__new__(RecordBatchReader)
         reader.reader = c_reader
         return reader
+
 
     def _to_pandas(self, options, categories=None, ignore_metadata=False,
                    types_mapper=None):

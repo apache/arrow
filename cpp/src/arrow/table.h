@@ -258,8 +258,8 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   void set_chunksize(int64_t chunksize);
 
  private:
-  const Table& table_;
   std::shared_ptr<Table> owned_table_;
+  const Table& table_;
   std::vector<ChunkedArray*> column_data_;
   std::vector<int> chunk_numbers_;
   std::vector<int64_t> chunk_offsets_;

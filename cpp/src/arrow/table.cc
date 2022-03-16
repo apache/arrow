@@ -590,8 +590,8 @@ Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* poo
 // Convert a table to a sequence of record batches
 
 TableBatchReader::TableBatchReader(const Table& table)
-    : table_(table),
-      owned_table_(nullptr),
+    : owned_table_(nullptr),
+      table_(table),
       column_data_(table.num_columns()),
       chunk_numbers_(table.num_columns(), 0),
       chunk_offsets_(table.num_columns(), 0),
@@ -603,15 +603,15 @@ TableBatchReader::TableBatchReader(const Table& table)
 }
 
 TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
-    : table_(*table.get()),
-      owned_table_(std::move(table)),
-      column_data_(table.get()->num_columns()),
-      chunk_numbers_(table.get()->num_columns(), 0),
-      chunk_offsets_(table.get()->num_columns(), 0),
+    : owned_table_(std::move(table)),
+      table_(*owned_table_),
+      column_data_(owned_table_->num_columns()),
+      chunk_numbers_(owned_table_->num_columns(), 0),
+      chunk_offsets_(owned_table_->num_columns(), 0),
       absolute_row_position_(0),
       max_chunksize_(std::numeric_limits<int64_t>::max()) {
-  for (int i = 0; i < table.get()->num_columns(); ++i) {
-    column_data_[i] = table.get()->column(i).get();
+  for (int i = 0; i < owned_table_->num_columns(); ++i) {
+    column_data_[i] = owned_table_->column(i).get();
   }
 }
 
