@@ -281,8 +281,7 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 
   register_binding("as.difftime", function(x,
                                            format = "%X",
-                                           units = "auto",
-                                           tz = "UTC") {
+                                           units = "auto") {
     # windows doesn't seem to like "%X"
     if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
       format <- "%H:%M:%S"
@@ -293,8 +292,8 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     }
 
     if (call_binding("is.character", x)) {
-      x <- build_expr("strptime", x, options = list(format = format, tz = tz, unit = 0L))
-      y <- build_expr("strptime", "0:0:0", options = list(format = "%H:%M:%S", tz = tz, unit = 0L))
+      x <- build_expr("strptime", x, options = list(format = format, unit = 0L))
+      y <- build_expr("strptime", "0:0:0", options = list(format = "%H:%M:%S", unit = 0L))
       diff_x_y <- call_binding("difftime", x, y, units = "secs")
       return(diff_x_y)
     }
