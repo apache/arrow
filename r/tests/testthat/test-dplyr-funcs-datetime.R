@@ -1168,7 +1168,7 @@ test_that("difftime works correctly", {
 
   compare_dplyr_binding(
     .input %>%
-      mutate(secs2 = difftime(time2, time1, units = "secs", tz = "Pacific/Marquesas")) %>%
+      mutate(secs2 = difftime(time2, time1, units = "secs")) %>%
       collect(),
     test_df_with_tz
   )
@@ -1179,12 +1179,20 @@ test_that("difftime works correctly", {
         secs2 = difftime(
           as.POSIXct("2022-03-07", tz = "Europe/Bucharest"),
           time1,
-          units = "secs",
-          tz = "Pacific/Marquesas"
+          units = "secs"
         )
       ) %>%
       collect(),
     test_df_with_tz
+  )
+
+  # `tz` is effectively ignored both in R (used only if inputs are POSIXlt) and Arrow
+  compare_dplyr_binding(
+    .input %>%
+      mutate(secs2 = difftime(time2, time1, units = "secs", tz = "Pacific/Marquesas")) %>%
+      collect(),
+    test_df_with_tz,
+    warning = "`tz` is an optional argument"
   )
 })
 

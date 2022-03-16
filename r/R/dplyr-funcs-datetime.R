@@ -201,16 +201,12 @@ register_bindings_duration <- function() {
       abort("`difftime()` with units other than seconds not supported in Arrow")
     }
 
-    # for time32() we do not need to worry about timezone
-    if (call_binding("is.instant", time1) & call_binding("is.instant", time2)) {
-      if (missing(tz)) {
-        time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(unit = "s")))
-        time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(unit = "s")))
-      } else {
-        time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
-        time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp(timezone = tz, unit = "s")))
-      }
+    if (!missing(tz)) {
+      warn("`tz` is an optional argument to `difftime()` in R and will not be used in Arrow")
     }
+
+    time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
+    time2 <- build_expr("cast", time2, options = cast_options(to_type = timestamp()))
 
     build_expr("cast", time1 - time2, options = cast_options(to_type = duration("s")))
   })
@@ -299,7 +295,7 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
     if (call_binding("is.character", x)) {
       x <- build_expr("strptime", x, options = list(format = format, tz = tz, unit = 0L))
       y <- build_expr("strptime", "0:0:0", options = list(format = "%H:%M:%S", tz = tz, unit = 0L))
-      diff_x_y <- call_binding("difftime", x, y, units = "secs", tz = tz)
+      diff_x_y <- call_binding("difftime", x, y, units = "secs")
       return(diff_x_y)
     }
 
