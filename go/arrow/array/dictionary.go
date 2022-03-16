@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v8/arrow/internal/debug"
 	"github.com/apache/arrow/go/v8/arrow/memory"
 	"github.com/apache/arrow/go/v8/internal/hashing"
+	"github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/goccy/go-json"
 )
 
@@ -89,97 +90,74 @@ func checkIndexBounds(indices *Data, upperlimit uint64) error {
 	case arrow.UINT64:
 		maxval = math.MaxUint64
 	}
+	// for unsigned integers, if the values array is larger than the maximum
+	// index value (especially for UINT8/UINT16), then there's no need to
+	// boundscheck. for signed integers we still need to bounds check
+	// because a value could be < 0.
 	isSigned := maxval == 0
 	if !isSigned && upperlimit > maxval {
 		return nil
 	}
 
-	// TODO(mtopol): lift BitSetRunReader from parquet to utils
-	// and use it here for performance improvement.
-	var nullbitmap []byte
-	if indices.buffers[0] != nil {
-		nullbitmap = indices.buffers[0].Bytes()
-	}
+	start := indices.offset
+	end := indices.offset + indices.length
 
-	var outOfBounds func(i int) error
+	// TODO(ARROW-15950): lift BitSetRunReader from parquet to utils
+	// and use it here for performance improvement.
+
 	switch indices.dtype.ID() {
 	case arrow.INT8:
 		data := arrow.Int8Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] < 0 || data[i] >= int8(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		min, max := utils.GetMinMaxInt8(data[start:end])
+		if min < 0 || max >= int8(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: min: %d, max: %d", min, max)
 		}
 	case arrow.UINT8:
 		data := arrow.Uint8Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] >= uint8(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		_, max := utils.GetMinMaxUint8(data[start:end])
+		if max >= uint8(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: max: %d", max)
 		}
 	case arrow.INT16:
 		data := arrow.Int16Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] < 0 || data[i] >= int16(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		min, max := utils.GetMinMaxInt16(data[start:end])
+		if min < 0 || max >= int16(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: min: %d, max: %d", min, max)
 		}
 	case arrow.UINT16:
 		data := arrow.Uint16Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] >= uint16(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		_, max := utils.GetMinMaxUint16(data[start:end])
+		if max >= uint16(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: max: %d", max)
 		}
 	case arrow.INT32:
 		data := arrow.Int32Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] < 0 || data[i] >= int32(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		min, max := utils.GetMinMaxInt32(data[start:end])
+		if min < 0 || max >= int32(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: min: %d, max: %d", min, max)
 		}
 	case arrow.UINT32:
 		data := arrow.Uint32Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] >= uint32(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		_, max := utils.GetMinMaxUint32(data[start:end])
+		if max >= uint32(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: max: %d", max)
 		}
 	case arrow.INT64:
 		data := arrow.Int64Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] < 0 || data[i] >= int64(upperlimit) {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		min, max := utils.GetMinMaxInt64(data[start:end])
+		if min < 0 || max >= int64(upperlimit) {
+			return fmt.Errorf("contains out of bounds index: min: %d, max: %d", min, max)
 		}
 	case arrow.UINT64:
 		data := arrow.Uint64Traits.CastFromBytes(indices.buffers[1].Bytes())
-		outOfBounds = func(i int) error {
-			if data[i] >= upperlimit {
-				return fmt.Errorf("index %d out of bounds", data[i])
-			}
-			return nil
+		_, max := utils.GetMinMaxUint64(data[indices.offset : indices.offset+indices.length])
+		if max >= upperlimit {
+			return fmt.Errorf("contains out of bounds value: max: %d", max)
 		}
 	default:
 		return fmt.Errorf("invalid type for bounds checking: %T", indices.dtype)
 	}
 
-	for i := 0; i < indices.length; i++ {
-		if len(nullbitmap) > 0 && bitutil.BitIsNotSet(nullbitmap, i+indices.offset) {
-			continue
-		}
-
-		if err := outOfBounds(i + indices.offset); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -261,6 +239,7 @@ func (d *Dictionary) Indices() Interface {
 
 // CanCompareIndices returns true if the dictionary arrays can be compared
 // without having to unify the dictionaries themselves first.
+// This means that the index types are equal too.
 func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	if !arrow.TypeEqual(d.indices.DataType(), other.indices.DataType()) {
 		return false
@@ -428,6 +407,8 @@ type dictionaryBuilder struct {
 	idxBuilder  indexBuilder
 }
 
+// NewDictionaryBuilderWithDict initializes a dictionary builder and inserts the values from `init` as the first
+// values in the dictionary, but does not insert them as values into the array.
 func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType, init Interface) DictionaryBuilder {
 	if init != nil && !arrow.TypeEqual(dt.ValueType, init.DataType()) {
 		panic(fmt.Errorf("arrow/array: cannot initialize dictionary type %T with array of type %T", dt.ValueType, init.DataType()))
@@ -793,6 +774,9 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	return
 }
 
+// NewDelta returns the dictionary indices and a delta dictionary since the
+// last time NewArray or NewDictionaryArray were called, and resets the state
+// of the builder (except for the dictionary / memotable)
 func (b *dictionaryBuilder) NewDelta() (indices, delta Interface, err error) {
 	indicesData, deltaData, err := b.newWithDictOffset(b.deltaOffset)
 	if err != nil {

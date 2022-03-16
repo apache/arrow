@@ -29,11 +29,14 @@ import (
 
 // Data represents the memory and metadata of an Arrow array.
 type Data struct {
-	refCount   int64
-	dtype      arrow.DataType
-	nulls      int
-	offset     int
-	length     int
+	refCount int64
+	dtype    arrow.DataType
+	nulls    int
+	offset   int
+	length   int
+
+	// for dictionary arrays: buffers will be the null validity bitmap and the indexes that reference
+	// values in the dictionary member. childData would be empty in a dictionary array
 	buffers    []*memory.Buffer  // TODO(sgc): should this be an interface?
 	childData  []arrow.ArrayData // TODO(sgc): managed by ListArray, StructArray and UnionArray types
 	dictionary *Data             // only populated for dictionary arrays

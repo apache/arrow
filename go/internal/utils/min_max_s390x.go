@@ -14,12 +14,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build tools
-// +build tools
+//go:build !noasm
+// +build !noasm
 
-package _tools
+package utils
 
-import (
-	_ "golang.org/x/tools/cmd/goimports"
-	_ "golang.org/x/tools/cmd/stringer"
-)
+func init() {
+	minmaxFuncs.i8 = int8MinMax
+	minmaxFuncs.ui8 = uint8MinMax
+	minmaxFuncs.i16 = int16MinMax
+	minmaxFuncs.ui16 = uint16MinMax
+	minmaxFuncs.i32 = int32MinMax
+	minmaxFuncs.ui32 = uint32MinMax
+	minmaxFuncs.i64 = int64MinMax
+	minmaxFuncs.ui64 = uint64MinMax
+}

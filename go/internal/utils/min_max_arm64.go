@@ -14,30 +14,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package utils
 
+import (
+	"os"
+	"strings"
+)
 import "golang.org/x/sys/cpu"
 
 func init() {
-	// if the CPU supports AVX2 or SSE4 then let's use those to benefit from SIMD
-	// to accelerate the performance for finding the min and max for an integral slice.
-	// otherwise fallback to a pure go implementation if the cpu doesn't have these features.
-	if cpu.X86.HasAVX2 {
-		minmaxFuncs.i32 = int32MaxMinAVX2
-		minmaxFuncs.ui32 = uint32MaxMinAVX2
-		minmaxFuncs.i64 = int64MaxMinAVX2
-		minmaxFuncs.ui64 = uint64MaxMinAVX2
-	} else if cpu.X86.HasSSE42 {
-		minmaxFuncs.i32 = int32MaxMinSSE4
-		minmaxFuncs.ui32 = uint32MaxMinSSE4
-		minmaxFuncs.i64 = int64MaxMinSSE4
-		minmaxFuncs.ui64 = uint64MaxMinSSE4
+	// Added ability to enable extension via environment:
+	// ARM_ENABLE_EXT=NEON go test
+	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
+		exts := strings.Split(ext, ",")
+
+		for _, x := range exts {
+			switch x {
+			case "NEON":
+				cpu.ARM64.HasASIMD = true
+			case "AES":
+				cpu.ARM64.HasAES = true
+			case "PMULL":
+				cpu.ARM64.HasPMULL = true
+			default:
+				cpu.ARM64.HasASIMD = false
+				cpu.ARM64.HasAES = false
+				cpu.ARM64.HasPMULL = false
+			}
+		}
+	}
+	if cpu.ARM64.HasASIMD {
+		minmaxFuncs.i32 = int32MaxMinNEON
+		minmaxFuncs.ui32 = uint32MaxMinNEON
+		minmaxFuncs.i64 = int64MaxMinNEON
+		minmaxFuncs.ui64 = uint64MaxMinNEON
 	} else {
 		minmaxFuncs.i32 = int32MinMax
 		minmaxFuncs.ui32 = uint32MinMax
 		minmaxFuncs.i64 = int64MinMax
 		minmaxFuncs.ui64 = uint64MinMax
 	}
+
+	// haven't yet generated the NEON arm64 for these
+	minmaxFuncs.i8 = int8MinMax
+	minmaxFuncs.ui8 = uint8MinMax
+	minmaxFuncs.i16 = int16MinMax
+	minmaxFuncs.ui16 = uint16MinMax
 }

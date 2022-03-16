@@ -20,6 +20,58 @@
 #include <math.h>
 #include <float.h>
 
+void FULL_NAME(int8_max_min)(int8_t values[], int len, int8_t* minout, int8_t* maxout) {
+  int8_t max = INT8_MIN;
+  int8_t min = INT8_MAX;
+
+  for (int i = 0; i < len; ++i) {
+    min = min < values[i] ? min : values[i];
+    max = max > values[i] ? max : values[i];
+  }
+
+  *maxout = max;
+  *minout = min;
+}
+
+void FULL_NAME(uint8_max_min)(uint8_t values[], int len, uint8_t* minout, uint8_t* maxout) {
+  uint8_t max = 0;
+  uint8_t min = UINT8_MAX;
+
+  for (int i = 0; i < len; ++i) {
+    min = min < values[i] ? min : values[i];
+    max = max > values[i] ? max : values[i];
+  }
+
+  *maxout = max;
+  *minout = min;
+}
+
+void FULL_NAME(int16_max_min)(int16_t values[], int len, int16_t* minout, int16_t* maxout) {
+  int16_t max = INT16_MIN;
+  int16_t min = INT16_MAX;
+
+  for (int i = 0; i < len; ++i) {
+    min = min < values[i] ? min : values[i];
+    max = max > values[i] ? max : values[i];
+  }
+
+  *maxout = max;
+  *minout = min;
+}
+
+void FULL_NAME(uint16_max_min)(uint16_t values[], int len, uint16_t* minout, uint16_t* maxout) {
+  uint16_t max = 0;
+  uint16_t min = UINT16_MAX;
+
+  for (int i = 0; i < len; ++i) {
+    min = min < values[i] ? min : values[i];
+    max = max > values[i] ? max : values[i];
+  }
+
+  *maxout = max;
+  *minout = min;
+}
+
 void FULL_NAME(int32_max_min)(int32_t values[], int len, int32_t* minout, int32_t* maxout) {
   int32_t max = INT32_MIN;
   int32_t min = INT32_MAX;

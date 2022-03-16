@@ -14,14 +14,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build noasm
+#undef FULL_NAME
 
-package utils
-
-// if building with the 'noasm' tag, then point to the pure go implementations
-func init() {
-	minmaxFuncs.i32 = int32MinMax
-	minmaxFuncs.ui32 = uint32MinMax
-	minmaxFuncs.i64 = int64MinMax
-	minmaxFuncs.ui64 = uint64MinMax
-}
+#if defined(__AVX2__)
+    #define FULL_NAME(x) x##_avx2
+#elif __SSE4_2__ == 1
+    #define FULL_NAME(x) x##_sse4
+#elif __SSE3__ == 1
+    #define FULL_NAME(x) x##_sse3
+#elif defined(__ARM_NEON) || defined(__ARM_NEON__)
+    #define FULL_NAME(x) x##_neon
+#else
+    #define FULL_NAME(x) x##_x86
+#endif

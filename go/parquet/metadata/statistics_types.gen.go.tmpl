@@ -22,6 +22,7 @@ import (
   "github.com/apache/arrow/go/v8/parquet"
   "github.com/apache/arrow/go/v8/parquet/schema"
   "github.com/apache/arrow/go/v8/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v8/internal/utils"
   "github.com/apache/arrow/go/v8/parquet/internal/encoding"
 )
 
@@ -194,9 +195,9 @@ func (s *{{.Name}}Statistics) coalesce(val, fallback {{.name}}) {{.name}} {
 func (s *{{.Name}}Statistics) getMinMax(values []{{.name}}) (min, max {{.name}}) {
 {{- if or (eq .name "int32") (eq .name "int64")}}
   if s.order == schema.SortSIGNED {
-    min, max = utils.GetMinMax{{.Name}}(values)
+    min, max = shared_utils.GetMinMax{{.Name}}(values)
   } else {
-    umin, umax := utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
+    umin, umax := shared_utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
     min, max = {{.name}}(umin), {{.name}}(umax)
   }
 {{- else}}
@@ -226,10 +227,10 @@ func (s *{{.Name}}Statistics) getMinMaxSpaced(values []{{.name}}, validBits []by
 {{- if or (eq .name "int32") (eq .name "int64")}}
   var fn func([]{{.name}}) ({{.name}}, {{.name}})
   if s.order == schema.SortSIGNED {
-    fn = utils.GetMinMax{{.Name}}
+    fn = shared_utils.GetMinMax{{.Name}}
   } else {
     fn = func(v []{{.name}}) ({{.name}}, {{.name}}) {
-      umin, umax := utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
+      umin, umax := shared_utils.GetMinMaxU{{.name}}(arrow.U{{.name}}Traits.CastFromBytes(arrow.{{.Name}}Traits.CastToBytes(values)))
       return {{.name}}(umin), {{.name}}(umax)
     }
   }

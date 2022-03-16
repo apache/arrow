@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v8/arrow"
 	"github.com/apache/arrow/go/v8/arrow/memory"
+	shared_utils "github.com/apache/arrow/go/v8/internal/utils"
 	"github.com/apache/arrow/go/v8/parquet"
 	"github.com/apache/arrow/go/v8/parquet/internal/encoding"
 	"github.com/apache/arrow/go/v8/parquet/internal/utils"
@@ -151,9 +152,9 @@ func (s *Int32Statistics) Equals(other TypedStatistics) bool {
 
 func (s *Int32Statistics) getMinMax(values []int32) (min, max int32) {
 	if s.order == schema.SortSIGNED {
-		min, max = utils.GetMinMaxInt32(values)
+		min, max = shared_utils.GetMinMaxInt32(values)
 	} else {
-		umin, umax := utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
+		umin, umax := shared_utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
 		min, max = int32(umin), int32(umax)
 	}
 	return
@@ -164,10 +165,10 @@ func (s *Int32Statistics) getMinMaxSpaced(values []int32, validBits []byte, vali
 	max = s.defaultMax()
 	var fn func([]int32) (int32, int32)
 	if s.order == schema.SortSIGNED {
-		fn = utils.GetMinMaxInt32
+		fn = shared_utils.GetMinMaxInt32
 	} else {
 		fn = func(v []int32) (int32, int32) {
-			umin, umax := utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
+			umin, umax := shared_utils.GetMinMaxUint32(arrow.Uint32Traits.CastFromBytes(arrow.Int32Traits.CastToBytes(values)))
 			return int32(umin), int32(umax)
 		}
 	}
@@ -431,9 +432,9 @@ func (s *Int64Statistics) Equals(other TypedStatistics) bool {
 
 func (s *Int64Statistics) getMinMax(values []int64) (min, max int64) {
 	if s.order == schema.SortSIGNED {
-		min, max = utils.GetMinMaxInt64(values)
+		min, max = shared_utils.GetMinMaxInt64(values)
 	} else {
-		umin, umax := utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
+		umin, umax := shared_utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
 		min, max = int64(umin), int64(umax)
 	}
 	return
@@ -444,10 +445,10 @@ func (s *Int64Statistics) getMinMaxSpaced(values []int64, validBits []byte, vali
 	max = s.defaultMax()
 	var fn func([]int64) (int64, int64)
 	if s.order == schema.SortSIGNED {
-		fn = utils.GetMinMaxInt64
+		fn = shared_utils.GetMinMaxInt64
 	} else {
 		fn = func(v []int64) (int64, int64) {
-			umin, umax := utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
+			umin, umax := shared_utils.GetMinMaxUint64(arrow.Uint64Traits.CastFromBytes(arrow.Int64Traits.CastToBytes(values)))
 			return int64(umin), int64(umax)
 		}
 	}

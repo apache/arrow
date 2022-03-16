@@ -14,11 +14,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !noasm
+//go:build noasm
+// +build noasm
 
 package utils
 
+// if building with the 'noasm' tag, then point to the pure go implementations
 func init() {
+	minmaxFuncs.i8 = int8MinMax
+	minmaxFuncs.ui8 = uint8MinMax
+	minmaxFuncs.i16 = int16MinMax
+	minmaxFuncs.ui16 = uint16MinMax
 	minmaxFuncs.i32 = int32MinMax
 	minmaxFuncs.ui32 = uint32MinMax
 	minmaxFuncs.i64 = int64MinMax
