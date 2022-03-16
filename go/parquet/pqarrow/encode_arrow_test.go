@@ -1361,6 +1361,7 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 		{Name: "struct_i64_f64", Type: arrow.StructOf(
 			arrow.Field{Name: "i64", Type: arrow.PrimitiveTypes.Int64, Nullable: true},
 			arrow.Field{Name: "f64", Type: arrow.PrimitiveTypes.Float64, Nullable: true})},
+		{Name: "arr_i64", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
 	}, nil)
 
 	bld := array.NewRecordBuilder(allocator, sc)
@@ -1370,6 +1371,9 @@ func TestWriteTableMemoryAllocation(t *testing.T) {
 	sbld.Append(true)
 	sbld.FieldBuilder(0).(*array.Int64Builder).Append(1)
 	sbld.FieldBuilder(1).(*array.Float64Builder).Append(1.0)
+	abld := bld.Field(3).(*array.ListBuilder)
+	abld.Append(true)
+	abld.ValueBuilder().(*array.Int64Builder).Append(2)
 
 	rec := bld.NewRecord()
 	bld.Release()
