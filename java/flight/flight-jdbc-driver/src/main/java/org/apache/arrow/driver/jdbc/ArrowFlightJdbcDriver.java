@@ -48,7 +48,7 @@ import org.apache.calcite.avatica.org.apache.http.client.utils.URLEncodedUtils;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight://[host]:[port][?param1=value&...]";
+  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight://[host][:port][?param1=value&...]";
   private static DriverVersion version;
 
   static {
