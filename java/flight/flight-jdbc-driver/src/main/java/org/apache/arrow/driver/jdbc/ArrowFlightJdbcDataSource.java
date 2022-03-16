@@ -109,13 +109,13 @@ public class ArrowFlightJdbcDataSource implements DataSource {
     return false;
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "We shouldn't make copies of PrintWriter")
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "PrintWriter can only be set from external.")
   @Override
   public PrintWriter getLogWriter() {
     return this.logWriter;
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "We shouldn't make copies of PrintWriter")
+  @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "You can only get PrintWriter from external.")
   @Override
   public void setLogWriter(PrintWriter logWriter) {
     this.logWriter = logWriter;

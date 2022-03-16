@@ -156,7 +156,6 @@ public final class ArrowFlightConnection extends AvaticaConnection {
         executorService;
   }
 
-  @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "We shouldn't make copies of Properties")
   @Override
   public Properties getClientInfo() {
     final Properties copy = new Properties();
