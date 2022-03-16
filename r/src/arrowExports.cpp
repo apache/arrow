@@ -4169,7 +4169,7 @@ extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 
 // extension.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_class);
+cpp11::environment ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_class);
 extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type storage_type(storage_type_sexp);

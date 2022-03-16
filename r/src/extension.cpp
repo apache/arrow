@@ -67,7 +67,7 @@ class RExtensionType : public arrow::ExtensionType {
 };
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
-  // Avoid materializing the R6 type if at all possible, since this is slow
+  // Avoid materializing the R6 instance if at all possible, since this is slow
   // and in some cases not possible due to threading
   if (other.extension_name() != extension_name()) {
     return false;
@@ -77,7 +77,7 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
     return true;
   }
 
-  // With any ambiguity, we need to materialize the R6 type and call its
+  // With any ambiguity, we need to materialize the R6 instance and call its
   // ExtensionEquals method.
   cpp11::environment instance = r6_instance();
   cpp11::function instance_ExtensionEquals(instance[".ExtensionEquals"]);
@@ -104,40 +104,45 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   std::unique_ptr<RExtensionType> cloned = Clone();
   cloned->storage_type_ = storage_type;
   cloned->extension_metadata_ = serialized_data;
+
+  // Create an ephemeral R6 instance here, which will call the R6 instance's
+  // .Deserialize() method, possibly erroring when the metadata is invalid
+  // or the deserialized values are invalid. It might be possible to avoid
+  // this call but when there is an error it will be confusing, since it will
+  // only occur when the result surfaces to R (which might be much later).
+  cloned->r6_instance();
+
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
 std::unique_ptr<RExtensionType> RExtensionType::Clone() const {
-  RExtensionType* ptr = new RExtensionType(storage_type(), extension_name_,
-                                           extension_metadata_, r6_class_);
+  RExtensionType* ptr =
+      new RExtensionType(storage_type(), extension_name_, extension_metadata_, r6_class_);
   return std::unique_ptr<RExtensionType>(ptr);
 }
 
-cpp11::environment RExtensionType::r6_instance(std::shared_ptr<arrow::DataType> storage_type,
-                                         const std::string& serialized_data) const {
+cpp11::environment RExtensionType::r6_instance(
+    std::shared_ptr<arrow::DataType> storage_type,
+    const std::string& serialized_data) const {
   // This is a version of to_r6<>() that is a more direct route to creating the object.
   // This is done to avoid circular calls, since to_r6<>() has to go through
   // ExtensionType$new(), which then calls back to C++ to get r6_class_ to then
   // return the correct subclass.
   std::unique_ptr<RExtensionType> cloned = Clone();
   cpp11::external_pointer<std::shared_ptr<RExtensionType>> xp(
-    new std::shared_ptr<RExtensionType>(cloned.release()));
+      new std::shared_ptr<RExtensionType>(cloned.release()));
 
   cpp11::function r6_class_new(r6_class_["new"]);
   return r6_class_new(xp);
 }
 
 // [[arrow::export]]
-cpp11::sexp ExtensionType__initialize(
+cpp11::environment ExtensionType__initialize(
     const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name,
     cpp11::raws extension_metadata, cpp11::environment r6_class) {
-  cpp11::function constructor(r6_class["new"]);
   std::string metadata_string(extension_metadata.begin(), extension_metadata.end());
-  auto shared_ptr_ptr = new std::shared_ptr<RExtensionType>(new RExtensionType(
-      storage_type, extension_name, metadata_string, r6_class));
-  auto external_ptr =
-      cpp11::external_pointer<std::shared_ptr<RExtensionType>>(shared_ptr_ptr);
-  return constructor(external_ptr);
+  RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class);
+  return cpp_type.r6_instance();
 }
 
 // [[arrow::export]]
@@ -167,8 +172,10 @@ std::shared_ptr<arrow::Array> ExtensionType__MakeArray(
 }
 
 // [[arrow::export]]
-cpp11::environment ExtensionType__r6_class(const std::shared_ptr<arrow::ExtensionType>& type) {
-  auto r_type = arrow::internal::checked_pointer_cast<RExtensionType, arrow::ExtensionType>(type);
+cpp11::environment ExtensionType__r6_class(
+    const std::shared_ptr<arrow::ExtensionType>& type) {
+  auto r_type =
+      arrow::internal::checked_pointer_cast<RExtensionType, arrow::ExtensionType>(type);
   return r_type->r6_class();
 }
 
