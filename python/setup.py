@@ -193,6 +193,9 @@ class build_ext(_build_ext):
         self.bundle_plasma_executable = strtobool(
             os.environ.get('PYARROW_BUNDLE_PLASMA_EXECUTABLE', '1'))
 
+        self.with_parquet_encryption = (self.with_parquet_encryption and
+                                        self.with_parquet)
+
     CYTHON_MODULE_NAMES = [
         'lib',
         '_fs',
