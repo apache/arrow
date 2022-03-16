@@ -1120,39 +1120,6 @@ test_that("difftime works correctly", {
     ignore_attr = TRUE
   )
 
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        hours = difftime(time1, time2, units = "hours")
-      ) %>%
-      collect(),
-    test_df,
-    warning = TRUE,
-    ignore_attr = TRUE
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        days = difftime(time1, time2, units = "days")
-      ) %>%
-      collect(),
-    test_df,
-    warning = TRUE,
-    ignore_attr = TRUE
-  )
-
-  compare_dplyr_binding(
-    .input %>%
-      mutate(
-        weeks = difftime(time1, time2, units = "weeks")
-      ) %>%
-      collect(),
-    test_df,
-    warning = TRUE,
-    ignore_attr = TRUE
-  )
-
   skip_on_os("windows")
   test_df_with_tz <- tibble(
     time1 = as.POSIXct(
@@ -1196,7 +1163,7 @@ test_that("difftime works correctly", {
   )
 })
 
-test_that("as.difftime() works properly", {
+test_that("as.difftime()", {
   test_df <- tibble(
     hms_string = c("0:7:45", "12:34:56"),
     hm_string = c("7:45", "12:34"),
