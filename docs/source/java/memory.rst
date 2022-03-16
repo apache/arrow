@@ -61,13 +61,13 @@ allocators can be named; this makes it easier to tell where an ArrowBuf came fro
 ArrowBuf
 ========
 
-ArrowBuf represents a single, contiguous allocation of `Direct Memory`_. It consists of an address and a length,
+ArrowBuf represents a single, contiguous region of `direct memory`_. It consists of an address and a length,
 and provides low-level interfaces for working with the contents, similar to ByteBuffer.
 
 The objects created using ``Direct Memory`` take advantage of native executions and it is decided natively by the JVM. Arrow
 offer efficient memory operations base on this Direct Memory implementation (`see section below for detailed reasons of use`).
 
-Unlike (Direct)ByteBuffer, it has reference counting built in (`see the next section`).
+Unlike (Direct)ByteBuffer, it has reference counting built in, as discussed later.
 
 Reference counting
 ==================
@@ -77,7 +77,7 @@ allocate buffers (ArrowBuf).
 
 Arrow uses manual reference counting to track whether a buffer is in use, or can be deallocated or returned
 to the allocator's pool. This simply means that each buffer has a counter keeping track of the number of references to
-this buffer, and end user is responsible for properly incrementing/decrementing the counter according the buffer is used.
+the buffer, and the user is responsible for properly incrementing/decrementing the counter as the buffer is used.
 
 In Arrow, each ArrowBuf has an associated ReferenceManager that tracks the reference count, which can be retrieved
 with ArrowBuf.getReferenceManager(). The reference count can be updated with ``ReferenceManager.release`` and
@@ -85,7 +85,7 @@ with ArrowBuf.getReferenceManager(). The reference count can be updated with ``R
 
 Of course, this is tedious and error-prone, so usually, instead of directly working with buffers, we should use
 higher-level APIs like ValueVector. Such classes generally implement Closeable/AutoCloseable and will automatically
-decrement the reference count when closed method.
+decrement the reference count when closed.
 
 .. code-block::
 
@@ -101,12 +101,11 @@ Allocators implement AutoCloseable as well. In this case, closing the allocator 
 obtained from the allocator are closed. If not, ``close()`` method will raise an exception; this helps track
 memory leaks from unclosed buffers.
 
-As you see reference counting needs to be handled properly by us, if at some point you need to ensuring that an
-independent section of code has `fully cleaned up all allocated buffers while still maintaining a global memory limit
-through the RootAllocator`, well ``BufferAllocator.newChildAllocator`` is what you should use.
+As you see, reference counting needs to be handled carefully. To ensure that an
+independent section of code has fully cleaned up all allocated buffers, use a new child allocator.
 
-Reason To Use Direct Memory
-===========================
+Why Arrow Uses Direct Memory
+============================
 
 * When `writing an ArrowBuf`_ we use the direct buffer (``nioBuffer()`` returns a DirectByteBuffer) and the JVM `will attempt to avoid copying the buffer's content to (or from) an intermediate buffer`_ so it makes I/O (and hence IPC) faster.
 * We can `directly wrap a native memory address`_ instead of having to copy data for JNI (where in implementing the C Data Interface we can directly create `Java ArrowBufs that directly correspond to the C pointers`_).
@@ -116,17 +115,17 @@ So basically #1 is more efficient I/O, and #2/#3 is better integration with JNI 
 
 Development Guidelines
 ======================
-
+Applications should generally:
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Applications should generally create one RootAllocator at the start of the program.
-* Remember to close() allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
+* Create one RootAllocator at the start of the program.
+* ``close()`` allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 
 Debugging Memory Leaks/Allocation
 =================================
 
-Allocators have a debug mode, that makes it easier to figure out where a leak is originated (Consider to add this
-parameter to your application: ``-Darrow.memory.debug.allocator=true``). This parameter enable to create an historical log
-about the memory allocation.
+Allocators have a debug mode that makes it easier to figure out where a leak is originated.
+To enable it, enable assertions with ``-ea`` or set the system property, ``-Darrow.memory.debug.allocator=true``.
+When enabled, a log will be kept of allocations.
 
 Arrow modules use logback to collect logs, configure it properly to see your logs (create ``logback-test.xml`` file on
 resources folder and your project could read that by conventions).
