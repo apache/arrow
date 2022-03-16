@@ -79,6 +79,7 @@ def test_read_options():
     check_options_class_pickling(cls, block_size=1234,
                                  use_threads=False)
 
+
 def test_parse_options():
     cls = ParseOptions
     opts = cls()
