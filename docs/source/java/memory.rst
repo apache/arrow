@@ -66,13 +66,14 @@ The `BufferAllocator`_ interface deals with allocating ArrowBufs for the applica
     import org.apache.arrow.memory.ArrowBuf;
     import org.apache.arrow.memory.BufferAllocator;
     import org.apache.arrow.memory.RootAllocator;
+
     try(BufferAllocator bufferAllocator = new RootAllocator(8 * 1024)){
         ArrowBuf arrowBuf = bufferAllocator.buffer(4 * 1024);
         System.out.println(arrowBuf);
         arrowBuf.close();
     }
 
-.. code-block::
+.. code-block:: shell
 
     ArrowBuf[2], address:140363641651200, length:4096
 
@@ -101,8 +102,8 @@ the garbage collector. This simply means that each buffer has a counter keeping 
 the buffer, and the user is responsible for properly incrementing/decrementing the counter as the buffer is used.
 
 In Arrow, each ArrowBuf has an associated `ReferenceManager`_ that tracks the reference count, which can be retrieved
-with ArrowBuf.getReferenceManager(). The reference count can be updated with ``ReferenceManager.release`` and
-``ReferenceManager.retain``.
+with ArrowBuf.getReferenceManager(). The reference count can be updated with `ReferenceManager.release`_ and
+`ReferenceManager.retain`_.
 
 Of course, this is tedious and error-prone, so usually, instead of directly working with buffers, we should use
 higher-level APIs like ValueVector. Such classes generally implement Closeable/AutoCloseable and will automatically
@@ -137,59 +138,37 @@ Consider the following example to see how debug enabled help us with the trackin
 
 .. code-block:: Java
 
+    import org.apache.arrow.memory.ArrowBuf;
     import org.apache.arrow.memory.BufferAllocator;
     import org.apache.arrow.memory.RootAllocator;
-    import org.apache.arrow.vector.IntVector;
 
-    try (BufferAllocator bufferAllocator = new RootAllocator(Integer.MAX_VALUE)) {
-        final int QUANTITY = 5;
-        try (IntVector intVector = new IntVector("int-01", bufferAllocator)) {
-            intVector.allocateNew(QUANTITY);
-            for (int i = 0; i < QUANTITY; i++) {
-                intVector.set(i, i);
-            }
-            intVector.setValueCount(QUANTITY);
-        }
-        // Fix the next code!, it is only to see the track of allocators when debug is enabled
-        IntVector intVectorV = new IntVector("int-02", bufferAllocator);
-        intVectorV.allocateNew(QUANTITY);
-        for (int i = 0; i < QUANTITY; i++) {
-            intVectorV.set(i, i);
-        }
-        intVectorV.setValueCount(QUANTITY);
-
-        BufferAllocator childAllocator = bufferAllocator.newChildAllocator("child-isolated", 0,
-                Integer.MAX_VALUE / 4);
-        IntVector intVectorV2 = new IntVector("int-isolated-01", childAllocator);
-        intVectorV2.allocateNew(QUANTITY);
-        for (int i = 0; i < QUANTITY; i++) {
-            intVectorV2.set(i, i);
-        }
+    try(BufferAllocator bufferAllocator = new RootAllocator(8 * 1024)){
+        ArrowBuf arrowBuf = bufferAllocator.buffer(4 * 1024);
+        System.out.println(arrowBuf);
     }
 
-.. code-block::
+Logs without debug allocators enabled:
 
-    15:49:32,755 |-INFO in ch.qos.logback.classic.LoggerContext[default] - Found resource [logback-test.xml] at [file:/Users/java/source/demo/target/classes/logback-test.xml]
-    15:49:32,924 |-INFO in ch.qos.logback.classic.joran.action.LoggerAction - Setting level of logger [org.apache.arrow] to DEBUG
+.. code-block:: shell
+
+    11:56:48.944 [main] INFO  o.apache.arrow.memory.BaseAllocator - Debug mode disabled.
+    ArrowBuf[2], address:140508391276544, length:4096
+    16:28:08.847 [main] ERROR o.apache.arrow.memory.BaseAllocator - Memory was leaked by query. Memory leaked: (4096)
+    Allocator(ROOT) 0/4096/4096/8192 (res/actual/peak/limit)
+
+Logs with debug allocators enabled:
+
+.. code-block:: shell
+
     11:56:48.944 [main] INFO  o.apache.arrow.memory.BaseAllocator - Debug mode enabled.
-    Exception in thread "main" java.lang.IllegalStateException: Allocator[ROOT] closed with outstanding child allocators.
-    Allocator(ROOT) 0/64/64/2147483647 (res/actual/peak/limit)
-      child allocators: 1
-        Allocator(child-isolated) 0/32/32/536870911 (res/actual/peak/limit)
-          child allocators: 0
-          ledgers: 1
-            ledger[3] allocator: child-isolated), isOwning: , size: , references: 2, life: 246918908438818..0, allocatorManager: [, life: ] holds 3 buffers.
-                ArrowBuf[10], address:140408097079352, length:8
-                ArrowBuf[8], address:140408097079328, length:32
-                ArrowBuf[9], address:140408097079328, length:24
-          reservations: 0
+    ArrowBuf[2], address:140437894463488, length:4096
+    Exception in thread "main" java.lang.IllegalStateException: Allocator[ROOT] closed with outstanding buffers allocated (1).
+    Allocator(ROOT) 0/4096/4096/8192 (res/actual/peak/limit)
+      child allocators: 0
       ledgers: 1
-        ledger[2] allocator: ROOT), isOwning: , size: , references: 2, life: 246tors can be named; this makes it easier to tell where an Arro918906331643..0, allocatorManager: [, life: ] holds 3 buffers.
-            ArrowBuf[6], address:140408097079296, length:24
-            ArrowBuf[5], address:140408097079296, length:32
-            ArrowBuf[7], address:140408097079320, length:8
+        ledger[1] allocator: ROOT), isOwning: , size: , references: 1, life: 261438177096661..0, allocatorManager: [, life: ] holds 1 buffers.
+            ArrowBuf[2], address:140437894463488, length:4096
       reservations: 0
-
 
 .. _`BufferAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/BufferAllocator.html
 .. _`RootAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/RootAllocator.html
@@ -206,3 +185,5 @@ Consider the following example to see how debug enabled help us with the trackin
 .. _`Java ArrowBufs that directly correspond to the C pointers`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/java/c/src/main/java/org/apache/arrow/c/ArrayImporter.java#L130-L151
 .. _`Java ArrowBufs in C++`: https://github.com/apache/arrow/blob/3bf061783f4e1ab447d2eb0f487c0c4fce6d5b15/cpp/src/gandiva/jni/jni_common.cc#L699-L723
 .. _`ReferenceManager`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html
+.. _`ReferenceManager.release`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html#release--
+.. _`ReferenceManager.retain`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ReferenceManager.html#retain--
