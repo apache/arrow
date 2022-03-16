@@ -2639,9 +2639,9 @@ cdef class Table(_PandasConvertible):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc().tables_join(join_type, self, keys, right_table, right_keys,
-                                 left_suffix=left_suffix, right_suffix=right_suffix,
-                                 use_threads=use_threads)
+        return _pc()._exec_plan.tables_join(join_type, self, keys, right_table, right_keys,
+                                            left_suffix=left_suffix, right_suffix=right_suffix,
+                                            use_threads=use_threads)
 
     def group_by(self, keys):
         """Declare a grouping over the columns of the table.
