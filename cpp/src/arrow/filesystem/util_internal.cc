@@ -16,11 +16,18 @@
 // under the License.
 
 #include "arrow/filesystem/util_internal.h"
+
+#include <cerrno>
+
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 
 namespace arrow {
+
+using internal::StatusDetailFromErrno;
+
 namespace fs {
 namespace internal {
 
@@ -49,11 +56,13 @@ Status CopyStream(const std::shared_ptr<io::InputStream>& src,
 }
 
 Status PathNotFound(const std::string& path) {
-  return Status::IOError("Path does not exist '", path, "'");
+  return Status::IOError("Path does not exist '", path, "'")
+      .WithDetail(StatusDetailFromErrno(ENOENT));
 }
 
 Status NotADir(const std::string& path) {
-  return Status::IOError("Not a directory: '", path, "'");
+  return Status::IOError("Not a directory: '", path, "'")
+      .WithDetail(StatusDetailFromErrno(ENOTDIR));
 }
 
 Status NotAFile(const std::string& path) {
