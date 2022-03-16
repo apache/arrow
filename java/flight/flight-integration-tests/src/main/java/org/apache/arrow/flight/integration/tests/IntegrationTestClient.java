@@ -154,12 +154,10 @@ class IntegrationTestClient {
       List<Location> locations = endpoint.getLocations();
       if (locations.isEmpty()) {
         // No locations provided, validate the server itself.
-        System.out.println("Verifying location " + server.getUri());
         testTicket(allocator, client, endpoint.getTicket(), inputPath);
       } else {
         // All locations should be equivalent, validate each one.
         for (Location location : locations) {
-          System.out.println("Verifying location " + location.getUri());
           try (FlightClient readClient = FlightClient.builder(allocator, location).build()) {
             testTicket(allocator, readClient, endpoint.getTicket(), inputPath);
           } catch (Exception e) {
