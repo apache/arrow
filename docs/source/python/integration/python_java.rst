@@ -138,7 +138,7 @@ to get back an array containing numbers from 1 to 10.
 
 Given that this class now has a dependency on a bunch of packages,
 compiling it with ``javac`` is not enough anymore. We need to create
-a dedicated ``pom.xml`` file were we can collect the dependencies:
+a dedicated ``pom.xml`` file where we can collect the dependencies:
 
 .. code-block:: xml
 
@@ -297,4 +297,133 @@ as being of type ``pyarrow.lib.Int64Array`` and is printed using the ``pyarrow``
 Java to Python communication using the C Data Interface
 -------------------------------------------------------
 
+The C-Data interface is a protocol implemented in Arrow to exchange data within different
+environments without the cost of marshaling and copying data.
 
+This allows to expose data coming from Python or Java to functions that are implemented
+in the other language.
+
+.. note::
+
+    In the future the ``pyarrow.jvm`` will be implemented to leverage the C-Data
+    interface, at the moment is instead specifically written for JPype
+
+To showcase how C-Data works, we are going to tweak a bit both our ``FillTen`` Java
+class and our ``fillten.py`` Python script. Given a Python Array, we are going to
+expose a function in Java that sets its content to by the numbers from 1 to 10.
+
+The first thing we would have to do is to tweak the Python script so that it
+sends to Java the exported references to the Array and its Schema according to the
+C-Data interface:
+
+.. code-block:: python
+
+    import jpype
+    import jpype.imports
+    from jpype.types import *
+
+    # Init the JVM and make FillTen class available to Python.
+    jpype.startJVM(classpath=["./dependencies/*", "./target/*"])
+    FillTen = JClass('FillTen')
+
+    # Create a Python array of 10 elements
+    import pyarrow as p
+    array = pa.array([0]*10)
+
+    from pyarrow.cffi import ffi as arrow_c
+
+    # Export the Python array through C-Data
+    c_array = arrow_c.new("struct ArrowArray*")
+    c_array_ptr = int(arrow_c.cast("uintptr_t", c_array))
+    array._export_to_c(c_array_ptr)
+
+    # Export the Schema of the Arrayo through C-Data
+    c_schema = arrow_c.new("struct ArrowSchema*")
+    c_schema_ptr = int(arrow_c.cast("uintptr_t", c_schema))
+    array.type._export_to_c(c_schema_ptr)
+
+    # Send Array and its Schema to the Java function
+    # that will populate the array with numbers from 1 to 10
+    FillTen.fillCArray(c_array_ptr, c_schema_ptr)
+
+    # See how the content of our Python array was changed from Java
+    # while it remained of the Python type.
+    print("ARRAY", type(array), array)
+
+.. note::
+
+    Changing content of arrays is not a safe operation, it was done
+    for the purpose of creating this example, and it mostly works only
+    because the array hasn't changed size, type or nulls.
+
+In the FillTen Java class, we already have the ``fillValueVector``
+method, but that method is private and even if we made it public it
+would only accept a ``ValueVector`` object and not the C-Data array
+and schema references.
+
+So we have to expand our ``FillTen`` class adding a ``fillCArray``
+method that is able to perform the work of ``fillValueVector`` but
+on the C-Data exchanged entities instead of the ``ValueVector`` one:
+
+.. code-block:: java
+
+    import org.apache.arrow.c.ArrowArray;
+    import org.apache.arrow.c.ArrowSchema;
+    import org.apache.arrow.c.Data;
+    import org.apache.arrow.memory.RootAllocator;
+    import org.apache.arrow.vector.FieldVector;
+    import org.apache.arrow.vector.BigIntVector;
+    import org.apache.arrow.vector.ValueVector;
+
+
+    public class FillTen {
+        static RootAllocator allocator = new RootAllocator();
+
+        public static void fillCArray(long c_array_ptr, long c_schema_ptr) {
+            ArrowArray arrow_array = ArrowArray.wrap(c_array_ptr);
+            ArrowSchema arrow_schema = ArrowSchema.wrap(c_schema_ptr);
+
+            FieldVector v = Data.importVector(allocator, arrow_array, arrow_schema, null);
+            FillTen.fillValueVector(v);
+        }
+
+        private static void fillValueVector(ValueVector v) {
+            BigIntVector iv = (BigIntVector)v;
+            iv.setSafe(0, 1);
+            iv.setSafe(1, 2);
+            iv.setSafe(2, 3);
+            iv.setSafe(3, 4);
+            iv.setSafe(4, 5);
+            iv.setSafe(5, 6);
+            iv.setSafe(6, 7);
+            iv.setSafe(7, 8);
+            iv.setSafe(8, 9);
+            iv.setSafe(9, 10);
+        }
+    }
+
+The goal of the ``fillCArray`` method is to get the Array and Schema received in
+C-Data exchange format and turn them back to an object of type ``FieldVector``
+so that Arrow Java knows how to deal with it.
+
+If we run again ``mvn package``, update the maven dependencies
+and then our Python script, we should be able to see how the
+values printed by the Python script have been properly changed by the Java code:
+
+.. code-block:: bash
+
+    $ mvn package
+    $ mvn org.apache.maven.plugins:maven-dependency-plugin:2.7:copy-dependencies -DoutputDirectory=dependencies
+    $ python fillten.py
+    ARRAY <class 'pyarrow.lib.Int64Array'> [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+    ]
