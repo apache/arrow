@@ -27,7 +27,7 @@ from cython.operator cimport dereference as deref, preincrement as inc
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table)
-from pyarrow.lib import tobytes
+from pyarrow.lib import tobytes, _pc
 
 
 cdef execplan(inputs, output_type, vector[CDeclaration] plan, c_bool use_threads=True):
@@ -146,7 +146,8 @@ cdef CExpression _true = CMakeScalarExpression(
 
 def tables_join(join_type, left_table not None, left_keys,
                 right_table not None, right_keys,
-                left_suffix=None, right_suffix=None, use_threads=True):
+                left_suffix=None, right_suffix=None,
+                use_threads=True, deduplicate=False):
     """
     Perform join of two tables.
 
@@ -172,6 +173,9 @@ def tables_join(join_type, left_table not None, left_keys,
         when the columns in left and right tables have colliding names.
     use_threads : bool, default True
         Whenever to use multithreading or not.
+    deduplicate : bool, default False
+        If the duplicated keys should be omitted from one of the sides
+        in the join result.
 
     Returns
     -------
@@ -234,18 +238,44 @@ def tables_join(join_type, left_table not None, left_keys,
         c_right_columns.push_back(CFieldRef(<c_string>tobytes(colname)))
 
     # Add the join node to the execplan
-    c_decl_plan.push_back(
-        CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
-            c_join_type, c_left_keys, c_right_keys,
-            c_left_columns, c_right_columns,
-            _true,
-            <c_string>tobytes(left_suffix or ""),
-            <c_string>tobytes(right_suffix or "")
-        ))
-    )
+    if deduplicate:
+        c_decl_plan.push_back(
+            CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
+                c_join_type, c_left_keys, c_right_keys,
+                c_left_columns, c_right_columns,
+                _true,
+                <c_string>tobytes(left_suffix or ""),
+                <c_string>tobytes(right_suffix or "")
+            ))
+        )
+    else:
+        c_decl_plan.push_back(
+            CDeclaration(tobytes("hashjoin"), CHashJoinNodeOptions(
+                c_join_type, c_left_keys, c_right_keys,
+                _true,
+                <c_string>tobytes(left_suffix or ""),
+                <c_string>tobytes(right_suffix or "")
+            ))
+        )
 
     result_table = execplan([left_table, right_table],
                             output_type=Table,
                             plan=c_decl_plan)
+
+    if deduplicate and join_type == "full outer":
+        suffixed_left_keys = left_keys
+        if left_suffix:
+            suffixed_left_keys = [
+                lk+left_suffix for lk in left_keys if lk in right_keys]
+        suffixed_right_keys = right_keys
+        if right_suffix:
+            suffixed_right_keys = [
+                rk+right_suffix for rk in right_keys if rk in left_keys]
+        for leftkey, rightkey in zip(reversed(suffixed_left_keys), reversed(suffixed_right_keys)):
+            result_table = result_table.set_column(
+                0, leftkey,
+                _pc().coalesce(result_table[leftkey], result_table[rightkey])
+            )
+        result_table = result_table.drop(suffixed_right_keys)
 
     return result_table

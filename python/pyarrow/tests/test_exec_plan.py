@@ -75,9 +75,8 @@ def test_joins_corner_cases():
         "col3": ["A", "B", "Z"]
     }),
     ("full outer", {
-        "colA": [1, 2, 6, None],
+        "colA": [1, 2, 6, 99],
         "col2": ["a", "b", "f", None],
-        "colB": [1, 2, None, 99],
         "col3": ["A", "B", None, "Z"]
     })
 ])
@@ -98,5 +97,5 @@ def test_joins(jointype, expected, use_threads):
     })
 
     r = ep.tables_join(jointype, t1, "colA", t2, "colB",
-                       use_threads=use_threads)
+                       use_threads=use_threads, deduplicate=True)
     assert r == expected

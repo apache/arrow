@@ -2477,9 +2477,6 @@ cdef extern from "arrow/compute/exec/options.h" namespace "arrow::compute" nogil
                              vector[CFieldRef] in_right_keys)
         CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
                              vector[CFieldRef] in_right_keys,
-                             CExpression filter)
-        CHashJoinNodeOptions(CJoinType, vector[CFieldRef] in_left_keys,
-                             vector[CFieldRef] in_right_keys,
                              CExpression filter,
                              c_string output_suffix_for_left,
                              c_string output_suffix_for_right)
