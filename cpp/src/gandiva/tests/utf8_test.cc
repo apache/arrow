@@ -233,7 +233,7 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
   // like(literal(s), a, '\')
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  auto literal_s = TreeExprBuilder::MakeStringLiteral("%pa-rk%");
+  auto literal_s = TreeExprBuilder::MakeStringLiteral("%pa\\%rk%");
   auto escape_char = TreeExprBuilder::MakeStringLiteral("\\");
   auto is_like =
       TreeExprBuilder::MakeFunction("like", {node_a, literal_s, escape_char}, boolean());
@@ -247,7 +247,7 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
   // Create a row-batch with some sample data
   int num_records = 4;
   auto array_a = MakeArrowArrayUtf8(
-      {"park", "spa-rkle", "bright spa-rk and fire", "spark"}, {true, true, true, true});
+      {"park", "spa%rkle", "bright spa%rk and fire", "spark"}, {true, true, true, true});
 
   // expected output
   auto exp = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});
