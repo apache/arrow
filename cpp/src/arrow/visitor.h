@@ -162,9 +162,9 @@ class ARROW_EXPORT ScalarVisitor {
   virtual Status Visit(const FixedSizeListScalar& scalar);
   virtual Status Visit(const StructScalar& scalar);
   virtual Status Visit(const DictionaryScalar& scalar);
-  virtual Status Visit(const SparseUnionScalar& type);
-  virtual Status Visit(const DenseUnionScalar& type);
-  virtual Status Visit(const ExtensionScalar& type);
+  virtual Status Visit(const SparseUnionScalar& scalar);
+  virtual Status Visit(const DenseUnionScalar& scalar);
+  virtual Status Visit(const ExtensionScalar& scalar);
 };
 
 }  // namespace arrow
