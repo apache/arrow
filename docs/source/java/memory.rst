@@ -131,7 +131,7 @@ Allocators have a debug mode that makes it easier to figure out where a leak is 
 To enable it, enable assertions with ``-ea`` or set the system property, ``-Darrow.memory.debug.allocator=true``.
 When enabled, a log will be kept of allocations.
 
-Arrow modules define simple logging facade for java SLF4J, configure it properly to see your logs (e.g. Logback/Log4J).
+Arrow logs some allocation information via SLF4J; configure it properly to see these logs (e.g. via Logback/Apache Log4j).
 
 Consider the following example to see how debug enabled help us with the tracking of allocators:
 
