@@ -1186,7 +1186,7 @@ struct Strptime {
     if (in.is_valid) {
       auto s = internal::UnboxScalar<InType>::Unbox(in);
       int64_t result;
-      if ((*self.parser)(s.data(), s.length(), self.unit, &result)) {
+      if ((*self.parser)(s.data(), s.size(), self.unit, &result)) {
         *checked_cast<TimestampScalar*>(out) =
             TimestampScalar(result, timestamp(self.unit, self.zone));
       } else {

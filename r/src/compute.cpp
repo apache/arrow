@@ -375,10 +375,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
+    bool raise_errors = true;
+    if (!Rf_isNull(options["raise_errors"])) {
+      raise_errors = cpp11::as_cpp<bool>(options["raise_errors"]);
+    }
     return std::make_shared<Options>(
         cpp11::as_cpp<std::string>(options["format"]),
-        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]),
-        cpp11::as_cpp<bool>(options["raise_errors"]));
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]), raise_errors);
   }
 
   if (func_name == "strftime") {

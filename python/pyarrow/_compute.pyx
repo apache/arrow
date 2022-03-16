@@ -1458,11 +1458,11 @@ class StrptimeOptions(_StrptimeOptions):
     unit : str
         Timestamp unit of the output.
         Accepted values are "s", "ms", "us", "ns".
-    raise_errors: boolean
+    raise_errors : boolean, default True
         Raise on parsing errors.
     """
 
-    def __init__(self, format, unit, raise_errors):
+    def __init__(self, format, unit, raise_errors=True):
         self._set_options(format, unit, raise_errors)
 
 
