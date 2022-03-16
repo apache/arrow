@@ -70,7 +70,50 @@ public class ConnectionTest {
   @After
   public void tearDown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
-    AutoCloseables.close(allocator);
+    AutoCloseables.close(server, allocator);
+  }
+
+  /**
+   * Validate the user's credential on a FlightServer.
+   *
+   * @param username flight server username.
+   * @param password flight server password.
+   * @return the result of validation.
+   */
+  private CallHeaderAuthenticator.AuthResult validate(final String username,
+                                                      final String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (flightTestUtils.getUsername1().equals(username) &&
+        flightTestUtils.getPassword1().equals(password)) {
+      identity = flightTestUtils.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
+    }
+    return () -> identity;
+  }
+
+  private CallHeaderAuthenticator.AuthResult validate2(final String username,
+                                                       final String password) {
+    if (Strings.isNullOrEmpty(username)) {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Credentials not supplied.").toRuntimeException();
+    }
+    final String identity;
+    if (flightTestUtils2.getUsername1().equals(username) &&
+        flightTestUtils2.getPassword1().equals(password)) {
+      identity = flightTestUtils2.getUsername1();
+    } else {
+      throw CallStatus.UNAUTHENTICATED
+          .withDescription("Username or password is invalid.")
+          .toRuntimeException();
+    }
+    return () -> identity;
   }
 
   /**
