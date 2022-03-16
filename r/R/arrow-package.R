@@ -80,8 +80,10 @@
     }
   }
 
-  # register extension types that we use internally
-  ReRegisterExtensionType(vctrs_extension_type(vctrs::unspecified()))
+  if (arrow_available()) {
+    # register extension types that we use internally
+    ReRegisterExtensionType(vctrs_extension_type(vctrs::unspecified()))
+  }
 
   invisible()
 }
