@@ -15,32 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces for defining middleware for Flight clients and
-// servers. Currently experimental.
+// gRPC-based transport for Flight.
 
 #pragma once
 
-#include "arrow/flight/platform.h"
-#include "arrow/flight/visibility.h"  // IWYU pragma: keep
-
-#include <map>
-#include <string>
-#include <utility>
-
-#ifdef GRPCPP_PP_INCLUDE
-#include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
-
-#include "arrow/flight/middleware.h"
+#include "arrow/flight/visibility.h"
 
 namespace arrow {
-
 namespace flight {
+namespace transport {
+namespace grpc {
 
-namespace internal {}  // namespace internal
+/// \brief Register the gRPC transport implementation. Idempotent.
+ARROW_FLIGHT_EXPORT
+void InitializeFlightGrpcServer();
 
+}  // namespace grpc
+}  // namespace transport
 }  // namespace flight
-
 }  // namespace arrow

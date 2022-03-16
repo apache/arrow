@@ -188,7 +188,7 @@ bool Ticket::Equals(const Ticket& other) const { return ticket == other.ticket; 
 
 arrow::Result<std::string> Ticket::SerializeToString() const {
   pb::Ticket pb_ticket;
-  internal::ToProto(*this, &pb_ticket);
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_ticket));
 
   std::string out;
   if (!pb_ticket.SerializeToString(&out)) {

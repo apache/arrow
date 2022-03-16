@@ -35,7 +35,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/integration_tests/test_integration.h"
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/test_util.h"

@@ -86,6 +86,7 @@ class ARROW_FLIGHT_EXPORT DataTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
+/// \brief Specific tests of DoPut.
 class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
  public:
   void SetUp();
@@ -97,11 +98,11 @@ class ARROW_FLIGHT_EXPORT DoPutTest : public FlightTest {
 
   // Test methods
   void TestInts();
-  void TestDoPutFloats();
-  void TestDoPutEmptyBatch();
-  void TestDoPutDicts();
-  void TestDoPutLargeBatch();
-  void TestDoPutSizeLimit();
+  void TestFloats();
+  void TestEmptyBatch();
+  void TestDicts();
+  void TestLargeBatch();
+  void TestSizeLimit();
 
  private:
   std::unique_ptr<FlightClient> client_;
@@ -120,6 +121,7 @@ class ARROW_FLIGHT_EXPORT AppMetadataTestServer : public FlightServerBase {
                std::unique_ptr<FlightMetadataWriter> writer) override;
 };
 
+/// \brief Tests of app_metadata in data plane methods.
 class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
  public:
   void SetUp();
@@ -137,6 +139,7 @@ class ARROW_FLIGHT_EXPORT AppMetadataTest : public FlightTest {
   std::unique_ptr<FlightServerBase> server_;
 };
 
+/// \brief Tests of IPC options in data plane methods.
 class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
  public:
   void SetUp();
@@ -152,6 +155,26 @@ class ARROW_FLIGHT_EXPORT IpcOptionsTest : public FlightTest {
  private:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
+};
+
+/// \brief Tests of data plane methods with CUDA memory.
+///
+/// If not built with ARROW_CUDA, tests are no-ops.
+class ARROW_FLIGHT_EXPORT CudaDataTest : public FlightTest {
+ public:
+  void SetUp() override;
+  void TearDown() override;
+
+  // Test methods
+  void TestDoGet();
+  void TestDoPut();
+  void TestDoExchange();
+
+ private:
+  class Impl;
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
+  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace flight

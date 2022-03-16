@@ -18,7 +18,7 @@
 // Interfaces for defining middleware for Flight clients. Currently
 // experimental.
 
-#include "arrow/flight/client_header_internal.h"
+#include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/client.h"
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/platform.h"
@@ -41,9 +41,6 @@
 #include <mutex>
 #include <string>
 
-const char kAuthHeader[] = "authorization";
-const char kBearerPrefix[] = "Bearer ";
-const char kBasicPrefix[] = "Basic ";
 const char kCookieExpiresFormat[] = "%d %m %Y %H:%M:%S";
 
 namespace arrow {
@@ -66,7 +63,7 @@ size_t CaseInsensitiveHash::operator()(const std::string& key) const {
   return std::hash<std::string>{}(upper_string);
 }
 
-Cookie Cookie::parse(const arrow::util::string_view& cookie_header_value) {
+Cookie Cookie::Parse(const arrow::util::string_view& cookie_header_value) {
   // Parse the cookie string. If the cookie has an expiration, record it.
   // If the cookie has a max-age, calculate the current time + max_age and set that as
   // the expiration.
@@ -256,7 +253,7 @@ void CookieCache::UpdateCachedCookies(const CallHeaders& incoming_headers) {
 
   for (auto it = header_values.first; it != header_values.second; ++it) {
     const util::string_view& value = it->second;
-    Cookie cookie = Cookie::parse(value);
+    Cookie cookie = Cookie::Parse(value);
 
     // Cache cookies regardless of whether or not they are expired. The server may have
     // explicitly sent a Set-Cookie to expire a cached cookie.
@@ -282,53 +279,6 @@ std::string CookieCache::GetValidCookiesAsString() {
     cookie_string += "; " + it->second.AsCookieString();
   }
   return cookie_string;
-}
-
-/// \brief Add base64 encoded credentials to the outbound headers.
-///
-/// \param context Context object to add the headers to.
-/// \param username Username to format and encode.
-/// \param password Password to format and encode.
-void AddBasicAuthHeaders(grpc::ClientContext* context, const std::string& username,
-                         const std::string& password) {
-  const std::string credentials = username + ":" + password;
-  context->AddMetadata(kAuthHeader,
-                       kBasicPrefix + arrow::util::base64_encode(credentials));
-}
-
-/// \brief Get bearer token from inbound headers.
-///
-/// \param context Incoming ClientContext that contains headers.
-/// \return Arrow result with bearer token (empty if no bearer token found).
-arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
-    grpc::ClientContext& context) {
-  // Lambda function to compare characters without case sensitivity.
-  auto char_compare = [](const char& char1, const char& char2) {
-    return (::toupper(char1) == ::toupper(char2));
-  };
-
-  // Get the auth token if it exists, this can be in the initial or the trailing metadata.
-  auto trailing_headers = context.GetServerTrailingMetadata();
-  auto initial_headers = context.GetServerInitialMetadata();
-  auto bearer_iter = trailing_headers.find(kAuthHeader);
-  if (bearer_iter == trailing_headers.end()) {
-    bearer_iter = initial_headers.find(kAuthHeader);
-    if (bearer_iter == initial_headers.end()) {
-      return std::make_pair("", "");
-    }
-  }
-
-  // Check if the value of the auth token starts with the bearer prefix and latch it.
-  std::string bearer_val(bearer_iter->second.data(), bearer_iter->second.size());
-  if (bearer_val.size() > strlen(kBearerPrefix)) {
-    if (std::equal(bearer_val.begin(), bearer_val.begin() + strlen(kBearerPrefix),
-                   kBearerPrefix, char_compare)) {
-      return std::make_pair(kAuthHeader, bearer_val);
-    }
-  }
-
-  // The server is not required to provide a bearer token.
-  return std::make_pair("", "");
 }
 
 }  // namespace internal

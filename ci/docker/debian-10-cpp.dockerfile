@@ -62,6 +62,7 @@ RUN apt-get update -y -q && \
         llvm-${llvm}-dev \
         make \
         ninja-build \
+        nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
         python3-pip \

@@ -2032,3 +2032,14 @@ def test_table_sort_by():
         "keys": ["c", "b", "b", "a", "a"],
         "values": [5, 4, 3, 2, 1]
     }
+
+
+def test_table_to_recordbatchreader():
+    table = pa.Table.from_pydict({'x': [1, 2, 3]})
+    reader = table.to_reader()
+    assert table.schema == reader.schema
+    assert table == reader.read_all()
+
+    reader = table.to_reader(max_chunksize=2)
+    assert reader.read_next_batch().num_rows == 2
+    assert reader.read_next_batch().num_rows == 1

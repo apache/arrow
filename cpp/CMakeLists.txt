@@ -352,6 +352,7 @@ endif()
 
 if(ARROW_ENGINE)
   set(ARROW_PARQUET ON)
+  set(ARROW_IPC ON)
   set(ARROW_COMPUTE ON)
   set(ARROW_DATASET ON)
 endif()

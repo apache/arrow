@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client using gRPC. API should be
-// considered experimental for now
+/// \brief Implementation of Flight RPC client. API should be
+/// considered experimental for now
 
 #pragma once
 
@@ -34,6 +34,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/variant.h"
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
 
@@ -43,10 +44,6 @@ class RecordBatch;
 class Schema;
 
 namespace flight {
-
-class ClientAuthHandler;
-class ClientMiddleware;
-class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -176,7 +173,7 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
   virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
 
-/// \brief Client class for Arrow Flight RPC services (gRPC-based).
+/// \brief Client class for Arrow Flight RPC services.
 /// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:
@@ -336,8 +333,9 @@ class ARROW_FLIGHT_EXPORT FlightClient {
  private:
   FlightClient();
   Status CheckOpen() const;
-  class FlightClientImpl;
-  std::unique_ptr<FlightClientImpl> impl_;
+  std::unique_ptr<internal::ClientTransport> transport_;
+  bool closed_;
+  int64_t write_size_limit_bytes_;
 };
 
 }  // namespace flight

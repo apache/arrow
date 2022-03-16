@@ -30,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/make_unique.h"
 
 #include "arrow/flight/client.h"
 #include "arrow/flight/client_auth.h"
@@ -37,7 +38,6 @@
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/visibility.h"
-#include "arrow/util/make_unique.h"
 
 namespace boost {
 namespace process {
@@ -104,6 +104,27 @@ std::unique_ptr<FlightServerBase> ExampleTestServer();
 // Helper to initialize a server and matching client with callbacks to
 // populate options.
 template <typename T, typename... Args>
+Status MakeServer(const Location& location, std::unique_ptr<FlightServerBase>* server,
+                  std::unique_ptr<FlightClient>* client,
+                  std::function<Status(FlightServerOptions*)> make_server_options,
+                  std::function<Status(FlightClientOptions*)> make_client_options,
+                  Args&&... server_args) {
+  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
+  FlightServerOptions server_options(location);
+  RETURN_NOT_OK(make_server_options(&server_options));
+  RETURN_NOT_OK((*server)->Init(server_options));
+  Location real_location;
+  std::string uri =
+      location.scheme() + "://localhost:" + std::to_string((*server)->port());
+  RETURN_NOT_OK(Location::Parse(uri, &real_location));
+  FlightClientOptions client_options = FlightClientOptions::Defaults();
+  RETURN_NOT_OK(make_client_options(&client_options));
+  return FlightClient::Connect(real_location, client_options, client);
+}
+
+// Helper to initialize a server and matching client with callbacks to
+// populate options.
+template <typename T, typename... Args>
 Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                   std::unique_ptr<FlightClient>* client,
                   std::function<Status(FlightServerOptions*)> make_server_options,
@@ -111,21 +132,15 @@ Status MakeServer(std::unique_ptr<FlightServerBase>* server,
                   Args&&... server_args) {
   Location location;
   RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
-  FlightServerOptions server_options(location);
-  RETURN_NOT_OK(make_server_options(&server_options));
-  RETURN_NOT_OK((*server)->Init(server_options));
-  Location real_location;
-  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", (*server)->port(), &real_location));
-  FlightClientOptions client_options = FlightClientOptions::Defaults();
-  RETURN_NOT_OK(make_client_options(&client_options));
-  return FlightClient::Connect(real_location, client_options, client);
+  return MakeServer<T>(location, server, client, std::move(make_server_options),
+                       std::move(make_client_options),
+                       std::forward<Args>(server_args)...);
 }
 
 // ----------------------------------------------------------------------
 // A FlightDataStream that numbers the record batches
 /// \brief A basic implementation of FlightDataStream that will provide
-/// a sequence of FlightData messages to be written to a gRPC stream
+/// a sequence of FlightData messages to be written to a stream
 class ARROW_FLIGHT_EXPORT NumberingStream : public FlightDataStream {
  public:
   explicit NumberingStream(std::unique_ptr<FlightDataStream> stream);

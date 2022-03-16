@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "json"
 require "open-uri"
 require "time"
 
@@ -173,9 +174,24 @@ class PackageTask
       docker_context = id
     else
       from = File.readlines(File.join(id, "from")).find do |line|
-        /^[a-z]/i =~ line
+        /^[a-z-]/i =~ line
       end
-      build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
+      from_components = from.chomp.split
+      from = from_components.pop
+      build_arguments = from_components
+      case build_arguments
+      when ["--platform=linux/arm64"]
+        docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+        case docker_info["Architecture"]
+        when "aarch64"
+          # Do nothing
+        else
+          # docker build ... -> docker buildx build ...
+          build_command_line[1, 0] = "buildx"
+          build_command_line.concat(build_arguments)
+        end
+      end
+      build_command_line.concat(["--build-arg", "FROM=#{from}"])
       docker_context = os
     end
     build_command_line.concat(docker_build_options(os, architecture))
@@ -236,6 +252,8 @@ class PackageTask
     components = target.split("-")
     if components[0, 2] == ["amazon", "linux"]
       components[0, 2] = components[0, 2].join("-")
+    elsif components[0, 3] == ["centos", "8", "stream"]
+      components[1, 2] = components[1, 2].join("-")
     end
     if components.size >= 3
       components[2..-1] = components[2..-1].join("-")
@@ -412,6 +430,8 @@ VERSION=#{@deb_upstream_version}
       # "almalinux-8-arch64",
       "amazon-linux-2",
       # "amazon-linux-2-arch64",
+      "centos-8-stream",
+      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]

@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -682,10 +683,12 @@ TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
     std::vector<std::thread> threads;
     futures.reserve(n_threads);
     threads.reserve(n_threads);
+    std::mutex mutex;
 
     auto run_in_thread = [&]() {
-      auto maybe_fut = pool->Submit(add<int>, 3, 4);
-      futures.push_back(DeferNotOk(std::move(maybe_fut)));
+      auto fut = DeferNotOk(pool->Submit(add<int>, 3, 4));
+      std::lock_guard<std::mutex> lock(mutex);
+      futures.push_back(std::move(fut));
     };
 
     for (int i = 0; i < n_threads; ++i) {

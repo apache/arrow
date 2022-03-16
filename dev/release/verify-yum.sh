@@ -42,7 +42,7 @@ artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
-distribution_prefix="centos"
+repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
@@ -58,21 +58,26 @@ case "${distribution}-${distribution_version}" in
     distribution_prefix="almalinux"
     ;;
   amzn-2)
+    distribution_prefix="amazon-linux"
     cmake_package=cmake3
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
     have_python=no
     install_command="yum install -y"
-    distribution_prefix="amazon-linux"
     amazon-linux-extras install epel -y
     ;;
   centos-7)
+    distribution_prefix="centos"
     cmake_package=cmake3
     cmake_command=cmake3
     have_flight=no
     have_gandiva=no
     install_command="yum install -y"
+    ;;
+  centos-*)
+    distribution_prefix="centos"
+    repository_version+="-stream"
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -103,12 +108,12 @@ if [ "${TYPE}" = "local" ]; then
       release_path+="/amazon-linux"
       amazon-linux-extras install -y epel
       ;;
-    *)
+    centos)
       package_version+=".el${distribution_version}"
       release_path+="/centos"
       ;;
   esac
-  release_path+="/${distribution_version}/$(arch)/Packages"
+  release_path+="/${repository_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
@@ -120,7 +125,7 @@ else
       ;;
   esac
   ${install_command} \
-    ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then

@@ -225,11 +225,12 @@ test_apt() {
 }
 
 test_yum() {
-  show_header "Testing YUM packages"
+  show_header "Testing Yum packages"
 
   for target in "almalinux:8" \
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2" \
+                "quay.io/centos/centos:stream8" \
                 "centos:7"; do
     case "${target}" in
       arm64v8/*)
@@ -240,7 +241,9 @@ test_yum() {
         fi
         ;;
     esac
-    if ! docker run --rm -v "${SOURCE_DIR}"/../..:/arrow:delegated \
+    if ! docker run \
+           --rm \
+           --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \
@@ -249,6 +252,22 @@ test_yum() {
       exit 1
     fi
   done
+
+  if [ "$(arch)" != "aarch64" -a -e /usr/bin/qemu-aarch64-static ]; then
+    for target in "quay.io/centos/centos:stream8"; do
+      if ! docker run \
+             --platform linux/arm64 \
+             --rm \
+             --volume "${SOURCE_DIR}"/../..:/arrow:delegated \
+             "${target}" \
+             /arrow/dev/release/verify-yum.sh \
+             "${VERSION}" \
+             "rc"; then
+        echo "Failed to verify the Yum repository for ${target} arm64"
+        exit 1
+      fi
+    done
+  fi
 }
 
 setup_tempdir() {

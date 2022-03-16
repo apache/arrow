@@ -1908,7 +1908,8 @@ use_legacy_dataset : bool, default False
     pyarrow 1.0.0. Among other things, this allows to pass `filters`
     for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
-    Set to True to use the legacy behaviour.
+    Set to True to use the legacy behaviour (this option is deprecated,
+    and the legacy implementation will be removed in a future version).
 ignore_prefixes : list, optional
     Files matching any of these prefixes will be ignored by the
     discovery process if use_legacy_dataset=False.
@@ -2005,6 +2006,12 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)
+
+    warnings.warn(
+        "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
+        "deprecated as of pyarrow 8.0.0, and the legacy implementation will "
+        "be removed in a future version.",
+        DeprecationWarning, stacklevel=2)
 
     if ignore_prefixes is not None:
         raise ValueError(

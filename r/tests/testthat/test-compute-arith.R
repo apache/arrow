@@ -133,3 +133,51 @@ test_that("Dates casting", {
   # Error: NotImplemented: Function add_checked has no kernel matching input types (array[date32[day]], scalar[double])
   expect_equal(a + 2, Array$create(c((Sys.Date() + 1:4) + 2), NA_integer_))
 })
+
+test_that("Unary Ops group generics work on Array objects", {
+  expect_equal(+Array$create(1L), Array$create(1L))
+  expect_equal(-Array$create(1L), Array$create(-1L))
+  expect_equal(!Array$create(c(TRUE, FALSE, NA)), Array$create(c(FALSE, TRUE, NA)))
+})
+
+test_that("Math group generics work on Array objects", {
+  expect_equal(abs(Array$create(c(-1L, 1L))), Array$create(c(1L, 1L)))
+  expect_equal(
+    sign(Array$create(c(-5L, 2L))),
+    Array$create(c(-1L, 1L))$cast(int8())
+  )
+  expect_equal(floor(Array$create(c(1.3, 2.1))), Array$create(c(1, 2)))
+  expect_equal(ceiling(Array$create(c(1.3, 2.1))), Array$create(c(2, 3)))
+  expect_equal(trunc(Array$create(c(1.3, 2.1))), Array$create(c(1, 2)))
+  expect_equal(cos(Array$create(c(0.6, 2.1))), Array$create(cos(c(0.6, 2.1))))
+  expect_equal(sin(Array$create(c(0.6, 2.1))), Array$create(sin(c(0.6, 2.1))))
+  expect_equal(tan(Array$create(c(0.6, 2.1))), Array$create(tan(c(0.6, 2.1))))
+  expect_equal(acos(Array$create(c(0.6, 0.9))), Array$create(acos(c(0.6, 0.9))))
+  expect_equal(asin(Array$create(c(0.6, 0.9))), Array$create(asin(c(0.6, 0.9))))
+  expect_equal(atan(Array$create(c(0.6, 0.9))), Array$create(atan(c(0.6, 0.9))))
+
+  expect_equal(log(Array$create(c(0.6, 2.1))), Array$create(log(c(0.6, 2.1))))
+  expect_equal(
+    log(Array$create(c(0.6, 2.1)), base = 2),
+    Array$create(log(c(0.6, 2.1), base = 2))
+  )
+  expect_equal(log10(Array$create(c(0.6, 2.1))), Array$create(log10(c(0.6, 2.1))))
+
+  expect_equal(round(Array$create(c(0.6, 2.1))), Array$create(c(1, 2)))
+  expect_equal(
+    round(Array$create(c(0.61, 2.15)), digits = 1),
+    Array$create(c(0.6, 2.2))
+  )
+
+  expect_equal(sqrt(Array$create(c(2L, 1L))), Array$create(sqrt(c(2L, 1L))))
+  # this operation only roundtrips to 10 decimal places
+  expect_equal(
+    round(exp(Array$create(c(2L, 1L))), digits = 10),
+    Array$create(round(exp(c(2L, 1L)), 10))
+  )
+
+  expect_error(
+    cumsum(Array$create(c(4L, 1L))),
+    "Unsupported operation on `Array`"
+  )
+})

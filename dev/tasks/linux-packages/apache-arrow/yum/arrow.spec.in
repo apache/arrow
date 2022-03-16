@@ -45,6 +45,7 @@
 %define use_boost (!%{is_amazon_linux})
 %define use_flight (%{rhel} >= 8)
 %define use_gandiva (%{rhel} >= 8 && %{_arch} != "aarch64")
+%define use_gcs (%{rhel} >= 8 || %{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
 %define use_mimalloc (%{rhel} >= 8)
 %define use_python (!%{is_amazon_linux})
@@ -79,9 +80,7 @@ BuildRequires:	bzip2-devel
 BuildRequires:	c-ares-devel
 %endif
 BuildRequires:	cmake%{cmake_version}
-%if %{use_s3}
 BuildRequires:	curl-devel
-%endif
 BuildRequires:	flex
 BuildRequires:	gcc-c++
 %if %{use_gflags}
@@ -89,6 +88,9 @@ BuildRequires:	gflags-devel
 %endif
 BuildRequires:	git
 BuildRequires:	glog-devel
+%if %{use_gcs}
+BuildRequires:	json-devel
+%endif
 %if %{have_zstd}
 BuildRequires:	libzstd-devel
 %endif
@@ -138,6 +140,9 @@ cd cpp/build
 %endif
 %if %{use_gandiva}
   -DARROW_GANDIVA=ON \
+%endif
+%if %{use_gcs}
+  -DARROW_GCS=ON \
 %endif
   -DARROW_HDFS=ON \
   -DARROW_JSON=ON \
@@ -236,6 +241,9 @@ Requires:	brotli-devel
 Requires:	bzip2-devel
 %if %{use_flight}
 Requires:	c-ares-devel
+%endif
+%if %{use_gcs}
+Requires:	json-devel
 %endif
 %if %{have_zstd}
 Requires:	libzstd-devel

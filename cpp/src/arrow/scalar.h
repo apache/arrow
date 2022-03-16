@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <utility>
@@ -99,6 +100,8 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
 
   // TODO(bkietz) add compute::CastOptions
   Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
+
+  ARROW_EXPORT friend void PrintTo(const Scalar& scalar, std::ostream* os);
 
  protected:
   Scalar(std::shared_ptr<DataType> type, bool is_valid)
