@@ -117,15 +117,26 @@ ExtensionType <- R6Class("ExtensionType",
   )
 )
 
+
+# ExtensionType$new() is what gets used by the generated wrapper code to
+# create an R6 object when a shared_ptr<DataType> is returned to R and
+# that object has type_id() EXTENSION_TYPE. Rather than add complexity
+# to the wrapper code, we modify ExtensionType$new() to do what we need
+# it to do here (which is to return an instance of a custom R6
+# type whose .Deserialize method is called to populate custom fields).
 ExtensionType$.default_new <- ExtensionType$new
 ExtensionType$new <- function(xp) {
-  superclass <- ExtensionType$.default_new(xp)
-  registered_type <- extension_type_registry[[superclass$extension_name()]]
-  if (is.null(registered_type)) {
-    return(superclass)
+  super <- ExtensionType$.default_new(xp)
+  registered_type_instance <- extension_type_registry[[super$extension_name()]]
+  if (is.null(registered_type_instance)) {
+    return(super)
   }
 
-  registered_type$.__enclos_env__$private$type_class$new(xp)
+  instance <- registered_type_instance$clone()
+  instance$.__enclos_env__$super <- super
+  instance$initialize(xp)
+
+  instance
 }
 
 

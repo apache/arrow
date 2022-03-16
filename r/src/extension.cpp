@@ -23,8 +23,14 @@
 #include <arrow/extension_type.h>
 #include <arrow/type.h>
 
+// A wrapper around arrow::ExtensionType that allows R to register extension
+// types whose Deserialize, ExtensionEquals, and Sersialize methods are
+// in practice handled at the R level.
 class RExtensionType : public arrow::ExtensionType {
  public:
+
+  // An instance of RExtensionType already has a copy of its seraialized
+  // extension metadata when constructed.
   RExtensionType(const std::shared_ptr<arrow::DataType> storage_type,
                  std::string extension_name, std::string extension_metadata,
                  cpp11::environment r6_type_generator)
