@@ -367,12 +367,6 @@
           <version>${dep.netty.version}</version>
           <classifier>${os.detected.name}-${os.detected.arch}</classifier>
         </dependency>
-        <dependency>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-transport-native-kqueue</artifactId>
-          <version>${dep.netty.version}</version>
-          <classifier>${os.detected.name}-${os.detected.arch}</classifier>
-        </dependency>
       </dependencies>
     </profile>
   </profiles>
