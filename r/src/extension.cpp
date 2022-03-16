@@ -49,6 +49,8 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::string Serialize() const { return extension_metadata_; }
 
+  std::string ToString() const;
+
   std::unique_ptr<RExtensionType> Clone() const;
 
   cpp11::environment r6_class() { return r6_class_; }
@@ -113,6 +115,13 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   cloned->r6_instance();
 
   return std::shared_ptr<RExtensionType>(cloned.release());
+}
+
+std::string RExtensionType::ToString() const {
+  cpp11::environment instance = r6_instance();
+  cpp11::function instance_ToString(instance[".ToString"]);
+  cpp11::sexp result = instance_ToString();
+  return cpp11::as_cpp<std::string>(result);
 }
 
 std::unique_ptr<RExtensionType> RExtensionType::Clone() const {

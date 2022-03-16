@@ -90,7 +90,9 @@ ExtensionType <- R6Class("ExtensionType",
       self$MakeArray(array$data())
     },
 
-    ToString = function() {
+    # ExtensionType subclasses can reimplement the following methods:
+
+    .ToString = function() {
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This herustic
       # isn't perfect (but subclasses should override this method anyway)
@@ -215,7 +217,7 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
       private$.ptype
     },
 
-    ToString = function() {
+    .ToString = function() {
       tf <- tempfile()
       on.exit(unlink(tf))
       sink(tf)
