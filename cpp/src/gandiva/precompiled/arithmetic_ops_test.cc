@@ -179,8 +179,6 @@ TEST(TestArithmeticOps, TestPositiveNegative) {
   ctx.Reset();
 }
 
-//
-
 TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
   gandiva::ExecutionContext ctx;
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);

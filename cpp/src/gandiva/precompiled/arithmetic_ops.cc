@@ -404,7 +404,7 @@ gdv_int64 negative_daytimeinterval(gdv_int64 context, gdv_day_time_interval inte
   }
 
   int64_t qty_days = interval >> 32;
-  int64_t qty_millis = ((interval & 0x00000000FFFFFFFF) << 32) >> 32;
+  int64_t qty_millis = interval & 0x00000000FFFFFFFF;
 
   qty_days = -1 * qty_days;
   qty_millis = -1 * qty_millis;
