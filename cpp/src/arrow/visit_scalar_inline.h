@@ -39,6 +39,7 @@ inline Status VisitScalarInline(const Scalar& scalar, VISITOR* visitor) {
     default:
       break;
   }
+  // Need to handle arrow::ExtensionScalar, arrow::SparseUnionScalar, arrow::DenseUnionSclar
   return Status::NotImplemented("Scalar visitor for type not implemented ",
                                 scalar.type->ToString());
 }
