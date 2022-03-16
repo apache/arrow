@@ -126,5 +126,4 @@ Collate:
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
-    'tpch.R'
     'util.R'
