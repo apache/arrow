@@ -48,7 +48,7 @@ import org.apache.calcite.avatica.org.apache.http.client.utils.URLEncodedUtils;
 public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   private static final String CONNECT_STRING_PREFIX = "jdbc:arrow-flight://";
-  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight://[host][:port][?param1=value&...]";
+  private static final String CONNECTION_STRING_EXPECTED = "jdbc:arrow-flight://<host>:32010[?param1=value&...]";
   private static DriverVersion version;
 
   static {
@@ -96,9 +96,11 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   @Override
   protected DriverVersion createDriverVersion() {
     if (version == null) {
-      try (Reader reader = new BufferedReader(new InputStreamReader(
-          this.getClass().getResourceAsStream("/properties/flight.properties"),
-          StandardCharsets.UTF_8))) {
+      final InputStream flightProperties = this.getClass().getResourceAsStream("/properties/flight.properties");
+      if (flightProperties == null) {
+        throw new RuntimeException("Flight Properties not found. Ensure the JAR was built properly.");
+      }
+      try (final Reader reader = new BufferedReader(new InputStreamReader(flightProperties, StandardCharsets.UTF_8))) {
         final Properties properties = new Properties();
         properties.load(reader);
 
@@ -216,7 +218,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
      */
 
     if (!url.startsWith("jdbc:")) {
-      throw new SQLException("Connection string must start with 'jdbc:'");
+      throw new SQLException("Connection string must start with 'jdbc:'. Expected format: "
+          + CONNECTION_STRING_EXPECTED);
     }
 
     // It's necessary to use a string without "jdbc:" at the beginning to be parsed as a valid URL.
@@ -231,7 +234,8 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     }
 
     if (!Objects.equals(uri.getScheme(), "arrow-flight")) {
-      throw new SQLException("URL Scheme must be 'arrow-flight'");
+      throw new SQLException("URL Scheme must be 'arrow-flight'. Expected format: "
+          + CONNECTION_STRING_EXPECTED);
     }
 
 
