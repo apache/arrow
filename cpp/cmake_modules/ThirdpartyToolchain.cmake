@@ -303,6 +303,7 @@ if(ARROW_FLIGHT)
 endif()
 
 if(ARROW_WITH_GRPC)
+  set(ARROW_WITH_RE2 ON)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
