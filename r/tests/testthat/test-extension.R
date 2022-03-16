@@ -89,7 +89,7 @@ test_that("extension type subclasses work", {
   array <- type3$WrapArray(Array$create(1:10))
   expect_r6_class(array, "ExtensionArray")
 
-  expect_identical(unregister_extension_type("some_extension_subclass"), type)
+  unregister_extension_type("some_extension_subclass")
 })
 
 test_that("extension subclasses can override the ExtensionEquals method", {

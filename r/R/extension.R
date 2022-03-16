@@ -221,15 +221,62 @@ ExtensionType <- R6Class("ExtensionType",
 ExtensionType$.default_new <- ExtensionType$new
 ExtensionType$new <- function(xp) {
   super <- ExtensionType$.default_new(xp)
-  registered_type_instance <- extension_type_registry[[super$extension_name()]]
-  if (is.null(registered_type_instance)) {
+  r6_class <- super$r6_class()
+  if (identical(r6_class$classname, "ExtensionType")) {
     super
   } else {
-    super$r6_class()$new(xp)
+    r6_class$new(xp)
   }
 }
 
-
+#' Extension types
+#'
+#' Extension arrays are wrappers around regular Arrow [Array] objects
+#' that provide some customized behaviour and/or storage. A common use-case
+#' for extension types is to define a customized conversion between an
+#' an Arrow [Array] and an R object when the default conversion is slow
+#' or looses metadata important to the interpretation of values in the array.
+#' For most types, the built-in
+#' [vctrs extension type][vctrs_extension_type] is probably sufficient.
+#'
+#' These functions create, register, and unregister [ExtensionType]
+#' and [ExtensionArray] objects. To use an extension type you will have to:
+#'
+#' - Define an [R6::R6Class] that inherits from [ExtensionType] and reimplement
+#'   one or more methods (e.g., `.Deserialize()`).
+#' - Register a dummy instance of your extension type created using
+#'   [new_extension_type()] using [register_extension_type()].
+#'
+#' If defining an extension type in an R package, you will probably want to
+#' use [reregister_extension_type()] in that package's [.onLoad()] hook
+#' since your package will probably get reloaded in the same R session
+#' during its development and [register_extension_type()] will error if
+#' called twice for the same `extension_name`.
+#'
+#' @param storage_type The [data type][data-type] of the underlying storage
+#'   array.
+#' @param storage_array An [Array] object of the underlying storage.
+#' @param extension_type An [ExtensionType] instance.
+#' @param extension_name The extension name. This should be namespaced using
+#'   "dot" syntax (i.e., "some_package.some_type"). The namespace "arrow"
+#'    is reserved for extension types defined by the Apache Arrow libraries.
+#' @param extension_metadata A [raw()] vector containing the serialized
+#'   version of the type.
+#' @param type_class An [R6::R6Class] whose `$new()` class method will be
+#'   used to construct a new instance of the type.
+#'
+#' @return
+#'   - `new_extension_type()` returns an [ExtensionType] instance according
+#'     to the `type_class` specified.
+#'   - `new_extension_array()` returns an [ExtensionArray] whose `$type`
+#'     corresponds to `extension_type`.
+#'   - `register_extension_type()` and `reregister_extension_type()` return
+#'     `extension_type`, invisibly.
+#'   - `unregister_extension_type()` returns the previously registered
+#'     `extension_type` (invisibly) or `NULL` if no type was previously
+#'     registered.
+#' @export
+#'
 new_extension_type <- function(storage_type,
                                extension_name,
                                extension_metadata,
@@ -246,17 +293,21 @@ new_extension_type <- function(storage_type,
   )
 }
 
+#' @rdname new_extension_type
+#' @export
 new_extension_array <- function(storage_array, extension_type) {
   ExtensionArray$create(storage_array, extension_type)
 }
 
+#' @rdname new_extension_type
+#' @export
 register_extension_type <- function(extension_type) {
   assert_is(extension_type, "ExtensionType")
   arrow__RegisterRExtensionType(extension_type)
-  extension_type_registry[[extension_type$extension_name()]] <- extension_type
-  invisible(extension_type)
 }
 
+#' @rdname new_extension_type
+#' @export
 reregister_extension_type <- function(extension_type) {
   tryCatch(
     register_extension_type(extension_type),
@@ -267,16 +318,11 @@ reregister_extension_type <- function(extension_type) {
   )
 }
 
+#' @rdname new_extension_type
+#' @export
 unregister_extension_type <- function(extension_name) {
   arrow__UnregisterRExtensionType(extension_name)
-  result <- extension_type_registry[[extension_name]]
-  if (!is.null(result)) {
-    rm(list = extension_name, envir = extension_type_registry)
-  }
-  invisible(result)
 }
-
-extension_type_registry <- new.env(parent = emptyenv())
 
 
 VctrsExtensionType <- R6Class("VctrsExtensionType",
@@ -288,10 +334,12 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 
     .ToString = function() {
       tf <- tempfile()
-      on.exit(unlink(tf))
       sink(tf)
+      on.exit({
+        sink(NULL)
+        unlink(tf)
+      })
       print(self$ptype())
-      sink(NULL)
       paste0(readLines(tf), collapse = "\n")
     },
 
@@ -327,18 +375,38 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 )
 
 
-vctrs_extension_type <- function(ptype,
-                                 storage_type = type(vctrs::vec_data(ptype))) {
-  ptype <- vctrs::vec_ptype(ptype)
-
-  new_extension_type(
-    storage_type = storage_type,
-    extension_name = "arrow.r.vctrs",
-    extension_metadata = serialize(ptype, NULL),
-    type_class = VctrsExtensionType
-  )
-}
-
+#' Extension type for generic vectors
+#'
+#' Most common R vector types are converted automatically to a suitable
+#' Arrow [data type][data-type] without the need for an extension type. For
+#' vector types whose conversion is not suitably handled by default, you can
+#' create a [vctrs_extension_array()], which passes [vctrs::vec_data()] to
+#' `Array$create()` and calls [vctrs::vec_restore()] when the [Array] is
+#' converted back into an R vector.
+#'
+#' @param x A vctr (i.e., [vctrs::vec_is()] returns `TRUE`).
+#' @param ptype A [vctrs::vec_ptype()], which is usually a zero-length
+#'   version of the object with the appropriate attributes set. This value
+#'   will be serialized using [serialize()], so it should not refer to any
+#'   R object that can't be saved/reloaded.
+#' @inheritParams new_extension_type
+#'
+#' @return
+#'   - `vctrs_extension_array()` returns an [ExtensionArray] instance with a
+#'     `vctrs_extension_type()`.
+#'   - `vctrs_extension_type()` returns an [ExtensionType] instance for the
+#'     extension name "arrow.r.vctrs".
+#' @export
+#'
+#' @examplesIf arrow_available()
+#' (array <- vctrs_extension_array(as.POSIXlt("2022-01-02 03:45", tz = "UTC")))
+#' array$type
+#' as.vector(array)
+#'
+#' temp_feather <- tempfile()
+#' write_feather(arrow_table(col = array), temp_feather)
+#' read_feather(temp_feather)
+#' unlink(temp_feather)
 vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
                                   storage_type = NULL) {
   if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
@@ -349,4 +417,18 @@ vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
   storage <- Array$create(vctrs::vec_data(x), type = storage_type)
   type <- vctrs_extension_type(ptype, storage$type)
   type$WrapArray(storage)
+}
+
+#' @rdname vctrs_extension_array
+#' @export
+vctrs_extension_type <- function(ptype,
+                                 storage_type = type(vctrs::vec_data(ptype))) {
+  ptype <- vctrs::vec_ptype(ptype)
+
+  new_extension_type(
+    storage_type = storage_type,
+    extension_name = "arrow.r.vctrs",
+    extension_metadata = serialize(ptype, NULL),
+    type_class = VctrsExtensionType
+  )
 }
