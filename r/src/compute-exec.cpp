@@ -43,6 +43,29 @@ std::shared_ptr<compute::ExecPlan> ExecPlan_create(bool use_threads) {
   return plan;
 }
 
+// [[arrow::export]]
+std::shared_ptr<compute::ExecPlan> ExecPlan_create_with_metadata(bool use_threads, cpp11::strings metadata) {
+  static compute::ExecContext threaded_context{gc_memory_pool(),
+                                               arrow::internal::GetCpuThreadPool()};
+  auto vec_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names_metadata = cpp11::as_cpp<std::vector<std::string>>(metadata.names());
+  auto kv = std::shared_ptr<arrow::KeyValueMetadata>(
+      new arrow::KeyValueMetadata(names_metadata, vec_metadata));
+  auto plan = ValueOrStop(
+      compute::ExecPlan::Make(use_threads ? &threaded_context : gc_context(), kv));
+  return plan;
+}
+
+// [[arrow::export]]
+bool ExecPlan_HasMetadata(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->HasMetadata();
+}
+
+// [[arrow::export]]
+std::shared_ptr<const arrow::KeyValueMetadata> ExecPlan_metadata(const std::shared_ptr<compute::ExecPlan>& plan) {
+  return plan->metadata();
+}
+
 std::shared_ptr<compute::ExecNode> MakeExecNodeOrStop(
     const std::string& factory_name, compute::ExecPlan* plan,
     std::vector<compute::ExecNode*> inputs, const compute::ExecNodeOptions& options) {

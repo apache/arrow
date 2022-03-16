@@ -240,8 +240,21 @@ ExecPlan <- R6Class("ExecPlan",
     Stop = function() ExecPlan_StopProducing(self)
   )
 )
-ExecPlan$create <- function(use_threads = option_use_threads()) {
-  ExecPlan_create(use_threads)
+
+ExecPlan$create <- function(use_threads = option_use_threads(), metadata) {
+  if (missing(metadata)) {
+    ExecPlan_create(use_threads)
+  } else {
+    ExecPlan_create_with_metadata(use_threads, metadata)
+  }
+}
+
+ExecPlan$HasMetadata <- function(plan) {
+  ExecPlan_HasMetadata(plan)
+}
+
+ExecPlan$metadata <- function(plan) {
+  ExecPlan_metadata(plan)
 }
 
 ExecNode <- R6Class("ExecNode",
