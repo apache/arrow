@@ -95,7 +95,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
 
   @Override
   protected DriverVersion createDriverVersion() {
-    if (version != null) {
+    if (version == null) {
       try (Reader reader = new BufferedReader(new InputStreamReader(
           this.getClass().getResourceAsStream("/properties/flight.properties"),
           StandardCharsets.UTF_8))) {
