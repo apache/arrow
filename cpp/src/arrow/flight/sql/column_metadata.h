@@ -136,22 +136,22 @@ class ColumnMetadata {
     ColumnMetadataBuilder& Scale(int32_t scale);
 
     /// \brief Set the IsAutoIncrement in the KeyValueMetadata object.
-    /// \param[in] IsAutoIncrement  The IsAutoIncrement.
+    /// \param[in] is_auto_increment  The IsAutoIncrement.
     /// \return                     A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsAutoIncrement(bool is_auto_increment);
 
     /// \brief Set the IsCaseSensitive in the KeyValueMetadata object.
-    /// \param[in] IsCaseSensitive The IsCaseSensitive.
+    /// \param[in] is_case_sensitive The IsCaseSensitive.
     /// \return                    A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsCaseSensitive(bool is_case_sensitive);
 
     /// \brief Set the IsReadOnly in the KeyValueMetadata object.
-    /// \param[in] IsReadOnly   The IsReadOnly.
+    /// \param[in] is_read_only   The IsReadOnly.
     /// \return                 A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsReadOnly(bool is_read_only);
 
     /// \brief Set the IsSearchable in the KeyValueMetadata object.
-    /// \param[in] IsSearchable The IsSearchable.
+    /// \param[in] is_searchable The IsSearchable.
     /// \return                 A ColumnMetadataBuilder.
     ColumnMetadataBuilder& IsSearchable(bool is_searchable);
 
