@@ -243,31 +243,9 @@ struct SubtractCheckedDate32 {
 template <bool left_is_32bit, int64_t multiple>
 struct AddTimeDuration {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(!std::is_same<Arg0, Arg1>::value && left_is_32bit), T> Call(
-      KernelContext*, Arg0 left, Arg1 right, Status* st) {
-    T result = arrow::internal::SafeSignedAdd(left, static_cast<T>(right));
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(!std::is_same<Arg0, Arg1>::value && !left_is_32bit), T> Call(
-      KernelContext*, Arg0 left, Arg1 right, Status* st) {
-    T result = arrow::internal::SafeSignedAdd(static_cast<T>(left), right);
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(std::is_same<Arg0, Arg1>::value), T> Call(KernelContext*, Arg0 left,
-                                                                Arg1 right, Status* st) {
-    T result = arrow::internal::SafeSignedAdd(left, right);
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
+    T result =
+        arrow::internal::SafeSignedAdd(static_cast<T>(left), static_cast<T>(right));
     if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
@@ -279,38 +257,10 @@ struct AddTimeDuration {
 template <bool left_is_32bit, int64_t multiple>
 struct AddTimeDurationChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(!std::is_same<Arg0, Arg1>::value && left_is_32bit), T> Call(
-      KernelContext*, Arg0 left, Arg1 right, Status* st) {
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     T result = 0;
-    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, static_cast<T>(right), &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(!std::is_same<Arg0, Arg1>::value && !left_is_32bit), T> Call(
-      KernelContext*, Arg0 left, Arg1 right, Status* st) {
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(AddWithOverflow(static_cast<T>(left), right, &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<(std::is_same<Arg0, Arg1>::value), T> Call(KernelContext*, Arg0 left,
-                                                                Arg1 right, Status* st) {
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
+    if (ARROW_PREDICT_FALSE(
+            AddWithOverflow(static_cast<T>(left), static_cast<T>(right), &result))) {
       *st = Status::Invalid("overflow");
     }
     if (result < 0 || multiple <= result) {
