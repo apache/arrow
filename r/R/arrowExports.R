@@ -1068,8 +1068,8 @@ compute___expr__type_id <- function(x, schema) {
   .Call(`_arrow_compute___expr__type_id`, x, schema)
 }
 
-ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_type_generator) {
-  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_type_generator)
+ExtensionType__initialize <- function(storage_type, extension_name, extension_metadata, r6_class) {
+  .Call(`_arrow_ExtensionType__initialize`, storage_type, extension_name, extension_metadata, r6_class)
 }
 
 ExtensionType__extension_name <- function(type) {
@@ -1086,6 +1086,10 @@ ExtensionType__storage_type <- function(type) {
 
 ExtensionType__MakeArray <- function(type, data) {
   .Call(`_arrow_ExtensionType__MakeArray`, type, data)
+}
+
+ExtensionType__r6_class <- function(type) {
+  .Call(`_arrow_ExtensionType__r6_class`, type)
 }
 
 ExtensionArray__storage <- function(array) {

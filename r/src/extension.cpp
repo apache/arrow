@@ -33,11 +33,11 @@ class RExtensionType : public arrow::ExtensionType {
   // extension metadata when constructed.
   RExtensionType(const std::shared_ptr<arrow::DataType> storage_type,
                  std::string extension_name, std::string extension_metadata,
-                 cpp11::environment r6_type_generator)
+                 cpp11::environment r6_class)
       : arrow::ExtensionType(storage_type),
         extension_name_(extension_name),
         extension_metadata_(extension_metadata),
-        r6_type_generator_(r6_type_generator) {}
+        r6_class_(r6_class) {}
 
   std::string extension_name() const { return extension_name_; }
 
@@ -53,13 +53,15 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::shared_ptr<RExtensionType> Clone() const;
 
+  cpp11::environment R6Class() { return r6_class_; }
+
   cpp11::environment to_r6(std::shared_ptr<arrow::DataType> storage_type,
                            const std::string& serialized_data) const;
 
  private:
   std::string extension_name_;
   std::string extension_metadata_;
-  cpp11::environment r6_type_generator_;
+  cpp11::environment r6_class_;
 };
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
@@ -107,7 +109,7 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
 
 std::shared_ptr<RExtensionType> RExtensionType::Clone() const {
   return std::make_shared<RExtensionType>(storage_type(), extension_name_,
-                                          extension_metadata_, r6_type_generator_);
+                                          extension_metadata_, r6_class_);
 }
 
 cpp11::environment RExtensionType::to_r6(std::shared_ptr<arrow::DataType> storage_type,
@@ -117,7 +119,7 @@ cpp11::environment RExtensionType::to_r6(std::shared_ptr<arrow::DataType> storag
   cpp11::writable::raws serialized_data_raw(serialized_data);
 
   cpp11::sexp result = make_extension_type(storage_type_r6, extension_name(),
-                                           serialized_data_raw, r6_type_generator_);
+                                           serialized_data_raw, r6_class_);
 
   return result;
 }
@@ -125,11 +127,11 @@ cpp11::environment RExtensionType::to_r6(std::shared_ptr<arrow::DataType> storag
 // [[arrow::export]]
 cpp11::sexp ExtensionType__initialize(
     const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name,
-    cpp11::raws extension_metadata, cpp11::environment r6_type_generator) {
-  cpp11::function constructor(r6_type_generator["new"]);
+    cpp11::raws extension_metadata, cpp11::environment r6_class) {
+  cpp11::function constructor(r6_class["new"]);
   std::string metadata_string(extension_metadata.begin(), extension_metadata.end());
   auto shared_ptr_ptr = new std::shared_ptr<RExtensionType>(new RExtensionType(
-      storage_type, extension_name, metadata_string, r6_type_generator));
+      storage_type, extension_name, metadata_string, r6_class));
   auto external_ptr =
       cpp11::external_pointer<std::shared_ptr<RExtensionType>>(shared_ptr_ptr);
   return constructor(external_ptr);
@@ -159,6 +161,12 @@ std::shared_ptr<arrow::Array> ExtensionType__MakeArray(
     const std::shared_ptr<arrow::ExtensionType>& type,
     const std::shared_ptr<arrow::ArrayData>& data) {
   return type->MakeArray(data);
+}
+
+// [[arrow::export]]
+cpp11::environment ExtensionType__r6_class(const std::shared_ptr<arrow::ExtensionType>& type) {
+  auto r_type = arrow::internal::checked_pointer_cast<RExtensionType, arrow::ExtensionType>(type);
+  return r_type->R6Class();
 }
 
 // [[arrow::export]]

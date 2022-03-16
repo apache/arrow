@@ -4169,18 +4169,18 @@ extern "C" SEXP _arrow_compute___expr__type_id(SEXP x_sexp, SEXP schema_sexp){
 
 // extension.cpp
 #if defined(ARROW_R_WITH_ARROW)
-cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_type_generator);
-extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp){
+cpp11::sexp ExtensionType__initialize(const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name, cpp11::raws extension_metadata, cpp11::environment r6_class);
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type storage_type(storage_type_sexp);
 	arrow::r::Input<std::string>::type extension_name(extension_name_sexp);
 	arrow::r::Input<cpp11::raws>::type extension_metadata(extension_metadata_sexp);
-	arrow::r::Input<cpp11::environment>::type r6_type_generator(r6_type_generator_sexp);
-	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_type_generator));
+	arrow::r::Input<cpp11::environment>::type r6_class(r6_class_sexp);
+	return cpp11::as_sexp(ExtensionType__initialize(storage_type, extension_name, extension_metadata, r6_class));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_type_generator_sexp){
+extern "C" SEXP _arrow_ExtensionType__initialize(SEXP storage_type_sexp, SEXP extension_name_sexp, SEXP extension_metadata_sexp, SEXP r6_class_sexp){
 	Rf_error("Cannot call ExtensionType__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4243,6 +4243,21 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_ExtensionType__MakeArray(SEXP type_sexp, SEXP data_sexp){
 	Rf_error("Cannot call ExtensionType__MakeArray(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// extension.cpp
+#if defined(ARROW_R_WITH_ARROW)
+cpp11::environment ExtensionType__r6_class(const std::shared_ptr<arrow::ExtensionType>& type);
+extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ExtensionType>&>::type type(type_sexp);
+	return cpp11::as_sexp(ExtensionType__r6_class(type));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_ExtensionType__r6_class(SEXP type_sexp){
+	Rf_error("Cannot call ExtensionType__r6_class(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -8142,6 +8157,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExtensionType__Serialize", (DL_FUNC) &_arrow_ExtensionType__Serialize, 1}, 
 		{ "_arrow_ExtensionType__storage_type", (DL_FUNC) &_arrow_ExtensionType__storage_type, 1}, 
 		{ "_arrow_ExtensionType__MakeArray", (DL_FUNC) &_arrow_ExtensionType__MakeArray, 2}, 
+		{ "_arrow_ExtensionType__r6_class", (DL_FUNC) &_arrow_ExtensionType__r6_class, 1}, 
 		{ "_arrow_ExtensionArray__storage", (DL_FUNC) &_arrow_ExtensionArray__storage, 1}, 
 		{ "_arrow_arrow__RegisterRExtensionType", (DL_FUNC) &_arrow_arrow__RegisterRExtensionType, 1}, 
 		{ "_arrow_arrow__UnregisterRExtensionType", (DL_FUNC) &_arrow_arrow__UnregisterRExtensionType, 1}, 

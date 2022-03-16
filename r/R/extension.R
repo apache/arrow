@@ -42,6 +42,10 @@ ExtensionArray$create <- function(x, type) {
 ExtensionType <- R6Class("ExtensionType",
   inherit = DataType,
   public = list(
+
+    # In addition to the initialization that occurs for all
+    # ArrowObject instances, we call .Deserialize(), which can
+    # be overridden to populate custom fields
     initialize = function(xp) {
       super$initialize(xp)
       self$.Deserialize(
@@ -51,8 +55,13 @@ ExtensionType <- R6Class("ExtensionType",
       )
     },
 
-    .set_r6_constructors = function(type_class) {
-      private$type_class <- type_class
+    # Because of how C++ shared_ptr<> objects are converted to R objects,
+    # the initial object that is instantiated will be of this class
+    # (ExtensionType), but the R6Class object that was registered is
+    # available from C++. We need this in order to produce the correct
+    # R6 subclass when a shared_ptr<ExtensionType> is returned to R.
+    r6_class = function() {
+      ExtensionType__r6_class(self)
     },
 
     storage_type = function() {
@@ -82,9 +91,31 @@ ExtensionType <- R6Class("ExtensionType",
     },
 
     ToString = function() {
-      metadata_utf8 <- rawToChar(self$Serialize())
-      Encoding(metadata_utf8) <- "UTF-8"
-      paste0(class(self)[1], " <", metadata_utf8, ">")
+      # metadata is probably valid UTF-8 (e.g., JSON), but might not be
+      # and it's confusing to error when printing the object. This herustic
+      # isn't perfect (but subclasses should override this method anyway)
+      metadata_raw <- self$Serialize()
+
+      if (as.raw(0x00) %in% metadata_raw) {
+        if (length(metadata_raw) > 20) {
+          sprintf(
+            "<%s %s...>",
+            class(self)[1],
+            paste(format(utils::head(metadata_raw, 20)), collapse = " ")
+          )
+        } else {
+          sprintf(
+            "<%s %s>",
+            class(self)[1],
+            paste(format(metadata_raw), collapse = " ")
+          )
+        }
+
+      } else {
+        metadata_utf8 <- rawToChar(self$Serialize())
+        Encoding(metadata_utf8) <- "UTF-8"
+        paste0(class(self)[1], " <", metadata_utf8, ">")
+      }
     },
 
     .Deserialize = function(storage_type, extension_name, extension_metadata) {
@@ -93,7 +124,6 @@ ExtensionType <- R6Class("ExtensionType",
     },
 
     .ExtensionEquals = function(other) {
-      # note that this must not call to C++ (because C++ might call here)
       inherits(other, "ExtensionType") &&
         identical(other$extension_name(), self$extension_name()) &&
         identical(other$Serialize(), self$Serialize())
@@ -111,9 +141,6 @@ ExtensionType <- R6Class("ExtensionType",
     .array_as_vector = function(extension_array) {
       extension_array$storage()$as_vector()
     }
-  ),
-  private = list(
-    type_class = NULL
   )
 )
 
@@ -129,14 +156,10 @@ ExtensionType$new <- function(xp) {
   super <- ExtensionType$.default_new(xp)
   registered_type_instance <- extension_type_registry[[super$extension_name()]]
   if (is.null(registered_type_instance)) {
-    return(super)
+    super
+  } else {
+    super$r6_class()$new(xp)
   }
-
-  instance <- registered_type_instance$clone()
-  instance$.__enclos_env__$super <- super
-  instance$initialize(xp)
-
-  instance
 }
 
 
@@ -148,41 +171,29 @@ MakeExtensionType <- function(storage_type,
   assert_is(storage_type, "DataType")
   assert_is(type_class, "R6ClassGenerator")
 
-  type <- ExtensionType__initialize(
+  ExtensionType__initialize(
     storage_type,
     extension_name,
     extension_metadata,
     type_class
   )
-
-  type$.set_r6_constructors(type_class)
-  type$.Deserialize(storage_type, extension_name, extension_metadata)
-  type
 }
 
-RegisterExtensionType <- function(type) {
-  assert_is(type, "ExtensionType")
-  arrow__RegisterRExtensionType(type)
-  extension_type_registry[[type$extension_name()]] <- type
-  invisible(type)
+RegisterExtensionType <- function(extension_type) {
+  assert_is(extension_type, "ExtensionType")
+  arrow__RegisterRExtensionType(extension_type)
+  extension_type_registry[[extension_type$extension_name()]] <- extension_type
+  invisible(extension_type)
 }
 
-ReRegisterExtensionType <- function(type) {
-  extension_name <- type$extension_name()
-  result <- extension_type_registry[[extension_name]]
-  if (!is.null(result)) {
-    UnregisterExtensionType(extension_name)
-  }
-
+ReRegisterExtensionType <- function(extension_type) {
   tryCatch(
-    RegisterExtensionType(type),
+    RegisterExtensionType(extension_type),
     error = function(e) {
-      UnregisterExtensionType(extension_name)
-      RegisterExtensionType(type)
+      UnregisterExtensionType(extension_type$extension_name())
+      RegisterExtensionType(extension_type)
     }
   )
-
-  invisible(result)
 }
 
 UnregisterExtensionType <- function(extension_name) {
@@ -245,19 +256,6 @@ VctrsExtensionType <- R6Class("VctrsExtensionType",
 )
 
 
-vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
-                                  storage_type = NULL) {
-  if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
-    return(x)
-  }
-
-  vctrs::vec_assert(x)
-  storage <- Array$create(vctrs::vec_data(x), type = storage_type)
-  type <- vctrs_extension_type(ptype, storage$type)
-  type$WrapArray(storage)
-}
-
-
 vctrs_extension_type <- function(ptype,
                                  storage_type = type(vctrs::vec_data(ptype))) {
   ptype <- vctrs::vec_ptype(ptype)
@@ -268,4 +266,16 @@ vctrs_extension_type <- function(ptype,
     extension_metadata = serialize(ptype, NULL),
     type_class = VctrsExtensionType
   )
+}
+
+vctrs_extension_array <- function(x, ptype = vctrs::vec_ptype(x),
+                                  storage_type = NULL) {
+  if (inherits(x, "ExtensionArray") && inherits(x$type, "VctrsExtensionType")) {
+    return(x)
+  }
+
+  vctrs::vec_assert(x)
+  storage <- Array$create(vctrs::vec_data(x), type = storage_type)
+  type <- vctrs_extension_type(ptype, storage$type)
+  type$WrapArray(storage)
 }
