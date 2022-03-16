@@ -1094,30 +1094,32 @@ TEST_F(TestProjector, TestNegativeIntervalTypeDayTime) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 6;
+  int num_records = 7;
 
   std::shared_ptr<arrow::Array> array_day_interval, array_day_interval_output;
   arrow::ArrayFromVector<arrow::DayTimeIntervalType,
                          arrow::DayTimeIntervalType::DayMilliseconds>(
-      arrow::day_time_interval(), {true, true, true, true, true, true},
+      arrow::day_time_interval(), {true, true, true, true, true, true, true},
       {{2, 2},
        {-2, -2},
        {10250, 3600000},
        {2147483647, 2147483647},
        {4, 1500},
-       {-4, -1500}},
+       {-4, -1500},
+       {-2147483647, -2147483647}},
       &array_day_interval);
 
   // expected output
   arrow::ArrayFromVector<arrow::DayTimeIntervalType,
                          arrow::DayTimeIntervalType::DayMilliseconds>(
-      arrow::day_time_interval(), {true, true, true, true, true, true},
+      arrow::day_time_interval(), {true, true, true, true, true, true, true},
       {{-2, -2},
        {2, 2},
        {-10250, -3600000},
        {-2147483647, -2147483647},
        {-4, -1500},
-       {4, 1500}},
+       {4, 1500},
+       {2147483647, 2147483647}},
       &array_day_interval_output);
 
   // prepare input record batch

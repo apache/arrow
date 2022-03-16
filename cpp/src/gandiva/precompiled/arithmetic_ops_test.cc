@@ -213,7 +213,18 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
 
   result = negative_daytimeinterval(ctx_ptr, INT64_MAX);
   EXPECT_EQ(ctx.has_error(), true);
-  EXPECT_EQ(ctx.get_error(), "Interval is more than max allowed in negative execution");
+  EXPECT_EQ(ctx.get_error(),
+            "Interval day time is out of boundaries for the negative function");
+  ctx.Reset();
+
+  const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
+  result = negative_daytimeinterval(ctx_ptr, INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME);
+  EXPECT_EQ(result, INT_MAX_TO_NEGATIVE_INTERVAL_DAY_TIME);
+
+  result = negative_daytimeinterval(ctx_ptr, INT64_MIN);
+  EXPECT_EQ(ctx.has_error(), true);
+  EXPECT_EQ(ctx.get_error(),
+            "Interval day time is out of boundaries for the negative function");
   ctx.Reset();
 
   // Month interval
