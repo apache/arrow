@@ -187,10 +187,6 @@ register_bindings_datetime <- function() {
   register_binding("date", function(x) {
     build_expr("cast", x, options = list(to_type = date32()))
   })
-  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
-    x <- call_binding("make_datetime", year, month, day)
-    build_expr("cast", x, options = cast_options(to_type = date32()))
-  })
   register_binding("make_datetime", function(year = 1970L,
                                              month = 1L,
                                              day = 1L,
@@ -207,6 +203,10 @@ register_bindings_datetime <- function() {
 
     x <- call_binding("str_c", year, month, day, hour, min, sec, sep = "-")
     build_expr("strptime", x, options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L))
+  })
+  register_binding("make_date", function(year = 1970L, month = 1L, day = 1L) {
+    x <- call_binding("make_datetime", year, month, day)
+    build_expr("cast", x, options = cast_options(to_type = date32()))
   })
 }
 
