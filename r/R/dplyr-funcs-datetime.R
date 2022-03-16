@@ -194,15 +194,13 @@ register_bindings_duration <- function() {
   register_binding("difftime", function(time1,
                                         time2,
                                         tz,
-                                        units = c("auto", "secs", "mins",
-                                                  "hours", "days", "weeks")) {
-    units <- match.arg(units)
+                                        units = "secs") {
     if (units != "secs") {
-      abort("`difftime()` with units other than seconds not supported in Arrow")
+      abort("`difftime()` with units other than `secs` not supported in Arrow")
     }
 
     if (!missing(tz)) {
-      warn("`tz` is an optional argument to `difftime()` in R and will not be used in Arrow")
+      warn("`tz` argument is not supported in Arrow, so it will be ignored")
     }
 
     time1 <- build_expr("cast", time1, options = cast_options(to_type = timestamp()))
@@ -281,14 +279,14 @@ binding_format_datetime <- function(x, format = "", tz = "", usetz = FALSE) {
 
   register_binding("as.difftime", function(x,
                                            format = "%X",
-                                           units = "auto") {
+                                           units = "secs") {
     # windows doesn't seem to like "%X"
     if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
       format <- "%H:%M:%S"
     }
 
     if (units != "secs") {
-      abort("`as.difftime()` with units other than seconds not supported in Arrow")
+      abort("`as.difftime()` with units other than 'secs' not supported in Arrow")
     }
 
     if (call_binding("is.character", x)) {
