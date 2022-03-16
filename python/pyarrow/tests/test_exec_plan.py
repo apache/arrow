@@ -18,7 +18,7 @@
 import pytest
 
 import pyarrow as pa
-import pyarrow.compute as pc
+import pyarrow._exec_plan as ep
 
 
 def test_joins_corner_cases():
@@ -33,13 +33,13 @@ def test_joins_corner_cases():
     })
 
     with pytest.raises(pa.ArrowInvalid):
-        pc.tables_join("left outer", t1, "", t2, "")
+        ep.tables_join("left outer", t1, "", t2, "")
 
     with pytest.raises(TypeError):
-        pc.tables_join("left outer", None, "colA", t2, "colB")
+        ep.tables_join("left outer", None, "colA", t2, "colB")
 
     with pytest.raises(ValueError):
-        pc.tables_join("super mario join", t1, "colA", t2, "colB")
+        ep.tables_join("super mario join", t1, "colA", t2, "colB")
 
 
 @pytest.mark.parametrize("jointype,expected", [
@@ -97,6 +97,6 @@ def test_joins(jointype, expected, use_threads):
         "col3": ["Z", "B", "A"]
     })
 
-    r = pc.tables_join(jointype, t1, "colA", t2, "colB",
+    r = ep.tables_join(jointype, t1, "colA", t2, "colB",
                        use_threads=use_threads)
     assert r == expected
