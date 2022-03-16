@@ -27,6 +27,7 @@
 #include <utf8proc.h>
 #endif
 
+#include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -1842,12 +1843,24 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
   std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
-  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, true);
+  auto input_array = ArrayFromJSON(utf8(), input1);
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, false);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
 
   input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
   options.format = "%m/%d/%Y %%z";
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+
+  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("strptime", {input_array}, &options));
+
+  options.format = "%Y-%m-%d";
+  options.raise_errors = true;
+  ASSERT_RAISES(Invalid, CallFunction("strptime", {input_array}, &options));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Invalid: Failed to parse string: '5/1/202012/11/1900'"),
+      Strptime(input_array, options));
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {

@@ -825,6 +825,10 @@ Result<Datum> Strftime(const Datum& arg, StrftimeOptions options, ExecContext* c
   return CallFunction("strftime", {arg}, &options, ctx);
 }
 
+Result<Datum> Strptime(const Datum& arg, StrptimeOptions options, ExecContext* ctx) {
+  return CallFunction("strptime", {arg}, &options, ctx);
+}
+
 Result<Datum> Week(const Datum& arg, WeekOptions options, ExecContext* ctx) {
   return CallFunction("week", {arg}, &options, ctx);
 }

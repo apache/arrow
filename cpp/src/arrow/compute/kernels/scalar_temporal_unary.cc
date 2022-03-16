@@ -73,6 +73,7 @@ using std::chrono::minutes;
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
 using WeekState = OptionsWrapper<WeekOptions>;
 using StrftimeState = OptionsWrapper<StrftimeOptions>;
+using StrptimeState = OptionsWrapper<StrptimeOptions>;
 using AssumeTimezoneState = OptionsWrapper<AssumeTimezoneOptions>;
 using RoundTemporalState = OptionsWrapper<RoundTemporalOptions>;
 
@@ -1147,16 +1148,36 @@ struct Strftime {
 // ----------------------------------------------------------------------
 // Convert string representations of timestamps in arbitrary format to timestamps
 
-using StrptimeState = OptionsWrapper<StrptimeOptions>;
+static std::string GetZone(std::string format) {
+  // Check for use of %z or %Z
+  size_t cur = 0;
+  std::string zone = "";
+  while (cur < format.size() - 1) {
+    if (format[cur] == '%') {
+      if (format[cur + 1] == 'z') {
+        zone = "UTC";
+        break;
+      }
+      cur++;
+    }
+    cur++;
+  }
+  return zone;
+}
 
 template <typename Duration, typename InType>
 struct Strptime {
-  std::shared_ptr<TimestampParser> parser;
-  const StrptimeOptions& options;
+  const std::shared_ptr<TimestampParser> parser;
+  const TimeUnit::type unit;
+  const std::string zone;
+  const bool raise_errors;
 
   static Result<Strptime> Make(KernelContext* ctx, const DataType& type) {
     const StrptimeOptions& options = StrptimeState::Get(ctx);
-    return Strptime{TimestampParser::MakeStrptime(options.format), options};
+
+    return Strptime{TimestampParser::MakeStrptime(options.format),
+                    std::move(options.unit), GetZone(options.format),
+                    options.raise_errors};
   }
 
   static Status Call(KernelContext* ctx, const Scalar& in, Scalar* out) {
@@ -1165,16 +1186,18 @@ struct Strptime {
     if (in.is_valid) {
       auto s = internal::UnboxScalar<InType>::Unbox(in);
       int64_t result;
-      if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
-        if (self.options.raise_errors) {
+      if ((*self.parser)(s.data(), s.length(), self.unit, &result)) {
+        *checked_cast<TimestampScalar*>(out) =
+            TimestampScalar(result, timestamp(self.unit, self.zone));
+      } else {
+        if (self.raise_errors) {
           return Status::Invalid("Failed to parse string: '", s.data(),
                                  "' as a scalar of type ",
-                                 TimestampType(self.options.unit).ToString());
+                                 TimestampType(self.unit).ToString());
+        } else {
+          out->is_valid = false;
         }
       }
-
-      *checked_cast<TimestampScalar*>(out) =
-          TimestampScalar(result, timestamp(self.options.unit));
     } else {
       out->is_valid = false;
     }
@@ -1186,18 +1209,18 @@ struct Strptime {
 
     std::unique_ptr<ArrayBuilder> array_builder;
     RETURN_NOT_OK(
-        MakeBuilder(ctx->memory_pool(), timestamp(self.options.unit), &array_builder));
-    TimestampBuilder* builder = checked_cast<TimestampBuilder*>(array_builder.get());
+        MakeBuilder(ctx->memory_pool(), timestamp(self.unit, self.zone), &array_builder));
+    auto builder = checked_pointer_cast<TimestampBuilder>(std::move(array_builder));
     RETURN_NOT_OK(builder->Reserve(in.length));
 
-    if (self.options.raise_errors) {
+    if (self.raise_errors) {
       auto visit_null = [&]() { return builder->AppendNull(); };
       auto visit_value = [&](util::string_view s) {
-        int64_t result;
-        if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
+        int64_t result = 0;
+        if (!(*self.parser)(s.data(), s.size(), self.unit, &result)) {
           return Status::Invalid("Failed to parse string: '", s.data(),
                                  "' as a scalar of type ",
-                                 TimestampType(self.options.unit).ToString());
+                                 TimestampType(self.unit).ToString());
         }
         return builder->Append(result);
       };
@@ -1205,8 +1228,8 @@ struct Strptime {
     } else {
       auto visit_null = [&]() { builder->UnsafeAppendNull(); };
       auto visit_value = [&](util::string_view s) {
-        int64_t result;
-        if (!(*self.parser)(s.data(), s.size(), self.options.unit, &result)) {
+        int64_t result = 0;
+        if (!(*self.parser)(s.data(), s.size(), self.unit, &result)) {
           builder->UnsafeAppendNull();
         } else {
           builder->UnsafeAppend(result);
@@ -1229,20 +1252,8 @@ Result<ValueDescr> ResolveStrptimeOutput(KernelContext* ctx,
     return Status::Invalid("strptime does not provide default StrptimeOptions");
   }
   const StrptimeOptions& options = StrptimeState::Get(ctx);
-  // Check for use of %z or %Z
-  size_t cur = 0;
-  std::string zone = "";
-  while (cur < options.format.size() - 1) {
-    if (options.format[cur] == '%') {
-      if (options.format[cur + 1] == 'z') {
-        zone = "UTC";
-        break;
-      }
-      cur++;
-    }
-    cur++;
-  }
-  return ::arrow::timestamp(options.unit, zone);
+  auto type = timestamp(options.unit, GetZone(options.format));
+  return ValueDescr(std::move(type));
 }
 
 // ----------------------------------------------------------------------
@@ -1479,7 +1490,7 @@ struct UnaryTemporalFactory {
   }
 };
 
-template <template <typename...> class Op>
+template <template <typename...> class Op, bool can_write_into_slices = true>
 struct SimpleUnaryTemporalFactory {
   OutputType out_type;
   KernelInit init;
@@ -1500,7 +1511,9 @@ struct SimpleUnaryTemporalFactory {
   template <typename Duration, typename InType>
   void AddKernel(InputType in_type) {
     auto exec = SimpleUnary<Op<Duration, InType>>;
-    DCHECK_OK(func->AddKernel({std::move(in_type)}, out_type, std::move(exec), init));
+    ScalarKernel kernel({std::move(in_type)}, out_type, exec, init);
+    kernel.can_write_into_slices = can_write_into_slices;
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 };
 
@@ -1888,7 +1901,7 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
           StrftimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strftime)));
 
-  auto strptime = SimpleUnaryTemporalFactory<Strptime>::Make<WithStringTypes>(
+  auto strptime = SimpleUnaryTemporalFactory<Strptime, false>::Make<WithStringTypes>(
       "strptime", OutputType::Resolver(ResolveStrptimeOutput), &strptime_doc, nullptr,
       StrptimeState::Init);
   DCHECK_OK(registry->AddFunction(std::move(strptime)));

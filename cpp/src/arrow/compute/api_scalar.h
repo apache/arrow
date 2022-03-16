@@ -1403,6 +1403,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);
 
+/// \brief Parse timestamps according to a format string
+///
+/// Return parsed timestamps according to the format string
+/// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
+/// raised depending on the `Strftime::raise_errors` setting.
+///
+/// \param[in] values input strings
+/// \param[in] options for setting format string, unit and raise_errors
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
 /// \brief Converts timestamps from local timestamp without a timezone to a timestamp with
 /// timezone, interpreting the local timestamp as being in the specified timezone for each
 /// element of `values`
