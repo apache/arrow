@@ -33,12 +33,13 @@ if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
     testargs="" # -race not supported on s390x
 fi
 
-# Go static check
-pushd ${source_dir}
+# Go static check (skipped in MinGW)
+if [[ -z "${MINGW_LINT}" ]]; then
+    pushd ${source_dir}
+    "$(go env GOPATH)"/bin/staticcheck ./...
+    popd
+fi
 
-"$(go env GOPATH)"/bin/staticcheck ./...
-
-popd
 
 pushd ${source_dir}/arrow
 
