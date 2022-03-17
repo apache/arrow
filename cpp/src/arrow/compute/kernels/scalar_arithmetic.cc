@@ -240,7 +240,7 @@ struct SubtractCheckedDate32 {
   }
 };
 
-template <bool left_is_32bit, int64_t multiple>
+template <int64_t multiple>
 struct AddTimeDuration {
   template <typename T, typename Arg0, typename Arg1>
   static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
@@ -254,7 +254,7 @@ struct AddTimeDuration {
   }
 };
 
-template <bool left_is_32bit, int64_t multiple>
+template <int64_t multiple>
 struct AddTimeDurationChecked {
   template <typename T, typename Arg0, typename Arg1>
   static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
@@ -271,23 +271,11 @@ struct AddTimeDurationChecked {
   }
 };
 
-template <bool is_32bit, int64_t multiple>
+template <int64_t multiple>
 struct SubtractTimeDuration {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                       Status* st) {
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     T result = arrow::internal::SafeSignedSubtract(left, static_cast<T>(right));
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                        Status* st) {
-    T result = arrow::internal::SafeSignedSubtract(left, right);
     if (result < 0 || multiple <= result) {
       *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
                             multiple, ") s");
@@ -296,27 +284,12 @@ struct SubtractTimeDuration {
   }
 };
 
-template <bool is_32bit, int64_t multiple>
+template <int64_t multiple>
 struct SubtractTimeDurationChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                       Status* st) {
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, static_cast<T>(right), &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    if (result < 0 || multiple <= result) {
-      *st = Status::Invalid(result, " is not within the acceptable range of ", "[0, ",
-                            multiple, ") s");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_t<!is_32bit, T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                        Status* st) {
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
       *st = Status::Invalid("overflow");
     }
     if (result < 0 || multiple <= result) {
@@ -2244,59 +2217,54 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
   return func;
 }
 
-template <template <bool, int64_t> class Op>
+template <template <int64_t> class Op>
 void AddArithmeticFunctionTimeDuration(std::shared_ptr<ScalarFunction> func) {
   // Add Op(time32, duration) -> time32
   TimeUnit::type unit = TimeUnit::SECOND;
-  auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<true, 86400>>::Exec;
+  auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400>>::Exec;
   DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
                             std::move(exec_1)));
 
   unit = TimeUnit::MILLI;
-  auto exec_2 =
-      ScalarBinary<Time32Type, Time32Type, DurationType, Op<true, 86400000>>::Exec;
+  auto exec_2 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400000>>::Exec;
   DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
                             std::move(exec_2)));
 
   // Add Op(time64, duration) -> time64
   unit = TimeUnit::MICRO;
-  auto exec_3 =
-      ScalarBinary<Time64Type, Time64Type, DurationType, Op<false, 86400000000>>::Exec;
+  auto exec_3 = ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000>>::Exec;
   DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
                             std::move(exec_3)));
 
   unit = TimeUnit::NANO;
   auto exec_4 =
-      ScalarBinary<Time64Type, Time64Type, DurationType, Op<false, 86400000000000>>::Exec;
+      ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000000>>::Exec;
   DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
                             std::move(exec_4)));
 }
 
-template <template <bool, int64_t> class Op>
+template <template <int64_t> class Op>
 void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
-  // Add Op(time32, duration) -> time32
+  // Add Op(duration, time32) -> time32
   TimeUnit::type unit = TimeUnit::SECOND;
-  auto exec_1 =
-      ScalarBinary<Time32Type, DurationType, Time32Type, Op<false, 86400>>::Exec;
+  auto exec_1 = ScalarBinary<Time32Type, DurationType, Time32Type, Op<86400>>::Exec;
   DCHECK_OK(func->AddKernel({duration(unit), time32(unit)}, OutputType(LastType),
                             std::move(exec_1)));
 
   unit = TimeUnit::MILLI;
-  auto exec_2 =
-      ScalarBinary<Time32Type, DurationType, Time32Type, Op<false, 86400000>>::Exec;
+  auto exec_2 = ScalarBinary<Time32Type, DurationType, Time32Type, Op<86400000>>::Exec;
   DCHECK_OK(func->AddKernel({duration(unit), time32(unit)}, OutputType(LastType),
                             std::move(exec_2)));
 
-  // Add Op(time64, duration) -> time64
+  // Add Op(duration, time64) -> time64
   unit = TimeUnit::MICRO;
-  auto exec_3 =
-      ScalarBinary<Time64Type, DurationType, Time64Type, Op<false, 86400000000>>::Exec;
+  auto exec_3 = ScalarBinary<Time64Type, DurationType, Time64Type, Op<86400000000>>::Exec;
   DCHECK_OK(func->AddKernel({duration(unit), time64(unit)}, OutputType(LastType),
                             std::move(exec_3)));
 
   unit = TimeUnit::NANO;
   auto exec_4 =
-      ScalarBinary<Time64Type, DurationType, Time64Type, Op<false, 86400000000000>>::Exec;
+      ScalarBinary<Time64Type, DurationType, Time64Type, Op<86400000000000>>::Exec;
   DCHECK_OK(func->AddKernel({duration(unit), time64(unit)}, OutputType(LastType),
                             std::move(exec_4)));
 }
