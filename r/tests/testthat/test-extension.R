@@ -274,3 +274,36 @@ test_that("Table can roundtrip extension types", {
     )
   )
 })
+
+test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
+  tf <- tempfile()
+  on.exit(unlink(tf, recursive = TRUE))
+
+  df <- expand.grid(
+    number = 1:10,
+    letter = letters,
+    stringsAsFactors = FALSE,
+    KEEP.OUT.ATTRS = FALSE
+  ) %>%
+    tibble::as_tibble()
+
+  df$extension <- vctrs::new_vctr(df$letter, class = "arrow_custom_vctr")
+
+  table <- arrow_table(
+    number = df$number,
+    letter = df$letter,
+    extension = vctrs_extension_array(df$extension)
+  )
+
+  table %>%
+    dplyr::group_by(number) %>%
+    write_dataset(tf)
+
+  expect_identical(
+    open_dataset(tf) %>%
+      dplyr::select(number, letter, extension) %>%
+      dplyr::collect() %>%
+      dplyr::arrange(number, letter),
+    df
+  )
+})
