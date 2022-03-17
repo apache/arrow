@@ -1349,7 +1349,7 @@ metadata_nthreads : int, default 1
     datasets.
 {0}
 use_legacy_dataset : bool, default True
-    Set to False to enable the new code path (experimental, using the
+    Set to False to enable the new code path (using the
     new Arrow Dataset API). Among other things, this allows to pass
     `filters` for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
@@ -1548,6 +1548,35 @@ coerce_int96_timestamp_unit : str, default None.
         -------
         pyarrow.Table
             Content of the file as a table (of columns).
+
+        Example
+        -------
+
+        Generate data and save them as a dataset:
+
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'month': [3, 5, 7, 9, 11, 12],
+        ...                    'day': [1, 5, 9, 13, 17, 23],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Write it to a Parquet dataset:
+
+        >>> import pyarrow.parquet as pq
+        >>> pq.write_to_dataset(table, root_path='dataset_name',
+        ...                     partition_cols=['year', 'month', 'day'])
+
+        Read the dataset:
+
+        >>> dataset = pq.ParquetDataset('dataset_name/', use_legacy_dataset=False)
+        >>> dataset.read(columns=["n_legs"])
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[5],[2],...,[2],[4]]
         """
         tables = []
         for piece in self._pieces:
@@ -1585,6 +1614,25 @@ coerce_int96_timestamp_unit : str, default None.
         -------
         pyarrow.Table
             Content of the file as a table (of columns).
+
+        Example
+        -------
+        >>> dataset.read_pandas(columns=["n_legs"])
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[5],[5],...,[4],[4]]
+
+        Select pandas metadata:
+
+        >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
+        {'index_columns': [], 'column_indexes': [{'name': None, 'field_name': None,
+        'pandas_type': 'unicode', 'numpy_type': 'object', 'metadata': {'encoding': 'UTF-8'}}],
+        'columns': [{'name': 'n_legs', 'field_name': 'n_legs', 'pandas_type': 'int64',
+        'numpy_type': 'int64', 'metadata': None}, {'name': 'animals', 'field_name': 'animals',
+        'pandas_type': 'unicode', 'numpy_type': 'object', 'metadata': None}],
+        'creator': {'library': 'pyarrow', 'version': '8.0.0.dev221+g884d2b873'},
+        'pandas_version': '1.3.4'}
         """
         return self.read(use_pandas_metadata=True, **kwargs)
 
@@ -1610,6 +1658,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def pieces(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format(
                 "ParquetDataset.pieces",
@@ -1621,6 +1672,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def partitions(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format(
                 "ParquetDataset.partitions",
@@ -1644,6 +1698,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def memory_map(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.memory_map", ""),
             DeprecationWarning, stacklevel=2)
@@ -1651,6 +1708,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def read_dictionary(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.read_dictionary", ""),
             DeprecationWarning, stacklevel=2)
@@ -1658,6 +1718,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def buffer_size(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format("ParquetDataset.buffer_size", ""),
             DeprecationWarning, stacklevel=2)
@@ -1669,6 +1732,9 @@ coerce_int96_timestamp_unit : str, default None.
 
     @property
     def fs(self):
+        """
+        DEPRECATED
+        """
         warnings.warn(
             _DEPR_MSG.format(
                 "ParquetDataset.fs",
@@ -1681,6 +1747,74 @@ coerce_int96_timestamp_unit : str, default None.
     common_metadata = property(
         operator.attrgetter('_metadata.common_metadata')
     )
+
+    @property
+    def fragments(self):
+        """
+        A list of the Dataset source fragments or pieces with absolute
+        file paths.
+
+        Example
+        -------
+
+        >>> dataset.fragments
+        [<pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet partition=[day=17, month=11, year=2019]>
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet partition=[day=1, month=3, year=2020]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2021/month=12/day=23/43aa6c683ef743e389a238d235461018.parquet partition=[day=23, month=12, year=2021]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2021/month=7/day=9/60579fe1daea4036a30f2b159b9d906b.parquet partition=[day=9, month=7, year=2021]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2022/month=5/day=5/b9fcc1de4474415e9ce1e998f66e8f8c.parquet partition=[day=5, month=5, year=2022]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2022/month=9/day=13/bd6aab52214a438db244428ee4a1896b.parquet partition=[day=13, month=9, year=2022]>]
+        """
+        raise NotImplementedError(
+            "To use this property set 'use_legacy_dataset=False' while "
+            "constructing the ParquetDataset")
+
+    @property
+    def files(self):
+        """
+        A list of absolute Parquet file paths in the Dataset source.
+
+        Example
+        -------
+        >>> dataset.files
+        ['dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet',
+        'dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet',
+        'dataset_name/year=2021/month=12/day=23/43aa6c683ef743e389a238d235461018.parquet',
+        'dataset_name/year=2021/month=7/day=9/60579fe1daea4036a30f2b159b9d906b.parquet',
+        'dataset_name/year=2022/month=5/day=5/b9fcc1de4474415e9ce1e998f66e8f8c.parquet',
+        'dataset_name/year=2022/month=9/day=13/bd6aab52214a438db244428ee4a1896b.parquet']
+        """
+        raise NotImplementedError(
+            "To use this property set 'use_legacy_dataset=False' while "
+            "constructing the ParquetDataset")
+
+    @property
+    def filesystem(self):
+        """
+        The filesystem type of the Dataset source.
+
+        Example
+        -------
+        >>> dataset.filesystem
+        <pyarrow._fs.LocalFileSystem object at 0x1179443f0>
+        """
+        raise NotImplementedError(
+            "To use this property set 'use_legacy_dataset=False' while "
+            "constructing the ParquetDataset")
+
+    @property
+    def partitioning(self):
+        """
+        The partitioning of the Dataset source, if discovered.
+
+        Example
+        -------
+        >>> dataset.partitioning
+        <pyarrow._dataset.HivePartitioning object at 0x117926230>
+        """
+        raise NotImplementedError(
+            "To use this property set 'use_legacy_dataset=False' while "
+            "constructing the ParquetDataset")
 
 
 def _make_manifest(path_or_paths, fs, pathsep='/', metadata_nthreads=1,
@@ -1832,6 +1966,20 @@ class _ParquetDatasetV2:
 
     @property
     def schema(self):
+        """
+        Schema of the Dataset.
+
+        Example
+        -------
+        >>> dataset.schema
+        n_legs: int64
+        animals: string
+        year: dictionary<values=int32, indices=int32, ordered=0>
+        month: dictionary<values=int32, indices=int32, ordered=0>
+        day: dictionary<values=int32, indices=int32, ordered=0>
+        -- schema metadata --
+        pandas: '{"index_columns": [], "column_indexes": [{"name": null, "field_n' + 434
+        """
         return self._dataset.schema
 
     def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
@@ -1854,6 +2002,35 @@ class _ParquetDatasetV2:
         -------
         pyarrow.Table
             Content of the file as a table (of columns).
+
+        Example
+        -------
+
+        Generate data and save them as a dataset:
+
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'month': [3, 5, 7, 9, 11, 12],
+        ...                    'day': [1, 5, 9, 13, 17, 23],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Parot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Write it to a Parquet dataset:
+
+        >>> import pyarrow.parquet as pq
+        >>> pq.write_to_dataset(table, root_path='dataset_name',
+        ...                     partition_cols=['year', 'month', 'day'])
+
+        Read the dataset:
+
+        >>> dataset = pq._ParquetDatasetV2('dataset_name/')
+        >>> dataset.read(columns=["n_legs"])
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[5],[2],...,[2],[4]]
         """
         # if use_pandas_metadata, we need to include index columns in the
         # column selection, to be able to restore those in the pandas DataFrame
@@ -1888,6 +2065,23 @@ class _ParquetDatasetV2:
         """
         Read dataset including pandas metadata, if any. Other arguments passed
         through to ParquetDataset.read, see docstring for further details.
+
+        Example
+        -------
+        >>> dataset.read_pandas(columns=["n_legs"])
+        pyarrow.Table
+        n_legs: int64
+        ----
+        n_legs: [[5],[2],...,[2],[4]]
+
+        >>> dataset.read_pandas(columns=["n_legs"]).schema.pandas_metadata
+        {'index_columns': [], 'column_indexes': [{'name': None, 'field_name':
+        None, 'pandas_type': 'unicode', 'numpy_type': 'object', 'metadata':
+        {'encoding': 'UTF-8'}}], 'columns': [{'name': 'n_legs', 'field_name':
+        'n_legs', 'pandas_type': 'int64', 'numpy_type': 'int64', 'metadata': None},
+        {'name': 'animals', 'field_name': 'animals', 'pandas_type': 'unicode',
+        'numpy_type': 'object', 'metadata': None}], 'creator': {'library': 'pyarrow',
+        'version': '8.0.0.dev221+g884d2b873'}, 'pandas_version': '1.3.4'}
         """
         return self.read(use_pandas_metadata=True, **kwargs)
 
@@ -1901,20 +2095,61 @@ class _ParquetDatasetV2:
 
     @property
     def fragments(self):
+        """
+        A list of the Dataset source fragments or pieces with absolute
+        file paths.
+
+        Example
+        -------
+
+        >>> dataset.fragments
+        [<pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet partition=[day=17, month=11, year=2019]>
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet partition=[day=1, month=3, year=2020]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2021/month=12/day=23/43aa6c683ef743e389a238d235461018.parquet partition=[day=23, month=12, year=2021]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2021/month=7/day=9/60579fe1daea4036a30f2b159b9d906b.parquet partition=[day=9, month=7, year=2021]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2022/month=5/day=5/b9fcc1de4474415e9ce1e998f66e8f8c.parquet partition=[day=5, month=5, year=2022]>,
+        <pyarrow.dataset.ParquetFileFragment path=dataset_name/year=2022/month=9/day=13/bd6aab52214a438db244428ee4a1896b.parquet partition=[day=13, month=9, year=2022]>]
+        """
         return list(self._dataset.get_fragments())
 
     @property
     def files(self):
+        """
+        A list of absolute Parquet file paths in the Dataset source.
+
+        Example
+        -------
+        >>> dataset.files
+        ['dataset_name/year=2019/month=11/day=17/60c4a2430c6944f2a19bcdc3487bb0ba.parquet',
+        'dataset_name/year=2020/month=3/day=1/06319dcabb64451f9e23f5d47965b7f2.parquet',
+        'dataset_name/year=2021/month=12/day=23/43aa6c683ef743e389a238d235461018.parquet',
+        'dataset_name/year=2021/month=7/day=9/60579fe1daea4036a30f2b159b9d906b.parquet',
+        'dataset_name/year=2022/month=5/day=5/b9fcc1de4474415e9ce1e998f66e8f8c.parquet',
+        'dataset_name/year=2022/month=9/day=13/bd6aab52214a438db244428ee4a1896b.parquet']
+        """
         return self._dataset.files
 
     @property
     def filesystem(self):
+        """
+        The filesystem type of the Dataset source.
+
+        Example
+        -------
+        >>> dataset.filesystem
+        <pyarrow._fs.LocalFileSystem object at 0x1179443f0>
+        """
         return self._dataset.filesystem
 
     @property
     def partitioning(self):
         """
         The partitioning of the Dataset source, if discovered.
+
+        Example
+        -------
+        >>> dataset.partitioning
+        <pyarrow._dataset.HivePartitioning object at 0x117926230>
         """
         return self._dataset.partitioning
 
