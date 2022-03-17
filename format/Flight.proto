@@ -260,8 +260,9 @@ message FlightInfo {
 
   /*
    * A list of endpoints associated with the flight. To consume the
-   * whole flight, all endpoints must be consumed. In other words,
-   * multiple endpoints provide partitioning.
+   * whole flight, all endpoints (and hence all Tickets) must be consumed.
+   *
+   * In other words, multiple endpoints provide partitioning.
    */
   repeated FlightEndpoint endpoint = 3;
 
@@ -289,8 +290,11 @@ message FlightEndpoint {
    *
    * If the list is not empty, the expectation is that the ticket can
    * be redeemed at any of the locations, and that the data returned
-   * will be equivalent. In other words, multiple locations provide
-   * redundancy/load balancing.
+   * will be equivalent. In this case, the ticket may only be redeemed
+   * at one of the given locations, and not (necessarily) on the
+   * current service.
+   *
+   * In other words, multiple locations provide redundancy/load balancing.
    */
   repeated Location location = 2;
 }
@@ -306,6 +310,9 @@ message Location {
 /*
  * An opaque identifier that the service can use to retrieve a particular
  * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/undefined behavior
+ * to reuse a ticket.
  */
 message Ticket {
   bytes ticket = 1;
