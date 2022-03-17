@@ -24,10 +24,17 @@
 Reading and Writing ORC files
 =============================
 
-The `ORC format <https://orc.apache.org/docs/>`__
-is a space-efficient columnar storage format for complex data. 
-Arrow provides a fast ORC reader and a fast ORC writer allowing
-ingestion of external data as Arrow tables.
+The `Apache ORC <http://orc.apache.org/>`_ project provides a
+standardized open-source columnar storage format for use in data analysis
+systems. It was created originally for use in `Apache Hadoop
+<http://hadoop.apache.org/>`_ with systems like `Apache Drill
+<http://drill.apache.org>`_, `Apache Hive <http://hive.apache.org>`_, `Apache
+Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
+<http://spark.apache.org>`_ adopting it as a shared standard for high
+performance data IO.
+
+Apache Arrow is an ideal in-memory representation layer for data that is being read
+or written with ORC files.
 
 .. seealso::
    :ref:`ORC reader/writer API reference <cpp-api-orc>`.
@@ -37,20 +44,72 @@ Supported ORC features
 
 The ORC format has many features, and we support a subset of them.
 
+Data types
+----------
+Here are a list of ORC types and mapped Arrow types.
+
++--------------+-----------------------------------+-----------+
+| Logical type | Mapped Arrow type                 | Notes     |
++==============+===================================+===========+
+| BOOLEAN      | Boolean                           |           |
++--------------+-----------------------------------+-----------+
+| BYTE         | Int8                              |           |
++--------------+-----------------------------------+-----------+
+| SHORT        | Int16                             |           |
++--------------+-----------------------------------+-----------+
+| INT          | Int32                             |           |
++--------------+-----------------------------------+-----------+
+| LONG         | Int64                             |           |
++--------------+-----------------------------------+-----------+
+| FLOAT        | Float32                           |           |
++--------------+-----------------------------------+-----------+
+| DOUBLE       | Float64                           |           |
++--------------+-----------------------------------+-----------+
+| STRING       | String/LargeString                | \(2)      |
++--------------+-----------------------------------+-----------+
+| BINARY       | Binary/LargeBinary/FixedSizeBinary| \(2)      |
++--------------+-----------------------------------+-----------+
+| TIMESTAMP    | Timestamp/Date64                  | \(2) \(3) |
++--------------+-----------------------------------+-----------+
+| LIST         | List/LargeList/FixedSizeList      | \(2)      |
++--------------+-----------------------------------+-----------+
+| MAP          | Map                               |           |
++--------------+-----------------------------------+-----------+
+| STRUCT       | Struct                            |           |
++--------------+-----------------------------------+-----------+
+| UNION        | DenseUnion/SparseUnion            | \(1)      |
++--------------+-----------------------------------+-----------+
+| DECIMAL      | Decimal128/Decimal64              | \(2)      |
++--------------+-----------------------------------+-----------+
+| DATE         | Date32                            |           |
++--------------+-----------------------------------+-----------+
+| VARCHAR      | String                            |           |
++--------------+-----------------------------------+-----------+
+
+*Unsupported ORC types:* CHAR, TIMESTAMP_INSTANT.
+
+* \(1) We do not support writing UNION types.
+
+* \(2) On the read side the ORC type is read as the first corresponding Arrow type in the table.
+  
+* \(3) On the read side the ORC TIMESTAMP type is read as the Arrow Timestamp type with
+  :type:`arrow::TimeUnit::NANO`. Also we currently don't support timezones.
+       
+
 Compression
 -----------
 
-+-------------------+---------+
-| Compression codec | Notes   |
-+===================+=========+
-| SNAPPY            |         |
-+-------------------+---------+
-| GZIP/ZLIB         |         |
-+-------------------+---------+
-| LZ4               |         |
-+-------------------+---------+
-| ZSTD              |         |
-+-------------------+---------+
++-------------------+
+| Compression codec |
++===================+
+| SNAPPY            |
++-------------------+
+| GZIP/ZLIB         |
++-------------------+
+| LZ4               |
++-------------------+
+| ZSTD              |
++-------------------+
 
 *Unsupported compression codec:* LZO.
 

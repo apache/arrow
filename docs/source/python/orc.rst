@@ -30,7 +30,7 @@ Impala (incubating) <http://impala.apache.org>`_, and `Apache Spark
 <http://spark.apache.org>`_ adopting it as a shared standard for high
 performance data IO.
 
-Apache Arrow is an ideal in-memory transport layer for data that is being read
+Apache Arrow is an ideal in-memory representation layer for data that is being read
 or written with ORC files.
 
 Obtaining pyarrow with ORC Support
@@ -193,37 +193,6 @@ by default, but Snappy, ZSTD, Gzip/Zlib, and LZ4 are also supported:
 Snappy generally results in better performance, while Gzip may yield smaller
 files.
 
-Partitioned Datasets (Multiple Files)
-------------------------------------------------
-
-Multiple ORC files constitute a ORC *dataset*. These may present in a
-number of ways:
-
-* A list of ORC absolute file paths
-* A directory name containing nested directories defining a partitioned dataset
-
-A dataset partitioned by year and month may look like on disk:
-
-.. code-block:: text
-
-   dataset_name/
-     year=2021/
-       month=01/
-          0.orc
-          1.orc
-          ...
-       month=02/
-          0.orc
-          1.orc
-          ...
-       month=03/
-       ...
-     year=2022/
-       month=01/
-       ...
-     ...
-
-
 Reading from cloud storage
 --------------------------
 
@@ -237,25 +206,5 @@ filesystems, through the ``filesystem`` keyword:
     s3  = fs.S3FileSystem(region="us-east-2")
     table = po.read_table("bucket/object/key/prefix", filesystem=s3)
 
-Currently, :class:`HDFS <pyarrow.fs.HadoopFileSystem>` and
-:class:`Amazon S3-compatible storage <pyarrow.fs.S3FileSystem>` are
-supported. See the :ref:`filesystem` docs for more details. For those
-built-in filesystems, the filesystem can also be inferred from the file path,
-if specified as a URI:
-
-.. code-block:: python
-
-    table = po.read_table("s3://bucket/object/key/prefix")
-
-Other filesystems can still be supported if there is an
-`fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__-compatible
-implementation available. See :ref:`filesystem-fsspec` for more details.
-One example is Azure Blob storage, which can be interfaced through the
-`adlfs <https://github.com/dask/adlfs>`__ package.
-
-.. code-block:: python
-
-    from adlfs import AzureBlobFileSystem
-
-    abfs = AzureBlobFileSystem(account_name="XXXX", account_key="XXXX", container_name="XXXX")
-    table = po.read_table("file.orc", filesystem=abfs)
+.. seealso::
+   :ref:`Documentation for filesystems <filesystems>`.
