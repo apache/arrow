@@ -1021,7 +1021,7 @@ func TestDictionaryFromArrays(t *testing.T) {
 
 			switch indextyp.ID() {
 			case arrow.INT8, arrow.INT16, arrow.INT32, arrow.INT64:
-				indices3, _, _ := array.FromJSON(mem, indextyp, strings.NewReader("[1, 2, -1, null, 2, 0]"))
+				indices3, _, _ := array.FromJSON(mem, indextyp, strings.NewReader("[1, 2, 0, null, 2, 0]"))
 				defer indices3.Release()
 				bitutil.ClearBit(indices3.Data().Buffers()[0].Bytes(), 2)
 				arr3, err := array.NewValidatedDictionaryArray(dictType, indices3, dict)
