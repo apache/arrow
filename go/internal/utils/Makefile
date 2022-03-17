@@ -45,19 +45,19 @@ INTEL_SOURCES := \
 
 assembly: $(INTEL_SOURCES)
 
-_lib/min_max_avx2.s: _lib/min_max.c
+_lib/min_max_avx2_amd64.s: _lib/min_max.c
 	$(CC) -S $(C_FLAGS) $(ASM_FLAGS_AVX2) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
-_lib/min_max_sse4.s: _lib/min_max.c
+_lib/min_max_sse4_amd64.s: _lib/min_max.c
 	$(CC) -S $(C_FLAGS) $(ASM_FLAGS_SSE4) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
 _lib/min_max_neon.s: _lib/min_max.c
 	$(CC) -S $(C_FLAGS_NEON) $^ -o $@ ; $(PERL_FIXUP_ROTATE) $@
 
-min_max_avx2_amd64.s: _lib/min_max_avx2.s
+min_max_avx2_amd64.s: _lib/min_max_avx2_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
-min_max_sse4_amd64.s: _lib/min_max_sse4.s
+min_max_sse4_amd64.s: _lib/min_max_sse4_amd64.s
 	$(C2GOASM) -a -f $^ $@
 
 clean:
