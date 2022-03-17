@@ -555,7 +555,6 @@ type multipathLevelResult struct {
 }
 
 func (m *multipathLevelResult) Release() {
-	m.leafArr.Release()
 	m.defLevels = nil
 	if m.defLevelsBuffer != nil {
 		m.defLevelsBuffer.Release()
