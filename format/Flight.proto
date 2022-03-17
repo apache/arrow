@@ -260,9 +260,11 @@ message FlightInfo {
 
   /*
    * A list of endpoints associated with the flight. To consume the
-   * whole flight, all endpoints (and hence all Tickets) must be consumed.
+   * whole flight, all endpoints (and hence all Tickets) must be
+   * consumed. Endpoints can be consumed in any order.
    *
-   * In other words, multiple endpoints provide partitioning.
+   * In other words, an application can use multiple endpoints to
+   * represent partitioned data.
    */
   repeated FlightEndpoint endpoint = 3;
 
@@ -294,7 +296,8 @@ message FlightEndpoint {
    * at one of the given locations, and not (necessarily) on the
    * current service.
    *
-   * In other words, multiple locations provide redundancy/load balancing.
+   * In other words, an application can use multiple locations to
+   * represent redundant and/or load balanced services.
    */
   repeated Location location = 2;
 }
