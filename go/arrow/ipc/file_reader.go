@@ -131,7 +131,10 @@ func (f *FileReader) readFooter() error {
 }
 
 func (f *FileReader) readSchema() error {
-	var err error
+	var (
+		err  error
+		kind dictutils.Kind
+	)
 
 	schema := f.footer.data.Schema(nil)
 	if schema == nil {
@@ -145,7 +148,7 @@ func (f *FileReader) readSchema() error {
 	for i := 0; i < f.NumDictionaries(); i++ {
 		blk, err := f.dict(i)
 		if err != nil {
-			return fmt.Errorf("arrow/ipc: could read dictionary[%d]: %w", i, err)
+			return fmt.Errorf("arrow/ipc: could not read dictionary[%d]: %w", i, err)
 		}
 		switch {
 		case !bitutil.IsMultipleOf8(blk.Offset):
@@ -161,8 +164,12 @@ func (f *FileReader) readSchema() error {
 			return err
 		}
 
-		if _, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem); err != nil {
+		kind, err = readDictionary(&f.memo, msg.meta, bytes.NewReader(msg.body.Bytes()), f.mem)
+		if err != nil {
 			return err
+		}
+		if kind == dictutils.KindReplacement {
+			return xerrors.New("arrow/ipc: unsupported dictionary replacement in IPC file")
 		}
 	}
 
