@@ -170,7 +170,53 @@ Logs with debug allocators enabled:
             ArrowBuf[2], address:140437894463488, length:4096
       reservations: 0
 
+Additionally, in debug mode, `ArrowBuf.print()`_ can be used to obtain a debug string.
+This will include information about allocation operations on the buffer with stack traces, such as when/where the buffer was allocated.
+
+.. code-block:: java
+
+   import org.apache.arrow.memory.ArrowBuf;
+   import org.apache.arrow.memory.BufferAllocator;
+   import org.apache.arrow.memory.RootAllocator;
+
+   try (final BufferAllocator allocator = new RootAllocator()) {
+     try (final ArrowBuf buf = allocator.buffer(1024)) {
+       final StringBuilder sb = new StringBuilder();
+       buf.print(sb, /*indent*/ 0);
+       System.out.println(sb.toString());
+     }
+   }
+
+.. code-block:: text
+
+   ArrowBuf[2], address:140433199984656, length:1024
+    event log for: ArrowBuf[2]
+      675959093395667 create()
+         at org.apache.arrow.memory.util.HistoricalLog$Event.<init>(HistoricalLog.java:175)
+         at org.apache.arrow.memory.util.HistoricalLog.recordEvent(HistoricalLog.java:83)
+         at org.apache.arrow.memory.ArrowBuf.<init>(ArrowBuf.java:96)
+         at org.apache.arrow.memory.BufferLedger.newArrowBuf(BufferLedger.java:271)
+         at org.apache.arrow.memory.BaseAllocator.bufferWithoutReservation(BaseAllocator.java:300)
+         at org.apache.arrow.memory.BaseAllocator.buffer(BaseAllocator.java:276)
+         at org.apache.arrow.memory.RootAllocator.buffer(RootAllocator.java:29)
+         at org.apache.arrow.memory.BaseAllocator.buffer(BaseAllocator.java:240)
+         at org.apache.arrow.memory.RootAllocator.buffer(RootAllocator.java:29)
+         at REPL.$JShell$14.do_it$($JShell$14.java:10)
+         at jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(NativeMethodAccessorImpl.java:-2)
+         at jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+         at jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+         at java.lang.reflect.Method.invoke(Method.java:566)
+         at jdk.jshell.execution.DirectExecutionControl.invoke(DirectExecutionControl.java:209)
+         at jdk.jshell.execution.RemoteExecutionControl.invoke(RemoteExecutionControl.java:116)
+         at jdk.jshell.execution.DirectExecutionControl.invoke(DirectExecutionControl.java:119)
+         at jdk.jshell.execution.ExecutionControlForwarder.processCommand(ExecutionControlForwarder.java:144)
+         at jdk.jshell.execution.ExecutionControlForwarder.commandLoop(ExecutionControlForwarder.java:262)
+         at jdk.jshell.execution.Util.forwardExecutionControl(Util.java:76)
+         at jdk.jshell.execution.Util.forwardExecutionControlAndIO(Util.java:137)
+         at jdk.jshell.execution.RemoteExecutionControl.main(RemoteExecutionControl.java:70)
+
 .. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
+.. _`ArrowBuf.print()`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html#print-java.lang.StringBuilder-int-org.apache.arrow.memory.BaseAllocator.Verbosity-
 .. _`BufferAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/BufferAllocator.html
 .. _`RootAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/RootAllocator.html
 .. _`newChildAllocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/RootAllocator.html#newChildAllocator-java.lang.String-org.apache.arrow.memory.AllocationListener-long-long-
