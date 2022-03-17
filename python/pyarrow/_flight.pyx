@@ -20,6 +20,7 @@
 import collections
 import contextlib
 import enum
+import logging
 import re
 import socket
 import time
@@ -1460,7 +1461,7 @@ cdef class FlightClient(_Weakrefable):
 cdef class FlightDataStream(_Weakrefable):
     """Abstract base class for Flight data streams."""
 
-    cdef CFlightDataStream* to_stream(self) except *:
+    cdef CFlightDataStream* to_stream(self, logger) except *:
         """Create the C++ data stream for the backing Python object.
 
         We don't expose the C++ object to Python, so we can manage its
@@ -1490,18 +1491,45 @@ cdef class RecordBatchStream(FlightDataStream):
         self.data_source = data_source
         self.write_options = _get_options(options).c_options
 
-    cdef CFlightDataStream* to_stream(self) except *:
+    cdef CFlightDataStream* to_stream(self, logger) except *:
         cdef:
             shared_ptr[CRecordBatchReader] reader
         if isinstance(self.data_source, RecordBatchReader):
             reader = (<RecordBatchReader> self.data_source).reader
         elif isinstance(self.data_source, lib.Table):
-            table = (<Table> self.data_source).table
-            reader.reset(new TableBatchReader(deref(table)))
+            reader.reset(new TableBatchReader(
+                (<Table> self.data_source).sp_table))
         else:
             raise RuntimeError("Can't construct RecordBatchStream "
                                "from type {}".format(type(self.data_source)))
         return new CRecordBatchStream(reader, self.write_options)
+
+
+class _WithLogger(collections.namedtuple(
+        '_WithLogger', ['this', 'logger'])):
+    """Combine a server object with additional logging state.
+
+    This avoids exposing the logger in the public API (by storing it
+    on self, which even a name-mangled method can't avoid) and
+    potentially clashing with application code.
+    """
+
+    def log_exception(self, method, exc):
+        """Log an uncaught exception in the handler for an RPC method."""
+        if not self.logger:
+            return
+        # Don't log all kinds of errors. FlightError is explicitly for
+        # sending RPC errors; NotImplementedError is likely noise.
+        # Other errors are unclear, so log to be safe. For instance:
+        # both ValueError and ArrowInvalid map to INVALID_ARGUMENT,
+        # but ValueError is likely a stray exception (so log it) and
+        # ArrowInvalid is likely intentional (so don't log it).
+        if not isinstance(exc, (
+                ArrowException,
+                FlightError,
+                NotImplementedError,
+        )):
+            self.logger.error("Uncaught exception in %s", method, exc_info=exc)
 
 
 cdef class GeneratorStream(FlightDataStream):
@@ -1532,11 +1560,11 @@ cdef class GeneratorStream(FlightDataStream):
         self.generator = iter(generator)
         self.c_options = _get_options(options).c_options
 
-    cdef CFlightDataStream* to_stream(self) except *:
+    cdef CFlightDataStream* to_stream(self, logger) except *:
         cdef:
             function[cb_data_stream_next] callback = &_data_stream_next
-        return new CPyGeneratorFlightDataStream(self, self.schema, callback,
-                                                self.c_options)
+        return new CPyGeneratorFlightDataStream(
+            _WithLogger(self, logger), self.schema, callback, self.c_options)
 
 
 cdef class ServerCallContext(_Weakrefable):
@@ -1707,16 +1735,26 @@ cdef class ClientAuthSender(_Weakrefable):
         return result
 
 
-cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
+cdef CStatus _data_stream_next(void* c_state,
+                               CFlightPayload* payload) except *:
     """Callback for implementing FlightDataStream in Python."""
+    server_state = <object> c_state
+    try:
+        if not isinstance(server_state.this, GeneratorStream):
+            raise RuntimeError(
+                "self object in callback is not GeneratorStream")
+        stream = <GeneratorStream> server_state.this
+        return _data_stream_do_next(stream, server_state, payload)
+    except Exception as e:
+        server_state.log_exception("do_get", e)
+        raise
+
+
+cdef CStatus _data_stream_do_next(GeneratorStream stream,
+                                  object server_state,
+                                  CFlightPayload* payload) except *:
     cdef:
         unique_ptr[CFlightDataStream] data_stream
-
-    py_stream = <object> self
-    if not isinstance(py_stream, GeneratorStream):
-        raise RuntimeError("self object in callback is not GeneratorStream")
-    stream = <GeneratorStream> py_stream
-
     # The generator is allowed to yield a reader or table which we
     # yield from; if that sub-generator is empty, we need to reset and
     # try again. However, limit the number of attempts so that we
@@ -1756,7 +1794,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                 raise ValueError("Can only return metadata alongside a "
                                  "RecordBatch.")
             data_stream = unique_ptr[CFlightDataStream](
-                (<FlightDataStream> result).to_stream())
+                (<FlightDataStream> result).to_stream(server_state.logger))
             substream_schema = pyarrow_wrap_schema(data_stream.get().schema())
             if substream_schema != stream_schema:
                 raise ValueError("Got a FlightDataStream whose schema "
@@ -1796,16 +1834,16 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
                        "(application server implementation error)")
 
 
-cdef CStatus _list_flights(void* self, const CServerCallContext& context,
+cdef CStatus _list_flights(void* c_state, const CServerCallContext& context,
                            const CCriteria* c_criteria,
                            unique_ptr[CFlightListing]* listing) except *:
     """Callback for implementing ListFlights in Python."""
     cdef:
         vector[CFlightInfo] flights
-
+    server_state = <object> c_state
     try:
-        result = (<object> self).list_flights(ServerCallContext.wrap(context),
-                                              c_criteria.expression)
+        result = server_state.this.list_flights(
+            ServerCallContext.wrap(context), c_criteria.expression)
         for info in result:
             if not isinstance(info, FlightInfo):
                 raise TypeError("FlightServerBase.list_flights must return "
@@ -1815,48 +1853,63 @@ cdef CStatus _list_flights(void* self, const CServerCallContext& context,
         listing.reset(new CSimpleFlightListing(flights))
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("list_flights", e)
+        raise
     return CStatus_OK()
 
 
-cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
+cdef CStatus _get_flight_info(void* c_state, const CServerCallContext& context,
                               CFlightDescriptor c_descriptor,
                               unique_ptr[CFlightInfo]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
+    server_state = <object> c_state
     py_descriptor.descriptor = c_descriptor
+    # Extract both logger and server
     try:
-        result = (<object> self).get_flight_info(
+        result = server_state.this.get_flight_info(
             ServerCallContext.wrap(context),
             py_descriptor)
+        if not isinstance(result, FlightInfo):
+            raise TypeError("FlightServerBase.get_flight_info must return "
+                            "a FlightInfo instance, but got {}".format(
+                                type(result)))
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
-    if not isinstance(result, FlightInfo):
-        raise TypeError("FlightServerBase.get_flight_info must return "
-                        "a FlightInfo instance, but got {}".format(
-                            type(result)))
+    except Exception as e:
+        server_state.log_exception("get_flight_info", e)
+        raise
     info.reset(new CFlightInfo(deref((<FlightInfo> result).info.get())))
     return CStatus_OK()
 
-cdef CStatus _get_schema(void* self, const CServerCallContext& context,
+cdef CStatus _get_schema(void* c_state, const CServerCallContext& context,
                          CFlightDescriptor c_descriptor,
                          unique_ptr[CSchemaResult]* info) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         FlightDescriptor py_descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
+    server_state = <object> c_state
     py_descriptor.descriptor = c_descriptor
-    result = (<object> self).get_schema(ServerCallContext.wrap(context),
-                                        py_descriptor)
-    if not isinstance(result, SchemaResult):
-        raise TypeError("FlightServerBase.get_schema_info must return "
-                        "a SchemaResult instance, but got {}".format(
-                            type(result)))
+    try:
+        result = server_state.this.get_schema(ServerCallContext.wrap(context),
+                                              py_descriptor)
+        if not isinstance(result, SchemaResult):
+            raise TypeError("FlightServerBase.get_schema_info must return "
+                            "a SchemaResult instance, but got {}".format(
+                                type(result)))
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("get_schema", e)
+        raise
     info.reset(new CSchemaResult(deref((<SchemaResult> result).result.get())))
     return CStatus_OK()
 
-cdef CStatus _do_put(void* self, const CServerCallContext& context,
+cdef CStatus _do_put(void* c_state, const CServerCallContext& context,
                      unique_ptr[CFlightMessageReader] reader,
                      unique_ptr[CFlightMetadataWriter] writer) except *:
     """Callback for implementing Flight servers in Python."""
@@ -1866,41 +1919,49 @@ cdef CStatus _do_put(void* self, const CServerCallContext& context,
         FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
 
+    server_state = <object> c_state
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
     py_writer.writer.reset(writer.release())
     try:
-        (<object> self).do_put(ServerCallContext.wrap(context), descriptor,
-                               py_reader, py_writer)
-        return CStatus_OK()
+        server_state.this.do_put(ServerCallContext.wrap(context), descriptor,
+                                 py_reader, py_writer)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("do_put", e)
+        raise
+    return CStatus_OK()
 
 
-cdef CStatus _do_get(void* self, const CServerCallContext& context,
+cdef CStatus _do_get(void* c_state, const CServerCallContext& context,
                      CTicket ticket,
                      unique_ptr[CFlightDataStream]* stream) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         unique_ptr[CFlightDataStream] data_stream
 
+    server_state = <object> c_state
     py_ticket = Ticket(ticket.ticket)
     try:
-        result = (<object> self).do_get(ServerCallContext.wrap(context),
-                                        py_ticket)
+        result = server_state.this.do_get(ServerCallContext.wrap(context),
+                                          py_ticket)
+        if not isinstance(result, FlightDataStream):
+            raise TypeError("FlightServerBase.do_get must return "
+                            "a FlightDataStream")
+        data_stream = unique_ptr[CFlightDataStream](
+            (<FlightDataStream> result).to_stream(server_state.logger))
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
-    if not isinstance(result, FlightDataStream):
-        raise TypeError("FlightServerBase.do_get must return "
-                        "a FlightDataStream")
-    data_stream = unique_ptr[CFlightDataStream](
-        (<FlightDataStream> result).to_stream())
+    except Exception as e:
+        server_state.log_exception("do_get", e)
+        raise
     stream[0] = unique_ptr[CFlightDataStream](
         new CPyFlightDataStream(result, move(data_stream)))
     return CStatus_OK()
 
 
-cdef CStatus _do_exchange(void* self, const CServerCallContext& context,
+cdef CStatus _do_exchange(void* c_state, const CServerCallContext& context,
                           unique_ptr[CFlightMessageReader] reader,
                           unique_ptr[CFlightMessageWriter] writer) except *:
     """Callback for implementing Flight servers in Python."""
@@ -1910,27 +1971,32 @@ cdef CStatus _do_exchange(void* self, const CServerCallContext& context,
         FlightDescriptor descriptor = \
             FlightDescriptor.__new__(FlightDescriptor)
 
+    server_state = <object> c_state
     descriptor.descriptor = reader.get().descriptor()
     py_reader.reader.reset(reader.release())
     py_writer.writer.reset(writer.release())
     try:
-        (<object> self).do_exchange(ServerCallContext.wrap(context),
-                                    descriptor, py_reader, py_writer)
-        return CStatus_OK()
+        server_state.this.do_exchange(ServerCallContext.wrap(context),
+                                      descriptor, py_reader, py_writer)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("do_exchange", e)
+        raise
+    return CStatus_OK()
 
 
 cdef CStatus _do_action_result_next(
-    void* self,
+    void* c_state,
     unique_ptr[CFlightResult]* result
 ) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CFlightResult* c_result
 
+    server_state = <object> c_state
     try:
-        action_result = next(<object> self)
+        action_result = next(server_state.this)
         if not isinstance(action_result, Result):
             action_result = Result(action_result)
         c_result = (<Result> action_result).result.get()
@@ -1939,38 +2005,48 @@ cdef CStatus _do_action_result_next(
         result.reset(nullptr)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("do_action", e)
+        raise
     return CStatus_OK()
 
 
-cdef CStatus _do_action(void* self, const CServerCallContext& context,
+cdef CStatus _do_action(void* c_state, const CServerCallContext& context,
                         const CAction& action,
                         unique_ptr[CResultStream]* result) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         function[cb_result_next] ptr = &_do_action_result_next
+    server_state = <object> c_state
     py_action = Action(action.type, pyarrow_wrap_buffer(action.body))
     try:
-        responses = (<object> self).do_action(ServerCallContext.wrap(context),
-                                              py_action)
+        responses = server_state.this.do_action(
+            ServerCallContext.wrap(context), py_action)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("do_action", e)
+        raise
     # Let the application return an iterator or anything convertible
     # into one
     if responses is None:
         # Server didn't return anything
         responses = []
-    result.reset(new CPyFlightResultStream(iter(responses), ptr))
+    result.reset(new CPyFlightResultStream(
+        _WithLogger(iter(responses), server_state.logger), ptr))
     return CStatus_OK()
 
 
-cdef CStatus _list_actions(void* self, const CServerCallContext& context,
+cdef CStatus _list_actions(void* c_state, const CServerCallContext& context,
                            vector[CActionType]* actions) except *:
     """Callback for implementing Flight servers in Python."""
     cdef:
         CActionType action_type
+    server_state = <object> c_state
     # Method should return a list of ActionTypes or similar tuple
     try:
-        result = (<object> self).list_actions(ServerCallContext.wrap(context))
+        result = server_state.this.list_actions(
+            ServerCallContext.wrap(context))
         for action in result:
             if not isinstance(action, tuple):
                 raise TypeError(
@@ -1980,6 +2056,9 @@ cdef CStatus _list_actions(void* self, const CServerCallContext& context,
             actions.push_back(action_type)
     except FlightError as flight_error:
         return (<FlightError> flight_error).to_status()
+    except Exception as e:
+        server_state.log_exception("list_actions", e)
+        raise
     return CStatus_OK()
 
 
@@ -2470,6 +2549,9 @@ cdef class FlightServerBase(_Weakrefable):
         A dictionary of :class:`ServerMiddlewareFactory` items. The
         keys are used to retrieve the middleware instance during calls
         (see :meth:`ServerCallContext.get_middleware`).
+    logger : logging.Logger optional, default None
+        A logger to use to record uncaught exceptions, to aid in
+        development.
 
     """
 
@@ -2478,7 +2560,8 @@ cdef class FlightServerBase(_Weakrefable):
 
     def __init__(self, location=None, auth_handler=None,
                  tls_certificates=None, verify_client=None,
-                 root_certificates=None, middleware=None):
+                 root_certificates=None, middleware=None,
+                 logger=None):
         if isinstance(location, (bytes, str)):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -2492,12 +2575,15 @@ cdef class FlightServerBase(_Weakrefable):
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
+
+        if not logger:
+            logger = logging.getLogger("pyarrow.flight.FlightServerBase")
         self.init(location, auth_handler, tls_certificates, verify_client,
-                  tobytes(root_certificates or b""), middleware)
+                  tobytes(root_certificates or b""), middleware, logger)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
               list tls_certificates, c_bool verify_client,
-              bytes root_certificates, dict middleware):
+              bytes root_certificates, dict middleware, object logger):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
@@ -2542,7 +2628,8 @@ cdef class FlightServerBase(_Weakrefable):
         vtable.list_actions = &_list_actions
         vtable.do_action = &_do_action
 
-        c_server = new PyFlightServer(self, vtable)
+        ref = _WithLogger(self, logger)
+        c_server = new PyFlightServer(ref, vtable)
         self.server.reset(c_server)
         with nogil:
             check_flight_status(c_server.Init(deref(c_options)))
