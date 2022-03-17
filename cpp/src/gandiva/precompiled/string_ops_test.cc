@@ -2294,6 +2294,22 @@ TEST(TestStringOps, TestFromHex) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
 
+  out_str = from_hex_utf8(ctx_ptr, "egular courts above th", 22, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Error parsing hex string, one or more bytes are not valid."));
+  ctx.Reset();
+
+  out_str = from_hex_utf8(ctx_ptr, "lites. fluffily even de", 23, &out_len);
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
+  EXPECT_THAT(
+      ctx.get_error(),
+      ::testing::HasSubstr("Error parsing hex string, length was not a multiple of"));
+  ctx.Reset();
+
   out_str = from_hex_utf8(ctx_ptr, "T", 1, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");

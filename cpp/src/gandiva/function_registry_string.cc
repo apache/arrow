@@ -474,7 +474,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "to_hex_int32", NativeFunction::kNeedsContext),
 
       NativeFunction("from_hex", {"unhex"}, DataTypeVector{utf8()}, binary(),
-                     kResultNullIfNull, "from_hex_utf8", NativeFunction::kNeedsContext),
+                     kResultNullIfNull, "from_hex_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
