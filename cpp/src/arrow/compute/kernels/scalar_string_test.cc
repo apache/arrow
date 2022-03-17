@@ -27,7 +27,6 @@
 #include <utf8proc.h>
 #endif
 
-#include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
@@ -1841,26 +1840,28 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
-  std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
-  std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
-  auto input_array = ArrayFromJSON(utf8(), input1);
-  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, false);
+  std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
+  std::string input2 = R"(["5/1/2020", "AA/BB/CCCC", "AA/BB/CCCC", "AA/BB/CCCC", null])";
+  std::string input3 = R"(["5/1/2020 %z", null, null, "12/13/1900 %z", null])";
+  std::string output1 = R"(["2020-05-01", null, null, "1900-12-13", null])";
+  std::string output2 = R"(["2020-01-05", null, null, null, null])";
+
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/true);
   this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
 
-  input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
+  //  options.format = "%d/%m/%Y";
+  //  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO), output2, &options);
+
   options.format = "%m/%d/%Y %%z";
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+  this->CheckUnary("strptime", input3, timestamp(TimeUnit::MICRO), output1, &options);
 
-  ASSERT_OK_AND_ASSIGN(auto result, CallFunction("strptime", {input_array}, &options));
-
-  options.format = "%Y-%m-%d";
-  options.raise_errors = true;
-  ASSERT_RAISES(Invalid, CallFunction("strptime", {input_array}, &options));
+  options.error_is_null = false;
+  this->CheckUnary("strptime", input3, timestamp(TimeUnit::MICRO), output1, &options);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      testing::HasSubstr("Invalid: Failed to parse string: '5/1/202012/11/1900'"),
-      Strptime(input_array, options));
+      testing::HasSubstr("Invalid: Failed to parse string: '5/1/202012/13/1900'"),
+      Strptime(ArrayFromJSON(this->type(), input1), options));
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {

@@ -1724,12 +1724,12 @@ def test_strptime():
 
     expected = pa.array([datetime(2020, 1, 5), None, None],
                         type=pa.timestamp('s'))
-    got = pc.strptime(arr, format='%d/%m/%Y', unit='s', raise_errors=False)
+    got = pc.strptime(arr, format='%d/%m/%Y', unit='s', error_is_null=True)
     assert got == expected
 
     with pytest.raises(pa.ArrowInvalid,
                        match="Failed to parse string: '5/1/202012/13/1900'"):
-        pc.strptime(arr, format='%Y-%m-%d', unit='s')
+        pc.strptime(arr, format='%Y-%m-%d', unit='s', error_is_null=False)
 
 
 # TODO: We should test on windows once ARROW-13168 is resolved.

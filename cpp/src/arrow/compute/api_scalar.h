@@ -268,7 +268,7 @@ class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
   explicit StrptimeOptions(std::string format, TimeUnit::type unit,
-                           bool raise_errors = true);
+                           bool error_is_null = false);
   StrptimeOptions();
   static constexpr char const kTypeName[] = "StrptimeOptions";
 
@@ -276,8 +276,8 @@ class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
   std::string format;
   /// The desired time resolution
   TimeUnit::type unit;
-  /// Raise on parsing errors
-  bool raise_errors;
+  /// Return null on parsing errors if true or raise if false
+  bool error_is_null;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
@@ -1407,10 +1407,10 @@ ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options
 ///
 /// Return parsed timestamps according to the format string
 /// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
-/// raised depending on the `Strftime::raise_errors` setting.
+/// raised depending on the `Strftime::error_is_null` setting.
 ///
 /// \param[in] values input strings
-/// \param[in] options for setting format string, unit and raise_errors
+/// \param[in] options for setting format string, unit and error_is_null
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
