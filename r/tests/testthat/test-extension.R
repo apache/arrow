@@ -299,11 +299,9 @@ test_that("Dataset/arrow_dplyr_query can roundtrip extension types", {
     dplyr::group_by(number) %>%
     write_dataset(tf)
 
-  expect_identical(
-    open_dataset(tf) %>%
-      dplyr::select(number, letter, extension) %>%
-      dplyr::collect() %>%
-      dplyr::arrange(number, letter),
-    df
-  )
+  roundtripped <- open_dataset(tf) %>%
+    dplyr::select(number, letter, extension) %>%
+    dplyr::collect()
+
+  expect_identical(unclass(roundtripped$extension), roundtripped$letter)
 })

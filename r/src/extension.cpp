@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
+#include <thread>
+
 #include <arrow/array.h>
 #include <arrow/extension_type.h>
 #include <arrow/type.h>
@@ -27,15 +29,22 @@
 // types whose Deserialize, ExtensionEquals, and Serialize methods are
 // in meanintfully handled at the R level. At the C++ level, the type is
 // already serialized to minimize calls to R from C++.
+//
+// Using a std::shared_ptr<> to wrap a cpp11::sexp type is unusual, but we
+// need it here to avoid calling the copy constructor from another thread,
+// since this might call into the R API. If we don't do this, we get crashes
+// when reading a multi-file Dataset.
 class RExtensionType : public arrow::ExtensionType {
  public:
   RExtensionType(const std::shared_ptr<arrow::DataType> storage_type,
                  std::string extension_name, std::string extension_metadata,
-                 cpp11::environment r6_class)
+                 std::shared_ptr<cpp11::environment> r6_class,
+                 std::thread::id creation_thread)
       : arrow::ExtensionType(storage_type),
         extension_name_(extension_name),
         extension_metadata_(extension_metadata),
-        r6_class_(r6_class) {}
+        r6_class_(r6_class),
+        creation_thread_(creation_thread) {}
 
   std::string extension_name() const { return extension_name_; }
 
@@ -53,7 +62,7 @@ class RExtensionType : public arrow::ExtensionType {
 
   std::unique_ptr<RExtensionType> Clone() const;
 
-  cpp11::environment r6_class() { return r6_class_; }
+  cpp11::environment r6_class() const { return *r6_class_; }
 
   cpp11::environment r6_instance(std::shared_ptr<arrow::DataType> storage_type,
                                  const std::string& serialized_data) const;
@@ -65,7 +74,19 @@ class RExtensionType : public arrow::ExtensionType {
  private:
   std::string extension_name_;
   std::string extension_metadata_;
-  cpp11::environment r6_class_;
+  std::string cached_to_string_;
+  std::shared_ptr<cpp11::environment> r6_class_;
+  std::thread::id creation_thread_;
+
+  arrow::Status assert_r_thread() const {
+    if (std::this_thread::get_id() == creation_thread_) {
+      return arrow::Status::OK();
+    } else {
+      return arrow::Status::ExecutionError("RExtensionType <", extension_name_,
+                                           "> attempted to call into R ",
+                                           "from a non-R thread");
+    }
+  }
 };
 
 bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
@@ -80,7 +101,12 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   }
 
   // With any ambiguity, we need to materialize the R6 instance and call its
-  // ExtensionEquals method.
+  // ExtensionEquals method. We can't do this on the non-R thread.
+  arrow::Status is_r_thread = assert_r_thread();
+  if (!assert_r_thread().ok()) {
+    throw std::runtime_error(is_r_thread.message());
+  }
+
   cpp11::environment instance = r6_instance();
   cpp11::function instance_ExtensionEquals(instance[".ExtensionEquals"]);
 
@@ -107,17 +133,27 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   cloned->storage_type_ = storage_type;
   cloned->extension_metadata_ = serialized_data;
 
-  // Create an ephemeral R6 instance here, which will call the R6 instance's
-  // .Deserialize() method, possibly erroring when the metadata is invalid
-  // or the deserialized values are invalid. It might be possible to avoid
-  // this call but when there is an error it will be confusing, since it will
-  // only occur when the result surfaces to R (which might be much later).
-  cloned->r6_instance();
+  // We probably should create an ephemeral R6 instance here, which will call
+  // the R6 instance's .Deserialize() method, possibly erroring when the metadata is
+  // invalid or the deserialized values are invalid. When there is an error it will be
+  // confusing, since it will only occur when the result surfaces to R
+  // (which might be much later). Unfortunately, the Deserialize() method gets
+  // called from other threads frequently (e.g., when reading a multi-file Dataset),
+  // and we get crashes if we try this. As a compromise, we call this method when we can
+  // to maximize the likelihood an error is surfaced.
+  if (assert_r_thread().ok()) {
+    cloned->r6_instance();
+  }
 
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
 std::string RExtensionType::ToString() const {
+  // In case this gets called from another thread
+  if (!assert_r_thread().ok()) {
+    return ExtensionType::ToString();
+  }
+
   cpp11::environment instance = r6_instance();
   cpp11::function instance_ToString(instance[".ToString"]);
   cpp11::sexp result = instance_ToString();
@@ -125,8 +161,8 @@ std::string RExtensionType::ToString() const {
 }
 
 std::unique_ptr<RExtensionType> RExtensionType::Clone() const {
-  RExtensionType* ptr =
-      new RExtensionType(storage_type(), extension_name_, extension_metadata_, r6_class_);
+  RExtensionType* ptr = new RExtensionType(
+      storage_type(), extension_name_, extension_metadata_, r6_class_, creation_thread_);
   return std::unique_ptr<RExtensionType>(ptr);
 }
 
@@ -141,7 +177,7 @@ cpp11::environment RExtensionType::r6_instance(
   cpp11::external_pointer<std::shared_ptr<RExtensionType>> xp(
       new std::shared_ptr<RExtensionType>(cloned.release()));
 
-  cpp11::function r6_class_new(r6_class_["new"]);
+  cpp11::function r6_class_new(r6_class()["new"]);
   return r6_class_new(xp);
 }
 
@@ -150,7 +186,9 @@ cpp11::environment ExtensionType__initialize(
     const std::shared_ptr<arrow::DataType>& storage_type, std::string extension_name,
     cpp11::raws extension_metadata, cpp11::environment r6_class) {
   std::string metadata_string(extension_metadata.begin(), extension_metadata.end());
-  RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class);
+  auto r6_class_shared = std::make_shared<cpp11::environment>(r6_class);
+  RExtensionType cpp_type(storage_type, extension_name, metadata_string, r6_class_shared,
+                          std::this_thread::get_id());
   return cpp_type.r6_instance();
 }
 

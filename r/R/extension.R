@@ -328,7 +328,6 @@ unregister_extension_type <- function(extension_name) {
   arrow__UnregisterRExtensionType(extension_name)
 }
 
-
 VctrsExtensionType <- R6Class("VctrsExtensionType",
   inherit = ExtensionType,
   public = list(
