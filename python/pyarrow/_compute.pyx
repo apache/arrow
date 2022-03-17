@@ -910,7 +910,7 @@ class RoundTemporalOptions(_RoundTemporalOptions):
 cdef class _RoundToMultipleOptions(FunctionOptions):
     def _set_options(self, multiple, round_mode):
         self.wrapped.reset(
-            new CRoundToMultipleOptions(multiple,
+            new CRoundToMultipleOptions(pyarrow_unwrap_scalar(multiple),
                                         unwrap_round_mode(round_mode))
         )
 
